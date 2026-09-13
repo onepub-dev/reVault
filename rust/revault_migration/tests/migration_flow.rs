@@ -48,6 +48,7 @@ fn archive_start() -> MigrationRecord {
         archive_id: [4; 16],
         format_version: 1,
         format_mode: None,
+        owner_fingerprint: None,
         content_key: SecretBytes::new(vec![5; 32]),
         key_directory: SecretBytes::new(vec![6; 32]),
         description: None,
@@ -789,7 +790,7 @@ fn archive_migration_preserves_independent_format_choices() {
             )
             .unwrap();
             let imported = Lockbox::open(&destination, LockboxOpen::Unencrypted).unwrap();
-            assert_eq!(imported.format_version(), 3);
+            assert_eq!(imported.format_version(), 4);
             assert_eq!(imported.format_options(), source.format_options());
             assert_eq!(
                 imported.get_file(&path).unwrap(),
@@ -802,7 +803,6 @@ fn archive_migration_preserves_independent_format_choices() {
 #[test]
 fn historical_v2_archive_migrates_to_current_format() {
     let temp = tempfile::tempdir().unwrap();
-    let signer = OwnerSigningKeyPair::generate().unwrap();
     let key = b"legacy v2 migration test key";
     // Only a historical writer can create this fixture; never relabel a current header.
     let old_signer = revault_lockbox_api_v2::OwnerSigningKeyPair::generate().unwrap();
@@ -820,16 +820,18 @@ fn historical_v2_archive_migrates_to_current_format() {
     )
     .unwrap();
     old.commit().unwrap();
-    let source = Lockbox::open_bytes(
+    let source = archive_v3::Lockbox::open_bytes(
         old.try_to_bytes().unwrap(),
-        LockboxOpen::ContentKey(SecretVec::try_from_slice(key).unwrap()),
+        archive_v3::LockboxOpen::ContentKey(archive_v3::SecretVec::try_from_slice(key).unwrap()),
     )
     .unwrap();
     assert_eq!(source.format_version(), 2);
     let path = LockboxPath::new("/legacy.txt").unwrap();
+    let signer = OwnerSigningKeyPair::from_private_key_record(
+        old_signer.private_key_record().unwrap().with_bytes(|bytes| SecretVec::try_from_slice(bytes)).unwrap().unwrap()).unwrap();
     let artifact = temp.path().join("legacy.migration");
     let destination = temp.path().join("upgraded.lbox");
-    export_archive(&source, &artifact, b"artifact password".as_slice(), [8; 16]).unwrap();
+    revault_migrate_archive_v3::export_archive(&source, &artifact, b"artifact password".as_slice(), [8; 16]).unwrap();
     import_archive(
         &artifact,
         b"artifact password".as_slice(),
@@ -842,8 +844,8 @@ fn historical_v2_archive_migrates_to_current_format() {
         LockboxOpen::ContentKey(SecretVec::try_from_slice(key).unwrap()),
     )
     .unwrap();
-    assert_eq!(upgraded.format_version(), 3);
-    assert_eq!(upgraded.format_options(), source.format_options());
+    assert_eq!(upgraded.format_version(), 4);
+    assert_eq!(upgraded.export_migration_format_mode(), 8);
     assert_eq!(upgraded.get_file(&path).unwrap(), b"legacy data");
 }
 

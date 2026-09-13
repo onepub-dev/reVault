@@ -2,8 +2,7 @@ use std::cmp::Reverse;
 
 use crate::file_format::read_header;
 use crate::key_directory::{
-    best_key_directory, read_key_directory, read_key_directory_via_page_cache,
-    scan_key_directories, DecodedKeyDirectory,
+    best_key_directory, read_key_directory, read_key_directory_via_page_cache, DecodedKeyDirectory,
 };
 use crate::storage::{Storage, StorageBackend};
 use crate::{Error, Result};
@@ -16,16 +15,19 @@ pub(crate) struct KeyDirectoryCandidates {
 impl KeyDirectoryCandidates {
     pub(crate) fn from_bytes(bytes: &[u8]) -> Result<Self> {
         let mut directories = Vec::new();
-        if let Ok(header) = read_header(bytes) {
+        {
+            let header = read_header(bytes)?;
             let lockbox_id = header.lockbox_id;
             if let Ok(directory) =
                 read_key_directory(bytes, header.key_directory_offset, Some(lockbox_id))
             {
                 directories.push(directory);
             }
-            directories.extend(scan_key_directories(bytes, Some(lockbox_id)));
-        } else {
-            directories.extend(scan_key_directories(bytes, None));
+            if let Ok(directory) =
+                read_key_directory(bytes, header.key_directory_mirror_offset, Some(lockbox_id))
+            {
+                directories.push(directory);
+            }
         }
         Self::ranked(directories)
     }
@@ -33,7 +35,8 @@ impl KeyDirectoryCandidates {
     pub(crate) fn from_storage(storage: &StorageBackend) -> Result<Self> {
         let header_bytes = storage.read_at(0, crate::constants::HEADER_LEN)?;
         let mut directories = Vec::new();
-        if let Ok(header) = read_header(&header_bytes) {
+        {
+            let header = read_header(&header_bytes)?;
             let lockbox_id = header.lockbox_id;
             if let Ok(directory) = read_key_directory_via_page_cache(
                 storage,
@@ -42,11 +45,13 @@ impl KeyDirectoryCandidates {
             ) {
                 directories.push(directory);
             }
-            if directories.is_empty() {
-                directories.extend(scan_key_directories(&storage.read_all()?, Some(lockbox_id)));
+            if let Ok(directory) = read_key_directory_via_page_cache(
+                storage,
+                header.key_directory_mirror_offset,
+                Some(lockbox_id),
+            ) {
+                directories.push(directory);
             }
-        } else {
-            directories.extend(scan_key_directories(&storage.read_all()?, None));
         }
         Self::ranked(directories)
     }

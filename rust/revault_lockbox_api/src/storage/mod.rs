@@ -21,6 +21,7 @@ pub(crate) trait Storage: Clone + std::fmt::Debug {
     fn read_at_into(&self, offset: u64, out: &mut [u8]) -> Result<()>;
     fn append(&mut self, bytes: &[u8]) -> Result<u64>;
     fn write_at(&mut self, offset: u64, bytes: &[u8]) -> Result<()>;
+    fn truncate(&mut self, len: u64) -> Result<()>;
     fn sync(&self) -> Result<()>;
 
     fn read_at_secure(&self, offset: u64, len: usize) -> Result<SecureVec> {
@@ -48,6 +49,14 @@ pub(crate) enum StorageBackend {
 }
 
 impl StorageBackend {
+    pub(crate) fn ensure_current(&self) -> Result<()> {
+        if let Self::File(store) = self {
+            let file = store.lock_file()?;
+            store.ensure_current(&file)?;
+        }
+        Ok(())
+    }
+
     pub(crate) fn memory(bytes: Vec<u8>) -> Self {
         Self::Memory(MemoryStore::new(bytes))
     }
@@ -183,6 +192,13 @@ impl Storage for StorageBackend {
         match self {
             Self::Memory(store) => store.write_at(offset, bytes),
             Self::File(store) => store.write_at(offset, bytes),
+        }
+    }
+
+    fn truncate(&mut self, len: u64) -> Result<()> {
+        match self {
+            StorageBackend::Memory(store) => store.truncate(len),
+            StorageBackend::File(store) => store.truncate(len),
         }
     }
 
@@ -371,6 +387,22 @@ impl Storage for MemoryStore {
             return Err(Error::Io("storage write beyond end".to_string()));
         }
         self.bytes[start..end].copy_from_slice(bytes);
+        Ok(())
+    }
+
+    fn truncate(&mut self, len: u64) -> Result<()> {
+        #[cfg(test)]
+        if self.should_fail_operation() {
+            return Err(Error::Io("injected storage operation failure".into()));
+        }
+        let len = usize::try_from(len)
+            .map_err(|_| Error::SecurityLimitExceeded("storage is too large".to_string()))?;
+        if len > self.bytes.len() {
+            return Err(Error::InvalidOperation(
+                "storage cannot be extended by truncate".to_string(),
+            ));
+        }
+        self.bytes.truncate(len);
         Ok(())
     }
 
@@ -563,6 +595,13 @@ impl Storage for FileStore {
             .map_err(|err| Error::Io(format!("seek {}: {err}", self.path.display())))?;
         file.write_all(bytes)
             .map_err(|err| Error::Io(format!("write {}: {err}", self.path.display())))
+    }
+
+    fn truncate(&mut self, len: u64) -> Result<()> {
+        let file = self.lock_file()?;
+        self.ensure_current(&file)?;
+        file.set_len(len)
+            .map_err(|err| Error::Io(format!("truncate {}: {err}", self.path.display())))
     }
 
     fn sync(&self) -> Result<()> {

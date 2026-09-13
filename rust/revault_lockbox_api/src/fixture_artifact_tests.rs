@@ -28,7 +28,7 @@ fn golden_v1_lockbox_requires_external_migration() {
         Err(Error::UnsupportedFormatVersion {
             artifact: crate::ArtifactKind::Lockbox,
             found: 1,
-            supported: 3,
+            supported: 4,
         })
     ));
 }

@@ -269,3 +269,32 @@ GitHub release, but it does not publish or promote any other language package.
 Do not rerun publication by changing an existing tag. Registry versions and
 package-repository tags are immutable; correct a failed release with the same
 workflow run where safe, or publish a new patch version.
+
+## V4 storage and transaction maintenance
+
+The v4 core adds `Lockbox::compact()`, `LockboxInspector::verify_storage()`, owner
+fingerprint/lookup helpers and a migration comparison helper. The existing Rust
+`abort()` now restores physical reservations durably. `TransactionRecoveryPhase`
+adds `Rollback` and `Truncate` alongside `Cleanup`; exhaustive Rust matches must
+handle them. These maintenance APIs remain Rust/CLI-only, as recorded in
+[the exclusions](api/rust-only-exclusions.tsv). No new C ABI symbol, FlatBuffers
+operation or foreign facade method is introduced by this change.
+
+Foreign writable file opens inherit native recovery. Explicit read-only opens
+remain non-mutating and can report recovery required. A commit error may occur
+after publication: reopen and inspect persisted state before retrying. Do not
+implement archive rollback or replacement using language-owned filesystem I/O.
+For explicit maintenance use `lockbox <path> doctor compact` or
+`lockbox <path> doctor --deep`, with library handles closed first.
+
+See [the transaction protocol](../manual/develop-with-revault/transactions.md)
+and [migration instructions](../manual/maintain-and-recover/migrating-between-versions.md).
+Migrate the Vault first, then older Lockboxes. A v3 Vault structure still needs
+its container upgraded to v4.
+
+Release all affected packages with a rebuilt native carrier, including WASM;
+unchanged facade signatures do not make old binaries v4-compatible. Run
+`revault-tool internal check-bindings --repository .` and each target's
+[executable conformance tests](e2e/CONFORMANCE.md), including file-backed
+lifecycle and read-only checks, before publishing. No transport regeneration
+is needed solely for this change; package/runtime versions must still match.

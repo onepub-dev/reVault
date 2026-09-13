@@ -89,15 +89,19 @@ pub(crate) enum Access {
     CacheOnly,
 }
 
-fn is_unencrypted(path: &str) -> CliResult<bool> {
-    Ok(Lockbox::inspect_file(path)?
+pub(super) fn is_unencrypted(path: &str) -> CliResult<bool> {
+    Ok(Lockbox::inspect_file(path)
+        .map_err(|error| lockbox_open_error(path, error))?
         .format_options
         .is_some_and(|options| options.encryption == revault_lockbox_api::EncryptionMode::None))
 }
 
 pub(crate) fn open_existing(path: &str, access: &Access) -> CliResult<Lockbox> {
     ensure_lockbox_path_accessible(path)?;
-    if let Some(options) = Lockbox::inspect_file(path)?.format_options {
+    if let Some(options) = Lockbox::inspect_file(path)
+        .map_err(|error| lockbox_open_error(path, error))?
+        .format_options
+    {
         if options.encryption == revault_lockbox_api::EncryptionMode::None {
             return if options.signing == revault_lockbox_api::SigningMode::None {
                 Ok(Lockbox::open_for_write(
@@ -187,10 +191,10 @@ pub(crate) fn open_for_reading(
     access: &Access,
 ) -> CliResult<Lockbox<revault_lockbox_api::ReadOnly>> {
     ensure_lockbox_path_accessible(path)?;
+    super::recovery::complete_pending_cleanup_if_available(path, access)?;
     if is_unencrypted(path)? {
         return Ok(Lockbox::open(Path::new(path), LockboxOpen::Unencrypted)?);
     }
-    super::recovery::complete_pending_cleanup_if_available(path, access)?;
     match access {
         Access::CacheOnly => match local_vault().open_lockbox_read_only(path) {
             Ok(lockbox) => Ok(lockbox),

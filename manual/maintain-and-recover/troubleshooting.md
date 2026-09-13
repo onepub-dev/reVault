@@ -44,7 +44,7 @@ Keep the original and run:
 lbx damaged.lbox doctor recover --dry-run
 ```
 
-Follow [Recover a damaged Lockbox](recovery.md). The command automatically distinguishes authenticated interrupted cleanup from salvage recovery; no recovery-mode flag is required.
+Follow [Recover a damaged Lockbox](recovery.md). The command automatically distinguishes authenticated interrupted rollback, cleanup or truncation from salvage recovery; no recovery-mode flag is required.
 
 ## Migration fails
 

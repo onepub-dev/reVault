@@ -105,7 +105,7 @@ impl FormFieldKind {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 /// One value stored in a form record with captured display metadata.
 pub struct FormFieldValue {
     /// Case-sensitive machine-readable field identifier.
@@ -118,7 +118,7 @@ pub struct FormFieldValue {
     pub value: FormValue,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 /// Sensitivity-aware payload stored by a form field.
 pub enum FormValue {
     /// Non-secret UTF-8 value held as an ordinary string.

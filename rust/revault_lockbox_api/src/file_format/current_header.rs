@@ -1,4 +1,4 @@
-//! Native header facade for legacy v2 archives and configurable v3 archives.
+//! Native v4 header facade and historical format discriminators for migration.
 
 use crate::checked::read_u16_le;
 use crate::crypto::strong_checksum;
@@ -8,7 +8,7 @@ use crate::storage::{Storage, StorageBackend};
 use crate::{ArtifactKind, Error, Result};
 
 /// Current native lockbox format written by the crash-recoverable protocol.
-pub const LOCKBOX_FORMAT_VERSION: u16 = 3;
+pub const LOCKBOX_FORMAT_VERSION: u16 = 4;
 pub(crate) const HEADER_LEN: usize = header_v2::REGION_LEN;
 const V1_HEADER_LEN: usize = 96;
 const V1_CHECKSUM_START: usize = 64;
@@ -16,6 +16,9 @@ const V1_MAGIC: &[u8; 8] = b"LBX1HDR\0";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct LockboxHeader {
+    pub(crate) sealed_len: u64,
+    pub(crate) trim_origin_len: u64,
+    pub(crate) preparing: bool,
     pub(crate) format_mode: crate::creation_options::FormatMode,
     pub(crate) slot_index: usize,
     pub(crate) generation: u64,
@@ -46,6 +49,9 @@ pub(crate) fn write_header(
         bytes,
         0,
         Publication {
+            sealed_len: HEADER_LEN as u64,
+            preparing: false,
+            trim_origin_len: 0,
             format_mode: Default::default(),
             generation: 1,
             commit_root_offset,
@@ -65,6 +71,16 @@ pub(crate) fn write_header(
 }
 
 pub(crate) fn read_header(bytes: &[u8]) -> Result<LockboxHeader> {
+    if bytes
+        .get(..8)
+        .is_some_and(|magic| magic == b"LBX2HDR\0" || magic == b"LBX3HDR\0")
+    {
+        return Err(Error::UnsupportedFormatVersion {
+            artifact: ArtifactKind::Lockbox,
+            found: u32::from(probe_lockbox_format_version(bytes)?),
+            supported: u32::from(LOCKBOX_FORMAT_VERSION),
+        });
+    }
     if bytes.get(..8) == Some(V1_MAGIC.as_slice()) {
         let found = probe_v1(bytes)?;
         return Err(Error::UnsupportedFormatVersion {
@@ -75,6 +91,9 @@ pub(crate) fn read_header(bytes: &[u8]) -> Result<LockboxHeader> {
     }
     let header = header_v2::read_region(bytes)?;
     Ok(LockboxHeader {
+        sealed_len: header.sealed_len,
+        trim_origin_len: header.trim_origin_len,
+        preparing: header.preparing,
         format_mode: header.format_mode,
         slot_index: header.slot_index,
         generation: header.generation,
@@ -109,8 +128,25 @@ pub fn probe_lockbox_format_version(bytes: &[u8]) -> Result<u16> {
     if bytes.get(..8) == Some(V1_MAGIC.as_slice()) {
         return probe_v1(bytes);
     }
-    let header = header_v2::read_region(bytes)?;
-    Ok(if header.format_mode.0 == 0 { 2 } else { 3 })
+    // A discriminator only: historical decoding lives in versioned exporters.
+    let mut historical = None;
+    for slot in bytes.chunks_exact(160).take(2) {
+        let version = read_u16_le(&slot[8..10])?;
+        if ((version == 2 && &slot[..8] == b"LBX2HDR\0")
+            || (version == 3 && &slot[..8] == b"LBX3HDR\0"))
+            && slot[128..160] == strong_checksum(&slot[..128])
+        {
+            let generation = crate::checked::read_u64_le(&slot[16..24])?;
+            if historical.is_none_or(|(old, _)| generation > old) {
+                historical = Some((generation, version));
+            }
+        }
+    }
+    if let Some((_, version)) = historical {
+        return Ok(version);
+    }
+    header_v2::read_region(bytes)?;
+    Ok(LOCKBOX_FORMAT_VERSION)
 }
 
 fn probe_v1(bytes: &[u8]) -> Result<u16> {
@@ -142,6 +178,6 @@ mod tests {
         assert_eq!(header.commit_root_offset, 100);
         assert_eq!(header.cleanup_sequence, 4);
         assert_eq!(header.lockbox_id, id);
-        assert_eq!(probe_lockbox_format_version(&bytes).unwrap(), 2);
+        assert_eq!(probe_lockbox_format_version(&bytes).unwrap(), 4);
     }
 }

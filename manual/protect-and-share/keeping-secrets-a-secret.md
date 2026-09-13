@@ -55,7 +55,7 @@ Profile rotation creates a new active key generation, but older generations may 
 
 ## Deletion and recovery
 
-When an entry is removed or replaced, reVault rewrites any current objects sharing its old page and zeros the superseded physical page before publishing the new view. Interrupted redaction cleanup is sealed through the transaction-recovery path.
+When an entry is removed or replaced, reVault rewrites any surviving objects sharing its old page, publishes the new view, then zeros the superseded physical allocation and seals cleanup. Until cleanup completes, retired ranges cannot be reused. Interrupted preparation rolls back; interrupted post-publication cleanup rolls forward through transaction recovery.
 
 This protects against ordinary recovery of deleted current content from the same updated Lockbox. It cannot erase older Lockbox copies, filesystem snapshots, cloud versions, backups, swap already written by the operating system, or plaintext copied by another program.
 

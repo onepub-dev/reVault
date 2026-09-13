@@ -1432,26 +1432,54 @@ fn run_mirror(request: MirrorRequest, access: &Access, apply: bool) -> CliResult
         Ok(())
     })?;
     let mut applied_progress = MirrorProgress::new(false);
-    let applied_plan = build_plan(&lb, &request, &source_entries, &mut applied_progress, false)?;
+    let applied_plan =
+        match build_plan(&lb, &request, &source_entries, &mut applied_progress, false) {
+            Ok(plan) => plan,
+            Err(error) => {
+                let rollback = lb.abort().err();
+                return Err(match rollback {
+                    Some(rollback) => cli_error(format!(
+                        "mirror update planning failed: {error}; rollback failed: {rollback}"
+                    )),
+                    None => error,
+                });
+            }
+        };
     if applied_plan.additions > 0
         || applied_plan.replacements > 0
         || applied_plan.removals > 0
         || applied_plan.directories > 0
     {
-        return Err(cli_error(format!(
+        let error = cli_error(format!(
             "mirror '{}' could not apply the planned contents before commit",
             request.project.name
-        )));
+        ));
+        let rollback = lb.abort().err();
+        return Err(match rollback {
+            Some(rollback) => cli_error(format!("{error}; rollback failed: {rollback}")),
+            None => error,
+        });
     }
     progress.stage("checking the source for changes before commit.");
-    verify_source_tree(
+    if let Err(error) = verify_source_tree(
         &canonical,
         &request.includes,
         &request.excludes,
         &ignored_paths,
         &source_entries,
         request.project.strict,
-    )?;
+    ) {
+        // The mirror has already streamed new pages into the lockbox. A
+        // source-change refusal must discard that physical preparation before
+        // returning, otherwise the old published commit hides an untracked
+        // copy of every imported file.
+        lb.abort().map_err(|abort_error| {
+            cli_error(format!(
+                "mirror update was refused and rollback failed: {abort_error}"
+            ))
+        })?;
+        return Err(error);
+    }
     progress.stage("committing the encrypted update.");
     commit_mirror_change(lb, &request.lockbox, access)?;
     progress.begin_counted("verifying the committed mirror contents.");
@@ -1497,7 +1525,12 @@ fn commit_mirror_change(
             drop(open_existing(lockbox_path, access)?);
             Ok(())
         }
-        Err(error) => Err(error.into()),
+        Err(error) => match lockbox.abort() {
+            Ok(()) => Err(error.into()),
+            Err(rollback) => Err(cli_error(format!(
+                "mirror commit failed: {error}; rollback failed: {rollback}"
+            ))),
+        },
     }
 }
 

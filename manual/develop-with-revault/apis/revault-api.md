@@ -40,3 +40,23 @@ Vault and Lockbox objects own native resources. Close them explicitly when the b
 API operations within one process do not implicitly use the Session Agent unless the binding exposes and uses `AgentSession`. Closing a Vault or Lockbox object releases that process's resources. Calling `AgentSession.closeLockbox` clears the corresponding key from the Session Agent; these are different operations.
 
 For end-to-end examples of the common operations, see the repository's [API examples](https://github.com/onepub-dev/reVault/blob/master/bindings/API_EXAMPLES.md).
+
+## Transaction maintenance and v4
+
+The v4 core changes storage behavior without adding C ABI operations or changing the FlatBuffers schema. All language packages need a native carrier rebuilt with that core; generated facade signatures do not need regeneration solely for this change. Migrate the Vault first and then older Lockboxes with the CLI before opening them using a v4 library.
+
+| Rust core API change | Shared binding status |
+| --- | --- |
+| New `Lockbox::compact()` | Rust/CLI only. Rebuilds and verifies live state, commits pending changes, replaces storage and discards history. Use `lockbox <path> doctor compact` outside foreign library calls. |
+| New `LockboxInspector::verify_storage()` | Rust/CLI only. Deep physical ownership and free-zero validation; CLI `doctor --deep`. |
+| `TransactionRecoveryPhase` gains `Rollback` and `Truncate` | Rust recovery orchestration only; Rust consumers with exhaustive matches must handle the new variants. |
+| Existing `Lockbox::abort()` gains durable physical rollback | Rust only. Not an undo of a published commit. |
+| Form record/value types gain `PartialEq` and `Eq` | Additive Rust comparison traits used by verification; serialized binding models are unchanged. |
+| `format_version()` now reports 4 | Rust inspection behavior changes with the new native format; older containers require migration. |
+| New owner fingerprint/lookup and migration comparison helpers | Rust migration orchestration only; not foreign key-management methods. |
+
+The shared binding exclusions explicitly record these boundaries. Foreign writable file opens inherit Rust's automatic rollback, cleanup and truncation. Explicit read-only opens remain non-mutating and may report recovery required. File-backed operations and recovery stay inside Rust; do not emulate compaction by exporting bytes and overwriting the archive from a binding.
+
+A commit error can occur after the new state is published. Reopen and inspect persisted contents before retrying an operation; do not assume every error means rollback. See [Transactions and recovery](../transactions.md) for the publication boundary and phase details.
+
+Before releasing each language package, rebuild the native/WASM carrier, run the shared binding contract checks and its executable conformance suite, and verify its file-backed lifecycle and read-only behavior with the matching runtime. Passing the shared contract check alone does not establish that every packaged runtime has been rebuilt or tested.

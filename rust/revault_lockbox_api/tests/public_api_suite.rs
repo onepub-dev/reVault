@@ -267,6 +267,22 @@ fn public_api_recovery_scanner_reports_and_salvages_intact_files() {
     let mut damaged = std::fs::read(&lockbox_path).unwrap();
     damaged[0] ^= 0xff;
 
+    // A v4 commit seals both header slots. One damaged slot still permits TOC
+    // recovery, including directories. Destroy both slot magics to exercise
+    // the page-scanning salvage path this test is intended to cover.
+    let redundant = RecoveryScanner::scan_bytes(damaged.clone(), KEY);
+    assert!(redundant.toc_recovered);
+    assert_eq!(
+        redundant
+            .intact_files
+            .iter()
+            .filter(|entry| entry.kind == revault_lockbox_api::LockboxEntryKind::File)
+            .count(),
+        3
+    );
+    assert_eq!(&damaged[192..200], b"LBX4HDR\0");
+    damaged[192] ^= 0xff;
+
     let report = RecoveryScanner::scan_bytes(damaged.clone(), KEY);
     assert_eq!(report.intact_file_count, 3);
     assert!(report

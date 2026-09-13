@@ -3,7 +3,7 @@ use super::field::FormFieldValue;
 use super::validation::validate_text;
 use crate::{Error, LockboxPath, Result};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 /// Stored form instance tied to a definition revision.
 pub struct FormRecord {
     /// Logical lockbox path identifying this record.
