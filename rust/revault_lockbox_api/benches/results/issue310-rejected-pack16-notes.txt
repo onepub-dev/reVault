@@ -1,0 +1,48 @@
+Issue #310: rejected 16 KiB interactive native packing experiment
+Base 94a34b9, 2026-09-22. Candidate reverted completely.
+
+Current interactive small-file frame target is 4 KiB. Tested a native-only
+16 KiB target (BLOCK_BYTES) for non-BulkImport workloads, for all format/protection
+modes uniformly. BulkImport retained 2 MiB. Encoding/authentication, padding,
+readers and cache policies were otherwise unchanged. No new wire representation.
+
+Benchmark: native zip_read, 512 x 4096-byte pattern files, plain, both codecs,
+Interactive/ReadMostly, stream/random. Nine fresh-handle samples per row, three
+consecutive before/after pairs, taskset -c 2, warm OS cache, every byte checked.
+No builds/tests overlapped timing. 48 raw rows represent 432 measured lockbox
+operations, plus ZIP measurements. Setup independently commits/reopens files.
+Before /tmp/issue310-source-check-after, after /tmp/issue310-pack16-native.
+REVAULT_ZIP_READ_CASE=small REVAULT_ZIP_READ_MODE=plain
+REVAULT_ZIP_READ_SAMPLES=9; other filters unset.
+
+Archive sizes (same across runs):
+raw:        2,995,584 -> 2,532,736 bytes (15.5% smaller)
+compressed:   836,992 ->   413,056 bytes (50.7% smaller)
+
+First paired timing medians, milliseconds (all raw rows retained):
+                              4 KiB target   16 KiB target
+raw Interactive stream           14.152         18.964
+raw Interactive random           14.452         20.766
+raw ReadMostly stream            14.404         12.428
+raw ReadMostly random            14.261         20.726
+compressed Interactive stream    16.287         19.781
+compressed Interactive random    16.283         21.522
+compressed ReadMostly stream     16.618         13.742
+compressed ReadMostly random     16.262         21.388
+The other two repeats show the same direction: larger frames improve ReadMostly
+streaming but substantially regress Interactive and random access. Smaller
+archives and lower open time do not compensate for those read regressions.
+
+Inference from implementation and measurements: packing needs efficient sharing
+of verified metadata/index state as well as decoded bytes. ReadMostly stream
+already benefits from the decoded cache, whereas separate native Read/Seek
+handles reopen metadata/index and decode their own windows. This experiment does
+not isolate the cost of each component; it establishes that changing the packing
+target alone is unsuitable. Investigate operation-local or bounded shared native
+reader state before revisiting larger default frames. Keep replacement/extent/
+external-failure validation and zeroization when adding any sharing.
+
+No production changes retained. No correctness-suite claim beyond successful
+benchmark byte verification, and no improvement to the default configuration
+claimed. Existing correctness, ZIP parity, write/load and release gates remain
+open. The full native suite remains unsuitable for default activation.
