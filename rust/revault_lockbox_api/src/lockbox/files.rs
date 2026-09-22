@@ -36,7 +36,7 @@ use zeroize::Zeroize;
 // A verified native slice can be written directly while its zeroizing cache
 // allocation stays alive. Vec-returning APIs copy shared slices only when needed.
 #[cfg(any(test, feature = "native-block-layout"))]
-enum NativeReadBytes {
+pub(super) enum NativeReadBytes {
     Owned(Vec<u8>),
     Shared {
         frame: Arc<super::CachedCompressionFrame>,
@@ -1088,6 +1088,22 @@ impl<State> Lockbox<State> {
         Ok(out)
     }
 
+    #[cfg(any(test, feature = "native-block-layout"))]
+    pub(super) fn read_native_file_window(
+        &self,
+        expected_total_len: u64,
+        chunk: &FileChunk,
+    ) -> Result<NativeReadBytes> {
+        // Preserve the format policy checked by read_file_chunk_range.
+        if self.format_mode.0 != 0
+            && self.format_mode.options().compression == crate::Compression::None
+            && chunk.compression != COMPRESSION_NONE
+        {
+            return Err(Error::CorruptRecord);
+        }
+        self.read_native_block_chunk_view(expected_total_len, chunk, 0..chunk.len, true)
+    }
+
     pub(crate) fn read_file_chunk_compression_frame(
         &self,
         expected_total_len: u64,
@@ -1305,8 +1321,9 @@ impl<State> Lockbox<State> {
             .ok_or(Error::CorruptRecord)?;
         let revision = self.storage.write_revision();
         if let Some(cached) = self.native_cached_frame(chunk)? {
-            // Both consumers validate this guard before exposing cached bytes:
-            // into_vec after copying, extraction before calling the writer.
+            // Consumers validate before exposing cached bytes: into_vec after
+            // copying, extraction before the writer, and native file handles
+            // through their retained extent/revision before every window copy.
             let reference = chunk.block_frame.as_ref().ok_or(Error::CorruptRecord)?;
             if cached
                 .native_reference

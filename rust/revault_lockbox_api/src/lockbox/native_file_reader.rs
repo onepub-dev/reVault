@@ -1,10 +1,48 @@
-//! Handle-local staged block reader. Its storage borrow retains the archive's
-//! lock; its small authenticated index and data window live only with the handle.
+//! Native file reader with owned or shared verified windows. Its storage borrow
+//! retains the archive lock while complete decoded windows share cache ownership.
 use super::Lockbox;
 use crate::file_format::indexed_frame::block_page::Reader;
 use crate::page_buffer::ZeroizingBytes;
 use crate::storage::StorageBackend;
 use crate::{Error, LockboxPath, Result};
+
+enum NativeWindow {
+    Owned(ZeroizingBytes),
+    Shared {
+        frame: std::sync::Arc<super::CachedCompressionFrame>,
+        range: std::ops::Range<usize>,
+    },
+}
+
+impl From<super::files::NativeReadBytes> for NativeWindow {
+    fn from(bytes: super::files::NativeReadBytes) -> Self {
+        match bytes {
+            super::files::NativeReadBytes::Owned(bytes) => Self::Owned(ZeroizingBytes::new(bytes)),
+            super::files::NativeReadBytes::Shared { frame, range, .. } => {
+                // The handle retains its storage borrow and independently checks
+                // the same full extent and revision before every window copy.
+                // A small packed slice must not pin its larger neighbors after
+                // cache eviction. Whole-frame handles retain no more decoded
+                // bytes than their previous owned window.
+                if range.len() == frame.data.len() {
+                    Self::Shared { frame, range }
+                } else {
+                    Self::Owned(ZeroizingBytes::new(frame.data[range].to_vec()))
+                }
+            }
+        }
+    }
+}
+
+impl std::ops::Deref for NativeWindow {
+    type Target = [u8];
+    fn deref(&self) -> &[u8] {
+        match self {
+            Self::Owned(bytes) => bytes,
+            Self::Shared { frame, range } => &frame.data[range.clone()],
+        }
+    }
+}
 
 pub(super) struct NativeFileReader<'a> {
     reader: Option<Reader<'a>>,
@@ -16,7 +54,7 @@ pub(super) struct NativeFileReader<'a> {
     file_end: u64,
     frame_start: u64,
     window_start: u64,
-    window: ZeroizingBytes,
+    window: NativeWindow,
 }
 
 impl<'a> NativeFileReader<'a> {
@@ -52,8 +90,8 @@ impl<'a> NativeFileReader<'a> {
             .ok_or(Error::CorruptRecord)?;
         let revision = archive.storage.write_revision();
         let compressed = chunk.compression != crate::compression::COMPRESSION_NONE;
-        // Compressed reads already decode the entire frame. Share its verified
-        // decoded cache across handles, retaining only this file's slice locally.
+        // Compressed reads already decode the entire frame. Share complete
+        // verified windows; packed slices keep bounded owned copies.
         // A complete small frame occupies at most one raw data block. Capturing
         // its bounded allocation also avoids separate metadata/index reads,
         // without expanding a raw range to additional data blocks.
@@ -64,12 +102,12 @@ impl<'a> NativeFileReader<'a> {
         let (reader, window) = if compressed || small_frame {
             (
                 None,
-                ZeroizingBytes::new(archive.read_file_chunk_compression_frame(entry.len, chunk)?),
+                NativeWindow::from(archive.read_native_file_window(entry.len, chunk)?),
             )
         } else {
             (
                 Some(archive.open_native_block_chunk(entry.len, chunk)?),
-                ZeroizingBytes::new(Vec::new()),
+                NativeWindow::Owned(ZeroizingBytes::new(Vec::new())),
             )
         };
         Ok(Some(Self {
@@ -116,10 +154,10 @@ impl<'a> NativeFileReader<'a> {
                 let end = (self.frame_start + relative + requested).div_ceil(BLOCK) * BLOCK;
                 (start, (end - self.frame_start).min(len))
             };
-            self.window = ZeroizingBytes::new(reader.read_with_cache(
+            self.window = NativeWindow::Owned(ZeroizingBytes::new(reader.read_with_cache(
                 self.frame_start + start..self.frame_start + end,
                 self.page_cache,
-            )?);
+            )?));
             self.window_start = start;
         } else {
             // Misses validate in the frame reader. Hits still check identity,
@@ -135,5 +173,52 @@ impl<'a> NativeFileReader<'a> {
         let count = out.len().min(self.window.len() - offset);
         out[..count].copy_from_slice(&self.window[offset..offset + count]);
         Ok(count)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn shared_windows_release_owners_and_do_not_pin_packed_neighbors() {
+        for packed in [false, true] {
+            let frame = std::sync::Arc::new(super::super::CachedCompressionFrame {
+                native_reference: None,
+                compression: 1,
+                compression_frame_len: 8192,
+                compressed_len: 64,
+                compression_frame_digest: [3; 32],
+                slices: Vec::new(),
+                data: vec![7; 8192],
+            });
+            let weak = std::sync::Arc::downgrade(&frame);
+            let pointer = frame.data.as_ptr();
+            let range = if packed { 7..20 } else { 0..8192 };
+            let window = NativeWindow::from(super::super::files::NativeReadBytes::Shared {
+                frame,
+                range,
+                source_guard: None,
+            });
+            assert_eq!(window.len(), if packed { 13 } else { 8192 });
+            assert!(window.iter().all(|byte| *byte == 7));
+            if packed {
+                assert!(
+                    weak.upgrade().is_none(),
+                    "a small handle cannot keep its packed neighbors alive"
+                );
+            } else {
+                assert!(weak.upgrade().is_some());
+                assert_eq!(
+                    window.as_ptr(),
+                    pointer,
+                    "complete windows reuse the verified allocation"
+                );
+            }
+            drop(window);
+            assert!(
+                weak.upgrade().is_none(),
+                "the last handle must release its zeroizing frame owner"
+            );
+        }
     }
 }

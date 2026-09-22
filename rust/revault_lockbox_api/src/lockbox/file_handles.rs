@@ -658,11 +658,95 @@ mod shared_reader_tests {
                         assert_eq!(bytes, input[..31]);
                         second.read_exact(&mut bytes).unwrap();
                         assert_eq!(bytes, input[..31]);
+                        if cache_bytes > 0 {
+                            assert_eq!(
+                                first.native.as_ref().unwrap().retained_window_for_tests().as_ptr(),
+                                second.native.as_ref().unwrap().retained_window_for_tests().as_ptr(),
+                                "handles must retain the same verified allocation, not copied windows"
+                            );
+                        }
                         archive.page_manager.borrow_mut().clear();
                         for reader in [&mut first, &mut second] {
                             reader.seek(SeekFrom::Start(3001)).unwrap();
                             reader.read_exact(&mut bytes).unwrap();
                             assert_eq!(bytes, input[3001..3032]);
+                            reader.rewind().unwrap();
+                            let mut all = Vec::new();
+                            reader.read_to_end(&mut all).unwrap();
+                            assert_eq!(all, input);
+                        }
+                        assert_eq!(archive.get_file(&path).unwrap(), input);
+                    }
+                }
+            }
+        }
+    }
+    #[cfg(feature = "native-block-layout")]
+    #[test]
+    fn large_compressed_native_readers_share_windows_across_eviction_and_frame_boundaries() {
+        let signer = crate::OwnerSigningKeyPair::generate().unwrap();
+        let path = LockboxPath::new("/small").unwrap();
+        let input: Vec<u8> = (0..2 * 1024 * 1024 + 13).map(|i| (i % 251) as u8).collect();
+        for encrypted in [false, true] {
+            for signed in [false, true] {
+                for compression in [crate::Compression::default()] {
+                    for cache_bytes in [0, 4 * 1024 * 1024] {
+                        let mut archive =
+                            Lockbox::create_in_memory_with_options(crate::LockboxCreateOptions {
+                                compression,
+                                ..crate::LockboxCreateOptions::new(
+                                    if encrypted {
+                                        crate::Encryption::Encrypted(
+                                            crate::LockboxProtection::ContentKey(
+                                                crate::SecretVec::try_from_slice(&[81; 32])
+                                                    .unwrap(),
+                                            ),
+                                        )
+                                    } else {
+                                        crate::Encryption::None
+                                    },
+                                    if signed {
+                                        crate::Signing::Owner(&signer)
+                                    } else {
+                                        crate::Signing::None
+                                    },
+                                )
+                            })
+                            .unwrap();
+                        archive.add_file(&path, &input, false).unwrap();
+                        archive.commit().unwrap();
+                        let archive = Lockbox::open_bytes(
+                            archive.try_to_bytes().unwrap(),
+                            if encrypted {
+                                crate::LockboxOpen::ContentKey(
+                                    crate::SecretVec::try_from_slice(&[81; 32]).unwrap(),
+                                )
+                            } else {
+                                crate::LockboxOpen::Unencrypted
+                            },
+                        )
+                        .unwrap();
+                        // Unit-level eviction also covers disabled cache admission.
+                        archive.page_manager.borrow_mut().trim_to(cache_bytes);
+                        let mut first = archive.open_file(&path).unwrap();
+                        let mut second = archive.open_file(&path).unwrap();
+                        let mut bytes = [0; 29];
+                        first.read_exact(&mut bytes).unwrap();
+                        assert_eq!(bytes, input[..29]);
+                        second.read_exact(&mut bytes).unwrap();
+                        assert_eq!(bytes, input[..29]);
+                        if cache_bytes > 0 {
+                            assert_eq!(
+                                first.native.as_ref().unwrap().retained_window_for_tests().as_ptr(),
+                                second.native.as_ref().unwrap().retained_window_for_tests().as_ptr(),
+                                "handles must retain the same verified allocation, not copied windows"
+                            );
+                        }
+                        archive.page_manager.borrow_mut().clear();
+                        for reader in [&mut first, &mut second] {
+                            reader.seek(SeekFrom::Start(2 * 1024 * 1024 - 16)).unwrap();
+                            reader.read_exact(&mut bytes).unwrap();
+                            assert_eq!(bytes, input[2 * 1024 * 1024 - 16..2 * 1024 * 1024 + 13]);
                             reader.rewind().unwrap();
                             let mut all = Vec::new();
                             reader.read_to_end(&mut all).unwrap();

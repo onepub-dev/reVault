@@ -1,0 +1,79 @@
+Issue 310: share complete decoded native file-handle windows
+
+Baseline production: 7119ae8. Native layout remains experimental/opt-in.
+NativeFileReader previously obtained a Vec copy from the verified decoded-frame
+cache and wiped that full handle-local allocation when changing frames/dropping.
+It now retains an Arc and validated slice bounds when the requested window is
+the complete decoded frame. Packed slices retain bounded zeroizing owned copies,
+so one tiny open file cannot keep a whole frame of neighbors alive after cache
+eviction. Disabled cache admission still returns owned zeroizing windows.
+
+The native view helper preserves the compression policy previously enforced by
+read_file_chunk_range. Exact reference/allocation/slice checks are unchanged.
+The handle keeps its storage borrow, full required extent and revision; its
+existing source check runs before every window copy. No content key is cached.
+Cache-hit into_vec's temporary-copy guard is replaced by this handle guard;
+there is no successful read before validation. Dropping the last Arc uses the
+existing full-capacity zeroizing CachedCompressionFrame destructor. Format,
+cache limits, write behavior and default layout are unchanged.
+
+Tests before formatting by tracked pre-commit hook:
+- existing small-handle seek/eviction test now asserts two handles share the
+  actual allocation when cache admission is enabled, across all protection modes.
+- new large compressed test exercises shared allocation, eviction, disabled
+  cache, seeking across the 2 MiB boundary and full readback in all modes.
+- new ownership test proves complete windows share/release the zeroizing owner
+  and packed slices release their larger neighbor allocation immediately.
+- focused handle tests: 3 passed. External-source tests passed before the packed
+  retention bound; final full suites re-exercised those source-failure paths.
+- default + external-source: 350 unit tests passed, 5 ignored; all executed
+  integration and doc tests passed (existing endianness integration ignored).
+- native-block-layout + external-source: 356 unit passed, 2 unchanged known
+  failures, 5 ignored. Native integrations separately passed after unit failures.
+  Known failures: recovery_skips_truncated_tail_and_keeps_prior_intact_files;
+  native_file_writer_commits_and_reopens_multiframe_files_in_all_modes.
+- cargo clippy -p revault_lockbox_api --all-targets
+  --features native-block-layout,external-source -- -D warnings: passed.
+
+Reproduction: rust cwd, TMPDIR=$PWD/target/issue310-sign-tmp, CPU 2.
+Baseline target/issue310-direct-guard-after SHA256
+bbb44437be23b00fc5ffa9174bbb22101b3824360842780bdfa0d6ef7bfbc00a
+Candidate target/issue310-shared-window-after SHA256
+9e7f9af07dcaf5f46748f7a68c1755d77aa3520a623376ef8bd8f2926d8aa038
+Built cargo bench -p revault_lockbox_api --features native-block-layout
+--bench zip_read --no-run. Final production edits after this build are comments
+only; pre-commit hook formats staged Rust. All owned tests/builds ended before
+timing. Eight alternating paired rounds, plain protection, random named-file
+order, pattern/random data, requested raw/compressed, Interactive/ReadMostly
+read profiles. Small: 512x4096 bytes, Interactive/BulkImport creation, passes1/2,
+samples9. Large: 4x8388608 bytes, Interactive creation, passes1, samples5.
+512 small +128 large rows. Every returned byte is checked; fresh archive per
+child and fresh handles per sample, OS cache warm. No cold-I/O claim.
+
+Large compressed pattern median totals:
+Interactive: 39.136 ->35.986 ms, speedup1.088x; paired median change -8.361%
+with exploratory 95% bootstrap interval [-13.471,-5.825].
+ReadMostly: 38.192 ->35.911 ms, speedup1.064x; paired change -8.752%
+[-12.417,2.718], so this profile's improvement is not established by its interval.
+Raw large controls speedup0.981-1.016x. Raw Interactive pattern paired +0.811%
+[0.133,2.457]; do not claim universal zero regression. Requested compressed
+random corpus uses raw fallback and speedup1.017-1.022x.
+Large compressed native/ZIP remains3.829-3.905x: broad parity is still open.
+
+Packed compressed pattern small reads speedup1.123-1.161x first pass,
+1.243-1.382x for two passes. Paired intervals support improvements for all four
+of these groups. Windows for packed slices still copy; the view path also avoids
+the redundant into_vec cache-hit guard before the handle's own source check.
+Standalone two-pass small reads speedup1.103-1.154x across both corpora/codecs,
+but not all paired intervals exclude zero. Standalone first-pass results remain
+mixed (speedup0.942-1.032x). Other packed controls are mixed, including0.946x.
+All raw rows and group summaries are retained; no universal improvement claim.
+
+Paired interval method: 10000 percentile-bootstrap resamples of the 8 paired
+round percentage time changes, xorshift seed310, quantile indices249/9749.
+Negative means faster. Exploratory, no adjustment for multiple comparisons.
+Runner and summary sources retained alongside this note for reproduction.
+
+Retain the allocation-sharing optimization with control uncertainty documented.
+Broader read parity, protected write gate, cold I/O, signed recovery, realistic
+CLI write lifecycle coverage and binding/release/default activation remain open.
