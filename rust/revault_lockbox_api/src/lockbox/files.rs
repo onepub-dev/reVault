@@ -421,7 +421,22 @@ impl<State> Lockbox<State> {
         if data.len() <= SMALL_FILE_PACKING_LIMIT {
             return self.stage_small_file(path, data, permissions, replace);
         }
-        self.add_file_from_reader_with_permissions(path, Cursor::new(data), permissions, replace)
+        if self.worker_jobs() > 1 {
+            return self.add_file_from_reader_with_permissions(
+                path,
+                Cursor::new(data),
+                permissions,
+                replace,
+            );
+        }
+        self.write_file_from_source_with_permissions(
+            path,
+            permissions,
+            replace,
+            |archive, path, permissions| {
+                archive.write_file_data_from_slice(path, data, permissions)
+            },
+        )
     }
 
     /// Add or replace a file by streaming bytes from a reader.
@@ -577,6 +592,31 @@ impl<State> Lockbox<State> {
     where
         State: crate::WritableLockboxState,
     {
+        self.write_file_from_source_with_permissions(
+            path,
+            permissions,
+            replace,
+            |archive, path, permissions| {
+                let jobs = archive.worker_jobs();
+                if jobs > 1 {
+                    archive.write_file_data_parallel(path, reader, permissions, jobs)
+                } else {
+                    archive.write_file_data_sequential(path, reader, permissions)
+                }
+            },
+        )
+    }
+
+    fn write_file_from_source_with_permissions(
+        &mut self,
+        path: &LockboxPath,
+        permissions: u32,
+        replace: bool,
+        write_data: impl FnOnce(&mut Self, &LockboxPath, u32) -> Result<(u64, Vec<FileChunk>)>,
+    ) -> Result<()>
+    where
+        State: crate::WritableLockboxState,
+    {
         let path = path.file_path()?;
         let permissions = validate_permissions(permissions)?;
         self.validate_replace_intent(&path, replace)?;
@@ -591,12 +631,7 @@ impl<State> Lockbox<State> {
             self.free_entry_slots(old)?;
         }
 
-        let jobs = self.worker_jobs();
-        let (file_offset, chunks) = if jobs > 1 {
-            self.write_file_data_parallel(&path, reader, permissions, jobs)?
-        } else {
-            self.write_file_data_sequential(&path, reader, permissions)?
-        };
+        let (file_offset, chunks) = write_data(self, &path, permissions)?;
 
         let entry = TocEntry {
             path: path.clone(),
@@ -626,6 +661,35 @@ impl<State> Lockbox<State> {
         self.mark_toc_dirty(&path);
         self.needs_packing = true;
         Ok(())
+    }
+
+    fn write_file_data_from_slice(
+        &mut self,
+        path: &LockboxPath,
+        data: &[u8],
+        permissions: u32,
+    ) -> Result<(u64, Vec<FileChunk>)> {
+        // Only large in-memory inputs reach this path. Borrow each frame from
+        // the caller instead of copying it through the streaming read buffer.
+        debug_assert!(data.len() > SMALL_FILE_PACKING_LIMIT);
+        let mut writer = FilePageWriter::new(self);
+        let mut chunks = Vec::new();
+        let mut file_offset = 0u64;
+        for frame in data.chunks(FILE_COMPRESSION_FRAME_BYTES) {
+            writer.write_compression_frame(
+                CompressionFrameWrite {
+                    path,
+                    permissions,
+                    total_len: 0,
+                    file_offset,
+                    data: frame,
+                },
+                &mut chunks,
+            )?;
+            file_offset += frame.len() as u64;
+        }
+        writer.finish(&mut chunks)?;
+        Ok((file_offset, chunks))
     }
 
     fn write_file_data_sequential(

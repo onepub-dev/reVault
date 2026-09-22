@@ -4188,3 +4188,91 @@ fn native_index_cache_obeys_budget_disable_and_eviction_for_every_profile() {
         }
     }
 }
+
+#[test]
+fn large_slice_and_reader_inputs_preserve_replacement_abort_and_reopen() {
+    use crate::{Compression, Encryption, LockboxCreateOptions, Signing};
+    let signer = OwnerSigningKeyPair::generate().unwrap();
+    let path = p("/large/payload.bin");
+    let original: Vec<u8> = (0..2 * 1024 * 1024 + 17).map(|n| (n % 251) as u8).collect();
+    let mut replacement = vec![0; 3 * 1024 * 1024 + 77];
+    fill_randomish(&mut replacement);
+    for encrypted in [false, true] {
+        for signed in [false, true] {
+            for compression in [Compression::None, Compression::default()] {
+                for via_reader in [false, true] {
+                    let open = || {
+                        if encrypted {
+                            LockboxOpen::ContentKey(SecretVec::try_from_slice(&[67; 32]).unwrap())
+                        } else {
+                            LockboxOpen::Unencrypted
+                        }
+                    };
+                    let mut archive =
+                        Lockbox::create_in_memory_with_options(LockboxCreateOptions {
+                            compression,
+                            ..LockboxCreateOptions::new(
+                                if encrypted {
+                                    Encryption::Encrypted(LockboxProtection::ContentKey(
+                                        SecretVec::try_from_slice(&[67; 32]).unwrap(),
+                                    ))
+                                } else {
+                                    Encryption::None
+                                },
+                                if signed {
+                                    Signing::Owner(&signer)
+                                } else {
+                                    Signing::None
+                                },
+                            )
+                        })
+                        .unwrap();
+                    archive.set_worker_policy(WorkerPolicy::Single);
+                    let write = |archive: &mut Lockbox, bytes: &[u8], permissions, replace| {
+                        if via_reader {
+                            archive.add_file_from_reader_with_permissions(
+                                &path,
+                                Cursor::new(bytes),
+                                permissions,
+                                replace,
+                            )
+                        } else {
+                            archive.add_file_with_permissions(&path, bytes, permissions, replace)
+                        }
+                    };
+                    let verify = |archive: &Lockbox, expected: &[u8], permissions| {
+                        assert_eq!(archive.get_file(&path).unwrap(), expected);
+                        assert_eq!(archive.stat(&path).unwrap().permissions, permissions);
+                        let reopened = Lockbox::open_bytes(archive.to_bytes(), open()).unwrap();
+                        assert_eq!(reopened.get_file(&path).unwrap(), expected);
+                        assert_eq!(reopened.stat(&path).unwrap().permissions, permissions);
+                    };
+                    assert!(matches!(
+                        write(&mut archive, &original, 0o640, true),
+                        Err(Error::NotFound(_))
+                    ));
+                    assert!(!archive.exists(&p("/large")));
+                    write(&mut archive, &original, 0o640, false).unwrap();
+                    assert_eq!(archive.get_file(&path).unwrap(), original);
+                    assert!(matches!(
+                        write(&mut archive, &replacement, 0o600, false),
+                        Err(Error::AlreadyExists(_))
+                    ));
+                    archive.commit().unwrap();
+                    verify(&archive, &original, 0o640);
+                    write(&mut archive, &replacement, 0o600, true).unwrap();
+                    assert_eq!(archive.get_file(&path).unwrap(), replacement);
+                    archive.abort().unwrap();
+                    verify(&archive, &original, 0o640);
+                    write(&mut archive, &replacement, 0o600, true).unwrap();
+                    archive.commit().unwrap();
+                    verify(&archive, &replacement, 0o600);
+                    archive.delete(&path).unwrap();
+                    archive.commit().unwrap();
+                    let reopened = Lockbox::open_bytes(archive.to_bytes(), open()).unwrap();
+                    assert!(!reopened.exists(&path));
+                }
+            }
+        }
+    }
+}
