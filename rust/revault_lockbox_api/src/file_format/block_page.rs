@@ -443,7 +443,7 @@ fn validate_header(header: &[u8], identity: PageIdentity) -> Result<usize> {
 
 pub(crate) struct Reader<'a> {
     frame: BlockFrameReader<'a>,
-    manifest: CompressionFrameManifest,
+    manifest: std::sync::Arc<CompressionFrameManifest>,
 }
 
 pub(crate) fn validate_chunk_reference(
@@ -595,7 +595,7 @@ impl<'a> Reader<'a> {
         );
         Ok(Self {
             frame,
-            manifest: metadata.manifest,
+            manifest: std::sync::Arc::new(metadata.manifest),
         })
     }
 
@@ -613,6 +613,92 @@ impl<'a> Reader<'a> {
 
     pub(crate) fn ensure_current(&self) -> Result<()> {
         self.frame.ensure_current()
+    }
+}
+
+/// Verified metadata/index only. Data blocks remain authenticated on each read.
+/// No storage borrow or content key is retained in the shared page cache.
+#[derive(Debug)]
+pub(crate) struct CachedReader {
+    reference: crate::file_chunk::BlockFrameReference,
+    segment: crate::file_chunk::CompressionFrameSegment,
+    revision: u64,
+    offset: u64,
+    required_end: u64,
+    hashes: std::sync::Arc<[[u8; 32]]>,
+    manifest: std::sync::Arc<CompressionFrameManifest>,
+}
+
+impl CachedReader {
+    pub(crate) fn weight(&self) -> u64 {
+        (std::mem::size_of::<Self>()
+            + std::mem::size_of::<CompressionFrameManifest>()
+            + self.hashes.len() * 32
+            + 4 * std::mem::size_of::<usize>()
+            + self.manifest.slices.capacity() * std::mem::size_of::<CompressionFrameSlice>()
+            + self
+                .manifest
+                .slices
+                .iter()
+                .map(|s| s.path.as_str().len())
+                .sum::<usize>()) as u64
+    }
+
+    pub(crate) fn bind<'a>(
+        &self,
+        storage: &'a StorageBackend,
+        chunk: &crate::file_chunk::FileChunk,
+        total_len: u64,
+        key: &[u8],
+    ) -> Result<Reader<'a>> {
+        if chunk.block_frame.as_deref() != Some(&self.reference)
+            || chunk.segments.as_slice() != std::slice::from_ref(&self.segment)
+        {
+            return Err(Error::CorruptRecord);
+        }
+        let descriptor = &self.reference.descriptor;
+        let frame = BlockFrameReader {
+            write_revision: self.revision,
+            descriptor: descriptor.clone(),
+            storage,
+            offset: self.offset,
+            required_end: self.required_end,
+            hashes: self.hashes.clone(),
+            cipher: if descriptor.mode.plaintext() {
+                None
+            } else {
+                Some(descriptor.index_cipher(&*frame_key(key))?)
+            },
+        };
+        frame.ensure_current()?;
+        let reader = Reader {
+            frame,
+            manifest: self.manifest.clone(),
+        };
+        reader.validate_slice(chunk, total_len)?;
+        Ok(reader)
+    }
+}
+
+impl Reader<'_> {
+    pub(crate) fn cache_entry(&self, chunk: &crate::file_chunk::FileChunk) -> Result<CachedReader> {
+        self.ensure_current()?;
+        let [segment] = chunk.segments.as_slice() else {
+            return Err(Error::CorruptRecord);
+        };
+        Ok(CachedReader {
+            reference: chunk
+                .block_frame
+                .as_deref()
+                .ok_or(Error::CorruptRecord)?
+                .clone(),
+            segment: segment.clone(),
+            revision: self.frame.write_revision,
+            offset: self.frame.offset,
+            required_end: self.frame.required_end,
+            hashes: self.frame.hashes.clone(),
+            manifest: self.manifest.clone(),
+        })
     }
 }
 

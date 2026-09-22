@@ -1296,7 +1296,14 @@ impl<State> Lockbox<State> {
             return Err(Error::CorruptRecord);
         };
         let page_len = usize::try_from(segment.page_len).map_err(|_| Error::CorruptRecord)?;
+        let cached = self
+            .page_manager
+            .borrow_mut()
+            .native_index(segment.page_offset, self.storage.write_revision());
         let open = |key: &[u8]| {
+            if let Some(cached) = &cached {
+                return cached.bind(&self.storage, chunk, expected_total_len, key);
+            }
             let reader = Reader::open(
                 &self.storage,
                 segment.page_offset,
@@ -1306,6 +1313,12 @@ impl<State> Lockbox<State> {
                 key,
             )?;
             reader.validate_slice(chunk, expected_total_len)?;
+            self.page_manager.borrow_mut().insert_native_index(
+                segment.page_offset,
+                segment.page_len,
+                reader.cache_entry(chunk)?,
+                reader.write_revision(),
+            );
             Ok(reader)
         };
         if self.format_mode.plaintext() {

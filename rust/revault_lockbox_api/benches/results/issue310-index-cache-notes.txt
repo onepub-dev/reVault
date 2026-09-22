@@ -1,0 +1,80 @@
+Issue #310: shared native metadata/index proofs and small raw handle snapshots
+
+Baseline production revision: ca559ed.
+Before binary SHA256: 81fe97a50e216388dbf4f58e4278440922ff596a31128f6c0bde6b4e00b1d3b9
+Measured after binary SHA256: 80f60339c977b36cc4d71e9f9ef9185a7dab3d60e39269be8b3caa5d4186c58a
+After measurement, an equivalent allocation-reference comparison stopped
+cloning its fixed-size struct; production declarations were moved ahead of
+tests. These changes and the pre-commit formatting hook do not alter semantics.
+Release zip_read benchmark, native-block-layout enabled, plain mode.
+Feature remains unreleased/opt-in; no format or public API changes.
+
+Native readers retain shared verified manifest and block-index allocations.
+The existing bounded PageCache can retain metadata/index proofs separately
+from decoded frames, charging their memory instead of physical page size.
+Proofs match the exact committed reference and segment and revalidate the
+live source identity, extent, write revision and external terminal state.
+Each requested raw data block is still read and authenticated. No content key
+or storage borrow is retained in the index cache. Disabled/undersized caches
+refuse admission, dirty encoded pages remain intact, and decoded frames take
+precedence over index-only entries at the same physical offset.
+
+Small standalone raw frames that fit within one logical block and one bounded
+physical allocation use the existing whole-frame snapshot path. This avoids
+metadata/index admission overhead for separate small files without reading
+additional raw blocks. The initial index-only prototype regressed those cases;
+the committed CSV measures the subsequent bounded-snapshot adjustment.
+
+96 CSV rows: three interleaved before/after runs, five samples per row,
+512 x 4096-byte files, Interactive/BulkImport creation, pattern/random corpora,
+both compression settings and Interactive/ReadMostly read profiles.
+ACCESS=random means shuffled public Read handles. Each phase checks 480 MiB
+of returned file bytes across fresh archive handles; OS caches are warm.
+The compressed column is requested policy: incompressible data uses raw
+fallback and therefore exercises the raw index/snapshot paths.
+
+Per-case medians across three runs: speedup=before/after lockbox total time;
+after/ZIP=after lockbox/ZIP total time (lower is better).
+BulkImport false Interactive pattern: speedup 5.269, after/ZIP 2.250
+BulkImport false Interactive random: speedup 5.086, after/ZIP 2.290
+BulkImport false ReadMostly pattern: speedup 5.150, after/ZIP 2.298
+BulkImport false ReadMostly random: speedup 5.227, after/ZIP 2.340
+BulkImport true Interactive pattern: speedup 1.013, after/ZIP 1.258
+BulkImport true Interactive random: speedup 6.245, after/ZIP 2.132
+BulkImport true ReadMostly pattern: speedup 0.966, after/ZIP 1.312
+BulkImport true ReadMostly random: speedup 6.363, after/ZIP 2.195
+Interactive false Interactive pattern: speedup 1.754, after/ZIP 1.190
+Interactive false Interactive random: speedup 1.929, after/ZIP 1.299
+Interactive false ReadMostly pattern: speedup 1.641, after/ZIP 1.298
+Interactive false ReadMostly random: speedup 1.744, after/ZIP 1.336
+Interactive true Interactive pattern: speedup 1.026, after/ZIP 1.217
+Interactive true Interactive random: speedup 1.705, after/ZIP 1.252
+Interactive true ReadMostly pattern: speedup 1.094, after/ZIP 1.238
+Interactive true ReadMostly random: speedup 1.626, after/ZIP 1.267
+
+Packed raw/fallback handles improve 5.1-6.4x but still take 2.1-2.34x ZIP.
+Standalone raw/fallback handles improve 1.6-1.9x, still taking 1.19-1.34x ZIP.
+Compressed handle controls show mixed small differences (0.97-1.09x speedup).
+This matrix does not establish broad parity or cold-storage performance;
+large-file and signed/encrypted timing, write lifecycles and recovery gates
+remain outstanding. The feature must not be activated based on these results.
+
+Regressions added/extended:
+- A new raw neighboring handle fetches exactly one data block after the first
+  handle, with no repeated metadata/index source reads, in all protection modes.
+- Warm index proofs reject 14 mutations of references/descriptors/allocations.
+- Every workload profile enforces disabled, undersized and bounded index-cache
+  budgets and eviction while partial raw handles retain no decoded frames.
+- Small cold Read handles verify bytes using one source read and reject
+  cancellation, corrupted metadata and truncated allocation padding.
+- Existing cloned-backend overwrite, truncation and sticky failure tests remain.
+
+Validation:
+- Native + external-source full unit suite: 345 passed, 5 ignored, 2 known
+  recovery failures: recovery_skips_truncated_tail_and_keeps_prior_intact_files;
+  native_file_writer_commits_and_reopens_multiframe_files_in_all_modes.
+  Native integration/doc tests were not reached after those unit failures.
+- Default-feature suite: 339 unit tests passed, 5 ignored; all executed
+  integration and documentation tests passed.
+- Native + external-source all-targets Clippy with -D warnings passed.
+- Release benchmark build and all 96 paired rows completed with byte checks.

@@ -643,6 +643,7 @@ mod tests {
             Compression, Encryption, LockboxCreateOptions, LockboxProtection, OwnerSigningKeyPair,
             Signing, SizePadding,
         };
+        use std::io::Read;
         struct Probe {
             bytes: Vec<u8>,
             reads: Mutex<usize>,
@@ -699,7 +700,9 @@ mod tests {
                         archive.add_file(&path, &input, false).unwrap();
                         archive.commit().unwrap();
                         let bytes = archive.to_bytes();
-                        for fault in 0..4 {
+                        for case in 0..8 {
+                            let through_handle = case >= 4;
+                            let fault = case % 4;
                             let mut source_bytes = bytes.clone();
                             // Private source replacement supplies mid-read cancellation
                             // and corrupted bytes that public mutation APIs cannot emit.
@@ -730,29 +733,40 @@ mod tests {
                                 &mut archive,
                                 crate::storage::StorageBackend::External(session.storage.clone()),
                             );
+                            let read = || -> crate::Result<Vec<u8>> {
+                                if !through_handle {
+                                    return archive.get_file(&path);
+                                }
+                                let mut handle = archive.open_file(&path)?;
+                                let mut bytes = Vec::new();
+                                handle
+                                    .read_to_end(&mut bytes)
+                                    .map_err(|e| crate::Error::Io(e.to_string()))?;
+                                Ok(bytes)
+                            };
                             if fault == 0 {
-                                assert_eq!(archive.get_file(&path).unwrap(), input);
+                                assert_eq!(read().unwrap(), input);
                                 assert_eq!(
                                     *source.reads.lock().unwrap(),
                                     1,
                                     "one bounded source read per cold small frame"
                                 );
-                                assert_eq!(archive.get_file(&path).unwrap(), input);
+                                assert_eq!(read().unwrap(), input);
                                 assert_eq!(
                                     *source.reads.lock().unwrap(),
                                     1,
                                     "warm read reuses verified cache"
                                 );
                             } else if fault == 1 {
-                                assert!(archive.get_file(&path).is_err());
+                                assert!(read().is_err());
                                 *source.cancelled.lock().unwrap() = false;
                                 assert!(
-                                    archive.get_file(&path).is_err(),
+                                    read().is_err(),
                                     "terminal source failure must stay latched"
                                 );
                                 assert_eq!(*source.reads.lock().unwrap(), 1);
                             } else {
-                                assert!(archive.get_file(&path).is_err());
+                                assert!(read().is_err());
                             }
                         }
                     }
@@ -888,6 +902,20 @@ mod tests {
                         }
                         reader.seek(SeekFrom::End(-13)).unwrap();
                         reader.read_exact(&mut small).unwrap();
+                        if compression == Compression::None {
+                            let before = source.reads.lock().unwrap().len();
+                            let mut neighbor = archive.open_file(&paths[0]).unwrap();
+                            let mut bytes = [0; 13];
+                            neighbor.read_exact(&mut bytes).unwrap();
+                            assert_eq!(bytes, input[..13]);
+                            let reads = source.reads.lock().unwrap();
+                            assert_eq!(
+                                reads.len(),
+                                before + 1,
+                                "new raw handles reuse metadata/index but verify requested data"
+                            );
+                            assert_eq!(reads[before].1, 16384 + if encrypted { 16 } else { 0 });
+                        }
                         assert_eq!(
                             archive.get_file(&paths[0]).unwrap(),
                             input[..input.len() / 2]
@@ -940,9 +968,9 @@ mod tests {
                             WorkloadProfile::{ExtractMany, Interactive},
                         };
                         for (profile, order, expected_reads) in [
-                            (Interactive, Logical, 4),
-                            (Interactive, Physical, 4),
-                            (ExtractMany, Logical, 4),
+                            (Interactive, Logical, 1),
+                            (Interactive, Physical, 1),
+                            (ExtractMany, Logical, 1),
                             (ExtractMany, Physical, 3),
                         ] {
                             archive.set_workload_profile(profile);
@@ -972,7 +1000,7 @@ mod tests {
                                 .unwrap();
                             assert_eq!(actual, input);
                             assert_eq!(source.reads.lock().unwrap().len(), expected_reads,
-                                "packed stream reads metadata/index once; warm decoded cache skips data");
+                                "packed stream reuses retained index; decoded-cache replacement reloads only metadata/index");
                         }
                         let mut visited = 0;
                         let result = archive.stream_content(Default::default(), |_, _| {

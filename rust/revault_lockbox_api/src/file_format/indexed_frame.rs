@@ -371,7 +371,7 @@ pub(crate) struct BlockFrameReader<'a> {
     storage: &'a crate::storage::StorageBackend,
     offset: u64,
     required_end: u64,
-    hashes: Vec<[u8; 32]>,
+    hashes: std::sync::Arc<[[u8; 32]]>,
     cipher: Option<chacha20poly1305::ChaCha20Poly1305>,
 }
 
@@ -434,7 +434,7 @@ impl<'a> BlockFrameReader<'a> {
             storage,
             offset,
             required_end,
-            hashes,
+            hashes: hashes.into(),
             cipher,
         })
     }

@@ -897,6 +897,17 @@ fn native_block_public_read_paths_and_signed_digest_validate_all_modes() {
                     // Canonical signing must eagerly read data, not just hash the index.
                     assert!(archive.signed_content_digest().is_ok());
                     let original = archive.toc_entries[&paths[0]].clone();
+                    // Unit-level cache reset isolates the index proof from the
+                    // decoded-data proof tested by the public reads above.
+                    archive.page_manager.borrow_mut().clear();
+                    archive
+                        .open_native_block_chunk(original.len, &original.chunks[0])
+                        .unwrap();
+                    let hits = archive.inspector().cache_stats().hits;
+                    archive
+                        .open_native_block_chunk(original.len, &original.chunks[0])
+                        .unwrap();
+                    assert!(archive.inspector().cache_stats().hits > hits);
                     archive.toc_entries.get_mut(&paths[0]).unwrap().chunks[0].stored_path =
                         LockboxPath::new("/wrong").unwrap();
                     assert!(archive.get_file(&paths[0]).is_err());
@@ -941,6 +952,12 @@ fn native_block_public_read_paths_and_signed_digest_validate_all_modes() {
                             }
                             _ => unreachable!(),
                         }
+                        assert!(
+                            archive
+                                .open_native_block_chunk(changed.len, &changed.chunks[0])
+                                .is_err(),
+                            "cached index accepted reference mutation {mutation}"
+                        );
                         archive.toc_entries.insert(paths[0].clone(), changed);
                         assert!(
                             archive.read_file_range(&paths[0], 0, 1).is_err(),

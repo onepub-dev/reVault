@@ -53,7 +53,14 @@ impl<'a> NativeFileReader<'a> {
         let compressed = chunk.compression != crate::compression::COMPRESSION_NONE;
         // Compressed reads already decode the entire frame. Share its verified
         // decoded cache across handles, retaining only this file's slice locally.
-        let (reader, window) = if compressed {
+        // A complete small frame occupies at most one raw data block. Capturing
+        // its bounded allocation also avoids separate metadata/index reads,
+        // without expanding a raw range to additional data blocks.
+        let small_frame = chunk.compression_frame_offset == 0
+            && chunk.len == chunk.compression_frame_len
+            && chunk.len <= crate::file_format::indexed_frame::BLOCK_BYTES as u64
+            && segment.page_len <= crate::file_format::indexed_frame::BLOCK_BYTES as u64;
+        let (reader, window) = if compressed || small_frame {
             (
                 None,
                 ZeroizingBytes::new(archive.read_file_chunk_compression_frame(entry.len, chunk)?),

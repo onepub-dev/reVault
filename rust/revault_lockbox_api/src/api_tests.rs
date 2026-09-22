@@ -4108,3 +4108,82 @@ fn form_field(id: &str, label: &str, kind: FormFieldKind, required: bool) -> For
         required,
     }
 }
+
+#[cfg(feature = "native-block-layout")]
+#[test]
+fn native_index_cache_obeys_budget_disable_and_eviction_for_every_profile() {
+    use crate::{Compression, Encryption, LockboxCreateOptions, Signing};
+    let key = [9; 32];
+    let mut original = Lockbox::create_in_memory_with_options(LockboxCreateOptions {
+        compression: Compression::None,
+        ..LockboxCreateOptions::new(
+            Encryption::Encrypted(LockboxProtection::ContentKey(
+                SecretVec::try_from_slice(&key).unwrap(),
+            )),
+            Signing::None,
+        )
+    })
+    .unwrap();
+    let input = vec![73; 65536];
+    for index in 0..10 {
+        original
+            .add_file(&p(format!("/file-{index}")), &input, false)
+            .unwrap();
+    }
+    original.commit().unwrap();
+    for profile in [
+        WorkloadProfile::Interactive,
+        WorkloadProfile::BulkImport,
+        WorkloadProfile::ReadMostly,
+        WorkloadProfile::ExtractMany,
+    ] {
+        for limit in [0, 1, 1024] {
+            let archive = Lockbox::open_bytes_with_key_options(
+                original.to_bytes(),
+                key,
+                LockboxOptions {
+                    workload_profile: profile,
+                    cache_limit: if limit == 0 {
+                        CacheLimit::Disabled
+                    } else {
+                        CacheLimit::Bytes(limit)
+                    },
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+            let read = |index| {
+                let mut handle = archive.open_file(&p(format!("/file-{index}"))).unwrap();
+                let mut bytes = [0; 13];
+                handle.read_exact(&mut bytes).unwrap();
+                assert_eq!(bytes, [73; 13]);
+            };
+            read(0);
+            let first = archive.inspector().cache_stats();
+            read(0);
+            let second = archive.inspector().cache_stats();
+            if limit <= 1 {
+                assert_eq!(second.used_bytes, 0);
+                assert_eq!(second.entries, 0);
+                assert_eq!(first.hits, second.hits);
+            } else {
+                assert!(second.hits > first.hits);
+            }
+            for index in 1..10 {
+                read(index);
+                assert!(archive.inspector().cache_stats().used_bytes <= limit);
+            }
+            let misses = archive.inspector().cache_stats().misses;
+            read(0);
+            assert!(
+                archive.inspector().cache_stats().misses > misses,
+                "bounded index cache must evict earlier frames"
+            );
+            assert_eq!(
+                archive.decoded_compression_frame_cache_entries_for_tests(),
+                0,
+                "partial raw handles must not eagerly cache decoded frames"
+            );
+        }
+    }
+}
