@@ -1,0 +1,18 @@
+diff --git a/rust/revault_lockbox_api/src/lockbox/files.rs b/rust/revault_lockbox_api/src/lockbox/files.rs
+index 0f4d68f..6e66892 100644
+--- a/rust/revault_lockbox_api/src/lockbox/files.rs
++++ b/rust/revault_lockbox_api/src/lockbox/files.rs
+@@ -2635,0 +2636,6 @@ impl<'a, State> FilePageWriter<'a, State> {
++        let stored_len = prepared.stored.len();
++        let stored_capacity = prepared.stored.capacity();
++        let dropping = Instant::now();
++        drop(prepared.stored);
++        let drop_us = dropping.elapsed().as_secs_f64() * 1e6;
++        eprintln!("stored-drop,default,len={stored_len},capacity={stored_capacity},drop_us={drop_us:.3}");
+@@ -2708,0 +2715,6 @@ impl<'a, State> FilePageWriter<'a, State> {
++        let stored_len = prepared.stored.len();
++        let stored_capacity = prepared.stored.capacity();
++        let dropping = Instant::now();
++        drop(prepared.stored);
++        let drop_us = dropping.elapsed().as_secs_f64() * 1e6;
++        eprintln!("stored-drop,native,len={stored_len},capacity={stored_capacity},drop_us={drop_us:.3}");
