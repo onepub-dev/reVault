@@ -1,0 +1,8 @@
+diff --git a/rust/revault_lockbox_api/src/lockbox/files.rs b/rust/revault_lockbox_api/src/lockbox/files.rs
+index f5d00db..def719e 100644
+--- a/rust/revault_lockbox_api/src/lockbox/files.rs
++++ b/rust/revault_lockbox_api/src/lockbox/files.rs
+@@ -2686,0 +2687,3 @@ impl<'a, State> FilePageWriter<'a, State> {
++        // The sealed page owns its bytes. Wipe and release the potentially
++        // oversized codec allocation before preparation and storage I/O.
++        drop(prepared.stored);
