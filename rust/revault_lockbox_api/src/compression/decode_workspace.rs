@@ -19,21 +19,23 @@ pub(crate) fn scoped<R>(operation: impl FnOnce() -> R) -> R {
             if self.0 {
                 // The last scope wipes the full allocation, including scratch
                 // history, on success, error, or unwinding through a visitor.
-                SCRATCH.with(|scratch| {
+                let _ = SCRATCH.try_with(|scratch| {
                     scratch.borrow_mut().take();
                 });
             }
         }
     }
-    let owns = SCRATCH.with(|scratch| {
-        let mut scratch = scratch.borrow_mut();
-        if scratch.is_some() {
-            false
-        } else {
-            *scratch = Some(ZeroizingBytes::new(Vec::new()));
-            true
-        }
-    });
+    let owns = SCRATCH
+        .try_with(|scratch| {
+            let mut scratch = scratch.borrow_mut();
+            if scratch.is_some() {
+                false
+            } else {
+                *scratch = Some(ZeroizingBytes::new(Vec::new()));
+                true
+            }
+        })
+        .unwrap_or(false);
     let _scope = Scope(owns);
     operation()
 }
@@ -63,44 +65,97 @@ pub(super) fn decode(stored: &[u8], expected_len: usize) -> Option<Result<Vec<u8
         return None;
     }
     let window = window as usize;
-    SCRATCH.with(|slot| {
-        let mut slot = slot.borrow_mut();
-        let scratch = slot.as_mut()?;
-        let result = (|| {
-            let required = StaticDecoderWorkspace::required_size(window, 0)
-                .map_err(|_| Error::CorruptRecord)?;
-            if scratch.len() < required {
-                // Replacing the wrapper wipes the old history before freeing
-                // it; Vec growth could otherwise leave an unwiped old buffer.
-                *scratch = ZeroizingBytes::new(vec![0; required]);
-            }
-            let mut decoded = ZeroizingBytes::new(vec![0; expected_len]);
-            let mut decoder = StaticDecoderWorkspace::new(scratch, window, 0)
-                .map_err(|_| Error::CorruptRecord)?;
-            match decoder.decode_into(stored, &mut decoded) {
-                Ok(len) => {
-                    decoded.truncate(len);
-                    Ok(Some(std::mem::take(&mut *decoded)))
+    // A caller can legitimately decode from another TLS destructor after this
+    // slot has gone away. Scratch reuse is optional, never a reason to panic.
+    SCRATCH
+        .try_with(|slot| {
+            let mut slot = slot.borrow_mut();
+            let scratch = slot.as_mut()?;
+            let result = (|| {
+                let required = StaticDecoderWorkspace::required_size(window, 0)
+                    .map_err(|_| Error::CorruptRecord)?;
+                if scratch.len() < required {
+                    // Replacing the wrapper wipes the old history before freeing
+                    // it; Vec growth could otherwise leave an unwiped old buffer.
+                    *scratch = ZeroizingBytes::new(vec![0; required]);
                 }
-                // A valid small-output frame can advertise a larger history
-                // window. Preserve the existing decoder's acceptance limits.
-                Err(DecoderWorkspaceError::Decode(FrameDecoderError::WindowSizeTooBig {
-                    ..
-                })) => Ok(None),
-                Err(_) => Err(Error::CorruptRecord),
+                let mut decoded = ZeroizingBytes::new(vec![0; expected_len]);
+                let mut decoder = StaticDecoderWorkspace::new(scratch, window, 0)
+                    .map_err(|_| Error::CorruptRecord)?;
+                match decoder.decode_into(stored, &mut decoded) {
+                    Ok(len) => {
+                        decoded.truncate(len);
+                        Ok(Some(std::mem::take(&mut *decoded)))
+                    }
+                    // A valid small-output frame can advertise a larger history
+                    // window. Preserve the existing decoder's acceptance limits.
+                    Err(DecoderWorkspaceError::Decode(FrameDecoderError::WindowSizeTooBig {
+                        ..
+                    })) => Ok(None),
+                    Err(_) => Err(Error::CorruptRecord),
+                }
+            })();
+            match result {
+                Ok(Some(bytes)) => Some(Ok(bytes)),
+                Ok(None) => None,
+                Err(error) => Some(Err(error)),
             }
-        })();
-        match result {
-            Ok(Some(bytes)) => Some(Ok(bytes)),
-            Ok(None) => None,
-            Err(error) => Some(Err(error)),
-        }
-    })
+        })
+        .ok()
+        .flatten()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn decoding_from_a_later_thread_local_destructor_falls_back() {
+        use std::sync::{
+            atomic::{AtomicBool, Ordering},
+            Arc,
+        };
+        struct LateDecode {
+            passed: Arc<AtomicBool>,
+            encoded: Vec<u8>,
+            expected: Vec<u8>,
+        }
+        impl Drop for LateDecode {
+            fn drop(&mut self) {
+                // Catch inside the destructor so a regression fails this test
+                // normally instead of aborting the complete test process.
+                let decoded = std::panic::catch_unwind(|| {
+                    scoped(|| super::super::zstd_decode(&self.encoded, self.expected.len() as u64))
+                });
+                self.passed.store(
+                    decoded
+                        .ok()
+                        .and_then(Result::ok)
+                        .is_some_and(|bytes| bytes == self.expected),
+                    Ordering::SeqCst,
+                );
+            }
+        }
+        thread_local! {
+            static LATE: RefCell<Option<LateDecode>> = const { RefCell::new(None) };
+        }
+        let passed = Arc::new(AtomicBool::new(false));
+        let expected = vec![23; 64 * 1024];
+        let late = LateDecode {
+            passed: passed.clone(),
+            encoded: super::super::zstd_encode(&expected, 1),
+            expected,
+        };
+        std::thread::spawn(move || {
+            // TLS destructors run in reverse initialization order. Scratch is
+            // already destroyed when the earlier LATE slot calls the decoder.
+            LATE.with(|slot| *slot.borrow_mut() = Some(late));
+            scoped(|| {});
+        })
+        .join()
+        .unwrap();
+        assert!(passed.load(Ordering::SeqCst));
+    }
 
     #[test]
     fn scoped_decoder_matches_fresh_decoder_for_sizes_corruption_and_concatenation() {

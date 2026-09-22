@@ -102,3 +102,18 @@ This is a retained streaming optimization, not default activation of native
 layout or completion of #310. Signed recovery, native shared caching, the
 remaining feature-suite failures, ZIP parity across sizes/corpora/protections,
 read/write/load gates, and migration/bindings/release checks remain open.
+
+Follow-up: thread-local teardown compatibility
+---------------------------------------------
+Review of ee23a7b identified a new panic when another thread-local destructor
+called the decoder after the scratch slot had already been destroyed. A test
+initializes that destructor before scratch, catches its panic internally to
+avoid aborting the test process, and checks the recovered bytes. It failed on
+ee23a7b with AccessError, proving a real compatibility regression.
+
+Scope setup, cleanup and decode now use try_with. If the slot is unavailable,
+scope setup does not claim ownership and decoding uses the original decoder.
+Normal scoped reuse, memory wiping and all codec checks remain in place.
+Four focused workspace tests pass; the public nine-MiB streaming lifecycle
+passes in both layouts; native/external-source library/tests strict Clippy
+passes. No new performance measurement or speedup is claimed for this fix.
