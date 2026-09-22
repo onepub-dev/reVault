@@ -1,0 +1,75 @@
+Issue #310: reject per-frame reconstruction of scoped encoder workspaces
+Base source bd24d68 (production f4b1d91). Attached full prototype patch was
+reverted; no production or test changes retained in this checkpoint. Apply with
+git apply --unidiff-zero only to reproduce the experiment, not as a retained fix.
+
+Correction to the preceding investigation: the numeric convenience slice API
+has no caller output parameter, but the pinned zstd-complete 0.2.0 also exports
+StaticEncoderWorkspace. It accepts caller-backed scratch and output slices and
+promises output capacity checks prevent growth. No dependency fork is necessary
+to investigate reusable output storage. The earlier one-line smaller-allocation
+prototype still lacks the secure growth proof required for production use.
+
+This candidate scoped TLS-owned ZeroizingBytes scratch and output buffers to
+one large, single-worker, in-memory file write. Explicit numeric compression
+used StaticEncoderWorkspace with parameters derived for each exact input length;
+finished bytes were copied into compact return Vecs. Frame output/scratch storage
+was reused within that write and fully wiped on scope completion/error/unwind.
+Growth replaced the entire zeroizing owner rather than reallocating live data.
+Scratch limit 32 MiB; inputs 64 KiB through 4 MiB. Out-of-scope/unsupported cases
+fell back to the existing numeric encoder. Encoder state itself was reconstructed
+on every frame: this experiment did NOT reuse the complete initialized encoder.
+Readers, parallel import and streaming input were not changed.
+
+Validation before reverting:
+Default + external-source suite: 349 unit tests passed, 5 ignored; all executed
+integration/doc tests passed. Native + external-source: 354 passed, 5 ignored,
+with exactly the two known signed recovery failures unchanged:
+api_tests::recovery_skips_truncated_tail_and_keeps_prior_intact_files
+lockbox::block_frame_tests::native_file_writer_commits_and_reopens_multiframe_files_in_all_modes
+The large slice/reader replace/abort/reopen lifecycle test passed in both layouts.
+New focused tests passed: exact compressed-byte equality and round trips for
+mixed compressible/random blocks, varying frame sizes, levels 1/3/7; later
+extended to levels 1-22 for 64 KiB (bounded fallback allowed when scratch exceeds
+32 MiB). Nested scopes, error/unwind release and invalid-input fallback checked.
+Underlying ZeroizingBytes wipe coverage remains in existing tests; scope tests
+prove owner release, not inspection of memory after deallocation.
+Clippy all targets native+external passed before the test-only level extension.
+
+Native production baseline SHA256:
+791178ff9a9de09314f4fe6cc4bdaff89c54d0c0fb8fdbf066866ed8f6c019a3
+Candidate SHA256:
+438bff5be6a9d05e934fd211615782ac0deb130d73d8b19648f8137d5769ea48
+Preserved under target/issue310-codec-cap-before and
+ target/issue310-encoder-workspace-after. Candidate built before the test-only
+level extension; benchmark code/production behavior unchanged by that extension.
+Both native layout, default padding, synthetic keys/no KDF, CPU 2, warm OS caches.
+All owned builds/tests finished before timing. Unrelated host load uncontrolled.
+Same fixed protocol as prior allocation prototype: pattern/random five ABBA/BAAB
+groups, three child samples with first excluded (640 broad measured rows), and
+prespecified encrypted-only/compressed/pattern focus with 15 groups and six child
+samples first excluded (300 rows). Every measured and warmup write independently
+reopened and its persisted bytes verified: 940 + 380 = 1320 successful writes.
+CSV main=production baseline; branch=workspace candidate, not default/native.
+
+Focused paired change -0.801%, 95% [-4.008%,+1.118%], pooled medians
+29.235114 ms baseline and 28.934190 ms candidate. No demonstrated benefit.
+Every broad interval crosses zero, with especially wide random-control bounds.
+These higher absolute medians than the previous experiment underline why we
+must not compare separate runs' pooled medians as a paired causal estimate.
+Summaries use the established 5000 whole-group bootstrap and per-group ratios.
+
+Reject this candidate rather than retain new lifetime/complexity costs without
+an established performance gain. The earlier smaller-allocation result does not
+transfer automatically to this different approach. Construction and zeroing of
+scratch, compact output copies and per-frame encoder reconstruction remain possible
+costs; this experiment does not separately measure or prove their contribution.
+Next candidate can investigate keeping a caller-backed initialized encoder alive
+across equal-sized frames with explicit lifetimes and scope-bound zeroizing owners,
+retaining the ordinary path for parameter changes/partial final frames. That is
+not implemented here. Production read/write gates and known recovery/release
+requirements remain open; native stays opt-in.
+
+Native target/release/deps/protection_gate-4a1172c8e93f57fc contains this rejected
+candidate; rebuild before production timing. Default executable still contains
+older drop diagnostics and likewise must be rebuilt. No work pushed/published.

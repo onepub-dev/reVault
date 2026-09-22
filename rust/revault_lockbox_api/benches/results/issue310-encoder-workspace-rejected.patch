@@ -1,0 +1,144 @@
+diff --git a/rust/revault_lockbox_api/src/compression.rs b/rust/revault_lockbox_api/src/compression.rs
+index fa3dd9e..74548c5 100644
+--- a/rust/revault_lockbox_api/src/compression.rs
++++ b/rust/revault_lockbox_api/src/compression.rs
+@@ -8,0 +9,2 @@ mod decode_workspace;
++mod encode_workspace;
++pub(crate) use encode_workspace::scoped as with_encode_workspace;
+@@ -147 +149 @@ pub(crate) fn encode_with_compression(
+-                zstd_complete::encoding::compress_slice_c_level(payload, i32::from(level.get()));
++                encode_workspace::encode(payload, i32::from(level.get())).unwrap_or_else(|| zstd_complete::encoding::compress_slice_c_level(payload, i32::from(level.get())));
+diff --git a/rust/revault_lockbox_api/src/compression/encode_workspace.rs b/rust/revault_lockbox_api/src/compression/encode_workspace.rs
+new file mode 100644
+index 0000000..a5b741d
+--- /dev/null
++++ b/rust/revault_lockbox_api/src/compression/encode_workspace.rs
+@@ -0,0 +1,120 @@
++//! Encoder storage reuse limited to one synchronous file write.
++use crate::page_buffer::ZeroizingBytes;
++use std::cell::RefCell;
++use zstd_complete::encoding::{CompressionLevel, EncoderWorkspace, StaticEncoderWorkspace};
++
++const MAX_INPUT: usize = super::MAX_DECOMPRESSED_COMPRESSION_FRAME_BYTES as usize;
++const MAX_SCRATCH: usize = 32 * 1024 * 1024;
++
++struct Buffers {
++    scratch: ZeroizingBytes,
++    output: ZeroizingBytes,
++}
++
++thread_local! {
++    static BUFFERS: RefCell<Option<Buffers>> = const { RefCell::new(None) };
++}
++
++pub(crate) fn scoped<R>(operation: impl FnOnce() -> R) -> R {
++    struct Scope(bool);
++    impl Drop for Scope {
++        fn drop(&mut self) {
++            if self.0 {
++                let _ = BUFFERS.try_with(|slot| {
++                    // The encoder borrow ends before control returns to callers.
++                    // Drop wipes all scratch/output capacity, including rejected
++                    // compressed blocks, on success, error, and unwinding.
++                    slot.borrow_mut().take();
++                });
++            }
++        }
++    }
++    let owns = BUFFERS.try_with(|slot| {
++        let Ok(mut slot) = slot.try_borrow_mut() else { return false; };
++        if slot.is_some() { return false; }
++        *slot = Some(Buffers {
++            scratch: ZeroizingBytes::new(Vec::new()),
++            output: ZeroizingBytes::new(Vec::new()),
++        });
++        true
++    }).unwrap_or(false);
++    let _scope = Scope(owns);
++    operation()
++}
++
++pub(super) fn encode(input: &[u8], level: i32) -> Option<Vec<u8>> {
++    if !(64 * 1024..=MAX_INPUT).contains(&input.len()) { return None; }
++    let level = CompressionLevel::try_from(level).ok()?;
++    BUFFERS.try_with(|slot| {
++        let mut slot = slot.try_borrow_mut().ok()?;
++        let buffers = slot.as_mut()?;
++        let required = EncoderWorkspace::required_size(level, input.len()).ok()?;
++        if required > MAX_SCRATCH { return None; }
++        let output_size = EncoderWorkspace::required_output_size(input.len()).ok()?;
++        // Replace the whole zeroizing owner rather than reallocating a buffer
++        // that can still contain previous frame data outside its current length.
++        if buffers.scratch.len() < required {
++            buffers.scratch = ZeroizingBytes::new(vec![0; required]);
++        }
++        if buffers.output.len() < output_size {
++            buffers.output = ZeroizingBytes::new(vec![0; output_size]);
++        }
++        // Match the ordinary numeric encoder's parameters for this exact input
++        // length; only storage is reused, not parameters from an earlier frame.
++        let mut encoder = StaticEncoderWorkspace::new(&mut buffers.scratch, level, input.len()).ok()?;
++        let encoded = encoder.encode_into(input, &mut buffers.output).ok()?;
++        Some(encoded.to_vec())
++    }).ok().flatten()
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    #[test]
++    fn scoped_encoding_matches_numeric_encoder_across_frames_and_levels() {
++        assert!(encode(&vec![1; 65536], 3).is_none());
++        scoped(|| {
++            let mut state = 7u64;
++            for len in [65536, 262161, 131073, 2 * 1024 * 1024] {
++                let mixed: Vec<u8> = (0..len).map(|i| {
++                    state ^= state << 13; state ^= state >> 7; state ^= state << 17;
++                    if i % 131072 < 65536 { (i % 17) as u8 } else { state as u8 }
++                }).collect();
++                for level in 1..=22 {
++                    if len != 65536 && ![1, 3, 7].contains(&level) { continue; }
++                    let Some(encoded) = encode(&mixed, level) else {
++                        assert!(EncoderWorkspace::required_size(CompressionLevel::try_from(level).unwrap(), len).unwrap() > MAX_SCRATCH);
++                        continue;
++                    };
++                    assert_eq!(encoded, zstd_complete::encoding::compress_slice_c_level(&mixed, level));
++                    assert_eq!(super::super::decode_compression_frame(super::super::COMPRESSION_ZSTD, &encoded, len as u64).unwrap(), mixed);
++                }
++            }
++            scoped(|| assert!(encode(&vec![0; 65536], 3).is_some()));
++            assert!(BUFFERS.with(|slot| slot.borrow().is_some()));
++        });
++        assert!(BUFFERS.with(|slot| slot.borrow().is_none()));
++    }
++
++    #[test]
++    fn scope_releases_buffers_after_error_and_unwind() {
++        let result: Result<(), ()> = scoped(|| {
++            assert!(encode(&vec![3; 65536], 3).is_some());
++            Err(())
++        });
++        assert!(result.is_err());
++        assert!(BUFFERS.with(|slot| slot.borrow().is_none()));
++        let panic = std::panic::catch_unwind(|| scoped(|| {
++            assert!(encode(&vec![7; 65536], 3).is_some());
++            panic!("unwind through encoder scope");
++        }));
++        assert!(panic.is_err());
++        assert!(BUFFERS.with(|slot| slot.borrow().is_none()));
++        scoped(|| {
++            assert!(encode(&[0; 8], 3).is_none());
++            assert!(encode(&vec![0; 65536], 23).is_none());
++            assert!(encode(&vec![0; 65536], 3).is_some());
++        });
++    }
++}
+diff --git a/rust/revault_lockbox_api/src/lockbox/files.rs b/rust/revault_lockbox_api/src/lockbox/files.rs
+index 0f4d68f..30b5ae8 100644
+--- a/rust/revault_lockbox_api/src/lockbox/files.rs
++++ b/rust/revault_lockbox_api/src/lockbox/files.rs
+@@ -674,0 +675 @@ impl<State> Lockbox<State> {
++        crate::compression::with_encode_workspace(|| {
+@@ -692,0 +694 @@ impl<State> Lockbox<State> {
++        })
