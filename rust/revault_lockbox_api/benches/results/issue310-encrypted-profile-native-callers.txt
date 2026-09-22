@@ -1,0 +1,256 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 6K of event 'cycles:u'
+# Event count (approx.): 33420560757
+#
+# Overhead  Command          Shared Object                     Symbol
+# ........  ...............  ................................  .....................................................................................................................................................................................................................................................
+#
+    29.89%  protection_gate  protection_gate-4a1172c8e93f57fc  [.] protection_gate::main
+            |
+            ---protection_gate::main
+
+     8.17%  protection_gate  protection_gate-4a1172c8e93f57fc  [.] revault_lockbox_api::file_format::page_buffer::zeroize_bytes
+            |
+            ---revault_lockbox_api::file_format::page_buffer::zeroize_bytes
+               |
+               |--4.26%--alloc::sync::Arc<T,A>::drop_slow
+               |          <hashbrown::raw::RawTable<T,A> as core::ops::drop::Drop>::drop
+               |          core::ptr::drop_in_place<core::cell::RefCell<revault_lockbox_api::storage::page_cache::PageCache>>
+               |          core::ptr::drop_in_place<revault_lockbox_api::lockbox::Lockbox<revault_lockbox_api::lockbox::ReadOnly>>
+               |          protection_gate::main
+               |
+               |--2.12%--core::ptr::drop_in_place<revault_lockbox_api::file_format::page_buffer::ZeroizingBytes>
+               |          revault_lockbox_api::lockbox::files::FilePageWriter<State>::write_prepared_compression_frame
+               |          revault_lockbox_api::lockbox::files::FilePageWriter<State>::write_compression_frame
+               |          revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::add_file_with_permissions
+               |          protection_gate::main
+               |
+                --1.23%--revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_file_range
+                          protection_gate::main
+
+     6.42%  protection_gate  libc.so.6                         [.] __memcmp_avx2_movbe
+            |
+            ---__memcmp_avx2_movbe
+               protection_gate::main
+
+     6.05%  protection_gate  protection_gate-4a1172c8e93f57fc  [.] zstd_complete::kernel::dfast::compress_block
+            |
+            ---zstd_complete::kernel::dfast::compress_block
+               zstd_complete::encoding::levels::c_port::dfast::compress_block_double_fast_no_dict_with_state_and_loaded_dict
+               zstd_complete::encoding::levels::c_port::dfast_block::prepare_block_double_fast_no_dict_stored_with_state_and_loaded_dict
+               zstd_complete::encoding::levels::c_port::dfast_block::mode::append_block_double_fast_no_dict_with_state_and_policy_in_mode
+               zstd_complete::encoding::levels::c_port::dfast_frame::encode_frame_double_fast_no_dict_with_cctx_in
+               zstd_complete::encoding::levels::c_port::dfast_frame::encode_frame_double_fast_no_dict_with_cctx
+               zstd_complete::encoding::levels::c_port::dfast_frame::encode_frame_double_fast_no_dict
+               zstd_complete::encoding::levels::c_port::strategy_frame::encode_frame_no_dict
+               zstd_complete::encoding::compress_slice_c_level
+               revault_lockbox_api::compression::encode_with_compression
+               revault_lockbox_api::lockbox::file_import_pipeline::FileImportPipeline::prepare_payload
+               revault_lockbox_api::lockbox::file_import_pipeline::FileImportPipeline::prepare
+               revault_lockbox_api::lockbox::files::FilePageWriter<State>::write_compression_frame
+               revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::add_file_with_permissions
+               protection_gate::main
+
+     5.66%  protection_gate  libc.so.6                         [.] __memmove_avx_unaligned_erms
+            |
+            ---__memmove_avx_unaligned_erms
+               |
+               |--3.47%--<zstd_complete::decoding::frame_decoder::FrameDecoder as std::io::Read>::read
+               |          zstd_complete::decoding::frame_decoder::FrameDecoder::decode_all_with_window_limit_and_dictionary
+               |          zstd_complete::decoding::frame_decoder::FrameDecoder::decode_all_to_vec
+               |          revault_lockbox_api::compression::zstd_decode
+               |          revault_lockbox_api::compression::decode_compression_frame
+               |          revault_lockbox_api::file_format::indexed_frame::BlockFrameReader::read
+               |          revault_lockbox_api::file_format::indexed_frame::block_page::Reader::read
+               |          revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_native_block_chunk_with_cache
+               |          revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_file_chunk_range
+               |          revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_file_range
+               |          protection_gate::main
+               |
+                --1.44%--revault_lockbox_api::lockbox::files::NativeReadBytes::into_vec
+                          revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_native_block_chunk_with_cache
+                          revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_file_chunk_range
+                          revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_file_range
+                          protection_gate::main
+
+     3.79%  protection_gate  protection_gate-4a1172c8e93f57fc  [.] <twox_hash::xxhash64::Hasher as core::hash::Hasher>::write
+            |
+            ---<twox_hash::xxhash64::Hasher as core::hash::Hasher>::write
+               <zstd_complete::decoding::frame_decoder::FrameDecoder as std::io::Read>::read
+               zstd_complete::decoding::frame_decoder::FrameDecoder::decode_all_with_window_limit_and_dictionary
+               zstd_complete::decoding::frame_decoder::FrameDecoder::decode_all_to_vec
+               revault_lockbox_api::compression::zstd_decode
+               revault_lockbox_api::compression::decode_compression_frame
+               revault_lockbox_api::file_format::indexed_frame::BlockFrameReader::read
+               revault_lockbox_api::file_format::indexed_frame::block_page::Reader::read
+               revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_native_block_chunk_with_cache
+               revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_file_chunk_range
+               revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_file_range
+               protection_gate::main
+
+     3.66%  protection_gate  [unknown]                         [k] 0xffffffff9682c90e
+            |
+            ---0xffffffff9682c90e
+               0xffffffff96832b68
+               0xffffffff96838419
+               0xffffffff96839837
+               0xffffffff9687b358
+               0xffffffff9687eb6b
+               |
+                --3.66%--0xffffffff967fca72
+                          0xffffffff967fce8a
+                          0xffffffff967fe1fb
+                          0xffffffff967fe6c3
+                          0xffffffff967fea4e
+                          0xffffffff964173ae
+                          0xffffffff977222e3
+                          0xffffffff96000bb7
+                          |
+                          |--2.09%--__memmove_avx_unaligned_erms
+                          |          |
+                          |           --1.61%--<alloc::vec::Vec<T,A> as alloc::vec::spec_extend::SpecExtend<&T,core::slice::iter::Iter<T>>>::spec_extend
+                          |                     revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_file_range
+                          |                     protection_gate::main
+                          |
+                           --1.09%--zstd_complete::decoding::ringbuffer::RingBuffer::extend_from_within_unchecked
+                                     zstd_complete::decoding::decode_buffer::DecodeBuffer::repeat
+                                     zstd_complete::decoding::sequence_execution::execute_sequences
+                                     zstd_complete::decoding::frame_decoder::FrameDecoder::decode_all_with_window_limit_and_dictionary
+                                     zstd_complete::decoding::frame_decoder::FrameDecoder::decode_all_to_vec
+                                     revault_lockbox_api::compression::zstd_decode
+                                     revault_lockbox_api::compression::decode_compression_frame
+                                     revault_lockbox_api::file_format::indexed_frame::BlockFrameReader::read
+                                     revault_lockbox_api::file_format::indexed_frame::block_page::Reader::read
+                                     revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_native_block_chunk_with_cache
+                                     revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_file_chunk_range
+                                     revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_file_range
+
+     3.18%  protection_gate  protection_gate-4a1172c8e93f57fc  [.] zstd_complete::decoding::sequence_section_decoder::decode_sequences
+            |
+            ---zstd_complete::decoding::sequence_section_decoder::decode_sequences
+               zstd_complete::decoding::frame_decoder::FrameDecoder::decode_all_with_window_limit_and_dictionary
+               zstd_complete::decoding::frame_decoder::FrameDecoder::decode_all_to_vec
+               revault_lockbox_api::compression::zstd_decode
+               |
+                --3.13%--revault_lockbox_api::compression::decode_compression_frame
+                          |
+                           --3.12%--revault_lockbox_api::file_format::indexed_frame::BlockFrameReader::read
+                                     revault_lockbox_api::file_format::indexed_frame::block_page::Reader::read
+                                     revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_native_block_chunk_with_cache
+                                     revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_file_chunk_range
+                                     revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_file_range
+                                     protection_gate::main
+
+     3.05%  protection_gate  libc.so.6                         [.] __memset_avx2_unaligned_erms
+            |
+            ---__memset_avx2_unaligned_erms
+               |
+                --1.39%--zstd_complete::decoding::frame_decoder::FrameDecoder::decode_all_to_vec
+                          revault_lockbox_api::compression::zstd_decode
+                          revault_lockbox_api::compression::decode_compression_frame
+                          revault_lockbox_api::file_format::indexed_frame::BlockFrameReader::read
+                          revault_lockbox_api::file_format::indexed_frame::block_page::Reader::read
+                          revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_native_block_chunk_with_cache
+                          revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_file_chunk_range
+                          revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_file_range
+                          protection_gate::main
+
+     2.95%  protection_gate  protection_gate-4a1172c8e93f57fc  [.] zstd_complete::encoding::blocks::compressed::sequence_bitstream::encode_stored_sequences
+            |
+            ---zstd_complete::encoding::blocks::compressed::sequence_bitstream::encode_stored_sequences
+               zstd_complete::encoding::blocks::compressed::compress_c_stored_block_with_stats_impl
+               zstd_complete::encoding::levels::c_port::block_emit::append_stored_block_or_raw_deferred
+               zstd_complete::encoding::levels::c_port::dfast_block::encode_stored_words_block
+               zstd_complete::encoding::levels::c_port::dfast_block::mode::append_block_double_fast_no_dict_with_state_and_policy_in_mode
+               zstd_complete::encoding::levels::c_port::dfast_frame::encode_frame_double_fast_no_dict_with_cctx_in
+               zstd_complete::encoding::levels::c_port::dfast_frame::encode_frame_double_fast_no_dict_with_cctx
+               zstd_complete::encoding::levels::c_port::dfast_frame::encode_frame_double_fast_no_dict
+               zstd_complete::encoding::levels::c_port::strategy_frame::encode_frame_no_dict
+               zstd_complete::encoding::compress_slice_c_level
+               revault_lockbox_api::compression::encode_with_compression
+               revault_lockbox_api::lockbox::file_import_pipeline::FileImportPipeline::prepare_payload
+               revault_lockbox_api::lockbox::file_import_pipeline::FileImportPipeline::prepare
+               revault_lockbox_api::lockbox::files::FilePageWriter<State>::write_compression_frame
+               revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::add_file_with_permissions
+               protection_gate::main
+
+     2.86%  protection_gate  protection_gate-4a1172c8e93f57fc  [.] zstd_complete::encoding::levels::c_port::pre_split::Fingerprint::record
+            |
+            ---zstd_complete::encoding::levels::c_port::pre_split::Fingerprint::record
+               zstd_complete::encoding::levels::c_port::pre_split::FrameProgress::next_block_size
+
+     2.19%  protection_gate  protection_gate-4a1172c8e93f57fc  [.] zstd_complete::encoding::match_generator::sequence::<impl zstd_complete::encoding::match_generator::MatchGenerator>::next_sequence
+            |
+            ---zstd_complete::encoding::match_generator::sequence::<impl zstd_complete::encoding::match_generator::MatchGenerator>::next_sequence
+               zstd_complete::encoding::blocks::compressed::prepare_block
+               zstd_complete::encoding::blocks::compressed::compress_block_with_config
+               zstd_complete::encoding::levels::fastest::emit_matcher_block_or_raw
+               zstd_complete::encoding::frame_compressor::FrameCompressor<R,W,M>::compress
+               zstd_complete::encoding::compress_to_vec
+               revault_lockbox_api::compression::looks_incompressible
+               revault_lockbox_api::compression::encode_with_compression
+               revault_lockbox_api::lockbox::file_import_pipeline::FileImportPipeline::prepare_payload
+               revault_lockbox_api::lockbox::file_import_pipeline::FileImportPipeline::prepare
+               revault_lockbox_api::lockbox::files::FilePageWriter<State>::write_compression_frame
+
+     2.08%  protection_gate  protection_gate-4a1172c8e93f57fc  [.] zstd_complete::encoding::levels::c_port::pre_split::FrameProgress::next_block_size
+            |
+            ---zstd_complete::encoding::levels::c_port::pre_split::FrameProgress::next_block_size
+
+     1.71%  protection_gate  protection_gate-4a1172c8e93f57fc  [.] zstd_complete::fse::fse_decoder::FSETable::build_decoding_table
+            |
+            ---zstd_complete::fse::fse_decoder::FSETable::build_decoding_table
+               |
+                --1.56%--zstd_complete::fse::fse_decoder::FSETable::build_decoder
+                          zstd_complete::decoding::sequence_section_decoder::decode_sequences
+                          zstd_complete::decoding::frame_decoder::FrameDecoder::decode_all_with_window_limit_and_dictionary
+                          zstd_complete::decoding::frame_decoder::FrameDecoder::decode_all_to_vec
+                          revault_lockbox_api::compression::zstd_decode
+                          revault_lockbox_api::compression::decode_compression_frame
+                          revault_lockbox_api::file_format::indexed_frame::BlockFrameReader::read
+                          revault_lockbox_api::file_format::indexed_frame::block_page::Reader::read
+                          revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_native_block_chunk_with_cache
+                          revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_file_chunk_range
+                          revault_lockbox_api::lockbox::files::<impl revault_lockbox_api::lockbox::Lockbox<State>>::read_file_range
+
+     1.49%  protection_gate  [unknown]                         [k] 0xffffffff96834be1
+            |
+            ---0xffffffff96834be1
+               0xffffffff96834f02
+               0xffffffff9683616d
+               0xffffffff96838182
+               0xffffffff96839837
+               0xffffffff9687b358
+               0xffffffff9687eb6b
+               0xffffffff967fca72
+               0xffffffff967fce8a
+               0xffffffff967fe1fb
+               0xffffffff967fe6c3
+               0xffffffff967fea4e
+               0xffffffff964173ae
+               0xffffffff977222e3
+               0xffffffff96000bb7
+
+     1.01%  protection_gate  protection_gate-4a1172c8e93f57fc  [.] zstd_complete::encoding::blocks::compressed::sequence_tables::selection::c_fast::choose_c_dfast_u32_sequence_table_modes
+            |
+            ---zstd_complete::encoding::blocks::compressed::sequence_tables::selection::c_fast::choose_c_dfast_u32_sequence_table_modes
+               zstd_complete::encoding::blocks::compressed::compress_c_stored_block_with_stats_impl
+               zstd_complete::encoding::levels::c_port::block_emit::append_stored_block_or_raw_deferred
+               zstd_complete::encoding::levels::c_port::dfast_block::encode_stored_words_block
+               zstd_complete::encoding::levels::c_port::dfast_block::mode::append_block_double_fast_no_dict_with_state_and_policy_in_mode
+               zstd_complete::encoding::levels::c_port::dfast_frame::encode_frame_double_fast_no_dict_with_cctx_in
+               zstd_complete::encoding::levels::c_port::dfast_frame::encode_frame_double_fast_no_dict_with_cctx
+               zstd_complete::encoding::levels::c_port::dfast_frame::encode_frame_double_fast_no_dict
+               zstd_complete::encoding::levels::c_port::strategy_frame::encode_frame_no_dict
+               zstd_complete::encoding::compress_slice_c_level
+               revault_lockbox_api::compression::encode_with_compression
+
+
+
+#
+# (Cannot load tips.txt file, please install perf!)
+#

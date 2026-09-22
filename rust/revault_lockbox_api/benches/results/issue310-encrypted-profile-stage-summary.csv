@@ -1,0 +1,15 @@
+layout,metric,median_us,samples
+native,add_minus_prepare_us,3768.345,499
+native,add_us,8036.888,499
+native,commit_us,7793.125,499
+native,create_us,2089.291,499
+native,host_read_us,0.000,499
+native,page_write_us,2249.742,499
+native,prepare_us,4082.591,499
+default,add_minus_prepare_us,671.337,499
+default,add_us,4465.835,499
+default,commit_us,8886.981,499
+default,create_us,2039.100,499
+default,host_read_us,0.000,499
+default,page_write_us,22.130,499
+default,prepare_us,3796.675,499
