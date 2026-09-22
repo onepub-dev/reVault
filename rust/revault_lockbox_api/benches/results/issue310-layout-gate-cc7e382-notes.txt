@@ -1,0 +1,59 @@
+Issue #310: refresh native/default write comparison after common optimizations
+Source revision: cc7e382. Evidence only; no production changes in this checkpoint.
+Default protection_gate SHA256:
+73929f51456f73b2cd57ebf571299f88cba561a4a648c908e8af8aa19050ab9e
+Native protection_gate SHA256:
+f37a128f8001f7df551dddc52713311a9b7b7e3942af8b5c52dc50dc50b7f9ba
+Both freshly built from identical current source. Native alone enables the
+native-block-layout feature. CSV main=default, branch=native; this is a layout
+comparison, not a before/after measurement of any individual optimization.
+
+Protocol intentionally repeats the 50cccad gate: 8 MiB, pattern/random input,
+four protection modes, raw/compressed, default padding, synthetic content keys,
+no password KDF. Five ABBA/BAAB groups per corpus, three samples per child,
+first sample discarded. 320 measured rows per corpus, 640 broad rows total.
+Command: REVAULT_GATE_CHILD_SAMPLES=3 taskset -c 2 NATIVE compare-write DEFAULT
+NATIVE ROOT 8388608 pattern|random 5 all
+
+Prespecified focus: encrypted-signed/compressed/pattern, 15 ABBA/BAAB groups,
+six samples per child, first discarded: 300 additional measured rows.
+Command: REVAULT_GATE_CHILD_SAMPLES=6 taskset -c 2 NATIVE compare-write DEFAULT
+NATIVE ROOT 8388608 pattern 15 encrypted-signed/true/write
+All create/add/commit/drop timings exclude key generation and verification.
+Every write, including warmups, is independently reopened and every input byte
+compared outside the timer. CPU 2, warm OS caches, no owned builds/tests overlap.
+Unrelated host activity was not controlled. These are not ZIP comparisons or
+power-loss durability/lifecycle checks.
+
+Broad results: raw pattern cases reduce central write time 41.5-52.8%; random
+input reduces it 45.5-62.5% across all protection/compression cases. Bootstrap
+95% upper bounds are below zero for every such case. Compressed pattern cases
+have central changes from -0.08% to +8.70%, with wide intervals and all upper
+bounds above +5%. Broad data alone does not establish compressed non-regression.
+
+Focused result: +6.378% paired write time, bootstrap 95% [+1.064%, +9.837%].
+Pooled medians: default 23.185498 ms; native 24.939891 ms.
+The <=5% non-regression gate remains FAILED because its upper bound exceeds +5%.
+This supports a slowdown, but does not establish a true slowdown above 5% at
+95% confidence. The earlier 50cccad focus was +7.773% [+2.718%, +10.205%]; the
+new result does not close that gap. Different sessions and source revisions
+must not be pooled or used to attribute changes to one optimization.
+
+Summaries use the existing protection_gate implementation: per-group median
+native/default ratio, median across groups, 5000 deterministic bootstrap samples
+of whole groups, 2.5%/97.5% limits. Child samples are not treated as independent
+groups. Pooled medians are descriptive and differ from paired estimates.
+
+All 940 measured rows plus 380 warmup writes passed persisted byte verification.
+Both release builds succeeded. No new correctness suite is claimed for this
+evidence-only checkpoint; cc7e382 already records default + external-source
+345 unit tests passing, native 350 passing plus two known recovery failures,
+and all-targets Clippy passing.
+
+Next write investigation remains native per-frame preparation/flush interaction.
+Prior stage data points there but does not establish causality: codec preparation
+counters overlap with other work and default encoding can defer into commit.
+Any batching experiment must preserve bounded memory, preparation-before-write,
+reused-extent recovery, abort, and public reads immediately after add_file.
+Read parity, cold I/O, write lifecycles, signed recovery and migration/binding/
+release gates remain unresolved. Native layout remains opt-in.
