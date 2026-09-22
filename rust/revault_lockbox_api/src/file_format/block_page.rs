@@ -174,8 +174,25 @@ fn encode_packet(
     decode_compression_frame_manifest(&manifest_bytes)?;
     let mut metadata = ZeroizingBytes::new(descriptor.encode()?.to_vec());
     metadata.extend_from_slice(&manifest_bytes);
-    let (codec, stored) =
-        crate::compression::encode_with_compression(&metadata, identity.mode.options().compression);
+    // If raw metadata already fits the smallest padded allocation even an empty
+    // compressed stream could achieve, compression cannot save physical space.
+    // Preserve compression for unpadded pages and whenever it could save a page.
+    let mut compression = identity.mode.options().compression;
+    if compression != crate::Compression::None && !identity.mode.unpadded() {
+        let prefix_len = PAGE_HEADER_LEN + 9 + if identity.mode.plaintext() { 32 } else { 16 };
+        let minimum_used = prefix_len
+            .checked_add(packet.len())
+            .ok_or(Error::CorruptRecord)?;
+        let raw_allocation = minimum_used
+            .checked_add(metadata.len())
+            .and_then(|len| page_size_for_stored_len(len, DEFAULT_DATA_PAGE_BYTES).ok());
+        let minimum_allocation =
+            page_size_for_stored_len(minimum_used, DEFAULT_DATA_PAGE_BYTES).ok();
+        if raw_allocation.is_some() && raw_allocation == minimum_allocation {
+            compression = crate::Compression::None;
+        }
+    }
+    let (codec, stored) = crate::compression::encode_with_compression(&metadata, compression);
     let stored = ZeroizingBytes::new(stored);
     let mut body = ZeroizingBytes::new(vec![codec]);
     body.extend_from_slice(&(metadata.len() as u64).to_le_bytes());
@@ -605,6 +622,105 @@ mod tests {
     use crate::{
         Compression, EncryptionMode, LockboxFormatOptions, LockboxPath, SigningMode, SizePadding,
     };
+
+    #[test]
+    fn metadata_codec_skips_only_compression_that_cannot_save_padded_space() {
+        let input = vec![37; 4096];
+        let key = [9; 32];
+        for encryption in [EncryptionMode::None, EncryptionMode::ChaCha20Poly1305] {
+            for signing in [SigningMode::None, SigningMode::Owner] {
+                for size_padding in [SizePadding::Default, SizePadding::None] {
+                    for count in [1, 128] {
+                        let mode = FormatMode::new(LockboxFormatOptions {
+                            encryption,
+                            signing,
+                            size_padding,
+                            compression: Compression::default(),
+                        });
+                        let identity = PageIdentity {
+                            archive: LockboxId::new_random().unwrap(),
+                            mode,
+                            page_id: 3,
+                            sequence: 7,
+                        };
+                        let slice_len = input.len() / count;
+                        let slices = (0..count)
+                            .map(|index| CompressionFrameSlice {
+                                path: LockboxPath::new(format!("/folder/file-{index:03}")).unwrap(),
+                                permissions: 0o600,
+                                total_len: slice_len as u64,
+                                file_offset: 0,
+                                compression_frame_offset: (index * slice_len) as u64,
+                                len: slice_len as u64,
+                            })
+                            .collect();
+                        let (descriptor, page) = encode(identity, 2, &input, slices, &key).unwrap();
+                        let metadata_len = read_u64_le(&page[56..64]).unwrap() as usize;
+                        let protection_len = if mode.plaintext() { 32 } else { 16 };
+                        let protected = &page[PAGE_HEADER_LEN..PAGE_HEADER_LEN + metadata_len];
+                        let body = ZeroizingBytes::new(if mode.plaintext() {
+                            protected[32..].to_vec()
+                        } else {
+                            open_with_nonce(
+                                protected,
+                                &key,
+                                &page[32..44],
+                                &metadata_aad(identity, &page[..PAGE_HEADER_LEN]),
+                            )
+                            .unwrap()
+                        });
+                        let logical_len = read_u64_le(&body[1..9]).unwrap();
+                        let metadata = ZeroizingBytes::new(
+                            crate::compression::decode_compression_frame(
+                                body[0],
+                                &body[9..],
+                                logical_len,
+                            )
+                            .unwrap(),
+                        );
+                        let (old_codec, old_stored) = crate::compression::encode_with_compression(
+                            &metadata,
+                            Compression::default(),
+                        );
+                        assert_ne!(
+                            old_codec,
+                            crate::compression::COMPRESSION_NONE,
+                            "fixture must offer logical compression savings"
+                        );
+                        let packet_len =
+                            read_u32_le(&page[44..48]).unwrap() as usize - metadata_len;
+                        let previous_used =
+                            PAGE_HEADER_LEN + 9 + protection_len + old_stored.len() + packet_len;
+                        let previous_physical = if mode.unpadded() {
+                            previous_used
+                        } else {
+                            page_size_for_stored_len(previous_used, DEFAULT_DATA_PAGE_BYTES)
+                                .unwrap()
+                        };
+                        assert_eq!(
+                            page.len(),
+                            previous_physical,
+                            "codec selection must preserve the allocation"
+                        );
+                        assert_eq!(
+                            body[0],
+                            if !mode.unpadded() && count == 1 {
+                                crate::compression::COMPRESSION_NONE
+                            } else {
+                                old_codec
+                            }
+                        );
+                        let physical_len = page.len();
+                        let storage = StorageBackend::memory(page);
+                        let reader =
+                            Reader::open(&storage, 0, identity, &descriptor, physical_len, &key)
+                                .unwrap();
+                        assert_eq!(reader.read(0..input.len() as u64).unwrap(), input);
+                    }
+                }
+            }
+        }
+    }
 
     #[test]
     fn native_scanning_skips_embedded_legacy_records_and_keeps_following_pages() {

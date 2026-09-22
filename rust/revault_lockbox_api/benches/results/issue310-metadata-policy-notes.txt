@@ -1,0 +1,77 @@
+Issue #310 metadata compression versus physical padding, 2026-09-22
+Before: f1744bd pre-format executable, SHA256
+  b53454de9487195a0c4f6ba1a9eb3c05b6fb9b79232b2ccea79bbedb66e5de67
+After: accompanying final policy, pre-format executable, SHA256
+  a8948e32d92b8a126652c7899e52dd218a5fc1667a1fe7e0ba630be8cfec60ba
+
+Native page metadata previously attempted compression independently of whether
+it could reduce the padded allocation. With compression enabled and padding on,
+compute the smallest possible allocation for the header, codec/length prefix,
+protection overhead and data packet, allowing a hypothetical empty compressed
+metadata stream. If raw metadata fits that same allocation, compression cannot
+save physical space: emit the already-supported uncompressed metadata codec.
+Otherwise retain the previous codec selection. Do not do the sizing calculation
+for compression-disabled or unpadded pages. Data compression is unchanged.
+
+The rule is conservative: it skips codec work only when space savings are
+impossible, without first spending CPU on a compressed candidate. It does not
+introduce a format, codec or API change. Existing metadata authentication,
+committed index/data verification, padding, and decoding paths remain intact.
+
+The new codec test covers encryption, signing and both padding choices with a
+single-file and a 128-slice manifest. It recompresses identical logical metadata
+using the former selection rule, asserts identical physical page size, verifies
+uncompressed metadata only in the proven no-saving case, preserves compression
+when it saves space and for unpadded pages, and decodes exact file bytes.
+
+Final measurement files:
+- issue310-metadata-policy-reads.csv: 384 rows.
+- issue310-metadata-policy-writes.csv: 192 creation/add/commit/close rows.
+- issue310-metadata-policy-write-controls.csv: 480 additional write control rows.
+All rows were collected after the final successful release build. Both binaries
+use the unchanged zip_read benchmark. Build with cargo bench -p revault_lockbox_api
+--features native-block-layout --bench zip_read --no-run.
+
+Main protocol: CASE=small, ACCESS=whole, SAMPLES=5, WRITE_PROFILE=1; iterate MODE
+plain/encrypted/signed/encrypted-signed, CREATE_PROFILE Interactive/BulkImport,
+CORPUS pattern/random. Leave PROFILE and COMPRESSION unset to cover both values.
+Use the REVAULT_ZIP_READ_ prefix for these environment names. Repeat three times;
+run before then after within each case, reversing phase order on the second run.
+Prepend phase/create_profile/run to read CSV and phase/run to write CSV. Each phase
+byte-verifies 491520 file results (1920 MiB) per implementation via fresh archive
+handles; OS caches are warm. File count is 512, bytes per file 4096.
+
+Controls: twenty alternating before/after pairs, MODE signed/encrypted-signed,
+CORPUS pattern/random, and the three unchanged policy families:
+Interactive + compression=false, BulkImport + compression=false/true.
+PROFILE=Interactive, SAMPLES=1, other settings as above. Each of 480 fixtures is
+reopened and every file byte checked by both implementations (960 MiB each).
+This addresses variability visible in signature-heavy three-run write samples;
+it is not evidence for all write workloads or a formal non-regression gate.
+
+Medians of the three per-run medians in the main matrix:
+- Plain Interactive compressed reads: 1.157-1.183x faster; writes 1.185-1.216x.
+  After/ZIP read ratios: 0.954-0.993.
+- Plain Interactive uncompressed after/ZIP: 0.977-0.999; plain BulkImport across
+  compression settings: 0.791-0.967. This small whole-file workload approaches
+  parity in plain mode, but does not show a 10% lead in every case.
+- Protected Interactive compressed read speedups: 1.066-1.173x; write speedups:
+  1.121-1.161x. These are comparisons with the previous lockbox binary, not a
+  claim that protected archives match unprotected ZIP performance.
+- Expanded unchanged signed-write control speedups: 0.963-1.022x. Large apparent
+  slowdowns in some three-run cells did not persist in the larger control set;
+  smaller mixed timing changes remain and must not be hidden.
+
+Validation before commit-time formatting:
+- Full default library: 339 passed, five ignored.
+- Full native + external library: 344 passed, two known recovery failures,
+  five ignored. No additional failures.
+- After the final unchanged-path guard/checked-sizing refinement: all six native
+  page tests pass; native-focused suite has 28 passes and the same signed-neighbor
+  recovery failure. Strict native + external library/tests Clippy passed.
+- Final release build, main matrix and twenty-pair signed controls completed.
+
+Remaining gates include Read/Seek/range/large-file and cold-OS-cache performance,
+full write lifecycles, the two authentication-after-data-loss recovery failures,
+migration/binding/public-CLI activation and release work. This does not activate
+the native layout by default or complete issue #310.
