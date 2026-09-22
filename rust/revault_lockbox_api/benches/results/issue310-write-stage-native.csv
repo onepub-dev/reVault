@@ -1,0 +1,16 @@
+phase,mode,compressed,size,corpus,sample,open_us,read_us,total_us,archive_bytes
+write,encrypted-signed,true,8388608,pattern,0,0.000,0.000,33826.462,326016
+write,encrypted-signed,true,8388608,pattern,1,0.000,0.000,27443.767,326016
+write,encrypted-signed,true,8388608,pattern,2,0.000,0.000,21984.261,326016
+write,encrypted-signed,true,8388608,pattern,3,0.000,0.000,22975.956,326016
+write,encrypted-signed,true,8388608,pattern,4,0.000,0.000,22868.447,326016
+write,encrypted-signed,true,8388608,pattern,5,0.000,0.000,23770.963,326016
+write,encrypted-signed,true,8388608,pattern,6,0.000,0.000,21280.113,326016
+write,encrypted-signed,true,8388608,pattern,7,0.000,0.000,21346.013,326016
+write,encrypted-signed,true,8388608,pattern,8,0.000,0.000,22024.640,326016
+write,encrypted-signed,true,8388608,pattern,9,0.000,0.000,22028.710,326016
+write,encrypted-signed,true,8388608,pattern,10,0.000,0.000,21604.021,326016
+write,encrypted-signed,true,8388608,pattern,11,0.000,0.000,23407.205,326016
+write,encrypted-signed,true,8388608,pattern,12,0.000,0.000,22154.830,326016
+write,encrypted-signed,true,8388608,pattern,13,0.000,0.000,25412.056,326016
+write,encrypted-signed,true,8388608,pattern,14,0.000,0.000,21657.842,326016

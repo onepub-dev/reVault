@@ -1,0 +1,15 @@
+write-profile,encrypted-signed,true,8388608,pattern,0,create_us=16246.573,add_us=19100.472,commit_us=9179.992,prepare_us=11030.814,page_write_us=24.640,host_read_us=1382.094
+write-profile,encrypted-signed,true,8388608,pattern,1,create_us=2834.099,add_us=12132.570,commit_us=8603.334,prepare_us=7954.097,page_write_us=14.790,host_read_us=1206.597
+write-profile,encrypted-signed,true,8388608,pattern,2,create_us=2865.529,add_us=9350.151,commit_us=8838.914,prepare_us=6608.393,page_write_us=16.270,host_read_us=435.897
+write-profile,encrypted-signed,true,8388608,pattern,3,create_us=4001.894,add_us=11138.714,commit_us=10355.748,prepare_us=7852.118,page_write_us=24.290,host_read_us=631.417
+write-profile,encrypted-signed,true,8388608,pattern,4,create_us=2901.248,add_us=9347.922,commit_us=10970.585,prepare_us=6616.304,page_write_us=15.920,host_read_us=446.908
+write-profile,encrypted-signed,true,8388608,pattern,5,create_us=3890.134,add_us=9354.732,commit_us=8713.044,prepare_us=6613.072,page_write_us=17.650,host_read_us=443.219
+write-profile,encrypted-signed,true,8388608,pattern,6,create_us=3331.197,add_us=9521.831,commit_us=9009.413,prepare_us=6665.523,page_write_us=17.210,host_read_us=477.727
+write-profile,encrypted-signed,true,8388608,pattern,7,create_us=2831.669,add_us=9816.220,commit_us=8704.464,prepare_us=6922.930,page_write_us=17.370,host_read_us=547.709
+write-profile,encrypted-signed,true,8388608,pattern,8,create_us=3577.105,add_us=9455.981,commit_us=8986.924,prepare_us=6677.332,page_write_us=16.009,host_read_us=457.960
+write-profile,encrypted-signed,true,8388608,pattern,9,create_us=3255.946,add_us=9347.282,commit_us=9164.563,prepare_us=6620.803,page_write_us=15.760,host_read_us=436.677
+write-profile,encrypted-signed,true,8388608,pattern,10,create_us=3521.836,add_us=9424.731,commit_us=14985.349,prepare_us=6670.993,page_write_us=14.350,host_read_us=458.277
+write-profile,encrypted-signed,true,8388608,pattern,11,create_us=2814.098,add_us=9313.442,commit_us=14964.429,prepare_us=6572.344,page_write_us=15.730,host_read_us=446.069
+write-profile,encrypted-signed,true,8388608,pattern,12,create_us=3498.536,add_us=9267.792,commit_us=8743.824,prepare_us=6551.204,page_write_us=14.360,host_read_us=428.708
+write-profile,encrypted-signed,true,8388608,pattern,13,create_us=4604.061,add_us=9320.652,commit_us=9784.250,prepare_us=6589.062,page_write_us=15.880,host_read_us=439.719
+write-profile,encrypted-signed,true,8388608,pattern,14,create_us=2771.779,add_us=9349.912,commit_us=9776.180,prepare_us=6599.033,page_write_us=14.820,host_read_us=445.288

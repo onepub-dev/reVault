@@ -5,6 +5,7 @@
 //! REVAULT_GATE_NO_SIZE_PADDING=1 selects compact creation (use a separate ROOT).
 //! compare-padding EXE EXE ROOT SIZE CORPUS PAIRS CASE reads ROOT/default and
 //! ROOT/none with the SAME binary, labeling the variants padded/unpadded.
+//! REVAULT_GATE_WRITE_PROFILE=1 emits write-stage diagnostics to stderr.
 use revault_lockbox_api::{
     Compression, ContentStreamOptions, Encryption, Lockbox, LockboxCreateOptions, LockboxOpen,
     LockboxPath, LockboxProtection, OwnerSigningKeyPair, SecretVec, Signing,
@@ -31,6 +32,8 @@ fn main() {
         "read" => false,
         _ => panic!("phase"),
     };
+    let write_profile =
+        writing && std::env::var("REVAULT_GATE_WRITE_PROFILE").is_ok_and(|v| v == "1");
     let size_padding = if std::env::var("REVAULT_GATE_NO_SIZE_PADDING").is_ok_and(|v| v == "1") {
         revault_lockbox_api::SizePadding::None
     } else {
@@ -103,6 +106,7 @@ fn main() {
                 fs::remove_file(&file).unwrap();
             }
             let started = Instant::now();
+            let mut write_stages = None;
             let (open_us, read_us, phase);
             if writing {
                 let mut lb = Lockbox::create_file_with_options(
@@ -131,8 +135,18 @@ fn main() {
                     },
                 )
                 .unwrap();
+                let created = write_profile.then(Instant::now);
                 lb.add_file(&path, &payload, false).unwrap();
+                let added = write_profile.then(Instant::now);
                 lb.commit().unwrap();
+                if let (Some(created), Some(added)) = (created, added) {
+                    write_stages = Some((
+                        created.duration_since(started),
+                        added.duration_since(created),
+                        added.elapsed(),
+                        lb.import_stats(),
+                    ));
+                }
                 drop(lb);
                 open_us = 0.0;
                 read_us = 0.0;
@@ -210,6 +224,12 @@ fn main() {
                 drop(lb);
             }
             let total_us = started.elapsed().as_secs_f64() * 1e6;
+            if let Some((create, add, commit, stats)) = write_stages {
+                eprintln!("write-profile,{mode},{compressed},{size},{corpus},{sample},create_us={:.3},add_us={:.3},commit_us={:.3},prepare_us={:.3},page_write_us={:.3},host_read_us={:.3}",
+                    create.as_secs_f64() * 1e6, add.as_secs_f64() * 1e6,
+                    commit.as_secs_f64() * 1e6, stats.frame_prepare_nanos as f64 / 1000.0,
+                    stats.page_write_nanos as f64 / 1000.0, stats.host_read_nanos as f64 / 1000.0);
+            }
             let disk_len = fs::metadata(&file).unwrap().len();
             if writing {
                 // Independent persisted readback, outside the write timer.
