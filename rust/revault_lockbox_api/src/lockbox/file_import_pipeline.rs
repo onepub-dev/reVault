@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use zeroize::{Zeroize, Zeroizing};
+use crate::page_buffer::{zeroize_bytes, ZeroizingBytes};
 
 use crate::compression::encode_compression_frame_with_level;
 use crate::compression_frame_manifest::CompressionFrameSlice;
@@ -36,7 +36,7 @@ pub(super) struct PreparedCompressionFrame {
     pub(super) compressed_len: u64,
     pub(super) integrity: PreparedFrameIntegrity,
     pub(super) slices: Vec<CompressionFrameSlice>,
-    pub(super) stored: Zeroizing<Vec<u8>>,
+    pub(super) stored: ZeroizingBytes,
     pub(super) prepare_nanos: u128,
 }
 
@@ -76,7 +76,7 @@ pub(super) struct ParallelCompressionJob {
 
 impl Drop for ParallelCompressionJob {
     fn drop(&mut self) {
-        self.data.zeroize();
+        zeroize_bytes(&mut self.data);
     }
 }
 
@@ -205,8 +205,8 @@ impl FileImportPipeline {
             Some(compression) => crate::compression::encode_with_compression(&payload, compression),
             None => encode_compression_frame_with_level(&payload, self.zstd_level),
         };
-        payload.zeroize();
-        let stored = Zeroizing::new(stored);
+        zeroize_bytes(&mut payload);
+        let stored = ZeroizingBytes::new(stored);
         let integrity = if self.native_blocks {
             PreparedFrameIntegrity::NativeBlocksPending
         } else {

@@ -1,0 +1,75 @@
+Issue #310: reuse the byte-buffer wipe in the import pipeline
+
+Production baseline: 4ff9094.
+Baseline native protection_gate SHA256:
+bd1668c37cd935519b2748dea41fa8833a4add2553d1391abccba8170ebc9afa
+Candidate native protection_gate SHA256 (before commit formatting):
+d84c44a486e61863780fe222b52fa3b2f778ef0b56f8adfbf46639bf306eee3e
+Both are release builds from identical benchmark source with native-block-layout.
+
+A broad exploratory CPU profile of 800 writes (8 MiB pattern, all four protection
+modes, raw/compressed, 100 samples) identified import preparation and generic
+Zeroizing<Vec<u8>> destruction as significant costs: 9.41% and 7.19% self samples,
+respectively. The profile includes fixture preparation and independently reopened
+byte verification, so these percentages are not pure write-time attribution.
+Kernel symbols were unavailable. No builds/tests overlapped profiling.
+
+Change: FileImportPipeline now uses the existing ZeroizingBytes for prepared
+stored bytes and zeroize_bytes for the consumed preparation payload and dropped
+parallel job payload. This reuses the tested wide volatile-write implementation,
+including spare-capacity wiping and compiler fences. It removes no wiping,
+integrity, signing, encryption or format checks. Codec selection/bytes and all
+serialization are unchanged. The change applies to both layout implementations;
+these performance comparisons measure the native layout only.
+
+Existing wipe tests check unaligned regions, untouched neighboring bytes, empty
+buffers, truncated buffers and full spare capacity. Existing import tests cover
+serial/parallel preparation, all protection/padding/compression modes, raw
+fallback, exact stored codec bytes, independent decoding, fresh retry salts and
+malformed prepared frames. No implementation-mirroring tests were added.
+
+Broad matrices: issue310-import-wipe-pattern.csv and -random.csv, 320 measured
+rows each. Five ABBA/BAAB paired groups, three child samples with the first
+excluded as warmup, four protection modes, raw/compressed, 8 MiB input, default
+padding, synthetic content keys and no password KDF. Run on CPU 2 using:
+REVAULT_GATE_CHILD_SAMPLES=3 taskset -c 2 CANDIDATE compare-write BASELINE CANDIDATE
+ROOT 8388608 pattern|random 5 all
+Every timed create/add/commit/drop is followed by independent reopening and
+byte comparison outside the write timer. Signature-key generation is excluded.
+These are Lockbox-to-Lockbox write comparisons, not ZIP or fsync durability tests.
+
+Broad central paired reductions are 14.1-28.6%. All eight random-corpus 95%
+intervals lie below zero. Four of eight pattern intervals still cross zero;
+those groups do not individually establish an improvement. Five paired groups
+have limited statistical precision. Unrelated host workloads were active; this
+thread ran no builds or tests during timings. ABBA/BAAB pairing reduces but does
+not eliminate that variability. Preserve all observations and bootstrap summaries.
+
+Focused follow-up: compressed encrypted-signed pattern writes, 15 paired groups,
+six child samples (first excluded). Same command with CHILD_SAMPLES=6 and final
+arguments '8388608 pattern 15 encrypted-signed/true/write'. The CSV contains 300
+measured rows. This compares the changed native writer to its immediate native
+baseline; it does not by itself close the older native-versus-default gate.
+
+Validation:
+- Default cargo test: 340 unit tests passed, 5 ignored; all executed integration
+  and documentation suites passed.
+- Native + external-source library tests: 347 passed, 2 known recovery failures,
+  5 ignored. No additional failures.
+- All-targets native + external-source Clippy with -D warnings passed.
+- Native benchmark release build succeeded.
+Initial validation attempts logged to /tmp, which filled its shared quota. Those
+terminated attempts are not counted. The results above come from complete
+subsequent runs with TMPDIR and logs in the worktree target directory.
+
+Known failures remain recovery_skips_truncated_tail_and_keeps_prior_intact_files
+and native_file_writer_commits_and_reopens_multiframe_files_in_all_modes. Native
+layout remains opt-in. Read ZIP parity, full write lifecycles, signed recovery,
+migration/binding/release gates and the overall objective remain unfinished.
+
+Focused result: paired change -15.169%, 95% interval [-19.159%, -14.033%],
+15 groups. Pooled medians: baseline 37.906 ms, candidate 32.010 ms.
+The confidence interval supports retaining this change for the target workload.
+All 940 measured broad/focused rows plus their warmups independently reopened
+and verified the persisted input bytes. Other write sizes, small-many lifecycles
+and default-layout performance remain separate gates.
