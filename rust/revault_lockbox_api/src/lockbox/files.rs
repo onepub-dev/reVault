@@ -1100,6 +1100,17 @@ impl<State> Lockbox<State> {
         chunk: &FileChunk,
         range: std::ops::Range<u64>,
     ) -> Result<Vec<u8>> {
+        self.read_native_block_chunk_with_cache(expected_total_len, chunk, range, true)
+    }
+
+    #[cfg(any(test, feature = "native-block-layout"))]
+    fn read_native_block_chunk_with_cache(
+        &self,
+        expected_total_len: u64,
+        chunk: &FileChunk,
+        range: std::ops::Range<u64>,
+        cache_single_frames: bool,
+    ) -> Result<Vec<u8>> {
         let reader = self.open_native_block_chunk(expected_total_len, chunk)?;
         let start = chunk
             .compression_frame_offset
@@ -1123,6 +1134,7 @@ impl<State> Lockbox<State> {
         // expand a partial raw range just to populate the cache. Compressed
         // reads already decode the complete frame.
         if self.should_cache_decoded_compression_frame(frame_len)
+            && (cache_single_frames || reader.slices().len() > 1)
             && (chunk.compression != COMPRESSION_NONE
                 || (range.start == 0 && range.end == chunk.len))
         {
@@ -1639,6 +1651,19 @@ impl<State> Lockbox<State> {
     where
         F: FnMut(ContentChunk, &mut dyn Read) -> Result<()>,
     {
+        // A sequential pass larger than the cache evicts single-file frames
+        // before a later pass can reuse them. Packed frames still benefit
+        // neighboring slices within this pass.
+        #[cfg(any(test, feature = "native-block-layout"))]
+        let stream_len = self
+            .toc_entries
+            .values()
+            .filter(|entry| !entry.deleted && entry.node_kind == NodeKind::File)
+            .fold(0u64, |total, entry| total.saturating_add(entry.len));
+        #[cfg(any(test, feature = "native-block-layout"))]
+        let cache_single_frames = stream_len <= self.decoded_compression_frame_cache_limit() as u64;
+        #[cfg(not(any(test, feature = "native-block-layout")))]
+        let cache_single_frames = false;
         match options.order {
             ContentStreamOrder::Logical => {
                 for entry in self.toc_entries.values() {
@@ -1658,6 +1683,7 @@ impl<State> Lockbox<State> {
                                     chunk: None,
                                 },
                                 &mut visitor,
+                                cache_single_frames,
                             )?;
                         }
                         continue;
@@ -1665,7 +1691,7 @@ impl<State> Lockbox<State> {
                     let mut items = Vec::new();
                     collect_content_stream_items(entry, &mut items)?;
                     for item in items {
-                        self.visit_content_stream_item(item, &mut visitor)?;
+                        self.visit_content_stream_item(item, &mut visitor, cache_single_frames)?;
                     }
                 }
             }
@@ -1699,14 +1725,19 @@ impl<State> Lockbox<State> {
                         .then_with(|| left.file_offset.cmp(&right.file_offset))
                 });
                 for item in items {
-                    self.visit_content_stream_item(item, &mut visitor)?;
+                    self.visit_content_stream_item(item, &mut visitor, cache_single_frames)?;
                 }
             }
         }
         Ok(())
     }
 
-    fn visit_content_stream_item<F>(&self, item: ContentStreamItem, visitor: &mut F) -> Result<()>
+    fn visit_content_stream_item<F>(
+        &self,
+        item: ContentStreamItem,
+        visitor: &mut F,
+        _cache_single_frames: bool,
+    ) -> Result<()>
     where
         F: FnMut(ContentChunk, &mut dyn Read) -> Result<()>,
     {
@@ -1724,6 +1755,14 @@ impl<State> Lockbox<State> {
             visitor(chunk, &mut reader)?;
         } else {
             let data = match item.chunk.as_ref() {
+                #[cfg(any(test, feature = "native-block-layout"))]
+                Some(chunk) if chunk.block_frame.is_some() => self
+                    .read_native_block_chunk_with_cache(
+                        item.total_len,
+                        chunk,
+                        0..chunk.len,
+                        _cache_single_frames,
+                    )?,
                 Some(chunk) => self.read_file_chunk_compression_frame(item.total_len, chunk)?,
                 None => self.read_file_range(&item.path, item.file_offset, item.len)?,
             };

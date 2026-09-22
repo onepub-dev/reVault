@@ -1980,6 +1980,78 @@ fn extract_many_caches_decoded_compression_frames() {
     );
 }
 
+#[cfg(feature = "native-block-layout")]
+#[test]
+fn oversized_native_stream_does_not_churn_single_frame_cache() {
+    let mut archive = Lockbox::create_with_options(
+        KEY,
+        LockboxOptions {
+            workload_profile: WorkloadProfile::BulkImport,
+            ..LockboxOptions::default()
+        },
+    );
+    for index in 0..33u8 {
+        add_file(
+            &mut archive,
+            &p(format!("/large-{index}")),
+            &vec![index; 2 * 1024 * 1024],
+            false,
+        )
+        .unwrap();
+    }
+    add_file(&mut archive, &p("/large-99"), &[99; 5], false).unwrap();
+    add_file(&mut archive, &p("/large-100"), &[100; 5], false).unwrap();
+    archive.commit().unwrap();
+    let archive = Lockbox::open_bytes_with_key_options(
+        archive.to_bytes(),
+        KEY,
+        LockboxOptions {
+            workload_profile: WorkloadProfile::ReadMostly,
+            ..LockboxOptions::default()
+        },
+    )
+    .unwrap();
+    for order in [
+        crate::ContentStreamOrder::Logical,
+        crate::ContentStreamOrder::Physical,
+    ] {
+        let mut total = 0usize;
+        archive
+            .stream_content(crate::ContentStreamOptions { order }, |chunk, reader| {
+                let expected = chunk
+                    .path
+                    .as_str()
+                    .strip_prefix("/large-")
+                    .unwrap()
+                    .parse::<u8>()
+                    .unwrap();
+                let mut buffer = [0; 32768];
+                loop {
+                    let count = reader.read(&mut buffer).unwrap();
+                    if count == 0 {
+                        break;
+                    }
+                    assert!(buffer[..count].iter().all(|byte| *byte == expected));
+                    total += count;
+                }
+                Ok(())
+            })
+            .unwrap();
+        assert_eq!(total, 33 * 2 * 1024 * 1024 + 10);
+        assert_eq!(
+            archive.decoded_compression_frame_cache_entries_for_tests(),
+            1,
+            "retain the packed frame for neighboring slices, not single-file frames"
+        );
+    }
+    // Random full-file reads still opt into the configured cache.
+    assert_eq!(
+        archive.get_file(&p("/large-7")).unwrap(),
+        vec![7; 2 * 1024 * 1024]
+    );
+    assert!(archive.decoded_compression_frame_cache_entries_for_tests() > 1);
+}
+
 #[test]
 fn range_reads_are_clamped_to_file_bounds() {
     let mut lb = Lockbox::create(KEY);
