@@ -1,0 +1,11 @@
+--- a/zstd-complete-0.2.0/src/encoding/levels/c_port/dfast_frame.rs
++++ b/zstd-complete-0.2.0/src/encoding/levels/c_port/dfast_frame.rs
+@@ -35,7 +35,7 @@
+     src: &[u8],
+     cctx: CctxParameters,
+ ) -> Vec<u8> {
+-    let mut output = Vec::with_capacity(compress_bound(src.len()));
++    let mut output = Vec::with_capacity(compress_bound(src.len()).min(64 * 1024));
+     cctx.assert_resolved();
+     let params = cctx.compression;
+     let mut frame_state = FrameBlockState::new(params, cctx.max_block_size);
