@@ -14,6 +14,7 @@ use std::sync::Arc;
 #[cfg(feature = "external-source")]
 pub(crate) fn replace_storage(archive: &mut Lockbox, storage: StorageBackend) {
     archive.storage = storage;
+    *archive.compression_frame_cache.borrow_mut() = CompressionFrameCache::default();
 }
 
 #[test]
@@ -1030,12 +1031,22 @@ fn native_file_handle_cached_bytes_reject_file_truncation() {
                     assert_eq!(bytes, [37; 13]);
                     // Adversarial out-of-band truncation has no public CLI setup.
                     let length = std::fs::metadata(&path).unwrap().len();
-                    std::fs::OpenOptions::new()
-                        .write(true)
-                        .open(&path)
-                        .unwrap()
-                        .set_len(length - 1)
-                        .unwrap();
+                    let mut visited = 0;
+                    let result = archive.stream_content(Default::default(), |_, _| {
+                        visited += 1;
+                        std::fs::OpenOptions::new()
+                            .write(true)
+                            .open(&path)
+                            .unwrap()
+                            .set_len(length - 1)
+                            .unwrap();
+                        Ok(())
+                    });
+                    assert!(result.is_err());
+                    assert_eq!(
+                        visited, 1,
+                        "truncation must reject the retained neighboring slice"
+                    );
                     reader.rewind().unwrap();
                     assert!(reader.read_exact(&mut bytes).is_err());
                     drop(reader);

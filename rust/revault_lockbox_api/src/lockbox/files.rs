@@ -1664,6 +1664,7 @@ impl<State> Lockbox<State> {
         let cache_single_frames = stream_len <= self.decoded_compression_frame_cache_limit() as u64;
         #[cfg(not(any(test, feature = "native-block-layout")))]
         let cache_single_frames = false;
+        let mut stream_state = ContentStreamState::default();
         match options.order {
             ContentStreamOrder::Logical => {
                 for entry in self.toc_entries.values() {
@@ -1684,6 +1685,7 @@ impl<State> Lockbox<State> {
                                 },
                                 &mut visitor,
                                 cache_single_frames,
+                                &mut stream_state,
                             )?;
                         }
                         continue;
@@ -1691,7 +1693,12 @@ impl<State> Lockbox<State> {
                     let mut items = Vec::new();
                     collect_content_stream_items(entry, &mut items)?;
                     for item in items {
-                        self.visit_content_stream_item(item, &mut visitor, cache_single_frames)?;
+                        self.visit_content_stream_item(
+                            item,
+                            &mut visitor,
+                            cache_single_frames,
+                            &mut stream_state,
+                        )?;
                     }
                 }
             }
@@ -1725,18 +1732,24 @@ impl<State> Lockbox<State> {
                         .then_with(|| left.file_offset.cmp(&right.file_offset))
                 });
                 for item in items {
-                    self.visit_content_stream_item(item, &mut visitor, cache_single_frames)?;
+                    self.visit_content_stream_item(
+                        item,
+                        &mut visitor,
+                        cache_single_frames,
+                        &mut stream_state,
+                    )?;
                 }
             }
         }
         Ok(())
     }
 
-    fn visit_content_stream_item<F>(
-        &self,
+    fn visit_content_stream_item<'a, F>(
+        &'a self,
         item: ContentStreamItem,
         visitor: &mut F,
         _cache_single_frames: bool,
+        _state: &mut ContentStreamState<'a>,
     ) -> Result<()>
     where
         F: FnMut(ContentChunk, &mut dyn Read) -> Result<()>,
@@ -1748,6 +1761,70 @@ impl<State> Lockbox<State> {
             physical_offset: item.physical_offset,
             sparse: item.sparse,
         };
+        #[cfg(any(test, feature = "native-block-layout"))]
+        if let Some(reference) = item.chunk.as_ref().filter(|reference| {
+            !item.sparse
+                && reference.block_frame.is_some()
+                && reference.len < reference.compression_frame_len
+        }) {
+            use crate::file_format::indexed_frame::block_page::validate_chunk_reference;
+            validate_chunk_reference(self.lockbox_id, self.format_mode, item.total_len, reference)?;
+            if !_state.native.as_ref().is_some_and(|retained| {
+                retained.reference.block_frame == reference.block_frame
+                    && retained.reference.segments == reference.segments
+            }) {
+                // Drop and wipe the previous frame before allocating another.
+                _state.native = None;
+                let reader = self.open_native_block_chunk(item.total_len, reference)?;
+                let cached = {
+                    let cache = self.compression_frame_cache.borrow();
+                    if let Some(entry) = cache.entries.get(&reference.compression_frame_id) {
+                        if entry.compression != reference.compression
+                            || entry.compression_frame_len != reference.compression_frame_len
+                            || entry.compressed_len != reference.compressed_len
+                            || entry.compression_frame_digest != reference.compression_frame_digest
+                            || entry.slices != reader.slices()
+                        {
+                            return Err(Error::CorruptRecord);
+                        }
+                        Some(ZeroizingBytes::new(entry.data.clone()))
+                    } else {
+                        None
+                    }
+                };
+                let was_cached = cached.is_some();
+                let data = match cached {
+                    Some(data) => data,
+                    None => ZeroizingBytes::new(reader.read(0..reference.compression_frame_len)?),
+                };
+                if !was_cached && self.should_cache_decoded_compression_frame(data.len()) {
+                    self.cache_decoded_compression_frame_owned(
+                        reference,
+                        reader.slices().to_vec(),
+                        data.to_vec(),
+                    );
+                }
+                _state.native = Some(NativeStreamFrame {
+                    reference: reference.clone(),
+                    reader,
+                    data,
+                });
+            }
+            let retained = _state.native.as_ref().ok_or(Error::CorruptRecord)?;
+            retained.reader.validate_slice(reference, item.total_len)?;
+            retained.reader.ensure_current()?;
+            let start = usize::try_from(reference.compression_frame_offset)
+                .map_err(|_| Error::CorruptRecord)?;
+            let end = start
+                .checked_add(usize::try_from(reference.len).map_err(|_| Error::CorruptRecord)?)
+                .ok_or(Error::CorruptRecord)?;
+            let bytes = retained.data.get(start..end).ok_or(Error::CorruptRecord)?;
+            return visitor(chunk, &mut Cursor::new(bytes));
+        }
+        #[cfg(any(test, feature = "native-block-layout"))]
+        {
+            _state.native = None;
+        }
         if item.sparse {
             let mut reader = ZeroReader {
                 remaining: item.len,
@@ -1771,6 +1848,24 @@ impl<State> Lockbox<State> {
         }
         Ok(())
     }
+}
+
+#[derive(Default)]
+struct ContentStreamState<'a> {
+    #[cfg(any(test, feature = "native-block-layout"))]
+    native: Option<NativeStreamFrame<'a>>,
+    #[cfg(not(any(test, feature = "native-block-layout")))]
+    _lifetime: std::marker::PhantomData<&'a ()>,
+}
+
+#[cfg(any(test, feature = "native-block-layout"))]
+// One verified packed frame retained within a stream call. The reader checks
+// the source before each slice; dropping this state wipes data, including on
+// visitor error or unwind. It never retains a second frame during replacement.
+struct NativeStreamFrame<'a> {
+    reference: FileChunk,
+    reader: crate::file_format::indexed_frame::block_page::Reader<'a>,
+    data: ZeroizingBytes,
 }
 
 #[derive(Debug)]

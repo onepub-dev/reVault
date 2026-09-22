@@ -1,0 +1,64 @@
+Issue #310: retain one verified native packed frame during stream_content
+Base 446e5d1, 2026-09-22. Native feature only; no format or packing-target change.
+
+stream_content now shares a native reader (verified metadata and index) and
+zeroizing decoded bytes between adjacent slices of the same physical frame.
+Each slice still validates its reference and manifest membership, and checks
+source identity, padded extent and external failure latch before delivery.
+The visitor borrows its slice without another allocation. Previous local state
+is dropped before allocating another frame, and is wiped on return/error/unwind.
+One operation-local frame is bounded by the native 4 MiB maximum; the existing
+profile-controlled 64 MiB decoded cache remains separate. Existing decoded cache
+entries are reused only after reopening metadata/index and matching their
+identity and slice manifest. Interactive does not populate the persistent cache.
+Single-file frames, sparse content and pending content retain the existing path.
+
+Benchmark fixture option: REVAULT_ZIP_READ_CREATE_PROFILE=BulkImport (new,
+optional); default stays Interactive. Reader profiles remain separate. Both
+executables use the same benchmark code, built with native-block-layout.
+Baseline temporarily used HEAD files.rs; restored before building candidate.
+SHA256:
+before b51347af0b4a1b0fb497566cbbd703f10d3cf33242f589fdeb0038bcb72e7c72
+after  e3f110ec7a5876498f957446266d7c4b050202fb52016baa370b5694b33ad4c5
+
+Reproduce each of three consecutive before/after pairs with taskset -c 2:
+REVAULT_ZIP_READ_CASE=small REVAULT_ZIP_READ_MODE=plain
+Bulk phase: CREATE_PROFILE=BulkImport ACCESS=stream SAMPLES=3
+Default phase: CREATE_PROFILE and ACCESS unset; SAMPLES=5
+(All option names above have the REVAULT_ZIP_READ_ prefix.)
+512 x 4096-byte pattern files, both codecs and both reader profiles. Every sample
+opens fresh handles and checks every byte. OS cache warm; no builds/tests overlap
+timing. 72 raw rows: 24 bulk rows x 3 plus 48 default rows x 5 = 312 measured
+lockbox operations, plus corresponding ZIP operations. Archive sizes identical
+between before/after within each phase. Bulk sizes raw 2,397,568 and compressed
+292,224 bytes; default raw 2,995,584 and compressed 836,992 bytes.
+
+Medians of three run medians, milliseconds (bulk stream):
+                              before       after     paired change median
+raw Interactive               76.309        3.792           -95.03%
+raw ReadMostly                69.323        5.548           -92.00%
+compressed Interactive      1509.890        5.015           -99.67%
+compressed ReadMostly         83.925        5.153           -93.86%
+All twelve bulk candidate rows beat their paired ZIP measurement. This is a
+packed BulkImport fixture result, not default-layout or protection-mode parity.
+Default-layout control results are mixed: case median paired changes range
+-1.15% to +2.03%, individual pairs -5.92% to +5.98%. Raw stream candidate run 3
+was about 6% slower alongside a slower ZIP control. No default-layout improvement
+or formal non-regression/confidence-bound claim; random handles are unchanged.
+Raw CSV includes phase, variant and run for independent inspection.
+
+Validation:
+- Default library: 334 passed, 5 ignored.
+- Native + external-source library: 328 passed, 10 failed, 5 ignored. The same
+  known native failures remain (recovery/page-cache integration and writer test).
+- Strict Clippy: library/tests/zip_read benchmark, default and native + external.
+- Expanded all-16-policy native external-source test: logical/physical streams,
+  cold metadata/index/data exactly once, warm cache avoids data, visitor-error
+  restart, terminal cancellation between slices. Independent bytes compared.
+- Expanded all-16-policy file-backed test: truncation between slices rejects
+  the retained neighbor; existing cached read/range refusal checks retained.
+- Public lifecycle/stream_workspace and oversized-stream cache regression passed
+  during development. Final full library run includes expanded unit regressions.
+
+Native remains feature-gated. Signed damaged-archive recovery, page-cache
+integration, broad ZIP parity, write/load gates and release work remain open.

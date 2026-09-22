@@ -7,6 +7,8 @@
 //! selects deterministic high-entropy data instead of the repeating pattern.
 //! Optional COMPRESSION (true/false), PROFILE (Interactive/ReadMostly), and
 //! ACCESS (stream/random/range) filters use the REVAULT_ZIP_READ_ prefix.
+//! CREATE_PROFILE=BulkImport packs small files; default is Interactive. Record
+//! this fixture setting alongside CSV results when overriding it.
 use revault_lockbox_api::{
     Compression, ContentStreamOptions, Encryption, Lockbox, LockboxCreateOptions, LockboxOpen,
     LockboxPath, LockboxProtection, OwnerSigningKeyPair, SecretVec, Signing, WorkloadProfile,
@@ -145,6 +147,9 @@ fn run(root: &Path, count: usize, size: usize, compressed: bool) {
             },
         )
         .unwrap();
+        if std::env::var("REVAULT_ZIP_READ_CREATE_PROFILE").is_ok_and(|v| v == "BulkImport") {
+            lockbox.set_workload_profile(WorkloadProfile::BulkImport);
+        }
         for (path, payload) in paths.iter().zip(&payloads) {
             lockbox.add_file(path, payload, false).unwrap();
         }
@@ -289,6 +294,10 @@ fn run(root: &Path, count: usize, size: usize, compressed: bool) {
 fn main() {
     for (name, allowed) in [
         ("REVAULT_ZIP_READ_COMPRESSION", &["true", "false"][..]),
+        (
+            "REVAULT_ZIP_READ_CREATE_PROFILE",
+            &["Interactive", "BulkImport"][..],
+        ),
         (
             "REVAULT_ZIP_READ_PROFILE",
             &["Interactive", "ReadMostly"][..],

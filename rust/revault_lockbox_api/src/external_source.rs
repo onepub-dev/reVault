@@ -790,6 +790,68 @@ mod tests {
                             "cache cannot clear terminal failure"
                         );
                         assert_eq!(source.reads.lock().unwrap().len(), count);
+                        drop(reader);
+                        let session =
+                            ExternalReader::new(source.clone(), ExternalReaderOptions::default())
+                                .unwrap();
+                        crate::lockbox::block_frame_tests::replace_storage(
+                            &mut archive,
+                            StorageBackend::External(session.storage.clone()),
+                        );
+                        use crate::{
+                            ContentStreamOrder::{Logical, Physical},
+                            WorkloadProfile::{ExtractMany, Interactive},
+                        };
+                        for (profile, order, expected_reads) in [
+                            (Interactive, Logical, 4),
+                            (Interactive, Physical, 4),
+                            (ExtractMany, Logical, 4),
+                            (ExtractMany, Physical, 3),
+                        ] {
+                            archive.set_workload_profile(profile);
+                            if matches!(profile, Interactive) {
+                                let mut visited = 0;
+                                assert!(archive
+                                    .stream_content(
+                                        crate::ContentStreamOptions { order },
+                                        |_, _| {
+                                            visited += 1;
+                                            Err(crate::Error::Io("visitor stopped".into()))
+                                        }
+                                    )
+                                    .is_err());
+                                assert_eq!(visited, 1);
+                            }
+                            source.reads.lock().unwrap().clear();
+                            let mut actual = Vec::new();
+                            archive
+                                .stream_content(
+                                    crate::ContentStreamOptions { order },
+                                    |_, reader| {
+                                        reader.read_to_end(&mut actual).unwrap();
+                                        Ok(())
+                                    },
+                                )
+                                .unwrap();
+                            assert_eq!(actual, input);
+                            assert_eq!(source.reads.lock().unwrap().len(), expected_reads,
+                                "packed stream reads metadata/index once; warm decoded cache skips data");
+                        }
+                        let mut visited = 0;
+                        let result = archive.stream_content(Default::default(), |_, _| {
+                            visited += 1;
+                            *source.cancelled.lock().unwrap() = true;
+                            Ok(())
+                        });
+                        assert!(result.is_err());
+                        assert_eq!(
+                            visited, 1,
+                            "cancelled source cannot deliver its retained neighbor"
+                        );
+                        *source.cancelled.lock().unwrap() = false;
+                        assert!(archive
+                            .stream_content(Default::default(), |_, _| Ok(()))
+                            .is_err());
                     }
                 }
             }
