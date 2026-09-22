@@ -379,9 +379,12 @@ impl PageCache {
         physical_len: u64,
         frame: CachedCompressionFrame,
         revision: u64,
-    ) {
+    ) -> Arc<CachedCompressionFrame> {
         // The caller has verified current metadata/index and every data block.
         // Dirty encoded pages must stay available for the pending flush.
+        // Return a shared owner even if admission is refused, so extraction
+        // can consume verified bytes without depending on cache retention.
+        let frame = Arc::new(frame);
         let weight = frame.data.len() as u64
             + std::mem::size_of::<CachedCompressionFrame>() as u64
             + frame
@@ -397,14 +400,14 @@ impl PageCache {
             || weight > self.limit_bytes
             || self.dirty_offsets.contains(&offset)
         {
-            return;
+            return frame;
         }
         self.evict_cached(offset);
         self.pages.insert(
             offset,
             CachedPage {
                 page: CachedPagePayload::NativeDecoded {
-                    frame: Arc::new(frame),
+                    frame: frame.clone(),
                     physical_len,
                     revision,
                 },
@@ -416,6 +419,7 @@ impl PageCache {
         self.used_bytes = self.used_bytes.saturating_add(weight);
         self.recent.push_back(offset);
         self.trim_to_limit();
+        frame
     }
 
     #[cfg(any(test, feature = "native-block-layout"))]
@@ -1004,7 +1008,7 @@ mod tests {
             data: vec![7; 8192],
         };
         let mut cache = PageCache::new(CacheLimit::Bytes(16384));
-        cache.insert_native_decoded_page(192, 1024, frame(), 0);
+        let _ = cache.insert_native_decoded_page(192, 1024, frame(), 0);
         let retained = cache.native_decoded_page(192, 0).unwrap();
         let weak = Arc::downgrade(&retained);
         assert_eq!(cache.stats().hits, 1);
@@ -1028,7 +1032,7 @@ mod tests {
             weak.upgrade().is_none(),
             "last cache owner drops the zeroizing payload"
         );
-        cache.insert_native_decoded_page(192, 16384, frame(), 0);
+        let _ = cache.insert_native_decoded_page(192, 16384, frame(), 0);
         // Conversely, padded physical extent can exceed decoded weight.
         cache.invalidate_clean_range(192 + 16383, 1).unwrap();
         assert_eq!(cache.native_decoded_entries(), 0);
@@ -1297,7 +1301,7 @@ mod tests {
     fn repeated_reads_and_offset_churn_keep_cache_history_bounded() {
         let mut cache = PageCache::new(CacheLimit::Bytes(1024 * 1024));
         cache.insert_page(1, page(1), 500);
-        cache.insert_native_decoded_page(
+        let _ = cache.insert_native_decoded_page(
             2,
             1024,
             CachedCompressionFrame {

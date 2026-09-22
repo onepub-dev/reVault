@@ -1244,3 +1244,98 @@ fn whole_file_reservation_rejects_unaddressable_sparse_length() {
         Err(Error::SecurityLimitExceeded(_))
     ));
 }
+
+#[cfg(feature = "native-block-layout")]
+#[test]
+fn native_extraction_keeps_verified_bytes_alive_across_eviction_and_writer_errors() {
+    struct EvictingWriter<'a> {
+        archive: &'a Lockbox,
+        other: &'a LockboxPath,
+        bytes: Vec<u8>,
+        evicted: bool,
+        fail_after: Option<usize>,
+    }
+    impl std::io::Write for EvictingWriter<'_> {
+        fn write(&mut self, input: &[u8]) -> std::io::Result<usize> {
+            if self
+                .fail_after
+                .is_some_and(|limit| self.bytes.len() >= limit)
+            {
+                return Err(std::io::Error::other("injected output failure"));
+            }
+            if !self.evicted {
+                assert_eq!(self.archive.get_file(self.other).unwrap(), vec![91; 65536]);
+                self.evicted = true;
+            }
+            let available = self
+                .fail_after
+                .map_or(usize::MAX, |limit| limit - self.bytes.len());
+            let count = input.len().min(997).min(available);
+            self.bytes.extend_from_slice(&input[..count]);
+            Ok(count)
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+    let signer = OwnerSigningKeyPair::generate().unwrap();
+    let path = LockboxPath::new("/main").unwrap();
+    let other = LockboxPath::new("/other").unwrap();
+    let input = (0..65536).map(|i| (i % 251) as u8).collect::<Vec<_>>();
+    for encrypted in [false, true] {
+        for signed in [false, true] {
+            for compression in [Compression::None, Compression::default()] {
+                let mut archive = Lockbox::create_in_memory_with_options(LockboxCreateOptions {
+                    compression,
+                    ..LockboxCreateOptions::new(
+                        if encrypted {
+                            Encryption::Encrypted(LockboxProtection::ContentKey(
+                                SecretVec::try_from_slice(&[67; 32]).unwrap(),
+                            ))
+                        } else {
+                            Encryption::None
+                        },
+                        if signed {
+                            Signing::Owner(&signer)
+                        } else {
+                            Signing::None
+                        },
+                    )
+                })
+                .unwrap();
+                archive.add_file(&path, &input, false).unwrap();
+                archive.add_file(&other, &vec![91; 65536], false).unwrap();
+                archive.commit().unwrap();
+                // Unit-level cache budget makes a public neighboring-file read
+                // evict the frame currently borrowed by the output writer.
+                archive.page_manager.borrow_mut().trim_to(80 * 1024);
+                let offset = archive.toc_entries[&path].chunks[0].segments[0].page_offset;
+                for fail_after in [None, Some(2000)] {
+                    for warm in [false, true] {
+                        archive.page_manager.borrow_mut().clear();
+                        if warm {
+                            assert_eq!(archive.get_file(&path).unwrap(), input);
+                        }
+                        let mut writer = EvictingWriter {
+                            archive: &archive,
+                            other: &other,
+                            bytes: Vec::new(),
+                            evicted: false,
+                            fail_after,
+                        };
+                        let result = archive.extract_file_to_writer(&path, &mut writer);
+                        assert_eq!(result.is_err(), fail_after.is_some());
+                        assert!(writer.evicted);
+                        assert_eq!(writer.bytes, input[..fail_after.unwrap_or(input.len())]);
+                        assert!(archive
+                            .page_manager
+                            .borrow_mut()
+                            .native_decoded_page(offset, archive.storage.write_revision())
+                            .is_none());
+                        assert_eq!(archive.get_file(&path).unwrap(), input);
+                    }
+                }
+            }
+        }
+    }
+}
