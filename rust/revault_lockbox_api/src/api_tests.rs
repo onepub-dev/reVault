@@ -4276,3 +4276,92 @@ fn large_slice_and_reader_inputs_preserve_replacement_abort_and_reopen() {
         }
     }
 }
+
+#[test]
+fn streamed_encoder_handles_fragmented_reads_empty_input_and_midstream_errors() {
+    use crate::{Compression, Encryption, LockboxCreateOptions, Signing};
+    struct Fragmented {
+        remaining: usize,
+        fail: bool,
+    }
+    impl std::io::Read for Fragmented {
+        fn read(&mut self, bytes: &mut [u8]) -> std::io::Result<usize> {
+            if self.remaining == 0 {
+                return if self.fail {
+                    Err(std::io::Error::other("injected reader failure"))
+                } else {
+                    Ok(0)
+                };
+            }
+            let count = bytes.len().min(8191).min(self.remaining);
+            bytes[..count].fill(42);
+            self.remaining -= count;
+            Ok(count)
+        }
+    }
+    let signer = OwnerSigningKeyPair::generate().unwrap();
+    let path = p("/stream.bin");
+    for encrypted in [false, true] {
+        for signed in [false, true] {
+            let open = || {
+                if encrypted {
+                    LockboxOpen::ContentKey(SecretVec::try_from_slice(&[71; 32]).unwrap())
+                } else {
+                    LockboxOpen::Unencrypted
+                }
+            };
+            let mut archive = Lockbox::create_in_memory_with_options(LockboxCreateOptions {
+                compression: Compression::default(),
+                ..LockboxCreateOptions::new(
+                    if encrypted {
+                        Encryption::Encrypted(LockboxProtection::ContentKey(
+                            SecretVec::try_from_slice(&[71; 32]).unwrap(),
+                        ))
+                    } else {
+                        Encryption::None
+                    },
+                    if signed {
+                        Signing::Owner(&signer)
+                    } else {
+                        Signing::None
+                    },
+                )
+            })
+            .unwrap();
+            archive.set_worker_policy(WorkerPolicy::Single);
+            archive.add_file(&path, b"original", false).unwrap();
+            archive.commit().unwrap();
+            for remaining in [0, 2 * 1024 * 1024 + 99, 4 * 1024 * 1024 + 99] {
+                assert!(matches!(
+                    archive.add_file_from_reader(
+                        &path,
+                        Fragmented {
+                            remaining,
+                            fail: true
+                        },
+                        true
+                    ),
+                    Err(Error::Io(_))
+                ));
+                archive.abort().unwrap();
+                let reopened = Lockbox::open_bytes(archive.to_bytes(), open()).unwrap();
+                assert_eq!(reopened.get_file(&path).unwrap(), b"original");
+            }
+            for remaining in [0, 65537, 4 * 1024 * 1024 + 17] {
+                archive
+                    .add_file_from_reader(
+                        &path,
+                        Fragmented {
+                            remaining,
+                            fail: false,
+                        },
+                        true,
+                    )
+                    .unwrap();
+                archive.commit().unwrap();
+                let reopened = Lockbox::open_bytes(archive.to_bytes(), open()).unwrap();
+                assert_eq!(reopened.get_file(&path).unwrap(), vec![42; remaining]);
+            }
+        }
+    }
+}

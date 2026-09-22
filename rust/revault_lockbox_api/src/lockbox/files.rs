@@ -675,7 +675,7 @@ impl<State> Lockbox<State> {
         let mut writer = FilePageWriter::new(self);
         let pipeline = writer.import_pipeline(1);
         pipeline.with_encoder(
-            &data[..data.len().min(FILE_COMPRESSION_FRAME_BYTES)],
+            pipeline.encoder_frame(&data[..data.len().min(FILE_COMPRESSION_FRAME_BYTES)]),
             |encode| {
                 let mut chunks = Vec::new();
                 let mut file_offset = 0u64;
@@ -705,45 +705,49 @@ impl<State> Lockbox<State> {
         mut reader: impl Read,
         permissions: u32,
     ) -> Result<(u64, Vec<FileChunk>)> {
-        let mut chunks = Vec::new();
-        let mut file_offset = 0u64;
         let mut writer = FilePageWriter::new(self);
-        let mut buffer = vec![0; FILE_COMPRESSION_FRAME_BYTES];
-        loop {
-            let read_start = Instant::now();
-            let read = read_next_chunk(&mut reader, &mut buffer)?;
-            writer
-                .lockbox
-                .add_host_read_nanos(read_start.elapsed().as_nanos());
-            if read == 0 {
-                if file_offset == 0 {
-                    writer.write_compression_frame(
-                        CompressionFrameWrite {
-                            path,
-                            permissions,
-                            total_len: 0,
-                            file_offset: 0,
-                            data: &[],
-                        },
-                        &mut chunks,
-                    )?;
+        let pipeline = writer.import_pipeline(1);
+        let mut buffer =
+            crate::page_buffer::ZeroizingBytes::new(vec![0; FILE_COMPRESSION_FRAME_BYTES]);
+        let started = Instant::now();
+        let mut read = read_next_chunk(&mut reader, &mut buffer)?;
+        writer
+            .lockbox
+            .add_host_read_nanos(started.elapsed().as_nanos());
+        // The encoder retains only input properties, so this buffer can be
+        // refilled without copying or retaining a borrow of the first frame.
+        let first = pipeline.encoder_frame(&buffer[..read]);
+        pipeline.with_encoder(first, |encode| {
+            let mut chunks = Vec::new();
+            let mut file_offset = 0u64;
+            loop {
+                let prepared = pipeline.prepare_with_encoder(
+                    &[CompressionFrameWrite {
+                        path,
+                        permissions,
+                        total_len: 0,
+                        file_offset,
+                        data: &buffer[..read],
+                    }],
+                    encode,
+                );
+                writer.write_prepared_compression_frame(prepared, &mut chunks)?;
+                file_offset += read as u64;
+                if read == 0 {
+                    break;
                 }
-                break;
+                let started = Instant::now();
+                read = read_next_chunk(&mut reader, &mut buffer)?;
+                writer
+                    .lockbox
+                    .add_host_read_nanos(started.elapsed().as_nanos());
+                if read == 0 {
+                    break;
+                }
             }
-            writer.write_compression_frame(
-                CompressionFrameWrite {
-                    path,
-                    permissions,
-                    total_len: 0,
-                    file_offset,
-                    data: &buffer[..read],
-                },
-                &mut chunks,
-            )?;
-            file_offset += read as u64;
-        }
-        writer.finish(&mut chunks)?;
-        Ok((file_offset, chunks))
+            writer.finish(&mut chunks)?;
+            Ok((file_offset, chunks))
+        })
     }
 
     fn write_file_data_parallel(

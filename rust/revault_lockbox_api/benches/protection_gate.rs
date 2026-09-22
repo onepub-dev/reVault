@@ -5,6 +5,7 @@
 //! REVAULT_GATE_NO_SIZE_PADDING=1 selects compact creation (use a separate ROOT).
 //! compare-padding EXE EXE ROOT SIZE CORPUS PAIRS CASE reads ROOT/default and
 //! ROOT/none with the SAME binary, labeling the variants padded/unpadded.
+//! REVAULT_GATE_STREAM_INPUT=1 uses add_file_from_reader for write measurements.
 //! REVAULT_GATE_WRITE_PROFILE=1 emits write-stage diagnostics to stderr.
 use revault_lockbox_api::{
     Compression, ContentStreamOptions, Encryption, Lockbox, LockboxCreateOptions, LockboxOpen,
@@ -34,6 +35,7 @@ fn main() {
     };
     let write_profile =
         writing && std::env::var("REVAULT_GATE_WRITE_PROFILE").is_ok_and(|v| v == "1");
+    let stream_input = std::env::var("REVAULT_GATE_STREAM_INPUT").is_ok_and(|v| v == "1");
     let size_padding = if std::env::var("REVAULT_GATE_NO_SIZE_PADDING").is_ok_and(|v| v == "1") {
         revault_lockbox_api::SizePadding::None
     } else {
@@ -136,7 +138,12 @@ fn main() {
                 )
                 .unwrap();
                 let created = write_profile.then(Instant::now);
-                lb.add_file(&path, &payload, false).unwrap();
+                if stream_input {
+                    lb.add_file_from_reader(&path, std::io::Cursor::new(&payload), false)
+                        .unwrap();
+                } else {
+                    lb.add_file(&path, &payload, false).unwrap();
+                }
                 let added = write_profile.then(Instant::now);
                 lb.commit().unwrap();
                 if let (Some(created), Some(added)) = (created, added) {

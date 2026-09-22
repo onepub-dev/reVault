@@ -118,9 +118,14 @@ impl FileImportPipeline {
         self.prepare_with_encoder(frames, &mut |payload| self.encode(payload))
     }
 
+    pub(super) fn encoder_frame(self, input: &[u8]) -> crate::compression::EncoderFrame {
+        let probe = matches!(self.compression, Some(crate::Compression::Zstd { level }) if level.get() < 18);
+        crate::compression::EncoderFrame::new(input, probe)
+    }
+
     pub(super) fn with_encoder<R>(
         self,
-        first: &[u8],
+        first: crate::compression::EncoderFrame,
         operation: impl FnOnce(&mut dyn FnMut(&[u8]) -> (u8, Vec<u8>)) -> R,
     ) -> R {
         crate::compression::with_encoder(first, self.compression, self.zstd_level, operation)

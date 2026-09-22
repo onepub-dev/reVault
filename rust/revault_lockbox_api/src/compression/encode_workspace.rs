@@ -54,8 +54,25 @@ impl Drop for Lease {
     }
 }
 
+/// Input properties only: the caller may refill its buffer during encoding.
+pub(crate) struct EncoderFrame {
+    len: usize,
+    incompressible: bool,
+}
+impl EncoderFrame {
+    pub(crate) fn new(input: &[u8], probe: bool) -> Self {
+        Self {
+            len: input.len(),
+            incompressible: !probe
+                || !(64 * 1024..=super::MAX_DECOMPRESSED_COMPRESSION_FRAME_BYTES as usize)
+                    .contains(&input.len())
+                || super::looks_incompressible(input),
+        }
+    }
+}
+
 pub(crate) fn with_encoder<R>(
-    first_frame: &[u8],
+    first_frame: EncoderFrame,
     compression: Option<crate::Compression>,
     default_level: i32,
     operation: impl FnOnce(&mut dyn FnMut(&[u8]) -> (u8, Vec<u8>)) -> R,
@@ -68,8 +85,8 @@ pub(crate) fn with_encoder<R>(
         return operation(&mut fallback);
     };
     if !(64 * 1024..=super::MAX_DECOMPRESSED_COMPRESSION_FRAME_BYTES as usize)
-        .contains(&first_frame.len())
-        || super::looks_incompressible(first_frame)
+        .contains(&first_frame.len)
+        || first_frame.incompressible
     {
         return operation(&mut fallback);
     }
@@ -79,10 +96,10 @@ pub(crate) fn with_encoder<R>(
         return operation(&mut fallback);
     }
     let level = CompressionLevel::new(level.get()).expect("validated compression level");
-    let Ok(required) = EncoderWorkspace::required_size(level, first_frame.len()) else {
+    let Ok(required) = EncoderWorkspace::required_size(level, first_frame.len) else {
         return operation(&mut fallback);
     };
-    let Ok(output_size) = EncoderWorkspace::required_output_size(first_frame.len()) else {
+    let Ok(output_size) = EncoderWorkspace::required_output_size(first_frame.len) else {
         return operation(&mut fallback);
     };
     if required.saturating_add(output_size) > MAX_RETAINED {
@@ -90,7 +107,7 @@ pub(crate) fn with_encoder<R>(
     }
     let mut lease = Lease::acquire(required, output_size);
     let Buffers { scratch, output } = lease.0.as_mut().expect("lease owns buffers");
-    let Ok(mut encoder) = StaticEncoderWorkspace::new(scratch, level, first_frame.len()) else {
+    let Ok(mut encoder) = StaticEncoderWorkspace::new(scratch, level, first_frame.len) else {
         return operation(&mut fallback);
     };
     // Neither backing buffer grows or shrinks while the encoder borrows it.
@@ -99,7 +116,7 @@ pub(crate) fn with_encoder<R>(
     operation(&mut |input| {
         // Match the ordinary encoder's exact input-size parameter selection.
         // The final short frame retains the established numeric path.
-        if input.len() != first_frame.len() || super::looks_incompressible(input) {
+        if input.len() != first_frame.len || super::looks_incompressible(input) {
             return fallback(input);
         }
         match encoder.encode_into(input, output) {
@@ -122,23 +139,28 @@ mod tests {
         let mut pointers = None;
         for exit in 0..3 {
             let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                with_encoder(&input, Some(crate::Compression::default()), 3, |encode| {
-                    let encoded = encode(&input);
-                    assert_eq!(
-                        super::super::decode_compression_frame(
-                            encoded.0,
-                            &encoded.1,
-                            input.len() as u64
-                        )
-                        .unwrap(),
-                        input
-                    );
-                    match exit {
-                        0 => Ok(()),
-                        1 => Err(()),
-                        _ => panic!("injected callback failure"),
-                    }
-                })
+                with_encoder(
+                    EncoderFrame::new(&input, true),
+                    Some(crate::Compression::default()),
+                    3,
+                    |encode| {
+                        let encoded = encode(&input);
+                        assert_eq!(
+                            super::super::decode_compression_frame(
+                                encoded.0,
+                                &encoded.1,
+                                input.len() as u64
+                            )
+                            .unwrap(),
+                            input
+                        );
+                        match exit {
+                            0 => Ok(()),
+                            1 => Err(()),
+                            _ => panic!("injected callback failure"),
+                        }
+                    },
+                )
             }));
             match exit {
                 0 => assert_eq!(result.unwrap(), Ok(())),
@@ -172,28 +194,41 @@ mod tests {
     fn pool_reentry_and_unavailable_borrow_preserve_encoding_and_cleanup() {
         POOL.with(|slot| slot.borrow_mut().take());
         let input = vec![61; 65536];
-        with_encoder(&input, Some(crate::Compression::default()), 3, |outer| {
-            let first = outer(&input);
-            with_encoder(&input, Some(crate::Compression::default()), 3, |inner| {
-                assert_eq!(inner(&input), first)
-            });
-            assert_eq!(outer(&input), first);
-        });
+        with_encoder(
+            EncoderFrame::new(&input, true),
+            Some(crate::Compression::default()),
+            3,
+            |outer| {
+                let first = outer(&input);
+                with_encoder(
+                    EncoderFrame::new(&input, true),
+                    Some(crate::Compression::default()),
+                    3,
+                    |inner| assert_eq!(inner(&input), first),
+                );
+                assert_eq!(outer(&input), first);
+            },
+        );
         POOL.with(|slot| {
             let mut held = slot.borrow_mut();
             held.take();
-            with_encoder(&input, Some(crate::Compression::default()), 3, |encode| {
-                let encoded = encode(&input);
-                assert_eq!(
-                    super::super::decode_compression_frame(
-                        encoded.0,
-                        &encoded.1,
-                        input.len() as u64
-                    )
-                    .unwrap(),
-                    input
-                );
-            });
+            with_encoder(
+                EncoderFrame::new(&input, true),
+                Some(crate::Compression::default()),
+                3,
+                |encode| {
+                    let encoded = encode(&input);
+                    assert_eq!(
+                        super::super::decode_compression_frame(
+                            encoded.0,
+                            &encoded.1,
+                            input.len() as u64
+                        )
+                        .unwrap(),
+                        input
+                    );
+                },
+            );
             assert!(held.is_none());
         });
     }
@@ -207,24 +242,29 @@ mod tests {
                 level: crate::ZstdLevel::new(level).unwrap(),
             };
             for _ in 0..2 {
-                with_encoder(&pattern, Some(compression), 3, |encode| {
-                    for input in [&pattern[..], &repeated[..], &pattern[..]] {
-                        let actual = encode(input);
-                        assert_eq!(
-                            actual,
-                            super::super::encode_with_compression(input, compression)
-                        );
-                        assert_eq!(
-                            super::super::decode_compression_frame(
-                                actual.0,
-                                &actual.1,
-                                input.len() as u64
-                            )
-                            .unwrap(),
-                            input
-                        );
-                    }
-                });
+                with_encoder(
+                    EncoderFrame::new(&pattern, true),
+                    Some(compression),
+                    3,
+                    |encode| {
+                        for input in [&pattern[..], &repeated[..], &pattern[..]] {
+                            let actual = encode(input);
+                            assert_eq!(
+                                actual,
+                                super::super::encode_with_compression(input, compression)
+                            );
+                            assert_eq!(
+                                super::super::decode_compression_frame(
+                                    actual.0,
+                                    &actual.1,
+                                    input.len() as u64
+                                )
+                                .unwrap(),
+                                input
+                            );
+                        }
+                    },
+                );
             }
         }
     }
@@ -250,26 +290,31 @@ mod tests {
             let compression = crate::Compression::Zstd {
                 level: crate::ZstdLevel::new(level).unwrap(),
             };
-            with_encoder(&mixed, Some(compression), 1, |encode| {
-                for (frame, input) in [&mixed[..], &repetitive[..], short, &mixed[..], &[]]
-                    .into_iter()
-                    .enumerate()
-                {
-                    let result = encode(input);
-                    let decoded = super::super::decode_compression_frame(
-                        result.0,
-                        &result.1,
-                        input.len() as u64,
-                    )
-                    .unwrap();
-                    assert!(
-                        decoded == input,
-                        "round trip differs: level {level}, frame {frame}"
-                    );
-                    let fresh = super::super::encode_with_compression(input, compression);
-                    assert!(result == fresh, "encoded bytes differ: level {level}, frame {frame}, reused {} bytes, fresh {} bytes", result.1.len(), fresh.1.len());
-                }
-            });
+            with_encoder(
+                EncoderFrame::new(&mixed, true),
+                Some(compression),
+                1,
+                |encode| {
+                    for (frame, input) in [&mixed[..], &repetitive[..], short, &mixed[..], &[]]
+                        .into_iter()
+                        .enumerate()
+                    {
+                        let result = encode(input);
+                        let decoded = super::super::decode_compression_frame(
+                            result.0,
+                            &result.1,
+                            input.len() as u64,
+                        )
+                        .unwrap();
+                        assert!(
+                            decoded == input,
+                            "round trip differs: level {level}, frame {frame}"
+                        );
+                        let fresh = super::super::encode_with_compression(input, compression);
+                        assert!(result == fresh, "encoded bytes differ: level {level}, frame {frame}, reused {} bytes, fresh {} bytes", result.1.len(), fresh.1.len());
+                    }
+                },
+            );
         }
     }
 }

@@ -1,0 +1,77 @@
+Issue310: reuse wiped encoder buffers for sequential streamed imports
+
+Base d7dd0d0; slice pooling production62180a3. Retain streamed integration based
+on measured protected compressed-write gains and lifecycle/cleanup coverage.
+Sequential reader imports now use the same per-operation encoder and bounded
+per-thread wiped buffers as large slice writes. EncoderFrame carries only length
+and an incompressibility decision, so the caller can refill its original buffer
+without a first-frame copy or a retained input borrow. Pipeline eligibility
+avoids probes for raw configuration and high levels; final short-frame guard
+also avoids probing inputs outside workspace size eligibility.
+Initial and subsequent host-read accounting remains; a genuinely empty stream
+still emits its existing empty frame. Reader errors unwind the writer and codec
+lease. The reusable input buffer now has a ZeroizingBytes owner, wiping its full
+capacity on success and failure. Frame state, output selection, small-tail
+fallback, level18-22 fallback, pool8MiB retention limit and cleanup are unchanged.
+Parallel worker imports remain on their existing path. No format/dependency or
+public API change. Native layout stays opt-in.
+
+Bench protection_gate accepts REVAULT_GATE_STREAM_INPUT=1 for public
+add_file_from_reader via Cursor instead of add_file. Flag is inherited by child
+comparisons and independent persisted verification remains unchanged. This
+measures streaming API overhead over memory-backed input, not filesystem read
+latency or complete CLI throughput. CPU2 affinity makes Auto available
+parallelism one; the tested path is sequential. Ordinary multi-core Auto may
+still choose the unchanged parallel path. Do not extrapolate these gains there.
+
+Validation before timing:
+- Existing all-mode/raw+compressed slice/reader replacement, abort, permission,
+  delete and reopen lifecycle test passed.
+- New all-four-mode compressed test passes fragmented8191-byte reader chunks,
+  empty input,65537-byte and4MiB+17 tails, repeated replacement, errors before
+  any data/after2MiB+99/after4MiB+99, abort and persisted reopened original bytes.
+- Default+external-source full suite355passed,5ignored; all executed integrations
+  and documentation tests passed.
+- Native+external-source full suite361passed,5ignored,2known failures:
+  api_tests::recovery_skips_truncated_tail_and_keeps_prior_intact_files and
+  lockbox::block_frame_tests::native_file_writer_commits_and_reopens_multiframe_files_in_all_modes.
+  All separately executed native integrations passed. No recovery checks weakened.
+- All-targets native+external-source Clippy -D warnings passed.
+Final small-frame eligibility guard and benchmark documentation were added after
+measurement; they do not change the measured2MiB-frame path. Affected codec and
+fragmented-reader tests plus all-targets Clippy were rerun before commit; full
+suites were not repeated for that guard.
+
+Native baseline target/issue310-stream-before SHA256
+2cdff098aba037fc39419fc75c2bffaee523325fcedcc4dbac25a683761174d9
+Baseline=d7dd0d0 production plus identical streamed benchmark option.
+Candidate target/issue310-stream-after SHA256
+813241e28f94729ec4a6b9d3c15dbab4cd5fa060cd2032fbbcbdd624c688bc32
+Built cargo bench -p revault_lockbox_api --features native-block-layout
+--bench protection_gate --no-run. No temporary profiling probes in either.
+Final size eligibility guard postdates this candidate binary as described above.
+
+Protocol:8MiB pattern/random,CPU2,warm OS caches,default padding,synthetic keys,
+no KDF. No owned tests/builds during timing. Unrelated host load uncontrolled.
+Child sample0 discarded, pool warm within child. Not a cold-start measurement.
+Broad pattern/random5 ABBA/BAAB groups with3child samples each,all4 modes and
+raw/compressed:640measured+320warmups. Prespecified encrypted-signed compressed
+pattern focus15groups with6samples each:300measured+60warmups.
+Total940measured+380warmups=1320writes independently reopened and bytes compared
+outside timed create/add/commit/drop. Runner exit0. Main=baseline,branch=candidate.
+Existing summary bootstraps5000whole groups; pooled and paired estimates differ.
+
+Pattern encrypted compressed broad:20.056330->17.750128ms pooled;
+paired-12.401%,95%[-16.935,-6.571],5groups.
+Encrypted-signed focused:21.801735->20.737750ms pooled;
+paired-4.635%,95%[-7.289,-3.930],15groups.
+Other broad compressed pattern/raw/random intervals all span zero; their point
+estimates include regressions. This is not proof of universal non-regression.
+No default-layout timing or new native/default release-gate claim here; both
+layouts share the reader change, but only native before/after was measured.
+Memory cost includes the existing per-thread pool cap and existing single input
+buffer; its added wipe is included in timing. No peak-memory gain claimed.
+
+Remaining work: parallel/real-CLI throughput, broad read parity, cold I/O,
+protected native/default write gate, signed recovery and release requirements.
+No remote changes made.
