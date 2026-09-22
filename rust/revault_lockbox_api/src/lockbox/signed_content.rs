@@ -9,6 +9,37 @@ use std::io::{self, Write};
 // or allowing recovery cleanup to modify storage.
 impl<State> Lockbox<State> {
     pub(super) fn signed_content_digest(&self) -> Result<[u8; 32]> {
+        // Retain one verified packed frame across adjacent files while hashing
+        // the same canonical byte sequence. Single-file frames need no cache
+        // admission during this one-pass authentication scan.
+        let mut state = super::files::ContentStreamState::default();
+        self.signed_content_digest_with_file_hash(|archive, entry, digest| {
+            let mut copied = 0u64;
+            archive.stream_file_content(
+                entry,
+                &mut |chunk, reader| {
+                    let len = io::copy(reader, &mut HashWriter(digest))
+                        .map_err(|err| Error::Io(err.to_string()))?;
+                    if len != chunk.len {
+                        return Err(Error::CorruptRecord);
+                    }
+                    copied = copied.checked_add(len).ok_or(Error::CorruptRecord)?;
+                    Ok(())
+                },
+                false,
+                &mut state,
+            )?;
+            if copied != entry.len {
+                return Err(Error::CorruptRecord);
+            }
+            Ok(())
+        })
+    }
+
+    fn signed_content_digest_with_file_hash<'a>(
+        &'a self,
+        mut hash_file: impl FnMut(&'a Self, &super::TocEntry, &mut Sha256) -> Result<()>,
+    ) -> Result<[u8; 32]> {
         let mut digest = Sha256::new();
         let encoder = crate::toc_codec::TocEncoder::new(self.toc_entries.values());
         if encoder.version() == 1 {
@@ -26,7 +57,7 @@ impl<State> Lockbox<State> {
             match entry.node_kind {
                 crate::node_kind::NodeKind::File => {
                     digest.update(entry.len.to_le_bytes());
-                    self.extract_file_to_writer(&entry.path, HashWriter(&mut digest))?;
+                    hash_file(self, entry, &mut digest)?;
                 }
                 crate::node_kind::NodeKind::Symlink => {
                     field(
@@ -114,6 +145,99 @@ impl Write for HashWriter<'_> {
 #[cfg(test)]
 mod tests {
     use crate::*;
+
+    #[test]
+    fn streamed_signature_matches_per_file_digest_across_commits() {
+        let signer = OwnerSigningKeyPair::generate().unwrap();
+        let path = |name: &str| LockboxPath::new(name).unwrap();
+        fn assert_digest<State>(archive: &Lockbox<State>, phase: &str) {
+            let legacy = archive
+                .signed_content_digest_with_file_hash(|archive, entry, digest| {
+                    archive.extract_file_to_writer(&entry.path, super::HashWriter(digest))
+                })
+                .unwrap_or_else(|err| panic!("reference digest {phase}: {err:?}"));
+            assert_eq!(archive.signed_content_digest().unwrap(), legacy);
+        }
+        for compression in [Compression::None, Compression::default()] {
+            for size_padding in [SizePadding::Default, SizePadding::None] {
+                let mut archive = Lockbox::create_in_memory_with_options(LockboxCreateOptions {
+                    compression,
+                    size_padding,
+                    ..LockboxCreateOptions::new(Encryption::None, Signing::Owner(&signer))
+                })
+                .unwrap();
+                archive.set_workload_profile(WorkloadProfile::BulkImport);
+                archive.create_dir(&path("/dir"), false).unwrap();
+                for i in 0..8 {
+                    archive
+                        .add_file(&path(&format!("/dir/{i}")), &vec![i as u8 + 1; 4096], false)
+                        .unwrap();
+                }
+                archive.add_file(&path("/empty"), b"", false).unwrap();
+                archive
+                    .add_symlink(&path("/link"), &path("/dir/0"), false)
+                    .unwrap();
+                archive
+                    .add_file(&path("/multiframe"), &vec![43; 2 * 1024 * 1024 + 13], false)
+                    .unwrap();
+                archive
+                    .add_file(&path("/zeros"), &vec![0; 32769], false)
+                    .unwrap();
+                archive
+                    .set_variable(&VariableName::new("state").unwrap(), "first")
+                    .unwrap();
+                archive.commit().unwrap();
+                assert_digest(&archive, "first commit");
+                archive.set_workload_profile(WorkloadProfile::Interactive);
+                archive
+                    .add_file(&path("/dir/3"), b"replacement", true)
+                    .unwrap();
+                archive.delete(&path("/dir/4")).unwrap();
+                archive
+                    .add_file(&path("/pending"), b"pending content", false)
+                    .unwrap();
+                archive
+                    .add_file(&path("/pending-empty"), b"", false)
+                    .unwrap();
+                // Compare pending file bytes separately: the whole digest also
+                // reads allocation metadata that becomes valid at commit.
+                let mut state = super::super::files::ContentStreamState::default();
+                for entry in archive.toc_entries.values().filter(|entry| {
+                    !entry.deleted && entry.node_kind == crate::node_kind::NodeKind::File
+                }) {
+                    let mut expected = Vec::new();
+                    archive
+                        .extract_file_to_writer(&entry.path, &mut expected)
+                        .unwrap();
+                    let mut actual = Vec::new();
+                    archive
+                        .stream_file_content(
+                            entry,
+                            &mut |_, reader| {
+                                std::io::copy(reader, &mut actual).unwrap();
+                                Ok(())
+                            },
+                            false,
+                            &mut state,
+                        )
+                        .unwrap();
+                    assert_eq!(actual, expected, "pending {}", entry.path);
+                }
+                drop(state);
+                archive.commit().unwrap();
+                assert_digest(&archive, "second commit");
+                let reopened =
+                    Lockbox::open_bytes(archive.to_bytes(), LockboxOpen::Unencrypted).unwrap();
+                assert_digest(&reopened, "reopen");
+                assert_eq!(reopened.get_file(&path("/dir/3")).unwrap(), b"replacement");
+                assert!(reopened.get_file(&path("/dir/4")).is_err());
+                assert_eq!(
+                    reopened.get_file(&path("/pending")).unwrap(),
+                    b"pending content"
+                );
+            }
+        }
+    }
 
     #[test]
     fn plaintext_signature_rejects_variable_tampering_even_with_recomputed_checksums() {

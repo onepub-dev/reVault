@@ -1671,35 +1671,12 @@ impl<State> Lockbox<State> {
                     if entry.deleted || entry.node_kind != NodeKind::File {
                         continue;
                     }
-                    if self.pending_small_files.contains_key(&entry.path) {
-                        if entry.len > 0 {
-                            self.visit_content_stream_item(
-                                ContentStreamItem {
-                                    path: entry.path.clone(),
-                                    file_offset: 0,
-                                    len: entry.len,
-                                    total_len: entry.len,
-                                    physical_offset: None,
-                                    sparse: false,
-                                    chunk: None,
-                                },
-                                &mut visitor,
-                                cache_single_frames,
-                                &mut stream_state,
-                            )?;
-                        }
-                        continue;
-                    }
-                    let mut items = Vec::new();
-                    collect_content_stream_items(entry, &mut items)?;
-                    for item in items {
-                        self.visit_content_stream_item(
-                            item,
-                            &mut visitor,
-                            cache_single_frames,
-                            &mut stream_state,
-                        )?;
-                    }
+                    self.stream_file_content(
+                        entry,
+                        &mut visitor,
+                        cache_single_frames,
+                        &mut stream_state,
+                    )?;
                 }
             }
             ContentStreamOrder::Physical => {
@@ -1740,6 +1717,43 @@ impl<State> Lockbox<State> {
                     )?;
                 }
             }
+        }
+        Ok(())
+    }
+
+    pub(super) fn stream_file_content<'a, F>(
+        &'a self,
+        entry: &TocEntry,
+        visitor: &mut F,
+        cache_single_frames: bool,
+        stream_state: &mut ContentStreamState<'a>,
+    ) -> Result<()>
+    where
+        F: FnMut(ContentChunk, &mut dyn Read) -> Result<()>,
+    {
+        if self.pending_small_files.contains_key(&entry.path) {
+            if entry.len > 0 {
+                self.visit_content_stream_item(
+                    ContentStreamItem {
+                        path: entry.path.clone(),
+                        file_offset: 0,
+                        len: entry.len,
+                        total_len: entry.len,
+                        physical_offset: None,
+                        sparse: false,
+                        chunk: None,
+                    },
+                    visitor,
+                    cache_single_frames,
+                    stream_state,
+                )?;
+            }
+            return Ok(());
+        }
+        let mut items = Vec::new();
+        collect_content_stream_items(entry, &mut items)?;
+        for item in items {
+            self.visit_content_stream_item(item, visitor, cache_single_frames, stream_state)?;
         }
         Ok(())
     }
@@ -1851,7 +1865,7 @@ impl<State> Lockbox<State> {
 }
 
 #[derive(Default)]
-struct ContentStreamState<'a> {
+pub(super) struct ContentStreamState<'a> {
     #[cfg(any(test, feature = "native-block-layout"))]
     native: Option<NativeStreamFrame<'a>>,
     #[cfg(not(any(test, feature = "native-block-layout")))]
