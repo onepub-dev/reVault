@@ -9,7 +9,7 @@ use zeroize::Zeroize;
 // too, since truncation may have left sensitive bytes there. Retain the length.
 pub(crate) fn zeroize_bytes(bytes: &mut Vec<u8>) {
     zeroize_byte_slice(bytes.as_mut_slice());
-    bytes.spare_capacity_mut().zeroize();
+    zeroize_spare_bytes(bytes.spare_capacity_mut());
 }
 
 #[repr(transparent)]
@@ -18,6 +18,32 @@ struct WipeBlock([u64; 8]);
 
 // The transparent integer array has no padding and its default is all zeroes.
 impl zeroize::DefaultIsZeroes for WipeBlock {}
+
+// Unlike WipeBlock, this wrapper permits uninitialized bytes. Keep the wrapper
+// distinct so zeroize uses wide DefaultIsZeroes stores rather than its
+// MaybeUninit slice implementation, which clears one byte at a time.
+#[repr(transparent)]
+#[derive(Clone, Copy)]
+struct SpareWipeBlock(std::mem::MaybeUninit<WipeBlock>);
+
+impl Default for SpareWipeBlock {
+    fn default() -> Self {
+        Self(std::mem::MaybeUninit::zeroed())
+    }
+}
+
+impl zeroize::DefaultIsZeroes for SpareWipeBlock {}
+
+fn zeroize_spare_bytes(bytes: &mut [std::mem::MaybeUninit<u8>]) {
+    // SAFETY: SpareWipeBlock transparently wraps MaybeUninit and permits all
+    // initialized or uninitialized bit patterns. It has the size/alignment of
+    // the padding-free WipeBlock. align_to_mut partitions this exclusive slice
+    // into disjoint aligned regions; zeroize only overwrites them with zeroes.
+    let (head, words, tail) = unsafe { bytes.align_to_mut::<SpareWipeBlock>() };
+    head.zeroize();
+    words.zeroize();
+    tail.zeroize();
+}
 
 pub(crate) fn zeroize_byte_slice(bytes: &mut [u8]) {
     // Wide stores avoid a byte-at-a-time volatile loop. Continue to
@@ -120,6 +146,41 @@ mod tests {
                 assert!(bytes[offset..offset + len].iter().all(|byte| *byte == 0));
                 assert!(bytes[offset + len..].iter().all(|byte| *byte == 0xa5));
             }
+        }
+    }
+
+    #[test]
+    fn spare_wiping_covers_uninitialized_and_unaligned_regions() {
+        use std::mem::MaybeUninit;
+        for offset in 0..32 {
+            for len in 0..129 {
+                let mut bytes = [MaybeUninit::new(0xa5u8); 192];
+                bytes[offset..offset + len].fill(MaybeUninit::uninit());
+                zeroize_spare_bytes(&mut bytes[offset..offset + len]);
+                for (index, byte) in bytes.iter().enumerate() {
+                    // SAFETY: the untouched region was initialized above and
+                    // zeroize_spare_bytes initialized the selected region.
+                    let value = unsafe { byte.assume_init() };
+                    assert_eq!(
+                        value,
+                        if (offset..offset + len).contains(&index) {
+                            0
+                        } else {
+                            0xa5
+                        }
+                    );
+                }
+            }
+        }
+        let mut bytes = Vec::<u8>::with_capacity(4096);
+        let capacity = bytes.capacity();
+        zeroize_bytes(&mut bytes);
+        assert!(bytes.is_empty());
+        assert_eq!(bytes.capacity(), capacity);
+        for byte in bytes.spare_capacity_mut() {
+            // SAFETY: zeroize_bytes initialized all spare capacity above.
+            let value = unsafe { byte.assume_init() };
+            assert_eq!(value, 0);
         }
     }
 

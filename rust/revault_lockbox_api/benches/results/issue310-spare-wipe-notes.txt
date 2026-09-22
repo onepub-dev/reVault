@@ -1,0 +1,104 @@
+Issue #310: wide secure wiping of byte-vector spare capacity
+Baseline: 6a3adb9, production identical to cc7e382.
+Native protection_gate before SHA256:
+f37a128f8001f7df551dddc52713311a9b7b7e3942af8b5c52dc50dc50b7f9ba
+Native protection_gate candidate SHA256:
+7db0e1487025f609805a1406eaa9bfbdc658dd647017840d0986dde0bf013f17
+Native zip_read before SHA256:
+94d47d2688c65daef1766e5ef5b3e0198d208f928b8ced465fbf66cc10d022e0
+Native zip_read candidate SHA256:
+75d25ed4835a8ec8aa12938269d347ba7c16241671a3939a5c11b31fca121b84
+Candidate hashes precede commit-time formatting. Identical benchmark sources.
+All before/after timing binaries enable native-block-layout. The production
+helper is shared by both layouts; these are not native/default gate results.
+
+Diagnosis: separate perf profiles of 500 encrypted-signed compressed 8 MiB
+pattern writes per layout, CPU 2, cycles:u at 499 Hz, DWARF 8192-byte call graphs.
+Every write was independently reopened and byte-verified. Profile includes
+fixture generation and verification; percentages are not pure write shares.
+Native baseline uses the preserved issue310-prepare-batch-before executable,
+NOT the rejected batching prototype. Default SHA256 is
+73929f51456f73b2cd57ebf571299f88cba561a4a648c908e8af8aa19050ab9e.
+Native 8232 samples, no lost samples; ZeroizingBytes::drop has 10.01% self
+samples, 8.88% with callers through write_prepared_compression_frame. Default
+zeroize_bytes has 11.61% self samples. Flat/default and native caller reports
+are retained. Sequential profile durations are not a comparative write gate.
+
+The pinned zeroize 1.9.0 implementation clears [MaybeUninit<Z>] by casting to
+MaybeUninit<u8> and performing volatile byte writes. The existing helper widened
+initialized bytes but still used that byte loop for spare capacity. Large spare
+allocations can remain after compression or partial-range reads.
+
+Change: add transparent SpareWipeBlock(MaybeUninit<WipeBlock>) with an all-zero
+Default and DefaultIsZeroes. It accepts uninitialized memory, unlike WipeBlock.
+Align the exclusive spare slice into head, wide blocks and tail; use zeroize
+on all three. Its DefaultIsZeroes slice path issues wide volatile stores.
+No uninitialized byte is read or converted into an initialized integer value.
+WipeBlock has no padding; the wrapper retains its size/alignment. The new unsafe
+alignment operation has a local safety explanation. Existing zeroize writes and
+optimization barriers remain; vector length/capacity and full-allocation wiping
+are preserved. No key, format, authentication, allocation-size or cache-policy
+change. This does not retain the rejected batching code.
+
+New test covers genuinely uninitialized subranges at 32 offsets and lengths
+0..129, checking zeroed selected bytes and intact neighboring bytes; it also
+checks a never-initialized Vec capacity with zero logical length. Existing tests
+cover initialized/truncated capacity and discarded native plaintext. Only bytes
+initialized by setup or the wipe are inspected through assume_init. Miri is not
+installed in this toolchain; no Miri run is claimed.
+
+Write protocol: 8 MiB pattern/random, all four protection modes, raw/compressed,
+default padding, synthetic content keys, no password KDF. Five ABBA/BAAB groups,
+three samples per child, first discarded: 640 broad rows. Prespecified focus:
+encrypted-signed/compressed/pattern, 15 groups, six child samples, first discarded:
+300 rows. Every timed create/add/commit/drop is followed by independent persisted
+readback outside the timer. CPU 2, warm OS caches; no owned builds/tests overlap.
+Unrelated host activity was not controlled. All 940 rows plus 380 warmups verify.
+Summary bootstraps whole groups (5000 samples) as documented in the prior gate.
+
+Focused write time improves 4.452%, 95% [-10.196%, -0.465%]. Pooled medians are
+37.685329 ms before and 35.245472 ms after. Broad compressed pattern central
+changes are -3.168% to -11.552%; most intervals include zero. Other broad cells
+are noisy, including a raw pattern central +9.444% with an interval crossing
+zero. Broad non-regression is not established. The focused gain supports this
+specific change; it does not close the native/default write gate because both
+layouts use this helper and must be rebuilt/recompared together.
+
+Read protocol: eight alternating-order rounds, nine samples/row, 512 x 4096
+files, plain mode, Interactive/BulkImport creation, both read profiles/corpora/
+requested compression settings, public Read handles, PASSES=1,2; 512 rows.
+Large controls: three alternating rounds, five samples, four 8 MiB files,
+Interactive creation, same other dimensions, PASSES=1; 48 rows. Fresh archive
+per sample; passes reuse its handle. All returned bytes verified each pass.
+Medians average two middle values for even counts; speedup=before/after.
+These descriptive medians are not confidence intervals.
+
+Raw packed reads improve 1.109-1.151x on first reads and 1.119-1.166x over two
+passes. Incompressible compressed-request packed cases improve 1.068-1.121x
+first and 1.117-1.160x for two passes. Raw first-read ZIP ratios still span
+1.552-1.637: substantial remaining gap. Other controls are mixed, including
+an initial separate small compressed pattern group at 0.888x and a large
+compressed-request random group at 0.907x. No general read gain is claimed.
+
+Fixed follow-up kept all separate-file controls: eight rounds, nine samples,
+Interactive creation, 512 x 4096, both passes/corpora/read profiles/compression
+settings: 256 rows. Eight large control rounds, five samples: 128 rows. Same
+binaries, alternating order; no pooling or replacement of original observations.
+Small follow-up speedups span 0.947-1.037x; the initial compressed slowdown did
+not recur, but raw pattern first reads remain 0.966x/0.947x. Large follow-up
+spans 0.954-1.059x: initial large random slowdown does not recur, but compressed
+pattern Interactive reads are about 4.8% slower. Preserve these limitations.
+All 944 read timing rows passed byte verification. Retain the existing secure-
+wipe approach extended to spare capacity for the consistent targeted packed
+read gains and focused write benefit, not as a universal performance win.
+
+Validation before commit-time formatting:
+- Default + external-source: 346 unit tests pass, 5 ignored; all executed
+  integration and documentation tests pass.
+- Native + external-source: 351 pass, 2 known recovery failures, 5 ignored.
+- Native + external-source all-targets Clippy -D warnings passes.
+- Both native release benchmarks build and all measured reads/writes verify.
+Known failures are recovery_skips_truncated_tail_and_keeps_prior_intact_files
+and native_file_writer_commits_and_reopens_multiframe_files_in_all_modes.
+Broad read parity, cold I/O, layout write gates, write lifecycles, signed recovery
+and migration/binding/release work remain open. Native remains opt-in.

@@ -1,0 +1,40 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 6K of event 'cycles:u'
+# Event count (approx.): 46738303744
+#
+# Overhead  Command          Shared Object                     Symbol                                                                                                                                                                                                                                                                                                                                                                                
+# ........  ...............  ................................  ......................................................................................................................................................................................................................................................................................................................................................................................
+#
+    23.82%  protection_gate  protection_gate-a58df4485f37a924  [.] protection_gate::main
+    11.61%  protection_gate  protection_gate-a58df4485f37a924  [.] revault_lockbox_api::file_format::page_buffer::zeroize_bytes
+     9.31%  protection_gate  libc.so.6                         [.] __memmove_avx_unaligned_erms
+     5.08%  protection_gate  protection_gate-a58df4485f37a924  [.] keccak::backends::soft::keccak_p
+     4.72%  protection_gate  protection_gate-a58df4485f37a924  [.] zstd_complete::kernel::dfast::compress_block
+     4.47%  protection_gate  libc.so.6                         [.] __memcmp_avx2_movbe
+     3.07%  protection_gate  protection_gate-a58df4485f37a924  [.] <module_lattice::algebra::NttPolynomial<ml_dsa::algebra::BaseField> as ml_dsa::ntt::NttInverse>::ntt_inverse
+     2.91%  protection_gate  libc.so.6                         [.] __memset_avx2_unaligned_erms
+     2.85%  protection_gate  protection_gate-a58df4485f37a924  [.] <twox_hash::xxhash64::Hasher as core::hash::Hasher>::write
+     2.68%  protection_gate  protection_gate-a58df4485f37a924  [.] keccak::backends::soft::keccak_p
+     2.31%  protection_gate  protection_gate-a58df4485f37a924  [.] zstd_complete::decoding::ringbuffer::RingBuffer::extend_from_within_unchecked
+     2.18%  protection_gate  protection_gate-a58df4485f37a924  [.] zstd_complete::decoding::sequence_section_decoder::decode_sequences
+     1.92%  protection_gate  protection_gate-a58df4485f37a924  [.] zstd_complete::encoding::blocks::compressed::sequence_bitstream::encode_stored_sequences
+     1.35%  protection_gate  protection_gate-a58df4485f37a924  [.] <module_lattice::algebra::Polynomial<ml_dsa::algebra::BaseField> as ml_dsa::ntt::Ntt>::ntt
+     1.29%  protection_gate  protection_gate-a58df4485f37a924  [.] zstd_complete::encoding::levels::c_port::pre_split::FrameProgress::next_block_size
+     1.20%  protection_gate  protection_gate-a58df4485f37a924  [.] ml_dsa::ntt::<impl module_lattice::algebra::MultiplyNtt for ml_dsa::algebra::BaseField>::multiply_ntt
+     1.19%  protection_gate  protection_gate-a58df4485f37a924  [.] zstd_complete::encoding::match_generator::sequence::<impl zstd_complete::encoding::match_generator::MatchGenerator>::next_sequence
+     1.08%  protection_gate  protection_gate-a58df4485f37a924  [.] ctutils::choice::<impl core::convert::From<ctutils::choice::Choice> for u8>::from
+     0.97%  protection_gate  protection_gate-a58df4485f37a924  [.] zstd_complete::fse::fse_decoder::FSETable::build_decoding_table
+     0.87%  protection_gate  protection_gate-a58df4485f37a924  [.] zstd_complete::decoding::decode_buffer::DecodeBuffer::repeat
+     0.84%  protection_gate  protection_gate-a58df4485f37a924  [.] zstd_complete::decoding::sequence_execution::execute_sequences
+     0.71%  protection_gate  protection_gate-a58df4485f37a924  [.] zstd_complete::encoding::levels::c_port::pre_split::Fingerprint::record
+     0.61%  protection_gate  protection_gate-a58df4485f37a924  [.] zstd_complete::fse::fse_encoder::table::build_table_from_probabilities_with_scratch
+     0.59%  protection_gate  protection_gate-a58df4485f37a924  [.] zstd_complete::encoding::blocks::compressed::sequence_tables::selection::c_fast::choose_c_dfast_u32_sequence_table_modes
+
+
+#
+# (Cannot load tips.txt file, please install perf!)
+#
