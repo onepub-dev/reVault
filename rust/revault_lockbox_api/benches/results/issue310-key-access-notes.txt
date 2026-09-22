@@ -1,0 +1,64 @@
+Issue #310: remove unused protected-key access from plaintext native reads
+=======================================================================
+Baseline a3bf46b, 2026-09-22. Experimental native-block-layout only.
+
+open_native_block_chunk previously entered SecretVec::with_bytes for every
+frame, including plaintext frames whose metadata uses a checksum and whose
+block index uses committed hashes. The plaintext branch now supplies an inert
+32-byte input to the same validated Reader::open. Those plaintext primitives
+do not use that input. Encrypted frames still acquire the actual protected key.
+Descriptor/mode/extent/manifest checks, source identity and failure latching,
+per-block integrity, and signed archive opening are unchanged. No writer,
+format, compression setting, padding, migration, or dependency changed.
+
+Deterministic work reduction (not traced runtime benchmarking):
+  REVAULT_ZIP_READ_CASE=small REVAULT_ZIP_READ_MODE=plain
+  REVAULT_ZIP_READ_SAMPLES=1 strace -c -e mprotect EXE
+Before: 12,618 mprotect calls. After: 4,426. Difference: 8,192 calls, exactly
+two transitions per frame across 512 files, two compression settings, two
+profiles and two access orders. Both invocations verify all returned bytes.
+Other protected-key operations, including fixture writes/open, remain counted.
+
+Executables, rustc 1.88.0 optimized bench, no local dependency overrides:
+  /tmp/issue310-resume-before
+  adbb951345d6e638c21617ba4bd9a17c6c248962ab0dbcd111ff04d0b2e1aabf
+  /tmp/issue310-resume-after
+  622947d88e4cf658798835162b61a1ecc1416fbcc3bb057a124ece1d6c30b82b
+
+Reproduction:
+  cargo bench -p revault_lockbox_api --features native-block-layout --bench zip_read --no-run
+  REVAULT_ZIP_READ_CASE=small REVAULT_ZIP_READ_MODE=plain
+  REVAULT_ZIP_READ_SAMPLES=15 taskset -c 2 EXE
+Run before-1, after-1, after-2, before-2. Four raw CSVs beside this note retain
+all rows; each row is a process median of 15 samples. Fresh file-backed handles,
+warm OS caches, default padding, 512 x 4 KiB patterned files, exact byte checks.
+No agent build/test overlapped these timings. Background load was uncontrolled.
+ZIP is Rust stored/deflate; lockbox is raw/default Zstd.
+
+An initial nine-sample before/after run suggested roughly 2-3 ms less total
+time. The retained ABBA run is noisier: raw Interactive streaming ranges
+20.299-21.558 ms before and 18.916-22.487 ms after. Compressed Interactive
+random-order reads are 24.666-24.783 ms before and 20.601-20.682 ms after.
+Not every row improves. Retain the unnecessary-access removal based on the
+verified transition reduction; do not claim a universal percentage speedup,
+ZIP parity, or a passed <=5% regression gate from these noisy measurements.
+The existing-format small-file results remain substantially better.
+
+The 64 MiB compressed regression is NOT fixed: native Interactive streaming
+remains about 330 ms across four files. Initial user-space profiles include
+fixture setup and ZIP work and cannot establish a native-only cost breakdown.
+SHA-256 dominates raw native data verification; decoder costs and allocation/
+system-call costs need isolated investigation. Removing plaintext key access
+does not explain the large compressed slowdown. Profiles are retained locally
+at /tmp/issue310-resume-perf.data and /tmp/issue310-resume-dwarf.data.
+
+Validation:
+- Default library suite: 329 passed, 5 ignored, 89.23 seconds.
+- Clippy --features native-block-layout,external-source --lib --tests
+  -- -D warnings: PASS.
+- Public native lifecycle test passes all 16 protection/codec/padding modes.
+- Both native external-source tests pass: real public Read/Seek, bounded reads,
+  cached source validation, cancellation, revision/length changes, short reads,
+  unavailable ranges and failure latching across their policy matrices.
+The signed recovery limitation documented in the preceding audit is unchanged.
+This is a read-path checkpoint, not completion or approval for default activation.

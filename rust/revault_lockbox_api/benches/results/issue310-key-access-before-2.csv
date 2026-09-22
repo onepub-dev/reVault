@@ -1,0 +1,9 @@
+files,bytes_per_file,compressed,mode,profile,access,zip_ms,lockbox_ms,lockbox_over_zip,zip_open_ms,zip_read_ms,lockbox_open_ms,lockbox_read_ms,zip_bytes,lockbox_bytes,corpus
+512,4096,false,plain,Interactive,stream,7.866,21.558,2.741,3.914,3.940,0.825,20.593,2151446,2995584,pattern
+512,4096,false,plain,Interactive,random,7.735,21.944,2.837,3.662,3.979,0.768,20.882,2151446,2995584,pattern
+512,4096,false,plain,ReadMostly,stream,6.828,19.547,2.863,3.363,3.431,0.714,18.702,2151446,2995584,pattern
+512,4096,false,plain,ReadMostly,random,7.118,20.158,2.832,3.405,3.605,0.726,19.303,2151446,2995584,pattern
+512,4096,true,plain,Interactive,stream,7.455,22.379,3.002,2.901,4.481,1.044,21.134,237078,836992,pattern
+512,4096,true,plain,Interactive,random,7.155,24.783,3.464,2.787,4.331,1.161,23.364,237078,836992,pattern
+512,4096,true,plain,ReadMostly,stream,8.064,23.353,2.896,3.094,4.904,1.088,22.029,237078,836992,pattern
+512,4096,true,plain,ReadMostly,random,9.673,26.101,2.698,4.024,5.561,1.158,24.753,237078,836992,pattern

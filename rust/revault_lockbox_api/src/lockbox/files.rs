@@ -1127,7 +1127,7 @@ impl<State> Lockbox<State> {
             return Err(Error::CorruptRecord);
         };
         let page_len = usize::try_from(segment.page_len).map_err(|_| Error::CorruptRecord)?;
-        self.key.with_bytes(|key| {
+        let open = |key: &[u8]| {
             let reader = Reader::open(
                 &self.storage,
                 segment.page_offset,
@@ -1138,7 +1138,16 @@ impl<State> Lockbox<State> {
             )?;
             reader.validate_slice(chunk, expected_total_len)?;
             Ok(reader)
-        })?
+        };
+        if self.format_mode.plaintext() {
+            // Plaintext metadata and block indexes are checked against their
+            // committed hashes, not a content key. Owner authorization still
+            // belongs to signed archive opening. Avoid exposing protected key
+            // memory for an operation that cannot use it.
+            open(&[0; 32])
+        } else {
+            self.key.with_bytes(open)?
+        }
     }
 
     fn read_checked_frame_slice(
