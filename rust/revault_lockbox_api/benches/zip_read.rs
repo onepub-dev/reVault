@@ -7,6 +7,8 @@
 //! selects deterministic high-entropy data instead of the repeating pattern.
 //! Optional COMPRESSION (true/false), PROFILE (Interactive/ReadMostly), and
 //! ACCESS (stream/random/whole/range) filters use the REVAULT_ZIP_READ_ prefix.
+//! PASSES (default 1) repeats reads on the same archive handle within each sample;
+//! record it alongside CSV output when overriding it. Every pass checks all bytes.
 //! CREATE_PROFILE=BulkImport packs small files; default is Interactive. Record
 //! this fixture setting alongside CSV results when overriding it.
 //! WRITE_PROFILE=1 emits CSV create/add/commit/close timings on stderr for each
@@ -67,6 +69,10 @@ fn sample(mut operation: impl FnMut() -> (Duration, Duration)) -> (Duration, Dur
 }
 
 fn run(root: &Path, count: usize, size: usize, compressed: bool) {
+    let passes = std::env::var("REVAULT_ZIP_READ_PASSES")
+        .map(|v| v.parse::<usize>().unwrap())
+        .unwrap_or(1);
+    assert!(passes > 0 && passes <= 1000);
     let corpus = std::env::var("REVAULT_ZIP_READ_CORPUS").unwrap_or_else(|_| "pattern".into());
     assert!(matches!(corpus.as_str(), "pattern" | "random"));
     let payloads: Vec<Vec<u8>> = (0..count)
@@ -196,55 +202,58 @@ fn run(root: &Path, count: usize, size: usize, compressed: bool) {
                     let mut zip = ZipArchive::new(File::open(&zip_path).unwrap()).unwrap();
                     let open = started.elapsed();
                     let started = Instant::now();
-                    if access == "stream" {
-                        for (index, payload) in payloads.iter().enumerate() {
-                            check(&mut zip.by_index(index).unwrap(), payload);
-                        }
-                    } else if access == "whole" {
-                        for &index in &order {
-                            let mut file = zip.by_name(&paths[index].as_str()[1..]).unwrap();
-                            let mut bytes = Vec::with_capacity(payloads[index].len());
-                            file.read_to_end(&mut bytes).unwrap();
-                            assert_eq!(bytes, payloads[index]);
-                            black_box(bytes);
-                        }
-                    } else if access == "random" {
-                        for &index in &order {
-                            check(
-                                &mut zip.by_name(&paths[index].as_str()[1..]).unwrap(),
-                                &payloads[index],
-                            );
-                        }
-                    } else {
-                        for &index in &order {
-                            for offset in [
-                                (size / 2).saturating_sub(1024),
-                                size.saturating_sub(8192),
-                                0,
-                            ] {
-                                let len = 8192.min(size - offset);
-                                if !compressed {
+                    for _ in 0..passes {
+                        if access == "stream" {
+                            for (index, payload) in payloads.iter().enumerate() {
+                                check(&mut zip.by_index(index).unwrap(), payload);
+                            }
+                        } else if access == "whole" {
+                            for &index in &order {
+                                let mut file = zip.by_name(&paths[index].as_str()[1..]).unwrap();
+                                let mut bytes = Vec::with_capacity(payloads[index].len());
+                                file.read_to_end(&mut bytes).unwrap();
+                                assert_eq!(bytes, payloads[index]);
+                                black_box(bytes);
+                            }
+                        } else if access == "random" {
+                            for &index in &order {
+                                check(
+                                    &mut zip.by_name(&paths[index].as_str()[1..]).unwrap(),
+                                    &payloads[index],
+                                );
+                            }
+                        } else {
+                            for &index in &order {
+                                for offset in [
+                                    (size / 2).saturating_sub(1024),
+                                    size.saturating_sub(8192),
+                                    0,
+                                ] {
+                                    let len = 8192.min(size - offset);
+                                    if !compressed {
+                                        let mut file =
+                                            zip.by_name_seek(&paths[index].as_str()[1..]).unwrap();
+                                        file.seek(SeekFrom::Start(offset as u64)).unwrap();
+                                        check(
+                                            &mut file.take(len as u64),
+                                            &payloads[index][offset..offset + len],
+                                        );
+                                        continue;
+                                    }
                                     let mut file =
-                                        zip.by_name_seek(&paths[index].as_str()[1..]).unwrap();
-                                    file.seek(SeekFrom::Start(offset as u64)).unwrap();
+                                        zip.by_name(&paths[index].as_str()[1..]).unwrap();
+                                    // Deflated ZIP entries must decode their prefix to reach a
+                                    // range; no full-entry CRC is checked for these partial reads.
+                                    std::io::copy(
+                                        &mut file.by_ref().take(offset as u64),
+                                        &mut std::io::sink(),
+                                    )
+                                    .unwrap();
                                     check(
                                         &mut file.take(len as u64),
                                         &payloads[index][offset..offset + len],
                                     );
-                                    continue;
                                 }
-                                let mut file = zip.by_name(&paths[index].as_str()[1..]).unwrap();
-                                // Deflated ZIP entries must decode their prefix to reach a
-                                // range; no full-entry CRC is checked for these partial reads.
-                                std::io::copy(
-                                    &mut file.by_ref().take(offset as u64),
-                                    &mut std::io::sink(),
-                                )
-                                .unwrap();
-                                check(
-                                    &mut file.take(len as u64),
-                                    &payloads[index][offset..offset + len],
-                                );
                             }
                         }
                     }
@@ -264,46 +273,49 @@ fn run(root: &Path, count: usize, size: usize, compressed: bool) {
                     lockbox.set_workload_profile(profile);
                     let open = started.elapsed();
                     let started = Instant::now();
-                    if access == "stream" {
-                        let mut total = 0u64;
-                        lockbox
-                            .stream_content(ContentStreamOptions::default(), |chunk, reader| {
-                                let index = chunk.path.as_str()[6..12].parse::<usize>().unwrap();
-                                let start = chunk.file_offset as usize;
-                                let end = start + chunk.len as usize;
-                                check(reader, &payloads[index][start..end]);
-                                total += chunk.len;
-                                Ok(())
-                            })
-                            .unwrap();
-                        assert_eq!(total, (count * size) as u64);
-                    } else if access == "whole" {
-                        for &index in &order {
-                            let bytes = lockbox.get_file(&paths[index]).unwrap();
-                            assert_eq!(bytes, payloads[index]);
-                            black_box(bytes);
-                        }
-                    } else if access == "random" {
-                        for &index in &order {
-                            check(
-                                &mut lockbox.open_file(&paths[index]).unwrap(),
-                                &payloads[index],
-                            );
-                        }
-                    } else {
-                        for &index in &order {
-                            let mut file = lockbox.open_file(&paths[index]).unwrap();
-                            for offset in [
-                                (size / 2).saturating_sub(1024),
-                                size.saturating_sub(8192),
-                                0,
-                            ] {
-                                let len = 8192.min(size - offset);
-                                file.seek(SeekFrom::Start(offset as u64)).unwrap();
+                    for _ in 0..passes {
+                        if access == "stream" {
+                            let mut total = 0u64;
+                            lockbox
+                                .stream_content(ContentStreamOptions::default(), |chunk, reader| {
+                                    let index =
+                                        chunk.path.as_str()[6..12].parse::<usize>().unwrap();
+                                    let start = chunk.file_offset as usize;
+                                    let end = start + chunk.len as usize;
+                                    check(reader, &payloads[index][start..end]);
+                                    total += chunk.len;
+                                    Ok(())
+                                })
+                                .unwrap();
+                            assert_eq!(total, (count * size) as u64);
+                        } else if access == "whole" {
+                            for &index in &order {
+                                let bytes = lockbox.get_file(&paths[index]).unwrap();
+                                assert_eq!(bytes, payloads[index]);
+                                black_box(bytes);
+                            }
+                        } else if access == "random" {
+                            for &index in &order {
                                 check(
-                                    &mut file.by_ref().take(len as u64),
-                                    &payloads[index][offset..offset + len],
+                                    &mut lockbox.open_file(&paths[index]).unwrap(),
+                                    &payloads[index],
                                 );
+                            }
+                        } else {
+                            for &index in &order {
+                                let mut file = lockbox.open_file(&paths[index]).unwrap();
+                                for offset in [
+                                    (size / 2).saturating_sub(1024),
+                                    size.saturating_sub(8192),
+                                    0,
+                                ] {
+                                    let len = 8192.min(size - offset);
+                                    file.seek(SeekFrom::Start(offset as u64)).unwrap();
+                                    check(
+                                        &mut file.by_ref().take(len as u64),
+                                        &payloads[index][offset..offset + len],
+                                    );
+                                }
                             }
                         }
                     }
