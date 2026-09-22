@@ -903,6 +903,18 @@ mod tests {
                         );
                         assert_eq!(source.reads.lock().unwrap().len(), before_cached,
                             "verified decoded cache hit reuses metadata and index without source reads");
+                        if compression != Compression::None {
+                            let before = source.reads.lock().unwrap().len();
+                            let mut neighbor = archive.open_file(&paths[0]).unwrap();
+                            let mut bytes = Vec::new();
+                            neighbor.read_to_end(&mut bytes).unwrap();
+                            assert_eq!(bytes, input[..input.len() / 2]);
+                            assert_eq!(
+                                source.reads.lock().unwrap().len(),
+                                before,
+                                "new compressed handles reuse the verified shared frame"
+                            );
+                        }
                         let count = source.reads.lock().unwrap().len();
                         *source.cancelled.lock().unwrap() = true;
                         reader.seek(SeekFrom::End(-13)).unwrap();
