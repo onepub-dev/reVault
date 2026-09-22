@@ -1,0 +1,14 @@
+diff --git a/rust/revault_lockbox_api/src/lockbox/files.rs b/rust/revault_lockbox_api/src/lockbox/files.rs
+index 8c2c1c1..7e20a12 100644
+--- a/rust/revault_lockbox_api/src/lockbox/files.rs
++++ b/rust/revault_lockbox_api/src/lockbox/files.rs
+@@ -2693,0 +2694 @@ impl<'a, State> FilePageWriter<'a, State> {
++        let encoded_at = Instant::now();
+@@ -2702,0 +2704 @@ impl<'a, State> FilePageWriter<'a, State> {
++        let staged_at = Instant::now();
+@@ -2705,0 +2708 @@ impl<'a, State> FilePageWriter<'a, State> {
++        let flushed_at = Instant::now();
+@@ -2734,0 +2738,3 @@ impl<'a, State> FilePageWriter<'a, State> {
++        if std::env::var_os("REVAULT_NATIVE_STAGE_DIAGNOSTIC").is_some() {
++            eprintln!("native-stage,encode_us={:.3},stage_us={:.3},flush_us={:.3},publish_us={:.3},page_bytes={}", encoded_at.duration_since(started).as_secs_f64()*1e6, staged_at.duration_since(encoded_at).as_secs_f64()*1e6, flushed_at.duration_since(staged_at).as_secs_f64()*1e6, flushed_at.elapsed().as_secs_f64()*1e6, page_len);
++        }

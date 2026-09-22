@@ -1,0 +1,46 @@
+Issue310: native page-write substages with pooled encoder buffers
+
+Production62180a3, evidence HEAD14c0bcb plus temporary attached timing patch.
+All temporary production edits removed after measurement. Preserved diagnostic
+binary target/issue310-pooled-stages-native SHA256:
+38881803459115643c7a96f0516c8f4c51e66591daf378e5d5d4c3cf172884a5
+The normal native release benchmark currently contains these diagnostic probes;
+rebuild it before production timing, or use preserved uninstrumented
+issue310-layout-gate-62180a3-native with hash23a4796a69bb313dcd014096373085a1835adc489c37505c081cdffbeaf890c8.
+
+Build: cargo bench -p revault_lockbox_api --features native-block-layout
+--bench protection_gate --no-run. Passed. From rust cwd run:
+TMPDIR=$PWD/target/issue310-sign-tmp REVAULT_GATE_CASE=encrypted/true/write \
+REVAULT_GATE_WRITE_PROFILE=1 REVAULT_NATIVE_STAGE_DIAGNOSTIC=1 taskset -c2 \
+target/issue310-pooled-stages-native write target/issue310-pooled-stages-archives \
+8388608 pattern 100
+Stdout/stderr retained as run.csv/run.txt. Exit0; all100 writes independently
+reopened and persisted bytes compared. Default padding, synthetic key/no KDF,
+warm OS caches, no concurrent owned build/test. Unrelated host work uncontrolled.
+
+Summary excludes sample0, asserts four frame records before every write-profile
+record, sums per-frame components before calculating per-write medians.
+First-frame flush1667.312us (99observations); later-frame flush27.240us (297).
+Per-write median encode146.043us,stage8.631us,flush1748.883us,publish3.450us.
+Separate medians need not sum to a total. Encoding includes key access/sealing;
+staging includes extent allocation and cache insertion; flush includes initial
+transaction preparation and storage writes; publication builds chunk references.
+Instrumentation emits stderr after each frame; total/add timers include its
+cost. This is not an uninstrumented comparative benchmark and not a speedup claim.
+
+Current page encoding and allocation/staging are small components of this path.
+First flush dominates, consistent with begin_preparation publishing both header
+slots with durability before any reused storage becomes dirty. This diagnostic
+does not split preparation from page I/O. Default layout performs preparation
+later, so it does not show1.67ms of additional total native overhead. Do not
+remove or delay preparation based on these observations. Production preparation
+and flush ordering remain unchanged, and no correctness-suite rerun is claimed.
+
+This narrows the current optimization search: allocation/sealing of compressed
+native pages is not a large measured target. Further layout diagnosis needs
+matched preparation/commit attribution, not another early-release or allocation
+microchange. Separately, the retained encoder buffer reuse still only benefits
+slice writes; extending it to streamed inputs needs lifecycle and performance
+validation and remains worthwhile work toward actual CLI throughput.
+The overall write gate, broad read parity, cold I/O, signed recovery and release
+requirements remain open. No remote changes made.
