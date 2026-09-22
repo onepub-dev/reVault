@@ -1432,7 +1432,9 @@ impl<State> Lockbox<State> {
                 source_guard: None,
             });
         }
-        reader.read(start..end).map(NativeReadBytes::Owned)
+        reader
+            .read_with_cache(start..end, &self.page_manager)
+            .map(NativeReadBytes::Owned)
     }
 
     #[cfg(any(test, feature = "native-block-layout"))]

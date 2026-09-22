@@ -603,6 +603,71 @@ impl<'a> Reader<'a> {
         self.frame.read(range)
     }
 
+    pub(crate) fn read_with_cache(
+        &self,
+        range: std::ops::Range<u64>,
+        cache: &std::cell::RefCell<crate::page_cache::PageCache>,
+    ) -> Result<Vec<u8>> {
+        let descriptor = &self.frame.descriptor;
+        if descriptor.compression != crate::compression::COMPRESSION_NONE
+            || self.manifest.slices.len() <= 1
+            || range.is_empty()
+        {
+            return self.read(range);
+        }
+        descriptor.stored_range(range.clone())?;
+        let size = super::BLOCK_BYTES as u64;
+        let ordinal = (range.start / size) as usize;
+        if range.start / size != (range.end - 1) / size {
+            return self.read(range);
+        }
+        let start = ordinal as u64 * size;
+        let end = (start + size).min(descriptor.logical_len);
+        let offset = self
+            .frame
+            .offset
+            .checked_add(descriptor.stored_range(start..end)?.start as u64)
+            .ok_or(Error::CorruptRecord)?;
+        let cached = cache.borrow_mut().native_block(
+            offset,
+            descriptor,
+            ordinal,
+            self.frame.required_end,
+            self.frame.write_revision,
+        );
+        let block = if let Some(block) = cached {
+            block
+        } else {
+            // Authenticate only the block already touched by the original read.
+            // Each verified block has its own cache weight and eviction history.
+            let mut data = ZeroizingBytes::new(self.read(start..end)?);
+            self.ensure_current()?;
+            cache.borrow_mut().insert_native_block(
+                offset,
+                crate::page_cache::CachedNativeBlock {
+                    descriptor: descriptor.clone(),
+                    ordinal,
+                    required_end: self.frame.required_end,
+                    data: std::mem::take(&mut *data),
+                },
+                self.frame.write_revision,
+            )
+        };
+        let from = (range.start - start) as usize;
+        let to = from + (range.end - range.start) as usize;
+        let mut out = ZeroizingBytes::new(
+            block
+                .data
+                .get(from..to)
+                .ok_or(Error::CorruptRecord)?
+                .to_vec(),
+        );
+        // A cache hit cannot bypass source identity, full physical extent,
+        // revision or terminal-source failure checks before bytes escape.
+        self.ensure_current()?;
+        Ok(std::mem::take(&mut *out))
+    }
+
     pub(crate) fn read_aligned_raw_into(
         &self,
         range: std::ops::Range<u64>,
@@ -1112,10 +1177,19 @@ mod tests {
             let reader =
                 Reader::open(&storage, 0, identity, &descriptor, page.len(), &[53; 32]).unwrap();
             assert_eq!(reader.read(0..128).unwrap(), [37; 128]);
+            let cache = std::cell::RefCell::new(crate::page_cache::PageCache::new(
+                crate::CacheLimit::Bytes(65536),
+            ));
+            assert_eq!(reader.read_with_cache(0..13, &cache).unwrap(), [37; 13]);
+            assert_eq!(cache.borrow().stats().entries, 1);
+            assert_eq!(reader.read_with_cache(1..14, &cache).unwrap(), [37; 13]);
+            assert_eq!(cache.borrow().stats().hits, 1);
             let mut damaged = storage.clone();
             damaged.truncate(page.len() as u64 - 1).unwrap();
             assert!(reader.read(0..1).is_err());
             assert!(reader.read(0..0).is_err());
+            assert!(reader.read_with_cache(0..13, &cache).is_err());
+            assert!(reader.read_with_cache(0..0, &cache).is_err());
 
             let mut damaged = page;
             let metadata = read_metadata(
@@ -1139,6 +1213,22 @@ mod tests {
             )
             .unwrap();
             assert!(frame.read(0..128).is_err());
+            let reader = Reader::open(
+                &storage,
+                0,
+                identity,
+                &descriptor,
+                storage.len().unwrap() as usize,
+                &[53; 32],
+            )
+            .unwrap();
+            cache.borrow_mut().clear();
+            assert!(reader.read_with_cache(0..13, &cache).is_err());
+            assert_eq!(
+                cache.borrow().stats().entries,
+                0,
+                "corrupt blocks cannot enter the cache"
+            );
         }
         std::fs::remove_dir_all(root).unwrap();
     }

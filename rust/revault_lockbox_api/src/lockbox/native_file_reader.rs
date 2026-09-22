@@ -9,6 +9,7 @@ use crate::{Error, LockboxPath, Result};
 pub(super) struct NativeFileReader<'a> {
     reader: Option<Reader<'a>>,
     storage: &'a StorageBackend,
+    page_cache: &'a std::cell::RefCell<crate::page_cache::PageCache>,
     required_end: u64,
     revision: u64,
     file_start: u64,
@@ -74,6 +75,7 @@ impl<'a> NativeFileReader<'a> {
         Ok(Some(Self {
             reader,
             storage: &archive.storage,
+            page_cache: &archive.page_manager,
             required_end,
             revision,
             file_start: chunk.file_offset,
@@ -114,8 +116,10 @@ impl<'a> NativeFileReader<'a> {
                 let end = (self.frame_start + relative + requested).div_ceil(BLOCK) * BLOCK;
                 (start, (end - self.frame_start).min(len))
             };
-            self.window =
-                ZeroizingBytes::new(reader.read(self.frame_start + start..self.frame_start + end)?);
+            self.window = ZeroizingBytes::new(reader.read_with_cache(
+                self.frame_start + start..self.frame_start + end,
+                self.page_cache,
+            )?);
             self.window_start = start;
         } else {
             // Misses validate in the frame reader. Hits still check identity,

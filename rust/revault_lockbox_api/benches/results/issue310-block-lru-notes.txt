@@ -1,0 +1,83 @@
+Issue 310: individually weighted verified raw-block cache
+
+Base: 6da5e9b (production implementation f4b1d91 plus evidence/harness).
+Candidate retains raw blocks for partial reads of packed native frames. Each
+block is a separate entry in the existing PageCache, charged for its actual
+Vec capacity, descriptor/owner and Arc allocation overhead. It reserves no
+whole-frame data capacity. Metadata and blocks share the existing LRU budget.
+Standalone frames, compressed frames and cross-block ranges use the existing
+reader. Large aligned direct reads remain unchanged.
+
+Cached proofs bind descriptor, block ordinal, revision and complete physical
+extent. Misses authenticate through the existing reader before admission;
+all returned cached copies still pass ensure_current. Source failure, revision,
+identity and truncation checks remain authoritative. Block owners wipe full
+allocation capacity on final drop, with no cached key and no new unsafe code.
+Native layout remains experimental/opt-in; no format or default activation.
+
+Validation (before formatting by the tracked commit hook):
+- default + external-source: 348 unit tests passed, 5 ignored; all executed
+  integration and doc tests passed (endianness integration remains ignored).
+- native-block-layout + external-source: 353 unit tests passed, 2 known failures,
+  5 ignored. Failures are unchanged signed recovery/truncated authentication
+  behavior: recovery_skips_truncated_tail_and_keeps_prior_intact_files and
+  native_file_writer_commits_and_reopens_multiframe_files_in_all_modes.
+- Native integrations run separately after the known unit failures: passed.
+- Added per-block capacity/LRU/ownership, descriptor/ordinal/revision/extent
+  mismatch, undersized-budget and physical-invalidation tests.
+- Extended cross-handle source-read-count test passed in both suites. Extended
+  cached-read corruption, truncation and empty-range guard test passed in the
+  default suite after being added; native clippy compiled it as well.
+- cargo clippy -p revault_lockbox_api --all-targets
+  --features native-block-layout,external-source -- -D warnings: passed.
+
+Reproduction: rust cwd, TMPDIR=$PWD/target/issue310-sign-tmp, taskset -c 2.
+Baseline binary: target/issue310-raw-block-cache-stress-before
+SHA256 707e802bffa413129f88c68feb6dd8970e92ea2d96d15479bf728ba15f6f1335
+Candidate: target/issue310-block-lru-after
+SHA256 4c98e708b42a488bf3a846474d9377e4380f228c4317b87ddd21d52058bd89bd
+Candidate built with cargo bench -p revault_lockbox_api
+  --features native-block-layout --bench zip_read --no-run.
+All owned tests/builds ended before timing; runs used alternating binary order.
+OS cache warm; no cold-I/O claim. Bench verifies all returned bytes via public
+named file handles. Archives recreated for each child, handles opened afresh
+per sample; two-pass cases reuse the handle within a sample.
+
+Stress: 4 paired rounds, FILES=65536, CASE=small, 4096 bytes/file,
+CREATE_PROFILE=BulkImport, CORPUS=pattern, MODE=plain, ACCESS=random,
+COMPRESSION=false, PROFILE=Interactive, PASSES=1, SAMPLES=3.
+256 MiB payload exceeds the default 128 MiB native cache.
+Median total baseline 2448.088 ms, candidate 2154.997 ms (11.97% less time).
+Every pair improved, unlike the rejected full-frame reservation cache.
+Still slower than ZIP on this workload; parity is not achieved.
+
+Read matrix: 8 paired rounds, CASE=small/large, MODE=plain, ACCESS=random,
+CORPUS=pattern/random, both compression flags and Interactive/ReadMostly read
+profiles. Small: 512 files x4096, Interactive/BulkImport creation, PASSES=1/2,
+SAMPLES=9. Large: 4 files x8388608, Interactive creation, PASSES=1, SAMPLES=5.
+640 result rows. Small packed raw first-pass speedup 1.671-1.751x, median
+native/ZIP ratios 0.917-0.938. Two-pass raw speedup 2.149-2.302x, ratios
+1.014-1.048. Random data requested compressed also benefits from raw fallback.
+Small standalone controls had mixed results, including speedup 0.896x.
+Large controls speedup 0.960-1.030x. These controls do not establish zero cost.
+
+Separate fixed control follow-up (not pooled): 8 paired rounds, same matrix
+except small creation only Interactive (256 small +128 large rows). Small
+speedup 0.935-1.108x; large 0.977-1.020x. The earlier worst standalone group
+reversed direction, but other controls still show slowdowns.
+
+Paired CSVs report median percentage time change (negative is faster), plus
+10,000-resample percentile bootstrap intervals across the 8 round pairs.
+Deterministic xorshift seed 310; quantiles at indices 249/9749. These are
+exploratory intervals, not adjusted for multiple comparisons. Some controls
+have positive lower bounds: original packed compressed ReadMostly pattern
++5.761% [2.261,19.125]; follow-up standalone raw ReadMostly pattern +4.424%
+[0.852,8.536]; follow-up large compressed Interactive pattern +3.286%
+[0.954,8.215]. No claim of universal improvement or established non-regression.
+The substantial packed raw gains and consistently improved over-budget stress
+support retaining this localized optimization, with control uncertainty open.
+
+All CSVs preserve original runs and follow-up separately. Supporting runner
+and bootstrap Rust sources are stored beside this note for reproduction.
+Broader read parity (including large/standalone and cold I/O), protected-write
+performance gate, signed recovery and release/activation work remain open.

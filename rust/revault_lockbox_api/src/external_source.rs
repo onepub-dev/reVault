@@ -867,6 +867,13 @@ mod tests {
                         reader.read_exact(&mut small).unwrap();
                         assert_eq!(small, expected[7..20]);
                         assert_eq!(*source.reads.lock().unwrap(), initial);
+                        // Independent handles share authenticated cached blocks.
+                        let mut second = archive.open_file(&paths[1]).unwrap();
+                        second.seek(SeekFrom::Start(7)).unwrap();
+                        second.read_exact(&mut small).unwrap();
+                        assert_eq!(small, expected[7..20]);
+                        assert_eq!(*source.reads.lock().unwrap(), initial);
+                        drop(second);
                         reader.seek(SeekFrom::Start(32770)).unwrap();
                         reader.read_exact(&mut small).unwrap();
                         assert_eq!(small, expected[32770..32783]);

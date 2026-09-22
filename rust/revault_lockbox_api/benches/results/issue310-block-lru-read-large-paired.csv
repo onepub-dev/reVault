@@ -1,0 +1,9 @@
+create_profile,passes,compressed,read_profile,corpus,paired_change_percent,bootstrap_low,bootstrap_high
+Interactive,1,false,Interactive,pattern,-0.041,-3.599,3.490
+Interactive,1,false,Interactive,random,-0.487,-4.631,4.865
+Interactive,1,false,ReadMostly,pattern,1.532,-1.397,4.624
+Interactive,1,false,ReadMostly,random,0.107,-0.924,1.833
+Interactive,1,true,Interactive,pattern,-1.247,-8.018,5.818
+Interactive,1,true,Interactive,random,-1.006,-5.053,3.788
+Interactive,1,true,ReadMostly,pattern,-2.870,-9.853,5.530
+Interactive,1,true,ReadMostly,random,4.020,1.089,4.997

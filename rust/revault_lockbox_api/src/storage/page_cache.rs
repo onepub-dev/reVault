@@ -83,8 +83,39 @@ struct CachedPage {
     security: PageSecurity,
 }
 
+#[cfg(any(test, feature = "native-block-layout"))]
+pub(crate) struct CachedNativeBlock {
+    pub(crate) descriptor: crate::file_format::indexed_frame::BlockFrameDescriptor,
+    pub(crate) ordinal: usize,
+    pub(crate) required_end: u64,
+    pub(crate) data: Vec<u8>,
+}
+
+#[cfg(any(test, feature = "native-block-layout"))]
+impl Drop for CachedNativeBlock {
+    fn drop(&mut self) {
+        crate::page_buffer::zeroize_bytes(&mut self.data);
+    }
+}
+
+#[cfg(any(test, feature = "native-block-layout"))]
+impl std::fmt::Debug for CachedNativeBlock {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CachedNativeBlock")
+            .field("ordinal", &self.ordinal)
+            .field("bytes", &self.data.len())
+            .finish_non_exhaustive()
+    }
+}
+
 #[derive(Debug, Clone)]
 enum CachedPagePayload {
+    #[cfg(any(test, feature = "native-block-layout"))]
+    NativeBlock {
+        block: Arc<CachedNativeBlock>,
+        physical_len: u64,
+        revision: u64,
+    },
     Decoded(Arc<DecodedPage>),
     #[cfg(any(test, feature = "native-block-layout"))]
     Native(Arc<crate::file_format::indexed_frame::block_page::EncodedBlockPage>),
@@ -106,7 +137,8 @@ impl CachedPage {
     fn physical_len(&self) -> u64 {
         #[cfg(any(test, feature = "native-block-layout"))]
         if let CachedPagePayload::NativeDecoded { physical_len, .. }
-        | CachedPagePayload::NativeIndex { physical_len, .. } = &self.page
+        | CachedPagePayload::NativeIndex { physical_len, .. }
+        | CachedPagePayload::NativeBlock { physical_len, .. } = &self.page
         {
             return *physical_len;
         }
@@ -119,16 +151,20 @@ impl CachedPagePayload {
         match self {
             Self::Decoded(page) => Ok(page),
             #[cfg(any(test, feature = "native-block-layout"))]
-            Self::Native(_) | Self::NativeIndex { .. } | Self::NativeDecoded { .. } => {
-                Err(Error::CorruptRecord)
-            }
+            Self::Native(_)
+            | Self::NativeIndex { .. }
+            | Self::NativeDecoded { .. }
+            | Self::NativeBlock { .. } => Err(Error::CorruptRecord),
         }
     }
     #[cfg(test)]
     fn decoded_mut(&mut self) -> Option<&mut Arc<DecodedPage>> {
         match self {
             Self::Decoded(page) => Some(page),
-            Self::Native(_) | Self::NativeIndex { .. } | Self::NativeDecoded { .. } => None,
+            Self::Native(_)
+            | Self::NativeIndex { .. }
+            | Self::NativeDecoded { .. }
+            | Self::NativeBlock { .. } => None,
         }
     }
 }
@@ -423,6 +459,81 @@ impl PageCache {
     }
 
     #[cfg(any(test, feature = "native-block-layout"))]
+    pub(crate) fn native_block(
+        &mut self,
+        offset: u64,
+        descriptor: &crate::file_format::indexed_frame::BlockFrameDescriptor,
+        ordinal: usize,
+        required_end: u64,
+        revision: u64,
+    ) -> Option<Arc<CachedNativeBlock>> {
+        self.compact_history();
+        if self.pages.get(&offset).is_some_and(|entry| {
+            matches!(&entry.page,
+            CachedPagePayload::NativeBlock { block, revision: cached, .. }
+            if *cached != revision || revision == u64::MAX || &block.descriptor != descriptor
+                || block.ordinal != ordinal || block.required_end != required_end)
+        }) {
+            self.evict_cached(offset);
+        }
+        if let Some(entry) = self.pages.get_mut(&offset) {
+            if let CachedPagePayload::NativeBlock { block, .. } = &entry.page {
+                self.hits = self.hits.saturating_add(1);
+                entry.generation = entry.generation.saturating_add(1);
+                self.recent.push_back(offset);
+                return Some(block.clone());
+            }
+        }
+        self.misses = self.misses.saturating_add(1);
+        None
+    }
+
+    #[cfg(any(test, feature = "native-block-layout"))]
+    pub(crate) fn insert_native_block(
+        &mut self,
+        offset: u64,
+        block: CachedNativeBlock,
+        revision: u64,
+    ) -> Arc<CachedNativeBlock> {
+        let block = Arc::new(block);
+        let weight = (block.data.capacity()
+            + std::mem::size_of::<CachedNativeBlock>()
+            + 2 * std::mem::size_of::<usize>()) as u64;
+        let Some(physical_len) = block.required_end.checked_sub(offset) else {
+            return block;
+        };
+        if revision == u64::MAX
+            || weight > self.limit_bytes
+            || self.limit_bytes == 0
+            || self.dirty_offsets.contains(&offset)
+            || self
+                .pages
+                .get(&offset)
+                .is_some_and(|entry| !matches!(entry.page, CachedPagePayload::NativeBlock { .. }))
+        {
+            return block;
+        }
+        self.evict_cached(offset);
+        self.pages.insert(
+            offset,
+            CachedPage {
+                page: CachedPagePayload::NativeBlock {
+                    block: block.clone(),
+                    physical_len,
+                    revision,
+                },
+                weight,
+                generation: 0,
+                security: PageSecurity::Normal,
+            },
+        );
+        self.used_bytes = self.used_bytes.saturating_add(weight);
+        self.recent.push_back(offset);
+        self.trim_to_limit();
+        block
+    }
+
+    #[cfg(any(test, feature = "native-block-layout"))]
     pub(crate) fn native_index(
         &mut self,
         offset: u64,
@@ -651,7 +762,8 @@ impl PageCache {
                     }
                     #[cfg(any(test, feature = "native-block-layout"))]
                     CachedPagePayload::NativeDecoded { .. }
-                    | CachedPagePayload::NativeIndex { .. } => return Err(Error::CorruptRecord),
+                    | CachedPagePayload::NativeIndex { .. }
+                    | CachedPagePayload::NativeBlock { .. } => return Err(Error::CorruptRecord),
                     CachedPagePayload::Decoded(page) => {
                         std::borrow::Cow::Owned(match entry.security {
                             PageSecurity::Normal => encode_page_with_format(
@@ -995,6 +1107,83 @@ mod tests {
     use crate::page::{encode_page, DecodedPage, PageObject, PageObjectKind};
     use crate::secret_vec::SecureVec;
     use crate::storage::StorageBackend;
+
+    #[test]
+    fn native_block_cache_accounts_individual_allocations_and_evicts_lru() {
+        let descriptor = crate::file_format::indexed_frame::BlockFrameDescriptor {
+            archive: LockboxId::from_bytes([17; 16]),
+            frame_id: 23,
+            mode: crate::creation_options::FormatMode(0),
+            compression: 0,
+            logical_len: 65536,
+            stored_len: 65536,
+            salt: [37; 32],
+            index_commitment: [0; 32],
+        };
+        let block = |ordinal| CachedNativeBlock {
+            descriptor: descriptor.clone(),
+            ordinal,
+            required_end: 100000,
+            data: vec![7; 16384],
+        };
+        let weight = (16384
+            + std::mem::size_of::<CachedNativeBlock>()
+            + 2 * std::mem::size_of::<usize>()) as u64;
+        let mut cache = PageCache::new(CacheLimit::Bytes(2 * weight));
+        let first = cache.insert_native_block(1000, block(0), 3);
+        let weak = Arc::downgrade(&first);
+        drop(first);
+        drop(cache.insert_native_block(20000, block(1), 3));
+        assert_eq!(cache.stats().used_bytes, 2 * weight);
+        assert!(cache
+            .native_block(1000, &descriptor, 0, 100000, 3)
+            .is_some());
+        drop(cache.insert_native_block(40000, block(2), 3));
+        assert!(cache
+            .native_block(20000, &descriptor, 1, 100000, 3)
+            .is_none());
+        assert!(cache
+            .native_block(1000, &descriptor, 0, 100000, 3)
+            .is_some());
+        assert_eq!(cache.stats().used_bytes, 2 * weight);
+        cache.clear();
+        assert!(weak.upgrade().is_none());
+        assert_eq!(cache.stats().used_bytes, 0);
+        for variant in 0..5 {
+            drop(cache.insert_native_block(1000, block(0), 3));
+            let mut changed = descriptor.clone();
+            if variant == 0 {
+                changed.index_commitment[0] ^= 1;
+            }
+            assert!(cache
+                .native_block(
+                    1000,
+                    &changed,
+                    usize::from(variant == 1),
+                    if variant == 2 { 100001 } else { 100000 },
+                    if variant == 3 {
+                        4
+                    } else if variant == 4 {
+                        u64::MAX
+                    } else {
+                        3
+                    }
+                )
+                .is_none());
+            assert_eq!(cache.stats().used_bytes, 0);
+        }
+        let mut tiny = PageCache::new(CacheLimit::Bytes(weight - 1));
+        drop(tiny.insert_native_block(1000, block(0), 3));
+        assert_eq!(tiny.stats().entries, 0);
+        assert_eq!(tiny.stats().used_bytes, 0);
+        drop(cache.insert_native_block(1000, block(0), 3));
+        cache.invalidate_clean_range(99999, 1).unwrap();
+        assert_eq!(
+            cache.stats().entries,
+            0,
+            "full physical extent must participate in invalidation"
+        );
+    }
 
     #[test]
     fn native_decoded_cache_tracks_physical_extents_and_shared_ownership() {

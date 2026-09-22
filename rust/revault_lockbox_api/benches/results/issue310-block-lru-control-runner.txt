@@ -1,0 +1,20 @@
+use std::{fs,process::Command,collections::BTreeMap};
+fn median(v:&mut [f64])->f64{v.sort_by(f64::total_cmp);let n=v.len();if n%2==0{(v[n/2-1]+v[n/2])/2.0}else{v[n/2]}}
+fn main(){for case in ["small","large"] {
+ let mut csv=String::new();let mut rows=0;
+ let runs=8;
+ let creates:&[&str]=if case=="small"{&["Interactive"]}else{&["Interactive"]};
+ let passes:&[&str]=if case=="small"{&["1","2"]}else{&["1"]};
+ for run in 1..=runs {for create in creates {for pass in passes {for corpus in ["pattern","random"] {
+  let mut phases=[("before","target/issue310-raw-block-cache-stress-before"),("after","target/issue310-block-lru-after")];if run%2==0{phases.reverse();}
+  for (phase,bin) in phases {
+   let r=Command::new("taskset").args(["-c","2",bin]).env("REVAULT_ZIP_READ_CASE",case).env("REVAULT_ZIP_READ_SIZE",if case=="small"{"4096"}else{"8388608"}).env("REVAULT_ZIP_READ_CREATE_PROFILE",create).env("REVAULT_ZIP_READ_CORPUS",corpus).env("REVAULT_ZIP_READ_MODE","plain").env("REVAULT_ZIP_READ_ACCESS","random").env("REVAULT_ZIP_READ_SAMPLES",if case=="small"{"9"}else{"5"}).env("REVAULT_ZIP_READ_PASSES",pass).env_remove("REVAULT_ZIP_READ_COMPRESSION").env_remove("REVAULT_ZIP_READ_PROFILE").env_remove("REVAULT_ZIP_READ_WRITE_PROFILE").output().unwrap();
+   assert!(r.status.success(),"{}",String::from_utf8_lossy(&r.stderr));let s=String::from_utf8(r.stdout).unwrap();let mut lines=s.lines();let header=lines.next().unwrap();if csv.is_empty(){csv.push_str(&format!("phase,create_profile,passes,run,{header}\n"));}for l in lines{assert_eq!(l.split(',').count(),16);csv.push_str(&format!("{phase},{create},{pass},{run},{l}\n"));rows+=1;}
+  }
+ }}}eprintln!("{case} {run}/{runs}");}
+ assert_eq!(rows,if case=="small"{256}else{128});
+ fs::write(format!("revault_lockbox_api/benches/results/issue310-block-lru-control-{case}.csv"),&csv).unwrap();
+ let mut groups=BTreeMap::<String,[Vec<f64>;4]>::new();for row in csv.lines().skip(1){let c:Vec<_>=row.split(',').collect();let g=groups.entry(format!("{},{},{},{},{}",c[1],c[2],c[6],c[8],c[19])).or_default();let phase=usize::from(c[0]=="after");g[phase].push(c[11].parse().unwrap());g[2+phase].push(c[12].parse().unwrap());}
+ let mut summary=String::from("create_profile,passes,compressed,read_profile,corpus,before_ms,after_ms,speedup,before_over_zip,after_over_zip\n");for (key,mut g)in groups{let b=median(&mut g[0]);let a=median(&mut g[1]);summary.push_str(&format!("{key},{b:.3},{a:.3},{:.3},{:.3},{:.3}\n",b/a,median(&mut g[2]),median(&mut g[3])));}
+ fs::write(format!("revault_lockbox_api/benches/results/issue310-block-lru-control-{case}-summary.csv"),&summary).unwrap();print!("{case}:\n{summary}");
+}}
