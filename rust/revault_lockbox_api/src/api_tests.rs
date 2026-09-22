@@ -3161,11 +3161,19 @@ fn recovery_survives_corrupt_header() {
 
     assert!(Lockbox::open_bytes_with_key(damaged.clone(), KEY).is_err());
 
-    let report = RecoveryScanner::scan_bytes(damaged, KEY);
+    let report = RecoveryScanner::scan_bytes(damaged.clone(), KEY);
     assert_eq!(report.intact_file_count, 3);
     assert_eq!(report.partial_files, 0);
     assert!(!report.toc_recovered);
     assert!(report.intact_files.iter().any(|e| e.path == "/docs/a.txt"));
+
+    // Both header slots are damaged, so recovery must reconstruct streamed
+    // lengths from manifests before checking signed native candidates.
+    let salvaged = RecoveryScanner::salvage_bytes(damaged, KEY, &signing_key()).unwrap();
+    let reopened = Lockbox::open_bytes_with_key(salvaged.to_bytes(), KEY).unwrap();
+    assert_eq!(reopened.get_file(&p("/docs/a.txt")).unwrap(), b"alpha");
+    assert_eq!(reopened.get_file(&p("/docs/b.txt")).unwrap(), b"bravo");
+    assert_eq!(reopened.get_file(&p("/photos/c.jpg")).unwrap(), b"image");
 }
 
 #[test]

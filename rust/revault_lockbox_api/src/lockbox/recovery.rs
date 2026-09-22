@@ -882,7 +882,17 @@ fn attach_native_manifest_entries(
     entries.extend(
         candidates
             .into_iter()
-            .filter(|(path, _)| !conflicts.contains(path)),
+            .filter(|(path, _)| !conflicts.contains(path))
+            .filter_map(|(path, mut entry)| {
+                // Streaming writers cannot know the final length when they emit
+                // a frame. Infer only the candidate length; signed recovery still
+                // requires an exact match with the authenticated TOC, and reads
+                // below validate contiguous coverage and every chunk.
+                if entry.len == 0 {
+                    entry.len = recovered_len_from_chunks(&entry).ok()?;
+                }
+                Some((path, entry))
+            }),
     );
 }
 
