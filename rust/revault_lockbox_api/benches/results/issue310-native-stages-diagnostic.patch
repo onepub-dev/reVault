@@ -1,0 +1,33 @@
+diff --git a/rust/revault_lockbox_api/src/lockbox/files.rs b/rust/revault_lockbox_api/src/lockbox/files.rs
+index 0f4d68f..1df4349 100644
+--- a/rust/revault_lockbox_api/src/lockbox/files.rs
++++ b/rust/revault_lockbox_api/src/lockbox/files.rs
+@@ -2665,6 +2665,7 @@ impl<'a, State> FilePageWriter<'a, State> {
+                 .key
+                 .with_bytes(|key| prepared.encode_native_page(identity, frame_id, key))??,
+         );
++        let encoded_at = Instant::now();
+         self.lockbox.sequence = page_id;
+         let page_len = page.bytes().len() as u64;
+         let offset = self.lockbox.allocate_page_offset(page_len)?;
+@@ -2674,9 +2675,11 @@ impl<'a, State> FilePageWriter<'a, State> {
+             page.clone(),
+             PageWritePolicy::DiscardAfterFlush,
+         )?;
++        let staged_at = Instant::now();
+         // The normal preparation protocol owns both reused and appended extents.
+         // Publish no chunk reference until those bytes have actually been written.
+         self.lockbox.flush_discardable_pages()?;
++        let flushed_at = Instant::now();
+         let reference = std::sync::Arc::new(BlockFrameReference {
+             descriptor: page.descriptor().clone(),
+             sequence: identity.sequence,
+@@ -2706,5 +2709,8 @@ impl<'a, State> FilePageWriter<'a, State> {
+         }
+         self.lockbox
+             .add_page_write_nanos(started.elapsed().as_nanos());
++        if std::env::var_os("REVAULT_NATIVE_STAGE_DIAGNOSTIC").is_some() {
++            eprintln!("native-stage,encode_us={:.3},stage_us={:.3},flush_us={:.3},publish_us={:.3},page_bytes={}", encoded_at.duration_since(started).as_secs_f64()*1e6, staged_at.duration_since(encoded_at).as_secs_f64()*1e6, flushed_at.duration_since(staged_at).as_secs_f64()*1e6, flushed_at.elapsed().as_secs_f64()*1e6, page_len);
++        }
+         Ok(indices)
+     }

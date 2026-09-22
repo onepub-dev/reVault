@@ -1,0 +1,47 @@
+Issue #310: native encrypted compressed per-frame stage diagnostic
+Source 420d178 (production f4b1d91) plus the attached temporary diagnostic
+patch. Patch was removed after measurement; no production change retained.
+Diagnostic protection_gate SHA256:
+2337bc76e17a119f7d253a3603eb92d866c5bdde4350eb6a59532ec6ab11f3e0
+The target/release native benchmark executable still contains diagnostics and
+must be rebuilt before future production timing comparisons.
+
+Build: cargo build -p revault_lockbox_api --release --bench protection_gate
+--features native-block-layout (succeeded).
+Run, from rust with TMPDIR=$PWD/target/issue310-sign-tmp:
+REVAULT_GATE_CASE=encrypted/true/write REVAULT_GATE_WRITE_PROFILE=1 \
+REVAULT_NATIVE_STAGE_DIAGNOSTIC=1 taskset -c 2 \
+target/release/deps/protection_gate-4a1172c8e93f57fc \
+write target/issue310-native-stage-run 8388608 pattern 100
+Stdout and stderr are the retained run CSV/TXT. Exit zero. Every write was
+independently reopened and its persisted bytes compared by protection_gate.
+Default padding, synthetic key, warm OS cache, no owned concurrent build/test.
+
+Summary excludes sample 0. Each of 100 writes has exactly four native-stage
+records preceding its write-profile record. Per-write metrics sum four frame
+observations before taking the median over 99 writes. Later-frame flush has
+297 individual observations; it is not a per-write sum.
+First flush median: 1748.792 us. Later flush median: 41.661 us.
+Per-write medians: encode 211.685 us, stage 19.110 us, flush 1875.685 us,
+reference publication 6.430 us. Separate medians need not sum to total median.
+Native page encoding is a small part of this measured page-write interval.
+The first flush dominates, consistent with first-frame transaction preparation;
+this patch does not split begin_preparation from its following storage write.
+Legacy defers preparation to another stage, so this is not proof that native
+has an additional 1.75 ms total cost or that the preparation protocol is faulty.
+
+Instrumentation adds clocks and stderr output after each frame. These rows
+are diagnostics, not a new paired performance comparison. Stage timers exclude
+that frame's logging but add/total timers include logging overhead; do not use
+run.csv to claim a regression or improvement against production executables.
+Encoding includes key access and native-page construction. Staging includes
+extent allocation/cache insertion. Flushing includes transaction preparation
+and storage writes. Publication includes construction of chunk references.
+Prepared-buffer destruction occurs after these substage measurements; this
+experiment cannot attribute the entire add-minus-prepare residual.
+
+Next: distinguish transaction preparation placement and prepared-buffer cleanup
+before changing flush frequency. The stronger existing paired encrypted write
+gate remains +10.169% [6.179%,17.034%], which fails the +5% limit. No new
+correctness-suite result is claimed; production files are restored unchanged.
+Native remains opt-in. Read parity and the other issue/release gates remain open.
