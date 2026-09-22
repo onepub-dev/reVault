@@ -1,0 +1,48 @@
+Issue #310 resumed correctness audit, base 95ad308
+================================================
+
+The existing experimental native layout is not ready for default activation.
+The three-way benchmark report still establishes small-file and compressed
+regressions, not ZIP parity. No production performance change is claimed here.
+
+Fresh baseline:
+  cargo test -p revault_lockbox_api --features native-block-layout --lib --quiet
+  315 passed, 14 failed, 5 ignored; 83.35 seconds.
+The complete storage-failure lifecycle test now passes. No previous process was
+assumed to be running; this was a new invocation against the current branch.
+
+Two fixture assumptions were corrected without disabling their assertions:
+- Packed-page relocation now scans and validates native page length, page ID,
+  descriptor and sequence when applicable. Legacy page-size validation remains.
+  Both branches independently reopen, compare survivor bytes, verify storage,
+  and assert absence of all 79 deleted files. The focused test passes both with
+  and without native-block-layout.
+- Multiframe corruption/recovery selects the subject's pages using committed
+  offsets. Under the feature, the public writer also creates a native page for
+  the neighboring file; scanner position zero is not necessarily the subject.
+  Total page counts and removal of exactly the damaged page remain asserted.
+
+The second correction exposes a deeper existing failure, retained as a failing
+assertion: encrypted=false, signed=true, compression=None, padding=Default.
+After corrupting one subject data block, recovery reports TWO partial files,
+not one. The intact neighboring native file loses authorization too.
+RecoverySession::native_signed_snapshot invokes the full normal open, which
+calls verify_signed_content and computes signed_content_digest over every
+file. A damaged file prevents creation of the trusted snapshot for all native
+entries. Simply bypassing that authentication would not be a valid fix.
+The existing signed TOC-loss recovery failures need the same contract review:
+establish how each recovered descriptor can retain owner authorization without
+depending on unrelated readable content. Do not weaken owner-signature checks.
+
+Validation before commit-time formatting:
+  Default library suite: 329 passed, 5 ignored, 79.60 seconds.
+  Focused relocation regression: PASS with and without native-block-layout.
+  Focused native multiframe regression: FAIL at intact-neighbor recovery above.
+  Native library/tests Clippy with -D warnings: PASS.
+The full native suite was not rerun after these test-only edits. One baseline
+failure is fixed; another now reaches a deeper failure. No green native-suite
+claim is made. Issue remains in progress; implemented/tested labels do not apply.
+
+Remaining scope includes signed recovery, native shared caching, remaining
+layout-aware fixtures, read/write/load gates, migration/bindings/release checks,
+and repeated ZIP comparisons across corpora, sizes and protection modes.

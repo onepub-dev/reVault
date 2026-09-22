@@ -119,11 +119,24 @@ fn native_file_writer_commits_and_reopens_multiframe_files_in_all_modes() {
                         })
                         .unwrap();
                     assert_eq!(scan.corrupt_records, 0);
-                    assert_eq!(scan.native_pages.len(), 2);
-                    for (page, chunk) in scan
-                        .native_pages
+                    // The public writer also emits a native page for `keep`
+                    // when the experiment is enabled. Select the subject's
+                    // pages by committed location, never scanner ordering.
+                    let native_pages = archive.toc_entries[&path]
+                        .chunks
                         .iter()
-                        .zip(&archive.toc_entries[&path].chunks)
+                        .map(|chunk| {
+                            scan.native_pages
+                                .iter()
+                                .find(|page| page.offset == chunk.segments[0].page_offset)
+                                .unwrap()
+                        })
+                        .collect::<Vec<_>>();
+                    assert_eq!(
+                        scan.native_pages.len(),
+                        2 + usize::from(cfg!(feature = "native-block-layout"))
+                    );
+                    for (page, chunk) in native_pages.iter().zip(&archive.toc_entries[&path].chunks)
                     {
                         let segment = &chunk.segments[0];
                         assert_eq!(page.offset, segment.page_offset);
@@ -152,7 +165,7 @@ fn native_file_writer_commits_and_reopens_multiframe_files_in_all_modes() {
                         );
                     }
                     let mut damaged = persisted_bytes.clone();
-                    let last = &scan.native_pages[1];
+                    let last = native_pages[1];
                     let offset = last.offset as usize;
                     archive
                         .key
@@ -195,11 +208,15 @@ fn native_file_writer_commits_and_reopens_multiframe_files_in_all_modes() {
                                 .scan_records()
                         })
                         .unwrap();
-                    assert_eq!(damaged_scan.native_pages.len(), 1);
-                    assert_eq!(
-                        damaged_scan.native_pages[0].descriptor,
-                        scan.native_pages[0].descriptor
-                    );
+                    assert_eq!(damaged_scan.native_pages.len(), scan.native_pages.len() - 1);
+                    assert!(damaged_scan.native_pages.iter().any(|page| {
+                        page.offset == native_pages[0].offset
+                            && page.descriptor == native_pages[0].descriptor
+                    }));
+                    assert!(!damaged_scan
+                        .native_pages
+                        .iter()
+                        .any(|page| page.offset == last.offset));
                     assert!(
                         damaged_scan.corrupt_records > 0,
                         "scanning must check all blocks, not only metadata/index"
@@ -242,7 +259,7 @@ fn native_file_writer_commits_and_reopens_multiframe_files_in_all_modes() {
                         .any(|entry| entry.path == path));
                     // A valid duplicate page is not a second authenticated
                     // generation: ambiguous overlapping candidates are omitted.
-                    let first_native = &scan.native_pages[0];
+                    let first_native = native_pages[0];
                     let start = first_native.offset as usize;
                     let end = start + first_native.physical_len;
                     let mut duplicate = missing_toc.clone();
@@ -295,7 +312,8 @@ fn native_file_writer_commits_and_reopens_multiframe_files_in_all_modes() {
                     let damaged_report =
                         crate::RecoveryScanner::scan_bytes(damaged.clone(), &*recovery_key);
                     assert!(damaged_report.corrupt_records > 0);
-                    assert_eq!(damaged_report.partial_files, 1);
+                    assert_eq!(damaged_report.partial_files, 1,
+                        "one corrupt file must not prevent intact-neighbor recovery: encrypted={encrypted}, signed={signed}, compression={compression:?}, padding={size_padding:?}");
                     assert_eq!(damaged_report.intact_file_count, 1);
                     let salvaged = crate::RecoveryScanner::salvage_bytes(
                         persisted_bytes.clone(),

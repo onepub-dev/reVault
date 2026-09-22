@@ -1181,14 +1181,41 @@ mod tests {
 
         let survivor = lb.toc_entries.get(contents[40].0.as_str()).unwrap();
         let segment = &survivor.chunks[0].segments[0];
-        let relocated = lb.read_page(segment.page_offset).unwrap();
-        assert_eq!(
-            segment.page_len,
-            crate::page::page_size_for_objects(&relocated.objects) as u64
-        );
+        if let Some(reference) = &survivor.chunks[0].block_frame {
+            let bytes = lb.to_bytes();
+            let relocated = lb
+                .key
+                .with_bytes(|key| {
+                    crate::file_format::indexed_frame::block_page::scan(
+                        &bytes,
+                        segment.page_offset as usize,
+                        lb.lockbox_id,
+                        lb.format_mode,
+                        key,
+                    )
+                })
+                .unwrap()
+                .unwrap();
+            assert_eq!(segment.page_len, relocated.physical_len as u64);
+            assert_eq!(segment.object_id, relocated.page_id);
+            assert_eq!(reference.descriptor, relocated.descriptor);
+            assert_eq!(reference.sequence, relocated.sequence);
+        } else {
+            let relocated = lb.read_page(segment.page_offset).unwrap();
+            assert_eq!(
+                segment.page_len,
+                crate::page::page_size_for_objects(&relocated.objects) as u64
+            );
+        }
 
         let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), "secret").unwrap();
         assert_eq!(reopened.get_file(&contents[40].0).unwrap(), contents[40].1);
+        reopened.inspector().verify_storage().unwrap();
+        for (index, (path, _)) in contents.iter().enumerate() {
+            if index != 40 {
+                assert!(reopened.get_file(path).is_err());
+            }
+        }
     }
 
     #[test]
