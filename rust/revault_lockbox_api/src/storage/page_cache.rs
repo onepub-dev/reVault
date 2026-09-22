@@ -31,7 +31,7 @@ use crate::page::{
 use crate::secret_vec::SecureVec;
 use crate::storage::Storage;
 use crate::{Error, Result};
-use std::collections::{BTreeSet, HashMap, VecDeque};
+use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
 use std::sync::Arc;
 use zeroize::Zeroize;
 
@@ -177,6 +177,7 @@ impl PageCache {
         offset: u64,
         security: PageSecurity,
     ) -> Result<Option<Arc<DecodedPage>>> {
+        self.compact_history();
         if let Some(entry) = self.pages.get_mut(&offset) {
             if entry.security == security {
                 self.hits = self.hits.saturating_add(1);
@@ -340,6 +341,7 @@ impl PageCache {
         offset: u64,
         revision: u64,
     ) -> Option<Arc<CachedCompressionFrame>> {
+        self.compact_history();
         if self.pages.get(&offset).is_some_and(|entry| matches!(&entry.page, CachedPagePayload::NativeDecoded { revision: cached, .. } if *cached != revision || revision == u64::MAX)) {
             self.evict_cached(offset);
         }
@@ -414,6 +416,7 @@ impl PageCache {
         &mut self,
         offset: u64,
     ) -> Result<Option<Arc<crate::file_format::indexed_frame::block_page::EncodedBlockPage>>> {
+        self.compact_history();
         let Some(entry) = self.pages.get_mut(&offset) else {
             return Ok(None);
         };
@@ -681,6 +684,7 @@ impl PageCache {
 
     #[cfg(test)]
     pub(crate) fn get_page(&mut self, offset: u64) -> Option<DecodedPage> {
+        self.compact_history();
         if self.zeroed_pages.contains_key(&offset) {
             self.misses = self.misses.saturating_add(1);
             return None;
@@ -705,6 +709,7 @@ impl PageCache {
         offset: u64,
         f: impl FnOnce(&mut DecodedPage) -> R,
     ) -> Option<R> {
+        self.compact_history();
         if self.zeroed_pages.contains_key(&offset) {
             self.misses = self.misses.saturating_add(1);
             return None;
@@ -818,6 +823,7 @@ impl PageCache {
         if let Some(old) = self.pages.remove(&offset) {
             self.used_bytes = self.used_bytes.saturating_sub(old.weight);
         }
+        self.compact_history();
     }
 
     #[cfg(test)]
@@ -837,7 +843,31 @@ impl PageCache {
         }
     }
 
+    /// Bound access bookkeeping independently of how long a handle stays open.
+    /// Keep each live offset's most recent position and reset its accumulated
+    /// second chances. Payloads, dirty state and public hit counters are unchanged.
+    fn compact_history(&mut self) {
+        let limit = self.pages.len().saturating_mul(4).saturating_add(64);
+        if self.recent.len() <= limit {
+            if self.recent.capacity() > limit.saturating_mul(2) {
+                self.recent.shrink_to(limit);
+            }
+            return;
+        }
+        let mut seen =
+            HashSet::with_capacity_and_hasher(self.pages.len(), FastBuildHasher::default());
+        self.recent.make_contiguous().reverse();
+        self.recent
+            .retain(|offset| self.pages.contains_key(offset) && seen.insert(*offset));
+        self.recent.make_contiguous().reverse();
+        for entry in self.pages.values_mut() {
+            entry.generation = 0;
+        }
+        self.recent.shrink_to(limit);
+    }
+
     fn trim_to_limit(&mut self) {
+        self.compact_history();
         while self.used_bytes > self.limit_bytes {
             let Some(offset) = self.recent.pop_front() else {
                 break;
@@ -849,6 +879,7 @@ impl PageCache {
         if self.pages.is_empty() {
             self.recent.clear();
         }
+        self.compact_history();
     }
 
     fn trim_recent_entry(&mut self, offset: u64) -> bool {
@@ -1177,6 +1208,96 @@ mod tests {
             assert!(!cache.has_dirty_pages());
             drop(storage);
             std::fs::remove_file(path).unwrap();
+        }
+    }
+
+    #[test]
+    fn repeated_reads_and_offset_churn_keep_cache_history_bounded() {
+        let mut cache = PageCache::new(CacheLimit::Bytes(1024 * 1024));
+        cache.insert_page(1, page(1), 500);
+        cache.insert_native_decoded_page(
+            2,
+            1024,
+            CachedCompressionFrame {
+                compression: 0,
+                compression_frame_len: 64,
+                compressed_len: 64,
+                compression_frame_digest: [3; 32],
+                slices: Vec::new(),
+                data: vec![7; 64],
+            },
+            0,
+        );
+        cache
+            .stage_decoded_page_with_policy(3, 500, page(3), PageWritePolicy::RetainAfterFlush)
+            .unwrap();
+        let used = cache.stats().used_bytes;
+        for _ in 0..100_000 {
+            assert_eq!(
+                cache
+                    .cached_page(1, PageSecurity::Normal)
+                    .unwrap()
+                    .unwrap()
+                    .page_id,
+                1
+            );
+            assert_eq!(cache.native_decoded_page(2, 0).unwrap().data, [7; 64]);
+        }
+        let bound = cache.pages.len() * 4 + 65;
+        assert!(
+            cache.recent.len() <= bound,
+            "{} history records for {} live entries",
+            cache.recent.len(),
+            cache.pages.len()
+        );
+        assert!(cache.recent.capacity() <= 2 * bound);
+        assert_eq!(cache.stats().used_bytes, used);
+        assert_eq!(cache.stats().hits, 200_000);
+        assert!(cache.dirty_offsets.contains(&3));
+        cache.trim_to(0);
+        assert!(
+            cache.pages.contains_key(&3),
+            "history compaction cannot lose pending writes"
+        );
+        cache.evict(3);
+        cache.trim_to(0);
+        assert_eq!(cache.stats().entries, 0);
+        assert!(cache.recent.is_empty());
+
+        let mut cache = PageCache::new(CacheLimit::Bytes(1024 * 1024));
+        for offset in 1..10_000 {
+            cache.insert_page(offset, page(offset), 500);
+            cache.evict(offset);
+            assert!(
+                cache.recent.len() <= 65,
+                "evicted offsets must not accumulate indefinitely"
+            );
+        }
+        assert_eq!(cache.stats().used_bytes, 0);
+
+        let mut cache = PageCache::new(CacheLimit::Bytes(1500));
+        for offset in 1..=3 {
+            cache.insert_page(offset, page(offset), 500);
+        }
+        for _ in 0..1000 {
+            assert!(cache
+                .cached_page(1, PageSecurity::Normal)
+                .unwrap()
+                .is_some());
+        }
+        cache.insert_page(4, page(4), 500);
+        assert!(
+            cache
+                .cached_page(2, PageSecurity::Normal)
+                .unwrap()
+                .is_none(),
+            "evict the old untouched entry before the repeatedly read one"
+        );
+        for offset in [1, 3, 4] {
+            assert!(cache
+                .cached_page(offset, PageSecurity::Normal)
+                .unwrap()
+                .is_some());
         }
     }
 
