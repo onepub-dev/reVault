@@ -1,0 +1,56 @@
+Issue #310 whole-file baseline, 2026-09-22
+Source: production code at 1ec19ae, plus the accompanying whole-access bench change.
+
+The previous random access benchmark exercises open_file/Read, not get_file.
+The new whole case compares ZIP read_to_end into an appropriately reserved Vec
+with lockbox get_file, in the same deterministic shuffled path order. Both
+compare every returned byte. Each sample reopens the archive; OS caches are warm.
+There is no extra warm-up pass. Decoded cache reuse within one sample is allowed.
+
+Build:
+  cargo bench -p revault_lockbox_api --features native-block-layout --bench zip_read --no-run
+Run the resulting executable with:
+  REVAULT_ZIP_READ_CASE=small REVAULT_ZIP_READ_MODE=plain
+  REVAULT_ZIP_READ_ACCESS=whole REVAULT_ZIP_READ_SAMPLES=5
+  REVAULT_ZIP_READ_CREATE_PROFILE=Interactive|BulkImport
+  REVAULT_ZIP_READ_CORPUS=pattern|random
+Leave COMPRESSION and PROFILE unset to run both values of each. Repeat the four
+creation/corpus combinations three times; reverse creation-profile ordering in
+the second repetition. Use a task-owned TMPDIR on a filesystem with free space.
+The CSV prepends create_profile and run to the standard 16-column benchmark CSV.
+
+48 rows, five samples per row, 512 files of 4096 bytes. Each implementation
+reopened and verified 122880 file results (480 MiB) across timed samples.
+Medians of the three recorded per-run medians:
+- Interactive creation: total get_file/open is 2.442-2.751 times ZIP.
+- BulkImport creation: total get_file/open is 10.925-12.563 times ZIP.
+- These results do not meet the ZIP parity target. They are not a before/after
+  result or a claim about signed/encrypted modes, cold OS caches, or large files.
+- The earlier stream improvements do not establish whole-file parity.
+
+Next performance investigation: read_native_block_chunk_with_cache opens and
+validates the native frame metadata/index before consulting its decoded cache.
+Packed frames repeat manifest/index work across many files. This is a source
+observation and optimization hypothesis, not a measured attribution. Reuse must
+remain bounded and keyed by committed descriptor and storage revision, preserve
+physical extent and external-source terminal checks, and validate each slice.
+
+Recovery evidence retained separately from the performance gate:
+- Two native library tests still fail at 1ec19ae.
+- The truncated-tail fixture's last page is the latest commit-auth record:
+  last_page=5504, commit_auth_offset=5504, commit_root_offset=4480,
+  sealed_len=11648, stored body end=11134, truncation=11133. This removes part of
+  signed evidence; it is not merely missing padding or a repairable header field.
+- The intact-neighbor failure is plaintext signed mode: global signed-content
+  verification reads all files, so one damaged file prevents the normal-open
+  snapshot from authorizing another native file. CommitAuth currently signs a
+  commit-root digest and optional global content digest, not an independently
+  verifiable live-TOC/descriptor digest for recovery.
+- Additional surviving owner-authenticated evidence is needed for these cases.
+  Do not bypass signature/global digest checks or trust self-recomputed checksums.
+
+Validation: release benchmark build and all 48 measurement rows completed;
+strict Clippy for the feature-enabled zip_read bench passed. No production code
+was changed in this benchmark checkpoint. Temporary recovery diagnostics were
+removed. Native activation, broader performance gates, migrations/bindings and
+full public CLI lifecycle validation remain unfinished.

@@ -6,7 +6,7 @@
 //! REVAULT_ZIP_READ_SIZE sets large-file bytes; REVAULT_ZIP_READ_CORPUS=random
 //! selects deterministic high-entropy data instead of the repeating pattern.
 //! Optional COMPRESSION (true/false), PROFILE (Interactive/ReadMostly), and
-//! ACCESS (stream/random/range) filters use the REVAULT_ZIP_READ_ prefix.
+//! ACCESS (stream/random/whole/range) filters use the REVAULT_ZIP_READ_ prefix.
 //! CREATE_PROFILE=BulkImport packs small files; default is Interactive. Record
 //! this fixture setting alongside CSV results when overriding it.
 //! WRITE_PROFILE=1 emits CSV create/add/commit/close timings on stderr for each
@@ -183,7 +183,7 @@ fn run(root: &Path, count: usize, size: usize, compressed: bool) {
             {
                 continue;
             }
-            for access in ["stream", "random", "range"] {
+            for access in ["stream", "random", "whole", "range"] {
                 if std::env::var("REVAULT_ZIP_READ_ACCESS").is_ok_and(|selected| selected != access)
                 {
                     continue;
@@ -199,6 +199,14 @@ fn run(root: &Path, count: usize, size: usize, compressed: bool) {
                     if access == "stream" {
                         for (index, payload) in payloads.iter().enumerate() {
                             check(&mut zip.by_index(index).unwrap(), payload);
+                        }
+                    } else if access == "whole" {
+                        for &index in &order {
+                            let mut file = zip.by_name(&paths[index].as_str()[1..]).unwrap();
+                            let mut bytes = Vec::with_capacity(payloads[index].len());
+                            file.read_to_end(&mut bytes).unwrap();
+                            assert_eq!(bytes, payloads[index]);
+                            black_box(bytes);
                         }
                     } else if access == "random" {
                         for &index in &order {
@@ -269,6 +277,12 @@ fn run(root: &Path, count: usize, size: usize, compressed: bool) {
                             })
                             .unwrap();
                         assert_eq!(total, (count * size) as u64);
+                    } else if access == "whole" {
+                        for &index in &order {
+                            let bytes = lockbox.get_file(&paths[index]).unwrap();
+                            assert_eq!(bytes, payloads[index]);
+                            black_box(bytes);
+                        }
                     } else if access == "random" {
                         for &index in &order {
                             check(
@@ -329,7 +343,7 @@ fn main() {
         ),
         (
             "REVAULT_ZIP_READ_ACCESS",
-            &["stream", "random", "range"][..],
+            &["stream", "random", "whole", "range"][..],
         ),
     ] {
         if let Ok(value) = std::env::var(name) {
