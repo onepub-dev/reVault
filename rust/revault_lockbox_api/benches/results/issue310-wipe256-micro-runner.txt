@@ -1,0 +1,25 @@
+extern crate zeroize;
+use zeroize::Zeroize;
+use std::{mem::MaybeUninit,hint::black_box,time::Instant};
+#[repr(transparent)]
+#[derive(Clone,Copy)]
+struct Wide<const N:usize>([u64;N]);
+impl<const N:usize> Default for Wide<N>{fn default()->Self{Self([0;N])}}
+impl<const N:usize> zeroize::DefaultIsZeroes for Wide<N>{}
+#[repr(transparent)]
+#[derive(Clone,Copy)]
+struct Spare<const N:usize>(MaybeUninit<Wide<N>>);
+impl<const N:usize> Default for Spare<N>{fn default()->Self{Self(MaybeUninit::zeroed())}}
+impl<const N:usize> zeroize::DefaultIsZeroes for Spare<N>{}
+#[inline(never)]
+fn wipe<const N:usize>(v:&mut Vec<u8>){
+ // Same partitions as production; Wide has only integers, Spare permits
+ // uninitialized storage, and exclusive disjoint regions are only overwritten.
+ let(h,w,t)=unsafe{v.as_mut_slice().align_to_mut::<Wide<N>>()};h.zeroize();w.zeroize();t.zeroize();
+ let(h,w,t)=unsafe{v.spare_capacity_mut().align_to_mut::<Spare<N>>()};h.zeroize();w.zeroize();t.zeroize();
+}
+fn run<const N:usize>(cap:usize,len:usize,iters:usize)->f64{
+ let mut v=vec![0xa5;cap];v.truncate(len);let start=Instant::now();for _ in 0..iters{wipe::<N>(black_box(&mut v));}let elapsed=start.elapsed().as_secs_f64()*1e9/iters as f64;
+ assert!(v.iter().all(|b|*b==0));for b in v.spare_capacity_mut(){assert_eq!(unsafe{b.assume_init()},0);}elapsed
+}
+fn main(){println!("round,capacity,len,store_bytes,nanoseconds");for round in 1..=8{for(cap,len,iters)in[(4096,4096,20000),(16384,16384,10000),(2105344,10600,200),(2097152,2097152,200)]{let mut widths=[8,16,32,64];if round%2==0{widths.reverse();}for n in widths{let ns=match n{8=>run::<8>(cap,len,iters),16=>run::<16>(cap,len,iters),32=>run::<32>(cap,len,iters),64=>run::<64>(cap,len,iters),_=>unreachable!()};println!("{round},{cap},{len},{},{ns:.3}",8*n);}}}}
