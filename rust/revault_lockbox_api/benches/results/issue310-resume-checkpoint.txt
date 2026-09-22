@@ -1,0 +1,111 @@
+Issue #310 read/write performance: resume checkpoint
+
+Use branch issue-310-zip-read-performance in worktree
+/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance.
+Cargo package cwd is rust/. The main checkout /home/bsutton/git/revault has
+unrelated user changes; keep using the issue worktree. Nothing was pushed.
+The user asked the agent to stop and pause the goal when Codex usage reset.
+That reset was observed in app-server rateLimits/read: codex window resetsAt
+changed from 1790421356 to1790721140 and usedPercent returned to0. Goal status
+was set to paused. This checkpoint is for resuming in a new thread.
+
+Latest committed production: 00a351f Fix #310: reuse wiped encoder buffers
+for streamed writes. Recent chain:
+00a351f streamed codec workspace reuse
+ d7dd0d0 native page-write diagnostic evidence
+ 14c0bcb current encrypted-write profile
+ 006546c pooled native/default write-gate evidence
+ 62180a3 bounded wiped workspace pooling for large slice writes
+The branch also contains earlier retained read improvements and rejected
+experiments; see each issue310-* notes file under
+rust/revault_lockbox_api/benches/results/ for history and limits.
+
+Verified production changes: large single-worker in-memory slices and
+sequential reader imports share the bounded per-thread wiped scratch/output
+pool. Encoder state lives only during one file import, fixed-size buffers do
+not grow while borrowed, full capacities are wiped before pooling, and input
+reader storage is ZeroizingBytes. Raw, higher Zstd levels, ineligible frame
+sizes, short tails and incompressible input use established paths. Parallel
+worker imports remain unchanged in committed production. Native v4 remains
+opt-in.
+
+Latest streamed-input before/after experiment measured single-worker 8MiB
+pattern writes with CPU2 affinity (public add_file_from_reader over Cursor,
+not filesystem I/O). Fifteen paired groups/six child samples for the signed
+focus and five groups/three samples for the broad matrix; each child discarded
+its first sample. 940 measured+380 warmup writes independently reopened and
+verified. Encrypted compressed pattern: paired -12.401%,95%[-16.935,-6.571]
+(5-group broad case). Encrypted-signed compressed pattern: paired -4.635%,
+95%[-7.289,-3.930] (15-group focus). Controls are mixed; do not claim a general
+non-regression or CLI/filesystem speedup. Evidence and complete CSVs are in
+issue310-stream-* artifacts. Commit 00a351f records them.
+
+Validation for the streamed change: default/external-source full suite355 pass,
+5 ignored, executed integration/docs tests pass. Native/external-source suite:
+361 pass, 2 known failures, 5 ignored. Known failures:
+api_tests::recovery_skips_truncated_tail_and_keeps_prior_intact_files and
+lockbox::block_frame_tests::native_file_writer_commits_and_reopens_multiframe_files_in_all_modes.
+Native integrations were run separately and passed. All-targets native plus
+external-source Clippy -D warnings passed. Additional test covers fragmented
+8191-byte input, empty stream, 65,537-byte and multi-frame input, failures
+before/after frames, abort, and reopened persisted contents in all protection
+modes. The last size-eligibility guard had its codec and reader tests rerun;
+full suites preceded that small guard.
+
+UNCOMMITTED parallel-workspace prototype (inspect git diff before proceeding):
+- benches/protection_gate.rs: REVAULT_GATE_WORKERS=n chooses explicit worker
+  count for write measurements; REVAULT_GATE_STREAM_INPUT=1 selects reader API.
+- lockbox/files.rs: each parallel worker holds one pooled encoder lease across
+  the jobs it receives for one import, with its input size chosen on first job.
+- file_import_pipeline.rs: parallel job preparation accepts an encoder; old
+  direct method remains cfg(test) for unit tests.
+- api_tests.rs: parallel fragmented/error/reopen test added (12MiB failures).
+The 4-worker logical-output test passed. The new parallel error-path test
+command exited successfully. Candidate native protection_gate compiled with
+no-run. Its baseline binary was copied before edits and its candidate copied
+after the parallel edit. However, the ignored
+rust/target directory is currently missing, so these binaries/logs are unavailable. Rebuild both before
+any timing. The measurements have NOT run. No performance gain is established.
+The per-worker pool has memory/work tradeoffs and threads are created per import.
+
+Next actions:
+1. In the new thread, inspect this note, git status and exact uncommitted diff.
+   Resume the existing goal; do not reset/discard changes.
+2. Confirm the parallel focused tests/logs by rerunning:
+   cargo test -p revault_lockbox_api --features native-block-layout,external-source --lib worker_policy_single_and_threads_have_same_logical_results
+   cargo test -p revault_lockbox_api --features native-block-layout,external-source --lib parallel_encoder_handles_fragmented_reads_empty_input_and_midstream_errors
+   Then run all-targets Clippy with the same features and -D warnings.
+3. Build the no-run baseline while temporarily restoring only the four production
+   files to committed 00a351f (keep the benchmark env additions). Save its
+   executable as target/issue310-parallel-pool-before. Reapply the production
+   diff, build candidate, save as ...-after. Confirm hashes and that these two
+   builds differ only by the parallel encoder edit. Do not overlap timed runs
+   with builds/tests. If preserving baseline by a patch gets risky, use a
+   separate temporary worktree from 00a351f.
+4. Compile this committed Rust runner with rustc and run it after both binaries
+   exist. It compares four workers on encrypted/compressed 8MiB and 32MiB
+   pattern writes, 15 ABBA/BAAB groups and six child samples, first discarded.
+   Each persisted result is independently reopened and compared. Both sizes
+   are fixed up front; retain results even if mixed. The 32MiB case checks
+   enough frames per worker to amortize workspace setup/wiping.
+5. Compare with prior single-worker 8MiB gains. Retain parallel reuse only if
+   it produces a useful, repeatable gain with acceptable memory cost and passes
+   full correctness/security cleanup checks. Otherwise restore parallel files
+   from 00a351f but keep useful benchmark support/tests if appropriate, noting
+   whether those should remain in repository.
+6. Rebuild/test/Clippy after formatting via the required commit hook only.
+   Preserve known native failures; do not relax recovery/authentication checks.
+7. Larger objective is still open: native/default protected write gate (one
+   encrypted compressed case had upper95%10.876%, failed <=5% gate), broad ZIP
+   read parity versus issue #310, cold I/O, real CLI lifecycle/performance,
+   signed recovery, migration/bindings/release requirements. Continue improving
+   reads and writes; do not mark goal complete on the buffer-pool result alone.
+
+Workspace instruction: tests/checks before rust formatting; the tracked hook
+formats staged Rust at commit, and partial staged Rust is refused. All scripts
+must be Rust. Avoid /tmp (quota was full); put temp/build files in rust/target
+when it exists. Rust tool invocations need
+TMPDIR="$PWD/target/issue310-sign-tmp" from rust/. Do not push or create a PR.
+Do not use subagents unless the user requests it. User asked to stop when usage
+resets; in the new thread inspect codex.primary and pause on an actual window
+reset, not merely 100% used/0% remaining or another bucket showing100%.
