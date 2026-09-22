@@ -472,7 +472,6 @@ impl<'a> BlockFrameReader<'a> {
             if extent.len() != out.len() {
                 return Err(Error::CorruptRecord);
             }
-            self.ensure_current()?;
             self.storage.read_at_into(
                 self.offset
                     .checked_add(extent.start as u64)
@@ -485,7 +484,10 @@ impl<'a> BlockFrameReader<'a> {
                     return Err(Error::CorruptRecord);
                 }
             }
-            self.storage.ensure_current()?;
+            // Verify the full source extent, identity and revision after data
+            // verification, before the caller can observe a successful read.
+            // Any read, checksum or source failure wipes the caller buffer.
+            self.ensure_current()?;
             Ok(true)
         })();
         if result.is_err() {
@@ -922,6 +924,89 @@ mod tests {
                         ));
                     }
                 }
+            }
+        }
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn native_block_direct_reads_reject_stale_sources_after_valid_data() {
+        use crate::{Compression, EncryptionMode, LockboxFormatOptions, SigningMode, SizePadding};
+        let root = std::env::temp_dir().join(format!(
+            "revault-direct-guard-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir(&root).unwrap();
+        for signed in [false, true] {
+            let mode = crate::creation_options::FormatMode::new(LockboxFormatOptions {
+                encryption: EncryptionMode::None,
+                signing: if signed {
+                    SigningMode::Owner
+                } else {
+                    SigningMode::None
+                },
+                size_padding: SizePadding::Default,
+                compression: Compression::None,
+            });
+            let input = vec![31; BLOCK_BYTES * 2];
+            let (descriptor, mut bytes) = encode_block_frame(
+                crate::LockboxId::from_bytes([71; 16]),
+                31,
+                mode,
+                &input,
+                &[53; 32],
+            )
+            .unwrap();
+            let packet_len = bytes.len();
+            bytes.extend_from_slice(&[79; 211]);
+            for failure in 0..3 {
+                let path = root.join(format!("{signed}-{failure}"));
+                let storage = StorageBackend::create_file(&path, &bytes).unwrap();
+                let mut reader =
+                    BlockFrameReader::open(&descriptor, &storage, 0, packet_len, &[53; 32])
+                        .unwrap();
+                reader.require_extent(bytes.len() as u64);
+                let mut direct = vec![88; input.len()];
+                assert!(reader
+                    .read_aligned_raw_into(0..input.len() as u64, &mut direct)
+                    .unwrap());
+                assert_eq!(direct, input);
+                // Unit faults unavailable through the public CLI. All stored data
+                // and hashes remain valid; only the source authority changes.
+                if failure == 0 {
+                    std::fs::OpenOptions::new()
+                        .write(true)
+                        .open(&path)
+                        .unwrap()
+                        .set_len(bytes.len() as u64 - 1)
+                        .unwrap();
+                } else if failure == 1 {
+                    let mut writer = storage.clone();
+                    writer.write_at(bytes.len() as u64 - 1, &[79]).unwrap();
+                } else {
+                    #[cfg(unix)]
+                    {
+                        let replacement = path.with_extension("replacement");
+                        std::fs::write(&replacement, &bytes).unwrap();
+                        std::fs::rename(replacement, &path).unwrap();
+                    }
+                    #[cfg(not(unix))]
+                    {
+                        continue;
+                    }
+                }
+                direct.fill(88);
+                assert!(reader
+                    .read_aligned_raw_into(0..input.len() as u64, &mut direct)
+                    .is_err());
+                assert!(
+                    direct.iter().all(|byte| *byte == 0),
+                    "no valid-but-stale bytes may escape"
+                );
             }
         }
         std::fs::remove_dir_all(root).unwrap();
