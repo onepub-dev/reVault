@@ -1,0 +1,63 @@
+Issue #310: reject a short-spare-capacity wipe branch
+Baseline: 63aa0c6. No production changes retained in this evidence checkpoint.
+Native protection_gate before SHA256:
+7db0e1487025f609805a1406eaa9bfbdc658dd647017840d0986dde0bf013f17
+Rejected protection_gate candidate SHA256:
+588a4a6ed4ccec9be267ded80bf05db70f41f4fcc512a02ef345aa4ab336bfb7
+Native zip_read before SHA256:
+75d25ed4835a8ec8aa12938269d347ba7c16241671a3939a5c11b31fca121b84
+Rejected zip_read candidate SHA256:
+f3c2323ffc182a44d0de32cc9d552594a202a0bdf630ee4a987795d2b38eae37
+All binaries use native-block-layout and identical benchmark source. CSV main
+means before and branch means candidate, not default/native layout.
+
+Candidate added one branch to zeroize_spare_bytes: spare regions below the
+64-byte SpareWipeBlock size used the original MaybeUninit byte-slice wipe and
+returned immediately, avoiding alignment and head/words/tail setup when no
+wide block could exist. Larger regions retained 63aa0c6's wide stores. Wipe
+ranges, volatile writes, barriers, vector length and capacity were preserved.
+No new unsafe code. Existing tests cover uninitialized/unaligned regions and
+lengths on both sides of the threshold. No new tests were added.
+
+Fixed read protocol: eight alternating before/after rounds, nine samples/row,
+512 x 4096 files, plain mode, Interactive/BulkImport creation, both read profiles,
+pattern/random input, requested raw/compressed, public Read handles, PASSES=1,2:
+512 rows. Large controls: three alternating rounds, five samples, four 8 MiB
+files, Interactive creation, same corpus/profile/compression dimensions,
+PASSES=1: 48 rows. Every byte verified each pass; fresh archive each sample.
+Separate small-file speedups span 0.965-1.032x, providing no consistent targeted
+improvement. Packed controls are mixed (0.943-1.069x); large controls 0.989-1.007x.
+Descriptive medians, not confidence intervals; speedup=before/after.
+
+Fixed write protocol: 8 MiB pattern/random, all four protection modes, requested
+raw/compressed, default padding, synthetic keys, no password KDF. Five ABBA/BAAB
+groups per corpus, three samples per child, first discarded: 640 broad rows.
+Prespecified encrypted-signed/compressed/pattern focus: 15 groups, six samples
+per child, first discarded: 300 rows. Timed create/add/commit/drop excludes key
+generation and independent persisted byte verification. CPU 2, warm OS caches,
+no owned builds/tests during timings; unrelated host work was uncontrolled.
+All 940 measured writes plus 380 warmups and all 560 read rows verify bytes.
+
+Broad write cells are mixed, with most bootstrap intervals spanning zero; one
+signed/compressed pattern group is +2.505% [1.688%,9.392%]. The fixed focus is
++5.267%, 95% [-1.388%,+7.451%], pooled medians 22.270014 ms before versus
+22.633759 ms candidate. This does not prove a regression at 95% confidence, but
+provides no convincing benefit. Bootstrap method is the existing whole-pair
+5000-resample summary, not an independent sample model for child observations.
+
+Decision: revert the candidate entirely. Keep 63aa0c6's production implementation
+and archive all observations rather than tune or selectively rerun cases. The
+mixed controls of the previous wide-spare optimization are not resolved by this
+short-region branch. Before reversion, default + external-source passed 346
+unit tests plus executed integration/doc suites; native passed 351 with the
+two known recovery failures and 5 ignored; all-targets Clippy passed. Both
+release benchmarks built. Restoration is byte-for-byte from HEAD, with no
+production diff remaining; no additional correctness run is claimed afterward.
+
+Next concrete write lead from the prior CPU profile: read_next_chunk copies
+caller-owned slice input through a 2 MiB staging buffer before compression.
+Investigate direct borrowed slice ingestion while preserving reader streaming,
+parallel-worker policy, replacement/abort semantics and public readback.
+Broad read parity, cold I/O, native/default write gates, write lifecycles,
+signed recovery and migration/binding/release work remain open. Native stays
+opt-in. This experiment does not invalidate or replace prior retained evidence.

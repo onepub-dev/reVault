@@ -1,0 +1,9 @@
+create_profile,passes,compressed,read_profile,corpus,before_ms,after_ms,speedup,before_over_zip,after_over_zip
+Interactive,1,false,Interactive,pattern,31.353,31.228,1.004,2.875,3.036
+Interactive,1,false,Interactive,random,31.308,31.641,0.989,2.895,2.921
+Interactive,1,false,ReadMostly,pattern,31.825,31.611,1.007,2.969,2.888
+Interactive,1,false,ReadMostly,random,31.940,31.733,1.007,3.116,2.840
+Interactive,1,true,Interactive,pattern,37.802,37.816,1.000,4.093,4.069
+Interactive,1,true,Interactive,random,31.854,31.840,1.000,1.503,1.481
+Interactive,1,true,ReadMostly,pattern,37.179,37.518,0.991,3.935,4.090
+Interactive,1,true,ReadMostly,random,31.274,31.177,1.003,1.420,1.435
