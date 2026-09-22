@@ -1008,6 +1008,39 @@ pub(crate) fn inspect_pages(
     let mut i = crate::constants::HEADER_LEN;
     while i + PAGE_HEADER_LEN <= bytes.len() {
         if &bytes[i..i + 8] == PAGE_MAGIC {
+            #[cfg(any(test, feature = "native-block-layout"))]
+            if crate::file_format::indexed_frame::block_page::is_native_header(&bytes[i..]) {
+                match crate::file_format::indexed_frame::block_page::scan(
+                    bytes, i, lockbox_id, mode, key,
+                ) {
+                    Ok(page) => {
+                        // scan validates the complete frame and its protected
+                        // metadata before these diagnostic fields are exposed.
+                        let stored_body_len = read_u32_le(&bytes[i + 44..i + 48])
+                            .expect("scanned native header has a body length");
+                        pages.push(PageInspection {
+                            offset: i as u64,
+                            page_id: page.page_id,
+                            sequence: page.sequence,
+                            page_size: page.physical_len as u32,
+                            encrypted_body_len: stored_body_len,
+                            unused_bytes: (page.physical_len
+                                - PAGE_HEADER_LEN
+                                - stored_body_len as usize)
+                                as u32,
+                            object_count: 1,
+                            objects: vec![PageObjectInspection {
+                                id: page.descriptor.frame_id,
+                                kind: "file-data",
+                                payload_len: page.descriptor.logical_len as usize,
+                            }],
+                        });
+                        i += page.physical_len;
+                    }
+                    Err(_) => i += 1,
+                }
+                continue;
+            }
             let Some(page_bytes) = page_decode_slice(bytes, i) else {
                 break;
             };

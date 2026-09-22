@@ -1712,18 +1712,51 @@ fn bulk_small_file_frames_keep_non_tail_pages_dense() {
         .filter(|page| page.objects.iter().any(|object| object.kind == "file-data"))
         .collect::<Vec<_>>();
     assert!(!file_pages.is_empty());
-    assert!(
-        file_pages.len() <= 3,
-        "bulk small-file frames spilled into too many file pages: {}",
-        file_pages.len()
-    );
-    for page in file_pages.iter().take(file_pages.len() - 1) {
+    #[cfg(feature = "native-block-layout")]
+    {
+        // Native pages each contain one frame. Measure logical packing and
+        // physical space rather than requiring legacy multi-object pages.
+        let logical: usize = file_pages
+            .iter()
+            .flat_map(|page| &page.objects)
+            .map(|object| object.payload_len)
+            .sum();
+        let physical: usize = file_pages.iter().map(|page| page.page_size as usize).sum();
+        assert_eq!(logical, 700 * data.len());
         assert!(
-            page.object_count >= 2,
-            "non-tail file page at offset {} only has {} frame objects",
-            page.offset,
-            page.object_count
+            logical * 4 >= file_pages.len() * (2 * 1024 * 1024) * 3,
+            "bulk frames must average at least 75% of their 2 MiB target"
         );
+        assert!(
+            physical <= 128 * 1024,
+            "compressed bulk pages occupy {physical} bytes"
+        );
+        assert!(file_pages.iter().all(|page| page.object_count == 1));
+        let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), KEY).unwrap();
+        for index in 0..700 {
+            assert_eq!(
+                reopened
+                    .get_file(&p(format!("/bulk/dense-{index:04}.zip")))
+                    .unwrap(),
+                data
+            );
+        }
+    }
+    #[cfg(not(feature = "native-block-layout"))]
+    {
+        assert!(
+            file_pages.len() <= 3,
+            "bulk small-file frames spilled into too many file pages: {}",
+            file_pages.len()
+        );
+        for page in file_pages.iter().take(file_pages.len() - 1) {
+            assert!(
+                page.object_count >= 2,
+                "non-tail file page at offset {} only has {} frame objects",
+                page.offset,
+                page.object_count
+            );
+        }
     }
 }
 

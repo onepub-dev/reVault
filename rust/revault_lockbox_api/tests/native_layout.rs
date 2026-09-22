@@ -62,6 +62,30 @@ fn public_streaming_writer_and_rewrites_keep_the_common_native_layout_in_all_mod
                     archive.commit().unwrap();
                     let bytes = archive.try_to_bytes().unwrap();
                     assert_native_page(&bytes);
+                    let pages = archive.inspector().inspect_pages().unwrap();
+                    let file_pages = pages
+                        .iter()
+                        .filter(|page| page.objects.iter().any(|object| object.kind == "file-data"))
+                        .collect::<Vec<_>>();
+                    assert!(!file_pages.is_empty());
+                    assert_eq!(
+                        file_pages
+                            .iter()
+                            .flat_map(|page| &page.objects)
+                            .map(|object| object.payload_len)
+                            .sum::<usize>(),
+                        input.len() + b"packed companion".len()
+                    );
+                    for page in file_pages {
+                        assert_eq!(page.object_count, 1);
+                        assert_eq!(
+                            page.page_size as usize,
+                            96 + page.encrypted_body_len as usize + page.unused_bytes as usize
+                        );
+                        if size_padding == SizePadding::None {
+                            assert_eq!(page.unused_bytes, 0);
+                        }
+                    }
                     let mut archive =
                         Lockbox::open_bytes_for_write(bytes, open(), signing).unwrap();
                     assert_eq!(archive.get_file(&path).unwrap(), input);

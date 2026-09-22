@@ -1,0 +1,36 @@
+Issue #310: native page inspection and bulk packing evidence
+Base bda3d56, 2026-09-22.
+
+inspect_pages previously attempted only legacy decoding. Valid native pages
+were silently omitted and their interiors scanned byte by byte. The diagnostic
+API now recognizes native headers, uses the existing full validating native
+scanner, emits one file-data frame object and skips the validated physical extent.
+It reports the committed frame ID, logical payload length, physical page length,
+stored body length and unused padding. This is diagnostic integrity validation;
+it does not independently establish archive-owner authorization.
+
+The original bulk-density test saw zero file pages. With inspection fixed, it
+sees eleven native frame pages for 700 x 25 KiB files. Native pages contain one
+frame each, unlike legacy pages that pack multiple frame objects. The native
+regression therefore checks aggregate logical bytes (17,920,000), average frame
+occupancy of at least 75% of the 2 MiB bulk target, physical compressed page space
+at most 128 KiB, and exactly one object per native page. It independently reopens
+the archive and compares every byte of all 700 files. The legacy branch retains
+its original three-page/multiple-object assertions unchanged.
+
+The public native lifecycle test now verifies inspection across sixteen
+protection/compression/padding configurations. File frame payload totals match
+all input bytes, physical size equals header + stored body + unused bytes, and
+unpadded pages have no unused bytes. Native encoding is still asserted directly
+so legacy fallback cannot silently satisfy this test.
+
+Focused validation passed: density regression with and without native layout;
+public native lifecycle; all four block-page integrity/padding/metadata tests;
+strict Clippy library/tests with native-block-layout,external-source.
+
+No data-path or archive-format change, and no wall-clock speedup claimed.
+Remaining native cache/recovery failures and ZIP performance gates remain open.
+
+Full native library verification: 322 passed, 11 failed, 5 ignored (86.88 s).
+Only the density failure is resolved relative to bda3d56; the remaining failures
+are unchanged. The full native suite is not green.
