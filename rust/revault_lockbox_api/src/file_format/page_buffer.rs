@@ -19,7 +19,7 @@ struct WipeBlock([u64; 8]);
 // The transparent integer array has no padding and its default is all zeroes.
 impl zeroize::DefaultIsZeroes for WipeBlock {}
 
-fn zeroize_byte_slice(bytes: &mut [u8]) {
+pub(crate) fn zeroize_byte_slice(bytes: &mut [u8]) {
     // Wide stores avoid a byte-at-a-time volatile loop. Continue to
     // use zeroize for the writes and compiler fences on every region.
     // SAFETY: every bit pattern is valid for WipeBlock, with no padding. align_to_mut

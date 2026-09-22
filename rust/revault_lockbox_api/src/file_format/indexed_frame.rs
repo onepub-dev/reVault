@@ -6,7 +6,7 @@
 //! blocks. Existing v4 whole-frame validation semantics remain unchanged.
 
 use crate::crypto::strong_checksum;
-use crate::page_buffer::ZeroizingBytes;
+use crate::page_buffer::{zeroize_byte_slice, ZeroizingBytes};
 use crate::storage::Storage;
 use crate::{Error, Result};
 use sha2::Sha256;
@@ -489,7 +489,7 @@ impl<'a> BlockFrameReader<'a> {
             Ok(true)
         })();
         if result.is_err() {
-            zeroize::Zeroize::zeroize(out);
+            zeroize_byte_slice(out);
         }
         result
     }
@@ -547,7 +547,7 @@ impl<'a> BlockFrameReader<'a> {
             plain_len += len;
         }
         // Wipe removed tag bytes before shortening the initialized vector.
-        zeroize::Zeroize::zeroize(&mut bytes[plain_len..]);
+        zeroize_byte_slice(&mut bytes[plain_len..]);
         bytes.truncate(plain_len);
         let (mut logical, wanted) = if raw {
             let start = range.start as usize - first * BLOCK_BYTES;
@@ -564,7 +564,7 @@ impl<'a> BlockFrameReader<'a> {
         };
         self.storage.ensure_current()?;
         logical.copy_within(wanted.clone(), 0);
-        zeroize::Zeroize::zeroize(&mut logical[wanted.len()..]);
+        zeroize_byte_slice(&mut logical[wanted.len()..]);
         logical.truncate(wanted.len());
         Ok(std::mem::take(&mut *logical))
     }
@@ -697,6 +697,46 @@ mod tests {
                                 vec![83; 211]
                             );
                         }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn native_partial_raw_reads_wipe_discarded_plaintext() {
+        use crate::creation_options::FormatMode;
+        use crate::{Compression, EncryptionMode, LockboxFormatOptions, SigningMode, SizePadding};
+        let archive = crate::LockboxId::from_bytes([71; 16]);
+        let key = [53; 32];
+        let input = vec![0xa5; BLOCK_BYTES * 3];
+        for encryption in [EncryptionMode::None, EncryptionMode::ChaCha20Poly1305] {
+            for signing in [SigningMode::None, SigningMode::Owner] {
+                let mode = FormatMode::new(LockboxFormatOptions {
+                    encryption,
+                    signing,
+                    size_padding: SizePadding::Default,
+                    compression: Compression::None,
+                });
+                let (descriptor, packet) =
+                    encode_block_frame(archive, 31, mode, &input, &key).unwrap();
+                let storage = StorageBackend::memory(packet.clone());
+                let reader =
+                    BlockFrameReader::open(&descriptor, &storage, 0, packet.len(), &key).unwrap();
+                for start in [0, 1, 63, 4093, BLOCK_BYTES - 7] {
+                    let end = start + 4096;
+                    let mut result = reader.read(start as u64..end as u64).unwrap();
+                    assert_eq!(result, input[start..end]);
+                    let touched = (end.div_ceil(BLOCK_BYTES) - start / BLOCK_BYTES) * BLOCK_BYTES;
+                    // Every touched plaintext byte was initialized before truncation.
+                    // Inspect only that known initialized portion of spare capacity.
+                    for byte in &result.spare_capacity_mut()[..touched - 4096] {
+                        // SAFETY: this range held initialized plaintext before truncation.
+                        assert_eq!(
+                            unsafe { byte.assume_init() },
+                            0,
+                            "discarded neighboring plaintext survived in returned allocation"
+                        );
                     }
                 }
             }

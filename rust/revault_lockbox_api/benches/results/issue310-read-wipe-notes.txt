@@ -1,0 +1,61 @@
+Issue #310: reuse wide secure wiping for discarded native read bytes
+Baseline: 2b41e42.
+Before native zip_read SHA256:
+a5976011d700bda1f0516d44bd88685d4649e9c8fa5235473bb007f04b81da72
+Candidate native zip_read SHA256 (before commit formatting):
+94d47d2688c65daef1766e5ef5b3e0198d208f928b8ced465fbf66cc10d022e0
+Identical benchmark source/native-block-layout feature in both builds.
+
+Expose the existing page_buffer::zeroize_byte_slice helper within the crate.
+Use it in BlockFrameReader for removed tag bytes, discarded logical tail bytes,
+and failed direct-read output. The helper already backs ZeroizingBytes and
+uses aligned wide volatile writes with zeroize compiler fences. Its existing
+unaligned-slice tests cover head/body/tail and preservation of neighboring bytes.
+No new unsafe production code or altered wipe ranges. Whole touched blocks are
+still authenticated. Source guards, allocations, cache policies, compression,
+cryptography, on-disk format and public APIs are unchanged.
+
+New test native_partial_raw_reads_wipe_discarded_plaintext reads 4096 bytes at
+aligned, unaligned and crossing-block offsets in raw plain/encrypted and signed/
+unsigned modes. It verifies returned bytes, then inspects only the previously
+initialized plaintext portion of spare allocation and requires all zeros. This
+checks that neighboring plaintext does not survive in a returned allocation.
+Existing corrupted-block tests still require failed direct output to be zero.
+
+Protocol: eight alternating before/after rounds, nine samples/row, 512 x 4096
+files, plain mode, Interactive/BulkImport creation, Interactive/ReadMostly reads,
+pattern/random input, requested raw/compressed storage, public Read handles
+(ACCESS=random), PASSES=1,2. Each sample opens a fresh archive; passes share the
+handle. 512 rows. Large controls: three alternating rounds, five samples/row,
+four 8 MiB files, Interactive creation, both corpora/read profiles/compression
+settings, PASSES=1; 48 rows. CPU 2, warm OS caches. All returned bytes verified
+on every pass. No owned builds/tests overlap timing; unrelated host activity
+was not controlled. CSV/summary schema matches issue310-cache-guard evidence.
+Medians average the middle two values for even counts. Speedup=before/after;
+these descriptive medians are not confidence intervals.
+
+Raw packed first reads improve 1.091-1.148x, and two-pass reads 1.095-1.156x.
+Requested compression on incompressible packed data falls back to raw and also
+improves: 1.106-1.115x first read, 1.131-1.134x two passes. This is the expected
+target: 4 KiB packed slices require 16 KiB authentication blocks, then wipe the
+unused portion. Raw packed first-read ratios still span 1.836-1.873x ZIP; the
+remaining gap needs further work.
+
+Compressed packed pattern controls span 0.958-1.011x (small mixed movements).
+Separate small-file controls span 0.936-1.056x; several pattern first-read
+controls are about 4% slower. These paths do not discard substantial plaintext
+and no general small-file gain is established. Large controls span 0.978-1.027x.
+Retain reuse of the existing wipe primitive for consistent targeted gains;
+do not interpret mixed controls as proof of broad non-regression or ZIP parity.
+
+Validation before commit-time formatting:
+- Default layout + external-source: 345 unit tests passed, 5 ignored; all
+  executed integration/doc suites passed.
+- Native + external-source: 350 passed, 2 known recovery failures, 5 ignored.
+- Native + external-source all-targets Clippy -D warnings passed after adding
+  an immediately adjacent safety comment to the test's initialized-byte read.
+- Native release benchmark built and all 560 byte-verified timing rows completed.
+Known failures remain recovery_skips_truncated_tail_and_keeps_prior_intact_files
+and native_file_writer_commits_and_reopens_multiframe_files_in_all_modes.
+Native remains feature gated. Broad read parity, cold I/O, protected-write and
+write lifecycle gates, recovery and migration/binding/release work remain open.
