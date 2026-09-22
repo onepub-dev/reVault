@@ -1,4 +1,5 @@
 use std::{borrow::Cow, time::Instant};
+type FrameEncoder<'a> = dyn FnMut(&[u8]) -> (u8, Vec<u8>) + 'a;
 
 use crate::page_buffer::{zeroize_bytes, ZeroizingBytes};
 
@@ -114,6 +115,22 @@ impl FileImportPipeline {
     }
 
     pub(super) fn prepare(self, frames: &[CompressionFrameWrite<'_>]) -> PreparedCompressionFrame {
+        self.prepare_with_encoder(frames, &mut |payload| self.encode(payload))
+    }
+
+    pub(super) fn with_encoder<R>(
+        self,
+        first: &[u8],
+        operation: impl FnOnce(&mut dyn FnMut(&[u8]) -> (u8, Vec<u8>)) -> R,
+    ) -> R {
+        crate::compression::with_encoder(first, self.compression, self.zstd_level, operation)
+    }
+
+    pub(super) fn prepare_with_encoder(
+        self,
+        frames: &[CompressionFrameWrite<'_>],
+        encode: &mut FrameEncoder<'_>,
+    ) -> PreparedCompressionFrame {
         let prepare_start = Instant::now();
         let single_frame = frames.len() == 1;
         let mut payload = Vec::new();
@@ -139,7 +156,7 @@ impl FileImportPipeline {
         } else {
             Cow::Owned(payload)
         };
-        self.prepare_payload(payload, slices, prepare_start)
+        self.prepare_payload_with_encoder(payload, slices, prepare_start, encode)
     }
 
     pub(super) fn prepare_batches(
@@ -214,11 +231,27 @@ impl FileImportPipeline {
         slices: Vec<CompressionFrameSlice>,
         prepare_start: Instant,
     ) -> PreparedCompressionFrame {
+        self.prepare_payload_with_encoder(payload, slices, prepare_start, &mut |payload| {
+            self.encode(payload)
+        })
+    }
+
+    fn encode(self, payload: &[u8]) -> (u8, Vec<u8>) {
+        match self.compression {
+            Some(compression) => crate::compression::encode_with_compression(payload, compression),
+            None => encode_compression_frame_with_level(payload, self.zstd_level),
+        }
+    }
+
+    fn prepare_payload_with_encoder(
+        self,
+        payload: Cow<'_, [u8]>,
+        slices: Vec<CompressionFrameSlice>,
+        prepare_start: Instant,
+        encode: &mut FrameEncoder<'_>,
+    ) -> PreparedCompressionFrame {
         let compression_frame_len = payload.len() as u64;
-        let (compression, stored) = match self.compression {
-            Some(compression) => crate::compression::encode_with_compression(&payload, compression),
-            None => encode_compression_frame_with_level(&payload, self.zstd_level),
-        };
+        let (compression, stored) = encode(&payload);
         if let Cow::Owned(mut payload) = payload {
             zeroize_bytes(&mut payload);
         }

@@ -1,0 +1,78 @@
+Issue 310: reuse wiped compression workspace buffers across slice writes
+
+Base 472f597; prior production source ff9716c. Retain this candidate based on
+focused native protected-write improvements and correctness/cleanup coverage.
+Only large single-worker in-memory slice writes use the new callback, in both
+layouts. Streaming inputs and parallel preparation keep their existing codec.
+This is not evidence of faster CLI or streamed writes.
+
+A per-thread slot retains at most 8 MiB of zeroed scratch/output capacity.
+Buffers are reused only for exact matching sizes. Encoder state is reconstructed
+for each operation and reused for equal-sized compressible frames in that write.
+Neither borrowed backing buffer grows. Full capacities are wiped before pooling
+on success, error and unwinding; failed TLS access/reentry drops zeroizing owners.
+An occupied pool is not replaced by a returning nested lease. TLS destruction
+releases zeroizing buffers. This trades up to 8 MiB idle memory per participating
+thread for allocation reuse; it is separate from archive page-cache budgets.
+No measured peak-memory improvement is claimed. Level3/2MiB requires 2263369
+scratch bytes plus 2105344 output bytes. Encoded output is copied to a compact
+owned Vec and follows existing prepared-frame zeroization.
+
+Eligibility requires explicit Zstd configuration, compressible initial frame,
+64KiB through maximum frame size, levels below18, and combined required buffers
+within the cap. Higher levels, incompressible frames, changed frame lengths,
+workspace setup/encoding errors and oversized workspaces use existing encoding.
+Levels18-22 retain their established numeric path because prior experiments
+found different workspace bytes at level18. Format and dependencies unchanged;
+no new unsafe code. Native v4 remains opt-in; no migration or activation here.
+
+Validation (all completed before timed runs):
+- Default+external-source full suite:354 unit passed,5 ignored; all executed
+  integration and documentation tests passed.
+- Native+external-source full suite:360 passed,5 ignored,2 known failures:
+  api_tests::recovery_skips_truncated_tail_and_keeps_prior_intact_files and
+  lockbox::block_frame_tests::native_file_writer_commits_and_reopens_multiframe_files_in_all_modes.
+  Neither recovery/authentication policy nor failing test was weakened.
+- Native integration-only run passed all executed tests.
+- Native+external-source all-targets Clippy with -D warnings passed.
+- New tests check exact bytes/roundtrip levels1-22 with changed-size tails and
+  mixed data; full2MiB frames at levels1/3/6 across repeated operations; pointer
+  reuse with wiped buffers after success/error/unwind; actual capacity bound;
+  nested leases and an unavailable TLS borrow. Existing public lifecycle tests
+  cover slice/reader replacement, abort, reopen and persisted content.
+
+Native protection_gate baseline target/issue310-wipe256-before SHA256
+7337d7ebb8deca0becc3d6398bcb725e1c11036222c518733d0a47b439646252
+This is production ff9716c BEFORE the rejected wider-wipe experiment.
+Candidate target/issue310-pooled-encoder-after SHA256
+48ec7de71f6354ebea07f7b8708d245eff2001506706abaaa0f58bbe4845d795
+Built cargo bench -p revault_lockbox_api --features native-block-layout
+--bench protection_gate --no-run. No temporary timing instrumentation.
+
+Method:8MiB files, CPU2 taskset, warm OS caches, default padding, synthetic keys,
+no password KDF; no owned build/test concurrent with timing. Host work otherwise
+uncontrolled. Child first sample discarded, so the pool is warm within each
+process. No cold-process or cold-I/O claim. Every write independently reopened
+and persisted bytes compared outside timed create/add/commit/drop.
+CSV main=baseline,branch=candidate. Existing summarizer bootstraps5000 whole
+ABBA/BAAB groups; pooled medians and paired percentage are distinct estimators.
+
+Encrypted-only compressed pattern focus:15 groups,6 samples per child;
+300 measured+60 warmups. Pooled18.201344->16.331616ms;
+paired-9.853%,95%[-11.225,-5.976].
+Broad pattern/random:5 groups,3 samples per child,all four protection modes
+and raw/compressed;640 measured+320 warmups. Pattern compressed paired changes:
+plain-8.680%[-17.795,-5.288],encrypted-13.053%[-17.500,-6.428],
+encrypted-signed-8.177%[-17.755,+11.041],signed-2.943%[-4.392,+6.901].
+Other raw/incompressible controls all have intervals spanning zero. This is
+not proof of zero regression or a universal performance improvement.
+Encrypted-signed compressed pattern focus:15 groups,6 samples per child;
+300 measured+60 warmups. Pooled21.112603->19.254526ms;
+paired-5.800%,95%[-9.056,-3.866].
+Total1240 measured+440 warmups=1680 verified writes. All runners exited0.
+
+Both layouts use the integration, but only native before/after was timed here.
+The native/default protected-write release gate must be rerun using fresh builds
+of both layouts. Prior failed layout gates are not superseded by these results.
+Broader read parity, cold I/O, streamed/CLI writes, signed recovery, migrations,
+bindings and release/activation remain open. No remote changes made.

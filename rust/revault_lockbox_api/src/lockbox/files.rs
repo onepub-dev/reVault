@@ -673,23 +673,30 @@ impl<State> Lockbox<State> {
         // the caller instead of copying it through the streaming read buffer.
         debug_assert!(data.len() > SMALL_FILE_PACKING_LIMIT);
         let mut writer = FilePageWriter::new(self);
-        let mut chunks = Vec::new();
-        let mut file_offset = 0u64;
-        for frame in data.chunks(FILE_COMPRESSION_FRAME_BYTES) {
-            writer.write_compression_frame(
-                CompressionFrameWrite {
-                    path,
-                    permissions,
-                    total_len: 0,
-                    file_offset,
-                    data: frame,
-                },
-                &mut chunks,
-            )?;
-            file_offset += frame.len() as u64;
-        }
-        writer.finish(&mut chunks)?;
-        Ok((file_offset, chunks))
+        let pipeline = writer.import_pipeline(1);
+        pipeline.with_encoder(
+            &data[..data.len().min(FILE_COMPRESSION_FRAME_BYTES)],
+            |encode| {
+                let mut chunks = Vec::new();
+                let mut file_offset = 0u64;
+                for frame in data.chunks(FILE_COMPRESSION_FRAME_BYTES) {
+                    let prepared = pipeline.prepare_with_encoder(
+                        &[CompressionFrameWrite {
+                            path,
+                            permissions,
+                            total_len: 0,
+                            file_offset,
+                            data: frame,
+                        }],
+                        encode,
+                    );
+                    writer.write_prepared_compression_frame(prepared, &mut chunks)?;
+                    file_offset += frame.len() as u64;
+                }
+                writer.finish(&mut chunks)?;
+                Ok((file_offset, chunks))
+            },
+        )
     }
 
     fn write_file_data_sequential(

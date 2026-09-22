@@ -6,7 +6,9 @@ use zstd_complete::decoding::FrameDecoder;
 use zstd_complete::encoding::{compress_to_vec, CompressionLevel};
 
 mod decode_workspace;
+mod encode_workspace;
 pub(crate) use decode_workspace::scoped as with_decode_workspace;
+pub(crate) use encode_workspace::with_encoder;
 
 pub(crate) const COMPRESSION_NONE: u8 = 0;
 pub(crate) const COMPRESSION_ZSTD: u8 = 1;
