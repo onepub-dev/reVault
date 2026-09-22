@@ -1,0 +1,47 @@
+Issue #310: protection/corpus read regression matrix, 2026-09-22
+Current revision ef654a9; no production changes in this evidence checkpoint.
+
+Expanded the native source-validation experiment beyond plaintext pattern data:
+512 files x 4096 bytes, pattern and deterministic high-entropy corpora, raw and
+compression enabled, four encryption/signing combinations, Interactive/ReadMostly,
+stream/random access. 64 cases, three before/after repeats, five fresh-handle
+samples per reported row. 384 raw rows represent 1920 measured lockbox operations,
+each verifying all file bytes, with separate ZIP baseline measurements. Warm OS
+cache, CPU 2, default padding. No builds/tests overlapped timing.
+
+Before /tmp/issue310-source-check-before:
+8028cc25d99282ca7b02efc23c13bcf6860b75a0891f2eef2e6ccc034cba182b
+After /tmp/issue310-source-check-after:
+bba8539f2084f66a135c217e62dbe509a8b9720a9e7f9f7438a4ca6448322659
+Before has the same measured native read path as 0be68ca (the retained cache
+admission executable); intervening changes concerned tests, diagnostics and Unix
+writes. After adds ef654a9's combined metadata/index source validation.
+
+Environment for each executable, modes/profile/access/compression filters unset:
+REVAULT_ZIP_READ_CASE=small REVAULT_ZIP_READ_CORPUS=pattern|random
+REVAULT_ZIP_READ_SAMPLES=5 taskset -c 2 EXE
+Run order: before then after for each repeat, all pattern repeats then random.
+This fixed order limits causal/statistical interpretation; all rows are retained.
+
+All 64 cases have improved median paired total time (4.147% to 11.001% reduction).
+One individual repeat regressed: pattern/signed/true/Interactive/random, +1.307%;
+its other repeats improved and its median paired change is -8.457%. This outlier
+is retained. Summary includes total, open and read metrics and every case's
+minimum/maximum paired change. These ranges are observations, not confidence
+intervals. Three run medians do not establish a confidence-bounded release gate.
+Ordinary ZIP has different security behavior, so protected cases are interpreted
+as native-before versus native-after comparisons, not security-equivalent ZIP
+parity. The plaintext cases still fail the overall ZIP parity objective.
+
+The standalone Rust summary tool in benches/tools/summarize_read_matrix.rs
+requires all 64 cases x three metrics and exactly runs 1/2/3 in both variants,
+rejects duplicate runs and nonpositive/nonfinite timings, and pairs by run ID.
+Compile with rustc and pass issue310-protected-read-matrix.csv. Its output was
+verified byte-identical to the independently grouped exploratory summary.
+
+This establishes broader performance evidence for retaining source-validation
+reuse, including signed-open workloads. It does not validate damaged signed
+recovery, which remains unresolved. Native page-cache integration, large-file
+read/load gates, compressed encrypted-signed write uncertainty, migration/bindings,
+release/default activation and full correctness still require work. No new
+correctness-suite claim is made; no production code changed in this checkpoint.
