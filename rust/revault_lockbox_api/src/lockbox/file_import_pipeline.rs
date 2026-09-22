@@ -1,4 +1,4 @@
-use std::time::Instant;
+use std::{borrow::Cow, time::Instant};
 
 use crate::page_buffer::{zeroize_bytes, ZeroizingBytes};
 
@@ -115,11 +115,14 @@ impl FileImportPipeline {
 
     pub(super) fn prepare(self, frames: &[CompressionFrameWrite<'_>]) -> PreparedCompressionFrame {
         let prepare_start = Instant::now();
+        let single_frame = frames.len() == 1;
         let mut payload = Vec::new();
         let mut slices = Vec::with_capacity(frames.len());
         for frame in frames {
             let compression_frame_offset = payload.len() as u64;
-            payload.extend_from_slice(frame.data);
+            if !single_frame {
+                payload.extend_from_slice(frame.data);
+            }
             slices.push(CompressionFrameSlice {
                 path: frame.path.clone(),
                 permissions: frame.permissions,
@@ -129,6 +132,13 @@ impl FileImportPipeline {
                 len: frame.data.len() as u64,
             });
         }
+        // A standalone frame can encode its borrowed input directly. Packed
+        // frames still assemble one contiguous owned payload.
+        let payload = if single_frame {
+            Cow::Borrowed(frames[0].data)
+        } else {
+            Cow::Owned(payload)
+        };
         self.prepare_payload(payload, slices, prepare_start)
     }
 
@@ -190,13 +200,17 @@ impl FileImportPipeline {
             compression_frame_offset: 0,
             len: job.data.len() as u64,
         };
-        let frame = self.prepare_payload(std::mem::take(&mut job.data), vec![slice], prepare_start);
+        let frame = self.prepare_payload(
+            Cow::Owned(std::mem::take(&mut job.data)),
+            vec![slice],
+            prepare_start,
+        );
         ParallelCompressionResult { index, frame }
     }
 
     fn prepare_payload(
         self,
-        mut payload: Vec<u8>,
+        payload: Cow<'_, [u8]>,
         slices: Vec<CompressionFrameSlice>,
         prepare_start: Instant,
     ) -> PreparedCompressionFrame {
@@ -205,7 +219,9 @@ impl FileImportPipeline {
             Some(compression) => crate::compression::encode_with_compression(&payload, compression),
             None => encode_compression_frame_with_level(&payload, self.zstd_level),
         };
-        zeroize_bytes(&mut payload);
+        if let Cow::Owned(mut payload) = payload {
+            zeroize_bytes(&mut payload);
+        }
         let stored = ZeroizingBytes::new(stored);
         let integrity = if self.native_blocks {
             PreparedFrameIntegrity::NativeBlocksPending
