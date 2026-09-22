@@ -37,10 +37,11 @@ impl CompressionFrameManifest {
         len: u64,
     ) -> Option<&CompressionFrameSlice> {
         self.slices.iter().find(|slice| {
-            slice.path == *path
-                && slice.file_offset == file_offset
-                && slice.compression_frame_offset == compression_frame_offset
+            // Reject unrelated packed slices before comparing their paths.
+            slice.compression_frame_offset == compression_frame_offset
                 && slice.len == len
+                && slice.file_offset == file_offset
+                && slice.path == *path
         })
     }
 }

@@ -1818,11 +1818,11 @@ impl<State> Lockbox<State> {
             return Err(Error::CorruptRecord);
         }
         let has_slice = entry.slices.iter().any(|slice| {
-            slice.path == chunk.stored_path
-                && slice.file_offset == chunk.file_offset
-                && slice.compression_frame_offset == chunk.compression_frame_offset
+            slice.compression_frame_offset == chunk.compression_frame_offset
                 && slice.len == chunk.len
+                && slice.file_offset == chunk.file_offset
                 && (slice.total_len == 0 || slice.total_len == expected_total_len)
+                && slice.path == chunk.stored_path
         });
         if !has_slice {
             return Err(Error::CorruptRecord);
