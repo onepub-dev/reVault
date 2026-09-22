@@ -1,0 +1,85 @@
+Issue #310: compressed-read ranking depends on allocator/process state
+===================================================================
+2026-09-22, source a514ec4 plus zip_read filter additions only.
+No production code, format, dependency, or default setting changed here.
+
+The previous three-way report measured native 64 MiB compressed streaming at
+about 321 ms versus existing 100 ms. The full benchmark executes raw cases,
+multiple access orders and profiles before this compressed case. Do not treat
+its observed regression as a proven intrinsic native-format/decoder difference.
+
+New benchmark filters (existing defaults unchanged):
+  REVAULT_ZIP_READ_COMPRESSION=true|false
+  REVAULT_ZIP_READ_PROFILE=Interactive|ReadMostly
+  REVAULT_ZIP_READ_ACCESS=stream|random|range
+Unknown values fail before creating fixtures. These filters allow the exact
+regressing case to run in a fresh process, without preceding raw cases.
+
+Build both existing and native-block-layout zip_read executables first. Common
+environment for the comparisons below:
+  REVAULT_ZIP_READ_CASE=large REVAULT_ZIP_READ_MODE=plain
+  REVAULT_ZIP_READ_SIZE=67108864 REVAULT_ZIP_READ_SAMPLES=9
+  REVAULT_ZIP_READ_COMPRESSION=true REVAULT_ZIP_READ_PROFILE=Interactive
+  REVAULT_ZIP_READ_ACCESS=stream taskset -c 2 EXE
+Four files, default padding/compression, warm OS caches, fresh archive handles
+per sample, exact output bytes checked against the original fixture every time.
+Each reported value is a nine-sample median. No builds/tests overlap timing;
+background load/frequency are uncontrolled. Do not infer confidence intervals.
+
+Fresh-process ABBA, default allocator (existing/native/native/existing):
+  Existing 361.271 / 320.668 ms. Native 122.001 / 115.195 ms.
+  ZIP medians 61.084 / 69.864 / 70.900 / 62.075 ms.
+The ranking REVERSES relative to the broader benchmark. Archive sizes remain
+1,846,656 existing and 1,967,488 native bytes, matching the previous report.
+Raw data: issue310-focused-{existing,native}-{1,2}.csv.
+
+Allocation syscall diagnostic, same case with five samples:
+  strace -c -e mmap,munmap,madvise,brk -o REPORT taskset -c 2 EXE
+  Existing: brk 2,337; mmap 53; munmap 13; madvise 4.
+  Native:   brk   508; mmap 53; munmap 13; madvise 4.
+These include setup, ZIP, and archive reads. Traced wall times are not used as
+performance measurements. Counts identify allocation-policy sensitivity, not
+an exact attribution of all calls to the data decoder.
+
+Controlled allocator diagnostics, environment only in child processes:
+1. MALLOC_TRIM_THRESHOLD_=-1 alone did NOT help: existing 401.234 ms, native
+   350.951 ms. Preserve this negative result; do not recommend this setting.
+2. Fix BOTH MALLOC_TRIM_THRESHOLD_=33554432 and
+   MALLOC_MMAP_THRESHOLD_=33554432, same ABBA order as above:
+   Existing 101.979 / 115.834 ms. Native 105.917 / 132.628 ms.
+   ZIP 61.301 / 59.731 / 76.102 / 90.589 ms (background variation is visible).
+   Raw data: issue310-fixed-allocator-{existing,native}-{1,2}.csv.
+Both implementations can run much closer under fixed allocation policy. This
+does not establish <=5% equivalence, ZIP parity, or a production improvement.
+Do not change application-wide allocator settings to hide the regression.
+
+Focused native profile (40 samples, perf cycles, 199 Hz, DWARF stacks):
+  /tmp/issue310-focused-native.data; 2,346 samples, zero lost.
+  Native streaming subtree: 40.71% of all samples, of which zstd_decode accounts
+  for 37.44 percentage points. Setup and ZIP remain in this profile, so these
+  are process percentages, not a standalone decoder microbenchmark. Kernel
+  symbol resolution is restricted. Read median under profiling: 149.655 ms.
+The next implementation investigation should isolate/reuse bounded decoder
+scratch and output allocations across a read operation, preserving zeroization,
+exact length/integrity checks, and source-failure behavior. Existing decoder
+workspace microbenchmarks do not capture this end-to-end allocator state effect.
+
+Timed executables before invalid-filter validation was added:
+  /tmp/issue310-focused-existing
+  dcdde19c79f436a3aaea02c22f95b7dd28d584a21eb177f393557494d274c738
+  /tmp/issue310-focused-native
+  649b2f3400139128c337c855bef64fc249382f04a7ca045d65b61f82a86f9782
+Only argument validation was added after timing; no library changes.
+
+Validation before commit-time formatting:
+- Both layout benchmark builds pass; native benchmark strict Clippy passes.
+- With new filters unset, a 1 MiB smoke run returns all 12 expected result rows.
+- Selecting compressed/ReadMostly/range returns exactly that one result row.
+- Invalid compression filter exits 101 before fixture setup, with its name and
+  invalid value in the diagnostic. Successful runs retain exact-byte checks.
+- No library tests rerun: production code is unchanged in this checkpoint.
+
+Status: diagnostic progress, not a new retained production speedup. The original
+performance gates remain open across sizes, corpora, protection modes, writes
+and loads. Small-file regressions, signed recovery, and native shared-cache
+behavior also remain unresolved. Previous raw benchmark reports are retained.

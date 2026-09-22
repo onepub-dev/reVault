@@ -5,6 +5,8 @@
 //! Filter with REVAULT_ZIP_READ_CASE=large and REVAULT_ZIP_READ_MODE=plain.
 //! REVAULT_ZIP_READ_SIZE sets large-file bytes; REVAULT_ZIP_READ_CORPUS=random
 //! selects deterministic high-entropy data instead of the repeating pattern.
+//! Optional COMPRESSION (true/false), PROFILE (Interactive/ReadMostly), and
+//! ACCESS (stream/random/range) filters use the REVAULT_ZIP_READ_ prefix.
 use revault_lockbox_api::{
     Compression, ContentStreamOptions, Encryption, Lockbox, LockboxCreateOptions, LockboxOpen,
     LockboxPath, LockboxProtection, OwnerSigningKeyPair, SecretVec, Signing, WorkloadProfile,
@@ -149,7 +151,16 @@ fn run(root: &Path, count: usize, size: usize, compressed: bool) {
         lockbox.commit().unwrap();
         drop(lockbox);
         for profile in [WorkloadProfile::Interactive, WorkloadProfile::ReadMostly] {
+            if std::env::var("REVAULT_ZIP_READ_PROFILE")
+                .is_ok_and(|selected| selected != format!("{profile:?}"))
+            {
+                continue;
+            }
             for access in ["stream", "random", "range"] {
+                if std::env::var("REVAULT_ZIP_READ_ACCESS").is_ok_and(|selected| selected != access)
+                {
+                    continue;
+                }
                 if access == "range" && size < 1024 * 1024 {
                     continue;
                 }
@@ -276,12 +287,32 @@ fn run(root: &Path, count: usize, size: usize, compressed: bool) {
 }
 
 fn main() {
+    for (name, allowed) in [
+        ("REVAULT_ZIP_READ_COMPRESSION", &["true", "false"][..]),
+        (
+            "REVAULT_ZIP_READ_PROFILE",
+            &["Interactive", "ReadMostly"][..],
+        ),
+        (
+            "REVAULT_ZIP_READ_ACCESS",
+            &["stream", "random", "range"][..],
+        ),
+    ] {
+        if let Ok(value) = std::env::var(name) {
+            assert!(allowed.contains(&value.as_str()), "invalid {name}: {value}");
+        }
+    }
     let root = std::env::temp_dir().join(format!("revault-zip-read-{}", std::process::id()));
     fs::create_dir(&root).unwrap();
     println!(
         "files,bytes_per_file,compressed,mode,profile,access,zip_ms,lockbox_ms,lockbox_over_zip,zip_open_ms,zip_read_ms,lockbox_open_ms,lockbox_read_ms,zip_bytes,lockbox_bytes,corpus"
     );
     for compressed in [false, true] {
+        if std::env::var("REVAULT_ZIP_READ_COMPRESSION")
+            .is_ok_and(|selected| selected != compressed.to_string())
+        {
+            continue;
+        }
         let case = std::env::var("REVAULT_ZIP_READ_CASE").unwrap_or_default();
         if case.is_empty() || case == "small" {
             run(&root, 512, 4096, compressed);
