@@ -1,0 +1,71 @@
+Issue #310: reject bounded shared windows for small native file handles
+Production baseline: a7d99d6. The production prototype was reverted completely.
+Retained source change: an additional small-reader lifecycle regression test.
+Before zip_read SHA256:
+a5e853cc24934950ff9a106db9f80385b9d98fd2e9ce13ae97eb43e25bc64822
+Rejected candidate zip_read SHA256:
+b1acf13c1fdf15bdc1efb966eb594de48d5608d7fde29694404e9d3ee93c2c18
+Same release benchmark source, native-block-layout, identical write implementation.
+The candidate executable remains only a measurement artifact, not retained code.
+
+Prototype: complete standalone frames whose logical and physical extents were
+both <=16 KiB retained an Arc to verified cached decoded bytes in NativeFileReader,
+instead of copying those bytes into a handle-local Vec. Larger/packed frames
+kept owned slices; cache-disabled reads kept zeroizing owned windows. Cache-hit
+source/extent/revision checks and checks before every window read remained.
+Cache admission, integrity, range validation and encoding were unchanged.
+This introduced a separate owned/shared window type and internal visibility for
+native byte views. Those production changes were removed after measurement.
+
+Small matrix: 512 measured rows. Eight alternating-order before/after runs, nine
+samples per row, 512 files of 4096 bytes, plain mode, Interactive/BulkImport
+creation, both corpora, both requested compression settings and both read
+profiles, ACCESS=random (public Read handles), PASSES=1,2. Every timed sample
+opens a fresh archive; repeated passes reuse that archive. All bytes verified.
+BulkImport packed frames are controls for the unchanged non-small path.
+
+Large controls: 48 rows, three alternating-order runs, five samples per row,
+four 8 MiB files, plain mode, Interactive creation, both corpora/compression/read
+profiles, ACCESS=random, PASSES=1. Each read is verified byte-for-byte.
+All runs use taskset CPU 2 and warm OS caches. No agent builds/tests overlap
+measurements; unrelated host workloads were active. Requested compression on
+incompressible input falls back to raw native data.
+
+CSV prefix: phase,create_profile,passes,run. The existing zip_read 16-column CSV
+follows unchanged. Summary groups by creation profile, passes, compression,
+read profile and corpus, using medians of per-run lockbox_ms and lockbox_over_zip.
+Even-count medians average the two middle values. Speedup is before/after.
+These summaries are descriptive, not confidence intervals.
+
+Decision: reject this prototype. Interactive first-pass raw speedups span
+0.898-1.086x; compressed-request first passes span 1.020-1.101x. Repeated passes
+span 0.977-1.082x. Packed controls also move substantially (0.882-1.093x), showing
+noise or code-generation effects outside the intended path. Large controls span
+0.960-1.060x. The data does not establish consistent many-file improvement.
+Interactive first-pass candidate read times remain about 1.20-1.24x ZIP. Some
+cases improve, but that is insufficient evidence to retain the extra shared-
+window machinery or claim progress to parity across these workloads.
+
+Prototype validation before reverting:
+- Default API: 340 unit passes, 5 ignored; executed integration/doc suites pass.
+- Native + external-source library: 348 passes, 2 known failures, 5 ignored.
+- Strict native + external-source all-targets Clippy passes; release build passes.
+- All 560 benchmark rows complete and verify returned bytes.
+
+Retained test small_native_readers_survive_eviction_and_seeks_in_all_modes opens
+an independently serialized/reopened archive, starts two public readers, clears
+the decoded cache, seeks and reads again, then rewinds and verifies the whole
+file. It covers raw/compressed, encrypted/plain, signed/unsigned and disabled/
+enabled caching. Unit-level cache eviction forces the lifetime condition; all
+content setup and assertions otherwise use public APIs. The test is meaningful
+for existing behavior and does not depend on the rejected sharing representation.
+
+Production remains a7d99d6. The two known native recovery failures and broader
+read/write, cold-I/O, ZIP parity and release gates remain unresolved. Next work
+should examine fixed per-handle source-validation/initialisation costs, rather
+than assuming a removed 4 KiB copy will dominate this workload.
+
+After restoring production code, the retained lifecycle test passes (1 passed,
+354 filtered), and all-targets native + external-source Clippy with -D warnings
+passes. No full-suite rerun is claimed after the scoped restore; production is
+the already validated a7d99d6 baseline and the additional retained test passed.

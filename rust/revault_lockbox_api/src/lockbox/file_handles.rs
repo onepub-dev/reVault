@@ -603,4 +603,75 @@ mod shared_reader_tests {
         reader.read_to_end(&mut all).unwrap();
         assert_eq!(all, payload);
     }
+
+    #[cfg(feature = "native-block-layout")]
+    #[test]
+    fn small_native_readers_survive_eviction_and_seeks_in_all_modes() {
+        let signer = crate::OwnerSigningKeyPair::generate().unwrap();
+        let path = LockboxPath::new("/small").unwrap();
+        let input: Vec<u8> = (0..4096).map(|i| (i % 251) as u8).collect();
+        for encrypted in [false, true] {
+            for signed in [false, true] {
+                for compression in [crate::Compression::None, crate::Compression::default()] {
+                    for cache_bytes in [0, 64 * 1024] {
+                        let mut archive =
+                            Lockbox::create_in_memory_with_options(crate::LockboxCreateOptions {
+                                compression,
+                                ..crate::LockboxCreateOptions::new(
+                                    if encrypted {
+                                        crate::Encryption::Encrypted(
+                                            crate::LockboxProtection::ContentKey(
+                                                crate::SecretVec::try_from_slice(&[81; 32])
+                                                    .unwrap(),
+                                            ),
+                                        )
+                                    } else {
+                                        crate::Encryption::None
+                                    },
+                                    if signed {
+                                        crate::Signing::Owner(&signer)
+                                    } else {
+                                        crate::Signing::None
+                                    },
+                                )
+                            })
+                            .unwrap();
+                        archive.add_file(&path, &input, false).unwrap();
+                        archive.commit().unwrap();
+                        let archive = Lockbox::open_bytes(
+                            archive.try_to_bytes().unwrap(),
+                            if encrypted {
+                                crate::LockboxOpen::ContentKey(
+                                    crate::SecretVec::try_from_slice(&[81; 32]).unwrap(),
+                                )
+                            } else {
+                                crate::LockboxOpen::Unencrypted
+                            },
+                        )
+                        .unwrap();
+                        // Unit-level eviction also covers disabled cache admission.
+                        archive.page_manager.borrow_mut().trim_to(cache_bytes);
+                        let mut first = archive.open_file(&path).unwrap();
+                        let mut second = archive.open_file(&path).unwrap();
+                        let mut bytes = [0; 31];
+                        first.read_exact(&mut bytes).unwrap();
+                        assert_eq!(bytes, input[..31]);
+                        second.read_exact(&mut bytes).unwrap();
+                        assert_eq!(bytes, input[..31]);
+                        archive.page_manager.borrow_mut().clear();
+                        for reader in [&mut first, &mut second] {
+                            reader.seek(SeekFrom::Start(3001)).unwrap();
+                            reader.read_exact(&mut bytes).unwrap();
+                            assert_eq!(bytes, input[3001..3032]);
+                            reader.rewind().unwrap();
+                            let mut all = Vec::new();
+                            reader.read_to_end(&mut all).unwrap();
+                            assert_eq!(all, input);
+                        }
+                        assert_eq!(archive.get_file(&path).unwrap(), input);
+                    }
+                }
+            }
+        }
+    }
 }
