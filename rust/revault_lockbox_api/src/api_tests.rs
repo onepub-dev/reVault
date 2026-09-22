@@ -3211,6 +3211,39 @@ fn recovery_survives_header_toc_pointer_zeroed() {
     assert!(!report.toc_recovered);
 }
 
+#[cfg(feature = "native-block-layout")]
+#[test]
+fn native_pointer_recovery_retains_header_authentication() {
+    for tamper_tag in [false, true] {
+        let mut damaged = sample_lockbox();
+        let header = crate::file_format::read_header(&damaged).unwrap();
+        let start = header.slot_index * crate::file_format::header_v2::SLOT_LEN;
+        damaged[start + 24..start + 32].fill(0);
+        if tamper_tag {
+            damaged[start + 128] ^= 1;
+        }
+        update_test_header_checksum(&mut damaged, header.slot_index);
+        assert!(Lockbox::open_bytes_with_key(damaged.clone(), KEY).is_err());
+        let report = RecoveryScanner::scan_bytes(damaged.clone(), KEY);
+        let salvaged = RecoveryScanner::salvage_bytes(damaged, KEY, &signing_key()).unwrap();
+        let reopened = Lockbox::open_bytes_with_key(salvaged.to_bytes(), KEY).unwrap();
+        if tamper_tag {
+            assert_eq!(report.partial_files, 3);
+            for path in ["/docs/a.txt", "/docs/b.txt", "/photos/c.jpg"] {
+                assert!(matches!(
+                    reopened.get_file(&p(path)),
+                    Err(Error::NotFound(_))
+                ));
+            }
+        } else {
+            assert_eq!(report.partial_files, 0);
+            assert_eq!(reopened.get_file(&p("/docs/a.txt")).unwrap(), b"alpha");
+            assert_eq!(reopened.get_file(&p("/docs/b.txt")).unwrap(), b"bravo");
+            assert_eq!(reopened.get_file(&p("/photos/c.jpg")).unwrap(), b"image");
+        }
+    }
+}
+
 #[test]
 fn open_uses_previous_commit_when_latest_commit_root_is_corrupt() {
     let mut lb = Lockbox::create(KEY);

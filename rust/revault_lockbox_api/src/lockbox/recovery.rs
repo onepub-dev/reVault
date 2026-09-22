@@ -353,7 +353,23 @@ impl<'a> RecoverySession<'a> {
         // open still validates the header tag (including sealed_len), commit
         // chain, owner signatures and content. Never repair the source or extend
         // a truncated archive to satisfy an untrusted length.
-        let header = read_header(&snapshot).ok()?;
+        let mut header = read_header(&snapshot).ok()?;
+        if header.commit_root_offset == 0 && header.commit_auth_offset != 0 {
+            // The auth record supplies a candidate only. Keep the original header
+            // tag and require normal open below to authenticate the repaired
+            // publication, owner signatures, TOC and content together.
+            let payload = self
+                .scanner
+                .commit_auth_payload_at(header.commit_auth_offset)
+                .ok()?;
+            let auth = decode_commit_auth(&payload).ok()?;
+            let repaired = crate::file_format::current_header::recover_header_root_pointer(
+                &snapshot,
+                auth.commit_root_offset,
+            )?;
+            snapshot[..repaired.len()].copy_from_slice(&repaired);
+            header = read_header(&snapshot).ok()?;
+        }
         let sealed_len = usize::try_from(header.sealed_len).ok()?;
         if sealed_len < crate::file_format::current_header::HEADER_LEN
             || sealed_len > snapshot.len()

@@ -83,6 +83,29 @@ pub(crate) fn recover_header_magic(bytes: &[u8]) -> Option<[u8; HEADER_LEN]> {
     Some(header)
 }
 
+/// Construct a recovery candidate for a lost root pointer. Preserve the original
+/// metadata authentication tag: normal open must authenticate the restored bytes
+/// before any entry is trusted. This does not authorize the supplied pointer.
+#[cfg(any(test, feature = "native-block-layout"))]
+pub(crate) fn recover_header_root_pointer(
+    bytes: &[u8],
+    commit_root_offset: u64,
+) -> Option<[u8; HEADER_LEN]> {
+    let selected = read_header(bytes).ok()?;
+    if selected.commit_root_offset != 0 || commit_root_offset == 0 {
+        return None;
+    }
+    let mut header: [u8; HEADER_LEN] = bytes.get(..HEADER_LEN)?.try_into().ok()?;
+    let start = selected.slot_index * header_v2::SLOT_LEN;
+    let slot = &mut header[start..start + header_v2::SLOT_LEN];
+    slot[24..32].copy_from_slice(&commit_root_offset.to_le_bytes());
+    let checksum_start = header_v2::SLOT_LEN - 32;
+    let checksum = strong_checksum(&slot[..checksum_start]);
+    slot[checksum_start..].copy_from_slice(&checksum);
+    read_header(&header).ok()?;
+    Some(header)
+}
+
 pub(crate) fn read_header_for_scan(bytes: &[u8]) -> Result<LockboxHeader> {
     let header = read_header(bytes);
     #[cfg(any(test, feature = "native-block-layout"))]
