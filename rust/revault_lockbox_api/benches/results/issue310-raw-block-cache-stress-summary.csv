@@ -1,0 +1,2 @@
+files,bytes_per_file,rounds,before_ms,after_ms,pooled_slowdown,median_paired_slowdown,before_over_zip,after_over_zip
+65536,4096,4,2341.249,8660.913,3.699,3.677,1.474,5.562

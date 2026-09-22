@@ -11,6 +11,7 @@
 //! record it alongside CSV output when overriding it. Every pass checks all bytes.
 //! CREATE_PROFILE=BulkImport packs small files; default is Interactive. Record
 //! this fixture setting alongside CSV results when overriding it.
+//! FILES sets the small-file count (default 512); record it alongside results.
 //! WRITE_PROFILE=1 emits CSV create/add/commit/close timings on stderr for each
 //! fixture. Read samples still independently reopen and verify all stored bytes.
 use revault_lockbox_api::{
@@ -375,7 +376,11 @@ fn main() {
         }
         let case = std::env::var("REVAULT_ZIP_READ_CASE").unwrap_or_default();
         if case.is_empty() || case == "small" {
-            run(&root, 512, 4096, compressed);
+            let files = std::env::var("REVAULT_ZIP_READ_FILES")
+                .map(|value| value.parse::<usize>().unwrap())
+                .unwrap_or(512);
+            assert!((1..=1_000_000).contains(&files));
+            run(&root, files, 4096, compressed);
         }
         if case.is_empty() || case == "large" {
             let size = std::env::var("REVAULT_ZIP_READ_SIZE")
