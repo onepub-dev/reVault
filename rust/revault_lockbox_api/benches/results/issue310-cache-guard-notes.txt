@@ -1,0 +1,80 @@
+Issue #310: validate cached native bytes once at the consumption boundary
+Baseline: 992163c.
+Before native zip_read SHA256:
+3a94542a58bfc5fc661790525d6f1d83834840afb350e8c4d70158c710fcb51e
+Candidate native zip_read SHA256 (before commit formatting):
+a5976011d700bda1f0516d44bd88685d4649e9c8fa5235473bb007f04b81da72
+Identical benchmark source and native-block-layout feature in both builds.
+
+Remove the preliminary current_len call in read_native_block_chunk_view's
+verified decoded-cache hit path. Its only two consumers still validate live
+source identity/extent and write revision before returning bytes: into_vec after
+copying into ZeroizingBytes, and extraction before invoking the writer. Invalid
+copies are wiped. Exact committed reference, allocation, manifest membership,
+range bounds, revision-tagged cache lookup and final revision checks remain.
+Fresh reads and NativeFileReader's retained-window checks are unchanged.
+No format, public API, cache policy, hashing, signing or encryption change.
+If both cached metadata and the live source are invalid, metadata rejection can
+now precede the live-source error; neither path exposes bytes.
+
+Extend the existing all-protection/all-padding native truncation fault test:
+assert one decoded cache entry remains, attempt extraction, and verify failure
+leaves the destination empty. Existing overwrite, read handle, range and content
+stream assertions remain. Direct backing-file fault injection is already
+explicitly documented because no public CLI can create this fault.
+
+Main protocol matches slice-order evidence: eight alternating-order rounds,
+nine samples/row, 512 x 4096-byte files, plain mode, Interactive/BulkImport
+creation, Interactive/ReadMostly reads, pattern/random input, requested raw/
+compressed storage, public Read handles (ACCESS=random), PASSES=1,2. Each sample
+opens a fresh archive; passes reuse its handle. 512 rows. Large controls: three
+alternating rounds, five samples, four 8 MiB files, Interactive creation, both
+corpora/read profiles/compression settings, PASSES=1; 48 rows. CPU 2, warm OS
+caches. All returned bytes checked on every pass. No owned builds/tests overlap
+timings; unrelated host activity was not controlled.
+
+Small results: packed compressed pattern first reads improve 1.131x/1.144x
+(Interactive/ReadMostly), and two passes improve 1.230x/1.221x. First-read ratios
+to ZIP are 0.913/0.899: near a 10% lead for these particular warm compressed
+cases, not evidence of broad issue completion. Separate small-file first reads
+range 0.971-1.046x; all eight separate-file two-pass groups improve 1.043-1.170x.
+Packed raw/incompressible controls remain mixed, 0.975-1.069x for first reads
+and 0.978-1.022x for two passes. Their ZIP gap remains unresolved.
+
+Initial large compressed pattern results slowed: 0.926x/0.897x. This triggered
+a fixed eight-round follow-up with the same binaries, alternating order and
+five samples/row; all eight large workload groups retained, 128 additional
+rows. Follow-up compressed pattern results are 1.022x/1.054x; all groups range
+0.996-1.054x. Thus the initial slowdown was not reproduced. Both datasets are
+retained separately rather than replacing or selectively pooling observations.
+These descriptive medians have no per-cell confidence intervals. Do not claim
+a general large-file improvement or a statistical non-regression gate.
+
+Independent strace -c -e statx diagnostic: 512 x 4096 pattern, BulkImport,
+compressed/plain, Interactive reads, public handles, one sample/one pass.
+Whole-process statx calls fall 1592 -> 1081, exactly 511 fewer cached-slice
+checks. Counts include fixture creation and ZIP comparison. Traced elapsed
+times are not performance evidence. Raw trace summaries are retained alongside
+these notes.
+
+CSV prefix phase,create_profile,passes,run precedes standard zip_read columns.
+Summaries use median lockbox_ms and lockbox_over_zip per phase/group, averaging
+the two middle values for even counts; speedup is before/after.
+
+Validation before commit-time formatting:
+- Default layout + external-source: 344 unit tests passed, 5 ignored; all
+  executed integration/doc suites passed.
+- Native + external-source: 349 passed, 2 known recovery failures, 5 ignored.
+- Explicit native external_source integration suite: all 15 passed, including
+  cancellation, version/length changes and terminal-failure handling.
+- After adding the assertion that the fault test retains a decoded entry,
+  the focused native truncation test passed (1 passed, 355 filtered).
+- Native + external-source all-targets Clippy -D warnings passed.
+- Native release benchmark and all 688 byte-verified timing rows completed.
+Known failures remain recovery_skips_truncated_tail_and_keeps_prior_intact_files
+and native_file_writer_commits_and_reopens_multiframe_files_in_all_modes.
+
+Retain this bounded change for its targeted gains and reduced syscall count.
+The native feature remains disabled by default. Broad read parity, cold I/O,
+protected native/default write gates, write lifecycles, signed recovery and
+migration/binding/release work remain open.

@@ -1096,6 +1096,18 @@ fn native_file_handle_cached_bytes_reject_file_truncation() {
                     drop(reader);
                     assert!(archive.get_file(&paths[0]).is_err());
                     assert!(archive.read_file_range(&paths[1], 3, 13).is_err());
+                    assert_eq!(
+                        archive.decoded_compression_frame_cache_entries_for_tests(),
+                        1
+                    );
+                    let mut extracted = Vec::new();
+                    assert!(archive
+                        .extract_file_to_writer(&paths[1], &mut extracted)
+                        .is_err());
+                    assert!(
+                        extracted.is_empty(),
+                        "truncated cached bytes reached the writer"
+                    );
                     drop(archive);
                     std::fs::remove_file(path).unwrap();
                 }

@@ -1241,9 +1241,8 @@ impl<State> Lockbox<State> {
             .ok_or(Error::CorruptRecord)?;
         let revision = self.storage.write_revision();
         if let Some(cached) = self.native_cached_frame(chunk)? {
-            if required_end > self.storage.current_len()? {
-                return Err(Error::Truncated);
-            }
+            // Both consumers validate this guard before exposing cached bytes:
+            // into_vec after copying, extraction before calling the writer.
             let reference = chunk.block_frame.as_ref().ok_or(Error::CorruptRecord)?;
             if cached
                 .native_reference
