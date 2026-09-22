@@ -1,0 +1,49 @@
+Issue #310: Unix positional writes, base 4c2ba4b, 2026-09-22
+
+FileStore::write_at now uses std::os::unix::fs::FileExt::write_all_at while holding
+the existing exclusive in-process lock and checking archive path identity.
+This removes the separate cursor seek for each write_at. Append still seeks to
+the actual end under that same lock; it does not depend on a preceding write's
+cursor. Non-Unix builds retain seek + write_all. Partial writes/retries use the
+standard library's exact-write implementation. No durability sync, authentication,
+preparation ordering or format change.
+
+A focused storage test verifies cursor preservation, overwrite, append, a write
+extending beyond EOF with a gap, another append, sync, and independent persisted
+byte comparison. Existing concurrent cloned readers/writers, replacement refusal,
+archive locking and native preparation/abort tests pass. Native public lifecycle
+passes all sixteen protection/compression/padding combinations.
+
+strace -c -e trace=lseek,write,pwrite64,fsync,fdatasync,statx,mprotect:
+five 8 MiB compressed encrypted-signed pattern writes with independent readback.
+                    before  after
+lseek                  112     72
+write                   96     56
+pwrite64                 0     40
+fdatasync               50     50
+fsync                    5      5
+statx                  632    632
+mprotect               708    708
+Forty syscalls removed. Trace totals include setup and independent reads; traced
+times are not performance evidence. Syncs belong to preparation/publication and
+were intentionally retained.
+
+Untraced paired comparison on CPU 2: 15 ABBA/BAAB groups, six child samples with
+one warmup discarded, 300 measured rows. Both variants native; same optional
+stage-profiler benchmark code, profiling disabled. Default padding, 8 MiB pattern,
+encrypted-signed/true/write. Every write independently reopened and byte checked.
+No builds/tests overlapped timing. Before executable /tmp/issue310-write-profile-before;
+after current protection_gate-4a1172c8e93f57fc. Both use the original small-metadata
+compression policy; the previously rejected experiment is absent.
+
+Paired change -0.514%, 95% interval [-2.979%, +1.695%]; pooled medians
+23.327 ms before / 23.245 ms after. No statistically clear wall-clock gain.
+Retained for the direct syscall reduction with unchanged durability and locking.
+This comparison does not resolve native-vs-default compressed encrypted-signed
+write uncertainty. Other native cache/recovery and performance gates remain open.
+
+Final validation before commit-time formatting: default library 334 passed,
+5 ignored (76.58 s); strict default and native/external-source library/tests
+Clippy passed. Five archive-lock integration tests and five focused storage tests
+passed. Native sixteen-policy public lifecycle and staged preparation/abort tests
+passed. Full native suite not rerun; its known failures remain unresolved.

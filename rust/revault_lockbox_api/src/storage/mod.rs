@@ -663,12 +663,23 @@ impl Storage for FileStore {
     }
 
     fn write_at(&mut self, offset: u64, bytes: &[u8]) -> Result<()> {
-        let mut file = self.lock_file()?;
-        self.ensure_current(&file)?;
-        file.seek(SeekFrom::Start(offset))
-            .map_err(|err| Error::Io(format!("seek {}: {err}", self.path.display())))?;
-        file.write_all(bytes)
-            .map_err(|err| Error::Io(format!("write {}: {err}", self.path.display())))
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::FileExt;
+            let file = self.lock_file()?;
+            self.ensure_current(&file)?;
+            file.write_all_at(bytes, offset)
+                .map_err(|err| Error::Io(format!("write {}: {err}", self.path.display())))
+        }
+        #[cfg(not(unix))]
+        {
+            let mut file = self.lock_file()?;
+            self.ensure_current(&file)?;
+            file.seek(SeekFrom::Start(offset))
+                .map_err(|err| Error::Io(format!("seek {}: {err}", self.path.display())))?;
+            file.write_all(bytes)
+                .map_err(|err| Error::Io(format!("write {}: {err}", self.path.display())))
+        }
     }
 
     fn truncate(&mut self, len: u64) -> Result<()> {
@@ -726,6 +737,23 @@ mod archive_lock_tests {
         ));
         assert!(store.read_at(bytes.len() as u64, 0).unwrap().is_empty());
         drop(store);
+        fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn positional_writes_preserve_cursor_and_append_at_the_actual_end() {
+        let path = path("positional-writes");
+        let mut store = FileStore::create(&path, b"01234567").unwrap();
+        store.lock_file().unwrap().seek(SeekFrom::Start(3)).unwrap();
+        store.write_at(2, b"AB").unwrap();
+        assert_eq!(store.lock_file().unwrap().stream_position().unwrap(), 3);
+        assert_eq!(store.append(b"89").unwrap(), 8);
+        store.write_at(12, b"Z").unwrap();
+        assert_eq!(store.lock_file().unwrap().stream_position().unwrap(), 10);
+        assert_eq!(store.append(b"!").unwrap(), 13);
+        store.sync().unwrap();
+        drop(store);
+        assert_eq!(fs::read(&path).unwrap(), b"01AB456789\0\0Z!");
         fs::remove_file(path).unwrap();
     }
 
