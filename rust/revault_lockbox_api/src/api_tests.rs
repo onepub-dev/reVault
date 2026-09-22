@@ -1605,6 +1605,58 @@ fn decoded_page_cache_records_hits_and_can_be_trimmed() {
     assert!(stats.hits > 0);
 }
 
+#[cfg(feature = "native-block-layout")]
+#[test]
+fn native_decoded_cache_honors_shared_budget_and_disable_for_every_profile() {
+    let mut original = Lockbox::create(KEY);
+    add_file(&mut original, &p("/a"), &[17; 4096], false).unwrap();
+    add_file(&mut original, &p("/b"), &[29; 4096], false).unwrap();
+    original.commit().unwrap();
+    for workload_profile in [
+        WorkloadProfile::Interactive,
+        WorkloadProfile::BulkImport,
+        WorkloadProfile::ReadMostly,
+        WorkloadProfile::ExtractMany,
+    ] {
+        for limit in [0, 8192] {
+            let archive = Lockbox::open_bytes_with_key_options(
+                original.to_bytes(),
+                KEY,
+                LockboxOptions {
+                    workload_profile,
+                    cache_limit: if limit == 0 {
+                        CacheLimit::Disabled
+                    } else {
+                        CacheLimit::Bytes(limit)
+                    },
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+            assert_eq!(archive.get_file(&p("/a")).unwrap(), [17; 4096]);
+            let first = archive.inspector().cache_stats();
+            assert_eq!(archive.get_file(&p("/a")).unwrap(), [17; 4096]);
+            let second = archive.inspector().cache_stats();
+            if limit == 0 {
+                assert_eq!(second.entries, 0);
+                assert_eq!(second.used_bytes, 0);
+                assert_eq!(second.hits, first.hits);
+            } else {
+                assert!(second.hits > first.hits);
+                assert_eq!(archive.get_file(&p("/b")).unwrap(), [29; 4096]);
+                assert!(archive.inspector().cache_stats().used_bytes <= limit);
+                let misses = archive.inspector().cache_stats().misses;
+                assert_eq!(archive.get_file(&p("/a")).unwrap(), [17; 4096]);
+                assert!(
+                    archive.inspector().cache_stats().misses > misses,
+                    "the second decoded frame evicts the first within the shared budget"
+                );
+            }
+            assert!(archive.inspector().cache_stats().used_bytes <= limit);
+        }
+    }
+}
+
 #[test]
 fn decoded_page_cache_can_be_disabled() {
     let mut lb = Lockbox::create_with_options(

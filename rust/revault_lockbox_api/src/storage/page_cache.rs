@@ -1,3 +1,20 @@
+use crate::compression_frame_manifest::CompressionFrameSlice;
+#[derive(Debug)]
+pub(crate) struct CachedCompressionFrame {
+    pub(crate) compression: u8,
+    pub(crate) compression_frame_len: u64,
+    pub(crate) compressed_len: u64,
+    pub(crate) compression_frame_digest: [u8; 32],
+    pub(crate) slices: Vec<CompressionFrameSlice>,
+    pub(crate) data: Vec<u8>,
+}
+
+impl Drop for CachedCompressionFrame {
+    fn drop(&mut self) {
+        crate::page_buffer::zeroize_bytes(&mut self.data);
+    }
+}
+
 use crate::cache_options::{cache_limit_bytes, CacheLimit, CacheStats};
 use crate::checked::read_u32_le;
 use crate::creation_options::FormatMode;
@@ -66,6 +83,22 @@ enum CachedPagePayload {
     Decoded(Arc<DecodedPage>),
     #[cfg(any(test, feature = "native-block-layout"))]
     Native(Arc<crate::file_format::indexed_frame::block_page::EncodedBlockPage>),
+    #[cfg(any(test, feature = "native-block-layout"))]
+    NativeDecoded {
+        frame: Arc<CachedCompressionFrame>,
+        physical_len: u64,
+        revision: u64,
+    },
+}
+
+impl CachedPage {
+    fn physical_len(&self) -> u64 {
+        #[cfg(any(test, feature = "native-block-layout"))]
+        if let CachedPagePayload::NativeDecoded { physical_len, .. } = &self.page {
+            return *physical_len;
+        }
+        self.weight
+    }
 }
 
 impl CachedPagePayload {
@@ -73,14 +106,14 @@ impl CachedPagePayload {
         match self {
             Self::Decoded(page) => Ok(page),
             #[cfg(any(test, feature = "native-block-layout"))]
-            Self::Native(_) => Err(Error::CorruptRecord),
+            Self::Native(_) | Self::NativeDecoded { .. } => Err(Error::CorruptRecord),
         }
     }
     #[cfg(test)]
     fn decoded_mut(&mut self) -> Option<&mut Arc<DecodedPage>> {
         match self {
             Self::Decoded(page) => Some(page),
-            Self::Native(_) => None,
+            Self::Native(_) | Self::NativeDecoded { .. } => None,
         }
     }
 }
@@ -269,7 +302,7 @@ impl PageCache {
                 other != offset
                     && other < end
                     && other
-                        .checked_add(entry.weight)
+                        .checked_add(entry.physical_len())
                         .is_none_or(|other_end| other_end > offset)
             })
         {
@@ -299,6 +332,81 @@ impl PageCache {
         self.recent.push_back(offset);
         self.trim_to_limit();
         Ok(())
+    }
+
+    #[cfg(any(test, feature = "native-block-layout"))]
+    pub(crate) fn native_decoded_page(
+        &mut self,
+        offset: u64,
+        revision: u64,
+    ) -> Option<Arc<CachedCompressionFrame>> {
+        if self.pages.get(&offset).is_some_and(|entry| matches!(&entry.page, CachedPagePayload::NativeDecoded { revision: cached, .. } if *cached != revision || revision == u64::MAX)) {
+            self.evict_cached(offset);
+        }
+        if let Some(entry) = self.pages.get_mut(&offset) {
+            if let CachedPagePayload::NativeDecoded { frame, .. } = &entry.page {
+                self.hits = self.hits.saturating_add(1);
+                entry.generation = entry.generation.saturating_add(1);
+                self.recent.push_back(offset);
+                return Some(Arc::clone(frame));
+            }
+        }
+        self.misses = self.misses.saturating_add(1);
+        None
+    }
+
+    #[cfg(any(test, feature = "native-block-layout"))]
+    pub(crate) fn insert_native_decoded_page(
+        &mut self,
+        offset: u64,
+        physical_len: u64,
+        frame: CachedCompressionFrame,
+        revision: u64,
+    ) {
+        // The caller has verified current metadata/index and every data block.
+        // Dirty encoded pages must stay available for the pending flush.
+        let weight = frame.data.len() as u64
+            + std::mem::size_of::<CachedCompressionFrame>() as u64
+            + frame
+                .slices
+                .iter()
+                .map(|slice| {
+                    std::mem::size_of::<CompressionFrameSlice>() as u64
+                        + slice.path.as_str().len() as u64
+                })
+                .sum::<u64>();
+        if revision == u64::MAX
+            || self.limit_bytes == 0
+            || weight > self.limit_bytes
+            || self.dirty_offsets.contains(&offset)
+        {
+            return;
+        }
+        self.evict_cached(offset);
+        self.pages.insert(
+            offset,
+            CachedPage {
+                page: CachedPagePayload::NativeDecoded {
+                    frame: Arc::new(frame),
+                    physical_len,
+                    revision,
+                },
+                weight,
+                generation: 0,
+                security: PageSecurity::Normal,
+            },
+        );
+        self.used_bytes = self.used_bytes.saturating_add(weight);
+        self.recent.push_back(offset);
+        self.trim_to_limit();
+    }
+
+    #[cfg(test)]
+    pub(crate) fn native_decoded_entries(&self) -> usize {
+        self.pages
+            .values()
+            .filter(|entry| matches!(entry.page, CachedPagePayload::NativeDecoded { .. }))
+            .count()
     }
 
     #[cfg(test)]
@@ -454,6 +562,8 @@ impl PageCache {
                         }
                         std::borrow::Cow::Borrowed(page.bytes())
                     }
+                    #[cfg(any(test, feature = "native-block-layout"))]
+                    CachedPagePayload::NativeDecoded { .. } => return Err(Error::CorruptRecord),
                     CachedPagePayload::Decoded(page) => {
                         std::borrow::Cow::Owned(match entry.security {
                             PageSecurity::Normal => encode_page_with_format(
@@ -684,7 +794,7 @@ impl PageCache {
         };
         let mut retired = Vec::new();
         for (&start, entry) in &self.pages {
-            if overlaps(start, entry.weight) {
+            if overlaps(start, entry.physical_len()) {
                 if self.dirty_offsets.contains(&start) {
                     return Err(Error::CorruptRecord);
                 }
@@ -769,6 +879,47 @@ mod tests {
     use crate::page::{encode_page, DecodedPage, PageObject, PageObjectKind};
     use crate::secret_vec::SecureVec;
     use crate::storage::StorageBackend;
+
+    #[test]
+    fn native_decoded_cache_tracks_physical_extents_and_shared_ownership() {
+        let frame = || CachedCompressionFrame {
+            compression: 1,
+            compression_frame_len: 8192,
+            compressed_len: 64,
+            compression_frame_digest: [3; 32],
+            slices: Vec::new(),
+            data: vec![7; 8192],
+        };
+        let mut cache = PageCache::new(CacheLimit::Bytes(16384));
+        cache.insert_native_decoded_page(192, 1024, frame(), 0);
+        let retained = cache.native_decoded_page(192, 0).unwrap();
+        let weak = Arc::downgrade(&retained);
+        assert_eq!(cache.stats().hits, 1);
+        assert!(cache.stats().used_bytes >= 8192);
+        // Cleanup immediately after the physical allocation must not use its
+        // larger decoded weight to erase a non-overlapping cached frame.
+        cache.invalidate_clean_range(1216, 1).unwrap();
+        assert_eq!(cache.native_decoded_entries(), 1);
+        let mut snapshot = cache.clone();
+        cache.invalidate_clean_range(1215, 1).unwrap();
+        assert_eq!(cache.native_decoded_entries(), 0);
+        assert_eq!(cache.stats().used_bytes, 0);
+        assert_eq!(retained.data, [7; 8192]);
+        drop(retained);
+        assert!(
+            weak.upgrade().is_some(),
+            "transaction snapshot retains immutable bytes"
+        );
+        snapshot.trim_to(0);
+        assert!(
+            weak.upgrade().is_none(),
+            "last cache owner drops the zeroizing payload"
+        );
+        cache.insert_native_decoded_page(192, 16384, frame(), 0);
+        // Conversely, padded physical extent can exceed decoded weight.
+        cache.invalidate_clean_range(192 + 16383, 1).unwrap();
+        assert_eq!(cache.native_decoded_entries(), 0);
+    }
 
     fn native_page(
         mode: FormatMode,

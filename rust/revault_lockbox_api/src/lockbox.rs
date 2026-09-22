@@ -5,7 +5,6 @@ use std::path::Path;
 
 use crate::commit_auth::{commit_auth_digest, commit_auth_message, decode_commit_auth, CommitAuth};
 use crate::commit_root::decode_commit_root;
-use crate::compression_frame_manifest::CompressionFrameSlice;
 use crate::constants::HEADER_LEN;
 use crate::fast_hash::FastBuildHasher;
 use crate::file_chunk::PendingFileChunk;
@@ -127,15 +126,7 @@ pub(crate) struct CompressionFrameCache {
     pub(crate) used_bytes: usize,
 }
 
-#[derive(Debug)]
-pub(crate) struct CachedCompressionFrame {
-    pub(crate) compression: u8,
-    pub(crate) compression_frame_len: u64,
-    pub(crate) compressed_len: u64,
-    pub(crate) compression_frame_digest: [u8; 32],
-    pub(crate) slices: Vec<CompressionFrameSlice>,
-    pub(crate) data: Vec<u8>,
-}
+pub(crate) use crate::page_cache::CachedCompressionFrame;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 /// Coarse import pipeline timing counters.
@@ -151,12 +142,6 @@ pub struct ImportStats {
     pub frame_prepare_nanos: u128,
     /// Page/object encoding and storage writes, in nanoseconds.
     pub page_write_nanos: u128,
-}
-
-impl Drop for CachedCompressionFrame {
-    fn drop(&mut self) {
-        crate::page_buffer::zeroize_bytes(&mut self.data);
-    }
 }
 
 /// Marker for lockbox handles that can read but cannot be committed.

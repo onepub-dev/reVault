@@ -524,6 +524,10 @@ pub(crate) fn read_recovery_chunk(
 }
 
 impl<'a> Reader<'a> {
+    pub(crate) fn write_revision(&self) -> u64 {
+        self.frame.write_revision
+    }
+
     pub(crate) fn slices(&self) -> &[CompressionFrameSlice] {
         &self.manifest.slices
     }

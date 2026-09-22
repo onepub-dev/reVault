@@ -366,6 +366,7 @@ pub(crate) fn encode_stored_block_frame(
 }
 
 pub(crate) struct BlockFrameReader<'a> {
+    write_revision: u64,
     descriptor: BlockFrameDescriptor,
     storage: &'a crate::storage::StorageBackend,
     offset: u64,
@@ -414,6 +415,7 @@ impl<'a> BlockFrameReader<'a> {
         if required_end > storage_len {
             return Err(Error::Truncated);
         }
+        let write_revision = storage.write_revision();
         let mut stored = ZeroizingBytes::new(vec![0; descriptor.index_len()?]);
         storage.read_at_into(offset, &mut stored)?;
         let hashes = descriptor.open_index(&stored, key)?;
@@ -423,7 +425,11 @@ impl<'a> BlockFrameReader<'a> {
             Some(descriptor.index_cipher(key)?)
         };
         storage.ensure_current()?;
+        if storage.write_revision() != write_revision {
+            return Err(Error::CorruptRecord);
+        }
         Ok(Self {
+            write_revision,
             descriptor: descriptor.clone(),
             storage,
             offset,
@@ -442,6 +448,10 @@ impl<'a> BlockFrameReader<'a> {
     pub(super) fn ensure_current(&self) -> Result<()> {
         if self.required_end > self.storage.current_len()? {
             return Err(Error::Truncated);
+        }
+        // Preserve replacement/terminal-source errors ahead of cache invalidation.
+        if self.write_revision == u64::MAX || self.storage.write_revision() != self.write_revision {
+            return Err(Error::CorruptRecord);
         }
         Ok(())
     }

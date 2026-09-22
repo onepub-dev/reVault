@@ -14,6 +14,7 @@ use std::sync::Arc;
 #[cfg(feature = "external-source")]
 pub(crate) fn replace_storage(archive: &mut Lockbox, storage: StorageBackend) {
     archive.storage = storage;
+    archive.page_manager.borrow_mut().clear();
     *archive.compression_frame_cache.borrow_mut() = CompressionFrameCache::default();
 }
 
@@ -1029,6 +1030,27 @@ fn native_file_handle_cached_bytes_reject_file_truncation() {
                     let mut bytes = [0; 13];
                     reader.read_exact(&mut bytes).unwrap();
                     assert_eq!(bytes, [37; 13]);
+                    // Fault injection has no public API: overwrite through a
+                    // cloned backing store, which shares the file and revision.
+                    let segment = &archive.toc_entries[&paths[0]].chunks[0].segments[0];
+                    let persisted = archive.to_bytes();
+                    let page = &persisted[segment.page_offset as usize..];
+                    let used = crate::page::PAGE_HEADER_LEN
+                        + u32::from_le_bytes(page[44..48].try_into().unwrap()) as usize;
+                    let offset = segment.page_offset + used as u64 - 1;
+                    let original = page[used - 1];
+                    let mut writer = archive.storage.clone();
+                    writer.write_at(offset, &[original ^ 1]).unwrap();
+                    assert!(
+                        archive.get_file(&paths[1]).is_err(),
+                        "overwrites invalidate decoded cache entries"
+                    );
+                    reader.rewind().unwrap();
+                    assert!(
+                        reader.read_exact(&mut bytes).is_err(),
+                        "overwrites invalidate retained read windows"
+                    );
+                    writer.write_at(offset, &[original]).unwrap();
                     // Adversarial out-of-band truncation has no public CLI setup.
                     let length = std::fs::metadata(&path).unwrap().len();
                     let mut visited = 0;

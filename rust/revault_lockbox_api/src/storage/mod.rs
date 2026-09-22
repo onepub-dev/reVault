@@ -56,6 +56,16 @@ pub(crate) enum StorageBackend {
 
 impl StorageBackend {
     #[cfg(any(test, feature = "native-block-layout"))]
+    pub(crate) fn write_revision(&self) -> u64 {
+        match self {
+            Self::Memory(store) => store.revision,
+            Self::File(store) => store.revision.load(std::sync::atomic::Ordering::SeqCst),
+            #[cfg(feature = "external-source")]
+            Self::External(_) => 0, // Read-only session; its terminal source checks still apply.
+        }
+    }
+
+    #[cfg(any(test, feature = "native-block-layout"))]
     pub(crate) fn current_len(&self) -> Result<u64> {
         if let Self::File(store) = self {
             let file = store.lock_file()?;
@@ -167,6 +177,7 @@ impl StorageBackend {
             Ok(Self::File(FileStore {
                 path: path.to_path_buf(),
                 file: Arc::new(RwLock::new(file)),
+                revision: Arc::new(std::sync::atomic::AtomicU64::new(0)),
                 writable: true,
             }))
         })();
@@ -268,6 +279,7 @@ impl Storage for StorageBackend {
 
 #[derive(Debug, Clone)]
 pub(crate) struct MemoryStore {
+    revision: u64,
     bytes: Vec<u8>,
     #[cfg(test)]
     fail_append_after_successes: Option<usize>,
@@ -285,6 +297,7 @@ impl MemoryStore {
     fn new(bytes: Vec<u8>) -> Self {
         Self {
             bytes,
+            revision: 0,
             #[cfg(test)]
             fail_append_after_successes: None,
             #[cfg(any(test, feature = "test-support"))]
@@ -427,6 +440,7 @@ impl Storage for MemoryStore {
     }
 
     fn write_at(&mut self, offset: u64, bytes: &[u8]) -> Result<()> {
+        self.revision = self.revision.saturating_add(1);
         #[cfg(test)]
         if self.should_fail_operation() {
             return Err(Error::Io("injected storage operation failure".to_string()));
@@ -447,6 +461,7 @@ impl Storage for MemoryStore {
     }
 
     fn truncate(&mut self, len: u64) -> Result<()> {
+        self.revision = self.revision.saturating_add(1);
         #[cfg(test)]
         if self.should_fail_operation() {
             return Err(Error::Io("injected storage operation failure".into()));
@@ -537,6 +552,7 @@ pub(crate) struct FileStore {
     // readers may share it, but mutations must still exclude all reads: a
     // read_exact_at call can involve multiple kernel reads on a short read.
     file: Arc<RwLock<std::fs::File>>,
+    revision: Arc<std::sync::atomic::AtomicU64>,
     writable: bool,
 }
 
@@ -547,6 +563,7 @@ impl FileStore {
         Ok(Self {
             path,
             file: Arc::new(RwLock::new(file)),
+            revision: Arc::new(std::sync::atomic::AtomicU64::new(0)),
             writable,
         })
     }
@@ -579,6 +596,7 @@ impl FileStore {
             Ok(Self {
                 path,
                 file: Arc::new(RwLock::new(file)),
+                revision: Arc::new(std::sync::atomic::AtomicU64::new(0)),
                 writable: true,
             })
         })();
@@ -668,6 +686,13 @@ impl Storage for FileStore {
             use std::os::unix::fs::FileExt;
             let file = self.lock_file()?;
             self.ensure_current(&file)?;
+            // Advance while holding the write lock, before any possibly partial mutation.
+            let _ = self.revision.fetch_update(
+                std::sync::atomic::Ordering::SeqCst,
+                std::sync::atomic::Ordering::SeqCst,
+                |n| Some(n.saturating_add(1)),
+            );
+
             file.write_all_at(bytes, offset)
                 .map_err(|err| Error::Io(format!("write {}: {err}", self.path.display())))
         }
@@ -675,6 +700,13 @@ impl Storage for FileStore {
         {
             let mut file = self.lock_file()?;
             self.ensure_current(&file)?;
+            // Advance while holding the write lock, before any possibly partial mutation.
+            let _ = self.revision.fetch_update(
+                std::sync::atomic::Ordering::SeqCst,
+                std::sync::atomic::Ordering::SeqCst,
+                |n| Some(n.saturating_add(1)),
+            );
+
             file.seek(SeekFrom::Start(offset))
                 .map_err(|err| Error::Io(format!("seek {}: {err}", self.path.display())))?;
             file.write_all(bytes)
@@ -685,6 +717,13 @@ impl Storage for FileStore {
     fn truncate(&mut self, len: u64) -> Result<()> {
         let file = self.lock_file()?;
         self.ensure_current(&file)?;
+        // Advance while holding the write lock, before any possibly partial mutation.
+        let _ = self.revision.fetch_update(
+            std::sync::atomic::Ordering::SeqCst,
+            std::sync::atomic::Ordering::SeqCst,
+            |n| Some(n.saturating_add(1)),
+        );
+
         file.set_len(len)
             .map_err(|err| Error::Io(format!("truncate {}: {err}", self.path.display())))
     }
