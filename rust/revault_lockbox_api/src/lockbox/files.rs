@@ -1575,7 +1575,36 @@ impl<State> Lockbox<State> {
     }
 
     /// Stream file content ranges without extracting files to the host filesystem.
-    pub fn stream_content<F>(&self, options: ContentStreamOptions, mut visitor: F) -> Result<()>
+    pub fn stream_content<F>(&self, options: ContentStreamOptions, visitor: F) -> Result<()>
+    where
+        F: FnMut(ContentChunk, &mut dyn Read) -> Result<()>,
+    {
+        // Workspace setup and final wiping must amortize across enough data.
+        // Count file slices, not shared frame lengths, so many tiny files in
+        // one cached frame do not spuriously select the larger allocation.
+        let mut compressed_bytes = 0u64;
+        let reuse = self
+            .toc_entries
+            .values()
+            .filter(|entry| !entry.deleted && entry.node_kind == NodeKind::File)
+            .flat_map(|entry| &entry.chunks)
+            .any(|chunk| {
+                if chunk.compression != COMPRESSION_NONE && chunk.compression_frame_len >= 64 * 1024
+                {
+                    compressed_bytes = compressed_bytes.saturating_add(chunk.len);
+                }
+                compressed_bytes >= 8 * 1024 * 1024
+            });
+        if reuse {
+            crate::compression::with_decode_workspace(|| {
+                self.stream_content_inner(options, visitor)
+            })
+        } else {
+            self.stream_content_inner(options, visitor)
+        }
+    }
+
+    fn stream_content_inner<F>(&self, options: ContentStreamOptions, mut visitor: F) -> Result<()>
     where
         F: FnMut(ContentChunk, &mut dyn Read) -> Result<()>,
     {

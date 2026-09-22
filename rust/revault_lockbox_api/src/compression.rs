@@ -5,6 +5,9 @@ use std::borrow::Cow;
 use zstd_complete::decoding::FrameDecoder;
 use zstd_complete::encoding::{compress_to_vec, CompressionLevel};
 
+mod decode_workspace;
+pub(crate) use decode_workspace::scoped as with_decode_workspace;
+
 pub(crate) const COMPRESSION_NONE: u8 = 0;
 pub(crate) const COMPRESSION_ZSTD: u8 = 1;
 const MAX_DECOMPRESSED_PAGE_BODY_BYTES: u64 = DEFAULT_MAX_PAGE_LOGICAL_BYTES as u64;
@@ -91,6 +94,9 @@ fn zstd_encode_compression_frame(payload: &[u8], level: i32) -> Vec<u8> {
 
 fn zstd_decode(stored: &[u8], expected_len: u64) -> Result<Vec<u8>> {
     let expected_len = usize::try_from(expected_len).map_err(|_| Error::CorruptRecord)?;
+    if let Some(result) = decode_workspace::decode(stored, expected_len) {
+        return result;
+    }
     let mut decoded = Vec::with_capacity(expected_len);
     FrameDecoder::new()
         .decode_all_to_vec(stored, &mut decoded)

@@ -1,0 +1,104 @@
+Issue #310: bounded scratch reuse for large compressed content streams
+====================================================================
+Base fb6c61f, 2026-09-22. Both existing and experimental native layouts.
+
+The allocation-sensitive compressed slowdown motivated a read-operation-local
+scratch arena. stream_content selects reuse when at least 8 MiB of compressed
+file slices use frames of at least 64 KiB. Counting slices rather than shared
+frame sizes avoids activating a large workspace for many tiny cached files.
+Small and raw streams retain the existing decoder path. The eligibility walk
+stops as soon as it reaches the threshold.
+
+The thread-local slot locates scratch only within a synchronous stream call;
+it is cleared at the outermost call's end, not retained between operations.
+Nested streams share the allocation. ZeroizingBytes wipes its full capacity on
+success, error and panic unwind. Growth replaces the wrapper, wiping the old
+buffer before freeing it instead of reallocating unwiped history. No unsafe
+code, new dependency, decoded-output cache or persistent plaintext cache added.
+
+StaticDecoderWorkspace reconstructs decoder state per frame but reuses its
+caller-owned allocation. The current output length and advertised Zstd window
+size the allocation, bounded to a 4 MiB history plus codec tables. Header parsing
+here is only a sizing hint; the decoder still validates the complete header.
+Skippable prefixes, oversized output/history, and later concatenated frames
+that exceed the workspace bound fall back to the original decoder. Existing
+format acceptance, byte-length checks, block/index integrity, source validation
+and signed-content verification remain. Archive bytes and write codec unchanged.
+
+Why not always allocate the maximum?
+The first fixed-4-MiB-window prototype improved the full native 64 MiB benchmark
+sequence dramatically but slowed the existing-layout 1 MiB case. Frame-sized
+allocation alone reduced, but did not consistently remove, that small penalty.
+The final amortization threshold preserves the small-stream path. Raw data from
+all three phases is retained; rejected small-case regressions are not discarded.
+
+Measurement method
+------------------
+rustc 1.88.0 optimized bench, CPU 2, warm OS caches, fresh archive handle for
+every sample, default padding, four patterned files. ZIP uses Rust stored or
+deflate, lockbox raw or default Zstd. Returned bytes are compared exactly for
+every full/range/stream read. Total timings include open, verification and drop,
+including scratch wipe. No build/test overlaps timing. Background load varies.
+No process-wide allocator overrides in any measurement in this report.
+
+Common command:
+  REVAULT_ZIP_READ_CASE=large REVAULT_ZIP_READ_MODE=plain
+  REVAULT_ZIP_READ_SIZE=67108864|1048576 REVAULT_ZIP_READ_SAMPLES=5|15
+  taskset -c 2 EXE
+The isolated-fixed phase additionally selects COMPRESSION=true,
+PROFILE=Interactive and ACCESS=stream and uses nine samples.
+The raw CSV prefixes every source row with phase, variant and run. Values remain
+process medians, not individual sample distributions or confidence intervals.
+
+Results and limits
+------------------
+The initial fixed-workspace full-matrix ABBA showed native 64 MiB compressed
+Interactive streaming 334.718 / 369.730 ms before versus 107.146 / 133.395 ms
+after. The isolated case was mixed (before 159.844 / 131.283; after 158.489 /
+121.483), consistent with the preceding allocator-state diagnosis.
+
+The final frame-sized, thresholded implementation measured native 64 MiB
+streaming 102.616 ms Interactive and 101.748 ms ReadMostly. Paired ZIP was
+58.558 / 58.247 ms: native remains about 1.75x ZIP, NOT parity.
+Final existing-layout 64 MiB streaming: Interactive 137.349 -> 98.789 ms and
+ReadMostly 166.862 -> 126.915 ms. ZIP/background variation is visible; these
+are descriptive observations, not formal regression-gate confidence bounds.
+Final existing 1 MiB streaming: Interactive 1.744 -> 1.719 ms, ReadMostly
+2.002 -> 1.932 ms, with the workspace bypassed for this four-file workload.
+Archive lengths match their baseline for each layout and compression setting.
+Later random/range cases also change because prior streaming changes allocator
+state. Their direct reader implementation was NOT optimized in this checkpoint.
+
+Adjacent final-implementation repeat (full matrix, five samples per row) confirms
+the improvement: native Interactive compressed streaming 315.875 -> 102.194 ms,
+ReadMostly 315.247 -> 101.806 ms. ZIP Interactive was 58.961 -> 58.235 ms and
+ReadMostly 59.547 -> 58.573 ms. These rows are tagged final-native-repeat.
+
+Final timed executables (only test additions followed these builds):
+  /tmp/issue310-scratch-final-existing
+  b3ae096f1e35c949bb52b12127f8b4dff419ac6b4fda4632b10d233d3327055d
+  /tmp/issue310-scratch-final-native
+  01c10ab56663e85ff133680ffbe0f8448ecea8d1f1bbb1af506f86d2f98c6ded
+Before executables are recorded in issue310-allocation-profile-notes.txt.
+
+Validation before commit-time formatting
+---------------------------------------
+- Final default library suite: 332 passed, 5 ignored, 77.99 seconds.
+- Three focused decoder tests pass, including the final growth assertion:
+  allocation reuse; different contents across growth; nested scopes; malformed
+  decode followed by valid decode; panic cleanup; 16 MiB history fallback;
+  differential valid/corrupt/truncated/concatenated frames and output limits
+  across 64 KiB, 128 KiB-plus-tail, 2 MiB and 4 MiB.
+- New public stream_workspace integration test passes in BOTH layouts. Nine
+  MiB triggers reuse and growth. All four encryption/signing combinations
+  independently reopen and verify every byte in logical and physical order,
+  including restarting after a visitor error.
+- Native public lifecycle across all 16 policies and both native external-source
+  tests passed on the initial workspace prototype. Final public tests above
+  exercise the revised selection/sizing; source validation code is unchanged.
+- Final native/external-source library/tests strict Clippy: PASS.
+
+This is a retained streaming optimization, not default activation of native
+layout or completion of #310. Signed recovery, native shared caching, the
+remaining feature-suite failures, ZIP parity across sizes/corpora/protections,
+read/write/load gates, and migration/bindings/release checks remain open.
