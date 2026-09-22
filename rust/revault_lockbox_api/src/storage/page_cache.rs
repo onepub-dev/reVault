@@ -1,6 +1,11 @@
 use crate::compression_frame_manifest::CompressionFrameSlice;
 #[derive(Debug)]
 pub(crate) struct CachedCompressionFrame {
+    #[cfg(any(test, feature = "native-block-layout"))]
+    pub(crate) native_reference: Option<(
+        crate::file_chunk::BlockFrameReference,
+        crate::file_chunk::CompressionFrameSegment,
+    )>,
     pub(crate) compression: u8,
     pub(crate) compression_frame_len: u64,
     pub(crate) compressed_len: u64,
@@ -914,6 +919,7 @@ mod tests {
     #[test]
     fn native_decoded_cache_tracks_physical_extents_and_shared_ownership() {
         let frame = || CachedCompressionFrame {
+            native_reference: None,
             compression: 1,
             compression_frame_len: 8192,
             compressed_len: 64,
@@ -1219,6 +1225,7 @@ mod tests {
             2,
             1024,
             CachedCompressionFrame {
+                native_reference: None,
                 compression: 0,
                 compression_frame_len: 64,
                 compressed_len: 64,

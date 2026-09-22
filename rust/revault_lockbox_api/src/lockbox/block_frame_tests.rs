@@ -908,7 +908,7 @@ fn native_block_public_read_paths_and_signed_digest_validate_all_modes() {
                     archive
                         .toc_entries
                         .insert(paths[0].clone(), original.clone());
-                    for mutation in 0..13 {
+                    for mutation in 0..14 {
                         let mut changed = original.clone();
                         let chunk = &mut changed.chunks[0];
                         match mutation {
@@ -934,6 +934,11 @@ fn native_block_public_read_paths_and_signed_digest_validate_all_modes() {
                             10 => chunk.segments[0].segment_offset += 1,
                             11 => chunk.segments[0].segment_len += 1,
                             12 => chunk.segments.push(chunk.segments[0].clone()),
+                            13 => {
+                                Arc::make_mut(chunk.block_frame.as_mut().unwrap())
+                                    .descriptor
+                                    .salt[0] ^= 1
+                            }
                             _ => unreachable!(),
                         }
                         archive.toc_entries.insert(paths[0].clone(), changed);

@@ -1,0 +1,53 @@
+Issue #310 verified decoded-frame reuse, 2026-09-22
+Before: 5e12312, SHA256 ebfc4d40529b5fb6335adca5a3bf54f8b4103cb27ad67e395fbe4bb151ccbb7a
+After: accompanying cache change, SHA256 aea437bd597bd38e6c1f906b8d9f48bdf611fc46cc4cec10fb8c7195ab29776c
+Both optimized native-block-layout zip_read binaries use the same bench source.
+
+Decoded native cache entries now retain the exact verified block reference and
+physical segment by value. Their memory is included in the existing page-cache
+budget. A hit validates the requested chunk, matches that reference and segment,
+checks the requested manifest slice, and checks the current source extent and
+write revision before returning cached bytes. Failed final checks wipe the output
+copy. A miss still opens and verifies the full metadata/index normally; it does
+not perform an additional current-length query solely for the cache fast path.
+
+This is reuse of previously authenticated bytes, not trust in an index checksum
+read from disk without a committed descriptor. File replacement, physical padding
+truncation, own-backend overwrite revisions, external cancellation and terminal
+failure checks remain enforced. Arbitrary same-size writes by uncooperative
+external processes are not a new freshness guarantee. No format/API change.
+
+Measurements: issue310-native-whole-cache-paired.csv, 96 rows. Within each of three
+runs and four creation/corpus combinations, run saved before and after binaries;
+reverse their order in the second run. Each invocation uses CASE=small, MODE=plain,
+ACCESS=whole, SAMPLES=5, explicit CREATE_PROFILE and CORPUS, and leaves PROFILE and
+COMPRESSION unset. Use the REVAULT_ZIP_READ_ prefix for all those environment names.
+Build with cargo bench -p revault_lockbox_api --features native-block-layout
+--bench zip_read --no-run. See the preceding whole-current notes for corpus and
+sample semantics. Each phase byte-verifies 122880 file results (480 MiB) per
+implementation. OS caches remain warm; each sample opens a fresh archive handle.
+
+Medians of the three per-run medians:
+- BulkImport packed creation: 77.124-101.357 ms before, 5.990-8.498 ms after;
+  individual case speedups 10.83-16.92x. After/ZIP ratios 0.823-1.057.
+- Interactive creation: case speedups 0.92-1.06x, after/ZIP 2.411-2.773.
+  Mixed small changes do not establish non-regression on this shared host.
+- Packed reads approach ZIP, but not every case meets parity or a 10%-faster
+  threshold. Interactive-created archives still miss the issue target substantially.
+  This is not broad performance parity, nor large/protected/cold-OS-cache evidence.
+
+Validation before commit-time formatting:
+- Full default library: 338 passed, five ignored.
+- Full native + external-source library: 342 passed, two known recovery failures,
+  five ignored. No additional failures introduced.
+- After removing the redundant cold-miss length query: all 27 remaining native
+  focused tests pass, with the same signed-neighbor recovery test still failing.
+- Strict native + external-source library/tests Clippy passed after final change.
+- External-source cache test now requires zero header/metadata/index/data reads
+  on the hit while retaining cancellation and terminal-failure refusal assertions.
+- The all-mode reference-mutation test additionally changes descriptor salt.
+- File truncation, cloned-backend overwrite, cache budget/disable/eviction tests pass.
+
+Remaining: Interactive whole-file/read-handle costs, wider ZIP/write/open gates,
+the two authenticated recovery failures, migration/binding/public CLI activation
+work. This checkpoint does not activate the native writer by default.

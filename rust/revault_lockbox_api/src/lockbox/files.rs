@@ -1111,6 +1111,50 @@ impl<State> Lockbox<State> {
         range: std::ops::Range<u64>,
         cache_single_frames: bool,
     ) -> Result<Vec<u8>> {
+        // A decoded frame was admitted only after verifying its complete body.
+        // Reuse that proof only for the exact committed reference and allocation.
+        crate::file_format::indexed_frame::block_page::validate_chunk_reference(
+            self.lockbox_id,
+            self.format_mode,
+            expected_total_len,
+            chunk,
+        )?;
+        let [segment] = chunk.segments.as_slice() else {
+            return Err(Error::CorruptRecord);
+        };
+        let required_end = segment
+            .page_offset
+            .checked_add(segment.page_len)
+            .ok_or(Error::CorruptRecord)?;
+        let revision = self.storage.write_revision();
+        if let Some(cached) = self.native_cached_frame(chunk)? {
+            if required_end > self.storage.current_len()? {
+                return Err(Error::Truncated);
+            }
+            let reference = chunk.block_frame.as_ref().ok_or(Error::CorruptRecord)?;
+            if cached
+                .native_reference
+                .as_ref()
+                .is_none_or(|(verified, allocation)| {
+                    verified != reference.as_ref() || allocation != segment
+                })
+            {
+                return Err(Error::CorruptRecord);
+            }
+            let mut out = ZeroizingBytes::new(Self::cached_frame_slice(
+                &cached,
+                expected_total_len,
+                chunk,
+                &range,
+            )?);
+            if required_end > self.storage.current_len()? {
+                return Err(Error::Truncated);
+            }
+            if revision == u64::MAX || revision != self.storage.write_revision() {
+                return Err(Error::CorruptRecord);
+            }
+            return Ok(std::mem::take(&mut *out));
+        }
         let reader = self.open_native_block_chunk(expected_total_len, chunk)?;
         let start = chunk
             .compression_frame_offset
@@ -1120,14 +1164,6 @@ impl<State> Lockbox<State> {
             .compression_frame_offset
             .checked_add(range.end)
             .ok_or(Error::CorruptRecord)?;
-        // Opening still validates current page metadata, the committed index,
-        // the requested manifest slice and the physical (including padded) extent.
-        if let Some(cached) =
-            self.read_cached_compression_frame_slice(expected_total_len, chunk, &range)?
-        {
-            reader.ensure_current()?;
-            return Ok(cached);
-        }
         let frame_len =
             usize::try_from(chunk.compression_frame_len).map_err(|_| Error::CorruptRecord)?;
         // Cache complete file slices (including packed neighbors), but do not
@@ -1623,6 +1659,10 @@ impl<State> Lockbox<State> {
                 segment.page_offset,
                 segment.page_len,
                 super::CachedCompressionFrame {
+                    native_reference: chunk
+                        .block_frame
+                        .as_ref()
+                        .map(|reference| ((**reference).clone(), segment.clone())),
                     compression: chunk.compression,
                     compression_frame_len: chunk.compression_frame_len,
                     compressed_len: chunk.compressed_len,
@@ -1669,6 +1709,8 @@ impl<State> Lockbox<State> {
         cache.entries.insert(
             chunk.compression_frame_id,
             super::CachedCompressionFrame {
+                #[cfg(any(test, feature = "native-block-layout"))]
+                native_reference: None,
                 compression: chunk.compression,
                 compression_frame_len: chunk.compression_frame_len,
                 compressed_len: chunk.compressed_len,

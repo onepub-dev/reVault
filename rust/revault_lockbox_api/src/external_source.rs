@@ -776,8 +776,8 @@ mod tests {
                             archive.read_file_range(&paths[1], 7, 13).unwrap(),
                             expected[7..20]
                         );
-                        assert_eq!(source.reads.lock().unwrap().len(), before_cached + 3,
-                            "decoded cache hit validates header, metadata and index without rereading data");
+                        assert_eq!(source.reads.lock().unwrap().len(), before_cached,
+                            "verified decoded cache hit reuses metadata and index without source reads");
                         let count = source.reads.lock().unwrap().len();
                         *source.cancelled.lock().unwrap() = true;
                         reader.seek(SeekFrom::End(-13)).unwrap();
