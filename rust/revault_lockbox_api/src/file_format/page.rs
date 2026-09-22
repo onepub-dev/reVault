@@ -166,6 +166,44 @@ pub(crate) fn page_size_for_stored_len(stored_len: usize, max_page_size: usize) 
     Ok(page_size)
 }
 
+/// Recover only a damaged physical-length field using the retained header
+/// checksum. The search is bounded by the format maximum and surviving bytes;
+/// callers must still authenticate the page body and its owning publication.
+#[cfg(any(test, feature = "native-block-layout"))]
+pub(crate) fn recover_physical_length_header(bytes: &[u8]) -> Option<[u8; PAGE_HEADER_LEN]> {
+    let mut header: [u8; PAGE_HEADER_LEN] = bytes.get(..PAGE_HEADER_LEN)?.try_into().ok()?;
+    if &header[..8] != PAGE_MAGIC
+        || read_u16_le(&header[8..10]).ok()? != PAGE_VERSION
+        || read_u32_le(&header[12..16]).ok()? as usize != PAGE_HEADER_LEN
+        || header[PAGE_CHECKSUM_START..] == strong_checksum(&header[..PAGE_CHECKSUM_START])
+    {
+        return None;
+    }
+    let stored_len = PAGE_HEADER_LEN.checked_add(read_u32_le(&header[44..48]).ok()? as usize)?;
+    let flags = read_u16_le(&header[10..12]).ok()?;
+    if flags & !(PAGE_FLAG_CLEAR_TEXT | PAGE_FLAG_UNPADDED) != 0 {
+        return None;
+    }
+    let maximum = bytes.len().min(DEFAULT_DATA_PAGE_BYTES);
+    let (first, step, last) = if flags & PAGE_FLAG_UNPADDED != 0 {
+        (stored_len, 1, stored_len.min(maximum))
+    } else {
+        (
+            page_size_for_stored_len(stored_len, maximum).ok()?,
+            PAGE_SIZE_GRANULARITY,
+            maximum,
+        )
+    };
+    for physical_len in (first..=last).step_by(step) {
+        header[48..56].copy_from_slice(&(physical_len as u64).to_le_bytes());
+        if header[PAGE_CHECKSUM_START..] == strong_checksum(&header[..PAGE_CHECKSUM_START]) {
+            physical_page_size_from_page_slice(&header).ok()?;
+            return Some(header);
+        }
+    }
+    None
+}
+
 pub(crate) fn physical_page_size_from_page_slice(page: &[u8]) -> Result<usize> {
     if page.len() < PAGE_HEADER_LEN || page.get(0..8) != Some(PAGE_MAGIC.as_slice()) {
         return Err(Error::CorruptRecord);
@@ -1460,6 +1498,54 @@ mod tests {
                     page_size_for_encoded_objects_with_format(&oversized, mode),
                     Err(Error::SecurityLimitExceeded(_))
                 ));
+            }
+        }
+    }
+
+    #[test]
+    fn physical_length_recovery_preserves_checksum_and_rejects_other_damage() {
+        use crate::creation_options::FormatMode;
+        use crate::{Compression, EncryptionMode, LockboxFormatOptions, SigningMode, SizePadding};
+        let id = LockboxId::new_random().unwrap();
+        let objects = [PageObject::new(PageObjectKind::CommitRoot, 10, vec![7; 88])];
+        for encryption in [EncryptionMode::None, EncryptionMode::ChaCha20Poly1305] {
+            for size_padding in [SizePadding::Default, SizePadding::None] {
+                let mode = FormatMode::new(LockboxFormatOptions {
+                    encryption,
+                    size_padding,
+                    signing: SigningMode::Owner,
+                    compression: Compression::None,
+                });
+                let size = if mode.unpadded() {
+                    page_size_for_encoded_objects_with_format(&objects, mode).unwrap()
+                } else {
+                    128 * 1024
+                };
+                let page =
+                    encode_page_with_format(size, id, 3, 7, b"secret", &objects, mode).unwrap();
+                assert!(recover_physical_length_header(&page).is_none());
+                for field_byte in 48..56 {
+                    let mut damaged = page.clone();
+                    damaged[field_byte] ^= 0x55;
+                    let header = recover_physical_length_header(&damaged).unwrap();
+                    assert_eq!(header, page[..PAGE_HEADER_LEN]);
+                    assert!(recover_physical_length_header(&damaged[..size - 1]).is_none());
+                    damaged[PAGE_CHECKSUM_START] ^= 1;
+                    assert!(recover_physical_length_header(&damaged).is_none());
+                    damaged[PAGE_CHECKSUM_START] ^= 1;
+                    damaged[24] ^= 1;
+                    assert!(recover_physical_length_header(&damaged).is_none());
+                    damaged[24] ^= 1;
+                    damaged[..PAGE_HEADER_LEN].copy_from_slice(&header);
+                    assert_eq!(
+                        decode_page_with_format(&damaged, id, b"secret", mode)
+                            .unwrap()
+                            .objects,
+                        objects
+                    );
+                    damaged[PAGE_HEADER_LEN + 8] ^= 1;
+                    assert!(decode_page_with_format(&damaged, id, b"secret", mode).is_err());
+                }
             }
         }
     }

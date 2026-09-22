@@ -377,6 +377,16 @@ impl<'a> RecoverySession<'a> {
             return None;
         }
         snapshot.truncate(sealed_len);
+        // Metadata-page length damage can leave both the original checksum and
+        // signed root payload intact. Repair only a checksum-matching candidate
+        // inside the sealed publication; normal open below validates everything.
+        let root_offset = usize::try_from(header.commit_root_offset).ok()?;
+        if let Some(repaired) = snapshot
+            .get(root_offset..)
+            .and_then(crate::page::recover_physical_length_header)
+        {
+            snapshot[root_offset..root_offset + repaired.len()].copy_from_slice(&repaired);
+        }
         Lockbox::open_storage_with_secret_key_mode(
             crate::storage::StorageBackend::memory(snapshot),
             key,
