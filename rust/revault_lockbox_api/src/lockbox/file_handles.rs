@@ -553,7 +553,7 @@ mod shared_reader_tests {
     use super::*;
 
     #[test]
-    fn raw_reader_retains_verified_page_after_cache_eviction() {
+    fn raw_reader_retains_verified_bytes_after_cache_eviction() {
         let mut lb = Lockbox::create_in_memory_with_options(crate::LockboxCreateOptions {
             compression: crate::Compression::None,
             ..crate::LockboxCreateOptions::new(crate::Encryption::None, crate::Signing::None)
@@ -569,13 +569,38 @@ mod shared_reader_tests {
         let mut reader = reopened.open_file(&path).unwrap();
         let mut actual = [0; 32];
         reader.read_exact(&mut actual).unwrap();
+        assert_eq!(actual, payload[..32]);
+        #[cfg(not(feature = "native-block-layout"))]
         assert!(matches!(reader.cache_page, ReaderPage::Shared(_)));
+        #[cfg(feature = "native-block-layout")]
+        let retained_window = {
+            let window = reader.native.as_ref().unwrap().retained_window_for_tests();
+            assert_eq!(window.len(), crate::file_format::indexed_frame::BLOCK_BYTES);
+            assert_eq!(window, &payload[..window.len()]);
+            window.as_ptr()
+        };
         reopened.page_manager.borrow_mut().clear();
         reader.seek(SeekFrom::Start(12345)).unwrap();
         reader.read_exact(&mut actual).unwrap();
         assert_eq!(actual, payload[12345..12377]);
+        #[cfg(feature = "native-block-layout")]
+        assert_eq!(
+            reader
+                .native
+                .as_ref()
+                .unwrap()
+                .retained_window_for_tests()
+                .as_ptr(),
+            retained_window,
+            "an in-window seek retains the same verified allocation"
+        );
         reader.seek(SeekFrom::Start(2 * 1024 * 1024 - 16)).unwrap();
         reader.read_exact(&mut actual).unwrap();
         assert_eq!(actual, payload[2 * 1024 * 1024 - 16..2 * 1024 * 1024 + 16]);
+        reopened.page_manager.borrow_mut().clear();
+        reader.rewind().unwrap();
+        let mut all = Vec::new();
+        reader.read_to_end(&mut all).unwrap();
+        assert_eq!(all, payload);
     }
 }

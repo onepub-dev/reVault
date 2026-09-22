@@ -16,6 +16,11 @@ pub(super) struct NativeFileReader<'a> {
 }
 
 impl<'a> NativeFileReader<'a> {
+    #[cfg(all(test, feature = "native-block-layout"))]
+    pub(super) fn retained_window_for_tests(&self) -> &[u8] {
+        &self.window
+    }
+
     pub(super) fn open<State>(
         archive: &'a Lockbox<State>,
         path: &LockboxPath,

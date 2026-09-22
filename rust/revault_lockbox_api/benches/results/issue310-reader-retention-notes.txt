@@ -1,0 +1,24 @@
+Issue #310: retained native reader regression, 2026-09-22
+Base 4a12f8f.
+
+The remaining raw_reader_retains_verified_page_after_cache_eviction failure was
+an assertion about the legacy representation, not a byte/lifetime failure.
+Native Read/Seek handles intentionally use NativeFileReader with a verified
+index and bounded data window, rather than ReaderPage::Shared. The test now
+requires the actual representation for each layout while strengthening common
+byte checks. It is named raw_reader_retains_verified_bytes_after_cache_eviction.
+
+Legacy builds retain the original ReaderPage::Shared assertion. Native builds
+require an allocated verified window exactly one 16 KiB block long, compare
+all its bytes, then require the same allocation after an in-window seek with
+the archive page manager cleared. Both layouts verify initial bytes, the
+in-window seek, a read straddling the 2 MiB frame boundary, another eviction,
+and a complete 3 MiB reread. The only added reader accessor is test/feature gated.
+
+Focused tests pass in default and native layouts. Native file truncation and
+external-source retained-reader/cancellation tests pass. Strict Clippy passes
+for default and native-block-layout,external-source library/tests.
+No production read behavior changes, no performance claim, no full-suite rerun.
+This resolves the representation-specific reader assertion; it does not claim
+native page-manager integration is complete. Cache statistics tests and signed
+recovery failures remain open, along with ZIP/read/write/load/release gates.
