@@ -724,33 +724,47 @@ impl<State> Lockbox<State> {
     /// Returns `Error::InvalidPath` for directory-only paths, `Error::NotFound`
     /// if `path` is absent or not a file, `Error::CorruptRecord` if stored file
     /// metadata is inconsistent, and `Error::Io` if an internal write into the
-    /// output buffer fails.
+    /// output buffer fails. Returns `Error::SecurityLimitExceeded` if the
+    /// multi-frame or sparse output reservation cannot be satisfied.
     pub fn get_file(&self, path: &LockboxPath) -> Result<Vec<u8>> {
         let path_key = path.as_file_path()?;
-        if let Some(entry) = self
+        let entry = self
             .toc_entries
             .get(path_key)
             .filter(|entry| !entry.deleted && entry.node_kind == NodeKind::File)
-        {
-            if let Some(pending) = self.pending_small_files.get(path_key) {
-                return Ok(pending.data.to_vec());
-            }
-            // The decoder already owns the complete output for a single covering
-            // chunk. Return it directly instead of cloning/sorting the chunk list
-            // and copying the decoded bytes through another Vec writer.
-            if let [chunk] = entry.chunks.as_slice() {
-                if chunk.file_offset == 0 && chunk.len == entry.len {
-                    let mut decoded = ZeroizingBytes::new(
-                        self.read_file_chunk_compression_frame(entry.len, chunk)?,
-                    );
-                    if decoded.len() as u64 != entry.len {
-                        return Err(Error::CorruptRecord);
-                    }
-                    return Ok(std::mem::take(&mut *decoded));
+            .ok_or_else(|| Error::NotFound(path_key.to_string()))?;
+        if let Some(pending) = self.pending_small_files.get(path_key) {
+            return Ok(pending.data.to_vec());
+        }
+        // The decoder already owns the complete output for a single covering
+        // chunk. Return it directly instead of cloning/sorting the chunk list
+        // and copying the decoded bytes through another Vec writer.
+        if let [chunk] = entry.chunks.as_slice() {
+            if chunk.file_offset == 0 && chunk.len == entry.len {
+                let mut decoded =
+                    ZeroizingBytes::new(self.read_file_chunk_compression_frame(entry.len, chunk)?);
+                if decoded.len() as u64 != entry.len {
+                    return Err(Error::CorruptRecord);
                 }
+                return Ok(std::mem::take(&mut *decoded));
             }
         }
         let mut out = Vec::new();
+        // Reserve raw multi-frame output once. Compressed frames retain the
+        // existing allocation order: reserving the final output before decoder
+        // scratch allocation regressed compressible large-file reads.
+        if entry
+            .chunks
+            .iter()
+            .all(|chunk| chunk.compression == COMPRESSION_NONE)
+        {
+            let capacity = usize::try_from(entry.len).map_err(|_| {
+                Error::SecurityLimitExceeded("file contents exceed addressable memory".to_string())
+            })?;
+            out.try_reserve_exact(capacity).map_err(|_| {
+                Error::SecurityLimitExceeded("cannot allocate complete file contents".to_string())
+            })?;
+        }
         self.extract_file_to_writer(path, &mut out)?;
         Ok(out)
     }

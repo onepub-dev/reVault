@@ -645,6 +645,7 @@ fn seek_past_eof_then_read_does_not_extend_but_write_creates_sparse_gap() {
     lb.commit().unwrap();
     let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), KEY).unwrap();
     assert_eq!(reopened.stat(&p("/sparse.bin")).unwrap().len, 4100);
+    assert_eq!(reopened.get_file(&p("/sparse.bin")).unwrap(), extracted);
     assert_eq!(
         reopened
             .read_file_range(&p("/sparse.bin"), 4090, 10)
