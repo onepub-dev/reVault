@@ -699,13 +699,21 @@ mod tests {
                         archive.add_file(&path, &input, false).unwrap();
                         archive.commit().unwrap();
                         let bytes = archive.to_bytes();
-                        for fault in 0..3 {
+                        for fault in 0..4 {
                             let mut source_bytes = bytes.clone();
                             // Private source replacement supplies mid-read cancellation
                             // and corrupted bytes that public mutation APIs cannot emit.
-                            if fault == 2 {
+                            if fault >= 2 {
                                 let offset = source_bytes.windows(crate::page::PAGE_HEADER_LEN).position(crate::file_format::indexed_frame::block_page::is_native_header).unwrap();
-                                source_bytes[offset + crate::page::PAGE_HEADER_LEN + 4] ^= 1;
+                                if fault == 2 {
+                                    source_bytes[offset + crate::page::PAGE_HEADER_LEN + 4] ^= 1;
+                                } else {
+                                    let len = crate::page::physical_page_size_from_page_slice(
+                                        &source_bytes[offset..],
+                                    )
+                                    .unwrap();
+                                    source_bytes.truncate(offset + len - 1);
+                                }
                             }
                             let source = Arc::new(Probe {
                                 bytes: source_bytes,

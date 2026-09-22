@@ -726,6 +726,30 @@ impl<State> Lockbox<State> {
     /// metadata is inconsistent, and `Error::Io` if an internal write into the
     /// output buffer fails.
     pub fn get_file(&self, path: &LockboxPath) -> Result<Vec<u8>> {
+        let path_key = path.as_file_path()?;
+        if let Some(entry) = self
+            .toc_entries
+            .get(path_key)
+            .filter(|entry| !entry.deleted && entry.node_kind == NodeKind::File)
+        {
+            if let Some(pending) = self.pending_small_files.get(path_key) {
+                return Ok(pending.data.to_vec());
+            }
+            // The decoder already owns the complete output for a single covering
+            // chunk. Return it directly instead of cloning/sorting the chunk list
+            // and copying the decoded bytes through another Vec writer.
+            if let [chunk] = entry.chunks.as_slice() {
+                if chunk.file_offset == 0 && chunk.len == entry.len {
+                    let mut decoded = ZeroizingBytes::new(
+                        self.read_file_chunk_compression_frame(entry.len, chunk)?,
+                    );
+                    if decoded.len() as u64 != entry.len {
+                        return Err(Error::CorruptRecord);
+                    }
+                    return Ok(std::mem::take(&mut *decoded));
+                }
+            }
+        }
         let mut out = Vec::new();
         self.extract_file_to_writer(path, &mut out)?;
         Ok(out)
@@ -1156,8 +1180,8 @@ impl<State> Lockbox<State> {
             return Ok(std::mem::take(&mut *out));
         }
         // Whole small frames can be captured in one bounded source read. Keep
-        // the same metadata/index/body validators and validate the live source
-        // around the snapshot; partial ranges never take this eager path.
+        // the same metadata/index/body validators and revalidate the live source
+        // before returning bytes; partial ranges never take this eager path.
         const SMALL_FRAME_SNAPSHOT_BYTES: u64 = 16 * 1024;
         if !matches!(&self.storage, crate::storage::StorageBackend::Memory(_))
             && range.start == 0
@@ -1169,9 +1193,8 @@ impl<State> Lockbox<State> {
         {
             use crate::file_format::indexed_frame::block_page::{validate_chunk_reference, Reader};
             use crate::storage::{Storage, StorageBackend};
-            if required_end > self.storage.current_len()? {
-                return Err(Error::Truncated);
-            }
+            // The bounded exact read detects truncation. Validate live source
+            // identity/extent and revision after decoding, before exposing bytes.
             let mut page = ZeroizingBytes::new(vec![0; segment.page_len as usize]);
             self.storage.read_at_into(segment.page_offset, &mut page)?;
             let identity = validate_chunk_reference(

@@ -1,0 +1,61 @@
+Issue #310 direct whole-file output and exact-read source checks, 2026-09-22
+Before: acf8f59 (pre-format executable), SHA256
+  c447af1d0680ddc90116b2257f4098cca98cb8fe5f638597f7c44d7de54e0fff
+After: accompanying change (pre-format executable), SHA256
+  b53454de9487195a0c4f6ba1a9eb3c05b6fb9b79232b2ccea79bbedb66e5de67
+
+get_file directly returns the validated decoder buffer for one chunk covering the
+entire file. Pending file bytes retain their precedence. Sparse, empty-without-
+chunks, non-covering and multiple-chunk files keep the existing extraction path.
+This avoids cloning/sorting a one-element chunk list and copying the complete
+output through an additional Vec writer. A mismatched decoded length fails with
+the temporary decoded buffer wiped.
+
+For the bounded small-frame source snapshot, exact read already detects a short
+source. Remove only the duplicate pre-read current_len query. Before any decoded
+bytes escape, the existing final check still validates source identity, physical
+extent (including padding), and the write revision captured before reading.
+The snapshot/body validators and external source's own failure checks are retained.
+The all-mode small external-source test now additionally truncates the native
+physical page by one byte and requires refusal.
+
+Profiling rationale: an intermediate direct-return-only variant was recorded with
+perf record -e cycles:u -F 499 --call-graph dwarf, running zip_read with CASE=small,
+MODE=plain, ACCESS=whole, SAMPLES=100, CREATE_PROFILE=Interactive, CORPUS=pattern,
+PROFILE=Interactive, COMPRESSION=false (REVAULT_ZIP_READ_ environment prefix).
+744 samples: SHA-256 compression accounted for about 27% self overhead and
+archive_lock::current_len about 18% inclusive overhead. This profile includes
+fixture creation, ZIP, open and byte checking, not just get_file. It guided the
+source-check reduction; it does not justify weakening hashes or authentication.
+
+Final measurements: issue310-native-direct-get-paired.csv, 96 rows. The same
+interleaved three-run/five-sample whole-file protocol as the preceding cache and
+small-snapshot notes, 512 files x 4096 bytes, plain mode, two corpora, creation
+profiles, compression settings and read profiles. Fresh handles; warm OS caches.
+Each phase byte-verifies 122880 returned files (480 MiB) per implementation.
+The CSV contains only measurements after the successful final release build.
+
+Medians of three per-run medians:
+- Interactive creation: individual speedups 1.17-1.24x versus acf8f59.
+- Uncompressed Interactive creation: after/ZIP ratios 0.959-0.975; approximately
+  parity, not a demonstrated 10% lead. Compressed: 1.130-1.199, still behind ZIP.
+- BulkImport control speedups 1.00-1.02x, after/ZIP ratios 0.795-0.937.
+  Small differences do not establish a broad non-regression gate.
+- No claims for protected/large/read-handle/range/write/cold-OS-cache performance.
+
+Validation before commit-time formatting:
+- Full default library: 338 passed, five ignored.
+- Full native + external library after direct-return change: 343 passed, the same
+  two recovery failures, five ignored.
+- After exact-read source-check reduction and short-source test expansion:
+  native-focused suite 28 passed, same signed-neighbor recovery failure;
+  strict native + external library/tests Clippy passed.
+- Successful final release build and all 96 final paired rows completed.
+
+Remaining compressed-read investigation: native page metadata is compressed
+independently of its data. Check whether small padded pages spend codec work on
+metadata compression that cannot reduce their physical allocation. This is a
+source observation/hypothesis, not an implemented change or a measured finding.
+The two authentication-after-data-loss recovery failures and the wider performance,
+migration/binding/public-CLI activation gates remain unresolved. Native output
+is still feature gated; this checkpoint does not complete issue #310.
