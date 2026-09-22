@@ -55,6 +55,21 @@ pub(crate) enum StorageBackend {
 }
 
 impl StorageBackend {
+    #[cfg(feature = "native-block-layout")]
+    pub(crate) fn current_len(&self) -> Result<u64> {
+        if let Self::File(store) = self {
+            let file = store.lock_file()?;
+            return archive_lock::current_len(&file, &store.path)?.ok_or_else(|| {
+                Error::LockUnavailable(format!(
+                    "archive was replaced; reopen {}",
+                    store.path.display()
+                ))
+            });
+        }
+        self.ensure_current()?;
+        self.len()
+    }
+
     pub(crate) fn ensure_current(&self) -> Result<()> {
         #[cfg(feature = "external-source")]
         if let Self::External(store) = self {

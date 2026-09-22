@@ -388,8 +388,7 @@ impl<'a> BlockFrameReader<'a> {
         if descriptor.physical_len()? != physical_len {
             return Err(Error::CorruptRecord);
         }
-        storage.ensure_current()?;
-        let storage_len = storage.len()?;
+        let storage_len = storage.current_len()?;
         let required_end = offset
             .checked_add(physical_len as u64)
             .ok_or(Error::CorruptRecord)?;
@@ -422,8 +421,7 @@ impl<'a> BlockFrameReader<'a> {
     }
 
     pub(super) fn ensure_current(&self) -> Result<()> {
-        self.storage.ensure_current()?;
-        if self.required_end > self.storage.len()? {
+        if self.required_end > self.storage.current_len()? {
             return Err(Error::Truncated);
         }
         Ok(())
@@ -839,6 +837,20 @@ mod tests {
                             vec![0; input.len()],
                             "truncation cannot leak a successful direct read"
                         );
+                    }
+                    // Simulate a non-cooperating Unix writer replacing the path;
+                    // cached blocks must not hide the changed archive identity.
+                    #[cfg(unix)]
+                    {
+                        let replacement = path.with_extension("replacement");
+                        std::fs::write(&replacement, &bytes).unwrap();
+                        std::fs::rename(&replacement, &path).unwrap();
+                        assert!(matches!(reader.read(0..1), Err(Error::LockUnavailable(_))));
+                        assert!(matches!(reader.read(0..0), Err(Error::LockUnavailable(_))));
+                        assert!(matches!(
+                            BlockFrameReader::open(&descriptor, &storage, 317, packet.len(), &key),
+                            Err(Error::LockUnavailable(_))
+                        ));
                     }
                 }
             }

@@ -89,14 +89,7 @@ fn try_lock(_: &File, _: bool) -> std::io::Result<bool> {
 pub(super) fn is_current(file: &File, path: &Path) -> Result<bool> {
     #[cfg(unix)]
     {
-        use std::os::unix::fs::MetadataExt;
-        let held = file.metadata().map_err(|err| Error::Io(err.to_string()))?;
-        let current = match std::fs::metadata(path) {
-            Ok(metadata) => metadata,
-            Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(false),
-            Err(err) => return Err(Error::Io(err.to_string())),
-        };
-        Ok(held.dev() == current.dev() && held.ino() == current.ino())
+        Ok(current_len(file, path)?.is_some())
     }
     #[cfg(windows)]
     {
@@ -150,4 +143,29 @@ pub(super) fn open(path: &Path, writable: bool) -> Result<File> {
             )));
         }
     }
+}
+
+// Reuse the handle metadata obtained for identity validation.
+#[cfg(unix)]
+pub(super) fn current_len(file: &File, path: &Path) -> Result<Option<u64>> {
+    use std::os::unix::fs::MetadataExt;
+    let held = file.metadata().map_err(|err| Error::Io(err.to_string()))?;
+    let current = match std::fs::metadata(path) {
+        Ok(metadata) => metadata,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(err) => return Err(Error::Io(err.to_string())),
+    };
+    Ok((held.dev() == current.dev() && held.ino() == current.ino()).then_some(held.len()))
+}
+
+#[cfg(all(not(unix), feature = "native-block-layout"))]
+pub(super) fn current_len(file: &File, path: &Path) -> Result<Option<u64>> {
+    if !is_current(file, path)? {
+        return Ok(None);
+    }
+    Ok(Some(
+        file.metadata()
+            .map_err(|err| Error::Io(err.to_string()))?
+            .len(),
+    ))
 }
