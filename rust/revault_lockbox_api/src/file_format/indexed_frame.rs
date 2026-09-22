@@ -732,9 +732,9 @@ mod tests {
                     // Inspect only that known initialized portion of spare capacity.
                     for byte in &result.spare_capacity_mut()[..touched - 4096] {
                         // SAFETY: this range held initialized plaintext before truncation.
+                        let value = unsafe { byte.assume_init() };
                         assert_eq!(
-                            unsafe { byte.assume_init() },
-                            0,
+                            value, 0,
                             "discarded neighboring plaintext survived in returned allocation"
                         );
                     }
