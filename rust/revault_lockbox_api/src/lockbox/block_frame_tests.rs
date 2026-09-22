@@ -1006,6 +1006,24 @@ fn native_file_handle_cached_bytes_reject_file_truncation() {
                     ));
                     archive.storage =
                         StorageBackend::create_file(&path, &archive.to_bytes()).unwrap();
+                    archive.set_workload_profile(WorkloadProfile::ExtractMany);
+                    assert_eq!(
+                        archive.get_file(&paths[0]).unwrap(),
+                        input[..input.len() / 2]
+                    );
+                    assert_eq!(
+                        archive.decoded_compression_frame_cache_entries_for_tests(),
+                        1
+                    );
+                    assert_eq!(
+                        archive.get_file(&paths[1]).unwrap(),
+                        input[input.len() / 2..]
+                    );
+                    assert_eq!(
+                        archive.decoded_compression_frame_cache_entries_for_tests(),
+                        1
+                    );
+                    assert_eq!(archive.read_file_range(&paths[1], 3, 13).unwrap(), [37; 13]);
                     let mut reader = archive.open_file(&paths[1]).unwrap();
                     let mut bytes = [0; 13];
                     reader.read_exact(&mut bytes).unwrap();
@@ -1021,6 +1039,8 @@ fn native_file_handle_cached_bytes_reject_file_truncation() {
                     reader.rewind().unwrap();
                     assert!(reader.read_exact(&mut bytes).is_err());
                     drop(reader);
+                    assert!(archive.get_file(&paths[0]).is_err());
+                    assert!(archive.read_file_range(&paths[1], 3, 13).is_err());
                     drop(archive);
                     std::fs::remove_file(path).unwrap();
                 }

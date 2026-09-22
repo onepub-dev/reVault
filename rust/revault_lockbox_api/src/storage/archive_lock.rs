@@ -158,7 +158,7 @@ pub(super) fn current_len(file: &File, path: &Path) -> Result<Option<u64>> {
     Ok((held.dev() == current.dev() && held.ino() == current.ino()).then_some(held.len()))
 }
 
-#[cfg(all(not(unix), feature = "native-block-layout"))]
+#[cfg(all(not(unix), any(test, feature = "native-block-layout")))]
 pub(super) fn current_len(file: &File, path: &Path) -> Result<Option<u64>> {
     if !is_current(file, path)? {
         return Ok(None);

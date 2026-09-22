@@ -711,6 +711,7 @@ mod tests {
                             &mut archive,
                             StorageBackend::External(session.storage.clone()),
                         );
+                        archive.set_workload_profile(crate::WorkloadProfile::ExtractMany);
                         let mut reader = archive.open_file(&paths[1]).unwrap();
                         reader.seek(SeekFrom::Start(7)).unwrap();
                         let mut small = [0; 13];
@@ -762,11 +763,28 @@ mod tests {
                         }
                         reader.seek(SeekFrom::End(-13)).unwrap();
                         reader.read_exact(&mut small).unwrap();
+                        assert_eq!(
+                            archive.get_file(&paths[0]).unwrap(),
+                            input[..input.len() / 2]
+                        );
+                        assert_eq!(
+                            archive.decoded_compression_frame_cache_entries_for_tests(),
+                            1
+                        );
+                        let before_cached = source.reads.lock().unwrap().len();
+                        assert_eq!(
+                            archive.read_file_range(&paths[1], 7, 13).unwrap(),
+                            expected[7..20]
+                        );
+                        assert_eq!(source.reads.lock().unwrap().len(), before_cached + 3,
+                            "decoded cache hit validates header, metadata and index without rereading data");
                         let count = source.reads.lock().unwrap().len();
                         *source.cancelled.lock().unwrap() = true;
                         reader.seek(SeekFrom::End(-13)).unwrap();
                         assert!(reader.read_exact(&mut small).is_err());
+                        assert!(archive.get_file(&paths[0]).is_err());
                         *source.cancelled.lock().unwrap() = false;
+                        assert!(archive.read_file_range(&paths[1], 7, 13).is_err());
                         assert!(
                             reader.read_exact(&mut small).is_err(),
                             "cache cannot clear terminal failure"

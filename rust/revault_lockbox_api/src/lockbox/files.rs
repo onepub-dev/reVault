@@ -1109,6 +1109,37 @@ impl<State> Lockbox<State> {
             .compression_frame_offset
             .checked_add(range.end)
             .ok_or(Error::CorruptRecord)?;
+        // Opening still validates current page metadata, the committed index,
+        // the requested manifest slice and the physical (including padded) extent.
+        if let Some(cached) =
+            self.read_cached_compression_frame_slice(expected_total_len, chunk, &range)?
+        {
+            reader.ensure_current()?;
+            return Ok(cached);
+        }
+        let frame_len =
+            usize::try_from(chunk.compression_frame_len).map_err(|_| Error::CorruptRecord)?;
+        // Cache complete file slices (including packed neighbors), but do not
+        // expand a partial raw range just to populate the cache. Compressed
+        // reads already decode the complete frame.
+        if self.should_cache_decoded_compression_frame(frame_len)
+            && (chunk.compression != COMPRESSION_NONE
+                || (range.start == 0 && range.end == chunk.len))
+        {
+            let mut decoded = ZeroizingBytes::new(reader.read(0..chunk.compression_frame_len)?);
+            let start = usize::try_from(start).map_err(|_| Error::CorruptRecord)?;
+            let end = usize::try_from(end).map_err(|_| Error::CorruptRecord)?;
+            let out = decoded
+                .get(start..end)
+                .ok_or(Error::CorruptRecord)?
+                .to_vec();
+            self.cache_decoded_compression_frame_owned(
+                chunk,
+                reader.slices().to_vec(),
+                std::mem::take(&mut *decoded),
+            );
+            return Ok(out);
+        }
         reader.read(start..end)
     }
 

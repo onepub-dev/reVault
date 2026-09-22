@@ -519,6 +519,10 @@ pub(crate) fn read_recovery_chunk(
 }
 
 impl<'a> Reader<'a> {
+    pub(crate) fn slices(&self) -> &[CompressionFrameSlice] {
+        &self.manifest.slices
+    }
+
     pub(crate) fn validate_slice(
         &self,
         chunk: &crate::file_chunk::FileChunk,

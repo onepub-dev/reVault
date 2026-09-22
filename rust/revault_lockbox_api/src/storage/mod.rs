@@ -55,7 +55,7 @@ pub(crate) enum StorageBackend {
 }
 
 impl StorageBackend {
-    #[cfg(feature = "native-block-layout")]
+    #[cfg(any(test, feature = "native-block-layout"))]
     pub(crate) fn current_len(&self) -> Result<u64> {
         if let Self::File(store) = self {
             let file = store.lock_file()?;
