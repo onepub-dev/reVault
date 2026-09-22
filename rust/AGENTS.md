@@ -19,3 +19,13 @@ Treat RepoWise findings as review inputs rather than automatic refactoring
 instructions. Prefer cohesive Rust domain types that own related state and
 behaviour over collections of unrelated helper functions, and verify coverage
 before accepting an `untested` finding.
+
+## Issue #310 resume checkpoint
+
+Before continuing read/write performance work for issue #310, read
+`revault_lockbox_api/benches/results/issue310-resume-checkpoint.txt` from the
+`rust/` directory. It records the active worktree and branch, current commits,
+uncommitted parallel-worker prototype, completed validation, known failures, and
+next benchmark steps. Resume in
+`/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance`;
+do not discard its uncommitted changes.
