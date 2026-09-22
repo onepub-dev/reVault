@@ -9,6 +9,8 @@
 //! ACCESS (stream/random/range) filters use the REVAULT_ZIP_READ_ prefix.
 //! CREATE_PROFILE=BulkImport packs small files; default is Interactive. Record
 //! this fixture setting alongside CSV results when overriding it.
+//! WRITE_PROFILE=1 emits CSV create/add/commit/close timings on stderr for each
+//! fixture. Read samples still independently reopen and verify all stored bytes.
 use revault_lockbox_api::{
     Compression, ContentStreamOptions, Encryption, Lockbox, LockboxCreateOptions, LockboxOpen,
     LockboxPath, LockboxProtection, OwnerSigningKeyPair, SecretVec, Signing, WorkloadProfile,
@@ -122,6 +124,9 @@ fn run(root: &Path, count: usize, size: usize, compressed: bool) {
             continue;
         }
         let archive = root.join(format!("{mode}.lbox"));
+        let write_started = std::env::var("REVAULT_ZIP_READ_WRITE_PROFILE")
+            .is_ok_and(|value| value == "1")
+            .then(Instant::now);
         let mut lockbox = Lockbox::create_file_with_options(
             &archive,
             LockboxCreateOptions {
@@ -147,14 +152,31 @@ fn run(root: &Path, count: usize, size: usize, compressed: bool) {
             },
         )
         .unwrap();
+        let created = write_started.map(|_| Instant::now());
         if std::env::var("REVAULT_ZIP_READ_CREATE_PROFILE").is_ok_and(|v| v == "BulkImport") {
             lockbox.set_workload_profile(WorkloadProfile::BulkImport);
         }
         for (path, payload) in paths.iter().zip(&payloads) {
             lockbox.add_file(path, payload, false).unwrap();
         }
+        let added = write_started.map(|_| Instant::now());
         lockbox.commit().unwrap();
+        let committed = write_started.map(|_| Instant::now());
         drop(lockbox);
+        if let (Some(started), Some(created), Some(added), Some(committed)) =
+            (write_started, created, added, committed)
+        {
+            let closed = Instant::now();
+            let profile = std::env::var("REVAULT_ZIP_READ_CREATE_PROFILE")
+                .unwrap_or_else(|_| "Interactive".into());
+            eprintln!("{count},{size},{compressed},{mode},{profile},{corpus},{:.3},{:.3},{:.3},{:.3},{:.3},{}",
+                created.duration_since(started).as_secs_f64() * 1000.0,
+                added.duration_since(created).as_secs_f64() * 1000.0,
+                committed.duration_since(added).as_secs_f64() * 1000.0,
+                closed.duration_since(committed).as_secs_f64() * 1000.0,
+                closed.duration_since(started).as_secs_f64() * 1000.0,
+                fs::metadata(&archive).unwrap().len());
+        }
         for profile in [WorkloadProfile::Interactive, WorkloadProfile::ReadMostly] {
             if std::env::var("REVAULT_ZIP_READ_PROFILE")
                 .is_ok_and(|selected| selected != format!("{profile:?}"))
@@ -292,6 +314,9 @@ fn run(root: &Path, count: usize, size: usize, compressed: bool) {
 }
 
 fn main() {
+    if std::env::var("REVAULT_ZIP_READ_WRITE_PROFILE").is_ok_and(|v| v == "1") {
+        eprintln!("files,bytes_per_file,compressed,mode,create_profile,corpus,create_ms,add_ms,commit_ms,close_ms,total_ms,archive_bytes");
+    }
     for (name, allowed) in [
         ("REVAULT_ZIP_READ_COMPRESSION", &["true", "false"][..]),
         (
