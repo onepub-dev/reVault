@@ -636,6 +636,123 @@ impl ReadAtSource for SparseSource {
 mod tests {
     use super::*;
 
+    #[cfg(feature = "native-block-layout")]
+    #[test]
+    fn small_native_whole_reads_capture_once_and_preserve_source_failures() {
+        use crate::{
+            Compression, Encryption, LockboxCreateOptions, LockboxProtection, OwnerSigningKeyPair,
+            Signing, SizePadding,
+        };
+        struct Probe {
+            bytes: Vec<u8>,
+            reads: Mutex<usize>,
+            cancel_on_read: bool,
+            cancelled: Mutex<bool>,
+        }
+        impl ReadAtSource for Probe {
+            fn len(&self) -> u64 {
+                self.bytes.len() as u64
+            }
+            fn validate(&self) -> Result<(), SourceError> {
+                if *self.cancelled.lock().unwrap() {
+                    Err(SourceError::Cancelled)
+                } else {
+                    Ok(())
+                }
+            }
+            fn read_at(&self, offset: u64, out: &mut [u8]) -> Result<usize, SourceError> {
+                *self.reads.lock().unwrap() += 1;
+                out.copy_from_slice(&self.bytes[offset as usize..offset as usize + out.len()]);
+                if self.cancel_on_read {
+                    *self.cancelled.lock().unwrap() = true;
+                }
+                Ok(out.len())
+            }
+        }
+        let signer = OwnerSigningKeyPair::generate().unwrap();
+        let input = (0..4096).map(|n| (n % 251) as u8).collect::<Vec<_>>();
+        let path = crate::LockboxPath::new("/small").unwrap();
+        for encrypted in [false, true] {
+            for signed in [false, true] {
+                for compression in [Compression::None, Compression::default()] {
+                    for size_padding in [SizePadding::Default, SizePadding::None] {
+                        let mut archive =
+                            crate::Lockbox::create_in_memory_with_options(LockboxCreateOptions {
+                                compression,
+                                size_padding,
+                                ..LockboxCreateOptions::new(
+                                    if encrypted {
+                                        Encryption::Encrypted(LockboxProtection::ContentKey(
+                                            crate::SecretVec::try_from_slice(&[67; 32]).unwrap(),
+                                        ))
+                                    } else {
+                                        Encryption::None
+                                    },
+                                    if signed {
+                                        Signing::Owner(&signer)
+                                    } else {
+                                        Signing::None
+                                    },
+                                )
+                            })
+                            .unwrap();
+                        archive.add_file(&path, &input, false).unwrap();
+                        archive.commit().unwrap();
+                        let bytes = archive.to_bytes();
+                        for fault in 0..3 {
+                            let mut source_bytes = bytes.clone();
+                            // Private source replacement supplies mid-read cancellation
+                            // and corrupted bytes that public mutation APIs cannot emit.
+                            if fault == 2 {
+                                let offset = source_bytes.windows(crate::page::PAGE_HEADER_LEN).position(crate::file_format::indexed_frame::block_page::is_native_header).unwrap();
+                                source_bytes[offset + crate::page::PAGE_HEADER_LEN + 4] ^= 1;
+                            }
+                            let source = Arc::new(Probe {
+                                bytes: source_bytes,
+                                reads: Mutex::new(0),
+                                cancel_on_read: fault == 1,
+                                cancelled: Mutex::new(false),
+                            });
+                            let session = ExternalReader::new(
+                                source.clone(),
+                                ExternalReaderOptions::default(),
+                            )
+                            .unwrap();
+                            crate::lockbox::block_frame_tests::replace_storage(
+                                &mut archive,
+                                crate::storage::StorageBackend::External(session.storage.clone()),
+                            );
+                            if fault == 0 {
+                                assert_eq!(archive.get_file(&path).unwrap(), input);
+                                assert_eq!(
+                                    *source.reads.lock().unwrap(),
+                                    1,
+                                    "one bounded source read per cold small frame"
+                                );
+                                assert_eq!(archive.get_file(&path).unwrap(), input);
+                                assert_eq!(
+                                    *source.reads.lock().unwrap(),
+                                    1,
+                                    "warm read reuses verified cache"
+                                );
+                            } else if fault == 1 {
+                                assert!(archive.get_file(&path).is_err());
+                                *source.cancelled.lock().unwrap() = false;
+                                assert!(
+                                    archive.get_file(&path).is_err(),
+                                    "terminal source failure must stay latched"
+                                );
+                                assert_eq!(*source.reads.lock().unwrap(), 1);
+                            } else {
+                                assert!(archive.get_file(&path).is_err());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     #[test]
     fn native_file_handle_retains_index_and_bounds_raw_reads_without_bypassing_failure_latch() {
         use crate::{

@@ -92,6 +92,25 @@ impl StorageBackend {
         Ok(())
     }
 
+    /// Scope an immutable decoding snapshot so its source bytes are wiped even
+    /// when validation returns an error or unwinds.
+    #[cfg(any(test, feature = "native-block-layout"))]
+    pub(crate) fn with_read_snapshot<T>(
+        mut bytes: crate::page_buffer::ZeroizingBytes,
+        operation: impl FnOnce(&Self) -> Result<T>,
+    ) -> Result<T> {
+        struct Snapshot(StorageBackend);
+        impl Drop for Snapshot {
+            fn drop(&mut self) {
+                if let StorageBackend::Memory(store) = &mut self.0 {
+                    crate::page_buffer::zeroize_bytes(&mut store.bytes);
+                }
+            }
+        }
+        let snapshot = Snapshot(Self::memory(std::mem::take(&mut *bytes)));
+        operation(&snapshot.0)
+    }
+
     pub(crate) fn memory(bytes: Vec<u8>) -> Self {
         Self::Memory(MemoryStore::new(bytes))
     }

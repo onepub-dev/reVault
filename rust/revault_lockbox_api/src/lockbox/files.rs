@@ -1155,6 +1155,72 @@ impl<State> Lockbox<State> {
             }
             return Ok(std::mem::take(&mut *out));
         }
+        // Whole small frames can be captured in one bounded source read. Keep
+        // the same metadata/index/body validators and validate the live source
+        // around the snapshot; partial ranges never take this eager path.
+        const SMALL_FRAME_SNAPSHOT_BYTES: u64 = 16 * 1024;
+        if !matches!(&self.storage, crate::storage::StorageBackend::Memory(_))
+            && range.start == 0
+            && range.end == chunk.len
+            && chunk.compression_frame_offset == 0
+            && chunk.len == chunk.compression_frame_len
+            && chunk.compression_frame_len <= SMALL_FRAME_SNAPSHOT_BYTES
+            && segment.page_len <= SMALL_FRAME_SNAPSHOT_BYTES
+        {
+            use crate::file_format::indexed_frame::block_page::{validate_chunk_reference, Reader};
+            use crate::storage::{Storage, StorageBackend};
+            if required_end > self.storage.current_len()? {
+                return Err(Error::Truncated);
+            }
+            let mut page = ZeroizingBytes::new(vec![0; segment.page_len as usize]);
+            self.storage.read_at_into(segment.page_offset, &mut page)?;
+            let identity = validate_chunk_reference(
+                self.lockbox_id,
+                self.format_mode,
+                expected_total_len,
+                chunk,
+            )?;
+            let reference = chunk.block_frame.as_ref().ok_or(Error::CorruptRecord)?;
+            let (mut decoded, slices) = StorageBackend::with_read_snapshot(page, |snapshot| {
+                let read = |key: &[u8]| {
+                    let reader = Reader::open(
+                        snapshot,
+                        0,
+                        identity,
+                        &reference.descriptor,
+                        segment.page_len as usize,
+                        key,
+                    )?;
+                    reader.validate_slice(chunk, expected_total_len)?;
+                    Ok((
+                        ZeroizingBytes::new(reader.read(0..chunk.len)?),
+                        reader.slices().to_vec(),
+                    ))
+                };
+                if self.format_mode.plaintext() {
+                    read(&[0; 32])
+                } else {
+                    self.key.with_bytes(read)?
+                }
+            })?;
+            if required_end > self.storage.current_len()? {
+                return Err(Error::Truncated);
+            }
+            if revision == u64::MAX || revision != self.storage.write_revision() {
+                return Err(Error::CorruptRecord);
+            }
+            if cache_single_frames && self.should_cache_native_decoded_frame(decoded.len()) {
+                let out = decoded.to_vec();
+                self.cache_decoded_compression_frame_at_revision(
+                    chunk,
+                    slices,
+                    std::mem::take(&mut *decoded),
+                    revision,
+                );
+                return Ok(out);
+            }
+            return Ok(std::mem::take(&mut *decoded));
+        }
         let reader = self.open_native_block_chunk(expected_total_len, chunk)?;
         let start = chunk
             .compression_frame_offset
