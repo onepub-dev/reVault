@@ -169,3 +169,35 @@ pub(super) fn current_len(file: &File, path: &Path) -> Result<Option<u64>> {
             .len(),
     ))
 }
+
+// The identity of a live Unix descriptor cannot change. Retain it with the
+// FileStore that owns that descriptor; path metadata must still be checked on
+// every operation to detect replacement and obtain the current length.
+#[cfg(unix)]
+#[derive(Debug, Clone, Copy)]
+pub(super) struct FileIdentity {
+    device: u64,
+    inode: u64,
+}
+
+#[cfg(unix)]
+impl FileIdentity {
+    pub(super) fn capture(file: &File) -> Result<Self> {
+        use std::os::unix::fs::MetadataExt;
+        let metadata = file.metadata().map_err(|err| Error::Io(err.to_string()))?;
+        Ok(Self {
+            device: metadata.dev(),
+            inode: metadata.ino(),
+        })
+    }
+
+    pub(super) fn current_len(&self, path: &Path) -> Result<Option<u64>> {
+        use std::os::unix::fs::MetadataExt;
+        let current = match std::fs::metadata(path) {
+            Ok(metadata) => metadata,
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(err) => return Err(Error::Io(err.to_string())),
+        };
+        Ok((self.device == current.dev() && self.inode == current.ino()).then_some(current.len()))
+    }
+}

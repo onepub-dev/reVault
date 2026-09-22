@@ -68,8 +68,12 @@ impl StorageBackend {
     #[cfg(any(test, feature = "native-block-layout"))]
     pub(crate) fn current_len(&self) -> Result<u64> {
         if let Self::File(store) = self {
-            let file = store.lock_file()?;
-            return archive_lock::current_len(&file, &store.path)?.ok_or_else(|| {
+            let _file = store.lock_file()?;
+            #[cfg(unix)]
+            let current_len = store.identity.current_len(&store.path)?;
+            #[cfg(not(unix))]
+            let current_len = archive_lock::current_len(&_file, &store.path)?;
+            return current_len.ok_or_else(|| {
                 Error::LockUnavailable(format!(
                     "archive was replaced; reopen {}",
                     store.path.display()
@@ -189,6 +193,8 @@ impl StorageBackend {
                 true,
                 std::time::Instant::now(),
             )?;
+            #[cfg(unix)]
+            let identity = archive_lock::FileIdentity::capture(&file)?;
             file.write_all(bytes)
                 .map_err(|err| Error::Io(err.to_string()))?;
             file.sync_all().map_err(|err| Error::Io(err.to_string()))?;
@@ -196,6 +202,8 @@ impl StorageBackend {
             Ok(Self::File(FileStore {
                 path: path.to_path_buf(),
                 file: Arc::new(RwLock::new(file)),
+                #[cfg(unix)]
+                identity,
                 revision: Arc::new(std::sync::atomic::AtomicU64::new(0)),
                 writable: true,
             }))
@@ -571,6 +579,8 @@ pub(crate) struct FileStore {
     // readers may share it, but mutations must still exclude all reads: a
     // read_exact_at call can involve multiple kernel reads on a short read.
     file: Arc<RwLock<std::fs::File>>,
+    #[cfg(unix)]
+    identity: archive_lock::FileIdentity,
     revision: Arc<std::sync::atomic::AtomicU64>,
     writable: bool,
 }
@@ -579,9 +589,13 @@ impl FileStore {
     fn open(path: impl AsRef<Path>, writable: bool) -> Result<Self> {
         let path = path.as_ref().to_path_buf();
         let file = archive_lock::open(&path, writable)?;
+        #[cfg(unix)]
+        let identity = archive_lock::FileIdentity::capture(&file)?;
         Ok(Self {
             path,
             file: Arc::new(RwLock::new(file)),
+            #[cfg(unix)]
+            identity,
             revision: Arc::new(std::sync::atomic::AtomicU64::new(0)),
             writable,
         })
@@ -601,6 +615,8 @@ impl FileStore {
             )?;
         let result = (|| {
             archive_lock::acquire(&file, &path, true, std::time::Instant::now())?;
+            #[cfg(unix)]
+            let identity = archive_lock::FileIdentity::capture(&file)?;
             file.write_all(initial_bytes)
                 .map_err(|err| Error::Io(err.to_string()))?;
             file.sync_all().map_err(|err| Error::Io(err.to_string()))?;
@@ -615,6 +631,8 @@ impl FileStore {
             Ok(Self {
                 path,
                 file: Arc::new(RwLock::new(file)),
+                #[cfg(unix)]
+                identity,
                 revision: Arc::new(std::sync::atomic::AtomicU64::new(0)),
                 writable: true,
             })
@@ -629,8 +647,12 @@ impl FileStore {
             .map_err(|_| Error::Io("storage file lock poisoned".to_string()))
     }
 
-    fn ensure_current(&self, file: &std::fs::File) -> Result<()> {
-        if archive_lock::is_current(file, &self.path)? {
+    fn ensure_current(&self, _file: &std::fs::File) -> Result<()> {
+        #[cfg(unix)]
+        let current = self.identity.current_len(&self.path)?.is_some();
+        #[cfg(not(unix))]
+        let current = archive_lock::is_current(_file, &self.path)?;
+        if current {
             Ok(())
         } else {
             Err(Error::LockUnavailable(format!(
@@ -764,6 +786,64 @@ mod archive_lock_tests {
             "revault-{label}-{}",
             crate::LockboxId::new_random().unwrap()
         ))
+    }
+
+    #[test]
+    fn cached_identity_tracks_live_length_and_rejects_same_size_replacement() {
+        let path = path("cached-identity");
+        let held_path = path.with_extension("held");
+        let replacement_path = path.with_extension("replacement");
+        let store = StorageBackend::create_file(&path, b"original").unwrap();
+        let mut clone = store.clone();
+        assert_eq!(store.current_len().unwrap(), 8);
+        clone.append(b"more").unwrap();
+        assert_eq!(store.current_len().unwrap(), 12);
+        clone.truncate(3).unwrap();
+        assert_eq!(store.current_len().unwrap(), 3);
+        // Unit-level uncooperative changes cannot be produced by the public CLI.
+        std::fs::OpenOptions::new()
+            .write(true)
+            .open(&path)
+            .unwrap()
+            .set_len(2)
+            .unwrap();
+        assert_eq!(store.current_len().unwrap(), 2);
+        fs::rename(&path, &held_path).unwrap();
+        assert!(matches!(
+            store.current_len(),
+            Err(Error::LockUnavailable(_))
+        ));
+        fs::hard_link(&held_path, &path).unwrap();
+        assert_eq!(
+            clone.current_len().unwrap(),
+            2,
+            "same inode can be relinked"
+        );
+        fs::write(&replacement_path, b"xx").unwrap();
+        fs::rename(&replacement_path, &path).unwrap();
+        assert!(matches!(
+            store.current_len(),
+            Err(Error::LockUnavailable(_))
+        ));
+        assert!(matches!(
+            clone.ensure_current(),
+            Err(Error::LockUnavailable(_))
+        ));
+        assert!(matches!(
+            clone.write_at(0, b"NO"),
+            Err(Error::LockUnavailable(_))
+        ));
+        assert!(matches!(clone.truncate(0), Err(Error::LockUnavailable(_))));
+        assert_eq!(fs::read(&path).unwrap(), b"xx");
+        assert_eq!(fs::read(&held_path).unwrap(), b"or");
+        drop(store);
+        drop(clone);
+        let reopened = StorageBackend::file(&path).unwrap();
+        assert_eq!(reopened.current_len().unwrap(), 2);
+        assert_eq!(reopened.read_at(0, 2).unwrap(), b"xx");
+        drop(reopened);
+        fs::remove_file(path).unwrap();
+        fs::remove_file(held_path).unwrap();
     }
 
     #[test]
