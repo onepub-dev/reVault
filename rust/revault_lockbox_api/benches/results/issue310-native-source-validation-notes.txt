@@ -1,0 +1,52 @@
+Issue #310: combine adjacent native page/index source validation
+Base 0be68ca, 2026-09-22.
+
+The native metadata reader previously checked identity, read the header, fetched
+length separately, decoded metadata, then checked identity again. The block index
+opener immediately repeated identity+length validation before reading the index.
+
+Metadata now obtains identity+length together at entry and after metadata decoding,
+and validates the full padded page extent both times. Its private Metadata result
+carries the final length to a private block-index opening helper. That helper still
+validates the descriptor/packet extent, reads/authenticates the index and checks
+source identity afterwards. No byte reads or user callbacks intervene between the
+metadata check and index opening except index opening itself. Direct frame tests
+retain a standalone opener which obtains its own current length first.
+
+Frame reads and cache hits continue their independent identity/extent validation.
+External storage retains ensure_current/len failure latching and read validation.
+Metadata/header limits, checksums, AEAD and TOC/owner authorization are unchanged.
+No archive format, public API or cache lifetime changes. Private validated length
+is consumed only by the containing page reader/scanner, not reused across calls.
+
+Three sequential before/after pairs: native zip_read, 512 x 4 KiB pattern files,
+plain, default padding, 15 fresh-handle samples per row, warm OS cache, taskset -c 2.
+Every byte verified, no tests/builds overlapped timing. Both profiles/codecs and
+stream/random access retained in CSV. Before is /tmp/issue310-cache-admission,
+SHA256 8028cc25d99282ca7b02efc23c13bcf6860b75a0891f2eef2e6ccc034cba182b:
+its read path matches the current base; intervening work changed diagnostics,
+tests, benchmark profiling and Unix writes, not measured reads.
+
+Interactive stream medians across three reported run medians:
+raw        15.512 -> 13.944 ms (10.1% reduction)
+compressed 17.493 -> 15.906 ms (9.1% reduction)
+ZIP times fluctuate and native reads remain over twice ZIP on this fixture.
+These are local repeat observations, not confidence-bounded universal speedups.
+
+Separate five-sample raw Interactive stream strace:
+statx 35404 -> 27724; fstat 23 -> 23.
+7680 metadata calls removed = three per file per sample. Totals include fixture
+setup and ZIP. Traced timings are excluded from performance claims.
+
+Focused validation passed: four native block-page integrity/padding tests;
+retained-reader truncation and external cancellation tests; five archive-lock
+and fifteen external-source integration tests; strict native/external-source
+library/tests Clippy. Remaining suite results are recorded below after completion.
+Signed native recovery and page-cache integration, write/load/release gates and
+ZIP performance parity remain outstanding.
+
+Final validation: default library 334 passed, 5 ignored (77.21 s); native public
+lifecycle passed all sixteen policies; seven focused native block/source tests
+passed, including replacement/truncation, malformed descriptors and authenticated
+public read paths. Strict default library/tests Clippy also passed. The full
+native suite was not repeated and its known failures remain open.

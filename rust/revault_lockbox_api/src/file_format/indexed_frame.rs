@@ -378,6 +378,7 @@ impl<'a> BlockFrameReader<'a> {
     /// A validated descriptor is not necessarily trusted. The native TOC must
     /// establish its commitment before calling this function. No signature is
     /// verified here; signed archive opening must retain full commit validation.
+    #[cfg(test)]
     pub(crate) fn open(
         descriptor: &BlockFrameDescriptor,
         storage: &'a crate::storage::StorageBackend,
@@ -389,6 +390,24 @@ impl<'a> BlockFrameReader<'a> {
             return Err(Error::CorruptRecord);
         }
         let storage_len = storage.current_len()?;
+        Self::open_with_validated_len(descriptor, storage, offset, physical_len, key, storage_len)
+    }
+
+    // Only the containing page reader may reuse its immediately preceding
+    // source/extent validation. Index reads still finish with a source check.
+    // This does not establish owner authorization: the containing TOC/commit
+    // must authenticate the descriptor, as for the standalone test reader.
+    fn open_with_validated_len(
+        descriptor: &BlockFrameDescriptor,
+        storage: &'a crate::storage::StorageBackend,
+        offset: u64,
+        physical_len: usize,
+        key: &[u8],
+        storage_len: u64,
+    ) -> Result<Self> {
+        if descriptor.physical_len()? != physical_len {
+            return Err(Error::CorruptRecord);
+        }
         let required_end = offset
             .checked_add(physical_len as u64)
             .ok_or(Error::CorruptRecord)?;

@@ -236,6 +236,7 @@ struct Metadata {
     packet_offset: u64,
     packet_len: usize,
     physical_len: usize,
+    storage_len: u64,
 }
 
 /// A self-consistent scanned page, not proof that its contents were committed
@@ -289,12 +290,13 @@ pub(crate) fn scan(
     // decoded bytes are wiped immediately after eager full-frame validation.
     let storage = StorageBackend::memory(page.to_vec());
     let metadata = read_metadata(&storage, 0, identity, key)?;
-    let frame = BlockFrameReader::open(
+    let frame = BlockFrameReader::open_with_validated_len(
         &metadata.descriptor,
         &storage,
         metadata.packet_offset,
         metadata.packet_len,
         &*frame_key(key),
+        metadata.storage_len,
     )?;
     let _verified = ZeroizingBytes::new(frame.read(0..metadata.descriptor.logical_len)?);
     Ok(ScannedBlockPage {
@@ -315,15 +317,14 @@ fn read_metadata(
     identity: PageIdentity,
     key: &[u8],
 ) -> Result<Metadata> {
-    storage.ensure_current()?;
+    let storage_len = storage.current_len()?;
     let mut header = [0; PAGE_HEADER_LEN];
     storage.read_at_into(offset, &mut header)?;
     let physical_len = validate_header(&header, identity)?;
-    let storage_len = storage.len()?;
-    if offset
+    let required_end = offset
         .checked_add(physical_len as u64)
-        .is_none_or(|end| end > storage_len)
-    {
+        .ok_or(Error::Truncated)?;
+    if required_end > storage_len {
         return Err(Error::Truncated);
     }
     let body_len = read_u32_le(&header[44..48])? as usize;
@@ -383,7 +384,10 @@ fn read_metadata(
     {
         return Err(Error::CorruptRecord);
     }
-    storage.ensure_current()?;
+    let storage_len = storage.current_len()?;
+    if required_end > storage_len {
+        return Err(Error::Truncated);
+    }
     Ok(Metadata {
         descriptor,
         manifest,
@@ -392,6 +396,7 @@ fn read_metadata(
             .ok_or(Error::CorruptRecord)?,
         packet_len: body_len - metadata_len,
         physical_len,
+        storage_len,
     })
 }
 
@@ -554,12 +559,13 @@ impl<'a> Reader<'a> {
         if metadata.descriptor != *expected || metadata.physical_len != expected_page_len {
             return Err(Error::CorruptRecord);
         }
-        let mut frame = BlockFrameReader::open(
+        let mut frame = BlockFrameReader::open_with_validated_len(
             &metadata.descriptor,
             storage,
             metadata.packet_offset,
             metadata.packet_len,
             &*frame_key(key),
+            metadata.storage_len,
         )?;
         frame.require_extent(
             offset
