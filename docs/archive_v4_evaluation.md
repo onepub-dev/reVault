@@ -119,7 +119,7 @@ including Vault containers. `0.4.x` remains format 3 and is isolated from this w
 | Gate | Current evidence | Status |
 | --- | --- | --- |
 | A1 | Default/native transaction tests pass; deterministic public CLI abort after physical writes passes for append and reuse in both layouts; full P4 matrix remains | Baseline established; qualification incomplete |
-| A2 | Independent-proof and mirrored-publication layers pass focused fault/real-page tests; keyed-index integration is pending and production retains two native recovery failures | Prototype validated; production gate failed |
+| A2 | Proof, publication and persisted keyed-index layers pass focused fault/real-page tests; production integration is pending and retains two native recovery failures | Prototype validated; production gate failed |
 | A3/A4 | Initial 8 MiB compressed read: A 4.757× ZIP, B 5.119× ZIP. Bounded A passes 30-pair 256 MiB raw create nonregression (17.7% less elapsed, 17.1% less CPU); read comparison unchanged | A3 still fails; A4 passes one write case, full matrix incomplete |
 | A5 | Bounded file-page staging reduces default 1 GiB create peak from 1,067.14 to 190.43 MiB in the new paired probe; small-file/index/aging matrix remains | Measured large-file creation improved; full resource gate incomplete |
 | A6 | Historical reader routing repaired locally; snapshot owner coverage and missing v4/current Vault fixtures block full test | Failed |
@@ -142,7 +142,12 @@ The [recovery commitment experiment](evidence/recovery-commitments-2026-09-26/RE
 adds a tested proof model and component CPU/memory costs. The subsequent
 [publication experiment](evidence/publication-anchors-2026-09-27/README.md) now persists
 and authenticates the selected anchor with fault/process-death coverage. The
-normal archive format still needs the keyed index and allocator integration.
+[authenticated index](evidence/authenticated-index-2026-09-27/README.md) connects that
+root to mirrored private descriptors. Its 100k-entry CPU/RSS/space measurements
+reject one-record-per-leaf physical storage: small resident memory does not offset
+excessive append-only construction and padded space. Next compare packed, bulk-built
+index pages while preserving the same authority and confidentiality contract.
+The normal archive still needs selected index, allocator and public-path integration.
 
 P1 closes only when the proposed mode assignment, budgets and decisions have
 named reviewers and are frozen. P2 begins with an instrumented common runner and

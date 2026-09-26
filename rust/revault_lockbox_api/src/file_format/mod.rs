@@ -34,3 +34,7 @@ pub(crate) mod recovery_commitment;
 // Candidate publication protocol remains isolated until the full layout is qualified.
 #[cfg(test)]
 pub(crate) mod publication_anchor;
+
+// Candidate authenticated membership; connected to publication in protocol tests.
+#[cfg(test)]
+pub(crate) mod authenticated_index;

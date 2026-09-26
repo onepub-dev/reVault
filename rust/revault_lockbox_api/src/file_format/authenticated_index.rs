@@ -1,0 +1,718 @@
+//! Candidate persistent membership index. Mirrored copy-on-write Patricia nodes
+//! authenticate their children by stored-byte digest. Publication selects a root;
+//! constructing a root does not publish it. Not activated by production archives.
+use super::publication_anchor::{RootRef, REGION_LEN};
+use crate::creation_options::FormatMode;
+use crate::crypto::{open_with_nonce, seal_with_random_nonce, strong_checksum};
+use crate::storage::Storage;
+use crate::{Error, LockboxId, Result};
+use sha2::{Digest, Sha256};
+use zeroize::Zeroizing;
+
+const MAGIC: &[u8; 8] = b"RV4IDX01";
+const HEADER: usize = 44;
+const MAX_NODE: usize = 65536;
+const MAX_KEY: usize = 4096;
+const MAX_VALUE: usize = 49152;
+const MAX_ENTRIES: u64 = 1_000_000;
+
+type Hash = [u8; 32];
+
+/// Keys, routing prefixes and values are private in encrypted modes. The value
+/// is the caller's canonical descriptor, including its stored-content commitments.
+#[derive(Clone)]
+pub(crate) struct Entry {
+    pub namespace: u8,
+    pub key: Zeroizing<Vec<u8>>,
+    pub value: Zeroizing<Vec<u8>>,
+}
+impl Entry {
+    pub(crate) fn new(namespace: u8, key: &[u8], value: &[u8]) -> Result<Self> {
+        validate_input(key, value)?;
+        Ok(Self {
+            namespace,
+            key: Zeroizing::new(key.to_vec()),
+            value: Zeroizing::new(value.to_vec()),
+        })
+    }
+}
+
+#[derive(Clone, Copy)]
+struct Link {
+    reference: RootRef,
+    count: u64,
+}
+#[derive(Clone)]
+enum Node {
+    Empty,
+    Leaf(Entry),
+    Branch {
+        count: u64,
+        bit: u16,
+        prefix: Hash,
+        children: [Link; 2],
+    },
+}
+impl Node {
+    fn count(&self) -> u64 {
+        match self {
+            Self::Empty => 0,
+            Self::Leaf(_) => 1,
+            Self::Branch { count, .. } => *count,
+        }
+    }
+}
+
+/// Only completed node pairs appear in `created`. On any error, the caller must
+/// retain/clean the entire preparation range, including a possible partial pair.
+/// No retired pair may be erased before mirrored publication is synchronized.
+pub(crate) struct Change {
+    pub root: RootRef,
+    pub created: Vec<RootRef>,
+    pub retired: Vec<RootRef>,
+}
+impl Change {
+    fn new(root: RootRef) -> Self {
+        Self {
+            root,
+            created: Vec::new(),
+            retired: Vec::new(),
+        }
+    }
+}
+
+pub(crate) struct Index {
+    archive: LockboxId,
+    mode: FormatMode,
+    key: Option<Zeroizing<[u8; 32]>>,
+}
+impl Index {
+    pub(crate) fn new(archive: LockboxId, mode: FormatMode, key: Option<&[u8]>) -> Result<Self> {
+        FormatMode::parse(mode.0)?;
+        if mode.plaintext() != key.is_none() || key.is_some_and(|key| key.len() != 32) {
+            return Err(Error::InvalidKey);
+        }
+        let key = key.map(|key| {
+            let mut derived = Zeroizing::new([0; 32]);
+            hkdf::Hkdf::<Sha256>::new(Some(archive.as_bytes()), key)
+                .expand(b"revault-candidate-index-key-v1\0", &mut *derived)
+                .expect("fixed SHA-256 key length");
+            derived
+        });
+        Ok(Self { archive, mode, key })
+    }
+
+    fn route(&self, namespace: u8, key: &[u8]) -> Hash {
+        let mut hash = Sha256::new();
+        hash.update(b"revault-candidate-index-identity-v1\0");
+        hash.update(self.archive.as_bytes());
+        hash.update([namespace]);
+        hash.update((key.len() as u32).to_le_bytes());
+        hash.update(key);
+        hash.finalize().into()
+    }
+
+    pub(crate) fn empty(&self, storage: &mut impl Storage) -> Result<RootRef> {
+        Ok(self.write(storage, &Node::Empty)?.reference)
+    }
+
+    pub(crate) fn get(
+        &self,
+        storage: &impl Storage,
+        root: RootRef,
+        sealed: u64,
+        namespace: u8,
+        key: &[u8],
+    ) -> Result<Option<Entry>> {
+        validate_input(key, &[])?;
+        let route = self.route(namespace, key);
+        let mut node = self.read(storage, root, sealed)?;
+        let mut minimum_bit = 0;
+        loop {
+            match node {
+                Node::Empty => return Ok(None),
+                Node::Leaf(entry) => {
+                    return Ok(
+                        (entry.namespace == namespace && entry.key.as_slice() == key)
+                            .then_some(entry),
+                    )
+                }
+                Node::Branch {
+                    bit,
+                    prefix,
+                    children,
+                    ..
+                } => {
+                    if bit < minimum_bit {
+                        return Err(Error::CorruptRecord);
+                    }
+                    if prefix_of(route, bit) != prefix {
+                        return Ok(None);
+                    }
+                    let side = bit_at(route, bit);
+                    node = self.child(storage, children[side], sealed, prefix, bit, side)?;
+                    minimum_bit = bit + 1;
+                }
+            }
+        }
+    }
+
+    pub(crate) fn put(
+        &self,
+        storage: &mut impl Storage,
+        root: RootRef,
+        sealed: u64,
+        entry: Entry,
+    ) -> Result<Change> {
+        validate_input(&entry.key, &entry.value)?;
+        let route = self.route(entry.namespace, &entry.key);
+        let node = self.read(storage, root, sealed)?;
+        let mut change = Change::new(root);
+        let link = self.insert(
+            storage,
+            Link {
+                reference: root,
+                count: node.count(),
+            },
+            node,
+            sealed,
+            &entry,
+            route,
+            &mut change,
+        )?;
+        change.root = link.reference;
+        Ok(change)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn insert(
+        &self,
+        storage: &mut impl Storage,
+        old: Link,
+        node: Node,
+        sealed: u64,
+        entry: &Entry,
+        route: Hash,
+        change: &mut Change,
+    ) -> Result<Link> {
+        let updated = match node {
+            Node::Empty => Node::Leaf(entry.clone()),
+            Node::Leaf(existing) => {
+                if existing.namespace == entry.namespace && existing.key == entry.key {
+                    if existing.value == entry.value {
+                        return Ok(old);
+                    }
+                    Node::Leaf(entry.clone())
+                } else {
+                    let other = self.route(existing.namespace, &existing.key);
+                    let bit = first_difference(route, other).ok_or(Error::CorruptRecord)?;
+                    return self.split(storage, old, entry, route, bit, change);
+                }
+            }
+            Node::Branch {
+                bit,
+                prefix,
+                mut children,
+                ..
+            } => {
+                if prefix_of(route, bit) != prefix {
+                    let split = first_difference(route, prefix).ok_or(Error::CorruptRecord)?;
+                    return self.split(storage, old, entry, route, split, change);
+                }
+                let side = bit_at(route, bit);
+                let child = self.child(storage, children[side], sealed, prefix, bit, side)?;
+                let next =
+                    self.insert(storage, children[side], child, sealed, entry, route, change)?;
+                if next.reference == children[side].reference {
+                    return Ok(old);
+                }
+                children[side] = next;
+                branch(bit, prefix, children)?
+            }
+        };
+        let next = self.write_tracked(storage, &updated, change)?;
+        change.retired.push(old.reference);
+        Ok(next)
+    }
+
+    fn split(
+        &self,
+        storage: &mut impl Storage,
+        old: Link,
+        entry: &Entry,
+        route: Hash,
+        bit: u16,
+        change: &mut Change,
+    ) -> Result<Link> {
+        if old.count >= MAX_ENTRIES {
+            return Err(Error::SecurityLimitExceeded("index entry limit".into()));
+        }
+        let leaf = self.write_tracked(storage, &Node::Leaf(entry.clone()), change)?;
+        let mut children = [old; 2];
+        children[bit_at(route, bit)] = leaf;
+        self.write_tracked(
+            storage,
+            &branch(bit, prefix_of(route, bit), children)?,
+            change,
+        )
+    }
+
+    pub(crate) fn remove(
+        &self,
+        storage: &mut impl Storage,
+        root: RootRef,
+        sealed: u64,
+        namespace: u8,
+        key: &[u8],
+    ) -> Result<Change> {
+        validate_input(key, &[])?;
+        let node = self.read(storage, root, sealed)?;
+        let mut change = Change::new(root);
+        let next = self.delete(
+            storage,
+            Link {
+                reference: root,
+                count: node.count(),
+            },
+            node,
+            sealed,
+            namespace,
+            key,
+            self.route(namespace, key),
+            &mut change,
+        )?;
+        change.root = match next {
+            Some(link) => link.reference,
+            None => {
+                self.write_tracked(storage, &Node::Empty, &mut change)?
+                    .reference
+            }
+        };
+        Ok(change)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn delete(
+        &self,
+        storage: &mut impl Storage,
+        old: Link,
+        node: Node,
+        sealed: u64,
+        namespace: u8,
+        key: &[u8],
+        route: Hash,
+        change: &mut Change,
+    ) -> Result<Option<Link>> {
+        match node {
+            Node::Empty => Ok(Some(old)),
+            Node::Leaf(entry) => {
+                if entry.namespace != namespace || entry.key.as_slice() != key {
+                    return Ok(Some(old));
+                }
+                change.retired.push(old.reference);
+                Ok(None)
+            }
+            Node::Branch {
+                bit,
+                prefix,
+                mut children,
+                ..
+            } => {
+                if prefix_of(route, bit) != prefix {
+                    return Ok(Some(old));
+                }
+                let side = bit_at(route, bit);
+                let child = self.child(storage, children[side], sealed, prefix, bit, side)?;
+                let next = self.delete(
+                    storage,
+                    children[side],
+                    child,
+                    sealed,
+                    namespace,
+                    key,
+                    route,
+                    change,
+                )?;
+                if next.is_some_and(|next| next.reference == children[side].reference) {
+                    return Ok(Some(old));
+                }
+                change.retired.push(old.reference);
+                if let Some(next) = next {
+                    children[side] = next;
+                    Ok(Some(self.write_tracked(
+                        storage,
+                        &branch(bit, prefix, children)?,
+                        change,
+                    )?))
+                } else {
+                    Ok(Some(children[1 - side]))
+                }
+            }
+        }
+    }
+
+    /// Streaming traversal: no whole-index materialization or payload reads.
+    /// Order is by hashed identity, not pathname. Every visited child is checked.
+    pub(crate) fn visit(
+        &self,
+        storage: &impl Storage,
+        root: RootRef,
+        sealed: u64,
+        mut visitor: impl FnMut(Entry) -> Result<()>,
+    ) -> Result<()> {
+        let root = self.read(storage, root, sealed)?;
+        self.visit_node(storage, root, sealed, &mut visitor)
+    }
+    fn visit_node(
+        &self,
+        storage: &impl Storage,
+        node: Node,
+        sealed: u64,
+        visitor: &mut impl FnMut(Entry) -> Result<()>,
+    ) -> Result<()> {
+        match node {
+            Node::Empty => Ok(()),
+            Node::Leaf(entry) => visitor(entry),
+            Node::Branch {
+                bit,
+                prefix,
+                children,
+                ..
+            } => {
+                for (side, child) in children.into_iter().enumerate() {
+                    self.visit_node(
+                        storage,
+                        self.child(storage, child, sealed, prefix, bit, side)?,
+                        sealed,
+                        visitor,
+                    )?;
+                }
+                Ok(())
+            }
+        }
+    }
+
+    fn child(
+        &self,
+        storage: &impl Storage,
+        link: Link,
+        sealed: u64,
+        prefix: Hash,
+        bit: u16,
+        side: usize,
+    ) -> Result<Node> {
+        let node = self.read(storage, link.reference, sealed)?;
+        if node.count() != link.count {
+            return Err(Error::CorruptRecord);
+        }
+        let route = match &node {
+            Node::Empty => return Err(Error::CorruptRecord),
+            Node::Leaf(entry) => self.route(entry.namespace, &entry.key),
+            Node::Branch {
+                bit: next_bit,
+                prefix,
+                ..
+            } => {
+                if *next_bit <= bit {
+                    return Err(Error::CorruptRecord);
+                }
+                *prefix
+            }
+        };
+        if prefix_of(route, bit) != prefix || bit_at(route, bit) != side {
+            return Err(Error::CorruptRecord);
+        }
+        Ok(node)
+    }
+
+    fn read(&self, storage: &impl Storage, reference: RootRef, sealed: u64) -> Result<Node> {
+        validate_ref(reference, sealed)?;
+        let bytes = Zeroizing::new(reference.read_verified(storage)?);
+        self.decode(&bytes, sealed)
+    }
+
+    fn decode(&self, bytes: &[u8], sealed: u64) -> Result<Node> {
+        if bytes.len() < HEADER
+            || bytes.len() > MAX_NODE
+            || (!self.mode.unpadded() && bytes.len() != MAX_NODE)
+            || &bytes[..8] != MAGIC
+            || bytes[8..10] != 1u16.to_le_bytes()
+            || bytes[10..12] != self.mode.0.to_le_bytes()
+            || bytes[12..28] != *self.archive.as_bytes()
+            || u32::from_le_bytes(bytes[40..44].try_into().unwrap()) as usize
+                != bytes.len() - HEADER
+        {
+            return Err(Error::CorruptRecord);
+        }
+        let body = if let Some(key) = &self.key {
+            Zeroizing::new(open_with_nonce(
+                &bytes[HEADER..],
+                key.as_slice(),
+                &bytes[28..40],
+                &bytes[..28],
+            )?)
+        } else {
+            if bytes[28..40] != [0; 12] {
+                return Err(Error::CorruptRecord);
+            }
+            Zeroizing::new(bytes[HEADER..].to_vec())
+        };
+        let mut cursor = Cursor(&body);
+        let kind = cursor.take(1)?[0];
+        let count = cursor.u64()?;
+        let node = match kind {
+            0 if count == 0 => Node::Empty,
+            1 if count == 1 => {
+                let namespace = cursor.take(1)?[0];
+                let key_len = cursor.u16()? as usize;
+                let value_len = cursor.u32()? as usize;
+                if key_len > MAX_KEY || value_len > MAX_VALUE {
+                    return Err(Error::CorruptRecord);
+                }
+                Node::Leaf(Entry::new(
+                    namespace,
+                    cursor.take(key_len)?,
+                    cursor.take(value_len)?,
+                )?)
+            }
+            2 => {
+                let bit = cursor.u16()?;
+                let prefix: Hash = cursor.take(32)?.try_into().unwrap();
+                if bit >= 256 || prefix_of(prefix, bit) != prefix {
+                    return Err(Error::CorruptRecord);
+                }
+                let children = [cursor.link(sealed)?, cursor.link(sealed)?];
+                let node = branch(bit, prefix, children)?;
+                if count != node.count() {
+                    return Err(Error::CorruptRecord);
+                }
+                node
+            }
+            _ => return Err(Error::CorruptRecord),
+        };
+        if if self.mode.unpadded() {
+            !cursor.0.is_empty()
+        } else {
+            cursor.0.iter().any(|byte| *byte != 0)
+        } {
+            return Err(Error::CorruptRecord);
+        }
+        Ok(node)
+    }
+
+    fn encode(&self, node: &Node) -> Result<Zeroizing<Vec<u8>>> {
+        let body_len = match node {
+            Node::Empty => 9,
+            Node::Leaf(entry) => {
+                validate_input(&entry.key, &entry.value)?;
+                16 + entry.key.len() + entry.value.len()
+            }
+            Node::Branch { .. } => 171,
+        };
+        // Reserve the exact size before copying any private bytes. Reallocation
+        // would otherwise leave an unwiped former plaintext allocation behind.
+        let stored_body_len = if self.mode.unpadded() {
+            body_len
+        } else {
+            MAX_NODE - HEADER - if self.key.is_some() { 16 } else { 0 }
+        };
+        let mut body = Zeroizing::new(Vec::with_capacity(stored_body_len));
+        body.push(match node {
+            Node::Empty => 0,
+            Node::Leaf(_) => 1,
+            Node::Branch { .. } => 2,
+        });
+        body.extend_from_slice(&node.count().to_le_bytes());
+        match node {
+            Node::Empty => {}
+            Node::Leaf(entry) => {
+                validate_input(&entry.key, &entry.value)?;
+                body.push(entry.namespace);
+                body.extend_from_slice(&(entry.key.len() as u16).to_le_bytes());
+                body.extend_from_slice(&(entry.value.len() as u32).to_le_bytes());
+                body.extend_from_slice(&entry.key);
+                body.extend_from_slice(&entry.value);
+            }
+            Node::Branch {
+                bit,
+                prefix,
+                children,
+                ..
+            } => {
+                body.extend_from_slice(&bit.to_le_bytes());
+                body.extend_from_slice(prefix);
+                for link in children {
+                    body.extend_from_slice(&link.reference.primary.to_le_bytes());
+                    body.extend_from_slice(&link.reference.mirror.to_le_bytes());
+                    body.extend_from_slice(&link.reference.len.to_le_bytes());
+                    body.extend_from_slice(&link.reference.digest);
+                    body.extend_from_slice(&link.count.to_le_bytes());
+                }
+            }
+        }
+        body.resize(stored_body_len, 0);
+        let mut out = Zeroizing::new(Vec::with_capacity(HEADER + body.len() + 16));
+        out.extend_from_slice(MAGIC);
+        out.extend_from_slice(&1u16.to_le_bytes());
+        out.extend_from_slice(&self.mode.0.to_le_bytes());
+        out.extend_from_slice(self.archive.as_bytes());
+        if let Some(key) = &self.key {
+            let (nonce, encrypted) = seal_with_random_nonce(&body, key.as_slice(), &out)?;
+            out.extend_from_slice(&nonce);
+            out.extend_from_slice(&(encrypted.len() as u32).to_le_bytes());
+            out.extend_from_slice(&encrypted);
+        } else {
+            out.extend_from_slice(&[0; 12]);
+            out.extend_from_slice(&(body.len() as u32).to_le_bytes());
+            out.extend_from_slice(&body);
+        }
+        if out.len() > MAX_NODE {
+            return Err(Error::CorruptRecord);
+        }
+        Ok(out)
+    }
+    fn write(&self, storage: &mut impl Storage, node: &Node) -> Result<Link> {
+        let bytes = self.encode(node)?;
+        if storage.len()? < REGION_LEN as u64 {
+            return Err(Error::CorruptHeader);
+        }
+        let primary = storage.append(&bytes)?;
+        let mirror = storage.append(&bytes)?;
+        Ok(Link {
+            reference: RootRef {
+                primary,
+                mirror,
+                len: bytes.len() as u64,
+                digest: strong_checksum(&bytes),
+            },
+            count: node.count(),
+        })
+    }
+    fn write_tracked(
+        &self,
+        storage: &mut impl Storage,
+        node: &Node,
+        change: &mut Change,
+    ) -> Result<Link> {
+        let link = self.write(storage, node)?;
+        change.created.push(link.reference);
+        Ok(link)
+    }
+}
+
+fn validate_input(key: &[u8], value: &[u8]) -> Result<()> {
+    if key.len() > MAX_KEY || value.len() > MAX_VALUE {
+        return Err(Error::SecurityLimitExceeded(
+            "index key or descriptor exceeds node limit".into(),
+        ));
+    }
+    Ok(())
+}
+fn branch(bit: u16, prefix: Hash, children: [Link; 2]) -> Result<Node> {
+    let count = children[0]
+        .count
+        .checked_add(children[1].count)
+        .ok_or(Error::CorruptRecord)?;
+    if bit >= 256
+        || prefix_of(prefix, bit) != prefix
+        || children.iter().any(|c| c.count == 0)
+        || count > MAX_ENTRIES
+    {
+        return Err(Error::CorruptRecord);
+    }
+    // Separate children cannot alias any physical bytes, including mirror copies.
+    let mut ranges = Vec::with_capacity(4);
+    for child in children {
+        validate_ref(child.reference, u64::MAX)?;
+        for offset in [child.reference.primary, child.reference.mirror] {
+            ranges.push((offset, offset + child.reference.len));
+        }
+    }
+    ranges.sort_unstable();
+    if ranges.windows(2).any(|pair| pair[0].1 > pair[1].0) {
+        return Err(Error::CorruptRecord);
+    }
+    Ok(Node::Branch {
+        count,
+        bit,
+        prefix,
+        children,
+    })
+}
+fn validate_ref(reference: RootRef, sealed: u64) -> Result<()> {
+    if reference.len < HEADER as u64 || reference.len > MAX_NODE as u64 {
+        return Err(Error::CorruptRecord);
+    }
+    let first = reference.primary.min(reference.mirror);
+    let last = reference.primary.max(reference.mirror);
+    if first < REGION_LEN as u64
+        || first
+            .checked_add(reference.len)
+            .is_none_or(|end| end > last)
+        || last
+            .checked_add(reference.len)
+            .is_none_or(|end| end > sealed)
+    {
+        return Err(Error::CorruptRecord);
+    }
+    Ok(())
+}
+fn bit_at(hash: Hash, bit: u16) -> usize {
+    ((hash[bit as usize / 8] >> (7 - bit % 8)) & 1) as usize
+}
+fn prefix_of(mut hash: Hash, bits: u16) -> Hash {
+    let byte = bits as usize / 8;
+    if byte < 32 {
+        hash[byte] &= if bits % 8 == 0 {
+            0
+        } else {
+            0xff << (8 - bits % 8)
+        };
+        hash[byte + 1..].fill(0);
+    }
+    hash
+}
+fn first_difference(a: Hash, b: Hash) -> Option<u16> {
+    a.into_iter()
+        .zip(b)
+        .enumerate()
+        .find_map(|(i, (a, b))| (a != b).then(|| i as u16 * 8 + (a ^ b).leading_zeros() as u16))
+}
+struct Cursor<'a>(&'a [u8]);
+impl<'a> Cursor<'a> {
+    fn take(&mut self, len: usize) -> Result<&'a [u8]> {
+        if len > self.0.len() {
+            return Err(Error::CorruptRecord);
+        }
+        let (next, rest) = self.0.split_at(len);
+        self.0 = rest;
+        Ok(next)
+    }
+    fn u16(&mut self) -> Result<u16> {
+        Ok(u16::from_le_bytes(self.take(2)?.try_into().unwrap()))
+    }
+    fn u32(&mut self) -> Result<u32> {
+        Ok(u32::from_le_bytes(self.take(4)?.try_into().unwrap()))
+    }
+    fn u64(&mut self) -> Result<u64> {
+        Ok(u64::from_le_bytes(self.take(8)?.try_into().unwrap()))
+    }
+    fn link(&mut self, sealed: u64) -> Result<Link> {
+        let reference = RootRef {
+            primary: self.u64()?,
+            mirror: self.u64()?,
+            len: self.u64()?,
+            digest: self.take(32)?.try_into().unwrap(),
+        };
+        validate_ref(reference, sealed)?;
+        let count = self.u64()?;
+        if count == 0 || count > MAX_ENTRIES {
+            return Err(Error::CorruptRecord);
+        }
+        Ok(Link { reference, count })
+    }
+}
+
+#[cfg(test)]
+#[path = "authenticated_index_tests.rs"]
+mod tests;

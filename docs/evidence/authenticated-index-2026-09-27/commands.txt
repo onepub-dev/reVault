@@ -1,0 +1,11 @@
+# Worktree rust/; source base cbaf4c43 plus the retained source snapshots.
+cargo test -p revault_lockbox_api --lib authenticated_index -- --nocapture
+cargo clippy -p revault_lockbox_api --lib --tests -- -D warnings
+cargo test -p revault_lockbox_api --lib independent_owner_proof -- --nocapture
+cargo test -p revault_lockbox_api --features native-block-layout --lib independent_owner_proof -- --nocapture
+cargo test -p revault_lockbox_api --release --lib --no-run --message-format=json
+# Copy the reported release test executable to /tmp/revault-index-resource.
+taskset -c 2 /tmp/revault-index-resource --exact file_format::authenticated_index::tests::authenticated_index_resource_observation --ignored --nocapture --test-threads=1
+REVAULT_INDEX_RESOURCE_ENCRYPTED=1 taskset -c 2 /tmp/revault-index-resource --exact file_format::authenticated_index::tests::authenticated_index_resource_observation --ignored --nocapture --test-threads=1
+cargo test -p revault_lockbox_api --lib file_format:: -- --nocapture
+cargo test -p revault_lockbox_api --features native-block-layout --lib authenticated_index -- --nocapture

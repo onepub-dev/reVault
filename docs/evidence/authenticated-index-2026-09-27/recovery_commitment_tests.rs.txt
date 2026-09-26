@@ -93,42 +93,20 @@ fn independent_owner_proof_recovers_real_neighbor_without_opening_damaged_snapsh
             use crate::storage::{Storage, StorageBackend};
             let mut publication_store = StorageBackend::memory(vec![0; REGION_LEN]);
             use crate::file_format::authenticated_index::{Entry, Index};
-            let membership = archive
-                .key
-                .with_bytes(|key| {
-                    Index::new(
-                        archive.lockbox_id,
-                        archive.format_mode,
-                        encrypted.then_some(key),
-                    )
-                })
-                .unwrap()
-                .unwrap();
+            let membership = archive.key.with_bytes(|key| {
+                Index::new(archive.lockbox_id, archive.format_mode, encrypted.then_some(key))
+            }).unwrap().unwrap();
             let root_bytes = root.message();
             let mut index_root = membership.empty(&mut publication_store).unwrap();
             for object in &objects {
                 let descriptor = [object.metadata.as_slice(), &object.content].concat();
                 let sealed = publication_store.len().unwrap();
-                index_root = membership
-                    .put(
-                        &mut publication_store,
-                        index_root,
-                        sealed,
-                        Entry::new(object.namespace, &object.key, &descriptor).unwrap(),
-                    )
-                    .unwrap()
-                    .root;
+                index_root = membership.put(&mut publication_store, index_root, sealed,
+                    Entry::new(object.namespace, &object.key, &descriptor).unwrap()).unwrap().root;
             }
             let sealed = publication_store.len().unwrap();
-            index_root = membership
-                .put(
-                    &mut publication_store,
-                    index_root,
-                    sealed,
-                    Entry::new(0, b"proof-experiment", &root_bytes).unwrap(),
-                )
-                .unwrap()
-                .root;
+            index_root = membership.put(&mut publication_store, index_root, sealed,
+                Entry::new(0, b"proof-experiment", &root_bytes).unwrap()).unwrap().root;
             let published_root = Anchor {
                 archive: archive.lockbox_id,
                 generation: 1,
@@ -161,18 +139,9 @@ fn independent_owner_proof_recovers_real_neighbor_without_opening_damaged_snapsh
             .unwrap();
             assert_eq!(selected_publication.anchor.object_root, root.digest);
             assert_eq!(
-                membership
-                    .get(
-                        &reopened_publication,
-                        selected_publication.anchor.index,
-                        selected_publication.anchor.sealed_len,
-                        0,
-                        b"proof-experiment"
-                    )
-                    .unwrap()
-                    .unwrap()
-                    .value
-                    .as_slice(),
+                membership.get(&reopened_publication, selected_publication.anchor.index,
+                    selected_publication.anchor.sealed_len, 0, b"proof-experiment")
+                    .unwrap().unwrap().value.as_slice(),
                 root_bytes
             );
 
@@ -198,24 +167,11 @@ fn independent_owner_proof_recovers_real_neighbor_without_opening_damaged_snapsh
             assert_eq!(recovered, data);
             let mut recovered_object = objects[0].clone();
             recovered_object.content = stored_commitment(&damaged, survivor);
-            let authorized = membership
-                .get(
-                    &reopened_publication,
-                    selected_publication.anchor.index,
-                    selected_publication.anchor.sealed_len,
-                    recovered_object.namespace,
-                    &recovered_object.key,
-                )
-                .unwrap()
-                .unwrap();
-            assert_eq!(
-                authorized.value.as_slice(),
-                [
-                    recovered_object.metadata.as_slice(),
-                    &recovered_object.content
-                ]
-                .concat()
-            );
+            let authorized = membership.get(&reopened_publication, selected_publication.anchor.index,
+                selected_publication.anchor.sealed_len, recovered_object.namespace,
+                &recovered_object.key).unwrap().unwrap();
+            assert_eq!(authorized.value.as_slice(),
+                [recovered_object.metadata.as_slice(), &recovered_object.content].concat());
             root.verify(&recovered_object, &proof).unwrap();
             // Recomputing local descriptors/checksums cannot change the signed root.
             recovered_object.content[0] ^= 1;

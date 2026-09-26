@@ -419,8 +419,8 @@ byte vectors. Stored publication now supplies authority to the real-page recover
 proof test, which passes in both layouts and signed protection/codec combinations.
 Targeted Clippy passes. The code remains isolated from normal archive output.
 
-Next: authenticated keyed-index nodes and copy-on-write mirrors, then allocator
-preparation/cleanup and public-path integration. The two native recovery failures,
+The next checkpoint below supplies the authenticated keyed-index experiment.
+Packed index construction, allocator preparation/cleanup and public-path integration remain. The two native recovery failures,
 complete candidate-C comparison and release gates remain open. Do not interpret
 component fault coverage as whole-archive crash/recovery qualification.
 
@@ -429,7 +429,28 @@ entry states what changed, which gate it affects, what was actually measured,
 remaining failures and the next decision. Keep detailed experiment logs beneath
 that summary. Changed baselines invalidate affected comparisons until rerun.
 
-The immediate next implementation task is the signing/recovery contract in P1.
+### Authenticated-index and resource checkpoint — 2026-09-27
+
+[The persisted index experiment](evidence/authenticated-index-2026-09-27/README.md)
+connects selected owner publication to mirrored, encrypted descriptors with bounded
+lookup and copy-on-write insertion, replacement and deletion. Nine focused checks,
+independent byte vectors, both real archive-layout recovery tests and Clippy pass.
+A no-change repeat appends nothing; damage to unrelated metadata does not prevent
+proving the survivor. No new wire encoding is activated in normal archives.
+
+The 100,000-record file-backed measurements show a small working set (3.54/3.72 MiB
+peak RSS at build end) but unacceptable append-only construction overhead:
+698/751 MB written for 75/81 MB of live nodes, with system CPU dominating. Default
+padding on this one-record-per-leaf layout would require 24.41 GiB of live index
+copies for that descriptor set. Reject that physical layout as a final choice.
+
+The immediate next implementation task is a packed, preferably key-ordered index
+with bulk construction, compared against this measured baseline using the same
+publication/authorization contract. Preserve default padding and confidentiality;
+do not optimize by silently dropping them. Then integrate durable accounting and
+reclamation of prepared/retired pairs, separated mirror placement, and complete
+candidate-C/public-path tests. The production recovery failures and A3–A8 gates
+remain outstanding.
 H1 continues independently and is not blocked by that sequence.
 The saved parallel encoder experiment is optional evidence to
 revisit after selection, not the next task by default.

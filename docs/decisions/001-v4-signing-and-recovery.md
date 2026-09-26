@@ -1,8 +1,8 @@
 # 001: Owner authorization and independent recovery
 
 Status: proposed, 2026-09-26. Author: Codex. Product/security reviewer: unassigned.
-Bounded proof and mirrored-publication experiments implemented; keyed-index and
-archive integration remain outstanding.
+Bounded proof, mirrored-publication and authenticated keyed-index experiments
+implemented; packed-index selection and archive integration remain outstanding.
 No wire change activated. Goals G2/G3/G4; acceptance A2/A3/A7.
 
 ## Problem
@@ -161,6 +161,25 @@ Fixed slots do not make a replayed authentic publication fresh. The caller suppl
 the established owner/archive/mode; integrating that trust with Vault and standalone
 API use remains part of the complete format implementation.
 
-Next: implement authenticated keyed-index nodes and their mirrored copy-on-write
-persistence, then connect allocation/preparation/cleanup and the public archive
-operations. Ordinary signed-open semantics and release compatibility remain gates.
+## Authenticated-index checkpoint — 2026-09-27
+
+The [persisted keyed-index experiment](../evidence/authenticated-index-2026-09-27/README.md)
+now connects publication to canonical descriptors and stored-content commitments,
+including the real-page recovery test in both archive layouts. Child links, private
+metadata encryption, bounded traversal and copy-on-write insertion/removal are
+implemented. Nine focused tests pass; CPU/RSS and write-growth observations cover
+100,000 file-backed entries in plaintext and encrypted unpadded modes.
+
+Do not adopt its one-record-per-leaf physical layout. Incremental construction
+writes 698–751 MB for 75–81 MB of live nodes; 100,000 entries with constant 64 KiB
+padding would occupy 24.41 GiB in live index copies alone. The next comparison must
+pack records into index pages and build them in bulk while retaining authenticated
+child links, independent lookup, owner publication and metadata confidentiality.
+Prefer key ordering that supplies directory/prefix queries without another catalogue.
+The allocator must account for both copies and all superseded preparation nodes,
+separate mirror failure regions, and gate erasure on synchronized publication.
+
+Then connect allocation/preparation/cleanup and public archive operations. Ordinary
+signed-open semantics, complete performance comparisons, migration and release
+compatibility remain gates. This is concrete architectural evidence against the
+simple physical layout, not permission to weaken padding or resource requirements.

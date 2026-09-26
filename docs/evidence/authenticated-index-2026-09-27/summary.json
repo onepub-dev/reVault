@@ -1,0 +1,40 @@
+{
+  "plain": {
+    "build": {
+      "bytes_read": 329234683,
+      "encrypted": false,
+      "entries": 100000,
+      "file_bytes": 698411140,
+      "live_node_bytes": 74999570,
+      "operation": "incremental_build",
+      "peak_rss_kib": 3628,
+      "reads": 1549756,
+      "retired_node_bytes": 623395186,
+      "system_s": 33.293969000000004,
+      "user_s": 3.848189,
+      "wall_s": 38.094229292
+    },
+    "warm_replacement_median_wall_s": 0.0004445845,
+    "warm_replacement_median_nodes": 18.0,
+    "warm_replacement_median_bytes_appended": 7630.0
+  },
+  "encrypted": {
+    "build": {
+      "bytes_read": 354030779,
+      "encrypted": true,
+      "entries": 100000,
+      "file_bytes": 751203332,
+      "live_node_bytes": 81399538,
+      "operation": "incremental_build",
+      "peak_rss_kib": 3812,
+      "reads": 1549756,
+      "retired_node_bytes": 669787410,
+      "system_s": 32.558471,
+      "user_s": 9.983469,
+      "wall_s": 42.565231474
+    },
+    "warm_replacement_median_wall_s": 0.000498785,
+    "warm_replacement_median_nodes": 18.0,
+    "warm_replacement_median_bytes_appended": 8206.0
+  }
+}
