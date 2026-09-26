@@ -138,6 +138,25 @@ impl fmt::Debug for OwnerSigningKeyPair {
 }
 
 impl OwnerSigningPublicKey {
+    #[cfg(test)]
+    pub(crate) fn verify_publication_signatures(
+        &self,
+        message: &[u8],
+        signatures: &[CommitSignature],
+    ) -> Result<()> {
+        for signature in signatures {
+            let matches = match signature.algorithm {
+                SIGNATURE_ALGORITHM_ED25519 => signature.public_key == self.ed25519_public_key,
+                SIGNATURE_ALGORITHM_ML_DSA_65 => signature.public_key == self.ml_dsa65_public_key,
+                _ => false,
+            };
+            if !matches {
+                return Err(Error::CorruptRecord);
+            }
+        }
+        verify_commit_signatures(message, signatures)
+    }
+
     /// Decodes a versioned owner signing public-key record.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
         decode_public_key(bytes)

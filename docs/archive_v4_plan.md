@@ -405,6 +405,25 @@ child links. Implement that publication boundary and fault/damage matrix before
 claiming A2 or moving to full candidate-C performance comparisons. Preserve eager
 normal-open verification. The fixed-position experiment is not a final index.
 
+### Mirrored-publication checkpoint — 2026-09-27
+
+The candidate publication layer now implements two fixed authenticated slots,
+owner-pinned signatures/MAC policy, bounded mirrored root references, ordered
+synchronization and resumable mirroring. A readable pair is explicitly distinct
+from a successful durability result. Object counts stay out of public metadata.
+[Implementation, codec and fault evidence](evidence/publication-anchors-2026-09-27/README.md).
+
+Thirteen protocol tests pass, including operation/read failures, torn writes,
+failed syncs, actual process death during publication and repair, and independent
+byte vectors. Stored publication now supplies authority to the real-page recovery
+proof test, which passes in both layouts and signed protection/codec combinations.
+Targeted Clippy passes. The code remains isolated from normal archive output.
+
+Next: authenticated keyed-index nodes and copy-on-write mirrors, then allocator
+preparation/cleanup and public-path integration. The two native recovery failures,
+complete candidate-C comparison and release gates remain open. Do not interpret
+component fault coverage as whole-archive crash/recovery qualification.
+
 Update this plan and the evaluation scorecard at milestone boundaries. Every
 entry states what changed, which gate it affects, what was actually measured,
 remaining failures and the next decision. Keep detailed experiment logs beneath

@@ -30,3 +30,7 @@ pub(crate) use payload::encode_compression_frame_segment_payload;
 #[cfg(test)]
 #[allow(dead_code)]
 pub(crate) mod recovery_commitment;
+
+// Candidate publication protocol remains isolated until the full layout is qualified.
+#[cfg(test)]
+pub(crate) mod publication_anchor;

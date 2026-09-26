@@ -1,7 +1,8 @@
 # 001: Owner authorization and independent recovery
 
 Status: proposed, 2026-09-26. Author: Codex. Product/security reviewer: unassigned.
-Bounded proof experiment implemented; persistence remains proposed.
+Bounded proof and mirrored-publication experiments implemented; keyed-index and
+archive integration remain outstanding.
 No wire change activated. Goals G2/G3/G4; acceptance A2/A3/A7.
 
 ## Problem
@@ -82,7 +83,7 @@ sharing the logical record index rather than introducing a duplicate catalogue.
 The fixed-ordinal binary experiment is unsuitable as the final mutation index:
 insertions/removals can shift many leaves. Measure those operations before selection.
 
-## Proof graph and publication boundary to implement
+## Proof graph and publication boundary
 
 ```mermaid
 flowchart TD
@@ -98,16 +99,20 @@ The selected anchor is an independent precondition. A membership root signed dur
 preparation does not prove that it was published. Searching for the largest valid
 signature can resurrect an abandoned prepared snapshot. A header MAC known to a
 read-only content-key holder cannot itself establish owner publication authority.
-The prototype deliberately receives the selected-root digest from its test fixture;
-the production mechanism below still needs implementation and fault testing.
+The original proof test supplied that digest from its fixture. The new
+[publication layer](../evidence/publication-anchors-2026-09-27/README.md) persists and
+authenticates it through mirrored records, and its fault/process-death checks pass.
+The normal archive reader/writer still does not activate this encoding.
 
-Proposed persistence experiment:
+Candidate persistence protocol (steps 1–4 implemented and tested; complete keyed
+index, allocator and archive integration remain outstanding):
 
 1. Reserve two independently validated publication-record slots outside append-only
    tail control data. Size them for the bounded hybrid signature/key records; the
    current two 192-byte header slots cannot directly hold those records. Bind a
    distinct publication domain, archive ID, generation, format, owner identity,
-   committed roots/counts, sealed bounds and previous-publication commitment.
+   committed roots, sealed bounds and previous-publication commitment. Object counts
+   remain in private index metadata; do not expose them in the public anchor.
 2. Persist prepared payload, authenticated index nodes and allocation/cleanup
    descriptors, then synchronize them before writing a publication record.
 3. Write and synchronize one new publication record, then mirror the same signed
@@ -133,3 +138,29 @@ change. Retained owner identity, migration, duplicate control-space accounting,
 mirrored-node erasure, all record families, and process-death tests are required
 before activating it. The two existing native recovery failures remain unresolved
 until the integrated protocol passes their damage cases without weakening authority.
+
+
+## Publication implementation checkpoint — 2026-09-27
+
+The candidate uses two fixed 8 KiB slots, bounded root references, pinned owner
+verification for signed modes, a full HMAC-SHA-256 for encrypted unsigned mode and
+checksums for plaintext unsigned mode. Thirteen protocol checks pass, including
+operation failures, failed-final-sync handling, exhaustive checksum-mode torn-write
+prefixes, real process death, wrong-owner/downgrade cases and independent byte vectors.
+The stored anchor is now connected to the real-page proof test in both layouts.
+[Evidence, candidate byte layout and remaining limits](../evidence/publication-anchors-2026-09-27/README.md).
+
+A readable pair is not a durability result. Only synchronized publication/repair
+returns the token the allocator will need before old-state erasure. Tail damage
+retains the selected generation's authority separately from whether its data is
+available; it must not silently select a previous membership set. I/O failures
+remain errors rather than evidence permitting fallback.
+
+The writer must never persist/export publication-domain signatures during preparation.
+Fixed slots do not make a replayed authentic publication fresh. The caller supplies
+the established owner/archive/mode; integrating that trust with Vault and standalone
+API use remains part of the complete format implementation.
+
+Next: implement authenticated keyed-index nodes and their mirrored copy-on-write
+persistence, then connect allocation/preparation/cleanup and the public archive
+operations. Ordinary signed-open semantics and release compatibility remain gates.

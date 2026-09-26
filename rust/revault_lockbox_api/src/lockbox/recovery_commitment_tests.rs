@@ -84,6 +84,62 @@ fn independent_owner_proof_recovers_real_neighbor_without_opening_damaged_snapsh
             let proof = tree.proof(0).unwrap();
             let signatures = owner.sign(&root.message());
             let selected = crate::crypto::strong_checksum(&root.message());
+            // Persist the selected commitment through the candidate publication
+            // protocol. This separate fixture store exercises the protocol
+            // without claiming the current archive writer emits its encoding.
+            use crate::file_format::publication_anchor::{
+                self as publication, Anchor, Authority, RootRef, REGION_LEN,
+            };
+            use crate::storage::{Storage, StorageBackend};
+            let mut publication_store = StorageBackend::memory(vec![0; REGION_LEN]);
+            let root_bytes = root.message();
+            let primary = publication_store.append(&root_bytes).unwrap();
+            let mirror = publication_store.append(&root_bytes).unwrap();
+            let published_root = Anchor {
+                archive: archive.lockbox_id,
+                generation: 1,
+                mode: archive.format_mode,
+                sealed_len: publication_store.len().unwrap(),
+                object_root: root.digest,
+                previous: [0; 32],
+                index: RootRef {
+                    primary,
+                    mirror,
+                    len: root_bytes.len() as u64,
+                    digest: crate::crypto::strong_checksum(&root_bytes),
+                },
+                allocation: RootRef::default(),
+                keys: RootRef::default(),
+            };
+            let public_owner = owner.public_key();
+            let authority = Authority::Owner(&public_owner);
+            publication::publish(
+                &mut publication_store,
+                &published_root,
+                &authority,
+                Some(&owner),
+                None,
+            )
+            .unwrap();
+            let reopened_publication =
+                StorageBackend::memory(publication_store.read_all().unwrap());
+            let selected_publication = publication::select(
+                &reopened_publication,
+                archive.lockbox_id,
+                archive.format_mode,
+                &authority,
+            )
+            .unwrap();
+            assert_eq!(selected_publication.anchor.object_root, root.digest);
+            assert_eq!(
+                selected_publication
+                    .anchor
+                    .index
+                    .read_verified(&reopened_publication)
+                    .unwrap(),
+                root_bytes
+            );
+
             assert!(authenticate_selected(&root, &signatures, &owner, selected));
             // An attacker can generate a valid hybrid signature with another key.
             let forged_signatures = attacker.sign(&root.message());
