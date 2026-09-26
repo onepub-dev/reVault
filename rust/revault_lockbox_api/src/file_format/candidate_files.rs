@@ -119,7 +119,7 @@ impl<S: Storage> Files<S> {
             let mut entries = Vec::new();
             let mut paths = std::collections::BTreeSet::new();
             let mut ids = std::collections::BTreeSet::new();
-            let mut input_bytes = Zeroizing::new(vec![0; logical_unit]);
+            let mut input_bytes = crate::page_buffer::ZeroizingBytes::new(vec![0; logical_unit]);
             for input in inputs {
                 let Input { path, mut reader } = input;
                 let path = Zeroizing::new(path);

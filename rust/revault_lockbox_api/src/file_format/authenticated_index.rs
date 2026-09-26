@@ -3,6 +3,7 @@
 use super::publication_anchor::{RootRef, REGION_LEN};
 use crate::creation_options::FormatMode;
 use crate::crypto::{open_with_nonce, seal_with_random_nonce, strong_checksum};
+use crate::page_buffer::ZeroizingBytes;
 use crate::storage::Storage;
 use crate::{Error, LockboxId, Result};
 use sha2::Sha256;
@@ -740,7 +741,10 @@ impl Index {
     }
     fn read(&self, storage: &impl Storage, reference: RootRef, sealed: u64) -> Result<Node> {
         validate_ref(reference, sealed)?;
-        self.decode(&Zeroizing::new(reference.read_verified(storage)?), sealed)
+        self.decode(
+            &ZeroizingBytes::new(reference.read_verified(storage)?),
+            sealed,
+        )
     }
     fn decode(&self, bytes: &[u8], sealed: u64) -> Result<Node> {
         if bytes.len() < HEADER
@@ -756,7 +760,7 @@ impl Index {
             return Err(Error::CorruptRecord);
         }
         let body = if let Some(key) = &self.key {
-            Zeroizing::new(open_with_nonce(
+            ZeroizingBytes::new(open_with_nonce(
                 &bytes[HEADER..],
                 key.as_slice(),
                 &bytes[28..40],
@@ -766,7 +770,7 @@ impl Index {
             if bytes[28..40] != [0; 12] {
                 return Err(Error::CorruptRecord);
             }
-            Zeroizing::new(bytes[HEADER..].to_vec())
+            ZeroizingBytes::new(bytes[HEADER..].to_vec())
         };
         let mut cursor = Cursor(&body);
         let height = cursor.take(1)?[0];
@@ -810,7 +814,7 @@ impl Index {
         }
         Ok(node)
     }
-    fn encode(&self, node: &Node) -> Result<Zeroizing<Vec<u8>>> {
+    fn encode(&self, node: &Node) -> Result<ZeroizingBytes> {
         validate_node(node, u64::MAX)?;
         let stored_len = if self.mode.unpadded() {
             node.body_len()
@@ -818,7 +822,7 @@ impl Index {
             MAX_NODE - HEADER - if self.key.is_some() { 16 } else { 0 }
         };
         // Reserve before copying private bytes; never leave old allocations behind.
-        let mut body = Zeroizing::new(Vec::with_capacity(stored_len));
+        let mut body = ZeroizingBytes::new(Vec::with_capacity(stored_len));
         body.push(node.height());
         body.extend_from_slice(&node.count().to_le_bytes());
         body.extend_from_slice(&(node.item_count() as u16).to_le_bytes());
@@ -846,7 +850,7 @@ impl Index {
             }
         }
         body.resize(stored_len, 0);
-        let mut out = Zeroizing::new(Vec::with_capacity(HEADER + body.len() + 16));
+        let mut out = ZeroizingBytes::new(Vec::with_capacity(HEADER + body.len() + 16));
         out.extend_from_slice(MAGIC);
         out.extend_from_slice(&1u16.to_le_bytes());
         out.extend_from_slice(&self.mode.0.to_le_bytes());

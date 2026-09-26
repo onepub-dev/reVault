@@ -4,6 +4,7 @@ use super::allocation_map::Extent;
 use crate::compression::{encode_with_compression, COMPRESSION_NONE, COMPRESSION_ZSTD};
 use crate::creation_options::FormatMode;
 use crate::crypto::{open_with_nonce, seal_with_random_nonce, strong_checksum};
+use crate::page_buffer::ZeroizingBytes;
 use crate::storage::Storage;
 use crate::{Compression, Error, LockboxId, Result};
 use sha2::Sha256;
@@ -76,7 +77,7 @@ pub(crate) struct Codec {
     archive: LockboxId,
     mode: FormatMode,
     key: Option<Zeroizing<[u8; 32]>>,
-    scratch: Zeroizing<Vec<u8>>,
+    scratch: ZeroizingBytes,
 }
 impl Codec {
     pub(crate) fn new(archive: LockboxId, mode: FormatMode, key: Option<&[u8]>) -> Result<Self> {
@@ -97,7 +98,7 @@ impl Codec {
             archive,
             mode,
             key,
-            scratch: Zeroizing::new(Vec::new()),
+            scratch: ZeroizingBytes::new(Vec::new()),
         })
     }
     /// Raw data stays inside a 64 KiB stored allocation, including nonce/tag.
@@ -144,14 +145,14 @@ impl Codec {
         ordinal: u64,
         offset: u64,
         plain: &[u8],
-    ) -> Result<(Descriptor, Zeroizing<Vec<u8>>)> {
+    ) -> Result<(Descriptor, ZeroizingBytes)> {
         if plain.is_empty() || plain.len() > MAX_LOGICAL {
             return Err(Error::SecurityLimitExceeded(
                 "candidate extent logical limit".into(),
             ));
         }
         let (codec, encoded) = encode_with_compression(plain, self.mode.options().compression);
-        let mut encoded = Zeroizing::new(encoded);
+        let mut encoded = ZeroizingBytes::new(encoded);
         let descriptor = Descriptor {
             object,
             ordinal,
@@ -166,7 +167,8 @@ impl Codec {
         let stored = if let Some(key) = &self.key {
             let (nonce, ciphertext) =
                 seal_with_random_nonce(&encoded, key.as_slice(), &self.aad(&descriptor))?;
-            let mut stored = Zeroizing::new(Vec::with_capacity(descriptor.allocation_len as usize));
+            let mut stored =
+                ZeroizingBytes::new(Vec::with_capacity(descriptor.allocation_len as usize));
             stored.extend_from_slice(&nonce);
             stored.extend_from_slice(&ciphertext);
             stored
@@ -205,14 +207,14 @@ impl Codec {
         extent: Extent,
         sealed: u64,
         descriptor: &Descriptor,
-    ) -> Result<Zeroizing<Vec<u8>>> {
+    ) -> Result<ZeroizingBytes> {
         self.validate_extent(extent, sealed, descriptor)?;
-        let stored = Zeroizing::new(storage.read_at(extent.start, extent.len as usize)?);
+        let stored = ZeroizingBytes::new(storage.read_at(extent.start, extent.len as usize)?);
         if stored.len() != extent.len as usize || strong_checksum(&stored) != extent.digest {
             return Err(Error::CorruptRecord);
         }
         let decoded = if let Some(key) = &self.key {
-            Zeroizing::new(open_with_nonce(
+            ZeroizingBytes::new(open_with_nonce(
                 &stored[12..],
                 key.as_slice(),
                 &stored[..12],
@@ -235,9 +237,9 @@ impl Codec {
         let required = StaticDecoderWorkspace::required_size(MAX_LOGICAL, 0)
             .map_err(|_| Error::CorruptRecord)?;
         if self.scratch.len() != required {
-            self.scratch = Zeroizing::new(vec![0; required]);
+            self.scratch = ZeroizingBytes::new(vec![0; required]);
         }
-        let mut output = Zeroizing::new(vec![0; descriptor.logical_len as usize]);
+        let mut output = ZeroizingBytes::new(vec![0; descriptor.logical_len as usize]);
         let mut decoder = StaticDecoderWorkspace::new(&mut self.scratch, MAX_LOGICAL, 0)
             .map_err(|_| Error::CorruptRecord)?;
         let len = decoder
