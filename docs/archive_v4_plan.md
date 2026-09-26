@@ -454,3 +454,26 @@ remain outstanding.
 H1 continues independently and is not blocked by that sequence.
 The saved parallel encoder experiment is optional evidence to
 revisit after selection, not the next task by default.
+
+
+### Packed-index checkpoint — 2026-09-27
+
+The [packed index comparison](evidence/packed-index-2026-09-27/README.md) replaces the
+rejected one-record layout with ordered pages, bulk construction, local split/merge
+updates and bounded range/salvage traversal. Fourteen focused checks and both real
+archive-layout proof tests pass; code remains isolated from production output.
+
+For 100,000 descriptors, 30 fresh-process observations per mode show approximately
+21.4–21.6 MB total index file size, zero discarded construction pages and 48–61 ms
+median construction CPU. The largest observed process RSS across construction and
+replacement samples was 4,584 KiB. Padded live nodes occupy 20.625 MiB. These are
+component measurements over sorted input; they do not prove whole-archive gates.
+Single-record updates write more bytes than the previous tree, so page-level batching
+and reclamation remain part of the design rather than optional micro-optimizations.
+
+Next: persist allocation/preparation/cleanup ownership for complete and partial node
+writes, gate old-state erasure on synchronized mirrored publication, and separate
+mirror failure regions. Integrate batched archive operations and data extents, then
+run the complete candidate comparison. Preserve the current security, padding,
+eager-open and release-compatibility contracts. Production recovery and release
+qualification remain unfinished; H1 continues on its independent branch.

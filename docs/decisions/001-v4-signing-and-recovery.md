@@ -2,7 +2,8 @@
 
 Status: proposed, 2026-09-26. Author: Codex. Product/security reviewer: unassigned.
 Bounded proof, mirrored-publication and authenticated keyed-index experiments
-implemented; packed-index selection and archive integration remain outstanding.
+implemented, including packed ordered pages and bulk construction; final layout
+selection and archive integration remain outstanding.
 No wire change activated. Goals G2/G3/G4; acceptance A2/A3/A7.
 
 ## Problem
@@ -183,3 +184,25 @@ Then connect allocation/preparation/cleanup and public archive operations. Ordin
 signed-open semantics, complete performance comparisons, migration and release
 compatibility remain gates. This is concrete architectural evidence against the
 simple physical layout, not permission to weaken padding or resource requirements.
+
+
+## Packed-index checkpoint — 2026-09-27
+
+[Packed ordered pages and streaming bulk construction](../evidence/packed-index-2026-09-27/README.md)
+replace the rejected physical tree inside the candidate. They preserve encrypted
+private descriptors, authenticated child links, mirrored publication and path-local
+mutation, and add bounded ordered ranges and salvage that reports unavailable
+subtrees. Fourteen focused checks pass; real-page recovery passes in both layouts.
+
+Thirty fresh-process observations per protection/padding case show 100k-entry
+construction occupying about 21.4–21.6 MB, with no retired construction pages,
+median CPU 48–61 ms and largest observed process peak RSS 4,584 KiB. Default padding
+now costs 20.625 MiB of live nodes instead of the rejected layout's 24.41 GiB.
+This measures sorted descriptor construction, not sorting, payloads or publication.
+
+The trade-off is larger individual mutations: two mirrored 64 KiB padded pages
+mean 256 KiB appended for a one-record replacement. Coalescing page edits within
+one transaction and allocator reuse/cleanup remain necessary. Do not treat the
+component result as a selected whole-archive architecture or a passed A4 gate.
+Next persist preparation/cleanup ownership, separate mirror failure regions and
+integrate archive operations and data extents before the complete comparison.

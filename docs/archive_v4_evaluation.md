@@ -145,8 +145,12 @@ and authenticates the selected anchor with fault/process-death coverage. The
 [authenticated index](evidence/authenticated-index-2026-09-27/README.md) connects that
 root to mirrored private descriptors. Its 100k-entry CPU/RSS/space measurements
 reject one-record-per-leaf physical storage: small resident memory does not offset
-excessive append-only construction and padded space. Next compare packed, bulk-built
-index pages while preserving the same authority and confidentiality contract.
+excessive append-only construction and padded space. The subsequent
+[packed-page comparison](evidence/packed-index-2026-09-27/README.md) removes that
+construction waste: 100k descriptors use about 21.4–21.6 MB, with 48–61 ms median
+construction CPU over 30 fresh processes per mode. Maximum observed process RSS is
+4,584 KiB. It retains default padding and authority but increases single-record
+write amplification; batching, allocator/reclamation and full archive gates remain.
 The normal archive still needs selected index, allocator and public-path integration.
 
 P1 closes only when the proposed mode assignment, budgets and decisions have

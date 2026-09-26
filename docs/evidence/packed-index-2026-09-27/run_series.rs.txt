@@ -1,0 +1,22 @@
+//! Standalone runner: rustc --edition 2021 -O run_series.rs -o /tmp/index-series
+//! Usage: /tmp/index-series /absolute/path/to/release-test-binary > series.log
+//! Children inherit the runner's CPU affinity. Run without concurrent builds/tests.
+use std::process::{Command, ExitCode};
+fn main() -> ExitCode {
+    let binary = std::env::args_os().nth(1).expect("release test binary");
+    for round in 0..33 {
+        for position in 0..4 {
+            let mode = (round + position) % 4;
+            println!("SERIES round={round} warmup={} encrypted={} padded={}", round < 3, mode & 1 != 0, mode & 2 != 0);
+            let result = Command::new(&binary)
+                .args(["--exact", "file_format::authenticated_index::tests::authenticated_index_resource_observation", "--ignored", "--nocapture", "--test-threads=1"])
+                .env("REVAULT_INDEX_RESOURCE_ENCRYPTED", if mode & 1 != 0 { "1" } else { "0" })
+                .env("REVAULT_INDEX_RESOURCE_PADDED", if mode & 2 != 0 { "1" } else { "0" })
+                .output().expect("start resource observation");
+            print!("{}", String::from_utf8_lossy(&result.stdout));
+            eprint!("{}", String::from_utf8_lossy(&result.stderr));
+            if !result.status.success() { return ExitCode::FAILURE; }
+        }
+    }
+    ExitCode::SUCCESS
+}

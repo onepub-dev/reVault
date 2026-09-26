@@ -224,17 +224,10 @@ fn leaf_ref(
 ) -> RootRef {
     let mut reference = root;
     loop {
-        match index
-            .read(storage, reference, storage.len().unwrap())
-            .unwrap()
-        {
-            Node::Leaf(entries) => {
-                assert!(entries.iter().any(|e| e.identity() == (namespace, key)));
-                return reference;
-            }
+        match index.read(storage, reference, storage.len().unwrap()).unwrap() {
+            Node::Leaf(entries) => { assert!(entries.iter().any(|e| e.identity() == (namespace, key))); return reference; }
             Node::Branch { children, .. } => {
-                let position =
-                    children.partition_point(|c| c.first.identity() <= (namespace, key)) - 1;
+                let position = children.partition_point(|c| c.first.identity() <= (namespace, key)) - 1;
                 reference = children[position].reference;
             }
         }
@@ -272,22 +265,11 @@ fn signed_membership_recovers_intact_content_without_reading_damaged_neighbor() 
         // Put the two identities in different packed leaves. Losing both copies
         // of a shared leaf would lose authority for every descriptor in that leaf.
         for number in 0..16 {
-            root = put(
-                &index,
-                &mut storage,
-                root,
-                1,
-                format!("keep/filler/{number:02}").as_bytes(),
-                &vec![9; 8192],
-            )
-            .root;
+            root = put(&index, &mut storage, root, 1, format!("keep/filler/{number:02}").as_bytes(), &vec![9; 8192]).root;
         }
         let first = anchor(&index, &storage, root, None);
         publish(&mut storage, &first, &authority, Some(&owner), None).unwrap();
-        assert_ne!(
-            leaf_ref(&index, &storage, root, 1, b"keep"),
-            leaf_ref(&index, &storage, root, 1, b"lose")
-        );
+        assert_ne!(leaf_ref(&index, &storage, root, 1, b"keep"), leaf_ref(&index, &storage, root, 1, b"lose"));
         let lost = leaf_ref(&index, &storage, root, 1, b"lose");
         for offset in [lost.primary, lost.mirror] {
             storage
@@ -320,22 +302,15 @@ fn signed_membership_recovers_intact_content_without_reading_damaged_neighbor() 
             .visit(&storage, root, first.sealed_len, |_| Ok(()))
             .is_err());
         let mut recovered_keys = Vec::new();
-        let report = index
-            .recover(&storage, selected.anchor.index, first.sealed_len, |entry| {
-                recovered_keys.push(entry.key.to_vec());
-                Ok(())
-            })
-            .unwrap();
+        let report = index.recover(&storage, selected.anchor.index, first.sealed_len, |entry| {
+            recovered_keys.push(entry.key.to_vec()); Ok(())
+        }).unwrap();
         assert!(recovered_keys.iter().any(|key| key == b"keep"));
         assert!(!recovered_keys.iter().any(|key| key == b"lose"));
         assert_eq!(report.recovered as usize, recovered_keys.len());
         assert_eq!(report.recovered + report.unavailable, 18);
         assert_eq!(report.damaged_pages, vec![lost]);
-        assert!(index
-            .recover(&storage, root, first.sealed_len, |_| Err(Error::Io(
-                "visitor failed".into()
-            )))
-            .is_err());
+        assert!(index.recover(&storage, root, first.sealed_len, |_| Err(Error::Io("visitor failed".into()))).is_err());
     }
 }
 #[test]
@@ -351,9 +326,7 @@ fn read_key_holder_cannot_replace_owner_authorized_nodes_or_reinstate_deleted_re
     let old = publish(&mut storage, &first, &authority, Some(&owner), None).unwrap();
     let clean = storage.read_all().unwrap();
     let forged = index
-        .encode(&Node::Leaf(vec![
-            Entry::new(1, b"secret", b"fake  value").unwrap()
-        ]))
+        .encode(&Node::Leaf(vec![Entry::new(1, b"secret", b"fake  value").unwrap()]))
         .unwrap();
     assert_eq!(forged.len() as u64, old_root.len);
     for offset in [old_root.primary, old_root.mirror] {
@@ -585,13 +558,7 @@ fn incremental_updates_share_subtrees_and_bound_reads_without_a_whole_index_clon
         root = remove(&index, &mut storage, root, 1, &key.to_le_bytes()).root;
     }
     assert!(values(&index, &storage, root, storage.len().unwrap()).is_empty());
-    assert_eq!(
-        index
-            .read(&storage, root, storage.len().unwrap())
-            .unwrap()
-            .count(),
-        0
-    );
+    assert_eq!(index.read(&storage, root, storage.len().unwrap()).unwrap().count(), 0);
 }
 #[test]
 fn bounded_decoding_rejects_truncation_lengths_context_and_invalid_child_graphs() {
@@ -659,68 +626,18 @@ fn bounded_decoding_rejects_truncation_lengths_context_and_invalid_child_graphs(
             &Node::Leaf(vec![Entry::new(1, b"right", b"v").unwrap()]),
         )
         .unwrap();
-    let good = Node::Branch {
-        height: 1,
-        children: vec![left.clone(), right.clone()],
-    };
+    let good = Node::Branch { height: 1, children: vec![left.clone(), right.clone()] };
     let mut bytes = index.encode(&good).unwrap();
     bytes[HEADER + 1..HEADER + 9].copy_from_slice(&u64::MAX.to_le_bytes());
     assert!(index.decode(&bytes, storage.len().unwrap()).is_err());
-    assert!(index
-        .encode(&Node::Branch {
-            height: 1,
-            children: vec![left.clone(), left.clone()]
-        })
-        .is_err());
-    assert!(index
-        .encode(&Node::Branch {
-            height: 1,
-            children: vec![right.clone(), left.clone()]
-        })
-        .is_err());
-    let mut lying = left.clone();
-    lying.first = Key::new((1, b"aaaa"));
-    let swapped = index
-        .write(
-            &mut storage,
-            &Node::Branch {
-                height: 1,
-                children: vec![lying, right],
-            },
-        )
-        .unwrap();
-    assert!(index
-        .get(
-            &storage,
-            swapped.reference,
-            storage.len().unwrap(),
-            1,
-            b"left"
-        )
-        .is_err());
-    assert!(index
-        .visit(&storage, swapped.reference, storage.len().unwrap(), |_| Ok(
-            ()
-        ))
-        .is_err());
-    let wrong_height = index
-        .write(
-            &mut storage,
-            &Node::Branch {
-                height: 2,
-                children: vec![left],
-            },
-        )
-        .unwrap();
-    assert!(index
-        .get(
-            &storage,
-            wrong_height.reference,
-            storage.len().unwrap(),
-            1,
-            b"left"
-        )
-        .is_err());
+    assert!(index.encode(&Node::Branch { height: 1, children: vec![left.clone(), left.clone()] }).is_err());
+    assert!(index.encode(&Node::Branch { height: 1, children: vec![right.clone(), left.clone()] }).is_err());
+    let mut lying = left.clone(); lying.first = Key::new((1, b"aaaa"));
+    let swapped = index.write(&mut storage, &Node::Branch { height: 1, children: vec![lying, right] }).unwrap();
+    assert!(index.get(&storage, swapped.reference, storage.len().unwrap(), 1, b"left").is_err());
+    assert!(index.visit(&storage, swapped.reference, storage.len().unwrap(), |_| Ok(())).is_err());
+    let wrong_height = index.write(&mut storage, &Node::Branch { height: 2, children: vec![left] }).unwrap();
+    assert!(index.get(&storage, wrong_height.reference, storage.len().unwrap(), 1, b"left").is_err());
     let before = storage.len().unwrap();
     assert!(Entry::new(1, &vec![0; MAX_KEY + 1], b"v").is_err());
     assert!(Entry::new(1, b"k", &vec![0; MAX_VALUE + 1]).is_err());
@@ -794,8 +711,10 @@ fn independently_encoded_packed_vectors_match_wire_bytes_and_ordered_membership(
             .map(|pair| u8::from_str_radix(std::str::from_utf8(pair).unwrap(), 16).unwrap())
             .collect()
     }
-    let vector: serde_json::Value =
-        serde_json::from_str(include_str!("../../tests/fixtures/packed_index_v1.json")).unwrap();
+    let vector: serde_json::Value = serde_json::from_str(include_str!(
+        "../../tests/fixtures/packed_index_v1.json"
+    ))
+    .unwrap();
     let index = index(false, false);
     let mut storage = StorageBackend::memory(vec![0; REGION_LEN]);
     let mut last = RootRef::default();
@@ -840,15 +759,8 @@ fn authenticated_index_resource_observation() {
         std::env::var("REVAULT_INDEX_RESOURCE_ENCRYPTED").is_ok_and(|value| value == "1");
     let padded = std::env::var("REVAULT_INDEX_RESOURCE_PADDED").is_ok_and(|v| v == "1");
     let mut options = mode(encrypted, false).options();
-    if padded {
-        options.size_padding = SizePadding::Default;
-    }
-    let index = Index::new(
-        LockboxId::from_bytes([45; 16]),
-        FormatMode::new(options),
-        encrypted.then_some(&[17; 32][..]),
-    )
-    .unwrap();
+    if padded { options.size_padding = SizePadding::Default; }
+    let index = Index::new(LockboxId::from_bytes([45; 16]), FormatMode::new(options), encrypted.then_some(&[17; 32][..])).unwrap();
     let dir = Directory::new();
     let path = dir.0.join("resource.candidate");
     let inner = StorageBackend::create_file(&path, &vec![0; REGION_LEN]).unwrap();
@@ -862,21 +774,11 @@ fn authenticated_index_resource_observation() {
     let started = std::time::Instant::now();
     // Same keys/descriptors as the retained incremental baseline, generated in
     // lexicographic little-endian key order without materializing a sorted table.
-    let numbers = (0u32..256)
-        .flat_map(|low| {
-            (0u32..256)
-                .flat_map(move |mid| (0u32..2).map(move |high| low | (mid << 8) | (high << 16)))
-        })
-        .filter(|number| *number < 100_000);
-    let built = index
-        .build_sorted(
-            &mut storage,
-            numbers.map(|number| {
-                let value = [number.to_le_bytes().as_slice(), &[0x39; 92]].concat();
-                Entry::new(1, &number.to_le_bytes(), &value)
-            }),
-        )
-        .unwrap();
+    let numbers = (0u32..256).flat_map(|low| (0u32..256).flat_map(move |mid| (0u32..2).map(move |high| low | (mid << 8) | (high << 16)))).filter(|number| *number < 100_000);
+    let built = index.build_sorted(&mut storage, numbers.map(|number| {
+        let value = [number.to_le_bytes().as_slice(), &[0x39; 92]].concat();
+        Entry::new(1, &number.to_le_bytes(), &value)
+    })).unwrap();
     let mut root = built.root;
     let live_bytes = built.created.iter().map(|r| 2 * r.len).sum::<u64>();
     assert!(built.retired.is_empty());
@@ -965,258 +867,108 @@ fn padding_policy_preserves_constant_node_lengths_and_rejects_noncanonical_paddi
 }
 
 fn wide_key(number: u32) -> Vec<u8> {
-    let mut key = vec![0x71; MAX_KEY];
-    key[..4].copy_from_slice(&number.to_be_bytes());
-    key
+    let mut key = vec![0x71; MAX_KEY]; key[..4].copy_from_slice(&number.to_be_bytes()); key
 }
 
 #[test]
 fn bulk_builder_orders_namespaces_without_intermediate_garbage_and_bounds_range_reads() {
-    for encrypted in [false, true] {
-        for padded in [false, true] {
-            let mut options = mode(encrypted, false).options();
-            if padded {
-                options.size_padding = SizePadding::Default;
-            }
-            let index = Index::new(
-                LockboxId::from_bytes([45; 16]),
-                FormatMode::new(options),
-                encrypted.then_some(&[17; 32][..]),
-            )
-            .unwrap();
-            let mut storage = Meter {
-                inner: StorageBackend::memory(vec![0; REGION_LEN]),
-                reads: Cell::new(0),
-                bytes: Cell::new(0),
-                max_read: Cell::new(0),
-            };
-            let entries = (0u32..300).map(|n| Entry::new(1, &wide_key(n), &n.to_le_bytes()));
-            let built = index.build_sorted(&mut storage, entries).unwrap();
-            assert!(built.retired.is_empty());
-            assert_eq!(
-                storage.len().unwrap(),
-                REGION_LEN as u64 + built.created.iter().map(|r| 2 * r.len).sum::<u64>()
-            );
-            assert_eq!(storage.reads.get(), 0);
-            let root = built.root;
-            let sealed = storage.len().unwrap();
-            assert!(index.read(&storage, root, sealed).unwrap().height() >= 2);
-            let mut seen = 0;
-            index
-                .visit(&storage, root, sealed, |entry| {
-                    assert_eq!(entry.key.as_slice(), wide_key(seen));
-                    assert_eq!(entry.value.as_slice(), seen.to_le_bytes());
-                    seen += 1;
-                    Ok(())
-                })
-                .unwrap();
-            assert_eq!(seen, 300);
-            storage.reset();
-            let start = wide_key(145);
-            let end = wide_key(149);
-            let mut seen = Vec::new();
-            index
-                .visit_range(
-                    &storage,
-                    root,
-                    sealed,
-                    Some((1, &start)),
-                    Some((1, &end)),
-                    |entry| {
-                        seen.push(u32::from_le_bytes(
-                            entry.value.as_slice().try_into().unwrap(),
-                        ));
-                        Ok(())
-                    },
-                )
-                .unwrap();
-            assert_eq!(seen, [145, 146, 147, 148]);
-            assert!(storage.reads.get() <= 5);
-            // Half-open namespace bounds exclude the complete tree without leaf reads.
-            storage.reset();
-            index
-                .visit_range(&storage, root, sealed, Some((2, b"")), None, |_| {
-                    panic!("wrong namespace")
-                })
-                .unwrap();
-            // No upper bound on the final child requires descending its rightmost path.
-            assert!(storage.reads.get() <= 3);
-        }
-    }
+    for encrypted in [false, true] { for padded in [false, true] {
+        let mut options = mode(encrypted, false).options();
+        if padded { options.size_padding = SizePadding::Default; }
+        let index = Index::new(LockboxId::from_bytes([45; 16]), FormatMode::new(options), encrypted.then_some(&[17; 32][..])).unwrap();
+        let mut storage = Meter { inner: StorageBackend::memory(vec![0; REGION_LEN]), reads: Cell::new(0), bytes: Cell::new(0), max_read: Cell::new(0) };
+        let entries = (0u32..300).map(|n| Entry::new(1, &wide_key(n), &n.to_le_bytes()));
+        let built = index.build_sorted(&mut storage, entries).unwrap();
+        assert!(built.retired.is_empty());
+        assert_eq!(storage.len().unwrap(), REGION_LEN as u64 + built.created.iter().map(|r| 2 * r.len).sum::<u64>());
+        assert_eq!(storage.reads.get(), 0);
+        let root = built.root; let sealed = storage.len().unwrap();
+        assert!(index.read(&storage, root, sealed).unwrap().height() >= 2);
+        let mut seen = 0;
+        index.visit(&storage, root, sealed, |entry| {
+            assert_eq!(entry.key.as_slice(), wide_key(seen)); assert_eq!(entry.value.as_slice(), seen.to_le_bytes()); seen += 1; Ok(())
+        }).unwrap(); assert_eq!(seen, 300);
+        storage.reset(); let start = wide_key(145); let end = wide_key(149); let mut seen = Vec::new();
+        index.visit_range(&storage, root, sealed, Some((1, &start)), Some((1, &end)), |entry| { seen.push(u32::from_le_bytes(entry.value.as_slice().try_into().unwrap())); Ok(()) }).unwrap();
+        assert_eq!(seen, [145,146,147,148]); assert!(storage.reads.get() <= 5);
+        // Half-open namespace bounds exclude the complete tree without leaf reads.
+        storage.reset();
+        index.visit_range(&storage, root, sealed, Some((2, b"")), None, |_| panic!("wrong namespace")).unwrap();
+        // No upper bound on the final child requires descending its rightmost path.
+        assert!(storage.reads.get() <= 3);
+    }}
 }
 
 #[test]
 fn bulk_input_errors_leave_old_publication_and_generated_tail_unselected() {
-    let index = index(false, false);
-    let authority = Authority::Checksum;
-    let mut storage = StorageBackend::memory(vec![0; REGION_LEN]);
-    let root = index.empty(&mut storage).unwrap();
-    let first = anchor(&index, &storage, root, None);
-    publish(&mut storage, &first, &authority, None, None).unwrap();
+    let index = index(false, false); let authority = Authority::Checksum;
+    let mut storage = StorageBackend::memory(vec![0; REGION_LEN]); let root = index.empty(&mut storage).unwrap();
+    let first = anchor(&index, &storage, root, None); publish(&mut storage, &first, &authority, None, None).unwrap();
     let before = storage.len().unwrap();
-    let entries = (0u32..100).map(|n| {
-        if n == 70 {
-            Err(Error::Io("source failed".into()))
-        } else {
-            Entry::new(1, &wide_key(n), b"value")
-        }
-    });
-    assert!(index.build_sorted(&mut storage, entries).is_err());
-    assert!(storage.len().unwrap() > before);
-    assert_eq!(
-        select(&storage, index.archive, index.mode, &authority)
-            .unwrap()
-            .anchor,
-        first
-    );
+    let entries = (0u32..100).map(|n| if n == 70 { Err(Error::Io("source failed".into())) } else { Entry::new(1, &wide_key(n), b"value") });
+    assert!(index.build_sorted(&mut storage, entries).is_err()); assert!(storage.len().unwrap() > before);
+    assert_eq!(select(&storage, index.archive, index.mode, &authority).unwrap().anchor, first);
     for keys in [[b"b".as_slice(), b"a"], [b"a".as_slice(), b"a"]] {
-        assert!(index
-            .build_sorted(&mut storage, keys.map(|key| Entry::new(1, key, b"v")))
-            .is_err());
+        assert!(index.build_sorted(&mut storage, keys.map(|key| Entry::new(1, key, b"v"))).is_err());
     }
-    let empty = index
-        .build_sorted(&mut storage, std::iter::empty())
-        .unwrap();
+    let empty = index.build_sorted(&mut storage, std::iter::empty()).unwrap();
     assert!(values(&index, &storage, empty.root, storage.len().unwrap()).is_empty());
 }
 
 #[test]
 fn variable_sized_splits_merges_and_root_shrink_preserve_every_live_record() {
-    let index = index(false, false);
-    let mut storage = StorageBackend::memory(vec![0; REGION_LEN]);
-    let built = index
-        .build_sorted(
-            &mut storage,
-            (0u32..240).map(|n| Entry::new(1, &wide_key(n), &vec![n as u8; 1024])),
-        )
-        .unwrap();
-    let mut root = built.root;
-    let mut expected = values(&index, &storage, root, storage.len().unwrap());
-    let start_height = index
-        .read(&storage, root, storage.len().unwrap())
-        .unwrap()
-        .height();
-    assert!(start_height >= 2);
+    let index = index(false, false); let mut storage = StorageBackend::memory(vec![0; REGION_LEN]);
+    let built = index.build_sorted(&mut storage, (0u32..240).map(|n| Entry::new(1, &wide_key(n), &vec![n as u8; 1024]))).unwrap();
+    let mut root = built.root; let mut expected = values(&index, &storage, root, storage.len().unwrap());
+    let start_height = index.read(&storage, root, storage.len().unwrap()).unwrap().height(); assert!(start_height >= 2);
     for n in 0u32..240 {
         // Alternate very large replacements with deletion to force byte-based
         // splits, adjacent merges and height changes, not just equal-size cases.
         if n % 3 == 0 {
-            let value = vec![0xa3; MAX_VALUE];
-            let change = put(&index, &mut storage, root, 1, &wide_key(n), &value);
-            root = change.root;
+            let value = vec![0xa3; MAX_VALUE]; let change = put(&index, &mut storage, root, 1, &wide_key(n), &value); root = change.root;
             expected.insert((1, wide_key(n)), value);
-            assert_eq!(
-                values(&index, &storage, root, storage.len().unwrap()),
-                expected
-            );
+            assert_eq!(values(&index, &storage, root, storage.len().unwrap()), expected);
         }
-        let change = remove(&index, &mut storage, root, 1, &wide_key(n));
-        root = change.root;
+        let change = remove(&index, &mut storage, root, 1, &wide_key(n)); root = change.root;
         expected.remove(&(1, wide_key(n)));
-        for reference in change.retired {
-            for offset in [reference.primary, reference.mirror] {
-                storage
-                    .write_at(offset, &vec![0; reference.len as usize])
-                    .unwrap();
-            }
-        }
-        assert_eq!(
-            values(&index, &storage, root, storage.len().unwrap()),
-            expected
-        );
+        for reference in change.retired { for offset in [reference.primary, reference.mirror] { storage.write_at(offset, &vec![0; reference.len as usize]).unwrap(); }}
+        assert_eq!(values(&index, &storage, root, storage.len().unwrap()), expected);
     }
-    assert_eq!(
-        index
-            .read(&storage, root, storage.len().unwrap())
-            .unwrap()
-            .height(),
-        0
-    );
+    assert_eq!(index.read(&storage, root, storage.len().unwrap()).unwrap().height(), 0);
     assert!(expected.is_empty());
 }
 
 #[test]
 fn every_bulk_append_and_publication_failure_retains_complete_selected_membership() {
-    let index = index(true, false);
-    let authority = Authority::Symmetric(&[17; 32]);
-    let mut base = StorageBackend::memory(vec![0; REGION_LEN]);
-    let root = index.empty(&mut base).unwrap();
+    let index = index(true, false); let authority = Authority::Symmetric(&[17; 32]);
+    let mut base = StorageBackend::memory(vec![0; REGION_LEN]); let root = index.empty(&mut base).unwrap();
     let root = put(&index, &mut base, root, 0, b"original", b"unchanged").root;
-    let first = anchor(&index, &base, root, None);
-    let published = publish(&mut base, &first, &authority, None, None).unwrap();
+    let first = anchor(&index, &base, root, None); let published = publish(&mut base, &first, &authority, None, None).unwrap();
     let bytes = base.read_all().unwrap();
     let perform = |storage: &mut StorageBackend| -> Result<()> {
-        let built = index.build_sorted(
-            storage,
-            (0u32..50).map(|n| Entry::new(1, &wide_key(n), &n.to_le_bytes())),
-        )?;
+        let built = index.build_sorted(storage, (0u32..50).map(|n| Entry::new(1, &wide_key(n), &n.to_le_bytes())))?;
         let second = anchor(&index, storage, built.root, Some(&first));
-        publish(
-            storage,
-            &second,
-            &authority,
-            None,
-            Some(published.commitment),
-        )?;
-        Ok(())
+        publish(storage, &second, &authority, None, Some(published.commitment))?; Ok(())
     };
-    base.reset_memory_operation_count();
-    perform(&mut base).unwrap();
-    let count = base.memory_operation_count();
-    assert!(count > 10);
+    base.reset_memory_operation_count(); perform(&mut base).unwrap(); let count = base.memory_operation_count(); assert!(count > 10);
     for fail in 0..count {
-        let mut storage = StorageBackend::memory(bytes.clone());
-        storage.fail_memory_operation_after_successes(fail);
+        let mut storage = StorageBackend::memory(bytes.clone()); storage.fail_memory_operation_after_successes(fail);
         assert!(perform(&mut storage).is_err(), "operation {fail}");
-        let reopened = StorageBackend::memory(storage.read_all().unwrap());
-        let selected = select(&reopened, index.archive, index.mode, &authority).unwrap();
-        let found = values(
-            &index,
-            &reopened,
-            selected.anchor.index,
-            selected.anchor.sealed_len,
-        );
-        if selected.anchor.generation == 1 {
-            assert_eq!(found.len(), 1);
-            assert_eq!(found[&(0, b"original".to_vec())], b"unchanged");
-        } else {
-            assert_eq!(selected.anchor.generation, 2);
-            assert_eq!(found.len(), 50);
-            for n in 0u32..50 {
-                assert_eq!(found[&(1, wide_key(n))], n.to_le_bytes());
-            }
-        }
+        let reopened = StorageBackend::memory(storage.read_all().unwrap()); let selected = select(&reopened, index.archive, index.mode, &authority).unwrap();
+        let found = values(&index, &reopened, selected.anchor.index, selected.anchor.sealed_len);
+        if selected.anchor.generation == 1 { assert_eq!(found.len(), 1); assert_eq!(found[&(0,b"original".to_vec())], b"unchanged"); }
+        else { assert_eq!(selected.anchor.generation, 2); assert_eq!(found.len(), 50); for n in 0u32..50 { assert_eq!(found[&(1,wide_key(n))], n.to_le_bytes()); } }
     }
 }
 
 #[test]
 fn root_collapse_validates_the_promoted_child_before_returning_a_new_root() {
-    let index = index(false, false);
-    let mut storage = StorageBackend::memory(vec![0; REGION_LEN]);
-    let left = index
-        .write(
-            &mut storage,
-            &Node::Leaf(vec![Entry::new(1, b"a", b"v").unwrap()]),
-        )
-        .unwrap();
-    let mut right = index
-        .write(
-            &mut storage,
-            &Node::Leaf(vec![Entry::new(1, b"z", b"v").unwrap()]),
-        )
-        .unwrap();
+    let index = index(false, false); let mut storage = StorageBackend::memory(vec![0; REGION_LEN]);
+    let left = index.write(&mut storage, &Node::Leaf(vec![Entry::new(1, b"a", b"v").unwrap()])).unwrap();
+    let mut right = index.write(&mut storage, &Node::Leaf(vec![Entry::new(1, b"z", b"v").unwrap()])).unwrap();
     // Parent is locally canonical, but contradicts the actual right child count.
     right.count = 2;
-    let root = index
-        .write(
-            &mut storage,
-            &Node::Branch {
-                height: 1,
-                children: vec![left, right],
-            },
-        )
-        .unwrap()
-        .reference;
+    let root = index.write(&mut storage, &Node::Branch { height: 1, children: vec![left, right] }).unwrap().reference;
     let sealed = storage.len().unwrap();
     assert!(index.remove(&mut storage, root, sealed, 1, b"a").is_err());
 }

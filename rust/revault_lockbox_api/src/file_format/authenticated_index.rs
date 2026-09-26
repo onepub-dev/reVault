@@ -1,25 +1,25 @@
-//! Candidate persistent membership index. Mirrored copy-on-write Patricia nodes
-//! authenticate their children by stored-byte digest. Publication selects a root;
-//! constructing a root does not publish it. Not activated by production archives.
+//! Candidate ordered membership index with packed, mirrored copy-on-write pages.
+//! Publication selects the root; preparing an index never authorizes its contents.
 use super::publication_anchor::{RootRef, REGION_LEN};
 use crate::creation_options::FormatMode;
 use crate::crypto::{open_with_nonce, seal_with_random_nonce, strong_checksum};
 use crate::storage::Storage;
 use crate::{Error, LockboxId, Result};
-use sha2::{Digest, Sha256};
+use sha2::Sha256;
 use zeroize::Zeroizing;
 
-const MAGIC: &[u8; 8] = b"RV4IDX01";
+const MAGIC: &[u8; 8] = b"RV4IDX02";
 const HEADER: usize = 44;
 const MAX_NODE: usize = 65536;
+const BODY_HEADER: usize = 11;
+// Use the same packing capacity in every protection mode.
+const MAX_BODY: usize = MAX_NODE - HEADER - 16;
+const MAX_ITEMS: usize = 1024;
+const MAX_HEIGHT: u8 = 32;
 const MAX_KEY: usize = 4096;
 const MAX_VALUE: usize = 49152;
 const MAX_ENTRIES: u64 = 1_000_000;
 
-type Hash = [u8; 32];
-
-/// Keys, routing prefixes and values are private in encrypted modes. The value
-/// is the caller's canonical descriptor, including its stored-content commitments.
 #[derive(Clone)]
 pub(crate) struct Entry {
     pub namespace: u8,
@@ -35,37 +35,114 @@ impl Entry {
             value: Zeroizing::new(value.to_vec()),
         })
     }
+    fn identity(&self) -> (u8, &[u8]) {
+        (self.namespace, &self.key)
+    }
+    fn size(&self) -> usize {
+        7 + self.key.len() + self.value.len()
+    }
 }
-
-#[derive(Clone, Copy)]
+#[derive(Clone)]
+struct Key {
+    namespace: u8,
+    bytes: Zeroizing<Vec<u8>>,
+}
+impl Key {
+    fn new(identity: (u8, &[u8])) -> Self {
+        Self {
+            namespace: identity.0,
+            bytes: Zeroizing::new(identity.1.to_vec()),
+        }
+    }
+    fn identity(&self) -> (u8, &[u8]) {
+        (self.namespace, &self.bytes)
+    }
+}
+#[derive(Clone)]
 struct Link {
     reference: RootRef,
     count: u64,
+    first: Key,
+}
+impl Link {
+    fn size(&self) -> usize {
+        67 + self.first.bytes.len()
+    }
 }
 #[derive(Clone)]
 enum Node {
-    Empty,
-    Leaf(Entry),
-    Branch {
-        count: u64,
-        bit: u16,
-        prefix: Hash,
-        children: [Link; 2],
-    },
+    Leaf(Vec<Entry>),
+    Branch { height: u8, children: Vec<Link> },
 }
 impl Node {
     fn count(&self) -> u64 {
         match self {
-            Self::Empty => 0,
-            Self::Leaf(_) => 1,
-            Self::Branch { count, .. } => *count,
+            Self::Leaf(entries) => entries.len() as u64,
+            Self::Branch { children, .. } => children.iter().map(|c| c.count).sum(),
         }
+    }
+    fn height(&self) -> u8 {
+        match self {
+            Self::Leaf(_) => 0,
+            Self::Branch { height, .. } => *height,
+        }
+    }
+    fn first(&self) -> Option<(u8, &[u8])> {
+        match self {
+            Self::Leaf(entries) => entries.first().map(Entry::identity),
+            Self::Branch { children, .. } => children.first().map(|c| c.first.identity()),
+        }
+    }
+    fn last(&self) -> Option<(u8, &[u8])> {
+        match self {
+            Self::Leaf(entries) => entries.last().map(Entry::identity),
+            Self::Branch { children, .. } => children.last().map(|c| c.first.identity()),
+        }
+    }
+    fn body_len(&self) -> usize {
+        BODY_HEADER
+            + match self {
+                Self::Leaf(entries) => entries.iter().map(Entry::size).sum::<usize>(),
+                Self::Branch { children, .. } => children.iter().map(Link::size).sum(),
+            }
+    }
+    fn item_count(&self) -> usize {
+        match self {
+            Self::Leaf(entries) => entries.len(),
+            Self::Branch { children, .. } => children.len(),
+        }
+    }
+    fn pack(self) -> Vec<Self> {
+        match self {
+            Self::Leaf(entries) => pack(entries, Entry::size)
+                .into_iter()
+                .map(Self::Leaf)
+                .collect(),
+            Self::Branch { height, children } => pack(children, Link::size)
+                .into_iter()
+                .map(|children| Self::Branch { height, children })
+                .collect(),
+        }
+    }
+    fn append(&mut self, other: Self) -> Result<()> {
+        match (self, other) {
+            (Self::Leaf(left), Self::Leaf(mut right)) => left.append(&mut right),
+            (
+                Self::Branch { height, children },
+                Self::Branch {
+                    height: other_height,
+                    children: mut other,
+                },
+            ) if *height == other_height => children.append(&mut other),
+            _ => return Err(Error::CorruptRecord),
+        }
+        Ok(())
     }
 }
 
-/// Only completed node pairs appear in `created`. On any error, the caller must
-/// retain/clean the entire preparation range, including a possible partial pair.
-/// No retired pair may be erased before mirrored publication is synchronized.
+/// An error can leave a partial pair. Track the entire preparation range, not
+/// just `created`. `retired` also includes superseded unpublished nodes. Erasure
+/// requires a successfully synchronized mirrored publication, never just a root.
 pub(crate) struct Change {
     pub root: RootRef,
     pub created: Vec<RootRef>,
@@ -81,6 +158,12 @@ impl Change {
     }
 }
 
+pub(crate) struct RecoveryReport {
+    pub recovered: u64,
+    pub unavailable: u64,
+    pub damaged_pages: Vec<RootRef>,
+}
+
 pub(crate) struct Index {
     archive: LockboxId,
     mode: FormatMode,
@@ -89,33 +172,21 @@ pub(crate) struct Index {
 impl Index {
     pub(crate) fn new(archive: LockboxId, mode: FormatMode, key: Option<&[u8]>) -> Result<Self> {
         FormatMode::parse(mode.0)?;
-        if mode.plaintext() != key.is_none() || key.is_some_and(|key| key.len() != 32) {
+        if mode.plaintext() != key.is_none() || key.is_some_and(|k| k.len() != 32) {
             return Err(Error::InvalidKey);
         }
         let key = key.map(|key| {
             let mut derived = Zeroizing::new([0; 32]);
             hkdf::Hkdf::<Sha256>::new(Some(archive.as_bytes()), key)
-                .expand(b"revault-candidate-index-key-v1\0", &mut *derived)
+                .expand(b"revault-candidate-packed-index-key-v1\0", &mut *derived)
                 .expect("fixed SHA-256 key length");
             derived
         });
         Ok(Self { archive, mode, key })
     }
-
-    fn route(&self, namespace: u8, key: &[u8]) -> Hash {
-        let mut hash = Sha256::new();
-        hash.update(b"revault-candidate-index-identity-v1\0");
-        hash.update(self.archive.as_bytes());
-        hash.update([namespace]);
-        hash.update((key.len() as u32).to_le_bytes());
-        hash.update(key);
-        hash.finalize().into()
-    }
-
     pub(crate) fn empty(&self, storage: &mut impl Storage) -> Result<RootRef> {
-        Ok(self.write(storage, &Node::Empty)?.reference)
+        Ok(self.write(storage, &Node::Leaf(Vec::new()))?.reference)
     }
-
     pub(crate) fn get(
         &self,
         storage: &impl Storage,
@@ -125,33 +196,28 @@ impl Index {
         key: &[u8],
     ) -> Result<Option<Entry>> {
         validate_input(key, &[])?;
-        let route = self.route(namespace, key);
+        let identity = (namespace, key);
         let mut node = self.read(storage, root, sealed)?;
-        let mut minimum_bit = 0;
+        let mut upper: Option<Key> = None;
         loop {
             match node {
-                Node::Empty => return Ok(None),
-                Node::Leaf(entry) => {
-                    return Ok(
-                        (entry.namespace == namespace && entry.key.as_slice() == key)
-                            .then_some(entry),
-                    )
+                Node::Leaf(entries) => {
+                    return Ok(entries
+                        .binary_search_by(|e| e.identity().cmp(&identity))
+                        .ok()
+                        .map(|i| entries[i].clone()))
                 }
-                Node::Branch {
-                    bit,
-                    prefix,
-                    children,
-                    ..
-                } => {
-                    if bit < minimum_bit {
-                        return Err(Error::CorruptRecord);
-                    }
-                    if prefix_of(route, bit) != prefix {
+                Node::Branch { height, children } => {
+                    let position = children.partition_point(|c| c.first.identity() <= identity);
+                    if position == 0 {
                         return Ok(None);
                     }
-                    let side = bit_at(route, bit);
-                    node = self.child(storage, children[side], sealed, prefix, bit, side)?;
-                    minimum_bit = bit + 1;
+                    let position = position - 1;
+                    if let Some(next) = children.get(position + 1) {
+                        upper = Some(next.first.clone());
+                    }
+                    node =
+                        self.child(storage, &children[position], height, sealed, upper.as_ref())?;
                 }
             }
         }
@@ -165,98 +231,8 @@ impl Index {
         entry: Entry,
     ) -> Result<Change> {
         validate_input(&entry.key, &entry.value)?;
-        let route = self.route(entry.namespace, &entry.key);
-        let node = self.read(storage, root, sealed)?;
-        let mut change = Change::new(root);
-        let link = self.insert(
-            storage,
-            Link {
-                reference: root,
-                count: node.count(),
-            },
-            node,
-            sealed,
-            &entry,
-            route,
-            &mut change,
-        )?;
-        change.root = link.reference;
-        Ok(change)
+        self.mutate(storage, root, sealed, entry.identity(), Some(&entry))
     }
-
-    #[allow(clippy::too_many_arguments)]
-    fn insert(
-        &self,
-        storage: &mut impl Storage,
-        old: Link,
-        node: Node,
-        sealed: u64,
-        entry: &Entry,
-        route: Hash,
-        change: &mut Change,
-    ) -> Result<Link> {
-        let updated = match node {
-            Node::Empty => Node::Leaf(entry.clone()),
-            Node::Leaf(existing) => {
-                if existing.namespace == entry.namespace && existing.key == entry.key {
-                    if existing.value == entry.value {
-                        return Ok(old);
-                    }
-                    Node::Leaf(entry.clone())
-                } else {
-                    let other = self.route(existing.namespace, &existing.key);
-                    let bit = first_difference(route, other).ok_or(Error::CorruptRecord)?;
-                    return self.split(storage, old, entry, route, bit, change);
-                }
-            }
-            Node::Branch {
-                bit,
-                prefix,
-                mut children,
-                ..
-            } => {
-                if prefix_of(route, bit) != prefix {
-                    let split = first_difference(route, prefix).ok_or(Error::CorruptRecord)?;
-                    return self.split(storage, old, entry, route, split, change);
-                }
-                let side = bit_at(route, bit);
-                let child = self.child(storage, children[side], sealed, prefix, bit, side)?;
-                let next =
-                    self.insert(storage, children[side], child, sealed, entry, route, change)?;
-                if next.reference == children[side].reference {
-                    return Ok(old);
-                }
-                children[side] = next;
-                branch(bit, prefix, children)?
-            }
-        };
-        let next = self.write_tracked(storage, &updated, change)?;
-        change.retired.push(old.reference);
-        Ok(next)
-    }
-
-    fn split(
-        &self,
-        storage: &mut impl Storage,
-        old: Link,
-        entry: &Entry,
-        route: Hash,
-        bit: u16,
-        change: &mut Change,
-    ) -> Result<Link> {
-        if old.count >= MAX_ENTRIES {
-            return Err(Error::SecurityLimitExceeded("index entry limit".into()));
-        }
-        let leaf = self.write_tracked(storage, &Node::Leaf(entry.clone()), change)?;
-        let mut children = [old; 2];
-        children[bit_at(route, bit)] = leaf;
-        self.write_tracked(
-            storage,
-            &branch(bit, prefix_of(route, bit), children)?,
-            change,
-        )
-    }
-
     pub(crate) fn remove(
         &self,
         storage: &mut impl Storage,
@@ -266,171 +242,419 @@ impl Index {
         key: &[u8],
     ) -> Result<Change> {
         validate_input(key, &[])?;
-        let node = self.read(storage, root, sealed)?;
-        let mut change = Change::new(root);
-        let next = self.delete(
-            storage,
-            Link {
-                reference: root,
-                count: node.count(),
-            },
-            node,
-            sealed,
-            namespace,
-            key,
-            self.route(namespace, key),
-            &mut change,
-        )?;
-        change.root = match next {
-            Some(link) => link.reference,
-            None => {
-                self.write_tracked(storage, &Node::Empty, &mut change)?
-                    .reference
-            }
-        };
-        Ok(change)
+        self.mutate(storage, root, sealed, (namespace, key), None)
     }
-
-    #[allow(clippy::too_many_arguments)]
-    fn delete(
+    fn mutate(
         &self,
         storage: &mut impl Storage,
-        old: Link,
-        node: Node,
+        root: RootRef,
         sealed: u64,
-        namespace: u8,
-        key: &[u8],
-        route: Hash,
-        change: &mut Change,
-    ) -> Result<Option<Link>> {
-        match node {
-            Node::Empty => Ok(Some(old)),
-            Node::Leaf(entry) => {
-                if entry.namespace != namespace || entry.key.as_slice() != key {
-                    return Ok(Some(old));
-                }
-                change.retired.push(old.reference);
-                Ok(None)
+        identity: (u8, &[u8]),
+        replacement: Option<&Entry>,
+    ) -> Result<Change> {
+        let node = self.read(storage, root, sealed)?;
+        let mut change = Change::new(root);
+        let Some(mut nodes) = self.edit(
+            storage,
+            root,
+            node,
+            sealed,
+            None,
+            identity,
+            replacement,
+            &mut change,
+        )?
+        else {
+            return Ok(change);
+        };
+        if nodes.len() > 1 {
+            let height = nodes[0]
+                .height()
+                .checked_add(1)
+                .ok_or(Error::CorruptRecord)?;
+            if height > MAX_HEIGHT {
+                return Err(Error::SecurityLimitExceeded("index height limit".into()));
             }
-            Node::Branch {
-                bit,
-                prefix,
-                mut children,
-                ..
-            } => {
-                if prefix_of(route, bit) != prefix {
-                    return Ok(Some(old));
-                }
-                let side = bit_at(route, bit);
-                let child = self.child(storage, children[side], sealed, prefix, bit, side)?;
-                let next = self.delete(
-                    storage,
-                    children[side],
-                    child,
-                    sealed,
-                    namespace,
-                    key,
-                    route,
-                    change,
-                )?;
-                if next.is_some_and(|next| next.reference == children[side].reference) {
-                    return Ok(Some(old));
-                }
-                change.retired.push(old.reference);
-                if let Some(next) = next {
-                    children[side] = next;
-                    Ok(Some(self.write_tracked(
-                        storage,
-                        &branch(bit, prefix, children)?,
-                        change,
-                    )?))
-                } else {
-                    Ok(Some(children[1 - side]))
+            let children = nodes
+                .iter()
+                .map(|node| self.write_tracked(storage, node, &mut change))
+                .collect::<Result<Vec<_>>>()?;
+            nodes = vec![Node::Branch { height, children }];
+        }
+        let node = nodes.pop().unwrap_or(Node::Leaf(Vec::new()));
+        // Collapse unary roots without adding another unnecessary root page.
+        if let Node::Branch { ref children, .. } = node {
+            if children.len() == 1 {
+                let mut link = children[0].clone();
+                let mut parent_height = node.height();
+                loop {
+                    let child = self.child(storage, &link, parent_height, storage.len()?, None)?;
+                    if let Node::Branch { height, children } = child {
+                        if children.len() == 1 {
+                            change.retired.push(link.reference);
+                            link = children[0].clone();
+                            parent_height = height;
+                            continue;
+                        }
+                    }
+                    change.root = link.reference;
+                    return Ok(change);
                 }
             }
         }
+        change.root = self.write_tracked(storage, &node, &mut change)?.reference;
+        Ok(change)
+    }
+    #[allow(clippy::too_many_arguments)]
+    fn edit(
+        &self,
+        storage: &mut impl Storage,
+        old: RootRef,
+        node: Node,
+        sealed: u64,
+        upper: Option<&Key>,
+        identity: (u8, &[u8]),
+        replacement: Option<&Entry>,
+        change: &mut Change,
+    ) -> Result<Option<Vec<Node>>> {
+        let next = match node {
+            Node::Leaf(mut entries) => {
+                match (
+                    entries.binary_search_by(|e| e.identity().cmp(&identity)),
+                    replacement,
+                ) {
+                    (Ok(i), Some(entry)) => {
+                        if entries[i].value == entry.value {
+                            return Ok(None);
+                        }
+                        entries[i] = entry.clone();
+                    }
+                    (Err(i), Some(entry)) => entries.insert(i, entry.clone()),
+                    (Ok(i), None) => {
+                        entries.remove(i);
+                    }
+                    (Err(_), None) => return Ok(None),
+                }
+                Node::Leaf(entries)
+            }
+            Node::Branch {
+                height,
+                mut children,
+            } => {
+                let position = children
+                    .partition_point(|c| c.first.identity() <= identity)
+                    .saturating_sub(1);
+                let bound = children.get(position + 1).map(|c| &c.first).or(upper);
+                let child = self.child(storage, &children[position], height, sealed, bound)?;
+                let Some(mut changed) = self.edit(
+                    storage,
+                    children[position].reference,
+                    child,
+                    sealed,
+                    bound,
+                    identity,
+                    replacement,
+                    change,
+                )?
+                else {
+                    return Ok(None);
+                };
+                let mut start = position;
+                let mut end = position + 1;
+                // Merge/rebalance an underfilled child with one adjacent sibling.
+                // Newly produced pages remain in memory until this is decided.
+                if changed.len() == 1 && changed[0].body_len() < MAX_BODY / 3 && children.len() > 1
+                {
+                    let sibling = if position > 0 {
+                        position - 1
+                    } else {
+                        position + 1
+                    };
+                    let bound = children.get(sibling + 1).map(|c| &c.first).or(upper);
+                    let neighbor =
+                        self.child(storage, &children[sibling], height, sealed, bound)?;
+                    let combined = if sibling < position {
+                        let mut combined = neighbor;
+                        combined.append(changed.remove(0))?;
+                        combined
+                    } else {
+                        let mut combined = changed.remove(0);
+                        combined.append(neighbor)?;
+                        combined
+                    };
+                    changed = combined.pack();
+                    change.retired.push(children[sibling].reference);
+                    start = start.min(sibling);
+                    end = end.max(sibling + 1);
+                }
+                let links = changed
+                    .iter()
+                    .filter(|node| node.count() > 0)
+                    .map(|node| self.write_tracked(storage, node, change))
+                    .collect::<Result<Vec<_>>>()?;
+                children.splice(start..end, links);
+                Node::Branch { height, children }
+            }
+        };
+        if next.count() > MAX_ENTRIES {
+            return Err(Error::SecurityLimitExceeded("index entry limit".into()));
+        }
+        change.retired.push(old);
+        Ok(Some(if next.count() == 0 {
+            Vec::new()
+        } else {
+            next.pack()
+        }))
     }
 
-    /// Streaming traversal: no whole-index materialization or payload reads.
-    /// Order is by hashed identity, not pathname. Every visited child is checked.
+    /// One pass over strictly increasing (namespace, key) input. At most a leaf
+    /// and one incomplete branch per level are buffered, plus allocation receipts.
+    pub(crate) fn build_sorted(
+        &self,
+        storage: &mut impl Storage,
+        entries: impl IntoIterator<Item = Result<Entry>>,
+    ) -> Result<Change> {
+        let mut change = Change::new(RootRef::default());
+        let mut leaf = Vec::new();
+        let mut size = BODY_HEADER;
+        let mut frontier: Vec<Vec<Link>> = Vec::new();
+        let mut previous: Option<Key> = None;
+        let mut count = 0u64;
+        for entry in entries {
+            let entry = entry?;
+            validate_input(&entry.key, &entry.value)?;
+            if previous
+                .as_ref()
+                .is_some_and(|p| p.identity() >= entry.identity())
+            {
+                return Err(Error::InvalidInput(
+                    "bulk index input must have strictly increasing identities".into(),
+                ));
+            }
+            count += 1;
+            if count > MAX_ENTRIES {
+                return Err(Error::SecurityLimitExceeded("index entry limit".into()));
+            }
+            previous = Some(Key::new(entry.identity()));
+            if size + entry.size() > MAX_BODY || leaf.len() == MAX_ITEMS {
+                let link = self.write_tracked(
+                    storage,
+                    &Node::Leaf(std::mem::take(&mut leaf)),
+                    &mut change,
+                )?;
+                self.push_frontier(storage, &mut frontier, 0, link, &mut change)?;
+                size = BODY_HEADER;
+            }
+            size += entry.size();
+            leaf.push(entry);
+        }
+        if leaf.is_empty() && count == 0 {
+            change.root = self
+                .write_tracked(storage, &Node::Leaf(leaf), &mut change)?
+                .reference;
+            return Ok(change);
+        }
+        if !leaf.is_empty() {
+            let link = self.write_tracked(storage, &Node::Leaf(leaf), &mut change)?;
+            self.push_frontier(storage, &mut frontier, 0, link, &mut change)?;
+        }
+        for level in 0..=MAX_HEIGHT as usize {
+            if level >= frontier.len() {
+                return Err(Error::CorruptRecord);
+            }
+            let children = std::mem::take(&mut frontier[level]);
+            if children.is_empty() {
+                continue;
+            }
+            let higher_empty = frontier.iter().skip(level + 1).all(Vec::is_empty);
+            if children.len() == 1 && higher_empty {
+                change.root = children[0].reference;
+                return Ok(change);
+            }
+            let height = (level + 1) as u8;
+            if height > MAX_HEIGHT {
+                return Err(Error::CorruptRecord);
+            }
+            let link =
+                self.write_tracked(storage, &Node::Branch { height, children }, &mut change)?;
+            self.push_frontier(storage, &mut frontier, level + 1, link, &mut change)?;
+        }
+        Err(Error::CorruptRecord)
+    }
+    fn push_frontier(
+        &self,
+        storage: &mut impl Storage,
+        frontier: &mut Vec<Vec<Link>>,
+        level: usize,
+        link: Link,
+        change: &mut Change,
+    ) -> Result<()> {
+        if level > MAX_HEIGHT as usize {
+            return Err(Error::SecurityLimitExceeded("index height limit".into()));
+        }
+        if frontier.len() <= level {
+            frontier.resize_with(level + 1, Vec::new);
+        }
+        let size = BODY_HEADER + frontier[level].iter().map(Link::size).sum::<usize>();
+        if size + link.size() > MAX_BODY || frontier[level].len() == MAX_ITEMS {
+            let children = std::mem::take(&mut frontier[level]);
+            let parent = self.write_tracked(
+                storage,
+                &Node::Branch {
+                    height: (level + 1) as u8,
+                    children,
+                },
+                change,
+            )?;
+            self.push_frontier(storage, frontier, level + 1, parent, change)?;
+        }
+        frontier[level].push(link);
+        Ok(())
+    }
+
     pub(crate) fn visit(
         &self,
         storage: &impl Storage,
         root: RootRef,
         sealed: u64,
+        visitor: impl FnMut(Entry) -> Result<()>,
+    ) -> Result<()> {
+        self.visit_range(storage, root, sealed, None, None, visitor)
+    }
+    /// Ordered half-open range; bounds refer to (namespace, key). Unrelated
+    /// subtrees are skipped, so directory/prefix queries need no second index.
+    pub(crate) fn visit_range(
+        &self,
+        storage: &impl Storage,
+        root: RootRef,
+        sealed: u64,
+        start: Option<(u8, &[u8])>,
+        end: Option<(u8, &[u8])>,
         mut visitor: impl FnMut(Entry) -> Result<()>,
     ) -> Result<()> {
-        let root = self.read(storage, root, sealed)?;
-        self.visit_node(storage, root, sealed, &mut visitor)
+        if start.zip(end).is_some_and(|(start, end)| start > end) {
+            return Err(Error::InvalidInput("inverted index range".into()));
+        }
+        let node = self.read(storage, root, sealed)?;
+        self.visit_node(storage, node, sealed, None, start, end, &mut visitor)
     }
+    #[allow(clippy::too_many_arguments)]
     fn visit_node(
         &self,
         storage: &impl Storage,
         node: Node,
         sealed: u64,
+        upper: Option<&Key>,
+        start: Option<(u8, &[u8])>,
+        end: Option<(u8, &[u8])>,
         visitor: &mut impl FnMut(Entry) -> Result<()>,
     ) -> Result<()> {
         match node {
-            Node::Empty => Ok(()),
-            Node::Leaf(entry) => visitor(entry),
-            Node::Branch {
-                bit,
-                prefix,
-                children,
-                ..
-            } => {
-                for (side, child) in children.into_iter().enumerate() {
-                    self.visit_node(
-                        storage,
-                        self.child(storage, child, sealed, prefix, bit, side)?,
-                        sealed,
-                        visitor,
-                    )?;
+            Node::Leaf(entries) => {
+                for entry in entries {
+                    if start.is_none_or(|s| entry.identity() >= s)
+                        && end.is_none_or(|e| entry.identity() < e)
+                    {
+                        visitor(entry)?;
+                    }
                 }
-                Ok(())
+            }
+            Node::Branch { height, children } => {
+                for (position, link) in children.iter().enumerate() {
+                    let bound = children.get(position + 1).map(|c| &c.first).or(upper);
+                    if end.is_some_and(|e| link.first.identity() >= e)
+                        || start.is_some_and(|s| bound.is_some_and(|b| b.identity() <= s))
+                    {
+                        continue;
+                    }
+                    let child = self.child(storage, link, height, sealed, bound)?;
+                    self.visit_node(storage, child, sealed, bound, start, end, visitor)?;
+                }
             }
         }
+        Ok(())
     }
-
+    /// Salvage membership from the selected root without requiring unrelated
+    /// pages to be readable. Missing authenticated subtrees are reported, never
+    /// replaced by an older tree. I/O, key and visitor errors remain fatal.
+    pub(crate) fn recover(
+        &self,
+        storage: &impl Storage,
+        root: RootRef,
+        sealed: u64,
+        mut visitor: impl FnMut(Entry) -> Result<()>,
+    ) -> Result<RecoveryReport> {
+        let node = self.read(storage, root, sealed)?;
+        let expected = node.count();
+        let mut report = RecoveryReport {
+            recovered: 0,
+            unavailable: 0,
+            damaged_pages: Vec::new(),
+        };
+        self.recover_node(storage, node, sealed, None, &mut visitor, &mut report)?;
+        if report.recovered + report.unavailable != expected {
+            return Err(Error::CorruptRecord);
+        }
+        Ok(report)
+    }
+    fn recover_node(
+        &self,
+        storage: &impl Storage,
+        node: Node,
+        sealed: u64,
+        upper: Option<&Key>,
+        visitor: &mut impl FnMut(Entry) -> Result<()>,
+        report: &mut RecoveryReport,
+    ) -> Result<()> {
+        match node {
+            Node::Leaf(entries) => {
+                for entry in entries {
+                    visitor(entry)?;
+                    report.recovered += 1;
+                }
+            }
+            Node::Branch { height, children } => {
+                for (position, link) in children.iter().enumerate() {
+                    let bound = children.get(position + 1).map(|c| &c.first).or(upper);
+                    match self.child(storage, link, height, sealed, bound) {
+                        Ok(child) => {
+                            self.recover_node(storage, child, sealed, bound, visitor, report)?
+                        }
+                        Err(Error::CorruptRecord | Error::CorruptHeader | Error::Truncated) => {
+                            report.unavailable += link.count;
+                            report.damaged_pages.push(link.reference);
+                        }
+                        Err(error) => return Err(error),
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
     fn child(
         &self,
         storage: &impl Storage,
-        link: Link,
+        link: &Link,
+        height: u8,
         sealed: u64,
-        prefix: Hash,
-        bit: u16,
-        side: usize,
+        upper: Option<&Key>,
     ) -> Result<Node> {
         let node = self.read(storage, link.reference, sealed)?;
-        if node.count() != link.count {
-            return Err(Error::CorruptRecord);
-        }
-        let route = match &node {
-            Node::Empty => return Err(Error::CorruptRecord),
-            Node::Leaf(entry) => self.route(entry.namespace, &entry.key),
-            Node::Branch {
-                bit: next_bit,
-                prefix,
-                ..
-            } => {
-                if *next_bit <= bit {
-                    return Err(Error::CorruptRecord);
-                }
-                *prefix
-            }
-        };
-        if prefix_of(route, bit) != prefix || bit_at(route, bit) != side {
+        if node.height() + 1 != height
+            || node.count() != link.count
+            || node.first() != Some(link.first.identity())
+            || node
+                .last()
+                .is_some_and(|last| upper.is_some_and(|upper| last >= upper.identity()))
+        {
             return Err(Error::CorruptRecord);
         }
         Ok(node)
     }
-
     fn read(&self, storage: &impl Storage, reference: RootRef, sealed: u64) -> Result<Node> {
         validate_ref(reference, sealed)?;
-        let bytes = Zeroizing::new(reference.read_verified(storage)?);
-        self.decode(&bytes, sealed)
+        self.decode(&Zeroizing::new(reference.read_verified(storage)?), sealed)
     }
-
     fn decode(&self, bytes: &[u8], sealed: u64) -> Result<Node> {
         if bytes.len() < HEADER
             || bytes.len() > MAX_NODE
@@ -458,90 +682,74 @@ impl Index {
             Zeroizing::new(bytes[HEADER..].to_vec())
         };
         let mut cursor = Cursor(&body);
-        let kind = cursor.take(1)?[0];
+        let height = cursor.take(1)?[0];
         let count = cursor.u64()?;
-        let node = match kind {
-            0 if count == 0 => Node::Empty,
-            1 if count == 1 => {
+        let items = cursor.u16()? as usize;
+        if height > MAX_HEIGHT || count > MAX_ENTRIES || items > MAX_ITEMS {
+            return Err(Error::CorruptRecord);
+        }
+        let node = if height == 0 {
+            let mut entries = Vec::with_capacity(items);
+            for _ in 0..items {
                 let namespace = cursor.take(1)?[0];
                 let key_len = cursor.u16()? as usize;
                 let value_len = cursor.u32()? as usize;
                 if key_len > MAX_KEY || value_len > MAX_VALUE {
                     return Err(Error::CorruptRecord);
                 }
-                Node::Leaf(Entry::new(
+                entries.push(Entry::new(
                     namespace,
                     cursor.take(key_len)?,
                     cursor.take(value_len)?,
-                )?)
+                )?);
             }
-            2 => {
-                let bit = cursor.u16()?;
-                let prefix: Hash = cursor.take(32)?.try_into().unwrap();
-                if bit >= 256 || prefix_of(prefix, bit) != prefix {
-                    return Err(Error::CorruptRecord);
-                }
-                let children = [cursor.link(sealed)?, cursor.link(sealed)?];
-                let node = branch(bit, prefix, children)?;
-                if count != node.count() {
-                    return Err(Error::CorruptRecord);
-                }
-                node
-            }
-            _ => return Err(Error::CorruptRecord),
-        };
-        if if self.mode.unpadded() {
-            !cursor.0.is_empty()
+            Node::Leaf(entries)
         } else {
-            cursor.0.iter().any(|byte| *byte != 0)
-        } {
+            let mut children = Vec::with_capacity(items);
+            for _ in 0..items {
+                children.push(cursor.link(sealed)?);
+            }
+            Node::Branch { height, children }
+        };
+        validate_node(&node, sealed)?;
+        if count != node.count()
+            || if self.mode.unpadded() {
+                !cursor.0.is_empty()
+            } else {
+                cursor.0.iter().any(|b| *b != 0)
+            }
+        {
             return Err(Error::CorruptRecord);
         }
         Ok(node)
     }
-
     fn encode(&self, node: &Node) -> Result<Zeroizing<Vec<u8>>> {
-        let body_len = match node {
-            Node::Empty => 9,
-            Node::Leaf(entry) => {
-                validate_input(&entry.key, &entry.value)?;
-                16 + entry.key.len() + entry.value.len()
-            }
-            Node::Branch { .. } => 171,
-        };
-        // Reserve the exact size before copying any private bytes. Reallocation
-        // would otherwise leave an unwiped former plaintext allocation behind.
-        let stored_body_len = if self.mode.unpadded() {
-            body_len
+        validate_node(node, u64::MAX)?;
+        let stored_len = if self.mode.unpadded() {
+            node.body_len()
         } else {
             MAX_NODE - HEADER - if self.key.is_some() { 16 } else { 0 }
         };
-        let mut body = Zeroizing::new(Vec::with_capacity(stored_body_len));
-        body.push(match node {
-            Node::Empty => 0,
-            Node::Leaf(_) => 1,
-            Node::Branch { .. } => 2,
-        });
+        // Reserve before copying private bytes; never leave old allocations behind.
+        let mut body = Zeroizing::new(Vec::with_capacity(stored_len));
+        body.push(node.height());
         body.extend_from_slice(&node.count().to_le_bytes());
+        body.extend_from_slice(&(node.item_count() as u16).to_le_bytes());
         match node {
-            Node::Empty => {}
-            Node::Leaf(entry) => {
-                validate_input(&entry.key, &entry.value)?;
-                body.push(entry.namespace);
-                body.extend_from_slice(&(entry.key.len() as u16).to_le_bytes());
-                body.extend_from_slice(&(entry.value.len() as u32).to_le_bytes());
-                body.extend_from_slice(&entry.key);
-                body.extend_from_slice(&entry.value);
+            Node::Leaf(entries) => {
+                for entry in entries {
+                    body.push(entry.namespace);
+                    body.extend_from_slice(&(entry.key.len() as u16).to_le_bytes());
+                    body.extend_from_slice(&(entry.value.len() as u32).to_le_bytes());
+                    body.extend_from_slice(&entry.key);
+                    body.extend_from_slice(&entry.value);
+                }
             }
-            Node::Branch {
-                bit,
-                prefix,
-                children,
-                ..
-            } => {
-                body.extend_from_slice(&bit.to_le_bytes());
-                body.extend_from_slice(prefix);
+            Node::Branch { children, .. } => {
                 for link in children {
+                    body.push(link.first.namespace);
+                    body.extend_from_slice(&(link.first.bytes.len() as u16).to_le_bytes());
+                    body.extend_from_slice(&link.first.bytes);
                     body.extend_from_slice(&link.reference.primary.to_le_bytes());
                     body.extend_from_slice(&link.reference.mirror.to_le_bytes());
                     body.extend_from_slice(&link.reference.len.to_le_bytes());
@@ -550,7 +758,7 @@ impl Index {
                 }
             }
         }
-        body.resize(stored_body_len, 0);
+        body.resize(stored_len, 0);
         let mut out = Zeroizing::new(Vec::with_capacity(HEADER + body.len() + 16));
         out.extend_from_slice(MAGIC);
         out.extend_from_slice(&1u16.to_le_bytes());
@@ -565,9 +773,6 @@ impl Index {
             out.extend_from_slice(&[0; 12]);
             out.extend_from_slice(&(body.len() as u32).to_le_bytes());
             out.extend_from_slice(&body);
-        }
-        if out.len() > MAX_NODE {
-            return Err(Error::CorruptRecord);
         }
         Ok(out)
     }
@@ -586,6 +791,7 @@ impl Index {
                 digest: strong_checksum(&bytes),
             },
             count: node.count(),
+            first: Key::new(node.first().unwrap_or((0, &[]))),
         })
     }
     fn write_tracked(
@@ -608,36 +814,53 @@ fn validate_input(key: &[u8], value: &[u8]) -> Result<()> {
     }
     Ok(())
 }
-fn branch(bit: u16, prefix: Hash, children: [Link; 2]) -> Result<Node> {
-    let count = children[0]
-        .count
-        .checked_add(children[1].count)
-        .ok_or(Error::CorruptRecord)?;
-    if bit >= 256
-        || prefix_of(prefix, bit) != prefix
-        || children.iter().any(|c| c.count == 0)
-        || count > MAX_ENTRIES
+fn validate_node(node: &Node, sealed: u64) -> Result<()> {
+    if node.height() > MAX_HEIGHT
+        || node.item_count() > MAX_ITEMS
+        || node.body_len() > MAX_BODY
+        || node.count() > MAX_ENTRIES
     {
         return Err(Error::CorruptRecord);
     }
-    // Separate children cannot alias any physical bytes, including mirror copies.
-    let mut ranges = Vec::with_capacity(4);
-    for child in children {
-        validate_ref(child.reference, u64::MAX)?;
-        for offset in [child.reference.primary, child.reference.mirror] {
-            ranges.push((offset, offset + child.reference.len));
+    match node {
+        Node::Leaf(entries) => {
+            for entry in entries {
+                validate_input(&entry.key, &entry.value)?;
+            }
+            if entries
+                .windows(2)
+                .any(|w| w[0].identity() >= w[1].identity())
+            {
+                return Err(Error::CorruptRecord);
+            }
+        }
+        Node::Branch { height, children } => {
+            if *height == 0
+                || children.is_empty()
+                || children
+                    .windows(2)
+                    .any(|w| w[0].first.identity() >= w[1].first.identity())
+            {
+                return Err(Error::CorruptRecord);
+            }
+            let mut ranges = Vec::with_capacity(2 * children.len());
+            for child in children {
+                validate_input(&child.first.bytes, &[])?;
+                validate_ref(child.reference, sealed)?;
+                if child.count == 0 || child.count > MAX_ENTRIES {
+                    return Err(Error::CorruptRecord);
+                }
+                for offset in [child.reference.primary, child.reference.mirror] {
+                    ranges.push((offset, offset + child.reference.len));
+                }
+            }
+            ranges.sort_unstable();
+            if ranges.windows(2).any(|w| w[0].1 > w[1].0) {
+                return Err(Error::CorruptRecord);
+            }
         }
     }
-    ranges.sort_unstable();
-    if ranges.windows(2).any(|pair| pair[0].1 > pair[1].0) {
-        return Err(Error::CorruptRecord);
-    }
-    Ok(Node::Branch {
-        count,
-        bit,
-        prefix,
-        children,
-    })
+    Ok(())
 }
 fn validate_ref(reference: RootRef, sealed: u64) -> Result<()> {
     if reference.len < HEADER as u64 || reference.len > MAX_NODE as u64 {
@@ -657,26 +880,50 @@ fn validate_ref(reference: RootRef, sealed: u64) -> Result<()> {
     }
     Ok(())
 }
-fn bit_at(hash: Hash, bit: u16) -> usize {
-    ((hash[bit as usize / 8] >> (7 - bit % 8)) & 1) as usize
-}
-fn prefix_of(mut hash: Hash, bits: u16) -> Hash {
-    let byte = bits as usize / 8;
-    if byte < 32 {
-        hash[byte] &= if bits % 8 == 0 {
-            0
-        } else {
-            0xff << (8 - bits % 8)
-        };
-        hash[byte + 1..].fill(0);
+/// Greedy packing followed by byte-balanced redistribution between adjacent pages.
+/// Individual records may be large enough to prevent half-full pages; keep each
+/// whole record and preserve hard byte/item bounds instead of assuming equal sizes.
+fn pack<T>(items: Vec<T>, size: impl Fn(&T) -> usize) -> Vec<Vec<T>> {
+    let mut groups = Vec::new();
+    let mut current = Vec::new();
+    let mut bytes = BODY_HEADER;
+    for item in items {
+        if bytes + size(&item) > MAX_BODY || current.len() == MAX_ITEMS {
+            groups.push(std::mem::take(&mut current));
+            bytes = BODY_HEADER;
+        }
+        bytes += size(&item);
+        current.push(item);
     }
-    hash
-}
-fn first_difference(a: Hash, b: Hash) -> Option<u16> {
-    a.into_iter()
-        .zip(b)
-        .enumerate()
-        .find_map(|(i, (a, b))| (a != b).then(|| i as u16 * 8 + (a ^ b).leading_zeros() as u16))
+    if !current.is_empty() {
+        groups.push(current);
+    }
+    for i in (1..groups.len()).rev() {
+        let mut together = std::mem::take(&mut groups[i - 1]);
+        together.append(&mut groups[i]);
+        let total = together.iter().map(&size).sum::<usize>();
+        let mut left = 0;
+        let mut best = None;
+        for cut in 1..together.len() {
+            left += size(&together[cut - 1]);
+            let right = total - left;
+            if cut <= MAX_ITEMS
+                && together.len() - cut <= MAX_ITEMS
+                && left + BODY_HEADER <= MAX_BODY
+                && right + BODY_HEADER <= MAX_BODY
+            {
+                let score = left.abs_diff(right);
+                if best.is_none_or(|(_, old_score)| score < old_score) {
+                    best = Some((cut, score));
+                }
+            }
+        }
+        let (cut, _) = best.expect("original adjacent groups satisfy page bounds");
+        let right = together.split_off(cut);
+        groups[i - 1] = together;
+        groups[i] = right;
+    }
+    groups
 }
 struct Cursor<'a>(&'a [u8]);
 impl<'a> Cursor<'a> {
@@ -698,6 +945,12 @@ impl<'a> Cursor<'a> {
         Ok(u64::from_le_bytes(self.take(8)?.try_into().unwrap()))
     }
     fn link(&mut self, sealed: u64) -> Result<Link> {
+        let namespace = self.take(1)?[0];
+        let key_len = self.u16()? as usize;
+        if key_len > MAX_KEY {
+            return Err(Error::CorruptRecord);
+        }
+        let first = Key::new((namespace, self.take(key_len)?));
         let reference = RootRef {
             primary: self.u64()?,
             mirror: self.u64()?,
@@ -709,7 +962,11 @@ impl<'a> Cursor<'a> {
         if count == 0 || count > MAX_ENTRIES {
             return Err(Error::CorruptRecord);
         }
-        Ok(Link { reference, count })
+        Ok(Link {
+            reference,
+            count,
+            first,
+        })
     }
 }
 

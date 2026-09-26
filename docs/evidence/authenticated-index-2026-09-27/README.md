@@ -1,5 +1,7 @@
 # Authenticated persistent index — 2026-09-27
 
+This historical observation is superseded by the [packed index comparison](../packed-index-2026-09-27/README.md). Its exact measured sources and rejected layout remain preserved here.
+
 Source base: `cbaf4c43`, with the implementation committed alongside this evidence.
 This is the next candidate-format layer, compiled only for tests. It connects the
 mirrored publication root to independently verifiable object descriptors. It does
