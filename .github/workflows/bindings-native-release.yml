@@ -98,7 +98,7 @@ jobs:
         shell: bash
         run: |
           value=$(cargo run --locked --quiet --manifest-path rust/Cargo.toml -p revault_tooling -- internal e2e matrix-json)
-          if [[ "$GITHUB_REF_NAME" == revault-dart-v* ]]; then
+          if [[ "$GITHUB_REF_NAME" == revault-dart-v* || "$RELEASE_TARGETS" == dart ]]; then
             value=$(jq -c \
               '{include: [.include[] | select(.group == "managed-script") | .languages = "dart"]}' \
               <<< "$value")
@@ -296,11 +296,11 @@ jobs:
           shared-key: bindings-linux-conformance
           cache-workspace-crates: true
       - name: Run exhaustive package E2E matrix
-        if: ${{ (github.event_name != 'workflow_dispatch' && !startsWith(github.ref_name, 'revault-dart-v')) || (github.event_name == 'workflow_dispatch' && !inputs.publish) }}
+        if: ${{ inputs.targets != 'dart' && ((github.event_name != 'workflow_dispatch' && !startsWith(github.ref_name, 'revault-dart-v')) || (github.event_name == 'workflow_dispatch' && !inputs.publish)) }}
         working-directory: rust
         run: cargo run --locked -p revault_tooling -- internal e2e matrix --jobs 4 --compose ../bindings/e2e/compose.yaml
       - name: Keep Dart-only release scoped to Dart package conformance
-        if: ${{ startsWith(github.ref_name, 'revault-dart-v') || (github.event_name == 'workflow_dispatch' && inputs.publish) }}
+        if: ${{ inputs.targets == 'dart' || startsWith(github.ref_name, 'revault-dart-v') || (github.event_name == 'workflow_dispatch' && inputs.publish) }}
         run: echo "Publication targets are exercised from their assembled packages on the selected native targets."
 
   windows-go-diagnostic:
