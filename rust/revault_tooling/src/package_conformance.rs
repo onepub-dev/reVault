@@ -919,6 +919,8 @@ fn prepare_swift(target: &str, packages: &Path, work: &Path, archive: &Path) -> 
         Command::new("swift")
             .args(["build", "-c", "release", "--package-path"])
             .arg(&package)
+            .arg("-Xlinker")
+            .arg(format!("-L{}", install.prefix.join("lib").display()))
             .env("LIBRARY_PATH", install.prefix.join("lib")),
     )?;
     let output = Command::new("swift")
