@@ -571,3 +571,15 @@ both A and B with the correction for further performance comparisons.
 Next: run the 64/256 KiB file workload sweep, including CPU/RSS and the default
 padding cost; implement shared small-file packing and complete mutation/public
 semantics before treating C as eligible for architecture selection.
+
+
+### File-only comparison checkpoint (2026-09-27)
+
+The [first A/B/C file comparison](evidence/candidate-file-comparison-2026-09-27/README.md)
+is complete for its declared six-case batch. All controls use the corrected
+encoder. C is not selected: read targets and small-file space use fail, despite
+bounded GB streaming memory. Next replace repeated per-extent index lookup with
+an authenticated ordered traversal, test its bounded reads and error behaviour,
+and compare against the frozen C binary in a new declared batch. Then address
+payload packing and public record/access integration. Do not interpret component
+or GB resource wins as closing P2, A3/A4 or release qualification.

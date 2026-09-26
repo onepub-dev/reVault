@@ -1,0 +1,92 @@
+{
+  "source_revision": "ab4e2bc6",
+  "purpose": "file-only architecture screening; no final gates or selection",
+  "scope": "warm OS, fresh child/handle, single CPU 2; corrected encoder for all controls",
+  "limits": "C omits public key bootstrap, access and non-file records; small-file packing absent; GB one measured pair is descriptive only",
+  "cases": [
+    {
+      "name": "compressed-c64-a",
+      "unit": 65536,
+      "control": "a",
+      "files": 1,
+      "bytes": 8388608,
+      "corpus": "pattern",
+      "codec": "compressed",
+      "samples": 30,
+      "access": "stream",
+      "mode": "plain",
+      "padding": "default",
+      "passes": 1
+    },
+    {
+      "name": "compressed-c256-a",
+      "unit": 262144,
+      "control": "a",
+      "files": 1,
+      "bytes": 8388608,
+      "corpus": "pattern",
+      "codec": "compressed",
+      "samples": 30,
+      "access": "stream",
+      "mode": "plain",
+      "padding": "default",
+      "passes": 1
+    },
+    {
+      "name": "compressed-c256-b",
+      "unit": 262144,
+      "control": "b",
+      "files": 1,
+      "bytes": 8388608,
+      "corpus": "pattern",
+      "codec": "compressed",
+      "samples": 30,
+      "access": "stream",
+      "mode": "plain",
+      "padding": "default",
+      "passes": 1
+    },
+    {
+      "name": "raw-c64-a",
+      "unit": 65536,
+      "control": "a",
+      "files": 1,
+      "bytes": 8388608,
+      "corpus": "random",
+      "codec": "raw",
+      "samples": 30,
+      "access": "stream",
+      "mode": "plain",
+      "padding": "default",
+      "passes": 1
+    },
+    {
+      "name": "small-c256-a",
+      "unit": 262144,
+      "control": "a",
+      "files": 512,
+      "bytes": 4096,
+      "corpus": "mixed",
+      "codec": "compressed",
+      "samples": 30,
+      "access": "stream",
+      "mode": "plain",
+      "padding": "default",
+      "passes": 1
+    },
+    {
+      "name": "gb-create-c256-a",
+      "unit": 262144,
+      "control": "a",
+      "files": 1,
+      "bytes": 1073741824,
+      "corpus": "random",
+      "codec": "raw",
+      "samples": 1,
+      "access": "create",
+      "mode": "plain",
+      "padding": "default",
+      "passes": 1
+    }
+  ]
+}

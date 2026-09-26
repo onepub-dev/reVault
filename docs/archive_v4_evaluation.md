@@ -16,7 +16,7 @@ Historical microbenchmarks remain evidence about their own revisions.
 | --- | --- | --- |
 | A | Current default data pages plus v4 transactions | Baseline; default library suite passes. Release migration matrix fails |
 | B | Same source with `native-block-layout` | Experimental; two reproducible recovery failures. Not eligible for activation |
-| C | Authenticated index, publication and allocator prototype | Ownership/reuse/aging and separated metadata repair pass; data codecs and public paths remain unintegrated. Must preserve A's full guarantees to compete |
+| C | Authenticated index, publication and allocator prototype | File-only data adapter passes correctness, but first comparison fails read/space targets; public paths remain unintegrated. Must preserve A's full guarantees to compete |
 
 Do not count a prototype lacking signatures, padding, wiping or crash recovery as
 a faster implementation of the same contract. A cost-only prototype may reject a
@@ -159,3 +159,12 @@ bounded candidate-C prototype after that contract. P3 requires all candidate
 results, not a preference for whichever branch contains the most code. Preserve
 independent recovery and ownership constraints even if no candidate meets speed
 budgets; revisit the specific trade-off explicitly.
+
+
+The [first file-only A/B/C comparison](evidence/candidate-file-comparison-2026-09-27/README.md)
+uses the corrected encoder across all candidates. C fails read and small-file
+space targets: 256 KiB compressed C is 9.64× ZIP / 2.02× A, and 512 small files
+read 92.9× slower than A. Its 1 GiB creation probe uses 14.2 MiB RSS versus A's
+190.9 MiB, but that single measured pair is descriptive only. Preserve both the
+resource improvement and failed cases. Next evaluate ordered extent traversal;
+payload packing and complete public semantics remain architecture blockers.
