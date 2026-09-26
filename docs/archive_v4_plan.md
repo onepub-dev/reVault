@@ -87,7 +87,7 @@ failure to establish the gate, not proof of that worst-case slowdown.
 | --- | --- | --- | --- |
 | P0 — preserve and reproduce | Exact baseline/evidence inventory and reproduced blockers | This plan | Complete: prototype preserved, blockers reproduced, deterministic append/reuse CLI abort coverage passes |
 | P1 — define contracts | Security model, evaluation contract and proposed design decisions | P0; drafting can begin immediately | Drafts written; mode assignment, budgets and decisions await review |
-| P2 — compare architectures | Same-workload results for three candidates | Frozen P1 contracts | Instrumentation and initial A/B CPU/RSS evidence exist; contract review, complete matrix and candidate C remain |
+| P2 — compare architectures | Same-workload results for three candidates | Frozen P1 contracts | Common CPU/RSS runner, initial A/B evidence and bounded A writer evidence exist; contract review, complete matrix and candidate C remain |
 | P3 — select and specify | Accepted decision records and complete v4 wire specification | P2 | Pending |
 | P4 — implement and harden | Selected implementation with green correctness and performance gates | P3 | Pending |
 | P5 — qualify release | Migration, compatibility, platform and documentation evidence | P4; fixture/tooling repairs can start earlier | Pending |
@@ -361,6 +361,29 @@ candidate C, signed-recovery implementation and release gates remain open.
 Next implementation work: resolve the independent authorization proof and evaluate
 bounded staging/access units with this runner. Preserve the measured regressions;
 do not resume encoder micro-tuning or claim a winner from the raw GB case alone.
+
+### Bounded writer checkpoint — 2026-09-26
+
+Candidate A now flushes newly allocated file pages under cache pressure using the
+existing durable preparation journal, then permits their eviction despite pinned
+metadata. It leaves publication and erasure ordering intact; no wire change.
+[Source, validation and measurements](evidence/writer-memory-2026-09-26/README.md).
+
+The new 1 GiB raw creation probe falls from 1,067.14 to 190.43 MiB peak RSS. Thirty
+paired 256 MiB raw creation samples show 17.7% less elapsed time and 17.1% less CPU;
+median RSS falls from 298.98 to 180.64 MiB. Thirty paired compressed 8 MiB reads
+show no material regression. These support one bounded-staging change, not a
+layout selection or complete A3/A4/A5 qualification.
+
+Validation: 358 default library tests pass; all eight public mirror CLI tests pass
+(one separate large-tree test ignored). Native tests retain exactly the two known
+recovery failures, with 364 passing. New pressure/rollback regressions cover all
+protection/codec modes and storage-operation fault injection. Targeted Clippy,
+cache and runner checks pass. Small-file staging and metadata memory remain open.
+
+Next: independent owner authorization/recovery, then the bounded candidate-C
+access-unit comparison. Preserve both original and bounded A results; do not
+restart parallel-encoder tuning from this local writer improvement.
 
 Update this plan and the evaluation scorecard at milestone boundaries. Every
 entry states what changed, which gate it affects, what was actually measured,

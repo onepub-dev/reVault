@@ -1674,6 +1674,22 @@ impl<State> Lockbox<State> {
         })?
     }
 
+    pub(crate) fn flush_file_pages_under_pressure(&mut self) -> Result<()> {
+        if !self.page_manager.borrow().file_pages_exceed_cache_limit() {
+            return Ok(());
+        }
+        // The same durable reservation used by streaming BulkImport protects
+        // append space and reused free extents before any payload reaches disk.
+        self.begin_preparation()?;
+        self.key.with_bytes(|key| {
+            self.page_manager.borrow_mut().flush_staged_file_pages(
+                &mut self.storage,
+                self.lockbox_id,
+                key,
+            )
+        })?
+    }
+
     pub(crate) fn has_dirty_pages(&self) -> bool {
         self.page_manager.borrow().has_dirty_pages()
     }

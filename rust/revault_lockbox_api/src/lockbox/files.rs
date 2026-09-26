@@ -2805,6 +2805,11 @@ impl<'a, State> FilePageWriter<'a, State> {
         } else {
             self.lockbox
                 .write_decoded_page_at(page_offset, self.lockbox.sequence, objects)?;
+            self.lockbox
+                .page_manager
+                .borrow_mut()
+                .mark_new_file_page(page_offset);
+            self.lockbox.flush_file_pages_under_pressure()?;
         }
         for pending in pending {
             for chunk_index in pending.context.chunk_indices {

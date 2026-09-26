@@ -48,6 +48,9 @@ pub(crate) struct PageCache {
     used_bytes: u64,
     pages: HashMap<u64, CachedPage, FastBuildHasher>,
     dirty_offsets: BTreeSet<u64>,
+    // Newly allocated file payload pages may be flushed before publication.
+    // Metadata and pending erasure must never be swept into this pressure path.
+    staged_file_offsets: BTreeSet<u64>,
     discard_after_flush: BTreeSet<u64>,
     zeroed_pages: HashMap<u64, u64, FastBuildHasher>,
     recent: VecDeque<u64>,
@@ -64,6 +67,7 @@ impl Clone for PageCache {
             used_bytes: self.pages.values().map(|page| page.weight).sum(),
             pages: self.pages.clone(),
             dirty_offsets: self.dirty_offsets.clone(),
+            staged_file_offsets: self.staged_file_offsets.clone(),
             discard_after_flush: self.discard_after_flush.clone(),
             zeroed_pages: self.zeroed_pages.clone(),
             recent: self.recent.clone(),
@@ -205,6 +209,7 @@ impl PageCache {
             used_bytes: 0,
             pages: HashMap::with_hasher(FastBuildHasher::default()),
             dirty_offsets: BTreeSet::new(),
+            staged_file_offsets: BTreeSet::new(),
             discard_after_flush: BTreeSet::new(),
             zeroed_pages: HashMap::with_hasher(FastBuildHasher::default()),
             recent: VecDeque::new(),
@@ -324,6 +329,7 @@ impl PageCache {
         page: DecodedPage,
         policy: PageWritePolicy,
     ) -> Result<()> {
+        self.staged_file_offsets.remove(&offset);
         self.zeroed_pages.remove(&offset);
         match policy {
             PageWritePolicy::RetainAfterFlush => {
@@ -360,6 +366,7 @@ impl PageCache {
         {
             return Err(Error::CorruptRecord);
         }
+        self.staged_file_offsets.remove(&offset);
         self.zeroed_pages.remove(&offset);
         self.evict_cached(offset);
         self.used_bytes = self.used_bytes.saturating_add(weight);
@@ -730,6 +737,36 @@ impl PageCache {
         self.flush_dirty_offsets(storage, lockbox_id, key, dirty_offsets)
     }
 
+    pub(crate) fn mark_new_file_page(&mut self, offset: u64) {
+        debug_assert!(self.dirty_offsets.contains(&offset));
+        self.staged_file_offsets.insert(offset);
+    }
+
+    pub(crate) fn file_pages_exceed_cache_limit(&self) -> bool {
+        self.used_bytes > self.limit_bytes && !self.staged_file_offsets.is_empty()
+    }
+
+    pub(crate) fn flush_staged_file_pages(
+        &mut self,
+        storage: &mut impl Storage,
+        lockbox_id: LockboxId,
+        key: &[u8],
+    ) -> Result<()> {
+        let offsets = self.staged_file_offsets.iter().copied().collect::<Vec<_>>();
+        self.flush_dirty_offsets(storage, lockbox_id, key, offsets.clone())?;
+        // Ordinary eviction stops at a dirty entry. Metadata may remain dirty
+        // until publication, so explicitly release these now-clean file pages
+        // rather than letting a pinned metadata page defeat the staging limit.
+        for offset in offsets {
+            if self.used_bytes <= self.limit_bytes {
+                break;
+            }
+            self.evict(offset);
+        }
+        self.trim_to_limit();
+        Ok(())
+    }
+
     fn flush_dirty_offsets(
         &mut self,
         storage: &mut impl Storage,
@@ -832,6 +869,7 @@ impl PageCache {
             }
             drop(encoded);
             self.dirty_offsets.remove(&offset);
+            self.staged_file_offsets.remove(&offset);
             if self.limit_bytes == 0 || self.discard_after_flush.remove(&offset) {
                 self.evict(offset);
             }
@@ -972,6 +1010,7 @@ impl PageCache {
         self.used_bytes = 0;
         self.pages.clear();
         self.dirty_offsets.clear();
+        self.staged_file_offsets.clear();
         self.discard_after_flush.clear();
         self.zeroed_pages.clear();
         self.recent.clear();
@@ -980,6 +1019,7 @@ impl PageCache {
     pub(crate) fn evict(&mut self, offset: u64) {
         self.evict_cached(offset);
         self.dirty_offsets.remove(&offset);
+        self.staged_file_offsets.remove(&offset);
         self.discard_after_flush.remove(&offset);
     }
 
@@ -1845,6 +1885,62 @@ mod tests {
             .flush_dirty_pages(&mut storage, lockbox_id, key)
             .unwrap();
         assert_eq!(cache.stats().entries, 1);
+    }
+
+    #[test]
+    fn pressure_flush_preserves_dirty_metadata_and_pending_erasure() {
+        let archive = LockboxId::from_bytes([9; 16]);
+        let key = b"pressure-test-key";
+        let size = 4096;
+        let mut storage = StorageBackend::memory(vec![71; 3 * size]);
+        let mut cache = PageCache::new(CacheLimit::Bytes(size as u64));
+        cache
+            .stage_decoded_page_with_policy(0, size, page(0), PageWritePolicy::RetainAfterFlush)
+            .unwrap();
+        cache
+            .stage_decoded_page_with_policy(
+                size as u64,
+                size,
+                page(size as u64),
+                PageWritePolicy::RetainAfterFlush,
+            )
+            .unwrap();
+        cache.mark_new_file_page(size as u64);
+        cache.zeroed_pages.insert((2 * size) as u64, size as u64);
+        assert!(cache.file_pages_exceed_cache_limit());
+        let mut snapshot = cache.clone();
+        snapshot
+            .flush_staged_file_pages(&mut storage, archive, key)
+            .unwrap();
+        assert_eq!(storage.read_at(0, size).unwrap(), vec![71; size]);
+        assert_eq!(
+            storage.read_at((2 * size) as u64, size).unwrap(),
+            vec![71; size]
+        );
+        assert_eq!(snapshot.stats().used_bytes, size as u64);
+        assert!(snapshot.dirty_offsets.contains(&0));
+        assert!(!snapshot.dirty_offsets.contains(&(size as u64)));
+        assert!(snapshot.zeroed_pages.contains_key(&((2 * size) as u64)));
+        assert!(!snapshot.file_pages_exceed_cache_limit());
+        assert!(snapshot
+            .read_page(
+                &storage,
+                size as u64,
+                archive,
+                PageSecurity::Normal,
+                PageReadKey::Normal(key),
+            )
+            .is_ok());
+        // Restaging an allocation as ordinary metadata revokes early-flush eligibility.
+        cache
+            .stage_decoded_page_with_policy(
+                size as u64,
+                size,
+                page(size as u64),
+                PageWritePolicy::RetainAfterFlush,
+            )
+            .unwrap();
+        assert!(!cache.file_pages_exceed_cache_limit());
     }
 
     fn page(page_id: u64) -> DecodedPage {

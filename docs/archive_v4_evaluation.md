@@ -120,8 +120,8 @@ including Vault containers. `0.4.x` remains format 3 and is isolated from this w
 | --- | --- | --- |
 | A1 | Default/native transaction tests pass; deterministic public CLI abort after physical writes passes for append and reuse in both layouts; full P4 matrix remains | Baseline established; qualification incomplete |
 | A2 | Two native recovery tests fail; signed recovery depends on whole snapshot validity | Failed |
-| A3/A4 | New 30-pair 8 MiB compressed read: A 4.757× ZIP, B 5.119× ZIP; CPU follows elapsed. Write/open/protected matrix still incomplete | A3 fails this case; A4 not established |
-| A5 | 1 GiB raw probe: default creation peaks at 1,066.91 MiB, native at 14.64 MiB; full aging/resource matrix remains | Default streaming-memory budget fails this probe |
+| A3/A4 | Initial 8 MiB compressed read: A 4.757× ZIP, B 5.119× ZIP. Bounded A passes 30-pair 256 MiB raw create nonregression (17.7% less elapsed, 17.1% less CPU); read comparison unchanged | A3 still fails; A4 passes one write case, full matrix incomplete |
+| A5 | Bounded file-page staging reduces default 1 GiB create peak from 1,067.14 to 190.43 MiB in the new paired probe; small-file/index/aging matrix remains | Measured large-file creation improved; full resource gate incomplete |
 | A6 | Historical reader routing repaired locally; snapshot owner coverage and missing v4/current Vault fixtures block full test | Failed |
 | A7 | Goals, plan, security/evaluation drafts and three proposed decisions exist; normative wire spec remains historical | In progress |
 | A8 | Independent #322 branch removes native Linux D-Bus build dependency; clean install, headless lifecycle and private logind tests pass | Linux fix verified; broader platform/store matrix incomplete |
@@ -133,6 +133,10 @@ retains exact commands, raw paired samples, hashes, measurement scope and the GB
 probe. It is initial evidence for the comparison, not a selection of candidate B
 or qualification of a release. Creation/read memory trade-offs now explicitly
 constrain the candidate-C and bounded-staging designs.
+
+The [bounded writer evidence](evidence/writer-memory-2026-09-26/README.md) retains
+its exact source patch, CPU/RSS samples and safety checks. Candidate A has changed;
+future architecture comparisons must identify whether they use original or bounded A.
 
 P1 closes only when the proposed mode assignment, budgets and decisions have
 named reviewers and are frozen. P2 begins with an instrumented common runner and

@@ -469,10 +469,7 @@ fn run(args: &[String]) {
     assert!((1..=1000).contains(&samples));
     let passes: usize = args[9].parse().unwrap();
     assert!((1..=1000).contains(&passes));
-    assert!(
-        args[8] != "create" || passes == 1,
-        "create requires one pass"
-    );
+    assert!(args[8] != "create" || passes == 1, "create requires one pass");
     let case = Case {
         files,
         bytes,
@@ -520,9 +517,7 @@ fn run(args: &[String]) {
         "inventory_sha256":hash_file(&root.join("inventory.json"))}),
     );
     for backend in ["zip", "lockbox"] {
-        if args[8] == "create" {
-            continue;
-        }
+        if args[8] == "create" { continue; }
         write_record(
             &mut evidence,
             &child(
@@ -582,14 +577,11 @@ fn run(args: &[String]) {
                 fs::create_dir(&trial).unwrap();
                 fs::copy(fixture.join("case.json"), trial.join("case.json")).unwrap();
                 std::os::unix::fs::symlink(
-                    fs::canonicalize(fixture.join("source")).unwrap(),
-                    trial.join("source"),
-                )
-                .unwrap();
-                let mut record = child(
-                    worker,
-                    &["create".into(), trial.display().to_string(), backend.into()],
-                );
+                    fs::canonicalize(fixture.join("source")).unwrap(), trial.join("source"),
+                ).unwrap();
+                let mut record = child(worker, &[
+                    "create".into(), trial.display().to_string(), backend.into(),
+                ]);
                 record["kind"] = json!("sample");
                 record["access"] = json!("create");
                 record["total_seconds"] = record["wall_seconds"].clone();
@@ -682,13 +674,7 @@ fn summarize(path: &Path) {
     let metrics: &[&str] = if environment["access"] == "create" {
         &["total_seconds", "peak_rss_kib"]
     } else {
-        &[
-            "total_seconds",
-            "open_seconds",
-            "read_seconds",
-            "first_byte_seconds",
-            "peak_rss_kib",
-        ]
+        &["total_seconds", "open_seconds", "read_seconds", "first_byte_seconds", "peak_rss_kib"]
     };
     for (candidate, baseline) in [("primary", "zip"), ("other", "zip"), ("other", "primary")] {
         let Some(values) = series.get(candidate) else {
