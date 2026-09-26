@@ -176,3 +176,12 @@ compressed units; the same-revision old/new comparison shows useful streaming
 improvements but unchanged small-file weakness. All modes retain authentication;
 signed plaintext open stays eager. Profiles require normalizing C's bulk memory
 wiping to the existing production abstraction before further layout interpretation.
+
+
+[Normalized bulk buffers](evidence/candidate-buffer-normalization-2026-09-27/README.md)
+remove C's avoidable generic-vector wiping cost using production's existing tested
+abstraction. Raw/compressed 8 MiB C/ZIP duration ratios are now 3.75/3.84, with all
+checks retained; A3 still fails and no new paired C/A A4 result is claimed. Next
+address shared-pack ownership and physical deletion, separately from control-space
+and metadata-access costs. Keep historical checkpoints as evidence, not current
+gate status or a reason to continue isolated buffer tuning.

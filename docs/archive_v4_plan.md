@@ -596,3 +596,14 @@ A already uses the tested full-capacity wide-store buffer. Reuse that abstractio
 verify unchanged safety and wire behavior, and run a bounded follow-up batch.
 Then resume payload packing, control-space costs and full record/access design;
 do not treat this buffer normalization as selecting a format.
+
+
+### Buffer normalization checkpoint (2026-09-27)
+
+The [bounded follow-up batch](evidence/candidate-buffer-normalization-2026-09-27/README.md)
+reuses the existing production secure buffer without changing wire bytes or safety
+checks. C now reads the designated 8 MiB raw/compressed cases in about 3.75/3.84×
+ZIP duration: still failed targets. Stop this tuning sequence and implement the
+shared-pack ownership/mutation experiment next, preserving whole-pack retirement,
+authenticated slice coverage and recovery. Fixed control-space overhead and public
+record/access integration remain separate blockers; no candidate is selected.
