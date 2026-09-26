@@ -551,3 +551,23 @@ run the complete A/B/C workload matrix. Retain batched update/reservation costs,
 raw-range and compressed-decode limits as measured design constraints. Do not
 activate C or substitute these component results for public eager verification,
 compaction, the two native recovery failures, migration or platform qualification.
+
+### File-extent integration checkpoint — 2026-09-27
+
+The [file adapter](evidence/candidate-file-extents-2026-09-27/README.md) now connects
+candidate ownership/index records to bounded raw/Zstd data extents and streaming
+file/range reads. Per-extent membership supports files exceeding the earlier
+512-extent record envelope; signed plaintext retains eager ordinary-open checking.
+This remains test-only and file-only, with small-file packing and public record/
+access integration still outstanding.
+
+Integration exposed an existing Zstd encoder defect: reversed raw Huffman-weight
+nibbles can silently change decoded content. Independent reference decoding proves
+the fault and the two-line correction. A temporary vendored published-source patch
+makes local builds reproducible. A corrected dependency release and isolated
+packaged-build verification are now explicit prerequisites for release. Rebuild
+both A and B with the correction for further performance comparisons.
+
+Next: run the 64/256 KiB file workload sweep, including CPU/RSS and the default
+padding cost; implement shared small-file packing and complete mutation/public
+semantics before treating C as eligible for architecture selection.

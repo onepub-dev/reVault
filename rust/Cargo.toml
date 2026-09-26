@@ -17,6 +17,7 @@ members = [
     "revault_tooling",
     "xtask",
 ]
+exclude = ["vendor/zstd-complete"]
 resolver = "2"
 
 # CLI integration tests repeatedly derive real password keys. Optimize external
@@ -28,3 +29,8 @@ opt-level = 3
 [profile.dist]
 inherits = "release"
 lto = "thin"
+
+# Temporary correctness patch: 0.2.0 reverses raw Huffman-weight nibbles and can
+# emit valid Zstd streams that decode to incorrect content. See vendor/PATCHES.md.
+[patch.crates-io]
+zstd-complete = { path = "vendor/zstd-complete" }

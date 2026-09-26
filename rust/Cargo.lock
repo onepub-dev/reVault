@@ -4226,8 +4226,6 @@ dependencies = [
 [[package]]
 name = "zstd-complete"
 version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1fbd3540d270b086caa6f53b83aa9d7e12f5ba870029da73b6950fd530610feb"
 dependencies = [
  "twox-hash",
 ]

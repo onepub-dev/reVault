@@ -44,3 +44,11 @@ pub(crate) mod preparation_journal;
 
 #[cfg(test)]
 pub(crate) mod allocation_map;
+
+// Candidate C data codec; only the test comparison harness uses this encoding.
+#[cfg(test)]
+pub(crate) mod data_extent;
+
+// File-only comparison adapter; full public record/access integration remains.
+#[cfg(test)]
+pub(crate) mod candidate_files;

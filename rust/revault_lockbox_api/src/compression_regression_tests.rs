@@ -181,3 +181,104 @@ impl Read for PatternReader {
         Ok(len)
     }
 }
+
+#[test]
+fn asymmetric_literal_weights_preserve_bytes_across_numeric_compression_levels() {
+    use crate::{Compression, ZstdLevel};
+    for level in [1, 3, 5, 9, 16, 22] {
+        for ordinal in 0..3usize {
+            let plain: Vec<u8> = (ordinal * 65536..(ordinal + 1) * 65536)
+                .map(|n| ((n / 71 + n / 251) % 19) as u8)
+                .collect();
+            let (algorithm, encoded) = crate::compression::encode_with_compression(
+                &plain,
+                Compression::Zstd {
+                    level: ZstdLevel::new(level).unwrap(),
+                },
+            );
+            assert_eq!(algorithm, crate::compression::COMPRESSION_ZSTD);
+            let decoded = crate::compression::decode_compression_frame(
+                algorithm,
+                &encoded,
+                plain.len() as u64,
+            )
+            .unwrap();
+            assert!(
+                decoded == plain,
+                "level={level},extent={ordinal}: encoder changed logical contents"
+            );
+        }
+    }
+}
+
+#[test]
+fn asymmetric_literal_files_survive_public_commit_and_independent_reopen() {
+    use crate::{
+        Compression, Encryption, LockboxCreateOptions, LockboxOpen, LockboxProtection,
+        OwnerSigningKeyPair, SecretVec, Signing, SizePadding, WorkerPolicy,
+    };
+    let owner = OwnerSigningKeyPair::generate().unwrap();
+    let key = [71; 32];
+    let inputs: Vec<Vec<u8>> = (0..3usize)
+        .map(|ordinal| {
+            (ordinal * 65536..(ordinal + 1) * 65536)
+                .map(|n| ((n / 71 + n / 251) % 19) as u8)
+                .collect()
+        })
+        .collect();
+    for encrypted in [false, true] {
+        for signed in [false, true] {
+            for padded in [false, true] {
+                let mut archive = Lockbox::create_in_memory_with_options(LockboxCreateOptions {
+                    compression: Compression::default(),
+                    size_padding: if padded {
+                        SizePadding::Default
+                    } else {
+                        SizePadding::None
+                    },
+                    ..LockboxCreateOptions::new(
+                        if encrypted {
+                            Encryption::Encrypted(LockboxProtection::ContentKey(
+                                SecretVec::try_from_slice(&key).unwrap(),
+                            ))
+                        } else {
+                            Encryption::None
+                        },
+                        if signed {
+                            Signing::Owner(&owner)
+                        } else {
+                            Signing::None
+                        },
+                    )
+                })
+                .unwrap();
+                archive.set_worker_policy(WorkerPolicy::Single);
+                for (ordinal, plain) in inputs.iter().enumerate() {
+                    archive
+                        .add_file_from_reader(
+                            &p(format!("/extent-{ordinal}")),
+                            std::io::Cursor::new(plain),
+                            false,
+                        )
+                        .unwrap();
+                }
+                archive.commit().unwrap();
+                let reopened = Lockbox::open_bytes(
+                    archive.to_bytes(),
+                    if encrypted {
+                        LockboxOpen::ContentKey(SecretVec::try_from_slice(&key).unwrap())
+                    } else {
+                        LockboxOpen::Unencrypted
+                    },
+                )
+                .unwrap();
+                for (ordinal, plain) in inputs.iter().enumerate() {
+                    assert!(
+                        reopened.get_file(&p(format!("/extent-{ordinal}"))).unwrap() == *plain,
+                        "encrypted={encrypted},signed={signed},padded={padded},extent={ordinal}"
+                    );
+                }
+            }
+        }
+    }
+}
