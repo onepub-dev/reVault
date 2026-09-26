@@ -1,3 +1,9 @@
+## 0.4.1
+
+- Update the native build-hook dependency to support its current release and
+  native-library architecture validation. Archive format remains 3.
+- Align the generated package-version metadata with the package manifest.
+
 ## 0.4.0
 
 - Bundle the format-3 native engine, compatible with archives produced by
