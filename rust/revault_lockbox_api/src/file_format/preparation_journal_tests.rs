@@ -529,7 +529,7 @@ fn large_interrupted_rollback_resumes_after_the_durable_cleanup_checkpoint() {
 // volatile until sync. A failed operation may leave a durable write prefix or
 // may have persisted all prior writes before reporting a failed sync.
 #[derive(Clone, Debug)]
-struct CrashStore(Arc<Mutex<CrashState>>);
+pub(crate) struct CrashStore(Arc<Mutex<CrashState>>);
 #[derive(Debug)]
 struct CrashState {
     volatile: Vec<u8>,
@@ -540,7 +540,12 @@ struct CrashState {
     persist_sync: bool,
 }
 impl CrashStore {
-    fn new(bytes: Vec<u8>, fail_at: Option<usize>, prefix: usize, persist_sync: bool) -> Self {
+    pub(crate) fn new(
+        bytes: Vec<u8>,
+        fail_at: Option<usize>,
+        prefix: usize,
+        persist_sync: bool,
+    ) -> Self {
         Self(Arc::new(Mutex::new(CrashState {
             volatile: bytes.clone(),
             durable: bytes,
@@ -550,10 +555,10 @@ impl CrashStore {
             persist_sync,
         })))
     }
-    fn durable(&self) -> Vec<u8> {
+    pub(crate) fn durable(&self) -> Vec<u8> {
         self.0.lock().unwrap().durable.clone()
     }
-    fn operations(&self) -> usize {
+    pub(crate) fn operations(&self) -> usize {
         self.0.lock().unwrap().operations
     }
 }
@@ -1145,16 +1150,14 @@ fn preparation_abort_and_commit_survive_process_death_at_every_mutation() {
             let _ = std::fs::remove_dir_all(&self.0);
         }
     }
-    let directory = Directory(
-        std::env::temp_dir().join(format!(
+    let directory = Directory(std::env::temp_dir().join(format!(
             "revault-preparation-death-{}-{}",
             std::process::id(),
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
                 .as_nanos()
-        )),
-    );
+        )));
     std::fs::create_dir(&directory.0).unwrap();
     let owner = OwnerSigningKeyPair::generate().unwrap();
     let mode = mode(true, true);

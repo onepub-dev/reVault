@@ -16,7 +16,7 @@ Historical microbenchmarks remain evidence about their own revisions.
 | --- | --- | --- |
 | A | Current default data pages plus v4 transactions | Baseline; default library suite passes. Release migration matrix fails |
 | B | Same source with `native-block-layout` | Experimental; two reproducible recovery failures. Not eligible for activation |
-| C | Bounded pack/extent prototype | Not implemented. Must preserve A's durability and all required protection modes to compete |
+| C | Authenticated index, publication and allocator prototype | Ownership/reuse/aging experiments pass; data codecs and public paths remain unintegrated. Must preserve A's full guarantees to compete |
 
 Do not count a prototype lacking signatures, padding, wiping or crash recovery as
 a faster implementation of the same contract. A cost-only prototype may reject a

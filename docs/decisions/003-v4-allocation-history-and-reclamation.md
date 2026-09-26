@@ -57,3 +57,21 @@ and compaction remain requirements before accepting this decision. Its 392 KiB
 of writes and 14 syncs for a failed 4 KiB operation must be evaluated with batching
 and the complete production control; the evidence does not justify weakening
 publication or erasure ordering.
+
+## Integrated ownership and aging — 2026-09-27
+
+The [allocation-accounting experiment](../evidence/allocation-accounting-2026-09-27/README.md)
+adds graph-derived ownership, best-fit reuse, old control-tree retirement and
+sorted bulk record replacement. It rejects maps that free live descendants before
+recovery performs erasure. The first append-only map policy was rejected after
+measured aging: approximately 94 MiB remained after 1,000 tiny padded operations.
+An explicitly owned reusable map region stabilized the same workload near 1.08 MiB.
+Every operation independently reopened and checked content, zeroed retired ranges
+and exact physical coverage.
+
+The control region's unused bytes must be zero, and its size bound includes both
+copies of all bulk-built pages. This avoids a recursive self-allocation guess and
+accounts for the map's own reserved capacity. The final allocator still needs
+batched reservations: long-run CPU increased about 61–63% versus the rejected
+append-map variant. These component resource observations do not qualify A4 or
+replace full public-record, codec, compaction and platform validation.

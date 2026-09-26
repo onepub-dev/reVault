@@ -1,0 +1,46 @@
+2026-09-27 local date; source base 8d62ebdf plus candidate allocation implementation.
+
+Pre-hook final checks:
+cargo test -p revault_lockbox_api --release --features native-block-layout,external-source --lib file_format:: -- --nocapture
+98 passed, 0 failed, 3 ignored manual resource probes, 328 filtered out.
+Includes 9 allocator tests; allocator matrices: 333 mutation failures and 2004
+power-loss cases. Existing index/publication/journal tests also run in this suite.
+
+cargo clippy -p revault_lockbox_api --all-targets --features native-block-layout,external-source -- -D warnings
+Passed. One statement-layout lint was fixed with a newline; no algorithm change.
+
+Aging: 10 fresh processes per design; 5600 operations total. Every cycle independently
+reopened, read/compared payload, checked absence and no-change behavior, audited
+physical ownership, and verified reclaimed bytes were zero. Both raw series and
+all totals retained. Not a paired statistical performance gate.
+
+The rejected append-map release suite passed 5 focused tests before measurement.
+The reusable-arena release suite passed 6 focused tests before measurement.
+Geometry, nonzero-slack, and pre-erasure graph-audit tests were then added and pass
+in the final 98-test suite. Exact measured source snapshots precede those additions.
+
+The forced-append test fixture initially chose a payload that fit padded free space.
+It now exceeds the complete base file length and therefore actually tests append.
+The original failed fixture was not used to claim successful append fault coverage.
+
+Documentation links/whitespace: 34 relative links passed.
+
+Toolchain: rustc 1.88.0 (6b00bc388 2025-06-23), cargo 1.88.0
+(873a06493 2025-05-10), x86_64-unknown-linux-gnu. Linux 7.0.0-31-generic.
+Measurements ran on CPU 2 without owned builds/tests concurrently.
+
+Scope: test-only candidate. Full production API suites, migration/bindings,
+CLI/platform qualification, payload codecs/padding and full A/B/C performance
+remain outstanding. Previously recorded native recovery failures are not fixed
+by these ownership tests.
+
+Post-hook checks:
+cargo test -p revault_lockbox_api --release --lib file_format:: -- --nocapture
+98 passed, 0 failed, 3 ignored manual probes, 317 filtered out (default layout).
+
+cargo clippy -p revault_lockbox_api --all-targets --features native-block-layout,external-source -- -D warnings
+Passed after formatting.
+
+The hook-formatted standalone runner compiled successfully. Evidence hashes were
+regenerated for the formatted runner; measured-run-series.rs.txt retains its exact
+pre-format source. Documentation links/whitespace: 34 passed again.

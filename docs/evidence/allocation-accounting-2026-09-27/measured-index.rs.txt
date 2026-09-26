@@ -412,45 +412,6 @@ impl Index {
         }))
     }
 
-    /// Bound bulk-build bytes when every key/value has the supplied fixed size.
-    /// Includes both copies and every branch, with the current padding policy.
-    pub(crate) fn fixed_record_size_bound(
-        &self,
-        count: u64,
-        key_len: usize,
-        value_len: usize,
-    ) -> Result<u64> {
-        if count > MAX_ENTRIES || key_len > MAX_KEY || value_len > MAX_VALUE {
-            return Err(Error::SecurityLimitExceeded("bulk size bound".into()));
-        }
-        let mut item_size = 7 + key_len + value_len;
-        let mut capacity = ((MAX_BODY - BODY_HEADER) / item_size).min(MAX_ITEMS) as u64;
-        if capacity == 0 {
-            return Err(Error::CorruptRecord);
-        }
-        let mut items = count;
-        let mut total = 0;
-        loop {
-            let pages = items.div_ceil(capacity).max(1);
-            let bytes = if self.mode.unpadded() {
-                pages * (HEADER + BODY_HEADER + if self.key.is_some() { 16 } else { 0 }) as u64
-                    + items * item_size as u64
-            } else {
-                pages * MAX_NODE as u64
-            };
-            total += 2 * bytes;
-            if pages == 1 {
-                return Ok(total);
-            }
-            items = pages;
-            item_size = 67 + key_len;
-            capacity = ((MAX_BODY - BODY_HEADER) / item_size).min(MAX_ITEMS) as u64;
-            if capacity < 2 {
-                return Err(Error::CorruptRecord);
-            }
-        }
-    }
-
     /// One pass over strictly increasing (namespace, key) input. At most a leaf
     /// and one incomplete branch per level are buffered, plus allocation receipts.
     pub(crate) fn build_sorted(
@@ -580,26 +541,12 @@ impl Index {
             return Err(Error::InvalidInput("inverted index range".into()));
         }
         let node = self.read(storage, root, sealed)?;
-        self.visit_node(
-            storage,
-            node,
-            sealed,
-            None,
-            start,
-            end,
-            &mut |event| match event {
-                Visit::Page(_) => Ok(()),
-                Visit::Entry(entry) => visitor(entry),
-            },
-        )
+        self.visit_node(storage, node, sealed, None, start, end, &mut |event| match event { Visit::Page(_) => Ok(()), Visit::Entry(entry) => visitor(entry) })
     }
     /// Enumerate authenticated records and every reachable page pair in one walk.
     /// The caller must discard partial results if any callback or child fails.
     pub(crate) fn visit_owned(
-        &self,
-        storage: &impl Storage,
-        root: RootRef,
-        sealed: u64,
+        &self, storage: &impl Storage, root: RootRef, sealed: u64,
         mut visitor: impl FnMut(Visit) -> Result<()>,
     ) -> Result<()> {
         let node = self.read(storage, root, sealed)?;

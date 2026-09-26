@@ -41,3 +41,6 @@ pub(crate) mod authenticated_index;
 
 #[cfg(test)]
 pub(crate) mod preparation_journal;
+
+#[cfg(test)]
+pub(crate) mod allocation_map;

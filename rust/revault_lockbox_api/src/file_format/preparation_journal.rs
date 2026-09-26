@@ -759,4 +759,4 @@ impl<'a> Cursor<'a> {
 
 #[cfg(test)]
 #[path = "preparation_journal_tests.rs"]
-mod tests;
+pub(super) mod tests;

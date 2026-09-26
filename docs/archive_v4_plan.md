@@ -498,3 +498,27 @@ data extents/public paths for the full A/B/C comparison. The journal alone does
 not prove complete archive ownership or lifecycle aging. Production recovery,
 CPU/read/write gates, migration, bindings and #322 platform qualification remain
 open; retain the compatibility contract and existing verification semantics.
+
+### Allocation-accounting checkpoint — 2026-09-27
+
+The [integrated allocator experiment](evidence/allocation-accounting-2026-09-27/README.md)
+derives complete byte ownership from the candidate record/index graph, including
+shared payload, both metadata copies, key indexes, discarded preparation writes
+and the allocation map itself. Recovery checks the full graph before erasure.
+Sorted bulk record replacement and exact no-change handling are implemented.
+This remains test-only; typed public records and data codecs are not integrated.
+
+Aging exposed an unsuitable append-only allocation-map policy: tiny padded
+workloads grew to about 94 MiB after 1,000 operations. Reusable, explicitly owned
+map regions stabilized those same cases at about 1.08 MiB after operation 29.
+All 5,600 before/after lifecycle operations independently reopened, verified content
+and accounted for every byte; completed retired ranges were zero. The revised
+runs stayed below 6 MiB RSS, but long-run operation CPU increased by about 61–63%.
+This is a space-reuse result, not an A4 pass; preserve the raw trade-off.
+
+Next: separate metadata/publication/journal mirror failure regions, integrate
+batched reservations and updates, and implement the 64/256 KiB data extent sweep.
+Use the complete candidate for A/B/C comparison before selection. Public codec,
+padding, access/record semantics, native recovery, compaction, migrations, bindings
+and headless platform qualification remain open. Do not substitute more encoder
+microbenchmarks for those architectural tasks.
