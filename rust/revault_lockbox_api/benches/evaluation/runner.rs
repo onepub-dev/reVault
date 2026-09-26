@@ -446,11 +446,11 @@ pub fn main() {
         }
         "run" => run(&args),
         "summarize" => { assert_eq!(args.len(),2); summarize(Path::new(&args[1])); }
-        _ => panic!("usage: archive_evaluation run NEW_ROOT FILES BYTES pattern|random|mixed raw|compressed plain|encrypted|signed|encrypted-signed SAMPLES stream|range|create PASSES default|none [OTHER_EXECUTABLE]"),
+        _ => panic!("usage: archive_evaluation run NEW_ROOT FILES BYTES pattern|random|mixed raw|compressed plain|encrypted|signed|encrypted-signed SAMPLES stream|range|create PASSES default|none [OTHER_EXECUTABLE [PRIMARY_EXECUTABLE]]"),
     }
 }
 fn run(args: &[String]) {
-    assert!((11..=12).contains(&args.len()), "see usage in main");
+    assert!((11..=13).contains(&args.len()), "see usage in main");
     let root = Path::new(&args[1]);
     let files: usize = args[2].parse().unwrap();
     let bytes: u64 = args[3].parse().unwrap();
@@ -483,6 +483,12 @@ fn run(args: &[String]) {
     };
     prepare(root, &case);
     let executable = std::env::current_exe().unwrap();
+    // An explicit primary protocol adapter lets two frozen test-only candidates
+    // share exactly the same pairing/order/verification protocol as A/B/ZIP.
+    let primary = args
+        .get(12)
+        .map(PathBuf::from)
+        .unwrap_or_else(|| executable.clone());
     let mut evidence = OpenOptions::new()
         .write(true)
         .create_new(true)
@@ -506,7 +512,9 @@ fn run(args: &[String]) {
     write_record(
         &mut evidence,
         &json!({"kind":"environment","case":case.json(),
-        "layout":layout(),"executable_sha256":hash_file(&executable),"cpu":model,
+        "layout":if args.len()==13 { "external-primary" } else { layout() },
+        "executable_sha256":hash_file(&executable),
+        "primary_executable_sha256":hash_file(&primary),"cpu":model,
         "kernel":fs::read_to_string("/proc/sys/kernel/osrelease").unwrap().trim(),
         "meminfo":fs::read_to_string("/proc/meminfo").unwrap(),
         "source_revision_at_run":String::from_utf8_lossy(&revision.stdout).trim(),
@@ -526,7 +534,11 @@ fn run(args: &[String]) {
         write_record(
             &mut evidence,
             &child(
-                &executable,
+                if backend == "zip" {
+                    &executable
+                } else {
+                    &primary
+                },
                 &["create".into(), args[1].clone(), backend.into()],
             ),
         );
@@ -562,7 +574,7 @@ fn run(args: &[String]) {
     for pair in 0..samples + 3 {
         let mut order = vec![
             (&executable, root, "zip", false),
-            (&executable, root, "lockbox", false),
+            (&primary, root, "lockbox", false),
         ];
         if let Some(other) = &other {
             order.push((other, other_root.as_path(), "lockbox", true));
@@ -617,7 +629,7 @@ fn run(args: &[String]) {
     println!(
         "{}",
         json!({"evidence":root.join("samples.jsonl"),"completed_pairs":samples,
-        "warmup_pairs":3,"case":case.json(),"layout":layout()})
+        "warmup_pairs":3,"case":case.json(),"layout":if args.len()==13 { "external-primary" } else { layout() }})
     );
 }
 

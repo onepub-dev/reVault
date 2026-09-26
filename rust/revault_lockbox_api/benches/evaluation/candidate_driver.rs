@@ -4,7 +4,13 @@ fn main() {
     let args: Vec<_> = std::env::args().skip(1).collect();
     assert!((args.len() == 3 && args[0] == "create") || (args.len() == 5 && args[0] == "sample"));
     assert_eq!(args[2], "lockbox");
-    let binary = std::env::var_os("REVAULT_CANDIDATE_TEST_BINARY").expect("set test executable");
+    // Compile a control adapter with an explicit frozen executable so old/new
+    // candidates can run in the same parent's alternating pairs. Otherwise use
+    // the normal runtime selection. The probe records its actual binary hash.
+    let binary = option_env!("REVAULT_CANDIDATE_FROZEN_TEST_BINARY")
+        .map(std::ffi::OsString::from)
+        .or_else(|| std::env::var_os("REVAULT_CANDIDATE_TEST_BINARY"))
+        .expect("set test executable");
     let mut command = Command::new(binary);
     command
         .args([

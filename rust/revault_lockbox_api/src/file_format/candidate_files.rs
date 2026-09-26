@@ -349,32 +349,45 @@ impl<S: Storage> Files<S> {
         if len == 0 {
             return Ok(());
         }
-        for ordinal in offset / (info.unit as u64)..=(end - 1) / (info.unit as u64) {
-            let entry = self
-                .index
-                .get(
+        let first = offset / info.unit as u64;
+        let after = (end - 1) / info.unit as u64 + 1;
+        let first_key = chunk_key(info.id, first);
+        let after_key = chunk_key(info.id, after);
+        let mut next = first;
+        // Traverse each selected metadata page once. Restarting a point lookup
+        // for every extent repeatedly authenticates/decodes the same page.
+        // No persistent cache or weakened membership check is introduced.
+        self.index.visit_range(
+            &self.storage,
+            self.anchor.index,
+            self.anchor.sealed_len,
+            Some((CHUNK, &first_key)),
+            Some((CHUNK, &after_key)),
+            |entry| {
+                if entry.namespace != CHUNK || entry.key.as_slice() != chunk_key(info.id, next) {
+                    return Err(Error::CorruptRecord);
+                }
+                let record = OwnedRecord::decode(&entry.value)?;
+                let descriptor = Descriptor::decode(&record.metadata)?;
+                info.validate_chunk(next, &descriptor)?;
+                if record.extents.len() != 1 {
+                    return Err(Error::CorruptRecord);
+                }
+                let decoded = self.codec.load(
                     &self.storage,
-                    self.anchor.index,
+                    record.extents[0],
                     self.anchor.sealed_len,
-                    CHUNK,
-                    &chunk_key(info.id, ordinal),
-                )?
-                .ok_or(Error::CorruptRecord)?;
-            let record = OwnedRecord::decode(&entry.value)?;
-            let descriptor = Descriptor::decode(&record.metadata)?;
-            info.validate_chunk(ordinal, &descriptor)?;
-            if record.extents.len() != 1 {
-                return Err(Error::CorruptRecord);
-            }
-            let decoded = self.codec.load(
-                &self.storage,
-                record.extents[0],
-                self.anchor.sealed_len,
-                &descriptor,
-            )?;
-            let start = offset.saturating_sub(descriptor.offset) as usize;
-            let stop = (end - descriptor.offset).min(descriptor.logical_len as u64) as usize;
-            visitor(&decoded[start..stop])?;
+                    &descriptor,
+                )?;
+                let start = offset.saturating_sub(descriptor.offset) as usize;
+                let stop = (end - descriptor.offset).min(descriptor.logical_len as u64) as usize;
+                visitor(&decoded[start..stop])?;
+                next += 1;
+                Ok(())
+            },
+        )?;
+        if next != after {
+            return Err(Error::CorruptRecord);
         }
         Ok(())
     }

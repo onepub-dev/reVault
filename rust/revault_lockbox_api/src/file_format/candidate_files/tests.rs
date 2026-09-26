@@ -182,6 +182,39 @@ fn streamed_files_and_ranges_round_trip_all_modes_and_units() {
     }
 }
 
+// Count physical reads across a complete multi-page extent traversal. This
+// candidate has no public CLI path; the counter does not change stored bytes.
+#[derive(Clone, Debug)]
+struct ReadCounts {
+    storage: StorageBackend,
+    reads: std::rc::Rc<std::cell::RefCell<BTreeMap<u64, usize>>>,
+}
+impl Storage for ReadCounts {
+    fn len(&self) -> Result<u64> {
+        self.storage.len()
+    }
+    fn read_at(&self, offset: u64, len: usize) -> Result<Vec<u8>> {
+        *self.reads.borrow_mut().entry(offset).or_default() += 1;
+        self.storage.read_at(offset, len)
+    }
+    fn read_at_into(&self, offset: u64, out: &mut [u8]) -> Result<()> {
+        *self.reads.borrow_mut().entry(offset).or_default() += 1;
+        self.storage.read_at_into(offset, out)
+    }
+    fn append(&mut self, bytes: &[u8]) -> Result<u64> {
+        self.storage.append(bytes)
+    }
+    fn write_at(&mut self, offset: u64, bytes: &[u8]) -> Result<()> {
+        self.storage.write_at(offset, bytes)
+    }
+    fn truncate(&mut self, len: u64) -> Result<()> {
+        self.storage.truncate(len)
+    }
+    fn sync(&self) -> Result<()> {
+        self.storage.sync()
+    }
+}
+
 #[test]
 fn one_file_can_exceed_the_ownership_envelopes_512_extent_limit() {
     let mode = mode(false, false, false, true);
@@ -205,8 +238,12 @@ fn one_file_can_exceed_the_ownership_envelopes_512_extent_limit() {
         }],
     )
     .unwrap();
-    let mut files = Files::open(storage, archive(), mode, &authority, None).unwrap();
+    let reads = Default::default();
+    let counted = ReadCounts { storage, reads };
+    let reads = counted.reads.clone();
+    let mut files = Files::open(counted, archive(), mode, &authority, None).unwrap();
     assert!(files.info(b"large").unwrap().unwrap().count() > 512);
+    reads.borrow_mut().clear();
     let mut position = 0;
     files
         .read_range(b"large", 0, len, |bytes| {
@@ -218,6 +255,9 @@ fn one_file_can_exceed_the_ownership_envelopes_512_extent_limit() {
         })
         .unwrap();
     assert_eq!(position, len);
+    // The file-info lookup and range walk may share pages, but no page may
+    // be read once per extent. This covers a file spanning several index leaves.
+    assert!(reads.borrow().values().all(|count| *count <= 2));
 }
 #[test]
 fn signed_plaintext_open_remains_eager_and_other_modes_verify_before_yield() {
@@ -312,6 +352,7 @@ fn semantic_audit_rejects_missing_and_orphaned_chunk_membership() {
     for (namespace, name) in [
         (FILE, b"file".to_vec()),
         (CHUNK, chunk_key(info.id, 0).to_vec()),
+        (CHUNK, chunk_key(info.id, 1).to_vec()),
     ] {
         // Construct writer bugs using authenticated transactions. No public CLI
         // activates this candidate or permits orphan chunk records directly.
@@ -319,7 +360,25 @@ fn semantic_audit_rejects_missing_and_orphaned_chunk_membership() {
             Transaction::begin(original.clone(), archive(), mode, &authority, None).unwrap();
         tx.remove(namespace, &name).unwrap();
         let (storage, _) = tx.commit(&authority, None).unwrap();
-        assert!(Files::open(storage, archive(), mode, &authority, None).is_err());
+        assert!(Files::open(storage.clone(), archive(), mode, &authority, None).is_err());
+        if namespace == CHUNK {
+            // Deliberately bypass the full open audit to test the range walk's
+            // own missing-first/missing-last ordinal check against an otherwise
+            // authenticated writer-bug state. No production entry point does this.
+            let anchor = publication::select(&storage, archive(), mode, &authority)
+                .unwrap()
+                .anchor;
+            let mut files = Files {
+                storage,
+                anchor,
+                index: Index::new(archive(), mode, None).unwrap(),
+                codec: Codec::new(archive(), mode, None).unwrap(),
+            };
+            assert!(matches!(
+                files.read_range(b"file", 0, info.len, |_| Ok(())),
+                Err(Error::CorruptRecord)
+            ));
+        }
     }
 }
 #[test]
