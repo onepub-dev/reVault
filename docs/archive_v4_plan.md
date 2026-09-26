@@ -477,3 +477,24 @@ mirror failure regions. Integrate batched archive operations and data extents, t
 run the complete candidate comparison. Preserve the current security, padding,
 eager-open and release-compatibility contracts. Production recovery and release
 qualification remain unfinished; H1 continues on its independent branch.
+
+### Preparation-journal checkpoint — 2026-09-27
+
+The [journal experiment](evidence/preparation-journal-2026-09-27/README.md) adds
+mirrored durable reuse reservations, append-tail rollback, publication-gated
+retirement and resumable cleanup. It remains test-only. Fault tests include torn
+writes, interrupted recovery, actual file-backed process death and repeated aborts.
+
+Thirty fresh-process measurements per case cover 1, 1,000 and 100,000 free ranges
+in all four protection modes. Reservation and rollback add one index-page read at
+100,000 ranges; writes and sync counts remain fixed, with zero retained growth.
+Maximum process RSS is 5,640 KiB. The fixed 392 KiB/14-sync cost of a failed 4 KiB
+operation still needs batch integration and comparison against the control.
+
+Next: derive and audit the complete physical allocation map from reachable data
+and control pages; integrate reusable allocation, retirement of the allocation
+map itself and batch updates. Then separate mirror failure regions and implement
+data extents/public paths for the full A/B/C comparison. The journal alone does
+not prove complete archive ownership or lifecycle aging. Production recovery,
+CPU/read/write gates, migration, bindings and #322 platform qualification remain
+open; retain the compatibility contract and existing verification semantics.

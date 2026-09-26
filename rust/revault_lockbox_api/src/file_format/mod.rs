@@ -38,3 +38,6 @@ pub(crate) mod publication_anchor;
 // Candidate authenticated membership; connected to publication in protocol tests.
 #[cfg(test)]
 pub(crate) mod authenticated_index;
+
+#[cfg(test)]
+pub(crate) mod preparation_journal;

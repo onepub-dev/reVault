@@ -45,3 +45,15 @@ durable replacement protocol. Do not use salvage scanning to copy orphan payload
 
 No new log encoding or history-pruning policy is accepted yet. The default layout
 is the control until a candidate has a complete ownership and durability proof.
+
+## Candidate journal evidence — 2026-09-27
+
+The [preparation-journal experiment](../evidence/preparation-journal-2026-09-27/README.md)
+implements fixed mirrored reservations and resumable cleanup against the packed
+allocation index. It supplies the requested free-range scaling measurements and
+interruption evidence, but only journal-level aging. Complete allocation-map
+consistency, control-page retirement, mirror placement, public lifecycle accounting
+and compaction remain requirements before accepting this decision. Its 392 KiB
+of writes and 14 syncs for a failed 4 KiB operation must be evaluated with batching
+and the complete production control; the evidence does not justify weakening
+publication or erasure ordering.

@@ -1,0 +1,52 @@
+#[cfg(target_os="linux")]
+#[test]
+#[ignore = "manual fresh-process journal CPU/RSS and I/O experiment"]
+fn preparation_journal_resource_probe() {
+    fn usage() -> (i64,i64) {
+        let mut value=std::mem::MaybeUninit::<libc::rusage>::uninit();
+        // SAFETY: getrusage initializes the output on success, checked below.
+        let status=unsafe { libc::getrusage(libc::RUSAGE_SELF,value.as_mut_ptr()) };
+        assert_eq!(status,0);
+        // SAFETY: the successful getrusage call above initialized every field.
+        let value=unsafe { value.assume_init() };
+        (value.ru_utime.tv_sec*1_000_000+value.ru_utime.tv_usec+value.ru_stime.tv_sec*1_000_000+value.ru_stime.tv_usec,value.ru_maxrss)
+    }
+    fn counts(c: Counts) -> serde_json::Value { serde_json::json!({"reads":c.reads,"read_bytes":c.read_bytes,"writes":c.writes,"write_bytes":c.write_bytes,"syncs":c.syncs,"truncates":c.truncates}) }
+    struct Cleanup(std::path::PathBuf);
+    impl Drop for Cleanup { fn drop(&mut self) { let _=std::fs::remove_file(&self.0); } }
+    let count: u64=std::env::var("REVAULT_JOURNAL_FREE_RANGES").unwrap().parse().unwrap();
+    assert!([1,1000,100000].contains(&count));
+    let encrypted=std::env::var("REVAULT_JOURNAL_ENCRYPTED").unwrap()=="1";
+    let signed=std::env::var("REVAULT_JOURNAL_SIGNED").unwrap()=="1";
+    let mode=mode(encrypted,signed); let owner=OwnerSigningKeyPair::generate().unwrap(); let public=owner.public_key(); let authority=authority(mode,&public);
+    let path=std::env::temp_dir().join(format!("revault-preparation-probe-{}-{}.lbx",std::process::id(),count));
+    assert!(!path.exists()); let cleanup=Cleanup(path);
+    let mut storage=Observed::backend(StorageBackend::create_file(&cleanup.0,&vec![0;DATA_START as usize]).unwrap());
+    // Sparse synthetic free-space inventory, not a production archive. Each
+    // reusable 4 KiB interval has a protected 4 KiB neighbour. Setup and index
+    // construction are excluded from the timed failed-operation measurement.
+    storage.truncate(DATA_START+count*8192).unwrap();
+    let live=storage.append(OLD).unwrap(); let archive=LockboxId::from_bytes([82;16]);
+    let index=Index::new(archive,mode,key(mode)).unwrap();
+    let logical=index.build_sorted(&mut storage,[Entry::new(1,b"/keep",&descriptor(live,OLD))]).unwrap();
+    let allocation=index.build_sorted(&mut storage,(0..count).map(|i| Ok(range(FREE,DATA_START+i*8192,4096)))).unwrap();
+    let anchor=Anchor { archive,generation:1,mode,sealed_len:storage.len().unwrap(),object_root:logical.root.digest,previous:[0;32],index:logical.root,allocation:allocation.root,keys:RootRef::default() };
+    publication::publish(&mut storage,&anchor,&authority,signed.then_some(&owner),None).unwrap(); initialize(&mut storage,archive,mode,&authority,key(mode)).unwrap();
+    let free=DATA_START+(count/2)*8192;
+    storage.reset_stats(); let start_cpu=usage().0; let start=std::time::Instant::now();
+    let mut prepared=PreparedStore::begin(storage.clone(),archive,mode,&authority,key(mode)).unwrap();
+    let begin=storage.stats(); storage.reset_stats();
+    prepared.reserve(&[Reservation { namespace:FREE,base:free,start:free,len:4096 }]).unwrap();
+    let reserve=storage.stats(); storage.reset_stats();
+    prepared.write_at(free,&[0x71;4096]).unwrap();
+    let payload=storage.stats(); storage.reset_stats();
+    prepared.abort(&authority).unwrap();
+    let abort=storage.stats(); let wall_us=start.elapsed().as_micros(); let (cpu,rss)=usage();
+    // Verify through a separately opened file handle after the timed operation.
+    drop(prepared); drop(storage);
+    let mut reopened=StorageBackend::file_for_write(&cleanup.0).unwrap(); recover(&mut reopened,archive,mode,&authority,key(mode)).unwrap();
+    let selected=publication::select(&reopened,archive,mode,&authority).unwrap();
+    assert_eq!(selected.anchor.generation,1); assert_eq!(reopened.len().unwrap(),anchor.sealed_len); verify(&reopened,&selected.anchor,OLD);
+    assert!(reopened.read_at(free,8192).unwrap().iter().all(|b| *b==0));
+    println!("JOURNAL_RESOURCE {}",serde_json::json!({"free_ranges":count,"encrypted":encrypted,"signed":signed,"wall_us":wall_us,"cpu_us":cpu-start_cpu,"rss_kib":rss,"file_bytes":anchor.sealed_len,"retained_extra_bytes":reopened.len().unwrap()-anchor.sealed_len,"fixed_journal_bytes":2*SLOT_BYTES,"begin":counts(begin),"reserve":counts(reserve),"payload":counts(payload),"abort":counts(abort)}));
+}

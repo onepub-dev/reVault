@@ -1,0 +1,674 @@
+[
+  {
+    "encrypted": false,
+    "signed": false,
+    "free_ranges": 1,
+    "file_bytes": 156058,
+    "fixed_journal_bytes": 131072,
+    "begin": {
+      "read_bytes": 311682,
+      "reads": 14,
+      "syncs": 5,
+      "truncates": 0,
+      "write_bytes": 131072,
+      "writes": 2
+    },
+    "reserve": {
+      "read_bytes": 4174,
+      "reads": 2,
+      "syncs": 3,
+      "truncates": 0,
+      "write_bytes": 131072,
+      "writes": 2
+    },
+    "payload": {
+      "read_bytes": 0,
+      "reads": 0,
+      "syncs": 0,
+      "truncates": 0,
+      "write_bytes": 4096,
+      "writes": 1
+    },
+    "abort": {
+      "read_bytes": 164304,
+      "reads": 11,
+      "syncs": 6,
+      "truncates": 1,
+      "write_bytes": 135168,
+      "writes": 3
+    },
+    "retained_extra_bytes": 0,
+    "wall_us": {
+      "median": 20549.0,
+      "min": 19156,
+      "max": 119283
+    },
+    "cpu_us": {
+      "median": 2041.0,
+      "min": 1776,
+      "max": 3222
+    },
+    "rss_kib": {
+      "median": 5252.0,
+      "min": 5092,
+      "max": 5408
+    },
+    "measured_samples": 30
+  },
+  {
+    "encrypted": false,
+    "signed": false,
+    "free_ranges": 1000,
+    "file_bytes": 8385820,
+    "fixed_journal_bytes": 131072,
+    "begin": {
+      "read_bytes": 357636,
+      "reads": 14,
+      "syncs": 5,
+      "truncates": 0,
+      "write_bytes": 131072,
+      "writes": 2
+    },
+    "reserve": {
+      "read_bytes": 27151,
+      "reads": 2,
+      "syncs": 3,
+      "truncates": 0,
+      "write_bytes": 131072,
+      "writes": 2
+    },
+    "payload": {
+      "read_bytes": 0,
+      "reads": 0,
+      "syncs": 0,
+      "truncates": 0,
+      "write_bytes": 4096,
+      "writes": 1
+    },
+    "abort": {
+      "read_bytes": 233235,
+      "reads": 11,
+      "syncs": 6,
+      "truncates": 1,
+      "write_bytes": 135168,
+      "writes": 3
+    },
+    "retained_extra_bytes": 0,
+    "wall_us": {
+      "median": 21090.0,
+      "min": 19451,
+      "max": 94237
+    },
+    "cpu_us": {
+      "median": 2484.0,
+      "min": 2206,
+      "max": 3821
+    },
+    "rss_kib": {
+      "median": 5414.0,
+      "min": 5276,
+      "max": 5620
+    },
+    "measured_samples": 30
+  },
+  {
+    "encrypted": false,
+    "signed": false,
+    "free_ranges": 100000,
+    "file_bytes": 823973300,
+    "fixed_journal_bytes": 131072,
+    "begin": {
+      "read_bytes": 326336,
+      "reads": 14,
+      "syncs": 5,
+      "truncates": 0,
+      "write_bytes": 131072,
+      "writes": 2
+    },
+    "reserve": {
+      "read_bytes": 35108,
+      "reads": 3,
+      "syncs": 3,
+      "truncates": 0,
+      "write_bytes": 131072,
+      "writes": 2
+    },
+    "payload": {
+      "read_bytes": 0,
+      "reads": 0,
+      "syncs": 0,
+      "truncates": 0,
+      "write_bytes": 4096,
+      "writes": 1
+    },
+    "abort": {
+      "read_bytes": 209892,
+      "reads": 12,
+      "syncs": 6,
+      "truncates": 1,
+      "write_bytes": 135168,
+      "writes": 3
+    },
+    "retained_extra_bytes": 0,
+    "wall_us": {
+      "median": 21087.0,
+      "min": 19334,
+      "max": 1420430
+    },
+    "cpu_us": {
+      "median": 2570.0,
+      "min": 2242,
+      "max": 4452
+    },
+    "rss_kib": {
+      "median": 5240.0,
+      "min": 5196,
+      "max": 5484
+    },
+    "measured_samples": 30
+  },
+  {
+    "encrypted": true,
+    "signed": false,
+    "free_ranges": 1,
+    "file_bytes": 156122,
+    "fixed_journal_bytes": 131072,
+    "begin": {
+      "read_bytes": 311746,
+      "reads": 14,
+      "syncs": 5,
+      "truncates": 0,
+      "write_bytes": 131072,
+      "writes": 2
+    },
+    "reserve": {
+      "read_bytes": 4190,
+      "reads": 2,
+      "syncs": 3,
+      "truncates": 0,
+      "write_bytes": 131072,
+      "writes": 2
+    },
+    "payload": {
+      "read_bytes": 0,
+      "reads": 0,
+      "syncs": 0,
+      "truncates": 0,
+      "write_bytes": 4096,
+      "writes": 1
+    },
+    "abort": {
+      "read_bytes": 164384,
+      "reads": 11,
+      "syncs": 6,
+      "truncates": 1,
+      "write_bytes": 135168,
+      "writes": 3
+    },
+    "retained_extra_bytes": 0,
+    "wall_us": {
+      "median": 23580.0,
+      "min": 21363,
+      "max": 116640
+    },
+    "cpu_us": {
+      "median": 2766.5,
+      "min": 2273,
+      "max": 4160
+    },
+    "rss_kib": {
+      "median": 5304.0,
+      "min": 5156,
+      "max": 5516
+    },
+    "measured_samples": 30
+  },
+  {
+    "encrypted": true,
+    "signed": false,
+    "free_ranges": 1000,
+    "file_bytes": 8385884,
+    "fixed_journal_bytes": 131072,
+    "begin": {
+      "read_bytes": 357700,
+      "reads": 14,
+      "syncs": 5,
+      "truncates": 0,
+      "write_bytes": 131072,
+      "writes": 2
+    },
+    "reserve": {
+      "read_bytes": 27167,
+      "reads": 2,
+      "syncs": 3,
+      "truncates": 0,
+      "write_bytes": 131072,
+      "writes": 2
+    },
+    "payload": {
+      "read_bytes": 0,
+      "reads": 0,
+      "syncs": 0,
+      "truncates": 0,
+      "write_bytes": 4096,
+      "writes": 1
+    },
+    "abort": {
+      "read_bytes": 233315,
+      "reads": 11,
+      "syncs": 6,
+      "truncates": 1,
+      "write_bytes": 135168,
+      "writes": 3
+    },
+    "retained_extra_bytes": 0,
+    "wall_us": {
+      "median": 23670.0,
+      "min": 22690,
+      "max": 108271
+    },
+    "cpu_us": {
+      "median": 3296.0,
+      "min": 2632,
+      "max": 4779
+    },
+    "rss_kib": {
+      "median": 5428.0,
+      "min": 5252,
+      "max": 5640
+    },
+    "measured_samples": 30
+  },
+  {
+    "encrypted": true,
+    "signed": false,
+    "free_ranges": 100000,
+    "file_bytes": 823976500,
+    "fixed_journal_bytes": 131072,
+    "begin": {
+      "read_bytes": 326400,
+      "reads": 14,
+      "syncs": 5,
+      "truncates": 0,
+      "write_bytes": 131072,
+      "writes": 2
+    },
+    "reserve": {
+      "read_bytes": 35140,
+      "reads": 3,
+      "syncs": 3,
+      "truncates": 0,
+      "write_bytes": 131072,
+      "writes": 2
+    },
+    "payload": {
+      "read_bytes": 0,
+      "reads": 0,
+      "syncs": 0,
+      "truncates": 0,
+      "write_bytes": 4096,
+      "writes": 1
+    },
+    "abort": {
+      "read_bytes": 209988,
+      "reads": 12,
+      "syncs": 6,
+      "truncates": 1,
+      "write_bytes": 135168,
+      "writes": 3
+    },
+    "retained_extra_bytes": 0,
+    "wall_us": {
+      "median": 24439.5,
+      "min": 22725,
+      "max": 1019278
+    },
+    "cpu_us": {
+      "median": 3474.5,
+      "min": 2920,
+      "max": 5634
+    },
+    "rss_kib": {
+      "median": 5282.0,
+      "min": 5116,
+      "max": 5520
+    },
+    "measured_samples": 30
+  },
+  {
+    "encrypted": false,
+    "signed": true,
+    "free_ranges": 1,
+    "file_bytes": 156058,
+    "fixed_journal_bytes": 131072,
+    "begin": {
+      "read_bytes": 311682,
+      "reads": 14,
+      "syncs": 5,
+      "truncates": 0,
+      "write_bytes": 131072,
+      "writes": 2
+    },
+    "reserve": {
+      "read_bytes": 4174,
+      "reads": 2,
+      "syncs": 3,
+      "truncates": 0,
+      "write_bytes": 131072,
+      "writes": 2
+    },
+    "payload": {
+      "read_bytes": 0,
+      "reads": 0,
+      "syncs": 0,
+      "truncates": 0,
+      "write_bytes": 4096,
+      "writes": 1
+    },
+    "abort": {
+      "read_bytes": 164304,
+      "reads": 11,
+      "syncs": 6,
+      "truncates": 1,
+      "write_bytes": 135168,
+      "writes": 3
+    },
+    "retained_extra_bytes": 0,
+    "wall_us": {
+      "median": 25880.0,
+      "min": 22804,
+      "max": 101151
+    },
+    "cpu_us": {
+      "median": 6182.5,
+      "min": 5193,
+      "max": 10695
+    },
+    "rss_kib": {
+      "median": 5320.0,
+      "min": 5092,
+      "max": 5476
+    },
+    "measured_samples": 30
+  },
+  {
+    "encrypted": false,
+    "signed": true,
+    "free_ranges": 1000,
+    "file_bytes": 8385820,
+    "fixed_journal_bytes": 131072,
+    "begin": {
+      "read_bytes": 357636,
+      "reads": 14,
+      "syncs": 5,
+      "truncates": 0,
+      "write_bytes": 131072,
+      "writes": 2
+    },
+    "reserve": {
+      "read_bytes": 27151,
+      "reads": 2,
+      "syncs": 3,
+      "truncates": 0,
+      "write_bytes": 131072,
+      "writes": 2
+    },
+    "payload": {
+      "read_bytes": 0,
+      "reads": 0,
+      "syncs": 0,
+      "truncates": 0,
+      "write_bytes": 4096,
+      "writes": 1
+    },
+    "abort": {
+      "read_bytes": 233235,
+      "reads": 11,
+      "syncs": 6,
+      "truncates": 1,
+      "write_bytes": 135168,
+      "writes": 3
+    },
+    "retained_extra_bytes": 0,
+    "wall_us": {
+      "median": 25981.5,
+      "min": 24344,
+      "max": 79730
+    },
+    "cpu_us": {
+      "median": 6757.5,
+      "min": 5862,
+      "max": 10284
+    },
+    "rss_kib": {
+      "median": 5392.0,
+      "min": 5200,
+      "max": 5576
+    },
+    "measured_samples": 30
+  },
+  {
+    "encrypted": false,
+    "signed": true,
+    "free_ranges": 100000,
+    "file_bytes": 823973300,
+    "fixed_journal_bytes": 131072,
+    "begin": {
+      "read_bytes": 326336,
+      "reads": 14,
+      "syncs": 5,
+      "truncates": 0,
+      "write_bytes": 131072,
+      "writes": 2
+    },
+    "reserve": {
+      "read_bytes": 35108,
+      "reads": 3,
+      "syncs": 3,
+      "truncates": 0,
+      "write_bytes": 131072,
+      "writes": 2
+    },
+    "payload": {
+      "read_bytes": 0,
+      "reads": 0,
+      "syncs": 0,
+      "truncates": 0,
+      "write_bytes": 4096,
+      "writes": 1
+    },
+    "abort": {
+      "read_bytes": 209892,
+      "reads": 12,
+      "syncs": 6,
+      "truncates": 1,
+      "write_bytes": 135168,
+      "writes": 3
+    },
+    "retained_extra_bytes": 0,
+    "wall_us": {
+      "median": 25891.5,
+      "min": 22747,
+      "max": 1015597
+    },
+    "cpu_us": {
+      "median": 6604.5,
+      "min": 5377,
+      "max": 10751
+    },
+    "rss_kib": {
+      "median": 5272.0,
+      "min": 5132,
+      "max": 5516
+    },
+    "measured_samples": 30
+  },
+  {
+    "encrypted": true,
+    "signed": true,
+    "free_ranges": 1,
+    "file_bytes": 156122,
+    "fixed_journal_bytes": 131072,
+    "begin": {
+      "read_bytes": 311746,
+      "reads": 14,
+      "syncs": 5,
+      "truncates": 0,
+      "write_bytes": 131072,
+      "writes": 2
+    },
+    "reserve": {
+      "read_bytes": 4190,
+      "reads": 2,
+      "syncs": 3,
+      "truncates": 0,
+      "write_bytes": 131072,
+      "writes": 2
+    },
+    "payload": {
+      "read_bytes": 0,
+      "reads": 0,
+      "syncs": 0,
+      "truncates": 0,
+      "write_bytes": 4096,
+      "writes": 1
+    },
+    "abort": {
+      "read_bytes": 164384,
+      "reads": 11,
+      "syncs": 6,
+      "truncates": 1,
+      "write_bytes": 135168,
+      "writes": 3
+    },
+    "retained_extra_bytes": 0,
+    "wall_us": {
+      "median": 27276.0,
+      "min": 24815,
+      "max": 78152
+    },
+    "cpu_us": {
+      "median": 6756.0,
+      "min": 5593,
+      "max": 10455
+    },
+    "rss_kib": {
+      "median": 5272.0,
+      "min": 5192,
+      "max": 5532
+    },
+    "measured_samples": 30
+  },
+  {
+    "encrypted": true,
+    "signed": true,
+    "free_ranges": 1000,
+    "file_bytes": 8385884,
+    "fixed_journal_bytes": 131072,
+    "begin": {
+      "read_bytes": 357700,
+      "reads": 14,
+      "syncs": 5,
+      "truncates": 0,
+      "write_bytes": 131072,
+      "writes": 2
+    },
+    "reserve": {
+      "read_bytes": 27167,
+      "reads": 2,
+      "syncs": 3,
+      "truncates": 0,
+      "write_bytes": 131072,
+      "writes": 2
+    },
+    "payload": {
+      "read_bytes": 0,
+      "reads": 0,
+      "syncs": 0,
+      "truncates": 0,
+      "write_bytes": 4096,
+      "writes": 1
+    },
+    "abort": {
+      "read_bytes": 233315,
+      "reads": 11,
+      "syncs": 6,
+      "truncates": 1,
+      "write_bytes": 135168,
+      "writes": 3
+    },
+    "retained_extra_bytes": 0,
+    "wall_us": {
+      "median": 27908.0,
+      "min": 24745,
+      "max": 139814
+    },
+    "cpu_us": {
+      "median": 7257.0,
+      "min": 6001,
+      "max": 11199
+    },
+    "rss_kib": {
+      "median": 5428.0,
+      "min": 5272,
+      "max": 5636
+    },
+    "measured_samples": 30
+  },
+  {
+    "encrypted": true,
+    "signed": true,
+    "free_ranges": 100000,
+    "file_bytes": 823976500,
+    "fixed_journal_bytes": 131072,
+    "begin": {
+      "read_bytes": 326400,
+      "reads": 14,
+      "syncs": 5,
+      "truncates": 0,
+      "write_bytes": 131072,
+      "writes": 2
+    },
+    "reserve": {
+      "read_bytes": 35140,
+      "reads": 3,
+      "syncs": 3,
+      "truncates": 0,
+      "write_bytes": 131072,
+      "writes": 2
+    },
+    "payload": {
+      "read_bytes": 0,
+      "reads": 0,
+      "syncs": 0,
+      "truncates": 0,
+      "write_bytes": 4096,
+      "writes": 1
+    },
+    "abort": {
+      "read_bytes": 209988,
+      "reads": 12,
+      "syncs": 6,
+      "truncates": 1,
+      "write_bytes": 135168,
+      "writes": 3
+    },
+    "retained_extra_bytes": 0,
+    "wall_us": {
+      "median": 27992.5,
+      "min": 26264,
+      "max": 129349
+    },
+    "cpu_us": {
+      "median": 7198.0,
+      "min": 6376,
+      "max": 11247
+    },
+    "rss_kib": {
+      "median": 5244.0,
+      "min": 5124,
+      "max": 5508
+    },
+    "measured_samples": 30
+  }
+]
