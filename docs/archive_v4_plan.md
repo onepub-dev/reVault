@@ -583,3 +583,16 @@ an authenticated ordered traversal, test its bounded reads and error behaviour,
 and compare against the frozen C binary in a new declared batch. Then address
 payload packing and public record/access integration. Do not interpret component
 or GB resource wins as closing P2, A3/A4 or release qualification.
+
+
+### Ordered read checkpoint (2026-09-27)
+
+[Ordered traversal evidence](evidence/ordered-file-reads-2026-09-27/README.md)
+shows 64% less raw streaming elapsed time and 27–47% less compressed streaming
+elapsed time versus the first C adapter, with unchanged signed-open guarantees.
+All eight declared cases are retained; small files and ZIP parity still fail.
+Profiles identify a comparison mismatch: C uses generic byte-vector wiping while
+A already uses the tested full-capacity wide-store buffer. Reuse that abstraction,
+verify unchanged safety and wire behavior, and run a bounded follow-up batch.
+Then resume payload packing, control-space costs and full record/access design;
+do not treat this buffer normalization as selecting a format.

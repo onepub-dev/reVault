@@ -168,3 +168,11 @@ read 92.9× slower than A. Its 1 GiB creation probe uses 14.2 MiB RSS versus A's
 190.9 MiB, but that single measured pair is descriptive only. Preserve both the
 resource improvement and failed cases. Next evaluate ordered extent traversal;
 payload packing and complete public semantics remain architecture blockers.
+
+
+[Ordered C reads](evidence/ordered-file-reads-2026-09-27/README.md) remove repeated
+per-extent index traversal. New C is 6.31× ZIP for 8 MiB raw and 7.11× for 256 KiB
+compressed units; the same-revision old/new comparison shows useful streaming
+improvements but unchanged small-file weakness. All modes retain authentication;
+signed plaintext open stays eager. Profiles require normalizing C's bulk memory
+wiping to the existing production abstraction before further layout interpretation.
