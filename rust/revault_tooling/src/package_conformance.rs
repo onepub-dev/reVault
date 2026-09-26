@@ -919,9 +919,29 @@ fn prepare_swift(target: &str, packages: &Path, work: &Path, archive: &Path) -> 
         Command::new("swift")
             .args(["build", "-c", "release", "--package-path"])
             .arg(&package)
+            .arg("-Xlinker")
+            .arg(format!("-L{}", install.prefix.join("lib").display()))
             .env("LIBRARY_PATH", install.prefix.join("lib")),
     )?;
-    let program = package.join(".build/release/revault-swift-conformance");
+    let output = Command::new("swift")
+        .args([
+            "build",
+            "-c",
+            "release",
+            "--show-bin-path",
+            "--package-path",
+        ])
+        .arg(&package)
+        .output()?;
+    if !output.status.success() {
+        return Err(format!(
+            "failed to locate Swift build products: {}",
+            String::from_utf8_lossy(&output.stderr)
+        )
+        .into());
+    }
+    let program =
+        PathBuf::from(String::from_utf8(output.stdout)?.trim()).join("revault-swift-conformance");
     Ok(dynamic_prepared(
         program,
         vec![],

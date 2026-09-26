@@ -1,6 +1,13 @@
-Release all
-CLI: 0.0.18
-Bindings: 0.3.16
+Development only: archive format 4 (not release-ready)
+CLI: 0.5.0-dev.1
+Bindings: 0.5.0-dev.1
+
+- Reserve 0.5.x for archive format 4 development on main.
+- Published format-3 releases remain CLI 0.4.0 and bindings 0.4.1.
+
+- Establish the 0.4.x compatibility line for archive format 3; format 4 is excluded.
+- Dart 0.4.0 has already shipped; 0.4.1 updates its build-hook dependency and package-version metadata.
+- Declare the Swift native-library dependency explicitly on Linux and locate its build products through SwiftPM.
 
 - Fix #310: share verified raw frames with seekable readers
 - Fix #310: reduce large-file read copies and redundant wiping

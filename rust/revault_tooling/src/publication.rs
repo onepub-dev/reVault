@@ -970,7 +970,8 @@ let package = Package(
         .target(
             name: "RevaultAPI",
             dependencies: ["RevaultC", .product(name: "FlatBuffers", package: "flatbuffers")],
-            path: "Sources/RevaultAPI"
+            path: "Sources/RevaultAPI",
+            linkerSettings: [.linkedLibrary("revault_api", .when(platforms: [.linux]))]
         ),
     ]
 )

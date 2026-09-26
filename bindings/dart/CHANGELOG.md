@@ -1,4 +1,21 @@
-## 0.3.16
+## 0.5.0-dev.1
+
+- Reserve the 0.5.x compatibility line for archive format 4 development.
+- Retain the release tooling and package fixes from the format-3 releases.
+
+## 0.4.1
+
+- Update the native build-hook dependency to support its current release and
+  native-library architecture validation. Archive format remains 3.
+- Align the generated package-version metadata with the package manifest.
+
+## 0.4.0
+
+- Bundle the format-3 native engine, compatible with archives produced by
+  reVault CLI 0.0.17. Format-4 development changes are excluded.
+- Start the 0.4.x archive and Vault compatibility line. Patch releases in this
+  line preserve persisted-format compatibility across the CLI and bindings.
+- Retain native assets for Linux, macOS, and Windows on x64 and ARM64.
 
 - Hide xtask development tasks behind revault-tool
 - Consolidate development commands in revault-tool

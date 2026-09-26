@@ -20,6 +20,50 @@ When making changes, preserve GitBook sync metadata such as frontmatter, `SUMMAR
 
 <!-- gitbook-agent-instructions:end -->
 
+## Release Version Compatibility Contract
+
+The CLI and all language bindings use compatibility lines to guarantee
+compatible Lockbox archive and persisted Vault formats:
+
+- Before 1.0, matching `0.minor` versions identify a compatibility line (for
+  example, all `0.4.x` releases). Patch releases must preserve compatibility.
+- From 1.0 onward, matching major versions identify a compatibility line (for
+  example, all `1.x.y` releases). Minor and patch releases must preserve
+  compatibility.
+
+Archives written by any release in a compatibility line must remain readable
+by every other release in that line, across the CLI and bindings. Persisted
+Vault formats must likewise remain compatible throughout the line. This
+includes older releases reading files written by newer releases in the same
+line, not just newer releases reading older files.
+
+A breaking archive or Vault format change requires a new compatibility line:
+increment the minor version before 1.0 or the major version from 1.0 onward.
+Other breaking changes may also introduce a new line even when the persisted
+formats do not change. Matching lines guarantee format compatibility; different
+lines do not necessarily imply incompatibility. Document support across lines
+explicitly, including support for reading historical formats.
+
+Versions within a compatibility line may advance independently across
+components. Before 1.0, patch releases may include compatible features and
+fixes. From 1.0 onward, use minor releases for compatible features and patch
+releases for compatible fixes.
+
+For the current pre-1.0 compatibility lines:
+
+- `0.4.x` is the released format-3 compatibility line: CLI `0.4.0` and
+  bindings `0.4.1`. Maintain it on the format-3 release branch, excluding
+  unfinished format-4 work.
+- `0.5.x` is reserved for format 4. Main uses `0.5.0-dev.1` during development;
+  publish a stable release only once format 4 is ready.
+- Do not reuse `0.3.x` for format 3: published Dart `0.3.15` uses format 2.
+
+These release-line numbers are compatibility identifiers, not archive format
+numbers. Before publishing any release, verify CLI/binding interoperability and
+Vault compatibility across versions within its line, and validate applicable
+migration paths from the supported older formats.
+Version declarations alone do not establish release readiness.
+
 ## CLI End-to-End Tests
 
 End-to-end CLI tests must exercise the public CLI as a user would. Use CLI
@@ -36,4 +80,3 @@ create or observe the required condition; document that exception in the test.
 State-changing command families must cover realistic lifecycles, including
 initial creation, a no-change repeat, additions, replacements, removals, and
 applicable safety thresholds or refusal paths.
-
