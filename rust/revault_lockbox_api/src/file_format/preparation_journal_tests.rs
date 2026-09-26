@@ -1006,16 +1006,16 @@ fn independent_journal_vector_and_noncanonical_records_are_checked() {
     }
     // Independently constructed with Python struct + hashlib SHA-256, without
     // calling this codec. Fixed header, 142-byte body prefix, 65314 zero bytes.
-    let mut vector=hex("5256345052453031010007015252525252525252525252525252525200000100000000000000000000000000b0ff0000");
-    vector.extend(hex("070000000000000001010101010101010101010101010101010101010101010101010101010101010202020202020202020202020202020202020202020202020202020202020202010000000000000000000000000000000000000000000000000000000000000000000000000000000001000000f0004002000000000000440200000000000010000000000000"));
+    let mut vector=hex("5256345052453032020007015252525252525252525252525252525200000100000000000000000000000000b0ff0000");
+    vector.extend(hex("070000000000000001010101010101010101010101010101010101010101010101010101010101010202020202020202020202020202020202020202020202020202020202020202010000000000000000000000000000000000000000000000000000000000000000000000000000000001000000f0000004000000000000040400000000000010000000000000"));
     vector.extend(vec![0; 65314]);
     vector.extend(hex(
-        "f0cd3f277f65851a29d2052c063cd9adf0cbc3c8ac6b0d6321105b9bf8bc47d3",
+        "f132005608a64f82abcd39df58187374b099e4f674f91a3a9ba8402a4c9c5cdb",
     ));
     assert_eq!(vector.len(), SLOT_BYTES);
     assert_eq!(
         strong_checksum(&vector).as_slice(),
-        hex("67fd616343b45ddd58e53642aa46ff7cc27ca61243e6c898a15f99c0c47bab83")
+        hex("7016099545bc7b7c19adea9651e12545debf256e95b21314ec642cf141771152")
     );
     let context = Context::new(LockboxId::from_bytes([82; 16]), mode(false, false), None).unwrap();
     let record = context.decode(&vector).unwrap();
@@ -1031,7 +1031,7 @@ fn independent_journal_vector_and_noncanonical_records_are_checked() {
     );
     assert_eq!(context.encode(&record).unwrap(), vector);
     for (offset, value) in [
-        (8, 2),
+        (8, 1),
         (10, 0),
         (12, 0),
         (28, 1),
@@ -1308,4 +1308,65 @@ fn power_loss_around_cleanup_checkpoint_never_skips_undurable_zeros() {
             }
         }
     }
+}
+
+#[test]
+fn adjoining_reservations_coalesce_without_rechecking_written_bytes_or_admitting_overlap() {
+    let owner = OwnerSigningKeyPair::generate().unwrap();
+    let f = fixture(mode(false, false), &owner);
+    let authority = Authority::Checksum;
+    let mut prepared = PreparedStore::begin(
+        f.storage.clone(),
+        f.anchor.archive,
+        f.anchor.mode,
+        &authority,
+        None,
+    )
+    .unwrap();
+    for offset in 0..4096 {
+        prepared
+            .reserve(&[Reservation {
+                namespace: FREE,
+                base: f.free,
+                start: f.free + offset,
+                len: 1,
+            }])
+            .unwrap();
+        prepared.write_at(f.free + offset, &[1]).unwrap();
+    }
+    let context = Context::new(f.anchor.archive, f.anchor.mode, None).unwrap();
+    let selected = context.select(&f.storage).unwrap();
+    assert_eq!(
+        selected.record.reservations,
+        vec![Reservation {
+            namespace: FREE,
+            base: f.free,
+            start: f.free,
+            len: 4096
+        }]
+    );
+    assert!(prepared
+        .reserve(&[Reservation {
+            namespace: FREE,
+            base: f.free,
+            start: f.free + 4095,
+            len: 2
+        }])
+        .is_err());
+    drop(prepared);
+    let mut reopened = f.storage.clone();
+    recover(
+        &mut reopened,
+        f.anchor.archive,
+        f.anchor.mode,
+        &authority,
+        None,
+    )
+    .unwrap();
+    assert!(reopened
+        .read_at(f.free, 8192)
+        .unwrap()
+        .iter()
+        .all(|b| *b == 0));
+    verify(&reopened, &f.anchor, OLD);
 }

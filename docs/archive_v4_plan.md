@@ -522,3 +522,32 @@ Use the complete candidate for A/B/C comparison before selection. Public codec,
 padding, access/record semantics, native recovery, compaction, migrations, bindings
 and headless platform qualification remain open. Do not substitute more encoder
 microbenchmarks for those architectural tasks.
+
+### Separated-mirror checkpoint — 2026-09-27
+
+The [separated-mirror experiment](evidence/separated-mirrors-2026-09-27/README.md)
+places every metadata pair in different aligned 64 KiB failure regions, including
+publication, journal, key/index nodes and banked allocation maps. Explicit repair
+authenticates the full ownership graph before repairing copies or reclaiming
+space. It preserves payload bytes and refuses to infer membership from older
+history. Experimental control encodings advance to version 2 to reject the old
+adjacent-slot geometry; no production output changes.
+
+Default and native format suites pass 104 tests. Coverage includes 148 single-region
+damage cases, 223 repair mutation failures and 1,784 repair power-loss cases.
+Two-copy authority loss fails closed; missing descendant proofs remain unavailable
+while unrelated records can be salvaged. The damage guarantee is one aligned
+region, not an arbitrary 64 KiB span or protection against payload loss.
+
+The 5,600-operation comparison preserves complete accounting and no-change
+behavior. Padded 1,000-operation archives stabilize at 1,114,112 bytes after
+operation five. Observed mutation CPU decreases 13.0% (plaintext) and 7.2%
+(encrypted-signed), with candidate peak RSS at most 5,984 KiB. Unpadded tiny
+archives grow from about 177 KB to 655 KB. These are descriptive component results,
+not the statistical performance gates or full candidate-C qualification.
+
+Next: integrate real data extents/codecs and typed record/access semantics so C can
+run the complete A/B/C workload matrix. Retain batched update/reservation costs,
+raw-range and compressed-decode limits as measured design constraints. Do not
+activate C or substitute these component results for public eager verification,
+compaction, the two native recovery failures, migration or platform qualification.

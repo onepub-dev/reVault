@@ -420,22 +420,12 @@ impl Index {
         key_len: usize,
         value_len: usize,
     ) -> Result<u64> {
-        Ok(self.fixed_record_geometry(count, key_len, value_len)?.0)
+        Ok(self.fixed_record_geometry(count,key_len,value_len)?.0)
     }
-    pub(crate) fn fixed_record_node_bound(
-        &self,
-        count: u64,
-        key_len: usize,
-        value_len: usize,
-    ) -> Result<u64> {
-        Ok(self.fixed_record_geometry(count, key_len, value_len)?.1)
+    pub(crate) fn fixed_record_node_bound(&self,count:u64,key_len:usize,value_len:usize)->Result<u64>{
+        Ok(self.fixed_record_geometry(count,key_len,value_len)?.1)
     }
-    fn fixed_record_geometry(
-        &self,
-        count: u64,
-        key_len: usize,
-        value_len: usize,
-    ) -> Result<(u64, u64)> {
+    fn fixed_record_geometry(&self,count:u64,key_len:usize,value_len:usize)->Result<(u64,u64)>{
         if count > MAX_ENTRIES || key_len > MAX_KEY || value_len > MAX_VALUE {
             return Err(Error::SecurityLimitExceeded("bulk size bound".into()));
         }
@@ -445,8 +435,7 @@ impl Index {
             return Err(Error::CorruptRecord);
         }
         let mut items = count;
-        let mut total = 0;
-        let mut nodes = 0;
+        let mut total = 0;let mut nodes=0;
         loop {
             let pages = items.div_ceil(capacity).max(1);
             let bytes = if self.mode.unpadded() {
@@ -455,10 +444,9 @@ impl Index {
             } else {
                 pages * MAX_NODE as u64
             };
-            total += 2 * bytes;
-            nodes += pages;
+            total += 2 * bytes;nodes+=pages;
             if pages == 1 {
-                return Ok((total, nodes));
+                return Ok((total,nodes));
             }
             items = pages;
             item_size = 67 + key_len;
@@ -868,7 +856,7 @@ impl Index {
         if storage.len()? < REGION_LEN as u64 {
             return Err(Error::CorruptHeader);
         }
-        let (primary, mirror) = storage.append_pair(&bytes)?;
+        let (primary,mirror) = storage.append_pair(&bytes)?;
         Ok(Link {
             reference: RootRef {
                 primary,

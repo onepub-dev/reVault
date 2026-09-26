@@ -1,3 +1,25 @@
+CURRENT DIRECTION — 2026-09-27
+
+The historical checkpoint below is retained for provenance; its parallel-encoder
+"Next actions" are superseded by docs/archive_v4_plan.md and
+ docs/archive_v4_evaluation.md at the repository root. Do not restart that tuning
+experiment as the default next task.
+
+Current branch/worktree remain issue-310-zip-read-performance in
+/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance.
+Committed e9695331 supplies candidate ownership auditing and reusable allocation
+maps. The next checkpoint separates metadata mirror regions, tests explicit
+repair and measures its aging costs. Candidate code is cfg(test), not production.
+Next: integrate data extents/codecs and public record/access semantics, then run
+the complete A/B/C architecture comparison before selecting the v4 wire format.
+Retain the two native recovery failures and all migration/release gates as open.
+
+User resumed on 2026-09-27: work until remaining usage drops below 70%; this
+supersedes the previous instruction to stop on the already-observed usage reset.
+Keep remote publication separate from locally authorized implementation.
+
+HISTORICAL CHECKPOINT (superseded next actions)
+
 Issue #310 read/write performance: resume checkpoint
 
 Use branch issue-310-zip-read-performance in worktree

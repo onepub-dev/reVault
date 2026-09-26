@@ -255,14 +255,9 @@ impl Snapshot {
     /// physical ownership. This validates coverage, not payload decoding or the
     /// semantic relationships within typed record metadata.
     pub(crate) fn inspect(storage: &impl Storage, anchor: &Anchor, index: &Index) -> Result<Self> {
-        Self::inspect_graph(storage, anchor, index, true)
+        Self::inspect_graph(storage,anchor,index,true)
     }
-    fn inspect_graph(
-        storage: &impl Storage,
-        anchor: &Anchor,
-        index: &Index,
-        check_reserve: bool,
-    ) -> Result<Self> {
+    fn inspect_graph(storage:&impl Storage,anchor:&Anchor,index:&Index,check_reserve:bool)->Result<Self>{
         let mut claims = Self::live(storage, anchor, index)?;
         let mut available = Vec::new();
         let mut pages = Claims::default();
@@ -335,9 +330,7 @@ impl Snapshot {
                         len: page.extent.start - position,
                         digest: [0; 32],
                     };
-                    if check_reserve {
-                        check_zero(storage, extent)?;
-                    }
+                    if check_reserve {check_zero(storage, extent)?;}
                     claims.insert(
                         Claim {
                             extent,
@@ -355,9 +348,7 @@ impl Snapshot {
                     len: end - position,
                     digest: [0; 32],
                 };
-                if check_reserve {
-                    check_zero(storage, extent)?;
-                }
+                if check_reserve {check_zero(storage, extent)?;}
                 claims.insert(
                     Claim {
                         extent,
@@ -445,131 +436,51 @@ impl<S: Storage> std::fmt::Debug for Allocator<S> {
         f.debug_struct("CandidateAllocator").finish_non_exhaustive()
     }
 }
-#[derive(Clone, Copy)]
-enum Placement {
-    Any,
-    Node(Option<u64>),
-    Aligned,
-}
-fn align_region(value: u64) -> Result<u64> {
-    value
-        .checked_add(FAILURE_REGION - 1)
-        .map(|n| n / FAILURE_REGION * FAILURE_REGION)
-        .ok_or(Error::CorruptRecord)
-}
-fn place(start: u64, len: u64, policy: Placement) -> Result<u64> {
-    if len == 0 {
-        return Err(Error::CorruptRecord);
-    }
-    let mut start = start;
+#[derive(Clone,Copy)]
+enum Placement { Any, Node(Option<u64>), Aligned }
+fn align_region(value:u64)->Result<u64>{value.checked_add(FAILURE_REGION-1).map(|n|n/FAILURE_REGION*FAILURE_REGION).ok_or(Error::CorruptRecord)}
+fn place(start:u64,len:u64,policy:Placement)->Result<u64>{
+    if len==0 {return Err(Error::CorruptRecord);}
+    let mut start=start;
     match policy {
-        Placement::Any => {}
-        Placement::Aligned => start = align_region(start)?,
-        Placement::Node(excluded) => {
-            if len > FAILURE_REGION {
-                return Err(Error::CorruptRecord);
-            }
-            if start % FAILURE_REGION + len > FAILURE_REGION
-                || excluded == Some(start / FAILURE_REGION)
-            {
-                start = align_region(start.checked_add(1).ok_or(Error::CorruptRecord)?)?;
-            }
-            if excluded == Some(start / FAILURE_REGION) {
-                start = start
-                    .checked_add(FAILURE_REGION)
-                    .ok_or(Error::CorruptRecord)?;
-            }
+        Placement::Any=>{},
+        Placement::Aligned=>start=align_region(start)?,
+        Placement::Node(excluded)=>{
+            if len>FAILURE_REGION {return Err(Error::CorruptRecord);}
+            if start%FAILURE_REGION+len>FAILURE_REGION || excluded==Some(start/FAILURE_REGION){start=align_region(start.checked_add(1).ok_or(Error::CorruptRecord)?)?;}
+            if excluded==Some(start/FAILURE_REGION){start=start.checked_add(FAILURE_REGION).ok_or(Error::CorruptRecord)?;}
         }
     }
-    start.checked_add(len).ok_or(Error::CorruptRecord)?;
-    Ok(start)
+    start.checked_add(len).ok_or(Error::CorruptRecord)?;Ok(start)
 }
-fn separated(reference: RootRef) -> Result<()> {
-    if reference.len == 0
-        || reference.len > FAILURE_REGION
-        || reference.primary / FAILURE_REGION == reference.mirror / FAILURE_REGION
-    {
-        return Err(Error::CorruptRecord);
-    }
-    for start in [reference.primary, reference.mirror] {
-        if start % FAILURE_REGION + reference.len > FAILURE_REGION {
-            return Err(Error::CorruptRecord);
-        }
-    }
+fn separated(reference:RootRef)->Result<()> {
+    if reference.len==0 || reference.len>FAILURE_REGION || reference.primary/FAILURE_REGION==reference.mirror/FAILURE_REGION {return Err(Error::CorruptRecord);}
+    for start in [reference.primary,reference.mirror] {if start%FAILURE_REGION+reference.len>FAILURE_REGION {return Err(Error::CorruptRecord);}}
     Ok(())
 }
-fn append_zeros(storage: &mut impl Storage, len: u64) -> Result<()> {
-    let zeros = [0; 65536];
-    let mut left = len;
-    while left > 0 {
-        let n = left.min(zeros.len() as u64) as usize;
-        storage.append(&zeros[..n])?;
-        left -= n as u64;
-    }
-    Ok(())
+fn append_zeros(storage:&mut impl Storage,len:u64)->Result<()> {
+    let zeros=[0;65536];let mut left=len;while left>0 {let n=left.min(zeros.len() as u64) as usize;storage.append(&zeros[..n])?;left-=n as u64;}Ok(())
 }
-impl<S: Storage> AllocatorState<S> {
-    fn take_available(&mut self, len: u64, policy: Placement) -> Result<Option<Reservation>> {
-        let mut chosen = None;
-        for &(_, original) in self.sizes.range((len, 0)..) {
-            let range = self.available[&original];
-            let start = place(range.start, len, policy)?;
-            if start
-                .checked_add(len)
-                .is_some_and(|end| end <= range.start + range.len)
-            {
-                chosen = Some((range, start));
-                break;
-            }
+impl<S:Storage> AllocatorState<S>{
+    fn take_available(&mut self,len:u64,policy:Placement)->Result<Option<Reservation>>{
+        let mut chosen=None;
+        for &(_,original) in self.sizes.range((len,0)..){
+            let range=self.available[&original];let start=place(range.start,len,policy)?;
+            if start.checked_add(len).is_some_and(|end|end<=range.start+range.len){chosen=Some((range,start));break;}
         }
-        let Some((range, start)) = chosen else {
-            return Ok(None);
-        };
-        self.available.remove(&range.start);
-        self.sizes.remove(&(range.len, range.start));
-        for (part_start, part_len) in [
-            (range.start, start - range.start),
-            (start + len, range.start + range.len - start - len),
-        ] {
-            if part_len > 0 {
-                let remainder = Reservation {
-                    start: part_start,
-                    len: part_len,
-                    ..range
-                };
-                self.available.insert(part_start, remainder);
-                self.sizes.insert((part_len, part_start));
-            }
+        let Some((range,start))=chosen else{return Ok(None);};
+        self.available.remove(&range.start);self.sizes.remove(&(range.len,range.start));
+        for (part_start,part_len) in [(range.start,start-range.start),(start+len,range.start+range.len-start-len)]{
+            if part_len>0 {let remainder=Reservation {start:part_start,len:part_len,..range};self.available.insert(part_start,remainder);self.sizes.insert((part_len,part_start));}
         }
-        Ok(Some(Reservation {
-            start,
-            len,
-            ..range
-        }))
+        Ok(Some(Reservation {start,len,..range}))
     }
-    fn write_at_plan(&mut self, start: u64, bytes: &[u8]) -> Result<()> {
-        let current = self.prepared.len()?;
-        if start >= current {
-            append_zeros(&mut self.prepared, start - current)?;
-            let actual = self.prepared.append(bytes)?;
-            if actual != start {
-                return Err(Error::CorruptRecord);
-            }
-        } else {
-            self.prepared.write_at(start, bytes)?;
-        }
-        let sealed = self.prepared.len()?;
-        self.written.insert(
-            Claim {
-                extent: Extent {
-                    start,
-                    len: bytes.len() as u64,
-                    digest: strong_checksum(bytes),
-                },
-                kind: Kind::Index,
-            },
-            sealed,
-        )
+    fn write_at_plan(&mut self,start:u64,bytes:&[u8])->Result<()> {
+        let current=self.prepared.len()?;
+        if start>=current {append_zeros(&mut self.prepared,start-current)?;let actual=self.prepared.append(bytes)?;if actual!=start {return Err(Error::CorruptRecord);}}
+        else{self.prepared.write_at(start,bytes)?;}
+        let sealed=self.prepared.len()?;
+        self.written.insert(Claim {extent:Extent {start,len:bytes.len() as u64,digest:strong_checksum(bytes)},kind:Kind::Index},sealed)
     }
 }
 
@@ -582,31 +493,16 @@ impl<S: Storage> Allocator<S> {
             written: Claims::default(),
         })))
     }
-    fn reserve_arena(&mut self, len: u64) -> Result<Extent> {
-        let mut state = self.0.lock().unwrap();
-        let start = if let Some(lease) = state.take_available(len, Placement::Aligned)? {
-            state.prepared.reserve(&[lease])?;
-            lease.start
-        } else {
-            let current = state.prepared.len()?;
-            let start = place(current, len, Placement::Aligned)?;
-            append_zeros(&mut state.prepared, start - current + len)?;
-            start
+    fn reserve_arena(&mut self,len:u64)->Result<Extent>{
+        let mut state=self.0.lock().unwrap();
+        let start=if let Some(lease)=state.take_available(len,Placement::Aligned)? {
+            state.prepared.reserve(&[lease])?;lease.start
+        }else{
+            let current=state.prepared.len()?;let start=place(current,len,Placement::Aligned)?;
+            append_zeros(&mut state.prepared,start-current+len)?;start
         };
-        let extent = Extent {
-            start,
-            len,
-            digest: [0; 32],
-        };
-        let sealed = state.prepared.len()?;
-        state.written.insert(
-            Claim {
-                extent,
-                kind: Kind::Allocation,
-            },
-            sealed,
-        )?;
-        Ok(extent)
+        let extent=Extent {start,len,digest:[0;32]};let sealed=state.prepared.len()?;
+        state.written.insert(Claim {extent,kind:Kind::Allocation},sealed)?;Ok(extent)
     }
     fn prepared(&self) -> PreparedStore<S> {
         self.0.lock().unwrap().prepared.clone()
@@ -629,46 +525,19 @@ impl<S: Storage> Storage for Allocator<S> {
     fn read_at_into(&self, o: u64, b: &mut [u8]) -> Result<()> {
         self.0.lock().unwrap().prepared.read_at_into(o, b)
     }
-    fn append(&mut self, bytes: &[u8]) -> Result<u64> {
-        if bytes.is_empty() {
-            return Err(Error::InvalidInput("empty physical allocation".into()));
-        }
-        let mut state = self.0.lock().unwrap();
-        let len = bytes.len() as u64;
-        let start = if let Some(lease) = state.take_available(len, Placement::Any)? {
-            state.prepared.reserve(&[lease])?;
-            lease.start
-        } else {
-            state.prepared.len()?
-        };
-        state.write_at_plan(start, bytes)?;
-        Ok(start)
+    fn append(&mut self,bytes:&[u8])->Result<u64>{
+        if bytes.is_empty(){return Err(Error::InvalidInput("empty physical allocation".into()));}
+        let mut state=self.0.lock().unwrap();let len=bytes.len() as u64;
+        let start=if let Some(lease)=state.take_available(len,Placement::Any)?{state.prepared.reserve(&[lease])?;lease.start}else{state.prepared.len()?};
+        state.write_at_plan(start,bytes)?;Ok(start)
     }
-    fn append_pair(&mut self, bytes: &[u8]) -> Result<(u64, u64)> {
-        let len = bytes.len() as u64;
-        let mut state = self.0.lock().unwrap();
-        let mut tail = state.prepared.len()?;
-        let mut leases = Vec::new();
-        let primary = if let Some(lease) = state.take_available(len, Placement::Node(None))? {
-            leases.push(lease);
-            lease.start
-        } else {
-            let start = place(tail, len, Placement::Node(None))?;
-            tail = start + len;
-            start
-        };
-        let policy = Placement::Node(Some(primary / FAILURE_REGION));
-        let mirror = if let Some(lease) = state.take_available(len, policy)? {
-            leases.push(lease);
-            lease.start
-        } else {
-            place(tail, len, policy)?
-        };
+    fn append_pair(&mut self,bytes:&[u8])->Result<(u64,u64)>{
+        let len=bytes.len() as u64;let mut state=self.0.lock().unwrap();let mut tail=state.prepared.len()?;let mut leases=Vec::new();
+        let primary=if let Some(lease)=state.take_available(len,Placement::Node(None))?{leases.push(lease);lease.start}else{let start=place(tail,len,Placement::Node(None))?;tail=start+len;start};
+        let policy=Placement::Node(Some(primary/FAILURE_REGION));
+        let mirror=if let Some(lease)=state.take_available(len,policy)?{leases.push(lease);lease.start}else{place(tail,len,policy)?};
         // Both reused copies are reserved by one durable journal transition.
-        state.prepared.reserve(&leases)?;
-        state.write_at_plan(primary, bytes)?;
-        state.write_at_plan(mirror, bytes)?;
-        Ok((primary, mirror))
+        state.prepared.reserve(&leases)?;state.write_at_plan(primary,bytes)?;state.write_at_plan(mirror,bytes)?;Ok((primary,mirror))
     }
     fn write_at(&mut self, _o: u64, _b: &[u8]) -> Result<()> {
         Err(Error::InvalidInput(
@@ -686,100 +555,39 @@ impl<S: Storage> Storage for Allocator<S> {
 }
 
 #[derive(Clone)]
-struct ArenaWriter<S: Storage> {
-    storage: S,
-    arena: Extent,
-    position: Arc<Mutex<u64>>,
-}
-impl<S: Storage> std::fmt::Debug for ArenaWriter<S> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("SeparatedMapBanks").finish_non_exhaustive()
+struct ArenaWriter<S:Storage>{storage:S,arena:Extent,position:Arc<Mutex<u64>>}
+impl<S:Storage> std::fmt::Debug for ArenaWriter<S>{fn fmt(&self,f:&mut std::fmt::Formatter<'_>)->std::fmt::Result{f.debug_struct("SeparatedMapBanks").finish_non_exhaustive()}}
+impl<S:Storage> Storage for ArenaWriter<S>{
+    fn len(&self)->Result<u64>{self.storage.len()}
+    fn read_at(&self,o:u64,n:usize)->Result<Vec<u8>>{self.storage.read_at(o,n)}
+    fn read_at_into(&self,o:u64,b:&mut [u8])->Result<()>{self.storage.read_at_into(o,b)}
+    fn append(&mut self,_b:&[u8])->Result<u64>{Err(Error::InvalidInput("map arena requires paired nodes".into()))}
+    fn append_pair(&mut self,bytes:&[u8])->Result<(u64,u64)>{
+        if self.arena.start%FAILURE_REGION!=0 || self.arena.len%(2*FAILURE_REGION)!=0 {return Err(Error::CorruptRecord);}
+        let half=self.arena.len/2;let mut position=self.position.lock().unwrap();let primary=place(*position,bytes.len() as u64,Placement::Node(None))?;
+        if primary+bytes.len() as u64>self.arena.start+half {return Err(Error::SecurityLimitExceeded("allocation map bank exhausted".into()));}
+        let mirror=primary+half;self.storage.write_at(primary,bytes)?;self.storage.write_at(mirror,bytes)?;*position=primary+bytes.len() as u64;Ok((primary,mirror))
     }
-}
-impl<S: Storage> Storage for ArenaWriter<S> {
-    fn len(&self) -> Result<u64> {
-        self.storage.len()
-    }
-    fn read_at(&self, o: u64, n: usize) -> Result<Vec<u8>> {
-        self.storage.read_at(o, n)
-    }
-    fn read_at_into(&self, o: u64, b: &mut [u8]) -> Result<()> {
-        self.storage.read_at_into(o, b)
-    }
-    fn append(&mut self, _b: &[u8]) -> Result<u64> {
-        Err(Error::InvalidInput(
-            "map arena requires paired nodes".into(),
-        ))
-    }
-    fn append_pair(&mut self, bytes: &[u8]) -> Result<(u64, u64)> {
-        if self.arena.start % FAILURE_REGION != 0 || self.arena.len % (2 * FAILURE_REGION) != 0 {
-            return Err(Error::CorruptRecord);
-        }
-        let half = self.arena.len / 2;
-        let mut position = self.position.lock().unwrap();
-        let primary = place(*position, bytes.len() as u64, Placement::Node(None))?;
-        if primary + bytes.len() as u64 > self.arena.start + half {
-            return Err(Error::SecurityLimitExceeded(
-                "allocation map bank exhausted".into(),
-            ));
-        }
-        let mirror = primary + half;
-        self.storage.write_at(primary, bytes)?;
-        self.storage.write_at(mirror, bytes)?;
-        *position = primary + bytes.len() as u64;
-        Ok((primary, mirror))
-    }
-    fn write_at(&mut self, _o: u64, _b: &[u8]) -> Result<()> {
-        Err(Error::InvalidInput("map nodes are immutable".into()))
-    }
-    fn truncate(&mut self, _n: u64) -> Result<()> {
-        Err(Error::InvalidInput("map arena cannot truncate".into()))
-    }
-    fn sync(&self) -> Result<()> {
-        self.storage.sync()
-    }
+    fn write_at(&mut self,_o:u64,_b:&[u8])->Result<()>{Err(Error::InvalidInput("map nodes are immutable".into()))}
+    fn truncate(&mut self,_n:u64)->Result<()>{Err(Error::InvalidInput("map arena cannot truncate".into()))}
+    fn sync(&self)->Result<()>{self.storage.sync()}
 }
 /// Used only while creating an empty backend. Runtime allocation uses reuse-aware
 /// paired placement; this bootstrap writer owns all appended alignment gaps.
-#[derive(Clone, Debug)]
-struct InitialPairs<S: Storage>(S);
-impl<S: Storage> Storage for InitialPairs<S> {
-    fn len(&self) -> Result<u64> {
-        self.0.len()
+#[derive(Clone,Debug)]
+struct InitialPairs<S:Storage>(S);
+impl<S:Storage> Storage for InitialPairs<S>{
+    fn len(&self)->Result<u64>{self.0.len()}
+    fn read_at(&self,o:u64,n:usize)->Result<Vec<u8>>{self.0.read_at(o,n)}
+    fn read_at_into(&self,o:u64,b:&mut [u8])->Result<()>{self.0.read_at_into(o,b)}
+    fn append(&mut self,b:&[u8])->Result<u64>{self.0.append(b)}
+    fn append_pair(&mut self,b:&[u8])->Result<(u64,u64)>{
+        let current=self.0.len()?;let primary=place(current,b.len() as u64,Placement::Node(None))?;append_zeros(&mut self.0,primary-current)?;self.0.append(b)?;
+        let current=self.0.len()?;let mirror=place(current,b.len() as u64,Placement::Node(Some(primary/FAILURE_REGION)))?;append_zeros(&mut self.0,mirror-current)?;self.0.append(b)?;Ok((primary,mirror))
     }
-    fn read_at(&self, o: u64, n: usize) -> Result<Vec<u8>> {
-        self.0.read_at(o, n)
-    }
-    fn read_at_into(&self, o: u64, b: &mut [u8]) -> Result<()> {
-        self.0.read_at_into(o, b)
-    }
-    fn append(&mut self, b: &[u8]) -> Result<u64> {
-        self.0.append(b)
-    }
-    fn append_pair(&mut self, b: &[u8]) -> Result<(u64, u64)> {
-        let current = self.0.len()?;
-        let primary = place(current, b.len() as u64, Placement::Node(None))?;
-        append_zeros(&mut self.0, primary - current)?;
-        self.0.append(b)?;
-        let current = self.0.len()?;
-        let mirror = place(
-            current,
-            b.len() as u64,
-            Placement::Node(Some(primary / FAILURE_REGION)),
-        )?;
-        append_zeros(&mut self.0, mirror - current)?;
-        self.0.append(b)?;
-        Ok((primary, mirror))
-    }
-    fn write_at(&mut self, o: u64, b: &[u8]) -> Result<()> {
-        self.0.write_at(o, b)
-    }
-    fn truncate(&mut self, n: u64) -> Result<()> {
-        self.0.truncate(n)
-    }
-    fn sync(&self) -> Result<()> {
-        self.0.sync()
-    }
+    fn write_at(&mut self,o:u64,b:&[u8])->Result<()>{self.0.write_at(o,b)}
+    fn truncate(&mut self,n:u64)->Result<()>{self.0.truncate(n)}
+    fn sync(&self)->Result<()>{self.0.sync()}
 }
 
 pub(crate) struct Transaction<S: Storage> {
@@ -960,9 +768,7 @@ impl<S: Storage> Transaction<S> {
         // own declaration adds one record. Three extra records bound that change.
         let capacity = self
             .index
-            .fixed_record_node_bound(initial.len() as u64 + 3, 8, 8)?
-            * 2
-            * FAILURE_REGION;
+            .fixed_record_node_bound(initial.len() as u64 + 3, 8, 8)? * 2 * FAILURE_REGION;
         let arena = self.storage.reserve_arena(capacity)?;
         next.sealed_len = self.storage.len()?;
         live.insert(
@@ -1049,79 +855,32 @@ fn gap_records(
         })
         .collect()
 }
-#[derive(Debug, Default)]
-pub(crate) struct MetadataRepair {
-    pub copies: u64,
-    pub zeroed_unused_bytes: u64,
-}
+#[derive(Debug,Default)]
+pub(crate) struct MetadataRepair {pub copies:u64,pub zeroed_unused_bytes:u64}
 /// Explicit metadata repair under the caller's exclusive writer lock. Audit
 /// ownership first; reconstruct only authenticated page bytes or declared zeros.
 /// Payload availability and content decoding remain separate checks.
-pub(crate) fn repair_metadata(
-    storage: &mut impl Storage,
-    archive: LockboxId,
-    mode: FormatMode,
-    authority: &Authority<'_>,
-    key: Option<&[u8]>,
-) -> Result<(Anchor, MetadataRepair)> {
-    let selected = publication::select(storage, archive, mode, authority)?;
-    let anchor = selected.anchor;
-    let index = Index::new(archive, mode, key)?;
-    let snapshot = Snapshot::inspect_graph(storage, &anchor, &index, false)?;
-    let mut pages = Vec::new();
-    for root in [anchor.index, anchor.keys, anchor.allocation] {
-        if root != RootRef::default() {
-            index.visit_owned(storage, root, anchor.sealed_len, |event| {
-                if let Visit::Page(page) = event {
-                    pages.push(page);
-                }
-                Ok(())
-            })?;
-        }
-    }
-    let mut report = MetadataRepair::default();
-    for page in pages {
-        report.copies += u64::from(page.repair(storage)?);
-    }
+pub(crate) fn repair_metadata(storage:&mut impl Storage,archive:LockboxId,mode:FormatMode,authority:&Authority<'_>,key:Option<&[u8]>)->Result<(Anchor,MetadataRepair)>{
+    let selected=publication::select(storage,archive,mode,authority)?;let anchor=selected.anchor;let index=Index::new(archive,mode,key)?;
+    let snapshot=Snapshot::inspect_graph(storage,&anchor,&index,false)?;
+    let mut pages=Vec::new();
+    for root in [anchor.index,anchor.keys,anchor.allocation]{if root!=RootRef::default(){index.visit_owned(storage,root,anchor.sealed_len,|event|{if let Visit::Page(page)=event{pages.push(page);}Ok(())})?;}}
+    let mut report=MetadataRepair::default();
+    for page in pages {report.copies+=u64::from(page.repair(storage)?);}
     // Metadata copies are synced by this barrier before publication is repaired.
     // Do not clear any reserved/retired bytes before both publication copies hold.
-    publication::ensure_mirrored(storage, archive, mode, authority, selected.commitment)?;
-    let mut zeros = snapshot
-        .claims
-        .0
-        .values()
-        .filter(|c| matches!(c.kind, Kind::Reserve | Kind::Free | Kind::Pending))
-        .map(|c| c.extent)
-        .collect::<Vec<_>>();
-    for slot in 0..2 {
-        zeros.push(Extent {
-            start: (slot * publication::SLOT_STRIDE + publication::SLOT_LEN) as u64,
-            len: (publication::SLOT_STRIDE - publication::SLOT_LEN) as u64,
-            digest: [0; 32],
-        });
-    }
+    publication::ensure_mirrored(storage,archive,mode,authority,selected.commitment)?;
+    let mut zeros=snapshot.claims.0.values().filter(|c|matches!(c.kind,Kind::Reserve|Kind::Free|Kind::Pending)).map(|c|c.extent).collect::<Vec<_>>();
+    for slot in 0..2 {zeros.push(Extent {start:(slot*publication::SLOT_STRIDE+publication::SLOT_LEN) as u64,len:(publication::SLOT_STRIDE-publication::SLOT_LEN) as u64,digest:[0;32]});}
     for extent in zeros {
-        match check_zero(storage, extent) {
-            Ok(()) => {}
-            Err(Error::CorruptRecord) => {
-                let mut position = extent.start;
-                let mut left = extent.len;
-                let bytes = [0; 65536];
-                while left > 0 {
-                    let n = left.min(bytes.len() as u64) as usize;
-                    storage.write_at(position, &bytes[..n])?;
-                    position += n as u64;
-                    left -= n as u64;
-                }
-                report.zeroed_unused_bytes += extent.len;
-            }
-            Err(error) => return Err(error),
+        match check_zero(storage,extent){
+            Ok(())=>{},
+            Err(Error::CorruptRecord)=>{let mut position=extent.start;let mut left=extent.len;let bytes=[0;65536];while left>0{let n=left.min(bytes.len() as u64) as usize;storage.write_at(position,&bytes[..n])?;position+=n as u64;left-=n as u64;}report.zeroed_unused_bytes+=extent.len;},
+            Err(error)=>return Err(error),
         }
     }
-    storage.sync()?;
-    journal::recover(storage, archive, mode, authority, key)?;
-    Snapshot::inspect(storage, &anchor, &index)?;
-    Ok((anchor, report))
+    storage.sync()?;journal::recover(storage,archive,mode,authority,key)?;
+    Snapshot::inspect(storage,&anchor,&index)?;Ok((anchor,report))
 }
 
 /// Archive-level transaction recovery must audit the selected graph before
@@ -1152,60 +911,22 @@ pub(crate) fn create_empty(
         ));
     }
     // Cloning is limited to a verified-empty backend, never an existing archive.
-    let mut writer = InitialPairs(storage.clone());
-    writer.append(&vec![0; DATA_START as usize])?;
-    let index = Index::new(archive, mode, key)?;
-    let root = index.empty(&mut writer)?;
-    let old_len = writer.len()?;
-    let arena_start = align_region(old_len)?;
-    let arena = Extent {
-        start: arena_start,
-        len: 2 * FAILURE_REGION,
-        digest: [0; 32],
-    };
-    append_zeros(&mut writer, arena_start - old_len + arena.len)?;
-    let mut entries = Vec::new();
-    for (start, end) in [
-        (root.primary + root.len, root.mirror),
-        (root.mirror + root.len, arena_start),
-    ] {
-        if end > start {
-            entries.push(Entry::new(
-                FREE,
-                &start.to_be_bytes(),
-                &(end - start).to_le_bytes(),
-            )?);
-        }
+    let mut writer=InitialPairs(storage.clone());writer.append(&vec![0;DATA_START as usize])?;
+    let index=Index::new(archive,mode,key)?;let root=index.empty(&mut writer)?;
+    let old_len=writer.len()?;let arena_start=align_region(old_len)?;let arena=Extent {start:arena_start,len:2*FAILURE_REGION,digest:[0;32]};
+    append_zeros(&mut writer,arena_start-old_len+arena.len)?;
+    let mut entries=Vec::new();
+    for (start,end) in [(root.primary+root.len,root.mirror),(root.mirror+root.len,arena_start)]{
+        if end>start{entries.push(Entry::new(FREE,&start.to_be_bytes(),&(end-start).to_le_bytes())?);}
     }
-    entries.push(Entry::new(
-        ARENA,
-        &arena.start.to_be_bytes(),
-        &arena.len.to_le_bytes(),
-    )?);
-    let mut writer = ArenaWriter {
-        storage: writer.0,
-        arena,
-        position: Arc::new(Mutex::new(arena.start)),
-    };
-    let allocation = index
-        .build_sorted(&mut writer, entries.into_iter().map(Ok))?
-        .root;
-    let anchor = Anchor {
-        archive,
-        generation: 1,
-        mode,
-        sealed_len: writer.len()?,
-        object_root: root.digest,
-        previous: [0; 32],
-        index: root,
-        allocation,
-        keys: RootRef::default(),
-    };
-    Snapshot::inspect(&writer, &anchor, &index)?;
-    publication::publish(&mut writer.storage, &anchor, authority, signer, None)?;
-    journal::initialize(&mut writer.storage, archive, mode, authority, key)?;
-    *storage = writer.storage;
-    Ok(anchor)
+    entries.push(Entry::new(ARENA,&arena.start.to_be_bytes(),&arena.len.to_le_bytes())?);
+    let mut writer=ArenaWriter {storage:writer.0,arena,position:Arc::new(Mutex::new(arena.start))};
+    let allocation=index.build_sorted(&mut writer,entries.into_iter().map(Ok))?.root;
+    let anchor=Anchor {archive,generation:1,mode,sealed_len:writer.len()?,object_root:root.digest,previous:[0;32],index:root,allocation,keys:RootRef::default()};
+    Snapshot::inspect(&writer,&anchor,&index)?;
+    publication::publish(&mut writer.storage,&anchor,authority,signer,None)?;
+    journal::initialize(&mut writer.storage,archive,mode,authority,key)?;
+    *storage=writer.storage;Ok(anchor)
 }
 
 #[cfg(test)]

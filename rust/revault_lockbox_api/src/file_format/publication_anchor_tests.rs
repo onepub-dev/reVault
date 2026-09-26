@@ -243,7 +243,9 @@ fn one_slot_can_be_lost_but_conflicting_or_unlinked_valid_slots_are_rejected() {
     let base = encode(&first, &authority, Some(&owner)).unwrap();
     for slot in 0..2 {
         storage.write_at(0, &vec![0; REGION_LEN]).unwrap();
-        storage.write_at((slot * SLOT_LEN) as u64, &base).unwrap();
+        storage
+            .write_at((slot * SLOT_STRIDE) as u64, &base)
+            .unwrap();
         assert_eq!(
             select(&storage, first.archive, first.mode, &authority)
                 .unwrap()
@@ -269,7 +271,7 @@ fn one_slot_can_be_lost_but_conflicting_or_unlinked_valid_slots_are_rejected() {
     fork.object_root[0] ^= 1;
     storage
         .write_at(
-            SLOT_LEN as u64,
+            SLOT_STRIDE as u64,
             &encode(&fork, &authority, Some(&owner)).unwrap(),
         )
         .unwrap();
@@ -278,7 +280,7 @@ fn one_slot_can_be_lost_but_conflicting_or_unlinked_valid_slots_are_rejected() {
     unlinked.previous[0] ^= 1;
     storage
         .write_at(
-            SLOT_LEN as u64,
+            SLOT_STRIDE as u64,
             &encode(&unlinked, &authority, Some(&owner)).unwrap(),
         )
         .unwrap();
@@ -763,8 +765,11 @@ fn slot_read_errors_do_not_authorize_selecting_the_other_generation() {
     let first = next(&mut base, mode, None);
     publish(&mut base, &first, &authority, None, None).unwrap();
     let second = next(&mut base, mode, Some(&first));
-    base.write_at(SLOT_LEN as u64, &encode(&second, &authority, None).unwrap())
-        .unwrap();
+    base.write_at(
+        SLOT_STRIDE as u64,
+        &encode(&second, &authority, None).unwrap(),
+    )
+    .unwrap();
     #[derive(Debug, Clone)]
     struct ReadFault {
         inner: StorageBackend,
@@ -797,7 +802,7 @@ fn slot_read_errors_do_not_authorize_selecting_the_other_generation() {
             self.inner.sync()
         }
     }
-    for offset in [0, SLOT_LEN as u64] {
+    for offset in [0, SLOT_STRIDE as u64] {
         let broken = ReadFault {
             inner: StorageBackend::memory(base.read_all().unwrap()),
             offset,
@@ -821,7 +826,7 @@ fn every_byte_prefix_of_a_torn_slot_keeps_an_old_or_new_authenticated_root() {
             let mut torn = old.clone();
             torn[..prefix].copy_from_slice(&new[..prefix]);
             storage.write_at(0, &torn).unwrap();
-            storage.write_at(SLOT_LEN as u64, other).unwrap();
+            storage.write_at(SLOT_STRIDE as u64, other).unwrap();
             let selected = select(&storage, first.archive, mode, &authority).unwrap();
             assert!(
                 selected.anchor == first || selected.anchor == second,
@@ -838,7 +843,7 @@ fn every_byte_prefix_of_a_torn_slot_keeps_an_old_or_new_authenticated_root() {
 #[test]
 fn independent_checksum_and_hmac_vectors_match_exact_bytes() {
     let fixture: serde_json::Value = serde_json::from_str(include_str!(
-        "../../tests/fixtures/publication_anchor_v1.json"
+        "../../tests/fixtures/publication_anchor_v2.json"
     ))
     .unwrap();
     let unhex = |text: &str| {
@@ -862,9 +867,9 @@ fn independent_checksum_and_hmac_vectors_match_exact_bytes() {
         bytes[CHECKSUM_START..].copy_from_slice(&unhex(vector["checksum_hex"].as_str().unwrap()));
         let decoded = decode(&bytes, LockboxId::from_bytes([31; 16]), mode, &authority).unwrap();
         assert_eq!(decoded.generation, 1);
-        assert_eq!(decoded.sealed_len, 16390);
-        assert_eq!(decoded.index.primary, 16384);
-        assert_eq!(decoded.index.mirror, 16387);
+        assert_eq!(decoded.sealed_len, 327683);
+        assert_eq!(decoded.index.primary, 262144);
+        assert_eq!(decoded.index.mirror, 327680);
         assert_eq!(decoded.index.len, 3);
         assert_eq!(decoded.index.digest, strong_checksum(b"abc"));
         assert_eq!(
@@ -899,4 +904,19 @@ fn preparation_signatures_cannot_be_reused_as_publication_authority() {
     }
     refresh_checksum(&mut encoded);
     assert!(decode(&encoded, anchor.archive, anchor.mode, &authority).is_err());
+}
+
+#[test]
+fn old_adjacent_publication_geometry_is_not_selected_as_current_format() {
+    let mode = mode(false, false);
+    let mut storage = StorageBackend::memory(vec![0; REGION_LEN]);
+    let anchor = next(&mut storage, mode, None);
+    let mut encoded = encode(&anchor, &Authority::Checksum, None).unwrap();
+    encoded[..8].copy_from_slice(b"RV4PUB01");
+    encoded[8..10].copy_from_slice(&1u16.to_le_bytes());
+    refresh_checksum(&mut encoded);
+    for offset in [0, SLOT_LEN as u64] {
+        storage.write_at(offset, &encoded).unwrap();
+    }
+    assert!(select(&storage, anchor.archive, mode, &Authority::Checksum).is_err());
 }

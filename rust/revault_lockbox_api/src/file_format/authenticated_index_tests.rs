@@ -794,8 +794,10 @@ fn independently_encoded_packed_vectors_match_wire_bytes_and_ordered_membership(
             .map(|pair| u8::from_str_radix(std::str::from_utf8(pair).unwrap(), 16).unwrap())
             .collect()
     }
-    let vector: serde_json::Value =
-        serde_json::from_str(include_str!("../../tests/fixtures/packed_index_v1.json")).unwrap();
+    let vector: serde_json::Value = serde_json::from_str(include_str!(
+        "../../tests/fixtures/packed_index_regions_v2.json"
+    ))
+    .unwrap();
     let index = index(false, false);
     let mut storage = StorageBackend::memory(vec![0; REGION_LEN]);
     let mut last = RootRef::default();

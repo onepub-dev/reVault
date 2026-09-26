@@ -53,27 +53,16 @@ impl RootRef {
     }
     /// Restore only a copy whose peer matches the authenticated stored digest.
     /// Ordinary I/O errors propagate; this does not synthesize missing payload.
-    pub(crate) fn repair(&self, storage: &mut impl Storage) -> Result<bool> {
+    pub(crate) fn repair(&self,storage:&mut impl Storage)->Result<bool>{
         self.ranges(storage.len()?)?;
-        if self.absent() {
-            return Err(Error::CorruptRecord);
-        }
-        let primary = zeroize::Zeroizing::new(storage.read_at(self.primary, self.len as usize)?);
-        let mirror = zeroize::Zeroizing::new(storage.read_at(self.mirror, self.len as usize)?);
-        match (
-            strong_checksum(&primary) == self.digest,
-            strong_checksum(&mirror) == self.digest,
-        ) {
-            (true, true) => Ok(false),
-            (true, false) => {
-                storage.write_at(self.mirror, &primary)?;
-                Ok(true)
-            }
-            (false, true) => {
-                storage.write_at(self.primary, &mirror)?;
-                Ok(true)
-            }
-            (false, false) => Err(Error::CorruptRecord),
+        if self.absent(){return Err(Error::CorruptRecord);}
+        let primary=zeroize::Zeroizing::new(storage.read_at(self.primary,self.len as usize)?);
+        let mirror=zeroize::Zeroizing::new(storage.read_at(self.mirror,self.len as usize)?);
+        match (strong_checksum(&primary)==self.digest,strong_checksum(&mirror)==self.digest){
+            (true,true)=>Ok(false),
+            (true,false)=>{storage.write_at(self.mirror,&primary)?;Ok(true)},
+            (false,true)=>{storage.write_at(self.primary,&mirror)?;Ok(true)},
+            (false,false)=>Err(Error::CorruptRecord),
         }
     }
     /// Recover one root copy without treating an unreadable source as permission
@@ -446,10 +435,7 @@ pub(crate) fn ensure_mirrored(
     // Required even when both copies are readable after a failed final sync.
     storage.sync()?;
     if selected.copies != 3 {
-        storage.write_at(
-            ((1 - selected.slot) * SLOT_STRIDE) as u64,
-            &selected.encoded,
-        )?;
+        storage.write_at(((1 - selected.slot) * SLOT_STRIDE) as u64, &selected.encoded)?;
         storage.sync()?;
     }
     Ok(Published {

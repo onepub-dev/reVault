@@ -75,3 +75,20 @@ accounts for the map's own reserved capacity. The final allocator still needs
 batched reservations: long-run CPU increased about 61–63% versus the rejected
 append-map variant. These component resource observations do not qualify A4 or
 replace full public-record, codec, compaction and platform validation.
+
+## Separated metadata copies — 2026-09-27
+
+The [mirror-separation experiment](../evidence/separated-mirrors-2026-09-27/README.md)
+adds distinct aligned failure regions, banked maps and one reservation transition
+per reused node pair. In repeated 1,000-operation padded workloads, final size
+stabilizes at 1,114,112 bytes after operation five; observed CPU decreases 13.0%
+for plaintext and 7.2% for encrypted-signed compared with the prior reusable-map
+implementation. This is a descriptive aging comparison, not the A4 statistical
+gate. Unpadded tiny archives grow from about 177 KB to 655 KB because of separated
+regions and reserved map capacity. Retain that space cost in architecture selection.
+
+Explicit metadata repair audits the entire graph before writes and synchronizes
+both publication copies before clearing declared unused space. One aligned 64 KiB
+region may be lost without losing metadata membership; payload in that region is
+not recreated. Full transaction batching, codec/record integration and compaction
+remain open.

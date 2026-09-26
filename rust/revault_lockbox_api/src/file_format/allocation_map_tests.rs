@@ -208,11 +208,10 @@ fn ownership_envelope_rejects_unbounded_lengths_and_bad_physical_references() {
 
 #[test]
 fn audit_rejects_unowned_gaps_overlapping_payload_and_freed_descendant_pages() {
-    let owner = OwnerSigningKeyPair::generate().unwrap();
     let mode = mode(false, false, false);
-    let mut storage = StorageBackend::memory(Vec::new());
     let index = Index::new(archive(), mode, None).unwrap();
-    let initial = create_empty(
+    let mut storage = StorageBackend::memory(Vec::new());
+    create_empty(
         &mut storage,
         archive(),
         mode,
@@ -221,34 +220,12 @@ fn audit_rejects_unowned_gaps_overlapping_payload_and_freed_descendant_pages() {
         None,
     )
     .unwrap();
-    let base = Snapshot::inspect(&storage, &initial, &index).unwrap();
-    let bytes = b"shared allocation";
-    let payload = Extent {
-        start: storage.append(bytes).unwrap(),
-        len: bytes.len() as u64,
-        digest: strong_checksum(bytes),
-    };
+    let mut tx = Transaction::begin(storage, archive(), mode, &Authority::Checksum, None).unwrap();
+    let payload = tx.append_encoded_extent(b"shared allocation").unwrap();
     let value = OwnedRecord::encode(b"shared", &[payload]).unwrap();
-    let logical = index
-        .build_sorted(
-            &mut storage,
-            (0u32..1500).map(|n| Entry::new(1, &n.to_be_bytes(), &value)),
-        )
+    tx.replace_all_sorted((0u32..1500).map(|n| Entry::new(1, &n.to_be_bytes(), &value)))
         .unwrap();
-    assert!(logical.created.len() > 2);
-    let mut next = Anchor {
-        index: logical.root,
-        object_root: logical.root.digest,
-        sealed_len: storage.len().unwrap(),
-        ..initial.clone()
-    };
-    let live = Snapshot::live(&storage, &next, &index).unwrap();
-    let records = gap_records(&live, &base, &Claims::default(), next.sealed_len).unwrap();
-    let valid = index
-        .build_sorted(&mut storage, records.clone().into_iter().map(Ok))
-        .unwrap();
-    next.allocation = valid.root;
-    next.sealed_len = storage.len().unwrap();
+    let (storage, next) = tx.commit(&Authority::Checksum, None).unwrap();
     let snapshot = Snapshot::inspect(&storage, &next, &index).unwrap();
     assert_eq!(snapshot.accounting.payload, payload.len);
     let mut gap_storage = storage.clone();
@@ -258,28 +235,21 @@ fn audit_rejects_unowned_gaps_overlapping_payload_and_freed_descendant_pages() {
         ..next.clone()
     };
     assert!(Snapshot::inspect(&gap_storage, &gap_anchor, &index).is_err());
-    // The journal's old direct-root exclusion alone could not detect a FREE
-    // claim over a descendant. The complete graph audit must reject it.
-    let child = logical
-        .created
-        .iter()
-        .find(|r| **r != logical.root)
-        .copied()
+    let mut child = None;
+    index
+        .visit_owned(&storage, next.index, next.sealed_len, |event| {
+            if let Visit::Page(page) = event {
+                if page != next.index {
+                    child = Some(page);
+                }
+            }
+            Ok(())
+        })
         .unwrap();
-    let mut forged_records = records;
-    forged_records
-        .push(Entry::new(FREE, &child.primary.to_be_bytes(), &child.len.to_le_bytes()).unwrap());
-    forged_records
-        .sort_by(|a, b| (a.namespace, a.key.as_slice()).cmp(&(b.namespace, b.key.as_slice())));
-    let forged = index
-        .build_sorted(&mut storage, forged_records.into_iter().map(Ok))
-        .unwrap();
-    let forged_anchor = Anchor {
-        allocation: forged.root,
-        sealed_len: storage.len().unwrap(),
-        ..next.clone()
-    };
-    assert!(Snapshot::inspect(&storage, &forged_anchor, &index).is_err());
+    let child = child.unwrap();
+    let (forged, forged_anchor) =
+        forge_retired_child(storage, &next, child.primary, child.len, FREE);
+    assert!(Snapshot::inspect(&forged, &forged_anchor, &index).is_err());
     let mut overlap = Claims::default();
     overlap
         .insert(
@@ -315,7 +285,6 @@ fn audit_rejects_unowned_gaps_overlapping_payload_and_freed_descendant_pages() {
             next.sealed_len
         )
         .is_err());
-    let _ = owner;
 }
 
 #[derive(Clone, Debug)]
@@ -806,7 +775,6 @@ fn recovery_audits_descendant_ownership_before_any_erasure() {
     tx.replace_all_sorted((0u32..2400).map(|n| Entry::new(1, &n.to_be_bytes(), &value)))
         .unwrap();
     let (storage, base) = tx.commit(&authority, None).unwrap();
-    let snapshot = Snapshot::inspect(&storage, &base, &index).unwrap();
     let mut child = None;
     index
         .visit_owned(&storage, base.index, base.sealed_len, |event| {
@@ -819,31 +787,8 @@ fn recovery_audits_descendant_ownership_before_any_erasure() {
         })
         .unwrap();
     let child = child.unwrap();
-    let mut prepared = PreparedStore::begin(storage, archive(), mode, &authority, None).unwrap();
-    let live = Snapshot::live(&prepared, &base, &index).unwrap();
-    let mut records = gap_records(&live, &snapshot, &Claims::default(), base.sealed_len).unwrap();
-    records.push(
-        Entry::new(
-            PENDING,
-            &child.primary.to_be_bytes(),
-            &child.len.to_le_bytes(),
-        )
-        .unwrap(),
-    );
-    records.sort_by(|a, b| (a.namespace, a.key.as_slice()).cmp(&(b.namespace, b.key.as_slice())));
-    let map = index
-        .build_sorted(&mut prepared, records.into_iter().map(Ok))
-        .unwrap();
-    let next = Anchor {
-        generation: base.generation + 1,
-        previous: base.commitment().unwrap(),
-        allocation: map.root,
-        sealed_len: prepared.len().unwrap(),
-        ..base.clone()
-    };
-    // Deliberately bypass the allocator's commit audit to simulate an internally
-    // inconsistent published map. No public CLI can construct this condition.
-    let mut storage = prepared.into_inner().unwrap();
+    let (mut storage, next) =
+        forge_retired_child(storage, &base, child.primary, child.len, PENDING);
     publication::publish(
         &mut storage,
         &next,
@@ -855,8 +800,327 @@ fn recovery_audits_descendant_ownership_before_any_erasure() {
     let before = storage.read_all().unwrap();
     assert!(recover(&mut storage, archive(), mode, &authority, None).is_err());
     assert_eq!(storage.read_all().unwrap(), before);
+    assert!(repair_metadata(&mut storage, archive(), mode, &authority, None).is_err());
+    assert_eq!(storage.read_all().unwrap(), before);
     assert_eq!(
         child.read_verified(&storage).unwrap().len(),
         child.len as usize
+    );
+}
+
+// Deliberately bypass the allocator's publication audit to construct inconsistent
+// authenticated ownership. The public CLI cannot produce this condition.
+fn forge_retired_child(
+    storage: StorageBackend,
+    base: &Anchor,
+    start: u64,
+    len: u64,
+    namespace: u8,
+) -> (StorageBackend, Anchor) {
+    let index = Index::new(archive(), base.mode, None).unwrap();
+    let snapshot = Snapshot::inspect(&storage, base, &index).unwrap();
+    let mut prepared =
+        PreparedStore::begin(storage, archive(), base.mode, &Authority::Checksum, None).unwrap();
+    let current = prepared.len().unwrap();
+    let arena = Extent {
+        start: align_region(current).unwrap(),
+        len: 2 * FAILURE_REGION,
+        digest: [0; 32],
+    };
+    append_zeros(&mut prepared, arena.start - current + arena.len).unwrap();
+    let mut next = Anchor {
+        generation: base.generation + 1,
+        previous: base.commitment().unwrap(),
+        sealed_len: prepared.len().unwrap(),
+        ..base.clone()
+    };
+    let mut live = Snapshot::live(&prepared, &next, &index).unwrap();
+    live.insert(
+        Claim {
+            extent: arena,
+            kind: Kind::Reserve,
+        },
+        next.sealed_len,
+    )
+    .unwrap();
+    let mut records = gap_records(&live, &snapshot, &Claims::default(), next.sealed_len).unwrap();
+    records.push(Entry::new(ARENA, &arena.start.to_be_bytes(), &arena.len.to_le_bytes()).unwrap());
+    records.push(Entry::new(namespace, &start.to_be_bytes(), &len.to_le_bytes()).unwrap());
+    records.sort_by(|a, b| (a.namespace, a.key.as_slice()).cmp(&(b.namespace, b.key.as_slice())));
+    let mut writer = ArenaWriter {
+        storage: prepared,
+        arena,
+        position: Arc::new(Mutex::new(arena.start)),
+    };
+    next.allocation = index
+        .build_sorted(&mut writer, records.into_iter().map(Ok))
+        .unwrap()
+        .root;
+    (writer.storage.into_inner().unwrap(), next)
+}
+
+fn regional_fixture(
+    mode: FormatMode,
+    owner: &OwnerSigningKeyPair,
+) -> (StorageBackend, Anchor, [Extent; 2]) {
+    let public = owner.public_key();
+    let authority = authority(mode, &public);
+    let signer = mode.signed().then_some(owner);
+    let mut storage = StorageBackend::memory(Vec::new());
+    create_empty(&mut storage, archive(), mode, &authority, signer, key(mode)).unwrap();
+    let mut tx = Transaction::begin(storage, archive(), mode, &authority, key(mode)).unwrap();
+    let first = tx
+        .append_encoded_extent(&stored(mode, &vec![0x25; 70000]))
+        .unwrap();
+    let second = tx
+        .append_encoded_extent(&stored(mode, &vec![0x37; 75000]))
+        .unwrap();
+    tx.replace_all_sorted((0u32..1500).map(|n| {
+        let extents = match n {
+            0 => vec![first],
+            1499 => vec![second],
+            _ => Vec::new(),
+        };
+        Entry::new(
+            1,
+            &n.to_be_bytes(),
+            &OwnedRecord::encode(&[n as u8; 32], &extents)?,
+        )
+    }))
+    .unwrap();
+    tx.put_key_record(1, b"recipient", b"synthetic key record", &[])
+        .unwrap();
+    let (storage, anchor) = tx.commit(&authority, signer).unwrap();
+    audit(&storage, &anchor);
+    (storage, anchor, [first, second])
+}
+#[test]
+fn every_single_aligned_region_loss_preserves_membership_and_intact_payloads() {
+    let owner = OwnerSigningKeyPair::generate().unwrap();
+    let public = owner.public_key();
+    let mut cases = 0;
+    for encrypted in [false, true] {
+        for signed in [false, true] {
+            for padded in [false, true] {
+                let mode = mode(encrypted, signed, padded);
+                let authority = authority(mode, &public);
+                let (storage, anchor, extents) = regional_fixture(mode, &owner);
+                let before = storage.read_all().unwrap();
+                let index = Index::new(archive(), mode, key(mode)).unwrap();
+                for start in (0..anchor.sealed_len).step_by(FAILURE_REGION as usize) {
+                    let end = (start + FAILURE_REGION).min(anchor.sealed_len);
+                    let mut damaged = StorageBackend::memory(before.clone());
+                    damaged
+                        .write_at(start, &vec![0x6d; (end - start) as usize])
+                        .unwrap();
+                    let selected =
+                        publication::select(&damaged, archive(), mode, &authority).unwrap();
+                    assert_eq!(selected.anchor, anchor);
+                    let mut seen = 0;
+                    let recovered = index
+                        .recover(&damaged, anchor.index, anchor.sealed_len, |entry| {
+                            let n = u32::from_be_bytes(entry.key.as_slice().try_into().unwrap());
+                            assert_eq!(
+                                OwnedRecord::decode(&entry.value)?.metadata.as_slice(),
+                                &[n as u8; 32]
+                            );
+                            seen += 1;
+                            Ok(())
+                        })
+                        .unwrap();
+                    assert_eq!(seen, 1500);
+                    assert_eq!(recovered.unavailable, 0);
+                    let payload_before = extents
+                        .map(|extent| damaged.read_at(extent.start, extent.len as usize).unwrap());
+                    let (repaired,_)=repair_metadata(&mut damaged,archive(),mode,&authority,key(mode)).unwrap_or_else(|e|panic!("encrypted={encrypted}, signed={signed}, padded={padded}, region={start}: {e}"));
+                    assert_eq!(repaired, anchor);
+                    audit(&damaged, &anchor);
+                    for (i, extent) in extents.iter().enumerate() {
+                        let bytes = damaged.read_at(extent.start, extent.len as usize).unwrap();
+                        assert_eq!(bytes, payload_before[i], "metadata repair modified payload");
+                        if extent.start < end && extent.end().unwrap() > start {
+                            assert_ne!(strong_checksum(&bytes), extent.digest);
+                        } else {
+                            let name = if i == 0 { 0u32 } else { 1499u32 };
+                            assert_eq!(
+                                content(&damaged, &anchor, &name.to_be_bytes()).unwrap(),
+                                vec![
+                                    if i == 0 { 0x25 } else { 0x37 };
+                                    if i == 0 { 70000 } else { 75000 }
+                                ]
+                            );
+                        }
+                    }
+                    let completed = damaged.read_all().unwrap();
+                    let (_, again) =
+                        repair_metadata(&mut damaged, archive(), mode, &authority, key(mode))
+                            .unwrap();
+                    assert_eq!(again.copies, 0);
+                    assert_eq!(again.zeroed_unused_bytes, 0);
+                    assert_eq!(damaged.read_all().unwrap(), completed);
+                    cases += 1;
+                }
+            }
+        }
+    }
+    eprintln!("single aligned-region damage cases: {cases}");
+}
+#[test]
+fn loss_of_both_authority_copies_fails_closed_and_does_not_repair_from_history() {
+    let owner = OwnerSigningKeyPair::generate().unwrap();
+    let public = owner.public_key();
+    let mode = mode(true, true, false);
+    let authority = authority(mode, &public);
+    let (storage, anchor, _) = regional_fixture(mode, &owner);
+    let bytes = storage.read_all().unwrap();
+    for offsets in [
+        [0, publication::SLOT_STRIDE as u64],
+        [anchor.index.primary, anchor.index.mirror],
+    ] {
+        let mut damaged = StorageBackend::memory(bytes.clone());
+        for offset in offsets {
+            damaged.write_at(offset, &[0x4a; 32]).unwrap();
+        }
+        let before = damaged.read_all().unwrap();
+        assert!(repair_metadata(&mut damaged, archive(), mode, &authority, key(mode)).is_err());
+        assert_eq!(damaged.read_all().unwrap(), before);
+    }
+    let index = Index::new(archive(), mode, key(mode)).unwrap();
+    let mut leaf = None;
+    index
+        .visit_owned(&storage, anchor.index, anchor.sealed_len, |event| {
+            if let Visit::Page(page) = event {
+                if page != anchor.index && leaf.is_none() {
+                    leaf = Some(page);
+                }
+            }
+            Ok(())
+        })
+        .unwrap();
+    let leaf = leaf.unwrap();
+    let mut damaged = StorageBackend::memory(bytes);
+    for offset in [leaf.primary, leaf.mirror] {
+        damaged
+            .write_at(offset, &vec![0x91; leaf.len as usize])
+            .unwrap();
+    }
+    let before = damaged.read_all().unwrap();
+    assert!(repair_metadata(&mut damaged, archive(), mode, &authority, key(mode)).is_err());
+    assert_eq!(damaged.read_all().unwrap(), before);
+    let report = index
+        .recover(&damaged, anchor.index, anchor.sealed_len, |_| Ok(()))
+        .unwrap();
+    assert!(report.unavailable > 0);
+    assert!(report.recovered > 0);
+    assert_eq!(report.recovered + report.unavailable, 1500);
+}
+#[test]
+fn separated_pair_geometry_rejects_shared_regions_and_crossing_nodes() {
+    let good = RootRef {
+        primary: DATA_START,
+        mirror: DATA_START + FAILURE_REGION,
+        len: 32,
+        digest: [0; 32],
+    };
+    separated(good).unwrap();
+    for bad in [
+        RootRef {
+            mirror: good.primary + 32,
+            ..good
+        },
+        RootRef {
+            primary: good.primary + FAILURE_REGION - 16,
+            ..good
+        },
+        RootRef {
+            len: FAILURE_REGION + 1,
+            ..good
+        },
+        RootRef { len: 0, ..good },
+    ] {
+        assert!(separated(bad).is_err());
+    }
+}
+
+// Candidate storage is test-only; no public CLI can create these archives or
+// inject torn physical writes. Every fault resumes through the same repair API.
+#[test]
+fn metadata_repair_survives_each_mutation_failure_and_power_loss() {
+    use crate::file_format::preparation_journal::tests::CrashStore;
+    let owner = OwnerSigningKeyPair::generate().unwrap();
+    let public = owner.public_key();
+    let mut atomic_cases = 0;
+    let mut power_cases = 0;
+    for mode in [mode(false, false, false), mode(true, true, true)] {
+        let authority = authority(mode, &public);
+        let (original, anchor, extents) = regional_fixture(mode, &owner);
+        let original = original.read_all().unwrap();
+        for start in (0..anchor.sealed_len).step_by(FAILURE_REGION as usize) {
+            let end = (start + FAILURE_REGION).min(anchor.sealed_len);
+            let mut damaged = original.clone();
+            damaged[start as usize..end as usize].fill(0x6d);
+            let verify = |bytes: Vec<u8>| {
+                let mut reopened = StorageBackend::memory(bytes);
+                let (selected, _) =
+                    repair_metadata(&mut reopened, archive(), mode, &authority, key(mode)).unwrap();
+                assert_eq!(selected, anchor);
+                audit(&reopened, &anchor);
+                let index = Index::new(archive(), mode, key(mode)).unwrap();
+                let mut count = 0;
+                index
+                    .visit(&reopened, anchor.index, anchor.sealed_len, |entry| {
+                        let n = u32::from_be_bytes(entry.key.as_slice().try_into().unwrap());
+                        assert_eq!(
+                            OwnedRecord::decode(&entry.value)?.metadata.as_slice(),
+                            &[n as u8; 32]
+                        );
+                        count += 1;
+                        Ok(())
+                    })
+                    .unwrap();
+                assert_eq!(count, 1500);
+                for extent in extents {
+                    let end = extent.end().unwrap() as usize;
+                    assert_eq!(
+                        reopened.read_at(extent.start, extent.len as usize).unwrap(),
+                        damaged[extent.start as usize..end]
+                    );
+                }
+            };
+            let mut probe = Observed::new(damaged.clone());
+            repair_metadata(&mut probe, archive(), mode, &authority, key(mode)).unwrap();
+            for fail in 0..probe.count() {
+                let mut failed = Observed::new(damaged.clone());
+                failed.fail(fail);
+                assert!(
+                    repair_metadata(&mut failed, archive(), mode, &authority, key(mode)).is_err()
+                );
+                verify(failed.read_all().unwrap());
+                atomic_cases += 1;
+            }
+            let mut probe = CrashStore::new(damaged.clone(), None, 0, false);
+            repair_metadata(&mut probe, archive(), mode, &authority, key(mode)).unwrap();
+            for fail in 0..probe.operations() {
+                for prefix in [0, 1, 4096, 65536] {
+                    for persist in [false, true] {
+                        let mut failed =
+                            CrashStore::new(damaged.clone(), Some(fail), prefix, persist);
+                        assert!(repair_metadata(
+                            &mut failed,
+                            archive(),
+                            mode,
+                            &authority,
+                            key(mode)
+                        )
+                        .is_err());
+                        verify(failed.durable());
+                        power_cases += 1;
+                    }
+                }
+            }
+        }
+    }
+    eprintln!(
+        "metadata repair atomic failure cases: {atomic_cases}; power-loss cases: {power_cases}"
     );
 }

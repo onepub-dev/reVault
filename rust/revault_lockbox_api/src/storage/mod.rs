@@ -24,6 +24,14 @@ pub(crate) trait Storage: Clone + std::fmt::Debug {
     fn read_at(&self, offset: u64, len: usize) -> Result<Vec<u8>>;
     fn read_at_into(&self, offset: u64, out: &mut [u8]) -> Result<()>;
     fn append(&mut self, bytes: &[u8]) -> Result<u64>;
+    /// Experimental paired writes. Complete candidate archives override placement
+    /// and audit failure-region separation; isolated index experiments may append.
+    #[cfg(test)]
+    fn append_pair(&mut self, bytes: &[u8]) -> Result<(u64, u64)> {
+        let primary = self.append(bytes)?;
+        let mirror = self.append(bytes)?;
+        Ok((primary, mirror))
+    }
     fn write_at(&mut self, offset: u64, bytes: &[u8]) -> Result<()>;
     fn truncate(&mut self, len: u64) -> Result<()>;
     fn sync(&self) -> Result<()>;

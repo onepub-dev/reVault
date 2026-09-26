@@ -616,28 +616,19 @@ impl<S: Storage> PreparedStore<S> {
             } = &mut *state;
             let mut reservations = journal.record.reservations.clone();
             reservations.extend_from_slice(requests);
-            reservations.sort_by_key(|r| r.start);
-            let mut merged: Vec<Reservation> = Vec::with_capacity(reservations.len());
+            reservations.sort_by_key(|r|r.start);
+            let mut merged:Vec<Reservation>=Vec::with_capacity(reservations.len());
             for range in reservations {
-                if let Some(last) = merged.last_mut() {
-                    let end = last.end()?;
-                    if end > range.start {
-                        return Err(Error::CorruptRecord);
-                    }
-                    if end == range.start
-                        && last.base == range.base
-                        && last.namespace == range.namespace
-                    {
-                        last.len = last
-                            .len
-                            .checked_add(range.len)
-                            .ok_or(Error::CorruptRecord)?;
-                        continue;
+                if let Some(last)=merged.last_mut(){
+                    let end=last.end()?;
+                    if end>range.start{return Err(Error::CorruptRecord);}
+                    if end==range.start && last.base==range.base && last.namespace==range.namespace {
+                        last.len=last.len.checked_add(range.len).ok_or(Error::CorruptRecord)?;continue;
                     }
                 }
                 merged.push(range);
             }
-            let reservations = merged;
+            let reservations=merged;
             context.validate_reservations(storage, base, &reservations)?;
             for range in requests {
                 require_zero(storage, *range)?;
