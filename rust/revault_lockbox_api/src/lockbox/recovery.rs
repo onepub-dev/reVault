@@ -994,3 +994,7 @@ fn lockbox_id_from_bytes_unchecked(bytes: &[u8]) -> LockboxId {
     }
     LockboxId::from_bytes([0; 16])
 }
+
+#[cfg(test)]
+#[path = "recovery_commitment_tests.rs"]
+mod commitment_tests;

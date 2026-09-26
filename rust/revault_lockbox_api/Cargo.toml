@@ -125,3 +125,8 @@ name = "compression_corpus"
 path = "benches/probes/compression_corpus.rs"
 harness = false
 test = false
+
+[[bench]]
+name = "recovery_commitment"
+harness = false
+test = false

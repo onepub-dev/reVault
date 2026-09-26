@@ -119,7 +119,7 @@ including Vault containers. `0.4.x` remains format 3 and is isolated from this w
 | Gate | Current evidence | Status |
 | --- | --- | --- |
 | A1 | Default/native transaction tests pass; deterministic public CLI abort after physical writes passes for append and reuse in both layouts; full P4 matrix remains | Baseline established; qualification incomplete |
-| A2 | Two native recovery tests fail; signed recovery depends on whole snapshot validity | Failed |
+| A2 | Isolated independent-proof model and real-page/hybrid-signature tests pass; production still depends on whole snapshot validity and retains two native recovery failures | Prototype validated; production gate failed |
 | A3/A4 | Initial 8 MiB compressed read: A 4.757× ZIP, B 5.119× ZIP. Bounded A passes 30-pair 256 MiB raw create nonregression (17.7% less elapsed, 17.1% less CPU); read comparison unchanged | A3 still fails; A4 passes one write case, full matrix incomplete |
 | A5 | Bounded file-page staging reduces default 1 GiB create peak from 1,067.14 to 190.43 MiB in the new paired probe; small-file/index/aging matrix remains | Measured large-file creation improved; full resource gate incomplete |
 | A6 | Historical reader routing repaired locally; snapshot owner coverage and missing v4/current Vault fixtures block full test | Failed |
@@ -137,6 +137,10 @@ constrain the candidate-C and bounded-staging designs.
 The [bounded writer evidence](evidence/writer-memory-2026-09-26/README.md) retains
 its exact source patch, CPU/RSS samples and safety checks. Candidate A has changed;
 future architecture comparisons must identify whether they use original or bounded A.
+
+The [recovery commitment experiment](evidence/recovery-commitments-2026-09-26/README.md)
+adds a tested proof model and component CPU/memory costs. Its trusted publication
+anchor is supplied by the test; persisted anchor selection remains unimplemented.
 
 P1 closes only when the proposed mode assignment, budgets and decisions have
 named reviewers and are frozen. P2 begins with an instrumented common runner and

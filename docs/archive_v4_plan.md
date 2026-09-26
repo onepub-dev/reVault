@@ -385,6 +385,26 @@ Next: independent owner authorization/recovery, then the bounded candidate-C
 access-unit comparison. Preserve both original and bounded A results; do not
 restart parallel-encoder tuning from this local writer improvement.
 
+### Independent-recovery proof checkpoint — 2026-09-26
+
+The [commitment experiment](evidence/recovery-commitments-2026-09-26/README.md)
+implements bounded canonical object commitments, flat hashes, Merkle inclusion
+proofs, same-identity updates and an independent byte vector. Real archive-byte
+and hybrid-signature tests pass in both layouts and signed protection/codec modes.
+They reject owner substitution and unpublished roots while permitting an intact
+neighbour to verify independently of damaged content.
+
+Thirty-pair component measurements at 512/100,000 objects establish initial-build,
+update, proof-verification CPU and memory costs. At 100k, retained hashes occupy
+about 8 MiB and a proof occupies 568 bytes. These exclude persistence and payload
+work and cannot qualify a complete candidate. Production recovery is unchanged.
+
+Decision 001 now specifies the proof graph and next persistence experiment:
+owner-authenticated mirrored publication records plus authenticated keyed-index
+child links. Implement that publication boundary and fault/damage matrix before
+claiming A2 or moving to full candidate-C performance comparisons. Preserve eager
+normal-open verification. The fixed-position experiment is not a final index.
+
 Update this plan and the evaluation scorecard at milestone boundaries. Every
 entry states what changed, which gate it affects, what was actually measured,
 remaining failures and the next decision. Keep detailed experiment logs beneath

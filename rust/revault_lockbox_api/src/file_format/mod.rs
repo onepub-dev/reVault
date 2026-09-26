@@ -25,3 +25,8 @@ pub(crate) use crate::toc_btree::{
 };
 #[cfg(test)]
 pub(crate) use payload::encode_compression_frame_segment_payload;
+
+// Bounded design experiment; no archive writer or reader activates this encoding.
+#[cfg(test)]
+#[allow(dead_code)]
+pub(crate) mod recovery_commitment;
