@@ -16,6 +16,18 @@ cargo install revault_cli
 
 This installs `lockbox` and its short alias, `lbx`. The examples below use `lbx`; you can substitute `lockbox` anywhere.
 
+The CLI also works on servers and CI runners without a graphical session. Linux
+builds from this source revision use a Rust D-Bus client and do not require
+`libdbus-1-dev`. Older published versions may still require that package; this
+change takes effect when a release containing it is installed.
+
+Desktop credential storage (Auto Open) is optional. For unattended use, provision
+the Vault passphrase through your runner's protected secret mechanism as
+`LOCKBOX_VAULT_PASSWORD`, then explicitly run `lbx your.lbox open` before accessing
+its contents. Do not put real passphrases in shell history or command arguments.
+See [CI/CD](../../sessions-and-automation/ci-cd.md) and
+[session management](../../sessions-and-automation/session-management/README.md).
+
 ## Initialise and back up your Vault
 
 Initialise your Vault once:
