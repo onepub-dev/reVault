@@ -1,4 +1,10 @@
-## 0.3.16
+## 0.4.0
+
+- Bundle the format-3 native engine, compatible with archives produced by
+  reVault CLI 0.0.17. Format-4 development changes are excluded.
+- Start the 0.4.x archive and Vault compatibility line. Patch releases in this
+  line preserve persisted-format compatibility across the CLI and bindings.
+- Retain native assets for Linux, macOS, and Windows on x64 and ARM64.
 
 - Hide xtask development tasks behind revault-tool
 - Consolidate development commands in revault-tool
