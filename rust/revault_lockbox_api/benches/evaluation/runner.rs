@@ -1,0 +1,741 @@
+use revault_lockbox_api::{
+    Compression, Encryption, Lockbox, LockboxCreateOptions, LockboxOpen, LockboxPath,
+    LockboxProtection, OwnerSigningKeyPair, ReadOnly, SecretVec, Signing, SizePadding,
+    WorkerPolicy,
+};
+use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
+use std::{
+    fs::{self, File, OpenOptions},
+    hint::black_box,
+    io::{self, Read, Seek, SeekFrom, Write},
+    path::{Path, PathBuf},
+    process::{Command, Stdio},
+    time::Instant,
+};
+use zip::{write::SimpleFileOptions, CompressionMethod, ZipArchive, ZipWriter};
+
+const KEY: [u8; 32] = [71; 32]; // Public synthetic benchmark key.
+const BUFFER: usize = 64 * 1024;
+
+#[derive(Clone)]
+struct Case {
+    files: usize,
+    bytes: u64,
+    corpus: String,
+    compressed: bool,
+    mode: String,
+    unpadded: bool,
+}
+impl Case {
+    fn read(root: &Path) -> Self {
+        let value: Value =
+            serde_json::from_slice(&fs::read(root.join("case.json")).unwrap()).unwrap();
+        Self {
+            files: value["files"].as_u64().unwrap().try_into().unwrap(),
+            bytes: value["bytes"].as_u64().unwrap(),
+            corpus: value["corpus"].as_str().unwrap().into(),
+            compressed: value["compressed"].as_bool().unwrap(),
+            mode: value["mode"].as_str().unwrap().into(),
+            unpadded: value["unpadded"].as_bool().unwrap(),
+        }
+    }
+    fn json(&self) -> Value {
+        json!({"files":self.files,"bytes":self.bytes,"corpus":self.corpus,
+            "compressed":self.compressed,"mode":self.mode,"unpadded":self.unpadded})
+    }
+    fn encrypted(&self) -> bool {
+        self.mode == "encrypted" || self.mode == "encrypted-signed"
+    }
+    fn signed(&self) -> bool {
+        self.mode == "signed" || self.mode == "encrypted-signed"
+    }
+    fn name(index: usize) -> String {
+        format!("file-{index:06}.bin")
+    }
+    fn payload(&self, index: usize, offset: u64, buffer: &mut [u8]) {
+        for (position, byte) in buffer.iter_mut().enumerate() {
+            let position = offset + position as u64;
+            let random = self.corpus == "random"
+                || (self.corpus == "mixed" && (position / (256 * 1024)) % 2 == 1);
+            *byte = if random {
+                let mut value = position
+                    .wrapping_add((index as u64) << 32)
+                    .wrapping_add(0x9e37_79b9_7f4a_7c15);
+                value = (value ^ (value >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
+                value = (value ^ (value >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
+                (value ^ (value >> 31)) as u8
+            } else {
+                ((position * 13 + position / 251 + index as u64 * 17) % 251) as u8
+            };
+        }
+    }
+}
+
+fn hash_file(path: &Path) -> String {
+    let mut file = File::open(path).unwrap();
+    let mut hash = Sha256::new();
+    let mut buffer = [0; BUFFER];
+    loop {
+        let count = file.read(&mut buffer).unwrap();
+        if count == 0 {
+            break;
+        }
+        hash.update(&buffer[..count]);
+    }
+    hex(&hash.finalize())
+}
+
+fn hex(bytes: &[u8]) -> String {
+    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+}
+
+#[derive(Clone, Copy)]
+struct Resources {
+    user: f64,
+    system: f64,
+    peak_kib: i64,
+    faults: i64,
+}
+impl Resources {
+    fn now() -> Self {
+        let mut usage = std::mem::MaybeUninit::<libc::rusage>::uninit();
+        // SAFETY: getrusage writes the initialized structure on success; no
+        // references to its uninitialized contents exist before checking rc.
+        let rc = unsafe { libc::getrusage(libc::RUSAGE_SELF, usage.as_mut_ptr()) };
+        assert_eq!(rc, 0, "{}", io::Error::last_os_error());
+        let usage = unsafe { usage.assume_init() };
+        let seconds = |time: libc::timeval| time.tv_sec as f64 + time.tv_usec as f64 / 1e6;
+        Self {
+            user: seconds(usage.ru_utime),
+            system: seconds(usage.ru_stime),
+            peak_kib: usage.ru_maxrss,
+            faults: usage.ru_majflt,
+        }
+    }
+    fn delta(self, previous: Self) -> Value {
+        json!({"user_seconds":self.user-previous.user,"system_seconds":self.system-previous.system,
+            "cpu_seconds":self.user+self.system-previous.user-previous.system,
+            "major_faults":self.faults-previous.faults})
+    }
+}
+
+fn prepare(root: &Path, case: &Case) {
+    fs::create_dir(root).expect("use a new evidence directory; refusing to overwrite a run");
+    fs::write(
+        root.join("case.json"),
+        serde_json::to_vec_pretty(&case.json()).unwrap(),
+    )
+    .unwrap();
+    fs::create_dir(root.join("source")).unwrap();
+    let mut inventory = Vec::new();
+    for index in 0..case.files {
+        let path = root.join("source").join(Case::name(index));
+        let mut file = File::create(&path).unwrap();
+        let mut buffer = [0; BUFFER];
+        let mut offset = 0;
+        let mut hash = Sha256::new();
+        while offset < case.bytes {
+            let count = (case.bytes - offset).min(BUFFER as u64) as usize;
+            case.payload(index, offset, &mut buffer[..count]);
+            file.write_all(&buffer[..count]).unwrap();
+            hash.update(&buffer[..count]);
+            offset += count as u64;
+        }
+        file.sync_all().unwrap();
+        inventory.push(json!({"path":Case::name(index),"bytes":case.bytes,
+            "sha256":hex(&hash.finalize())}));
+    }
+    fs::write(
+        root.join("inventory.json"),
+        serde_json::to_vec_pretty(&inventory).unwrap(),
+    )
+    .unwrap();
+}
+
+fn create(root: &Path, backend: &str, case: &Case) -> Value {
+    let path = archive_path(root, backend);
+    assert!(!path.exists(), "refusing to replace an existing fixture");
+    // Signing-key generation and source generation are outside create timing.
+    let signer = OwnerSigningKeyPair::generate().unwrap();
+    let before = Resources::now();
+    let started = Instant::now();
+    if backend == "zip" {
+        let mut archive = ZipWriter::new(File::create(&path).unwrap());
+        for index in 0..case.files {
+            let name = Case::name(index);
+            archive
+                .start_file(
+                    &name,
+                    SimpleFileOptions::default().compression_method(if case.compressed {
+                        CompressionMethod::Deflated
+                    } else {
+                        CompressionMethod::Stored
+                    }),
+                )
+                .unwrap();
+            io::copy(
+                &mut File::open(root.join("source").join(name)).unwrap(),
+                &mut archive,
+            )
+            .unwrap();
+        }
+        archive.finish().unwrap().sync_all().unwrap();
+    } else {
+        let mut options = LockboxCreateOptions::new(
+            if case.encrypted() {
+                Encryption::Encrypted(LockboxProtection::ContentKey(
+                    SecretVec::try_from_slice(&KEY).unwrap(),
+                ))
+            } else {
+                Encryption::None
+            },
+            if case.signed() {
+                Signing::Owner(&signer)
+            } else {
+                Signing::None
+            },
+        );
+        options.compression = if case.compressed {
+            Compression::default()
+        } else {
+            Compression::None
+        };
+        options.size_padding = if case.unpadded {
+            SizePadding::None
+        } else {
+            SizePadding::Default
+        };
+        let mut archive = Lockbox::create_file_with_options(&path, options).unwrap();
+        archive.set_worker_policy(WorkerPolicy::Single);
+        for index in 0..case.files {
+            let name = Case::name(index);
+            archive
+                .add_file_from_reader(
+                    &LockboxPath::new(format!("/{name}")).unwrap(),
+                    File::open(root.join("source").join(name)).unwrap(),
+                    false,
+                )
+                .unwrap();
+        }
+        archive.commit().unwrap();
+        drop(archive);
+    }
+    let seconds = started.elapsed().as_secs_f64();
+    let after = Resources::now();
+    let mut archive = Handle::open(root, backend, case);
+    archive.verify(case);
+    json!({"kind":"fixture_create","backend":backend,"wall_seconds":seconds,
+        "resources":after.delta(before),"peak_rss_kib":after.peak_kib,
+        "baseline_peak_rss_kib":before.peak_kib,"archive_bytes":fs::metadata(&path).unwrap().len(),
+        "archive_sha256":hash_file(&path),"verified":true})
+}
+
+fn archive_path(root: &Path, backend: &str) -> PathBuf {
+    root.join(if backend == "zip" {
+        "archive.zip"
+    } else {
+        "archive.lbox"
+    })
+}
+enum Handle {
+    Lbx(Box<Lockbox<ReadOnly>>),
+    Zip(Box<ZipArchive<File>>),
+}
+impl Handle {
+    fn open(root: &Path, backend: &str, case: &Case) -> Self {
+        let path = archive_path(root, backend);
+        if backend == "zip" {
+            Self::Zip(Box::new(
+                ZipArchive::new(File::open(path).unwrap()).unwrap(),
+            ))
+        } else {
+            Self::Lbx(Box::new(
+                Lockbox::open(
+                    &path,
+                    if case.encrypted() {
+                        LockboxOpen::ContentKey(SecretVec::try_from_slice(&KEY).unwrap())
+                    } else {
+                        LockboxOpen::Unencrypted
+                    },
+                )
+                .unwrap(),
+            ))
+        }
+    }
+    fn verify(&mut self, case: &Case) {
+        for index in 0..case.files {
+            let name = Case::name(index);
+            let verify = |reader: &mut dyn Read| {
+                let mut buffer = [0; BUFFER];
+                let mut expected = [0; BUFFER];
+                let mut offset = 0;
+                loop {
+                    let count = reader.read(&mut buffer).unwrap();
+                    if count == 0 {
+                        break;
+                    }
+                    assert!(offset + count as u64 <= case.bytes);
+                    case.payload(index, offset, &mut expected[..count]);
+                    assert_eq!(&buffer[..count], &expected[..count], "{name} at {offset}");
+                    offset += count as u64;
+                }
+                assert_eq!(offset, case.bytes, "{name}");
+            };
+            match self {
+                Self::Lbx(archive) => verify(
+                    &mut archive
+                        .open_file(&LockboxPath::new(format!("/{name}")).unwrap())
+                        .unwrap(),
+                ),
+                Self::Zip(archive) => verify(&mut archive.by_name(&name).unwrap()),
+            }
+        }
+    }
+    fn read(&mut self, case: &Case, access: &str, verify: bool) -> (u64, f64) {
+        let started = Instant::now();
+        let mut first_byte = None;
+        let mut total = 0;
+        let mut buffer = [0; BUFFER];
+        for index in 0..case.files {
+            let name = Case::name(index);
+            let (offset, count) = if access == "range" {
+                (case.bytes / 2, 4096.min(case.bytes - case.bytes / 2))
+            } else {
+                (0, case.bytes)
+            };
+            let mut consume = |reader: &mut dyn Read| {
+                let mut remaining = count;
+                let mut expected = verify.then(|| vec![0; BUFFER]);
+                while remaining > 0 {
+                    let max = if first_byte.is_none() {
+                        1
+                    } else {
+                        remaining.min(buffer.len() as u64) as usize
+                    };
+                    let read = reader.read(&mut buffer[..max]).unwrap();
+                    assert!(read > 0, "unexpected EOF");
+                    first_byte.get_or_insert_with(|| started.elapsed().as_secs_f64());
+                    black_box(&buffer[..read]);
+                    if let Some(expected) = &mut expected {
+                        case.payload(index, offset + count - remaining, &mut expected[..read]);
+                        assert_eq!(
+                            &buffer[..read],
+                            &expected[..read],
+                            "range/stream mismatch: {name}"
+                        );
+                    }
+                    remaining -= read as u64;
+                    total += read as u64;
+                }
+                // Finish full entries, including ZIP's end-of-entry CRC path.
+                if access != "range" {
+                    assert_eq!(reader.read(&mut buffer).unwrap(), 0);
+                }
+            };
+            match self {
+                Self::Lbx(archive) => {
+                    let mut file = archive
+                        .open_file(&LockboxPath::new(format!("/{name}")).unwrap())
+                        .unwrap();
+                    if offset != 0 {
+                        file.seek(SeekFrom::Start(offset)).unwrap();
+                    }
+                    consume(&mut file);
+                }
+                Self::Zip(archive) if access == "range" && !case.compressed => {
+                    let mut file = archive.by_name_seek(&name).unwrap();
+                    file.seek(SeekFrom::Start(offset)).unwrap();
+                    consume(&mut file);
+                }
+                Self::Zip(archive) => {
+                    let mut file = archive.by_name(&name).unwrap();
+                    if offset != 0 {
+                        assert_eq!(
+                            io::copy(&mut file.by_ref().take(offset), &mut io::sink()).unwrap(),
+                            offset
+                        );
+                    }
+                    consume(&mut file);
+                }
+            }
+        }
+        (total, first_byte.unwrap_or(0.0))
+    }
+}
+
+fn sample(root: &Path, backend: &str, access: &str, passes: usize) -> Value {
+    let case = Case::read(root);
+    let before = Resources::now();
+    let started = Instant::now();
+    let mut archive = Handle::open(root, backend, &case);
+    let open_seconds = started.elapsed().as_secs_f64();
+    let opened = Resources::now();
+    let read_started = Instant::now();
+    let mut first_byte = 0.0;
+    let mut total = 0;
+    for pass in 0..passes {
+        let (bytes, first) = archive.read(&case, access, false);
+        if pass == 0 {
+            first_byte = open_seconds + first;
+        }
+        total += bytes;
+    }
+    let read_seconds = read_started.elapsed().as_secs_f64();
+    let seconds = started.elapsed().as_secs_f64();
+    let after = Resources::now();
+    // Snapshot resource results before verification. Reopen independently so a
+    // decoded cache from measurement cannot mask a persisted-content defect.
+    drop(archive);
+    if access == "range" {
+        Handle::open(root, backend, &case).read(&case, access, true);
+    }
+    Handle::open(root, backend, &case).verify(&case);
+    json!({"kind":"sample","backend":backend,"layout":layout(),"access":access,
+        "passes":passes,"open_seconds":open_seconds,"read_seconds":read_seconds,
+        "total_seconds":seconds,"first_byte_seconds":first_byte,"logical_bytes_read":total,
+        "probe_overhead_seconds":seconds-open_seconds-read_seconds,
+        "open_resources":opened.delta(before),"read_resources":after.delta(opened),
+        "resources":after.delta(before),"peak_rss_kib":after.peak_kib,
+        "baseline_peak_rss_kib":before.peak_kib,"verified":true})
+}
+
+fn layout() -> &'static str {
+    if cfg!(feature = "native-block-layout") {
+        "native"
+    } else {
+        "default"
+    }
+}
+fn child(executable: &Path, args: &[String]) -> Value {
+    let output = Command::new(executable)
+        .args(args)
+        .stdin(Stdio::null())
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "worker failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    serde_json::from_slice(&output.stdout).expect("worker must emit one JSON record")
+}
+fn write_record(file: &mut File, value: &Value) {
+    serde_json::to_writer(&mut *file, value).unwrap();
+    file.write_all(b"\n").unwrap();
+    file.flush().unwrap();
+}
+
+pub fn main() {
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    let command = args.first().map(String::as_str).unwrap_or("");
+    match command {
+        "create" => {
+            assert_eq!(args.len(), 3);
+            assert!(matches!(args[2].as_str(), "zip" | "lockbox"));
+            let root = Path::new(&args[1]);
+            println!("{}", create(root, &args[2], &Case::read(root)));
+        }
+        "sample" => {
+            assert_eq!(args.len(), 5);
+            assert!(matches!(args[2].as_str(), "zip" | "lockbox"));
+            assert!(matches!(args[3].as_str(), "stream" | "range"));
+            let passes = args[4].parse::<usize>().unwrap();
+            assert!((1..=1000).contains(&passes));
+            println!("{}", sample(Path::new(&args[1]), &args[2], &args[3], passes));
+        }
+        "run" => run(&args),
+        "summarize" => { assert_eq!(args.len(),2); summarize(Path::new(&args[1])); }
+        _ => panic!("usage: archive_evaluation run NEW_ROOT FILES BYTES pattern|random|mixed raw|compressed plain|encrypted|signed|encrypted-signed SAMPLES stream|range PASSES default|none [OTHER_EXECUTABLE]"),
+    }
+}
+fn run(args: &[String]) {
+    assert!((11..=12).contains(&args.len()), "see usage in main");
+    let root = Path::new(&args[1]);
+    let files: usize = args[2].parse().unwrap();
+    let bytes: u64 = args[3].parse().unwrap();
+    assert!((1..=100_000).contains(&files));
+    assert!((1..=4 * 1024 * 1024 * 1024).contains(&bytes));
+    assert!(bytes.checked_mul(files as u64).unwrap() <= 16 * 1024 * 1024 * 1024);
+    assert!(matches!(args[4].as_str(), "pattern" | "random" | "mixed"));
+    assert!(matches!(args[5].as_str(), "raw" | "compressed"));
+    assert!(matches!(
+        args[6].as_str(),
+        "plain" | "encrypted" | "signed" | "encrypted-signed"
+    ));
+    assert!(matches!(args[8].as_str(), "stream" | "range"));
+    assert!(matches!(args[10].as_str(), "default" | "none"));
+    let samples: usize = args[7].parse().unwrap();
+    assert!((1..=1000).contains(&samples));
+    let passes: usize = args[9].parse().unwrap();
+    assert!((1..=1000).contains(&passes));
+    let case = Case {
+        files,
+        bytes,
+        corpus: args[4].clone(),
+        compressed: args[5] == "compressed",
+        mode: args[6].clone(),
+        unpadded: args[10] == "none",
+    };
+    prepare(root, &case);
+    let executable = std::env::current_exe().unwrap();
+    let mut evidence = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(root.join("samples.jsonl"))
+        .unwrap();
+    let cpu = fs::read_to_string("/proc/cpuinfo").unwrap();
+    let model = cpu
+        .lines()
+        .find(|line| line.starts_with("model name"))
+        .unwrap_or("unknown");
+    let revision = Command::new("git")
+        .args(["rev-parse", "HEAD"])
+        .current_dir(env!("CARGO_MANIFEST_DIR"))
+        .output()
+        .unwrap();
+    let status = fs::read_to_string("/proc/self/status").unwrap();
+    let affinity = status
+        .lines()
+        .find(|line| line.starts_with("Cpus_allowed_list:"))
+        .unwrap_or("unknown");
+    write_record(
+        &mut evidence,
+        &json!({"kind":"environment","case":case.json(),
+        "layout":layout(),"executable_sha256":hash_file(&executable),"cpu":model,
+        "kernel":fs::read_to_string("/proc/sys/kernel/osrelease").unwrap().trim(),
+        "meminfo":fs::read_to_string("/proc/meminfo").unwrap(),
+        "source_revision_at_run":String::from_utf8_lossy(&revision.stdout).trim(),
+        "runner_source_sha256":hex(&Sha256::digest(include_bytes!("runner.rs"))),
+        "cargo_lock_sha256":hash_file(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../Cargo.lock")),
+        "cpu_affinity":affinity,"loadavg":fs::read_to_string("/proc/loadavg").unwrap().trim(),
+        "cache":"warm OS / fresh process and handle per sample", "warmup_pairs":3,
+        "samples":samples,"passes":passes,"access":args[8],"workers":1,
+        "rss_scope":"worker lifetime before separate content verification; Linux KiB",
+        "zip_protection":"unsigned and unencrypted; ranges omit full-entry CRC",
+        "inventory_sha256":hash_file(&root.join("inventory.json"))}),
+    );
+    for backend in ["zip", "lockbox"] {
+        write_record(
+            &mut evidence,
+            &child(
+                &executable,
+                &["create".into(), args[1].clone(), backend.into()],
+            ),
+        );
+    }
+    let other = args.get(11).map(PathBuf::from);
+    let other_root = root.join("other");
+    if let Some(other) = &other {
+        fs::create_dir(&other_root).unwrap();
+        fs::copy(root.join("case.json"), other_root.join("case.json")).unwrap();
+        std::os::unix::fs::symlink(
+            fs::canonicalize(root.join("source")).unwrap(),
+            other_root.join("source"),
+        )
+        .unwrap();
+        write_record(
+            &mut evidence,
+            &json!({"kind":"other_executable","sha256":hash_file(other)}),
+        );
+        write_record(
+            &mut evidence,
+            &child(
+                other,
+                &[
+                    "create".into(),
+                    other_root.display().to_string(),
+                    "lockbox".into(),
+                ],
+            ),
+        );
+    }
+    for pair in 0..samples + 3 {
+        let mut order = vec![
+            (&executable, root, "zip", false),
+            (&executable, root, "lockbox", false),
+        ];
+        if let Some(other) = &other {
+            order.push((other, other_root.as_path(), "lockbox", true));
+        }
+        // Alternate pair order, rotating the third candidate across positions.
+        let rotation = (pair / 2) % order.len();
+        order.rotate_left(rotation);
+        if pair % 2 == 1 {
+            order.reverse();
+        }
+        for (worker, fixture, backend, is_other) in order {
+            let mut record = child(
+                worker,
+                &[
+                    "sample".into(),
+                    fixture.display().to_string(),
+                    backend.into(),
+                    args[8].clone(),
+                    args[9].clone(),
+                ],
+            );
+            record["pair"] = json!(pair);
+            record["warmup"] = json!(pair < 3);
+            record["other"] = json!(is_other);
+            write_record(&mut evidence, &record);
+        }
+    }
+    evidence.sync_all().unwrap();
+    println!(
+        "{}",
+        json!({"evidence":root.join("samples.jsonl"),"completed_pairs":samples,
+        "warmup_pairs":3,"case":case.json(),"layout":layout()})
+    );
+}
+
+// Bootstrap complete paired log ratios, preserving pairing and weighting each
+// observation equally. Fixed seed makes summaries reproducible from raw JSONL.
+fn interval(ratios: &[f64]) -> (f64, f64, f64) {
+    assert!(!ratios.is_empty() && ratios.iter().all(|v| v.is_finite() && *v > 0.0));
+    let logs: Vec<_> = ratios.iter().map(|v| v.ln()).collect();
+    let mean = (logs.iter().sum::<f64>() / logs.len() as f64).exp();
+    let mut state = 0x7a12_8643_6bde_910fu64;
+    let mut resampled = Vec::with_capacity(10_000);
+    for _ in 0..10_000 {
+        let mut sum = 0.0;
+        for _ in &logs {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            sum += logs[(state % logs.len() as u64) as usize];
+        }
+        resampled.push((sum / logs.len() as f64).exp());
+    }
+    resampled.sort_by(f64::total_cmp);
+    (mean, resampled[249], resampled[9749])
+}
+fn summarize(path: &Path) {
+    use std::collections::BTreeMap;
+    let input = fs::read_to_string(path).unwrap();
+    let records: Vec<Value> = input
+        .lines()
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect();
+    let environment = records
+        .iter()
+        .find(|v| v["kind"] == "environment")
+        .expect("missing environment");
+    let expected = environment["samples"].as_u64().unwrap() as usize;
+    let mut series: BTreeMap<String, BTreeMap<u64, &Value>> = BTreeMap::new();
+    for record in &records {
+        if record["kind"] != "sample" || record["warmup"] == true {
+            continue;
+        }
+        assert_eq!(record["verified"], true);
+        let key = if record["backend"] == "zip" {
+            "zip"
+        } else if record["other"] == true {
+            "other"
+        } else {
+            "primary"
+        };
+        assert!(
+            series
+                .entry(key.into())
+                .or_default()
+                .insert(record["pair"].as_u64().unwrap(), record)
+                .is_none(),
+            "duplicate pair"
+        );
+    }
+    for values in series.values() {
+        assert_eq!(values.len(), expected, "incomplete evidence");
+    }
+    let metrics = [
+        "total_seconds",
+        "open_seconds",
+        "read_seconds",
+        "first_byte_seconds",
+        "peak_rss_kib",
+    ];
+    for (candidate, baseline) in [("primary", "zip"), ("other", "zip"), ("other", "primary")] {
+        let Some(values) = series.get(candidate) else {
+            continue;
+        };
+        let control = series.get(baseline).expect("missing baseline");
+        for metric in metrics.into_iter().chain(["cpu_seconds"]) {
+            let read = |value: &Value| {
+                if metric == "cpu_seconds" {
+                    value["resources"][metric].as_f64().unwrap()
+                } else {
+                    value[metric].as_f64().unwrap()
+                }
+            };
+            let mut ratios = Vec::new();
+            let mut left = Vec::new();
+            let mut right = Vec::new();
+            for (pair, value) in values {
+                let a = read(value);
+                let b = read(control.get(pair).expect("unpaired observation"));
+                if a <= 0.0 || b <= 0.0 {
+                    continue;
+                }
+                ratios.push(a / b);
+                left.push(a);
+                right.push(b);
+            }
+            assert_eq!(
+                ratios.len(),
+                expected,
+                "measurement below resource clock resolution"
+            );
+            let (ratio, low, high) = interval(&ratios);
+            left.sort_by(f64::total_cmp);
+            right.sort_by(f64::total_cmp);
+            println!(
+                "{}",
+                json!({"candidate":candidate,"baseline":baseline,"metric":metric,
+                "pairs":ratios.len(),"ratio":ratio,"low95":low,"high95":high,
+                "candidate_median":left[left.len()/2],"baseline_median":right[right.len()/2],
+                "qualifying_sample_count":expected>=30,"case":environment["case"]})
+            );
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn paired_interval_preserves_known_ratios_and_reproducibility() {
+        let constant = super::interval(&[2.0; 30]);
+        for value in [constant.0, constant.1, constant.2] {
+            assert!((value - 2.0).abs() < 1e-12);
+        }
+        let values = [0.5, 1.0, 2.0];
+        let first = super::interval(&values);
+        assert_eq!(first, super::interval(&values));
+        assert!((first.0 - 1.0).abs() < 1e-12);
+        assert!(first.1 < 1.0 && first.2 > 1.0);
+    }
+    #[test]
+    fn corpus_generation_is_independent_of_read_chunking() {
+        for corpus in ["pattern", "random", "mixed"] {
+            let case = super::Case {
+                files: 1,
+                bytes: 400_000,
+                corpus: corpus.into(),
+                compressed: false,
+                mode: "plain".into(),
+                unpadded: false,
+            };
+            let mut full = vec![0; 400_000];
+            case.payload(0, 0, &mut full);
+            let mut chunked = Vec::new();
+            let mut offset = 0;
+            while offset < full.len() {
+                let count = 8191.min(full.len() - offset);
+                let mut chunk = vec![0; count];
+                case.payload(0, offset as u64, &mut chunk);
+                chunked.extend(chunk);
+                offset += count;
+            }
+            assert_eq!(full, chunked);
+        }
+    }
+}

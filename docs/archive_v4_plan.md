@@ -87,7 +87,7 @@ failure to establish the gate, not proof of that worst-case slowdown.
 | --- | --- | --- | --- |
 | P0 — preserve and reproduce | Exact baseline/evidence inventory and reproduced blockers | This plan | Complete: prototype preserved, blockers reproduced, deterministic append/reuse CLI abort coverage passes |
 | P1 — define contracts | Security model, evaluation contract and proposed design decisions | P0; drafting can begin immediately | Drafts written; mode assignment, budgets and decisions await review |
-| P2 — compare architectures | Same-workload results for three candidates | Frozen P1 contracts | Pending |
+| P2 — compare architectures | Same-workload results for three candidates | Frozen P1 contracts | Instrumentation and initial A/B CPU/RSS evidence exist; contract review, complete matrix and candidate C remain |
 | P3 — select and specify | Accepted decision records and complete v4 wire specification | P2 | Pending |
 | P4 — implement and harden | Selected implementation with green correctness and performance gates | P3 | Pending |
 | P5 — qualify release | Migration, compatibility, platform and documentation evidence | P4; fixture/tooling repairs can start earlier | Pending |
@@ -343,6 +343,24 @@ unassigned; no guarantee-changing decision is accepted yet.
 
 Next: resolve the signing contract and freeze evaluation budgets, then build the common comparison runner
 and bounded candidate C. No new layout or micro-optimization is activated here.
+
+### CPU and memory checkpoint — 2026-09-26
+
+The common Rust runner now executes fresh-process samples with wall/first-byte
+timing, user/system CPU, peak RSS, corpus/executable/source hashes, paired raw
+results and untimed independent byte verification. Its deterministic tests and
+targeted Clippy pass; all protection/codec combinations passed small range smoke
+checks. [Evidence and limits](evidence/archive-evaluation-2026-09-26/README.md).
+
+The 30-pair 8 MiB compressed plain read fails ZIP parity for both layouts (A 4.757×,
+B 5.119× ZIP). A separate 1 GiB raw probe exposes a default-layout import peak
+of 1,066.91 MiB versus 14.64 MiB native; it uses streaming input, not a GB benchmark
+buffer. CPU and memory now have measured baseline evidence, but the matrix, aging,
+candidate C, signed-recovery implementation and release gates remain open.
+
+Next implementation work: resolve the independent authorization proof and evaluate
+bounded staging/access units with this runner. Preserve the measured regressions;
+do not resume encoder micro-tuning or claim a winner from the raw GB case alone.
 
 Update this plan and the evaluation scorecard at milestone boundaries. Every
 entry states what changed, which gate it affects, what was actually measured,

@@ -120,13 +120,19 @@ including Vault containers. `0.4.x` remains format 3 and is isolated from this w
 | --- | --- | --- |
 | A1 | Default/native transaction tests pass; deterministic public CLI abort after physical writes passes for append and reuse in both layouts; full P4 matrix remains | Baseline established; qualification incomplete |
 | A2 | Two native recovery tests fail; signed recovery depends on whole snapshot validity | Failed |
-| A3/A4 | Historical results only; no new comparative timing run during this baseline work | Unmeasured for current decision |
-| A5 | Core allocation assertions pass; full aging/resource matrix not run | Incomplete |
+| A3/A4 | New 30-pair 8 MiB compressed read: A 4.757× ZIP, B 5.119× ZIP; CPU follows elapsed. Write/open/protected matrix still incomplete | A3 fails this case; A4 not established |
+| A5 | 1 GiB raw probe: default creation peaks at 1,066.91 MiB, native at 14.64 MiB; full aging/resource matrix remains | Default streaming-memory budget fails this probe |
 | A6 | Historical reader routing repaired locally; snapshot owner coverage and missing v4/current Vault fixtures block full test | Failed |
 | A7 | Goals, plan, security/evaluation drafts and three proposed decisions exist; normative wire spec remains historical | In progress |
 | A8 | Independent #322 branch removes native Linux D-Bus build dependency; clean install, headless lifecycle and private logind tests pass | Linux fix verified; broader platform/store matrix incomplete |
 
 ## Decision gates
+
+The [CPU/memory baseline](evidence/archive-evaluation-2026-09-26/README.md)
+retains exact commands, raw paired samples, hashes, measurement scope and the GB
+probe. It is initial evidence for the comparison, not a selection of candidate B
+or qualification of a release. Creation/read memory trade-offs now explicitly
+constrain the candidate-C and bounded-staging designs.
 
 P1 closes only when the proposed mode assignment, budgets and decisions have
 named reviewers and are frozen. P2 begins with an instrumented common runner and
