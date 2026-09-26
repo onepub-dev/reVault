@@ -114,7 +114,23 @@ fn export_fixture(dir: &Path, manifest: &Manifest, output: &Path) {
             )
             .unwrap();
         }
-        ("archive", _) => {
+        ("archive", 2 | 3) => {
+            let password = archive_v3::SecretString::try_from_slice(PASSWORD).unwrap();
+            let archive = archive_v3::Lockbox::open_bytes(
+                bytes,
+                archive_v3::LockboxOpen::Password(&password),
+            )
+            .unwrap();
+            assert_eq!(u32::from(archive.format_version()), manifest.native_version);
+            revault_migrate_archive_v3::export_archive(
+                &archive,
+                output,
+                ARTIFACT_PASSWORD,
+                [1; 16],
+            )
+            .unwrap();
+        }
+        ("archive", version) if version == u32::from(LOCKBOX_FORMAT_VERSION) => {
             let archive = Lockbox::open_bytes(bytes, LockboxOpen::Password(&password())).unwrap();
             assert_eq!(u32::from(archive.format_version()), manifest.native_version);
             export_archive(&archive, output, ARTIFACT_PASSWORD, [1; 16]).unwrap();
@@ -150,11 +166,27 @@ fn export_fixture(dir: &Path, manifest: &Manifest, output: &Path) {
                     )
                     .unwrap();
                 }
-                _ => {
+                3 if manifest.container_version == 3 => {
+                    let password = vault_v3::SecretString::try_from_slice(PASSWORD).unwrap();
+                    let vault =
+                        vault_v3::VaultDirectory::open_or_create(&source, &password).unwrap();
+                    assert_eq!(vault.structure_version().unwrap(), version);
+                    revault_migrate_archive_v3::export_vault(
+                        &vault,
+                        output,
+                        ARTIFACT_PASSWORD,
+                        [1; 16],
+                    )
+                    .unwrap();
+                }
+                _ if version == CURRENT_VAULT_STRUCTURE_VERSION
+                    && manifest.container_version == LOCKBOX_FORMAT_VERSION =>
+                {
                     let vault = VaultDirectory::open_or_create(&source, &password()).unwrap();
                     assert_eq!(vault.structure_version().unwrap(), version);
                     export_vault(&vault, output, ARTIFACT_PASSWORD, [1; 16]).unwrap();
                 }
+                _ => panic!("unregistered vault structure/container combination"),
             }
             assert_eq!(
                 fs::read(source.join("local-vault.lbox")).unwrap(),
@@ -311,6 +343,37 @@ fn require_content_inventory(manifest: &Manifest, records: &[Value]) {
                 .len()
                 >= 2));
     }
+}
+
+#[test]
+fn historical_fixtures_export_with_frozen_readers() {
+    // Keep routing independently testable when a later schema/ownership check
+    // blocks the full release matrix. This does not replace that stricter test.
+    let mut count = 0;
+    for entry in fs::read_dir(root()).unwrap() {
+        let dir = entry.unwrap().path();
+        if !dir.is_dir() {
+            continue;
+        }
+        let manifest: Manifest =
+            serde_json::from_slice(&fs::read(dir.join("manifest.json")).unwrap()).unwrap();
+        if manifest.container_version >= LOCKBOX_FORMAT_VERSION {
+            continue;
+        }
+        let temp = tempfile::tempdir().unwrap();
+        let artifact = temp.path().join("export.migration");
+        export_fixture(&dir, &manifest, &artifact);
+        let reader =
+            ArtifactReader::new(fs::File::open(&artifact).unwrap(), ARTIFACT_PASSWORD).unwrap();
+        assert_eq!(
+            reader.header().source_native_version,
+            manifest.native_version
+        );
+        drop(reader);
+        require_content_inventory(&manifest, &snapshot(&artifact));
+        count += 1;
+    }
+    assert_eq!(count, 7, "update the explicit historical fixture inventory");
 }
 
 #[test]

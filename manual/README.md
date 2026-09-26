@@ -8,6 +8,10 @@ If you just want to take reVault for a quick spin, jump straight to the [quick s
 
 The source repository is available on [GitHub](https://github.com/onepub-dev/reVault).
 
+Read the [project goals](project-goals.md) for reVault's purpose, priorities and
+boundaries. They describe intended outcomes; this manual documents available
+behaviour and release limitations.
+
 {% hint style="warning" %}
 reVault is currently pre-release software. Keep independent copies of important data and tested Vault/Profile recovery material. See [Versions and compatibility](develop-with-revault/compatibility.md) for the manual's component scope.
 {% endhint %}

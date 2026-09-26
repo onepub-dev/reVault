@@ -1,5 +1,11 @@
 # Lockbox Archive Format
 
+> Historical specification; not the authoritative v4 wire format. In particular,
+> the fixed-header description below predates v4. The maintained transaction
+> protocol is [Transactions and recovery](../../manual/develop-with-revault/transactions.md).
+> The [v4 plan](../../docs/archive_v4_plan.md) schedules replacement of this body
+> after architecture selection. Do not implement v4 from this historical text.
+
 This document records the intended pre-1.0 production format of reVault
 Lockboxes. All on-disk numeric fields are little-endian unless stated otherwise.
 

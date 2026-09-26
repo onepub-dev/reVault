@@ -1510,6 +1510,23 @@ fn run_mirror(request: MirrorRequest, access: &Access, apply: bool) -> CliResult
     Ok(())
 }
 
+#[cfg(feature = "e2e-test-hooks")]
+fn wait_for_source_change_test() -> CliResult<()> {
+    let Some(directory) = std::env::var_os("REVAULT_TEST_MIRROR_SYNC") else {
+        return Ok(());
+    };
+    let directory = PathBuf::from(directory);
+    fs::write(directory.join("prepared"), b"ready")?;
+    let started = Instant::now();
+    while !directory.join("continue").exists() {
+        if started.elapsed() > Duration::from_secs(30) {
+            return Err(cli_error("mirror test synchronization timed out"));
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    Ok(())
+}
+
 fn commit_mirror_change(
     mut lockbox: Lockbox,
     lockbox_path: &str,
@@ -2118,6 +2135,8 @@ fn verify_source_tree(
     source: &SourceSnapshot,
     strict: bool,
 ) -> CliResult<()> {
+    #[cfg(feature = "e2e-test-hooks")]
+    wait_for_source_change_test()?;
     fn mark_seen(source: &SourceSnapshot, relative: &str) -> CliResult<()> {
         if !source.source.contains(relative.as_bytes())? {
             return Err(cli_error(format!(

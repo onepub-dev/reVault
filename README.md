@@ -16,6 +16,11 @@ the archive, and recover data from partial corruption.
 Read the [reVault manual](https://docs.revault.onepub.dev/) for the quick start,
 core concepts, and security model.
 
+The [project goals](manual/project-goals.md) state reVault's purpose and
+priorities. Contributors should start with the [v4 design and delivery
+plan](docs/archive_v4_plan.md) and [documentation map](docs/documentation_map.md)
+for current engineering work and document ownership.
+
 reVault runs on Linux, macOS, and Windows. You can use it through the command
 line interface or through libraries for supported programming languages.
 

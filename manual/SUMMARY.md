@@ -1,6 +1,7 @@
 # Table of contents
 
 * [reVault](README.md)
+* [Project goals](project-goals.md)
 
 ## Get started
 

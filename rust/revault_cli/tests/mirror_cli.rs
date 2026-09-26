@@ -7,7 +7,12 @@ use std::path::Path;
 use std::process::{Command, Output};
 
 fn run(bin: &str, cwd: &Path, args: &[&str]) -> Output {
-    Command::new(bin)
+    command(bin, cwd, args).test_output().unwrap()
+}
+
+fn command(bin: &str, cwd: &Path, args: &[&str]) -> Command {
+    let mut command = Command::new(bin);
+    command
         .current_dir(cwd)
         .args(args)
         .env("LOCKBOX_KEY", "mirror-test-content-key")
@@ -18,9 +23,8 @@ fn run(bin: &str, cwd: &Path, args: &[&str]) -> Output {
             common::agent_socket_dir(&cwd.join("agent")),
         )
         .env("LOCKBOX_SESSION_AGENT_LOG", cwd.join("agent.log"))
-        .env("LOCKBOX_ADD_PROGRESS", "off")
-        .test_output()
-        .unwrap()
+        .env("LOCKBOX_ADD_PROGRESS", "off");
+    command
 }
 
 fn success(output: &Output) {
@@ -1295,4 +1299,144 @@ fn mirror_status_indexes_one_hundred_thousand_source_files() {
     let status = String::from_utf8_lossy(&status.stdout);
     assert!(status.contains("add:       100000 files"), "{status}");
     assert!(status.contains("mkdir:     201 directories"), "{status}");
+}
+
+#[cfg(feature = "e2e-test-hooks")]
+#[test]
+fn changed_source_after_preparation_rolls_back_appended_and_reused_payload() {
+    use std::time::{Duration, Instant};
+    let bin = env!("CARGO_BIN_EXE_lockbox");
+    for reuse in [false, true] {
+        let temp = TestTempDir::new("mirror-source-abort");
+        let dir = temp.path();
+        let source = dir.join("source");
+        let sync = dir.join("sync");
+        fs::create_dir(&source).unwrap();
+        fs::create_dir(&sync).unwrap();
+        success(&run(bin, dir, &["vault", "init"]));
+        fs::write(source.join("z_keep"), b"committed neighbour").unwrap();
+        if reuse {
+            fs::write(source.join("a_spare"), vec![0x31; 4 * 1024 * 1024]).unwrap();
+        }
+        success(&run(
+            bin,
+            dir,
+            &[
+                "test.lbox",
+                "create",
+                "--encryption",
+                "none",
+                "--compression",
+                "none",
+            ],
+        ));
+        success(&run(
+            bin,
+            dir,
+            &[
+                "test.lbox",
+                "mirror",
+                "source",
+                "create",
+                "--from",
+                "source",
+                "--to",
+                "/mirror",
+                "--strict",
+            ],
+        ));
+        success(&run(
+            bin,
+            dir,
+            &["test.lbox", "mirror", "source", "update", "--force"],
+        ));
+        if reuse {
+            fs::remove_file(source.join("a_spare")).unwrap();
+            success(&run(
+                bin,
+                dir,
+                &[
+                    "test.lbox",
+                    "mirror",
+                    "source",
+                    "update",
+                    "--force",
+                    "--allow-large-delete",
+                ],
+            ));
+        }
+        // Compact the append-only control so no historical free range can hide
+        // whether the new preparation really appended its payload.
+        if !reuse {
+            success(&run(bin, dir, &["test.lbox", "doctor", "compact"]));
+        }
+        let baseline = fs::read(dir.join("test.lbox")).unwrap();
+        let marker = b"UNCOMMITTED-MIRROR-PAYLOAD-313-NOT-A-SECRET";
+        let payload = marker.repeat(32 * 1024);
+        fs::write(source.join("new"), &payload).unwrap();
+        let mut updating = command(
+            bin,
+            dir,
+            &["test.lbox", "mirror", "source", "update", "--force"],
+        );
+        updating.env("REVAULT_TEST_MIRROR_SYNC", &sync);
+        let worker = std::thread::spawn(move || updating.test_output().unwrap());
+        let started = Instant::now();
+        while !sync.join("prepared").exists() {
+            assert!(
+                started.elapsed() < Duration::from_secs(30),
+                "mirror did not reach preparation"
+            );
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        // Exception: no public CLI operation exposes uncommitted physical bytes.
+        // Inspect read-only bytes to prove the intended append/reuse condition;
+        // all state setup, mutation and persisted logical checks use the CLI.
+        let prepared = fs::read(dir.join("test.lbox")).unwrap();
+        let offset = prepared
+            .windows(marker.len())
+            .position(|window| window == marker)
+            .expect("test must observe payload physically written before refusal");
+        assert_eq!(offset < baseline.len(), reuse, "wrong allocation scenario");
+        fs::write(source.join("new"), b"changed after preparation").unwrap();
+        fs::write(sync.join("continue"), b"go").unwrap();
+        let refused = worker.join().unwrap();
+        assert!(!refused.status.success());
+        assert!(
+            String::from_utf8_lossy(&refused.stderr).contains("changed"),
+            "{}",
+            String::from_utf8_lossy(&refused.stderr)
+        );
+        success(&run(bin, dir, &["session", "stop"]));
+        let kept = run(bin, dir, &["test.lbox", "cat", "/mirror/z_keep"]);
+        success(&kept);
+        assert_eq!(kept.stdout, b"committed neighbour");
+        assert!(!run(bin, dir, &["test.lbox", "cat", "/mirror/new"])
+            .status
+            .success());
+        let restored = fs::read(dir.join("test.lbox")).unwrap();
+        assert_eq!(
+            restored.len(),
+            baseline.len(),
+            "abort retained appended allocations"
+        );
+        assert!(
+            !restored
+                .windows(marker.len())
+                .any(|window| window == marker),
+            "abandoned payload survived abort"
+        );
+        success(&run(bin, dir, &["test.lbox", "doctor", "--deep"]));
+        // The refused update must not poison later legitimate updates.
+        success(&run(
+            bin,
+            dir,
+            &["test.lbox", "mirror", "source", "update", "--force"],
+        ));
+        let stored = run(bin, dir, &["test.lbox", "cat", "/mirror/new"]);
+        success(&stored);
+        assert_eq!(stored.stdout, b"changed after preparation");
+        success(&run(bin, dir, &["test.lbox", "doctor", "--deep"]));
+        success(&run(bin, dir, &["session", "stop"]));
+    }
 }

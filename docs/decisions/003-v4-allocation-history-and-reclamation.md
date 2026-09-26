@@ -1,0 +1,47 @@
+# 003: Reservations, retained history and reclamation
+
+Status: proposed, 2026-09-26. Author: Codex. Storage/security reviewer: unassigned.
+Goals G2/G3/G4/G7; acceptance A1/A5/A7. Existing transaction ordering retained.
+
+## Context
+
+The mirror bug demonstrated that an unpublished operation can still write payload
+into real archive allocations. Reverting only the logical TOC is insufficient.
+Current preparation journals, free-space reservations and resumable cleanup address
+this. Their cost must be assessed against free-range count and archive age, rather
+than optimized away without an ownership proof.
+
+## Recommended comparison
+
+Retain conservative base-free-range reservation as the correctness control.
+Compare an explicit bounded reservation log whose entries name exact physical
+ranges, generation and cleanup state. It must become durable before any range is
+written, survive partial writes and recovery interruption, and account for its own
+control allocations. A reservation journal cannot reserve space by overwriting
+untracked data that it needs to reconstruct after a crash.
+
+Classify retained control/history separately from reusable space and leaked
+payload. Define a checkpoint policy that bounds live control traversal and the
+cost of aborting a tiny operation; retain only history needed for supported recovery
+and verification. Dropping a signed ancestor is not safe until a checkpoint proves
+the authority previously supplied by that ancestor. Record the exact retention
+bound only after the signing decision specifies required proofs.
+
+Compaction remains source-preserving: copy only authoritative reachable contents,
+verify all logical records and access semantics, then install via the platform's
+durable replacement protocol. Do not use salvage scanning to copy orphan payload.
+
+## Required experiments
+
+1. Fail a 4 KiB write with 1, 1,000 and 100,000 free ranges; report reservation,
+   rollback I/O, syncs and retained bytes separately.
+2. Run 100 lifecycle cycles with exhaustive physical accounting; run 1,000 cycles
+   for aging. No-change mirrors must not accumulate allocations/history.
+3. Interrupt reservations, rollback, cleanup, checkpointing and tail trimming,
+   including interruption during recovery; preserve shared-page neighbours.
+4. Measure source-plus-replacement compaction headroom and compare all logical
+   data after separate reopen. Confirm deletion/aborted payload is absent from
+   the completed current archive under the documented erasure boundary.
+
+No new log encoding or history-pruning policy is accepted yet. The default layout
+is the control until a candidate has a complete ownership and durability proof.

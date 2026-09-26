@@ -1,5 +1,10 @@
 # Implementation Overview
 
+> Historical overview with outdated format and implementation claims. The
+> [project goals](../manual/project-goals.md) supersede its goals list; the
+> [v4 plan](archive_v4_plan.md) defines current work. See the
+> [documentation map](documentation_map.md) for its replacement scope.
+
 This document keeps implementation and format direction out of the top-level
 README. User-facing command examples are in [cli_how_to.md](cli_how_to.md).
 Exact on-disk structures are in [ARCHIVE_FORMAT.md](../rust/revault_lockbox_api/ARCHIVE_FORMAT.md).

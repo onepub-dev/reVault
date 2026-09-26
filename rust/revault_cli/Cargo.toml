@@ -51,6 +51,8 @@ test = false
 [features]
 default = ["issue303-protocol"]
 issue303-protocol = ["revault_lockbox_api/issue303-protocol"]
+# Explicit synchronization for public CLI fault tests; absent from normal builds.
+e2e-test-hooks = []
 
 [dependencies]
 clap = { version = "4.6.6", default-features = false, features = [

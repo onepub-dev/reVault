@@ -1,5 +1,12 @@
 # Format versioning and migrations
 
+> Mixed-version engineering reference awaiting v4 reconciliation. Statements
+> below that identify v3 as current or retain a v2 reader in the current core
+> are historical. See the maintained [compatibility page](../manual/develop-with-revault/compatibility.md)
+> and [migration procedure](../manual/maintain-and-recover/migrating-between-versions.md).
+> The [v4 plan](archive_v4_plan.md) tracks fixture, exporter and release gaps;
+> the procedures below are not evidence of release readiness.
+
 Vault and archive formats are versioned independently. A release may change one
 without changing the other, and users do not have to migrate both at the same
 time.

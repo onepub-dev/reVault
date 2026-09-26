@@ -366,6 +366,12 @@ jobs:
       - name: Run realistic CLI E2E contract
         run: ${{ matrix.command }}
 
+      - name: Deterministic mirror preparation rollback
+        if: runner.os == 'Linux'
+        run: >-
+          cargo test --locked -p revault_cli --features e2e-test-hooks
+          --test mirror_cli changed_source_after_preparation -- --nocapture
+
   fuzz-harnesses:
     if: github.workflow != 'Release candidate'
     name: compile fuzz harnesses

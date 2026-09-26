@@ -1,5 +1,10 @@
 # Performance Review
 
+> Historical assessment. “Current” and “required next” below describe the
+> original review, not the current v4 baseline or work queue. Use the
+> [v4 plan](archive_v4_plan.md) for acceptance gates and the next work, and the
+> [documentation map](documentation_map.md) for consolidation.
+
 This pass focuses on the two high-pressure paths: full recursive add and full
 lockbox expansion/extraction.
 

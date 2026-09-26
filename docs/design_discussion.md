@@ -1,5 +1,11 @@
 # Design Discussion
 
+> Historical design discussion; implementation and dependency claims may be
+> outdated. These proposals do not establish current requirements. Use the
+> [project goals](../manual/project-goals.md) and [v4 plan](archive_v4_plan.md);
+> the [documentation map](documentation_map.md) describes how decisions and
+> future ideas will be separated.
+
 This document captures open design directions that affect performance,
 security, and operational ergonomics. It is intentionally decision-oriented:
 each section separates the current state from proposed work.
