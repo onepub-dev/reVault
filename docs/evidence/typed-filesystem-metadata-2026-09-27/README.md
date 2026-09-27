@@ -70,7 +70,10 @@ payload I/O errors propagate; loss of both selected catalogues, wrong encryption
 keys and wrong owner pins fail before metadata delivery. These remain internal
 format tests, not a public extraction adapter. The [node-aware recovery test](node-salvage-tests.log),
 [197-test format regression suite](node-salvage-format-tests.log) (five explicit
-probes ignored), and [strict Clippy](node-salvage-clippy.log) pass. Variables, forms, access mutation/overflow and the large-catalogue
+probes ignored), and [strict Clippy](node-salvage-clippy.log) pass. A further
+[32 bank-loss membership checks](node-membership-salvage-tests.log) verify salvage
+after directory deletion, symlink retargeting and a permission change: no removed
+directory or stale target is resurrected. Variables, forms, access mutation/overflow and the large-catalogue
 hierarchy remain separate missing record classes.
 
 The experiment admits at most 1,024 combined files/nodes and a 64 KiB decoded

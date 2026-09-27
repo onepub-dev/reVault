@@ -4076,6 +4076,21 @@ fn dense_filesystem_metadata_preserves_public_nodes_permissions_and_no_change_al
                         damaged
                             .write_at(bank, &vec![0; publication::FAILURE_REGION as usize])
                             .unwrap();
+                        // Salvage must use the latest authenticated node membership,
+                        // without resurrecting the removed directory or old target.
+                        let mut sink = FilesystemSalvaged::default();
+                        let report = super::dense_image::salvage_filesystem(
+                            &damaged,
+                            archive(),
+                            mode,
+                            &authority,
+                            key(mode),
+                            &mut sink,
+                        )
+                        .unwrap();
+                        assert_eq!(sink.metadata.as_deref(), Some(next.as_slice()));
+                        assert_eq!((report.complete, report.incomplete), (1, 0));
+                        assert_eq!(sink.files.files[b"/docs/data".as_slice()], b"payload");
                         super::dense_update::recover(
                             &mut damaged,
                             archive(),
