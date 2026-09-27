@@ -95,3 +95,30 @@ another implementation change. It will not count as another timing batch or
 justify skipping integrity, owner verification, padding or wiping. Full record
 semantics, larger catalogue admission, payload mutation/aging and release gates
 remain on the canonical plan.
+
+## Diagnostic payload profiles
+
+After the timing batch, the same frozen reader performed 1,000 streaming passes
+of each retained 8 MiB raw, compressed and encrypted/signed compressed archive.
+All three probes verified source bytes successfully. These repeated reads isolate
+payload work; they are not fresh-handle timing samples. `perf` sampled this child
+process's user CPU only at 199 Hz, with an 8,192-byte DWARF call graph. No samples
+were lost (892 raw, 659 compressed, 669 protected samples). Raw `.data.gz`, reports
+and successful verification logs are in `profiles/`.
+
+The [raw profile](profiles/raw.report.txt) attributes **91.82% of sampled user CPU
+to hardware-accelerated SHA-256 compression**, 2.80% to copying and 2.58% to the
+existing full-capacity wipe. The [compressed profile](profiles/compressed.report.txt)
+shows decompression's XXHash64 checksum (18.51%), sequence decoding (16.84%) and
+copying among the principal costs. The [protected profile](profiles/protected.report.txt)
+likewise points to decompression/checksum/copy work, rather than catalogue lookup.
+These are user-CPU sampling proportions, not fractions of total elapsed time;
+raw repeated-read CPU also includes about one second of system time.
+
+Consequently, another catalogue/buffer change is not a supported explanation for
+closing the remaining large-read gap. SHA-256 is already using hardware support.
+Changing a persisted payload integrity algorithm, bypassing a checksum, adding
+workers or changing the compression contract is a separate architecture/security
+and measurement decision. None is adopted here; existing owner commitments,
+checksums, padding and wiping remain intact. Continue missing record/mutation
+integration while retaining these explicit performance failures and decision needs.

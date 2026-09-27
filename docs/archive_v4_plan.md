@@ -73,8 +73,11 @@ states which gates remain failed or incomplete.
    ZIP, using six fixed cases and the same verification/timing loop. Its small
    plaintext result is 0.626× ZIP (upper 95% 0.654); large plaintext reads remain
    2.85–3.36× ZIP. Large raw read-only time remains 0.969× C despite halving open
-   time. Profile the remaining payload work before changing it; do not treat the
-   small-file result as a complete A3 pass.
+   time. Completed profiles show about 92% of raw sampled user CPU in hardware
+   SHA-256; compressed reads are dominated by decompression/checksum/copy work.
+   Do not resume catalogue tuning or silently change checksum/security/worker
+   contracts to hide that gap. Continue missing record and mutation integration;
+   the small-file result is not a complete A3 pass.
    Preserve source, authority, erasure and padding guarantees; do not resume an
    unlimited sequence of buffer/encoder changes or silently replace workloads.
 4. Finish migration/owner fixtures, bidirectional CLI/binding/Vault compatibility
