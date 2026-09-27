@@ -86,3 +86,28 @@ transitions. This probe failure supplies no size result; reruns use a new direct
 and a newly frozen executable, preserving the failed artifact.
 
 The [real-file regression](file-tests.log) and [strict lints](file-clippy.log) pass.
+
+
+## Measured metadata lifecycle size
+
+Frozen `81024436`, executable SHA-256
+`ecb4474a57c5cb192dc49ae8d5b71c53583089a5fd3a0600d46b323412c0384b`, ran 100
+permission edits and 100 unchanged repeats for each retained 512 × 4 KiB corpus.
+[Inputs](sizes/batch.json), [plaintext result](sizes/small-plain.json) and
+[encrypted/signed result](sizes/small-protected.json) are retained. Every edit was
+closed, reopened through a separate reader and compared with every source byte;
+persisted permission bits and generation were also checked. Each unchanged repeat
+preserved the complete archive hash.
+
+Both files start at 327,680 bytes, grow to **458,752 bytes on the first edit**, and
+stay at that size through all 100 edits. That is 1.935× the retained 237,078-byte
+ZIP, exceeding the proposed 355,617-byte small-corpus bound. This is bounded growth,
+not a space leak, but the whole-layout size issue is real. Payload mutation and full
+aging remain unqualified. [Post-hook file test](file-postformat-tests.log) and
+[Clippy](file-postformat-clippy.log) pass for the frozen source.
+
+The next geometry test will permit two 24 KiB private slots in each existing
+control bank, retaining the 48 KiB/external route for larger catalogues. This is a
+proposal to avoid external growth for small metadata edits, not permission for
+in-place overwrite or a reduction of the decoded-metadata bound. It must use the
+same graph, journal, publication and erasure checks and repeat interruption tests.

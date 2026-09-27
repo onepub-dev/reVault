@@ -106,3 +106,14 @@ highly compressible 512-file stress corpus, one destroyed 64 KiB region loses
 The independent restart/decode bound is not a bound on logical bytes lost per
 physical failure region. Compare retained primary corpora before deciding whether
 to accept this trade-off or constrain packing; no new guarantee is selected here.
+
+
+## Mutable control-space checkpoint
+
+[Measured metadata lifecycles](../evidence/dense-metadata-update-2026-09-27/README.md#measured-metadata-lifecycle-size)
+grow the small image from 320 to 448 KiB after its first edit, then reuse that
+space. The fixed 48 KiB private slot fills each bank's entire private area, forcing
+new metadata outside the prefix until retirement. Test two 24 KiB private slots
+within each bank for smaller catalogues, with the existing larger/external route
+when necessary. This changes allocation geometry, not fragment decode bounds or
+publication/erasure ordering. No format decision or gate change is implied.

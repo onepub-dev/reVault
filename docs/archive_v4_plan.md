@@ -26,8 +26,10 @@ states which gates remain failed or incomplete.
    Renames/permission changes now connect the catalogue, ownership graph, compact
    preparation, mirrored publication and retirement through interruption tests.
    Payload mutation remains unconnected. The first edit retains two extra 64 KiB
-   control allocations; address this whole-layout cost before claiming mutable
-   small-archive size compliance.
+   control allocations: both retained small fixtures grow from 320 to 448 KiB
+   (1.935× ZIP), stable through 100 metadata edits and 100 unchanged repeats.
+   Test two smaller private slots per bank, with a larger/external fallback,
+   before claiming mutable small-archive size compliance.
    Integrate typed catalogue overflow, public record semantics, payload updates,
    overflow transitions and compaction/installation before qualification. Preserve the existing candidate as the control.
    Five retained images now match the size model; both small fixtures are actual
