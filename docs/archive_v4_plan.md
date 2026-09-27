@@ -62,6 +62,18 @@ states which gates remain failed or incomplete.
    control-bank loss; recovery must not scan old generations to replace missing
    selected membership. Re-measure completed and temporary space, CPU and RSS
    across the transition rather than extrapolating the file-only results.
+   Start by adapting the existing [authenticated index](../rust/revault_lockbox_api/src/file_format/authenticated_index.rs):
+   it already provides ordered bounded pages, mirrored references, COW changes,
+   and `visit_owned` traversal of reachable pages. Its 49,152-byte entry-value
+   limit means a 1 MiB variable still needs authenticated value segments; raising
+   that limit would invalidate the bounded-page design. Reuse is conditional on
+   integrating descendant claims into the [shared ownership graph](../rust/revault_lockbox_api/src/file_format/publication_anchor/shared/ownership.rs),
+   which currently accounts only for the private root, key root and payload packs.
+   Keep descendant retirement distinct from the metadata-only suffix proof.
+   Preserve the [variable API's secure-page and scoped-secret access](../rust/revault_lockbox_api/src/lockbox/variables.rs);
+   ordinary wipe-on-drop index bytes alone do not establish equivalent secret
+   memory handling. This is the starting implementation route, not approval of
+   a new wire format or a completed reuse claim.
    Five retained images now match the size model; both small fixtures are actual
    320 KiB files (1.382× ZIP), with full persisted-byte verification. Budget
    temporary metadata, sealed-length/cleanup and any relocation publication; this
