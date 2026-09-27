@@ -128,8 +128,17 @@ fn candidate_file_resource_probe() {
         },
     });
     let key = encrypted.then_some(KEY.as_slice());
-    if phase == "dense-create" {
-        dense_create(&root, count, bytes, unit, mode, key);
+    if phase == "dense-create" || phase == "dense-lifecycle" {
+        let cycles = if phase == "dense-lifecycle" {
+            std::env::var("REVAULT_CANDIDATE_CYCLES")
+                .unwrap()
+                .parse::<usize>()
+                .unwrap()
+        } else {
+            0
+        };
+        assert!(cycles <= 1000);
+        dense_create(&root, count, bytes, unit, mode, key, cycles);
         return;
     }
     if phase == "dense-damage" {
@@ -328,6 +337,7 @@ fn candidate_file_resource_probe() {
 
 /// Correctness/size probe only. Building C as a source is not a comparable
 /// creation workload, so no time/CPU/RSS fields are reported for this phase.
+#[allow(clippy::too_many_arguments)]
 fn dense_create(
     root: &Path,
     count: usize,
@@ -335,6 +345,7 @@ fn dense_create(
     unit: usize,
     mode: FormatMode,
     key: Option<&[u8]>,
+    cycles: usize,
 ) {
     use super::dense_image::{from_candidate, Image};
     let source_path = root.join("dense-staging.lbox");
@@ -423,9 +434,86 @@ fn dense_create(
         assert_eq!(input.read(&mut expected[..1]).unwrap(), 0);
     }
     drop(reopened);
+    let initial_bytes = std::fs::metadata(&target).unwrap().len();
+    let mut first_update_bytes = initial_bytes;
+    for cycle in 0..cycles {
+        let bits = if cycle % 2 == 0 { 0o600 } else { 0o644 };
+        let mut storage = StorageBackend::file(&target).unwrap();
+        assert!(super::dense_update::edit(
+            &mut storage,
+            archive(),
+            mode,
+            &authority,
+            signer,
+            key,
+            name(0).as_bytes(),
+            name(0).as_bytes(),
+            Some(bits)
+        )
+        .unwrap());
+        if cycle == 0 {
+            first_update_bytes = storage.len().unwrap();
+        }
+        assert_eq!(storage.len().unwrap(), first_update_bytes);
+        drop(storage);
+        // Separate handle and source-byte comparison for every committed edit.
+        let mut image = Image::open(
+            StorageBackend::file(&target).unwrap(),
+            archive(),
+            mode,
+            &authority,
+            key,
+        )
+        .unwrap();
+        for index in 0..count {
+            let path = name(index);
+            let mut input = File::open(root.join("source").join(&path)).unwrap();
+            let mut actual = 0;
+            image
+                .read_range(path.as_bytes(), 0, bytes, |part| {
+                    input.read_exact(&mut expected[..part.len()]).unwrap();
+                    assert!(part == &expected[..part.len()]);
+                    actual += part.len() as u64;
+                    Ok(())
+                })
+                .unwrap();
+            assert_eq!(actual, bytes);
+            assert_eq!(input.read(&mut expected[..1]).unwrap(), 0);
+        }
+        let (anchor, body) =
+            publication::shared::open_private(&image.storage, archive(), mode, &authority, key)
+                .unwrap();
+        let codec = Codec::shared_packed(archive(), mode, key).unwrap();
+        let catalogue =
+            super::dense_catalogue::Catalogue::decode(&body, &codec, anchor.sealed_len).unwrap();
+        assert_eq!(anchor.generation, cycle as u64 + 2);
+        assert_eq!(catalogue.files[0].permissions, bits);
+        drop(image);
+        let before = digest_file(&target);
+        let mut storage = StorageBackend::file(&target).unwrap();
+        assert!(!super::dense_update::edit(
+            &mut storage,
+            archive(),
+            mode,
+            &authority,
+            signer,
+            key,
+            name(0).as_bytes(),
+            name(0).as_bytes(),
+            Some(bits)
+        )
+        .unwrap());
+        drop(storage);
+        assert_eq!(digest_file(&target), before);
+    }
     drop(source);
     std::fs::remove_file(&source_path).unwrap();
     let result = json!({"kind":"dense_file_image_size","archive_bytes":std::fs::metadata(&target).unwrap().len(),"archive_sha256":digest_file(&target),"binary_sha256":digest_file(&std::env::current_exe().unwrap()),"files":count,"bytes_per_file":bytes,"verified":true,"scope":"fresh file-only image; no mutation/public API/migration or performance qualification"});
+    let result = if cycles == 0 {
+        result
+    } else {
+        json!({"kind":"dense_metadata_lifecycle_size","initial_bytes":initial_bytes,"first_update_bytes":first_update_bytes,"archive_bytes":std::fs::metadata(&target).unwrap().len(),"cycles":cycles,"unchanged_repeats":cycles,"stable_after_first_update":true,"fresh_handle_source_bytes_verified_each_edit":true,"archive_sha256":digest_file(&target),"binary_sha256":digest_file(&std::env::current_exe().unwrap()),"files":count,"bytes_per_file":bytes,"scope":"bounded metadata updates only; no payload edits, full aging or performance qualification"})
+    };
     println!("CANDIDATE_SAMPLE {result}");
 }
 

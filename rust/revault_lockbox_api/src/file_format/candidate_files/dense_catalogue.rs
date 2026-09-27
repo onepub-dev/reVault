@@ -4,6 +4,7 @@
 use super::*;
 use crate::crypto::strong_checksum;
 use crate::file_format::allocation_map::Extent;
+use crate::file_format::publication_anchor::shared::ownership::{Graph, Span, Vacant, VacantKind};
 use crate::file_format::publication_anchor::REGION_LEN;
 use crate::page_buffer::ZeroizingBytes;
 use std::collections::BTreeSet;
@@ -29,6 +30,8 @@ pub(super) struct Pack {
     pub used: usize,
 }
 pub(super) struct Catalogue {
+    legacy: bool,
+    pub vacant: Vec<Vacant>,
     pub files: Vec<File>,
     pub packs: Vec<Pack>,
 }
@@ -73,9 +76,11 @@ impl Catalogue {
             return Err(Error::CorruptRecord);
         }
         let mut cursor = Cursor(body);
-        if cursor.take(8)? != b"RV4COST1" {
-            return Err(Error::CorruptRecord);
-        }
+        let legacy = match cursor.take(8)? {
+            b"RV4COST1" => true,
+            b"RV4DENS2" => false,
+            _ => return Err(Error::CorruptRecord),
+        };
         let count = cursor.count(MAX_MODEL_FILES)?;
         // Minimum file header exceeds 50 bytes; reject counts before reserving.
         if count > cursor.0.len() / 50 {
@@ -160,10 +165,10 @@ impl Catalogue {
             let len = cursor.uint()?;
             let digest = cursor.take(32)?.try_into().unwrap();
             let padding_digest = cursor.take(32)?.try_into().unwrap();
-            if start != position || len == 0 || len > 320 * 1024 {
+            if (legacy && start != position) || start < position || len == 0 || len > 320 * 1024 {
                 return Err(Error::CorruptRecord);
             }
-            position = position.checked_add(len).ok_or(Error::CorruptRecord)?;
+            position = start.checked_add(len).ok_or(Error::CorruptRecord)?;
             if position > sealed {
                 return Err(Error::CorruptRecord);
             }
@@ -173,8 +178,33 @@ impl Catalogue {
                 used: 0,
             });
         }
-        // This fresh-image representation has no free/pending/overflow state.
-        if cursor.uint()? != 0 || !cursor.0.is_empty() || position != sealed {
+        let count = cursor.count(8192)?;
+        if count > cursor.0.len() / 10 || (legacy && (count != 0 || position != sealed)) {
+            return Err(Error::CorruptRecord);
+        }
+        let mut vacant: Vec<Vacant> = Vec::with_capacity(count);
+        for _ in 0..count {
+            let kind = match cursor.take(1)?[0] {
+                0 => VacantKind::Free,
+                1 => VacantKind::Pending,
+                _ => return Err(Error::CorruptRecord),
+            };
+            let start = u64::from_le_bytes(cursor.take(8)?.try_into().unwrap());
+            let len = cursor.uint()?;
+            if len == 0
+                || start.checked_add(len).is_none_or(|end| end > sealed)
+                || vacant
+                    .last()
+                    .is_some_and(|old| old.span.start + old.span.len > start)
+            {
+                return Err(Error::CorruptRecord);
+            }
+            vacant.push(Vacant {
+                span: Span { start, len },
+                kind,
+            });
+        }
+        if !cursor.0.is_empty() {
             return Err(Error::CorruptRecord);
         }
         let mut coverage: Vec<Vec<(usize, usize)>> = (0..packs.len()).map(|_| Vec::new()).collect();
@@ -223,7 +253,99 @@ impl Catalogue {
             }
             pack.used = used;
         }
-        Ok(Self { files, packs })
+        Ok(Self {
+            legacy,
+            vacant,
+            files,
+            packs,
+        })
+    }
+    pub(super) fn graph(&self, anchor: &Anchor) -> Result<Graph> {
+        let packs: Vec<_> = self.packs.iter().map(|pack| pack.extent).collect();
+        if self.legacy {
+            Graph::fresh_files(anchor, &packs)
+        } else {
+            Graph::derive(anchor, &packs, &self.vacant)
+        }
+    }
+    /// Convert a successfully authenticated legacy fresh catalogue in memory.
+    /// Persisting the new representation still requires the COW journal protocol.
+    pub(super) fn upgrade(&mut self, anchor: &Anchor) -> Result<()> {
+        self.graph(anchor)?;
+        if self.legacy {
+            if anchor.keys == publication::RootRef::default() {
+                self.vacant = [0, publication::FAILURE_REGION]
+                    .into_iter()
+                    .map(|bank| Vacant {
+                        span: Span {
+                            start: bank + 12288,
+                            len: 4096,
+                        },
+                        kind: VacantKind::Free,
+                    })
+                    .collect();
+            }
+            self.legacy = false;
+        }
+        Ok(())
+    }
+    pub(super) fn encode(&self, codec: &Codec, sealed: u64) -> Result<ZeroizingBytes> {
+        if self.legacy {
+            return Err(Error::InvalidInput(
+                "upgrade catalogue before encoding ownership states".into(),
+            ));
+        }
+        let mut out = Writer(ZeroizingBytes::new(Vec::with_capacity(MAX_BODY)));
+        out.put(b"RV4DENS2")?;
+        out.uint(self.files.len() as u64)?;
+        for file in &self.files {
+            out.put(&[1])?;
+            out.put(&file.permissions.to_le_bytes())?;
+            out.uint(file.path.len() as u64)?;
+            out.put(&file.path)?;
+            out.put(&file.info.id)?;
+            out.uint(file.info.len)?;
+            out.uint(file.info.unit as u64)?;
+            out.put(&file.info.digest)?;
+            out.uint(file.fragments.len() as u64)?;
+            for (ordinal, fragment) in file.fragments.iter().enumerate() {
+                let d = &fragment.descriptor;
+                let offset = (ordinal as u64)
+                    .checked_mul(file.info.unit as u64)
+                    .ok_or(Error::CorruptRecord)?;
+                if d.object != file.info.id
+                    || d.ordinal != ordinal as u64
+                    || d.offset != offset
+                    || offset >= file.info.len
+                    || d.logical_len as u64 != (file.info.len - offset).min(file.info.unit as u64)
+                {
+                    return Err(Error::CorruptRecord);
+                }
+                out.uint(fragment.pack as u64)?;
+                out.uint(fragment.relative as u64)?;
+                out.put(&d.encode()[44..53])?;
+                out.put(&fragment.digest)?;
+            }
+        }
+        out.uint(self.packs.len() as u64)?;
+        for pack in &self.packs {
+            out.put(&pack.extent.start.to_le_bytes())?;
+            out.uint(pack.extent.len)?;
+            out.put(&pack.extent.digest)?;
+            out.put(&pack.padding_digest)?;
+        }
+        out.uint(self.vacant.len() as u64)?;
+        for entry in &self.vacant {
+            out.put(&[match entry.kind {
+                VacantKind::Free => 0,
+                VacantKind::Pending => 1,
+            }])?;
+            out.put(&entry.span.start.to_le_bytes())?;
+            out.uint(entry.span.len)?;
+        }
+        // Reject inconsistent typed edits before producing a private envelope.
+        Self::decode(&out.0, codec, sealed)?;
+        Ok(out.0)
     }
     pub fn verify_padding(&self, storage: &impl Storage, codec: &Codec) -> Result<()> {
         for pack in &self.packs {
@@ -244,5 +366,30 @@ impl Catalogue {
             }
         }
         Ok(())
+    }
+}
+
+// Reserve the complete bounded private buffer once; never reallocate secret bytes.
+struct Writer(ZeroizingBytes);
+impl Writer {
+    fn put(&mut self, bytes: &[u8]) -> Result<()> {
+        if bytes.len() > MAX_BODY - self.0.len() {
+            return Err(Error::SecurityLimitExceeded(
+                "bounded dense catalogue needs overflow".into(),
+            ));
+        }
+        self.0.extend_from_slice(bytes);
+        Ok(())
+    }
+    fn uint(&mut self, mut n: u64) -> Result<()> {
+        let mut bytes = [0u8; 10];
+        let mut len = 0;
+        while n >= 128 {
+            bytes[len] = n as u8 | 128;
+            len += 1;
+            n >>= 7;
+        }
+        bytes[len] = n as u8;
+        self.put(&bytes[..len + 1])
     }
 }

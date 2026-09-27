@@ -116,3 +116,9 @@ It does not pass the full A5 gate: larger metadata, aging, mutation, cleanup, pu
 semantics and the resource matrix remain. It supplies no A3/A4 timing result.
 Post-hook [image tests](postformat-tests.log) and [strict Clippy](postformat-clippy.log)
 also pass on the frozen source.
+
+
+A subsequent [metadata-update checkpoint](../dense-metadata-update-2026-09-27/README.md)
+connects renames/permission edits, persisted free/pending ownership and journal
+recovery. Its first edit retains two additional 64 KiB control allocations. The
+fresh image measurements above remain valid; they are not mutable-size results.

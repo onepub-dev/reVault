@@ -23,6 +23,7 @@ pub(super) mod compaction;
 mod cost_model;
 mod dense_catalogue;
 mod dense_image;
+mod dense_update;
 mod mutation;
 mod packing;
 mod recovery;

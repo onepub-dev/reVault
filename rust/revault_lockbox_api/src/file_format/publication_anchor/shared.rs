@@ -8,7 +8,7 @@ const PRIVATE_START: u64 = 16384;
 const PRIVATE_BYTES: usize = 49152;
 const KEYS_START: u64 = 12288;
 
-fn commitment(anchor: &Anchor) -> Result<[u8; 32]> {
+pub(crate) fn commitment(anchor: &Anchor) -> Result<[u8; 32]> {
     Ok(strong_checksum(&message(
         &anchor.prefix_in(Layout::Shared)?,
     )))
@@ -170,27 +170,19 @@ fn private_in(
     key: Option<&[u8]>,
     strict: bool,
 ) -> Result<(Anchor, crate::page_buffer::ZeroizingBytes)> {
-    let selected = select_in(storage, archive, mode, authority, Layout::Shared)?;
-    let anchor = selected.anchor;
-    validate_fresh_shape(&anchor)?;
-    if strict && storage.len()? != anchor.sealed_len {
-        return Err(Error::CorruptRecord);
-    }
+    let (anchor, body) = snapshot(storage, archive, mode, authority, key)?;
     if strict {
+        if storage.len()? != anchor.sealed_len {
+            return Err(Error::CorruptRecord);
+        }
         if !anchor.keys.absent() {
             super::bootstrap::read_directory_in(storage, &anchor, Layout::Shared)?;
         }
-        crate::file_format::preparation_journal::compact::validate_initial_idle(
-            storage,
-            archive,
-            mode,
-            key,
-            selected.commitment,
-        )?;
+        crate::file_format::preparation_journal::compact::session::InlineSession::open(
+            storage, archive, mode, key,
+        )?
+        .require_idle(commitment(&anchor)?)?;
     }
-    let stored =
-        crate::page_buffer::ZeroizingBytes::new(read_root(storage, &anchor, RootRole::Private)?);
-    let body = catalogue::Codec::new(archive, mode, key)?.decode(&stored)?;
     Ok((anchor, body))
 }
 
@@ -230,5 +222,133 @@ fn validate_fresh_shape(anchor: &Anchor) -> Result<()> {
     {
         return Err(Error::CorruptRecord);
     }
+    Ok(())
+}
+
+/// Selected private bytes only. Caller must parse the typed catalogue, validate
+/// its complete graph and independently check journal/padding for normal open.
+pub(crate) fn snapshot(
+    storage: &impl Storage,
+    archive: LockboxId,
+    mode: FormatMode,
+    authority: &Authority<'_>,
+    key: Option<&[u8]>,
+) -> Result<(Anchor, crate::page_buffer::ZeroizingBytes)> {
+    let anchor = select_in(storage, archive, mode, authority, Layout::Shared)?.anchor;
+    if anchor.index.len != PRIVATE_BYTES as u64
+        || anchor.object_root != anchor.index.digest
+        || !anchor.allocation.absent()
+        || (!anchor.keys.absent() && anchor.keys.len != 4096)
+    {
+        return Err(Error::CorruptRecord);
+    }
+    let stored =
+        crate::page_buffer::ZeroizingBytes::new(read_root(storage, &anchor, RootRole::Private)?);
+    let body = catalogue::Codec::new(archive, mode, key)?.decode(&stored)?;
+    Ok((anchor, body))
+}
+pub(crate) fn encode_private(
+    archive: LockboxId,
+    mode: FormatMode,
+    key: Option<&[u8]>,
+    body: &[u8],
+) -> Result<crate::page_buffer::ZeroizingBytes> {
+    catalogue::Codec::new(archive, mode, key)?.encode(body)
+}
+pub(crate) fn ensure_mirrored(
+    storage: &mut impl Storage,
+    archive: LockboxId,
+    mode: FormatMode,
+    authority: &Authority<'_>,
+    expected: [u8; 32],
+) -> Result<Anchor> {
+    let selected = select_in(storage, archive, mode, authority, Layout::Shared)?;
+    if selected.commitment != expected {
+        return Err(Error::CorruptRecord);
+    }
+    for role in [RootRole::Private, RootRole::PublicKeys] {
+        if matches!(role, RootRole::PublicKeys) && selected.anchor.keys.absent() {
+            continue;
+        }
+        let bytes =
+            crate::page_buffer::ZeroizingBytes::new(read_root(storage, &selected.anchor, role)?);
+        let root = match role {
+            RootRole::Private => selected.anchor.index,
+            RootRole::PublicKeys => selected.anchor.keys,
+            RootRole::Allocation => unreachable!(),
+        };
+        for offset in [root.primary, root.mirror] {
+            let existing = crate::page_buffer::ZeroizingBytes::new(
+                storage.read_at(offset, root.len as usize)?,
+            );
+            if existing.len() != root.len as usize || strong_checksum(&existing) != root.digest {
+                storage.write_at(offset, &bytes)?;
+            }
+        }
+    }
+    storage.sync()?;
+    if selected.copies != 3 {
+        storage.write_at(
+            (1 - selected.slot) as u64 * FAILURE_REGION,
+            &selected.encoded,
+        )?;
+        storage.sync()?;
+    }
+    Ok(selected.anchor)
+}
+/// The typed transaction validates both complete graphs before calling this.
+/// Dependencies are checked in BOTH copies before exposing the new publication.
+pub(crate) struct Prepared {
+    anchor: Anchor,
+    encoded: Vec<u8>,
+}
+pub(crate) fn prepare(
+    next: &Anchor,
+    authority: &Authority<'_>,
+    signer: Option<&OwnerSigningKeyPair>,
+) -> Result<Prepared> {
+    Ok(Prepared {
+        anchor: next.clone(),
+        encoded: encode_in(next, authority, signer, Layout::Shared)?,
+    })
+}
+pub(crate) fn publish(
+    storage: &mut impl Storage,
+    prepared: &Prepared,
+    authority: &Authority<'_>,
+    expected: [u8; 32],
+) -> Result<()> {
+    let next = &prepared.anchor;
+    next.validate_in(Layout::Shared)?;
+    if !next.allocation.absent() || storage.len()? != next.sealed_len {
+        return Err(Error::CorruptRecord);
+    }
+    let current = select_in(storage, next.archive, next.mode, authority, Layout::Shared)?;
+    if current.commitment != expected
+        || next.previous != expected
+        || current.anchor.generation.checked_add(1) != Some(next.generation)
+    {
+        return Err(Error::CorruptRecord);
+    }
+    for root in [next.index, next.keys] {
+        if root.absent() {
+            continue;
+        }
+        for offset in [root.primary, root.mirror] {
+            let bytes = crate::page_buffer::ZeroizingBytes::new(
+                storage.read_at(offset, root.len as usize)?,
+            );
+            if bytes.len() != root.len as usize || strong_checksum(&bytes) != root.digest {
+                return Err(Error::CorruptRecord);
+            }
+        }
+    }
+    ensure_mirrored(storage, next.archive, next.mode, authority, expected)?;
+    storage.sync()?;
+    let first = 1 - current.slot;
+    storage.write_at(first as u64 * FAILURE_REGION, &prepared.encoded)?;
+    storage.sync()?;
+    storage.write_at(current.slot as u64 * FAILURE_REGION, &prepared.encoded)?;
+    storage.sync()?;
     Ok(())
 }

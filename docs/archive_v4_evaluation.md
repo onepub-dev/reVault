@@ -134,6 +134,9 @@ now measures 327,680 bytes for both retained small plaintext and encrypted/signe
 fixtures: 1.382× the 237,078-byte ZIP, with every persisted byte verified after
 reopen. Five cases match their earlier projections. This is bounded, immutable,
 file-only size evidence; full A5 and A3/A4 remain unqualified for this variant.
+[Metadata edits](evidence/dense-metadata-update-2026-09-27/README.md) now exercise
+persisted ownership and retirement, but the first edit retains two extra 64 KiB
+control allocations. The fresh size result does not qualify a mutable archive.
 [Salvage/locality checks](evidence/dense-salvage-2026-09-27/README.md) preserve
 intact neighbours after isolated corruption, but expose larger logical loss per
 physical region in denser packs. This trade-off remains part of selection.
@@ -220,6 +223,7 @@ The [checkpoint history](archive_v4_history.md) retains earlier commentary.
 | [Initial CPU/RSS](evidence/archive-evaluation-2026-09-26/README.md) | A/B/ZIP and GB resource baseline |
 | [Bounded A writer](evidence/writer-memory-2026-09-26/README.md) | Streaming staging and paired creation improvement |
 | [Recovery proofs](evidence/recovery-commitments-2026-09-26/README.md) | Owner-authorized membership without global payload verification |
+| [Dense metadata updates](evidence/dense-metadata-update-2026-09-27/README.md) | Bounded rename/permission COW, persisted free/pending state and interruption recovery; payload mutation/overflow absent |
 | [Shared ownership](evidence/shared-ownership-2026-09-27/README.md) | Complete bounded physical graph, fresh-reader zero checks and COW obligations; no mutation executor |
 | [Dense file image](evidence/dense-file-image-2026-09-27/README.md) | Fresh persisted file-only image, bounded catalogue, bootstrap/ranges and failure cleanup; immutable and unqualified |
 | [Compact preparation](evidence/compact-preparation-2026-09-27/README.md) | 4 KiB stub and mirrored overflow preserve 2,048 reservations; writer/cleanup integration remains |

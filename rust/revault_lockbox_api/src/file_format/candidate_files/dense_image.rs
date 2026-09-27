@@ -23,15 +23,7 @@ impl<S: Storage> Image<S> {
         let (anchor, body) = shared::open_private(&storage, archive, mode, authority, key)?;
         let codec = Codec::shared_packed(archive, mode, key)?;
         let catalogue = Catalogue::decode(&body, &codec, anchor.sealed_len)?;
-        shared::ownership::Graph::fresh_files(
-            &anchor,
-            &catalogue
-                .packs
-                .iter()
-                .map(|pack| pack.extent)
-                .collect::<Vec<_>>(),
-        )?
-        .verify_free(&storage)?;
+        catalogue.graph(&anchor)?.verify_reclaimed(&storage)?;
         catalogue.verify_padding(&storage, &codec)?;
         let mut image = Self {
             storage,
@@ -107,7 +99,7 @@ impl<S: Storage> Image<S> {
         }
         Ok(())
     }
-    fn verify_all(&mut self) -> Result<()> {
+    pub(super) fn verify_all(&mut self) -> Result<()> {
         for index in 0..self.catalogue.files.len() {
             let file = &self.catalogue.files[index];
             let path = file.path.clone();
@@ -253,6 +245,7 @@ pub(super) fn salvage<S: Storage>(
     let (anchor, body) = shared::salvage_private(storage, archive, mode, authority, key)?;
     let mut codec = Codec::shared_packed(archive, mode, key)?;
     let catalogue = Catalogue::decode(&body, &codec, anchor.sealed_len)?;
+    catalogue.graph(&anchor)?;
     let actual = storage.len()?;
     let mut report = SalvageReport {
         generation: anchor.generation,

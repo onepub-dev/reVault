@@ -210,10 +210,16 @@ impl Graph {
     /// Free means durably erased, not merely unreachable. Pending bytes may still
     /// contain an old secret and are deliberately not accepted by this check.
     pub(crate) fn verify_free(&self, storage: &impl Storage) -> Result<()> {
+        self.verify_vacant(storage, false)
+    }
+    pub(crate) fn verify_reclaimed(&self, storage: &impl Storage) -> Result<()> {
+        self.verify_vacant(storage, true)
+    }
+    fn verify_vacant(&self, storage: &impl Storage, pending: bool) -> Result<()> {
         for claim in self
             .claims
             .values()
-            .filter(|claim| claim.kind == Kind::Free)
+            .filter(|claim| claim.kind == Kind::Free || (pending && claim.kind == Kind::Pending))
         {
             let mut start = claim.span.start;
             let end = claim.span.end()?;
@@ -227,6 +233,46 @@ impl Graph {
             }
         }
         Ok(())
+    }
+    pub(crate) fn pending(&self) -> Vec<Span> {
+        self.claims
+            .values()
+            .filter(|claim| claim.kind == Kind::Pending)
+            .map(|claim| claim.span)
+            .collect()
+    }
+    pub(crate) fn validate_reservations(
+        &self,
+        reservations: &[crate::file_format::preparation_journal::Reservation],
+    ) -> Result<Vec<Span>> {
+        use crate::file_format::preparation_journal::{FREE, PENDING};
+        let mut spans = Vec::new();
+        for range in reservations {
+            let span = Span {
+                start: range.start,
+                len: range.len,
+            };
+            if span.len == 0 {
+                return Err(Error::CorruptRecord);
+            }
+            let claim = self.covering(span)?;
+            let namespace = match claim.kind {
+                Kind::Free => FREE,
+                Kind::Pending => PENDING,
+                _ => return Err(Error::CorruptRecord),
+            };
+            if namespace != range.namespace || range.base != claim.span.start {
+                return Err(Error::CorruptRecord);
+            }
+            spans.push(span);
+        }
+        spans.sort_by_key(|span| span.start);
+        for pair in spans.windows(2) {
+            if pair[0].end()? > pair[1].start {
+                return Err(Error::CorruptRecord);
+            }
+        }
+        Ok(spans)
     }
     pub(crate) fn transition_to(&self, next: &Self) -> Result<Transition> {
         if next.anchor.archive != self.anchor.archive

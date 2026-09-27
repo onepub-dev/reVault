@@ -22,12 +22,14 @@ states which gates remain failed or incomplete.
    The [fresh dense file image](evidence/dense-file-image-2026-09-27/README.md) now
    connects authenticated controls, credential bootstrap, a bounded catalogue,
    denser independent fragments and verified file/range reads. It remains file-only
-   and immutable. [Physical ownership checks](evidence/shared-ownership-2026-09-27/README.md)
-   now account for shared slots and derive retirement obligations; the changing
-   catalogue and journal must still carry and execute those obligations.
-   Integrate typed catalogue overflow, public record semantics,
-   durable reservation/overflow transitions, graph-derived ownership and inline
-   retirement before qualification. Preserve the existing candidate as the control.
+   with [persisted metadata updates](evidence/dense-metadata-update-2026-09-27/README.md).
+   Renames/permission changes now connect the catalogue, ownership graph, compact
+   preparation, mirrored publication and retirement through interruption tests.
+   Payload mutation remains unconnected. The first edit retains two extra 64 KiB
+   control allocations; address this whole-layout cost before claiming mutable
+   small-archive size compliance.
+   Integrate typed catalogue overflow, public record semantics, payload updates,
+   overflow transitions and compaction/installation before qualification. Preserve the existing candidate as the control.
    Five retained images now match the size model; both small fixtures are actual
    320 KiB files (1.382× ZIP), with full persisted-byte verification. Budget
    temporary metadata, sealed-length/cleanup and any relocation publication; this

@@ -2693,3 +2693,649 @@ fn dense_normal_open_checks_unallocated_public_slots_without_blocking_salvage() 
         );
     }
 }
+
+#[test]
+fn dense_ownership_catalogue_persists_canonical_states_and_preserves_file_bindings() {
+    use super::dense_catalogue::Catalogue;
+    use super::dense_image::{from_candidate, Image};
+    use crate::file_format::publication_anchor::{shared, REGION_LEN};
+    use shared::ownership::{Span, Vacant, VacantKind};
+    let owner = OwnerSigningKeyPair::generate().unwrap();
+    let public = owner.public_key();
+    for encrypted in [false, true] {
+        for compressed in [false, true] {
+            let mode = mode(encrypted, true, compressed, true);
+            let authority = authority(mode, &public);
+            let mut source = Files::open(
+                packed_pair(mode, &authority, Some(&owner)),
+                archive(),
+                mode,
+                &authority,
+                key(mode),
+            )
+            .unwrap();
+            let storage = from_candidate(
+                &mut source,
+                StorageBackend::memory(Vec::new()),
+                &authority,
+                Some(&owner),
+                key(mode),
+                &[],
+            )
+            .unwrap();
+            let (anchor, body) =
+                shared::open_private(&storage, archive(), mode, &authority, key(mode)).unwrap();
+            let codec = Codec::shared_packed(archive(), mode, key(mode)).unwrap();
+            let mut catalogue = Catalogue::decode(&body, &codec, anchor.sealed_len).unwrap();
+            assert!(catalogue.encode(&codec, anchor.sealed_len).is_err());
+            catalogue.upgrade(&anchor).unwrap();
+            let encoded = catalogue.encode(&codec, anchor.sealed_len).unwrap();
+            assert_eq!(&encoded[..8], b"RV4DENS2");
+            let decoded = Catalogue::decode(&encoded, &codec, anchor.sealed_len).unwrap();
+            assert_eq!(
+                decoded
+                    .encode(&codec, anchor.sealed_len)
+                    .unwrap()
+                    .as_slice(),
+                encoded.as_slice()
+            );
+            decoded
+                .graph(&anchor)
+                .unwrap()
+                .verify_free(&storage)
+                .unwrap();
+            let mut replacement = StorageBackend::memory(storage.read_all().unwrap());
+            replacement.write_at(0, &vec![0; REGION_LEN]).unwrap();
+            shared::initialize(
+                &mut replacement,
+                archive(),
+                mode,
+                &authority,
+                Some(&owner),
+                key(mode),
+                &encoded,
+                &[],
+            )
+            .unwrap();
+            let mut image =
+                Image::open(replacement, archive(), mode, &authority, key(mode)).unwrap();
+            let mut keep = Vec::new();
+            image
+                .read_range(b"keep", 0, 8192, |bytes| {
+                    keep.extend_from_slice(bytes);
+                    Ok(())
+                })
+                .unwrap();
+            assert_eq!(keep, vec![0x39; 8192]);
+            let descriptor = catalogue.files[0].fragments[0].descriptor.clone();
+            catalogue.files[0].fragments[0].descriptor.object[0] ^= 1;
+            assert!(catalogue.encode(&codec, anchor.sealed_len).is_err());
+            catalogue.files[0].fragments[0].descriptor = descriptor;
+            // Persist a pending tail; structural decoding alone does not grant
+            // ownership. The selected sealed length and complete graph must agree.
+            catalogue.vacant.push(Vacant {
+                span: Span {
+                    start: anchor.sealed_len,
+                    len: 65536,
+                },
+                kind: VacantKind::Pending,
+            });
+            let body = catalogue.encode(&codec, anchor.sealed_len + 65536).unwrap();
+            let decoded = Catalogue::decode(&body, &codec, anchor.sealed_len + 65536).unwrap();
+            assert!(decoded.graph(&anchor).is_err());
+            let mut grown = anchor.clone();
+            grown.sealed_len += 65536;
+            decoded.graph(&grown).unwrap();
+            assert!(Catalogue::decode(&body[..body.len() - 1], &codec, grown.sealed_len).is_err());
+            let mut extra = body.to_vec();
+            extra.push(0);
+            assert!(Catalogue::decode(&extra, &codec, grown.sealed_len).is_err());
+        }
+    }
+}
+
+fn dense_seed(
+    mode: FormatMode,
+    authority: &Authority<'_>,
+    signer: Option<&OwnerSigningKeyPair>,
+) -> StorageBackend {
+    let mut source = Files::open(
+        packed_pair(mode, authority, signer),
+        archive(),
+        mode,
+        authority,
+        key(mode),
+    )
+    .unwrap();
+    super::dense_image::from_candidate(
+        &mut source,
+        StorageBackend::memory(Vec::new()),
+        authority,
+        signer,
+        key(mode),
+        &[],
+    )
+    .unwrap()
+}
+fn check_dense_edit(
+    storage: &StorageBackend,
+    mode: FormatMode,
+    authority: &Authority<'_>,
+    old: &[u8],
+    new: &[u8],
+) -> bool {
+    use crate::file_format::publication_anchor::shared;
+    let (anchor, body) =
+        shared::open_private(storage, archive(), mode, authority, key(mode)).unwrap();
+    let codec = Codec::shared_packed(archive(), mode, key(mode)).unwrap();
+    let catalogue =
+        super::dense_catalogue::Catalogue::decode(&body, &codec, anchor.sealed_len).unwrap();
+    catalogue
+        .graph(&anchor)
+        .unwrap()
+        .verify_reclaimed(storage)
+        .unwrap();
+    let changed = catalogue
+        .files
+        .iter()
+        .any(|file| file.path.as_slice() == new);
+    assert_ne!(
+        changed,
+        catalogue
+            .files
+            .iter()
+            .any(|file| file.path.as_slice() == old)
+    );
+    let name = if changed { new } else { old };
+    let file = catalogue
+        .files
+        .iter()
+        .find(|file| file.path.as_slice() == name)
+        .unwrap();
+    assert_eq!(file.permissions, if changed { 0o600 } else { 0o644 });
+    let mut image =
+        super::dense_image::Image::open(storage.clone(), archive(), mode, authority, key(mode))
+            .unwrap();
+    let mut bytes = Vec::new();
+    image
+        .read_range(name, 0, 4096, |part| {
+            bytes.extend_from_slice(part);
+            Ok(())
+        })
+        .unwrap();
+    assert_eq!(bytes, vec![0xa7; 4096]);
+    let mut bytes = Vec::new();
+    image
+        .read_range(b"keep", 0, 8192, |part| {
+            bytes.extend_from_slice(part);
+            Ok(())
+        })
+        .unwrap();
+    assert_eq!(bytes, vec![0x39; 8192]);
+    changed
+}
+#[test]
+fn dense_metadata_edits_reopen_with_bounded_control_growth_in_all_modes() {
+    use crate::file_format::publication_anchor::{shared, REGION_LEN};
+    let owner = OwnerSigningKeyPair::generate().unwrap();
+    let public = owner.public_key();
+    for encrypted in [false, true] {
+        for signed in [false, true] {
+            for compressed in [false, true] {
+                for padded in [false, true] {
+                    let mode = mode(encrypted, signed, compressed, padded);
+                    let authority = authority(mode, &public);
+                    let signer = signed.then_some(&owner);
+                    let mut storage = dense_seed(mode, &authority, signer);
+                    let (anchor, _) =
+                        shared::open_private(&storage, archive(), mode, &authority, key(mode))
+                            .unwrap();
+                    let payload = storage
+                        .read_at(
+                            REGION_LEN as u64,
+                            (anchor.sealed_len - REGION_LEN as u64) as usize,
+                        )
+                        .unwrap();
+                    let mut high_water = 0;
+                    for cycle in 0..6 {
+                        let (from, to, permission) = if cycle % 2 == 0 {
+                            (b"erase".as_slice(), b"renamed".as_slice(), 0o600)
+                        } else {
+                            (b"renamed".as_slice(), b"erase".as_slice(), 0o644)
+                        };
+                        assert!(super::dense_update::edit(
+                            &mut storage,
+                            archive(),
+                            mode,
+                            &authority,
+                            signer,
+                            key(mode),
+                            from,
+                            to,
+                            Some(permission)
+                        )
+                        .unwrap());
+                        if cycle % 2 == 0 {
+                            assert!(check_dense_edit(
+                                &storage, mode, &authority, b"erase", b"renamed"
+                            ));
+                        } else {
+                            assert!(!check_dense_edit(
+                                &storage, mode, &authority, b"erase", b"renamed"
+                            ));
+                        }
+                        let (next, _) =
+                            shared::open_private(&storage, archive(), mode, &authority, key(mode))
+                                .unwrap();
+                        assert_eq!(next.generation, cycle + 2);
+                        assert_eq!(next.index.primary < REGION_LEN as u64, cycle % 2 == 1);
+                        if cycle == 0 {
+                            high_water = next.sealed_len;
+                        } else {
+                            assert_eq!(next.sealed_len, high_water);
+                        }
+                        assert_eq!(
+                            storage.read_at(REGION_LEN as u64, payload.len()).unwrap(),
+                            payload
+                        );
+                        let before = storage.read_all().unwrap();
+                        assert!(!super::dense_update::edit(
+                            &mut storage,
+                            archive(),
+                            mode,
+                            &authority,
+                            signer,
+                            key(mode),
+                            to,
+                            to,
+                            Some(permission)
+                        )
+                        .unwrap());
+                        assert_eq!(storage.read_all().unwrap(), before);
+                    }
+                    let before = storage.read_all().unwrap();
+                    for (from, to, bits) in [
+                        (b"erase".as_slice(), b"keep".as_slice(), None),
+                        (b"missing", b"new", None),
+                        (b"erase", b"", None),
+                        (b"erase", b"new", Some(0xffff)),
+                    ] {
+                        assert!(super::dense_update::edit(
+                            &mut storage,
+                            archive(),
+                            mode,
+                            &authority,
+                            signer,
+                            key(mode),
+                            from,
+                            to,
+                            bits
+                        )
+                        .is_err());
+                        assert_eq!(storage.read_all().unwrap(), before);
+                    }
+                }
+            }
+        }
+    }
+}
+#[test]
+fn dense_metadata_edits_recover_every_returned_storage_failure() {
+    let owner = OwnerSigningKeyPair::generate().unwrap();
+    let public = owner.public_key();
+    let mut cases = 0;
+    for mode in [
+        mode(false, false, false, false),
+        mode(false, true, true, true),
+        mode(true, false, false, true),
+        mode(true, true, true, true),
+    ] {
+        let authority = authority(mode, &public);
+        let signer = mode.signed().then_some(&owner);
+        let mut seed = dense_seed(mode, &authority, signer);
+        for reverse in [false, true] {
+            let (from, to, bits) = if reverse {
+                (b"renamed".as_slice(), b"erase".as_slice(), 0o644)
+            } else {
+                (b"erase".as_slice(), b"renamed".as_slice(), 0o600)
+            };
+            let observed = SharedMemory::new(seed.read_all().unwrap());
+            let mut store = observed.clone();
+            super::dense_update::edit(
+                &mut store,
+                archive(),
+                mode,
+                &authority,
+                signer,
+                key(mode),
+                from,
+                to,
+                Some(bits),
+            )
+            .unwrap();
+            for at in 0..observed.operations() {
+                let mut failed = SharedMemory::new(seed.read_all().unwrap());
+                failed.fail(at);
+                let _ = super::dense_update::edit(
+                    &mut failed,
+                    archive(),
+                    mode,
+                    &authority,
+                    signer,
+                    key(mode),
+                    from,
+                    to,
+                    Some(bits),
+                );
+                super::dense_update::recover(&mut failed, archive(), mode, &authority, key(mode))
+                    .unwrap_or_else(|error| panic!("reverse={reverse} at={at}: {error}"));
+                check_dense_edit(
+                    &StorageBackend::memory(failed.read_all().unwrap()),
+                    mode,
+                    &authority,
+                    b"erase",
+                    b"renamed",
+                );
+                cases += 1;
+            }
+            seed = StorageBackend::memory(observed.read_all().unwrap());
+        }
+    }
+    println!("DENSE_METADATA_RETURNED_FAILURES {cases}");
+}
+#[test]
+fn dense_metadata_edits_survive_volatile_writes_torn_records_and_failed_sync() {
+    use crate::file_format::preparation_journal::tests::CrashStore;
+    let owner = OwnerSigningKeyPair::generate().unwrap();
+    let public = owner.public_key();
+    let mut cases = 0;
+    for mode in [
+        mode(false, false, false, false),
+        mode(false, true, true, true),
+        mode(true, false, false, true),
+        mode(true, true, true, true),
+    ] {
+        let authority = authority(mode, &public);
+        let signer = mode.signed().then_some(&owner);
+        let mut seed = dense_seed(mode, &authority, signer).read_all().unwrap();
+        for reverse in [false, true] {
+            let (from, to, bits) = if reverse {
+                (b"renamed".as_slice(), b"erase".as_slice(), 0o644)
+            } else {
+                (b"erase".as_slice(), b"renamed".as_slice(), 0o600)
+            };
+            let mut observed = CrashStore::new(seed.clone(), None, 0, false);
+            super::dense_update::edit(
+                &mut observed,
+                archive(),
+                mode,
+                &authority,
+                signer,
+                key(mode),
+                from,
+                to,
+                Some(bits),
+            )
+            .unwrap();
+            for at in 0..observed.operations() {
+                for prefix in [0, 97, usize::MAX] {
+                    for persist_sync in [false, true] {
+                        let mut failed =
+                            CrashStore::new(seed.clone(), Some(at), prefix, persist_sync);
+                        let _ = super::dense_update::edit(
+                            &mut failed,
+                            archive(),
+                            mode,
+                            &authority,
+                            signer,
+                            key(mode),
+                            from,
+                            to,
+                            Some(bits),
+                        );
+                        let mut recovered = StorageBackend::memory(failed.durable());
+                        super::dense_update::recover(&mut recovered,archive(),mode,&authority,key(mode)).unwrap_or_else(|error|panic!("reverse={reverse} at={at} prefix={prefix} sync={persist_sync}: {error}"));
+                        check_dense_edit(&recovered, mode, &authority, b"erase", b"renamed");
+                        cases += 1;
+                    }
+                }
+            }
+            seed = observed.durable();
+        }
+    }
+    println!("DENSE_METADATA_POWER_LOSS_CASES {cases}");
+}
+
+#[test]
+fn dense_recovery_refuses_forged_cleanup_of_live_or_fixed_bytes() {
+    use crate::file_format::preparation_journal::compact::session::InlineSession;
+    use crate::file_format::preparation_journal::{Reservation, FREE};
+    use crate::file_format::publication_anchor::shared;
+    let owner = OwnerSigningKeyPair::generate().unwrap();
+    let public = owner.public_key();
+    for encrypted in [false, true] {
+        let mode = mode(encrypted, true, true, true);
+        let authority = authority(mode, &public);
+        let seed = dense_seed(mode, &authority, Some(&owner));
+        let (anchor, _) =
+            shared::open_private(&seed, archive(), mode, &authority, key(mode)).unwrap();
+        for start in [0, 8192, 16384, 131072, anchor.sealed_len] {
+            let mut storage = StorageBackend::memory(seed.read_all().unwrap());
+            let mut journal = InlineSession::open(&storage, archive(), mode, key(mode)).unwrap();
+            journal
+                .begin(
+                    &mut storage,
+                    shared::commitment(&anchor).unwrap(),
+                    vec![Reservation {
+                        namespace: FREE,
+                        base: start,
+                        start,
+                        len: 16,
+                    }],
+                )
+                .unwrap();
+            let before = storage.read_all().unwrap();
+            assert!(super::dense_update::recover(
+                &mut storage,
+                archive(),
+                mode,
+                &authority,
+                key(mode)
+            )
+            .is_err());
+            assert_eq!(storage.read_all().unwrap(), before);
+        }
+        let wrong = OwnerSigningKeyPair::generate().unwrap();
+        let mut storage = StorageBackend::memory(seed.read_all().unwrap());
+        let before = storage.read_all().unwrap();
+        assert!(super::dense_update::edit(
+            &mut storage,
+            archive(),
+            mode,
+            &authority,
+            Some(&wrong),
+            key(mode),
+            b"erase",
+            b"renamed",
+            None
+        )
+        .is_err());
+        assert_eq!(storage.read_all().unwrap(), before);
+        assert!(super::dense_update::edit(
+            &mut storage,
+            archive(),
+            mode,
+            &authority,
+            None,
+            key(mode),
+            b"erase",
+            b"renamed",
+            None
+        )
+        .is_err());
+        assert_eq!(storage.read_all().unwrap(), before);
+    }
+}
+
+#[test]
+fn dense_recovery_itself_survives_interruption_in_abort_and_commit_cleanup() {
+    use crate::file_format::preparation_journal::compact::session::InlineSession;
+    use crate::file_format::preparation_journal::tests::CrashStore;
+    use crate::file_format::publication_anchor::shared;
+    let owner = OwnerSigningKeyPair::generate().unwrap();
+    let public = owner.public_key();
+    let mut cases = 0;
+    for mode in [
+        mode(false, false, false, false),
+        mode(false, true, true, true),
+        mode(true, false, false, true),
+        mode(true, true, true, true),
+    ] {
+        let authority = authority(mode, &public);
+        let signer = mode.signed().then_some(&owner);
+        let mut seed = dense_seed(mode, &authority, signer).read_all().unwrap();
+        for reverse in [false, true] {
+            let (from, to, bits) = if reverse {
+                (b"renamed".as_slice(), b"erase".as_slice(), 0o644)
+            } else {
+                (b"erase".as_slice(), b"renamed".as_slice(), 0o600)
+            };
+            let mut observed = CrashStore::new(seed.clone(), None, 0, false);
+            super::dense_update::edit(
+                &mut observed,
+                archive(),
+                mode,
+                &authority,
+                signer,
+                key(mode),
+                from,
+                to,
+                Some(bits),
+            )
+            .unwrap();
+            let mut checkpoints = [None, None];
+            for at in 0..observed.operations() {
+                let mut failed = CrashStore::new(seed.clone(), Some(at), usize::MAX, true);
+                let _ = super::dense_update::edit(
+                    &mut failed,
+                    archive(),
+                    mode,
+                    &authority,
+                    signer,
+                    key(mode),
+                    from,
+                    to,
+                    Some(bits),
+                );
+                let bytes = failed.durable();
+                let state = StorageBackend::memory(bytes.clone());
+                let journal = InlineSession::open(&state, archive(), mode, key(mode)).unwrap();
+                if !journal.active() {
+                    continue;
+                }
+                let (anchor, _) =
+                    shared::snapshot(&state, archive(), mode, &authority, key(mode)).unwrap();
+                let committed = journal.base() != shared::commitment(&anchor).unwrap();
+                checkpoints[usize::from(committed)] = Some(bytes);
+            }
+            for (committed, checkpoint) in checkpoints.into_iter().enumerate() {
+                let checkpoint = checkpoint.expect("both abort and commit cleanup checkpoints");
+                let mut observed = CrashStore::new(checkpoint.clone(), None, 0, false);
+                super::dense_update::recover(&mut observed, archive(), mode, &authority, key(mode))
+                    .unwrap();
+                for at in 0..observed.operations() {
+                    for prefix in [0, 97, usize::MAX] {
+                        for persist_sync in [false, true] {
+                            let mut failed =
+                                CrashStore::new(checkpoint.clone(), Some(at), prefix, persist_sync);
+                            let _ = super::dense_update::recover(
+                                &mut failed,
+                                archive(),
+                                mode,
+                                &authority,
+                                key(mode),
+                            );
+                            let mut recovered = StorageBackend::memory(failed.durable());
+                            super::dense_update::recover(&mut recovered,archive(),mode,&authority,key(mode)).unwrap_or_else(|error|panic!("reverse={reverse} committed={committed} recovery_at={at}: {error}"));
+                            let changed = check_dense_edit(
+                                &recovered, mode, &authority, b"erase", b"renamed",
+                            );
+                            assert_eq!(changed, (committed == 1) != reverse);
+                            cases += 1;
+                        }
+                    }
+                }
+            }
+            seed = observed.durable();
+        }
+    }
+    println!("DENSE_METADATA_RECOVERY_INTERRUPTION_CASES {cases}");
+}
+#[test]
+fn dense_metadata_updates_keep_authority_after_either_control_or_external_root_region_is_lost() {
+    use crate::file_format::publication_anchor::{shared, FAILURE_REGION};
+    let owner = OwnerSigningKeyPair::generate().unwrap();
+    let public = owner.public_key();
+    let mut cases = 0;
+    for mode in [
+        mode(false, false, false, false),
+        mode(false, true, true, true),
+        mode(true, false, false, true),
+        mode(true, true, true, true),
+    ] {
+        let authority = authority(mode, &public);
+        let signer = mode.signed().then_some(&owner);
+        let mut storage = dense_seed(mode, &authority, signer);
+        let mut regions = vec![0, FAILURE_REGION];
+        for reverse in [false, true] {
+            let (from, to, bits) = if reverse {
+                (b"renamed".as_slice(), b"erase".as_slice(), 0o644)
+            } else {
+                (b"erase".as_slice(), b"renamed".as_slice(), 0o600)
+            };
+            super::dense_update::edit(
+                &mut storage,
+                archive(),
+                mode,
+                &authority,
+                signer,
+                key(mode),
+                from,
+                to,
+                Some(bits),
+            )
+            .unwrap();
+            let (anchor, _) =
+                shared::snapshot(&storage, archive(), mode, &authority, key(mode)).unwrap();
+            if !reverse {
+                regions.extend([anchor.index.primary, anchor.index.mirror]);
+            }
+            for start in &regions {
+                let mut damaged = StorageBackend::memory(storage.read_all().unwrap());
+                damaged
+                    .write_at(*start, &vec![0; FAILURE_REGION as usize])
+                    .unwrap();
+                // Ordinary read and writable recovery both retain this generation.
+                assert_eq!(
+                    check_dense_edit(&damaged, mode, &authority, b"erase", b"renamed"),
+                    !reverse
+                );
+                let reopened = super::dense_update::recover(
+                    &mut damaged,
+                    archive(),
+                    mode,
+                    &authority,
+                    key(mode),
+                )
+                .unwrap();
+                assert_eq!(reopened, anchor);
+                assert_eq!(
+                    check_dense_edit(&damaged, mode, &authority, b"erase", b"renamed"),
+                    !reverse
+                );
+                cases += 1;
+            }
+        }
+    }
+    println!("DENSE_METADATA_SEPARATE_REGION_LOSS_CASES {cases}");
+}
