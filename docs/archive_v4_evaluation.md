@@ -232,7 +232,8 @@ The [checkpoint history](archive_v4_history.md) retains earlier commentary.
 | [Bounded A writer](evidence/writer-memory-2026-09-26/README.md) | Streaming staging and paired creation improvement |
 | [Recovery proofs](evidence/recovery-commitments-2026-09-26/README.md) | Owner-authorized membership without global payload verification |
 | [Dense metadata updates](evidence/dense-metadata-update-2026-09-27/README.md) | Bounded rename/permission COW, persisted free/pending state and interruption recovery; payload mutation/overflow absent |
-| [Shared ownership](evidence/shared-ownership-2026-09-27/README.md) | Complete bounded physical graph, fresh-reader zero checks and COW obligations; no mutation executor |
+| [Shared ownership](evidence/shared-ownership-2026-09-27/README.md) | Complete bounded physical graph, descendant placement/retirement proofs, fresh-reader zero checks and COW obligations |
+| [Shared overflow reader](evidence/shared-tree-reader-2026-09-27/README.md) | Selected private manifest, authenticated index traversal and complete allocation ownership; typed records, transition writer and journal overflow remain pending |
 | [Dense file image](evidence/dense-file-image-2026-09-27/README.md) | Fresh persisted file-only image, bounded catalogue, bootstrap/ranges and failure cleanup; immutable and unqualified |
 | [Compact preparation](evidence/compact-preparation-2026-09-27/README.md) | 4 KiB stub and mirrored overflow preserve 2,048 reservations; writer/cleanup integration remains |
 | [Shared-control image](evidence/shared-control-image-2026-09-27/README.md) | Distinct authenticated profile, role-bound placement and private-envelope/bootstrap integration; no complete archive writer |

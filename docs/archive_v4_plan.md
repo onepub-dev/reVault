@@ -70,8 +70,10 @@ states which gates remain failed or incomplete.
    integrating descendant claims into the [shared ownership graph](../rust/revault_lockbox_api/src/file_format/publication_anchor/shared/ownership.rs),
    whose [descendant ownership component](evidence/shared-ownership-2026-09-27/README.md#descendant-metadata-ownership-component)
    now checks mirrored placement and retirement separately from the private-root
-   suffix proof. The selected-catalogue traversal and wire reader/writer still need
-   to supply those authenticated descendant references; current images use none.
+   suffix proof. The [shared overflow reader](evidence/shared-tree-reader-2026-09-27/README.md)
+   now binds a private root manifest to authenticated index traversal, allocation
+   records and descendant ownership. Typed records, the transition writer and
+   journal overflow remain unconnected; existing dense images still use no descendants.
    Preserve the [variable API's secure-page and scoped-secret access](../rust/revault_lockbox_api/src/lockbox/variables.rs);
    ordinary wipe-on-drop index bytes alone do not establish equivalent secret
    memory handling. This is the starting implementation route, not approval of
