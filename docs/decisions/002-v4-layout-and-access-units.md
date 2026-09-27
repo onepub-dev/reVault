@@ -55,5 +55,31 @@ deleted bytes, overlapping members and incompatible shared commitments. This
 remains a private-file-only experiment, not acceptance of decision 002. The
 [file lifecycle and salvage](../evidence/candidate-file-lifecycle-2026-09-27/README.md)
 now pass internal tests; public semantics, expanded failure/resource qualification,
-packing measurements and fixed control-space
-trade-offs remain required before selecting a format.
+[packing measurements](../evidence/packed-file-comparison-2026-09-27/README.md) and
+[source-preserving compaction](../evidence/candidate-compaction-2026-09-27/README.md)
+now quantify those trade-offs. Neither qualifies the current layout.
+
+
+## Whole-layout feasibility checkpoint
+
+The [current structural review](../archive_v4_evaluation.md#whole-format-eligibility-review)
+rules out selecting current C unchanged. Its fixed controls/map and its aggregate
+pack-size bound each independently exceed the primary small-file size budget.
+The encrypted generic key tree also cannot bootstrap the content key.
+
+The next single layout hypothesis is a compact typed catalogue with file-local
+fragment descriptors, one shared descriptor per physical pack, independently
+bounded fragments, and two shared 64 KiB control regions. Evaluate actual public
+bootstrap and reservation/retirement ownership alongside the private catalogue.
+A default bounded metadata cache must retain source identity, generation and
+security-domain checks; it must not conceal mutation or bypass authentication.
+Keep eager signed-plaintext open and normal padding verification in the comparison.
+
+First run the [read-only cost model](../evidence/whole-layout-cost-model-2026-09-27/README.md)
+on retained real encoded fragments. It reconstructs omitted binding fields,
+retains both plaintext and stored-byte digests, and tests bounded metadata encoding.
+If even that model cannot fit, reject the geometry before implementing a writer.
+If it fits, implement and fault-test bootstrap, copy-on-write metadata, journal
+overflow, inline-metadata retirement and ownership before any speed claim. Typed
+public records and migration remain required; a file-only size model cannot prove
+a full format. This is still a proposed decision, with no active wire change.

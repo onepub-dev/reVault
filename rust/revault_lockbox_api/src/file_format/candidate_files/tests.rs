@@ -1827,3 +1827,51 @@ fn compaction_refuses_nonempty_output_and_damaged_source_in_lazy_modes() {
 mod compaction_tests;
 
 mod aging;
+
+#[test]
+fn whole_layout_cost_model_preserves_source_and_descriptor_bindings() {
+    let owner = OwnerSigningKeyPair::generate().unwrap();
+    let public = owner.public_key();
+    for encrypted in [false, true] {
+        for signed in [false, true] {
+            for compressed in [false, true] {
+                for padded in [false, true] {
+                    let mode = mode(encrypted, signed, compressed, padded);
+                    let authority = authority(mode, &public);
+                    let signer = signed.then_some(&owner);
+                    let source = Files::create(
+                        StorageBackend::memory(Vec::new()),
+                        archive(),
+                        mode,
+                        &authority,
+                        signer,
+                        key(mode),
+                        MAX_LOGICAL,
+                        update_inputs(&[
+                            (b"empty", b""),
+                            (b"small", b"small contents"),
+                            (b"multiple", &vec![0x93; 400_013]),
+                        ]),
+                    )
+                    .unwrap();
+                    let original = source.read_all().unwrap();
+                    let mut files =
+                        Files::open(source, archive(), mode, &authority, key(mode)).unwrap();
+                    let projected = super::cost_model::project(&mut files).unwrap();
+                    assert_eq!(projected["files"], 3);
+                    assert_eq!(projected["metadata_roundtrip_verified"], true);
+                    assert_eq!(projected["descriptor_binding_preserved"], true);
+                    assert_eq!(projected["inline_catalogue_fits"], true);
+                    assert!(projected["fragments"].as_u64().unwrap() >= 3);
+                    assert!(
+                        projected["largest_fragment_decoded_bytes"]
+                            .as_u64()
+                            .unwrap()
+                            <= MAX_LOGICAL as u64
+                    );
+                    assert_eq!(files.storage.read_all().unwrap(), original);
+                }
+            }
+        }
+    }
+}

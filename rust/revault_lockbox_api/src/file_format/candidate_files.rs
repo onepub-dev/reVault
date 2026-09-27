@@ -20,6 +20,7 @@ const MAX_PATH_BYTES: usize = 32 * 1024 * 1024;
 const MAX_ENTRIES: usize = 1_000_000;
 const MAGIC: &[u8; 8] = b"RV4FIL02";
 pub(super) mod compaction;
+mod cost_model;
 mod mutation;
 mod packing;
 mod recovery;

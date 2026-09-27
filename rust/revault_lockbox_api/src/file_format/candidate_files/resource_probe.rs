@@ -193,6 +193,8 @@ fn candidate_file_resource_probe() {
         let after = Resources::now();
         verify(&mut open(), &root, count, bytes);
         json!({"kind":"fixture_create","backend":"lockbox","wall_seconds":elapsed,"resources":after.delta(before),"peak_rss_kib":after.peak,"baseline_peak_rss_kib":before.peak,"archive_bytes":std::fs::metadata(&path).unwrap().len(),"archive_sha256":digest_file(&path),"verified":true})
+    } else if phase == "cost-model" {
+        super::cost_model::project(&mut open()).unwrap()
     } else if phase == "inspect" {
         let files = open();
         let snapshot = Snapshot::inspect(&files.storage, &files.anchor, &files.index).unwrap();
