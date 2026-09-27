@@ -128,8 +128,8 @@ fn candidate_file_resource_probe() {
         },
     });
     let key = encrypted.then_some(KEY.as_slice());
-    if phase == "dense-create" || phase == "dense-lifecycle" {
-        let cycles = if phase == "dense-lifecycle" {
+    if phase == "dense-create" || phase == "dense-lifecycle" || phase == "dense-tail-lifecycle" {
+        let cycles = if phase != "dense-create" {
             std::env::var("REVAULT_CANDIDATE_CYCLES")
                 .unwrap()
                 .parse::<usize>()
@@ -138,7 +138,16 @@ fn candidate_file_resource_probe() {
             0
         };
         assert!(cycles <= 1000);
-        dense_create(&root, count, bytes, unit, mode, key, cycles);
+        dense_create(
+            &root,
+            count,
+            bytes,
+            unit,
+            mode,
+            key,
+            cycles,
+            phase == "dense-tail-lifecycle",
+        );
         return;
     }
     if phase == "dense-damage" {
@@ -351,6 +360,7 @@ fn dense_create(
     mode: FormatMode,
     key: Option<&[u8]>,
     cycles: usize,
+    trim: bool,
 ) {
     use super::dense_image::{from_candidate, Image};
     let source_path = root.join("dense-staging.lbox");
@@ -441,6 +451,7 @@ fn dense_create(
     drop(reopened);
     let initial_bytes = std::fs::metadata(&target).unwrap().len();
     let mut first_update_bytes = initial_bytes;
+    let mut temporary_update_bytes = initial_bytes;
     for cycle in 0..cycles {
         let bits = if cycle % 2 == 0 { 0o600 } else { 0o644 };
         let mut storage = StorageBackend::file_for_write(&target).unwrap();
@@ -456,6 +467,19 @@ fn dense_create(
             Some(bits)
         )
         .unwrap());
+        temporary_update_bytes = temporary_update_bytes.max(storage.len().unwrap());
+        if trim {
+            assert!(super::dense_update::return_inline(
+                &mut storage,
+                archive(),
+                mode,
+                &authority,
+                signer,
+                key
+            )
+            .unwrap());
+            assert_eq!(storage.len().unwrap(), initial_bytes);
+        }
         if cycle == 0 {
             first_update_bytes = storage.len().unwrap();
         }
@@ -491,7 +515,10 @@ fn dense_create(
         let codec = Codec::shared_packed(archive(), mode, key).unwrap();
         let catalogue =
             super::dense_catalogue::Catalogue::decode(&body, &codec, anchor.sealed_len).unwrap();
-        assert_eq!(anchor.generation, cycle as u64 + 2);
+        assert_eq!(
+            anchor.generation,
+            (cycle as u64 + 1) * if trim { 2 } else { 1 } + 1
+        );
         assert_eq!(catalogue.files[0].permissions, bits);
         drop(image);
         let before = digest_file(&target);
@@ -517,7 +544,7 @@ fn dense_create(
     let result = if cycles == 0 {
         result
     } else {
-        json!({"kind":"dense_metadata_lifecycle_size","initial_bytes":initial_bytes,"first_update_bytes":first_update_bytes,"archive_bytes":std::fs::metadata(&target).unwrap().len(),"cycles":cycles,"unchanged_repeats":cycles,"stable_after_first_update":true,"fresh_handle_source_bytes_verified_each_edit":true,"archive_sha256":digest_file(&target),"binary_sha256":digest_file(&std::env::current_exe().unwrap()),"files":count,"bytes_per_file":bytes,"scope":"bounded metadata updates only; no payload edits, full aging or performance qualification"})
+        json!({"kind":if trim {"dense_metadata_tail_lifecycle_size"} else {"dense_metadata_lifecycle_size"},"metadata_tail_retirement":trim,"temporary_update_bytes":temporary_update_bytes,"initial_bytes":initial_bytes,"first_update_bytes":first_update_bytes,"archive_bytes":std::fs::metadata(&target).unwrap().len(),"cycles":cycles,"unchanged_repeats":cycles,"stable_after_first_update":true,"fresh_handle_source_bytes_verified_each_edit":true,"archive_sha256":digest_file(&target),"binary_sha256":digest_file(&std::env::current_exe().unwrap()),"files":count,"bytes_per_file":bytes,"scope":"bounded metadata updates only; no payload edits, full aging or performance qualification"})
     };
     println!("CANDIDATE_SAMPLE {result}");
 }

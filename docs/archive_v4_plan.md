@@ -38,7 +38,9 @@ states which gates remain failed or incomplete.
    in every variant. Stop tuning page size. Test a bounded metadata return-to-inline
    protocol that authenticates a shorter sealed length before erasing/truncating
    the retired external tail; preserve payload/key ownership and interruption
-   recovery. Measure its temporary space and extra publications before adoption.
+   recovery. The [metadata-tail experiment](evidence/metadata-tail-retirement-2026-09-27/README.md)
+   now connects that narrow transition to durable preparation and recovery. Measure
+   its temporary space and extra publications before adoption.
    Integrate typed catalogue overflow, public record semantics, payload updates,
    overflow transitions and compaction/installation before qualification. Preserve the existing candidate as the control.
    Five retained images now match the size model; both small fixtures are actual

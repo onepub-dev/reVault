@@ -318,12 +318,46 @@ pub(crate) fn publish(
     authority: &Authority<'_>,
     expected: [u8; 32],
 ) -> Result<()> {
+    publish_inner(storage, prepared, authority, expected, false)
+}
+/// Caller must supply a successful metadata-only graph transition before this
+/// narrow publication. The old suffix stays intact until both shorter anchors
+/// are durable; active preparation recovery wipes it before truncation.
+pub(crate) fn publish_metadata_tail(
+    storage: &mut impl Storage,
+    prepared: &Prepared,
+    authority: &Authority<'_>,
+    expected: [u8; 32],
+) -> Result<()> {
+    publish_inner(storage, prepared, authority, expected, true)
+}
+fn publish_inner(
+    storage: &mut impl Storage,
+    prepared: &Prepared,
+    authority: &Authority<'_>,
+    expected: [u8; 32],
+    shrinking: bool,
+) -> Result<()> {
     let next = &prepared.anchor;
     next.validate_in(Layout::Shared)?;
-    if !next.allocation.absent() || storage.len()? != next.sealed_len {
+    let current = select_in(storage, next.archive, next.mode, authority, Layout::Shared)?;
+    let physical = if shrinking {
+        if next.sealed_len >= current.anchor.sealed_len
+            || next.index.primary != PRIVATE_START
+            || next.index.mirror != FAILURE_REGION + PRIVATE_START
+            || current.anchor.index.primary < next.sealed_len
+            || current.anchor.index.mirror < next.sealed_len
+            || next.keys != current.anchor.keys
+        {
+            return Err(Error::CorruptRecord);
+        }
+        current.anchor.sealed_len
+    } else {
+        next.sealed_len
+    };
+    if !next.allocation.absent() || storage.len()? != physical {
         return Err(Error::CorruptRecord);
     }
-    let current = select_in(storage, next.archive, next.mode, authority, Layout::Shared)?;
     if current.commitment != expected
         || next.previous != expected
         || current.anchor.generation.checked_add(1) != Some(next.generation)

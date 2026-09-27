@@ -271,3 +271,49 @@ fn free_bytes_are_checked_but_pending_secret_bytes_are_not_misclassified_as_free
         .verify_free(&storage)
         .is_err());
 }
+#[test]
+fn metadata_tail_transition_preserves_payload_and_proves_removed_suffix() {
+    let (initial, packs, vacant) = initial();
+    let (external, external_vacant) = external(&initial);
+    let old = Graph::derive(&external, &packs, &external_vacant).unwrap();
+    let next = advance(
+        &external,
+        RootRef {
+            digest: [8; 32],
+            ..initial.index
+        },
+        initial.sealed_len,
+    );
+    let inline = Graph::derive(&next, &packs, &vacant).unwrap();
+    assert!(old.transition_to(&inline).is_err());
+    let plan = old.metadata_tail_transition_to(&inline).unwrap();
+    assert_eq!(
+        plan.truncate,
+        Some(Span {
+            start: initial.sealed_len,
+            len: 2 * FAILURE_REGION
+        })
+    );
+    assert_eq!(plan.writes.len(), 2);
+    assert_eq!(plan.retire_after_publication.len(), 2);
+    assert!(plan.append.is_none());
+    let mut substituted = packs.clone();
+    substituted[0].digest = [42; 32];
+    assert!(old
+        .metadata_tail_transition_to(&Graph::derive(&next, &substituted, &vacant).unwrap())
+        .is_err());
+    let removed = Anchor {
+        sealed_len: REGION_LEN as u64,
+        ..next.clone()
+    };
+    assert!(old
+        .metadata_tail_transition_to(&Graph::derive(&removed, &[], &vacant).unwrap())
+        .is_err());
+    let stale = Anchor {
+        previous: [99; 32],
+        ..next
+    };
+    assert!(old
+        .metadata_tail_transition_to(&Graph::derive(&stale, &packs, &vacant).unwrap())
+        .is_err());
+}

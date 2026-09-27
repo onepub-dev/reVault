@@ -83,7 +83,8 @@ pub(super) fn recover(
         zero(storage, span)?;
     }
     storage.sync()?;
-    // Active preparation owns the uncommitted append tail. Erase before truncating.
+    // After both selected publications are durable, active preparation permits
+    // erasing the unsealed tail: aborted appends or a retired metadata suffix.
     zero_tail_and_truncate(storage, anchor.sealed_len)?;
     graph.verify_reclaimed(storage)?;
     journal.finish(storage, commit)?;
@@ -188,7 +189,6 @@ pub(super) fn edit(
     let (anchor, body) = shared::snapshot(storage, archive, mode, authority, key)?;
     let codec = Codec::shared_packed(archive, mode, key)?;
     let mut catalogue = Catalogue::decode(&body, &codec, anchor.sealed_len)?;
-    let old_graph = catalogue.graph(&anchor)?;
     let index = catalogue
         .files
         .binary_search_by(|file| file.path.as_slice().cmp(from))
@@ -209,6 +209,64 @@ pub(super) fn edit(
     catalogue.files[index].path = Zeroizing::new(to.to_vec());
     catalogue.files[index].permissions = permissions;
     catalogue.files.sort_by(|a, b| a.path.cmp(&b.path));
+    publish_catalogue(
+        storage, archive, mode, authority, signer, key, anchor, catalogue, false,
+    )?;
+    Ok(true)
+}
+/// Metadata-only compaction prototype. Exclusive ownership is required through
+/// recovery. No payload is relocated, and no suffix is truncated before its
+/// shorter owner-authenticated publication has two durable copies.
+#[allow(clippy::too_many_arguments)]
+pub(super) fn return_inline(
+    storage: &mut impl Storage,
+    archive: LockboxId,
+    mode: FormatMode,
+    authority: &Authority<'_>,
+    signer: Option<&OwnerSigningKeyPair>,
+    key: Option<&[u8]>,
+) -> Result<bool> {
+    recover(storage, archive, mode, authority, key)?;
+    let (anchor, body) = shared::snapshot(storage, archive, mode, authority, key)?;
+    if anchor.index.primary == PRIVATE_START
+        && anchor.index.mirror == FAILURE_REGION + PRIVATE_START
+    {
+        return Ok(false);
+    }
+    if anchor.index.primary < REGION_LEN as u64 || anchor.index.mirror < REGION_LEN as u64 {
+        return Err(Error::CorruptRecord);
+    }
+    Image::open(
+        allocation::compaction::View(storage),
+        archive,
+        mode,
+        authority,
+        key,
+    )?
+    .verify_all()?;
+    let codec = Codec::shared_packed(archive, mode, key)?;
+    let mut catalogue = Catalogue::decode(&body, &codec, anchor.sealed_len)?;
+    catalogue.upgrade(&anchor)?;
+    publish_catalogue(
+        storage, archive, mode, authority, signer, key, anchor, catalogue, true,
+    )?;
+    Ok(true)
+}
+#[allow(clippy::too_many_arguments)]
+fn publish_catalogue(
+    storage: &mut impl Storage,
+    archive: LockboxId,
+    mode: FormatMode,
+    authority: &Authority<'_>,
+    signer: Option<&OwnerSigningKeyPair>,
+    key: Option<&[u8]>,
+    anchor: Anchor,
+    mut catalogue: Catalogue,
+    trim: bool,
+) -> Result<()> {
+    let codec = Codec::shared_packed(archive, mode, key)?;
+    let old_body = shared::snapshot(storage, archive, mode, authority, key)?.1;
+    let old_graph = Catalogue::decode(&old_body, &codec, anchor.sealed_len)?.graph(&anchor)?;
     let mut sealed = anchor.sealed_len;
     let inline =
         anchor.index.primary >= REGION_LEN as u64 && anchor.index.mirror >= REGION_LEN as u64;
@@ -230,6 +288,15 @@ pub(super) fn edit(
             },
             kind: VacantKind::Pending,
         });
+    }
+    if trim {
+        sealed = catalogue.packs.last().map_or(REGION_LEN as u64, |pack| {
+            pack.extent.start + pack.extent.len
+        });
+        catalogue.vacant.retain(|entry| entry.span.start < sealed);
+        for entry in &mut catalogue.vacant {
+            entry.span.len = entry.span.len.min(sealed - entry.span.start);
+        }
     }
     catalogue.vacant.sort_by_key(|entry| entry.span.start);
     let body = catalogue.encode(&codec, sealed)?;
@@ -254,7 +321,14 @@ pub(super) fn edit(
     };
     let prepared = shared::prepare(&next, authority, signer)?;
     let next_graph = catalogue.graph(&next)?;
-    let plan = old_graph.transition_to(&next_graph)?;
+    let plan = if trim {
+        old_graph.metadata_tail_transition_to(&next_graph)?
+    } else {
+        old_graph.transition_to(&next_graph)?
+    };
+    if plan.truncate.is_some() != trim {
+        return Err(Error::CorruptRecord);
+    }
     let old_catalogue = Catalogue::decode(
         &shared::snapshot(storage, archive, mode, authority, key)?.1,
         &codec,
@@ -305,7 +379,11 @@ pub(super) fn edit(
     }
     storage.write_at(root.primary, &encoded)?;
     storage.write_at(root.mirror, &encoded)?;
-    shared::publish(storage, &prepared, authority, commit)?;
+    if trim {
+        shared::publish_metadata_tail(storage, &prepared, authority, commit)?;
+    } else {
+        shared::publish(storage, &prepared, authority, commit)?;
+    }
     // Re-select the actual persisted graph; never trust a caller's retirement list.
     let recovered = recover(storage, archive, mode, authority, key)?;
     if recovered != next {
@@ -319,5 +397,5 @@ pub(super) fn edit(
         key,
     )?
     .verify_all()?;
-    Ok(true)
+    Ok(())
 }

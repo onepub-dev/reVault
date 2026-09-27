@@ -65,6 +65,8 @@ pub(crate) struct Transition {
     pub prove_erased: Vec<Span>,
     /// Entire append interval needs durable preparation ownership before any write.
     pub append: Option<Span>,
+    /// Metadata-only suffix: publish BOTH shorter anchors, wipe/sync, then truncate/sync.
+    pub truncate: Option<Span>,
 }
 impl Graph {
     pub(crate) fn derive(anchor: &Anchor, packs: &[Extent], vacant: &[Vacant]) -> Result<Self> {
@@ -275,11 +277,48 @@ impl Graph {
         Ok(spans)
     }
     pub(crate) fn transition_to(&self, next: &Self) -> Result<Transition> {
+        self.transition(next, false)
+    }
+    /// Narrow return-to-inline proof; payload and public-key claims cannot change.
+    pub(crate) fn metadata_tail_transition_to(&self, next: &Self) -> Result<Transition> {
+        if next.anchor.sealed_len >= self.anchor.sealed_len
+            || next.anchor.index.primary != PRIVATE_START
+            || next.anchor.index.mirror != FAILURE_REGION + PRIVATE_START
+            || self.anchor.index.primary < next.anchor.sealed_len
+            || self.anchor.index.mirror < next.anchor.sealed_len
+            || self.anchor.keys != next.anchor.keys
+        {
+            return Err(Error::CorruptRecord);
+        }
+        let durable = |graph: &Self| {
+            graph
+                .claims
+                .values()
+                .filter(|claim| matches!(claim.kind, Kind::Payload | Kind::Keys))
+                .copied()
+                .collect::<Vec<_>>()
+        };
+        if durable(self) != durable(next) {
+            return Err(Error::CorruptRecord);
+        }
+        for old in self.claims.values().filter(|claim| {
+            claim
+                .span
+                .end()
+                .is_ok_and(|end| end > next.anchor.sealed_len)
+        }) {
+            if !old.kind.vacant() && old.kind != Kind::Private {
+                return Err(Error::CorruptRecord);
+            }
+        }
+        self.transition(next, true)
+    }
+    fn transition(&self, next: &Self, metadata_tail: bool) -> Result<Transition> {
         if next.anchor.archive != self.anchor.archive
             || next.anchor.mode != self.anchor.mode
             || self.anchor.generation.checked_add(1) != Some(next.anchor.generation)
             || next.anchor.previous != commitment(&self.anchor)?
-            || next.anchor.sealed_len < self.anchor.sealed_len
+            || (!metadata_tail && next.anchor.sealed_len < self.anchor.sealed_len)
         {
             return Err(Error::CorruptRecord);
         }
@@ -289,6 +328,13 @@ impl Graph {
             retire_after_publication: Vec::new(),
             prove_erased: Vec::new(),
             append: None,
+            truncate: metadata_tail.then_some(Span {
+                start: next.anchor.sealed_len,
+                len: self
+                    .anchor
+                    .sealed_len
+                    .saturating_sub(next.anchor.sealed_len),
+            }),
         };
         if next.anchor.sealed_len > self.anchor.sealed_len {
             result.append = Some(Span {
@@ -313,6 +359,13 @@ impl Graph {
         }
         for old in self.claims.values().filter(|claim| claim.kind.live()) {
             if next.claims.get(&old.span.start) == Some(old) {
+                continue;
+            }
+            if metadata_tail
+                && old.kind == Kind::Private
+                && old.span.start >= next.anchor.sealed_len
+            {
+                result.retire_after_publication.push(old.span);
                 continue;
             }
             if next.covering(old.span)?.kind != Kind::Pending {
