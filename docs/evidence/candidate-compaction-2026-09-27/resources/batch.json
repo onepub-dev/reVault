@@ -1,0 +1,18 @@
+{
+  "source_commit": "043484f2",
+  "cases": [
+    "100k-raw",
+    "gb-raw",
+    "small",
+    "raw64m"
+  ],
+  "observations_per_case": 1,
+  "cpu": 2,
+  "worker_count": 1,
+  "cache": "uncontrolled OS cache, fresh process/handle",
+  "scope": "descriptive resource and size qualification; no timing confidence intervals",
+  "existing_fixture_commits": [
+    "e23b4d33"
+  ],
+  "no_owned_build_or_test_overlap": true
+}

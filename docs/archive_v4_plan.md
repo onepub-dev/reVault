@@ -22,7 +22,8 @@ states which gates remain failed or incomplete.
    checks; complete access trees remain explicitly unsupported. Retain
    the [packed comparison failures](evidence/packed-file-comparison-2026-09-27/README.md):
    C remains 3.77× ZIP raw / 4.02× compressed on 8 MiB reads; the small-file archive
-   is 7.19× ZIP; encrypted range-open cost regresses. No A3/A4 pass is claimed.
+   is 6.08× ZIP after compaction (7.19× before); raw 64 MiB is 1.016× after
+   compaction. Encrypted range-open cost regresses. No A3/A4 pass is claimed.
 2. Extend failure/resource coverage to packed-file process death, mixed 1,000-cycle
    aging and public source-handle orchestration. The first 100k-file probes use
    66–67 MiB peak creation RSS but take 41–61 seconds to read 12.8 MB of tiny files.
