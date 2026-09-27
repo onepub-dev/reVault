@@ -43,3 +43,29 @@ per-fragment decode bound cannot stand in for a damage-locality bound. Retained
 primary corpus comparisons are recorded separately after freezing the binary.
 Mutation, process-death qualification, larger metadata, recovery throughput and
 the complete resource matrix remain outstanding.
+
+
+## Retained primary corpus
+
+Frozen revision `b8286701`, binary SHA-256
+`b0065af9b9fe7e89cd2cf684f1e552385d7f344d1ca71d0d961021665beffa0e`, ran against
+the same 512 × 4 KiB corpora used for the size result. [Inputs](primary/batch.json),
+[plaintext output](primary/small-plain.json) and
+[encrypted/signed output](primary/small-protected.json) are retained. Damage is
+applied only to in-memory copies; original archive hashes remain unchanged.
+
+| Damage to first payload region | C incomplete files | Dense incomplete files |
+| --- | --- | --- |
+| Plaintext, one changed byte | 1 | 1 |
+| Plaintext, 64 KiB erased | 64 | 190 |
+| Encrypted/signed, one changed byte | 1 | 1 |
+| Encrypted/signed, 64 KiB erased | 64 | 176 |
+
+Every recovered file was compared with the retained source bytes. Each file has
+one fragment here, so incomplete logical bytes are exactly 4,096 times the file
+count: 256 KiB for C versus 760 KiB plaintext / 704 KiB protected for dense packing.
+This is one declared region per corpus, not a distribution of all possible damage
+positions. The encrypted case has independent nonce/tag overhead and different
+fragment placement. These results quantify the recovery cost accompanying the
+320 KiB image; they do not change the proposed gates or select a packing policy.
+[Post-hook tests](postformat-tests.log) and [Clippy](postformat-clippy.log) pass.
