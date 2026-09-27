@@ -3391,3 +3391,92 @@ fn dense_metadata_file_updates_close_and_reopen_with_persisted_permissions_and_c
         drop(reader);
     }
 }
+
+#[test]
+fn paged_cost_model_preserves_source_and_budgets_actual_hybrid_publication_bytes() {
+    let owner = OwnerSigningKeyPair::generate().unwrap();
+    let public = owner.public_key();
+    for encrypted in [false, true] {
+        for signed in [false, true] {
+            for compressed in [false, true] {
+                for padded in [false, true] {
+                    let mode = mode(encrypted, signed, compressed, padded);
+                    let authority = authority(mode, &public);
+                    let mut files = Files::open(
+                        packed_pair(mode, &authority, signed.then_some(&owner)),
+                        archive(),
+                        mode,
+                        &authority,
+                        key(mode),
+                    )
+                    .unwrap();
+                    let before = files.storage.read_all().unwrap();
+                    let result =
+                        super::paged_cost::project(&mut files, &authority, key(mode)).unwrap();
+                    assert_eq!(result["inline_geometry_fits"], true);
+                    assert_eq!(result["frame_roundtrips_verified"], true);
+                    assert_eq!(result["file_leaf_pages"], 1);
+                    assert_eq!(result["pack_leaf_pages"], 1);
+                    assert!(result["peak_leaf_bytes_per_bank"].as_u64().unwrap() <= 49152);
+                    assert!(
+                        result["largest_edited_root_required_bytes"]
+                            .as_u64()
+                            .unwrap()
+                            <= 2016
+                    );
+                    let auth = result["authenticated_owner_or_mac_bytes"].as_u64().unwrap();
+                    if signed {
+                        assert!(auth > 4096 && auth + 320 <= 6144);
+                    } else {
+                        assert_eq!(auth, if encrypted { 32 } else { 0 });
+                    }
+                    assert_eq!(files.storage.read_all().unwrap(), before);
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn paged_cost_model_keeps_large_pack_tables_out_of_the_embedded_root() {
+    let owner = OwnerSigningKeyPair::generate().unwrap();
+    let public = owner.public_key();
+    for mode in [
+        mode(false, false, false, true),
+        mode(true, true, false, true),
+    ] {
+        let authority = authority(mode, &public);
+        let signer = mode.signed().then_some(&owner);
+        let storage = Files::create(
+            StorageBackend::memory(Vec::new()),
+            archive(),
+            mode,
+            &authority,
+            signer,
+            key(mode),
+            65536,
+            [Input {
+                path: b"large.bin".to_vec(),
+                reader: Pattern {
+                    position: 0,
+                    len: 8 * 1024 * 1024,
+                    fail: None,
+                },
+            }],
+        )
+        .unwrap();
+        let mut files = Files::open(storage, archive(), mode, &authority, key(mode)).unwrap();
+        let before = Sha256::digest(files.storage.read_all().unwrap());
+        let result = super::paged_cost::project(&mut files, &authority, key(mode)).unwrap();
+        assert_eq!(result["inline_geometry_fits"], true);
+        assert_eq!(result["file_leaf_pages"], 1);
+        assert!(result["pack_leaf_pages"].as_u64().unwrap() >= 4);
+        assert!(
+            result["largest_edited_root_required_bytes"]
+                .as_u64()
+                .unwrap()
+                <= 2016
+        );
+        assert_eq!(Sha256::digest(files.storage.read_all().unwrap()), before);
+    }
+}

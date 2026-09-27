@@ -30,8 +30,9 @@ states which gates remain failed or incomplete.
    (1.935× ZIP), stable through 100 metadata edits and 100 unchanged repeats.
    [Split slots were ruled out for the primary corpus](evidence/inline-slot-feasibility-2026-09-27/README.md):
    its 29/37 KiB encoded catalogues cannot fit a 24 KiB slot. Compare paged
-   catalogue COW, budgeting root/publication, complete leaves and staging space
-   together on retained records before implementing another writer.
+   catalogue COW with the [read-only paged cost model](evidence/paged-catalogue-cost-2026-09-27/README.md),
+   budgeting actual hybrid publication bytes, complete file/pack leaves and staging
+   space together on retained records before implementing another writer.
    Integrate typed catalogue overflow, public record semantics, payload updates,
    overflow transitions and compaction/installation before qualification. Preserve the existing candidate as the control.
    Five retained images now match the size model; both small fixtures are actual

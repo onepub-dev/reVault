@@ -26,6 +26,7 @@ mod dense_image;
 mod dense_update;
 mod mutation;
 mod packing;
+mod paged_cost;
 mod recovery;
 use packing::{Builder, Coverage, Slice};
 

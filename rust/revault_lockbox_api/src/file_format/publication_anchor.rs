@@ -489,6 +489,11 @@ pub(crate) struct Selection {
     copies: u8,
     encoded: Vec<u8>,
 }
+impl Selection {
+    pub(crate) fn authentication_bytes(&self) -> usize {
+        u32::from_le_bytes(self.encoded[288..292].try_into().unwrap()) as usize
+    }
+}
 /// Success token from a synchronized publication/mirror operation. Merely reading
 /// matching copies cannot produce this token: their last sync may have failed.
 #[derive(Debug)]
