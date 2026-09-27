@@ -1,0 +1,8 @@
+{
+  "bytes": 8388608,
+  "compressed": true,
+  "corpus": "pattern",
+  "files": 1,
+  "mode": "encrypted-signed",
+  "unpadded": false
+}

@@ -69,3 +69,46 @@ bootstrap, control ownership, bounded metadata caching and the existing normal-o
 verification contract. Keep the current C checkpoint as the control. No format
 selection, new release line activation, altered size budget or security relaxation
 follows from this model.
+
+
+## Executed projections
+
+Frozen source `1b60c0d4`, executable SHA-256
+`41a7e0e8c37ed6b10422189aa2eeb0da03cf6157760bbe65d6181d0e29c1dd13`.
+The 16-mode source-preservation/binding test and strict Clippy pass after the
+commit hook. All five declared model runs pass descriptor reconstruction and
+bounded metadata decoding. The new protected fixture also independently verifies
+its persisted bytes against the same small-file source before projection.
+
+| Corpus | Catalogue decoded / encoded bytes | Packs / padded payload bytes | Projected compacted total |
+| --- | ---: | ---: | ---: |
+| 512 × 4 KiB, compressed plaintext | 61,478 / 29,385 | 1 / 196,608 | 327,680 |
+| Same source, encrypted-signed | 61,482 / 37,733 | 1 / 196,608 | 327,680 |
+| 8 MiB raw plaintext | 15,194 / 5,089 | 128 / 8,388,608 | 8,519,680 |
+| 8 MiB compressed plaintext | 1,593 / 1,446 | 1 / 65,536 | 196,608 |
+| Same large source, encrypted-signed | 1,593 / 1,456 | 1 / 65,536 | 196,608 |
+
+The retained case files identify the exact corpora; the compressed large source
+is the predeclared compressible workload, not an incompressible-data claim. The
+small plaintext projection is **1.382×** the 237,078-byte ZIP control, below the
+proposed 1.50× limit. This demonstrates geometric feasibility only. The real
+current-C compacted archive remains 1,441,792 bytes and fails that gate. A5 stays
+incomplete until an actual complete archive preserves the required contracts.
+
+For the small corpus, decoded fragments remain 4 KiB while one physical pack
+contains 2 MiB of logical contents. For the large compressed corpus, fragments
+remain 256 KiB while one 64 KiB physical allocation contains 8 MiB logically.
+Single-fragment corruption remains independently authenticatable in the model,
+but losing that entire physical allocation loses more logical contents than the
+old aggregate-limited packs. This is an explicit compression/damage-locality trade-off,
+not proof of equivalent logical loss per damaged physical region. The next damage
+matrix must report both physical bytes damaged and logical files/ranges affected.
+No logical-loss bound is silently inferred from the random-read decode bound.
+
+Proceed only with the bounded shared-control/catalogue protocol experiment:
+implement credential bootstrap with the existing wrapping algorithms; preserve
+owner-selected publication and copy-on-write metadata; prove overflow reservation
+ownership and retirement of inline private metadata; then cover public record
+semantics and the declared performance matrix. This result does not authorize
+skipping eager signed-plaintext verification, padding authentication, erasure or
+metadata failure-region separation. No model bytes are activated as a format.

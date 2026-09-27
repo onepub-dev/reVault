@@ -21,7 +21,11 @@ states which gates remain failed or incomplete.
    before expanding C into a public adapter. Its encrypted key tree cannot bootstrap
    credentials, and its minimum fixed/map space already exceeds the small-corpus
    size gate. Specify public bootstrap, record/permission semantics and shared
-   control placement together. Keep the current C checkpoint as the control.
+   control placement together. The [read-only cost model](evidence/whole-layout-cost-model-2026-09-27/README.md)
+   projects 1.382× ZIP for the small corpus, so the geometry merits a protocol
+   experiment; it is not an implemented archive. Keep current C as the control.
+   Explicitly test the larger logical loss possible within densely packed physical
+   damage regions, independently of the per-fragment random-read bound.
 2. Retain the [failed mixed aging qualification](evidence/mixed-file-aging-2026-09-27/README.md):
    all four 1,000-operation modes preserve contents and erasure, but unpadded
    control-space growth at cycle 421 exceeds the first-100 high water. Diagnose
