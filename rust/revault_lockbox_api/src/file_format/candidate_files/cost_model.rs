@@ -213,7 +213,8 @@ pub(super) fn project<S: Storage>(archive: &mut Files<S>) -> Result<Value> {
             "cost model catalogue budget".into(),
         ));
     }
-    let (codec, encoded) = encode_with_compression(&body, crate::Compression::default());
+    let (codec, encoded) =
+        encode_with_compression(&body, archive.anchor.mode.options().compression);
     let encoded = ZeroizingBytes::new(encoded);
     let decoder_window = body.len().next_power_of_two().max(REGION);
     if codec == COMPRESSION_NONE {
@@ -236,8 +237,9 @@ pub(super) fn project<S: Storage>(archive: &mut Files<S>) -> Result<Value> {
             return Err(Error::CorruptRecord);
         }
     }
-    // 44-byte page header and 16-byte tag budget is conservative for plaintext.
-    let fits = body.len() <= REGION && encoded.len() + 60 <= PRIVATE_SLOT;
+    // The shared envelope needs a 44-byte header, 12-byte private length/codec
+    // header and a 16-byte tag. The tag budget is conservative for plaintext.
+    let fits = body.len() <= REGION && encoded.len() + 72 <= PRIVATE_SLOT;
     let payload = end - (2 * REGION) as u64;
     Ok(json!({
         "kind":"whole_layout_cost_model","source_archive_bytes":archive.storage.len()?,

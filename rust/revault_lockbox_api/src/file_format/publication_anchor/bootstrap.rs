@@ -49,10 +49,20 @@ pub(crate) fn directory(archive: LockboxId, generation: u64, slots: &[KeySlot]) 
     Ok(encoded)
 }
 fn read_directory(storage: &impl Storage, anchor: &Anchor) -> Result<Vec<KeySlot>> {
+    read_directory_in(storage, anchor, Layout::Separated)
+}
+fn read_directory_in(
+    storage: &impl Storage,
+    anchor: &Anchor,
+    layout: Layout,
+) -> Result<Vec<KeySlot>> {
     if anchor.keys.len != INLINE_BYTES as u64 {
         return Err(Error::CorruptHeader);
     }
-    let encoded = anchor.keys.read_verified(storage)?;
+    let encoded = match layout {
+        Layout::Separated => anchor.keys.read_verified(storage)?,
+        Layout::Shared => super::shared::read_root(storage, anchor, RootRole::PublicKeys)?,
+    };
     let decoded = read_key_directory_backup(&encoded)?;
     if decoded.lockbox_id != anchor.archive
         || decoded.generation == 0
@@ -74,6 +84,7 @@ fn unsigned_candidate(
     storage: &impl Storage,
     archive: LockboxId,
     mode: FormatMode,
+    layout: Layout,
 ) -> Result<Anchor> {
     let mut candidates = Vec::with_capacity(2);
     let len = storage.len()?;
@@ -83,7 +94,7 @@ fn unsigned_candidate(
             continue;
         }
         let bytes = storage.read_at(offset, SLOT_LEN)?;
-        if let Ok(anchor) = parse_untrusted(&bytes, archive, mode) {
+        if let Ok(anchor) = parse_untrusted_in(&bytes, archive, mode, layout) {
             if u32::from_le_bytes(bytes[288..292].try_into().unwrap()) != 32 {
                 continue;
             }
@@ -93,10 +104,11 @@ fn unsigned_candidate(
     candidates.sort_by_key(|candidate| candidate.generation);
     let best = candidates.pop().ok_or(Error::CorruptHeader)?;
     if let Some(old) = candidates.pop() {
-        if (best.generation == old.generation && best.commitment()? != old.commitment()?)
+        if (best.generation == old.generation
+            && best.commitment_in(layout)? != old.commitment_in(layout)?)
             || (best.generation != old.generation
                 && (old.generation.checked_add(1) != Some(best.generation)
-                    || best.previous != old.commitment()?))
+                    || best.previous != old.commitment_in(layout)?))
         {
             return Err(Error::CorruptHeader);
         }
@@ -112,6 +124,25 @@ pub(crate) fn open(
     credential: Credential<'_>,
     requested_slot: Option<u64>,
 ) -> Result<Opened> {
+    open_in(
+        storage,
+        archive,
+        mode,
+        owner,
+        credential,
+        requested_slot,
+        Layout::Separated,
+    )
+}
+pub(super) fn open_in(
+    storage: &impl Storage,
+    archive: LockboxId,
+    mode: FormatMode,
+    owner: Option<&OwnerSigningPublicKey>,
+    credential: Credential<'_>,
+    requested_slot: Option<u64>,
+    layout: Layout,
+) -> Result<Opened> {
     if mode.plaintext() {
         return Err(Error::InvalidInput(
             "credential bootstrap requires encrypted mode".into(),
@@ -121,17 +152,17 @@ pub(crate) fn open(
         let owner = owner.ok_or_else(|| {
             Error::InvalidInput("signed bootstrap requires the established owner".into())
         })?;
-        select(storage, archive, mode, &Authority::Owner(owner))?.anchor
+        select_in(storage, archive, mode, &Authority::Owner(owner), layout)?.anchor
     } else {
         if owner.is_some() {
             return Err(Error::InvalidInput(
                 "unsigned bootstrap cannot claim owner authorization".into(),
             ));
         }
-        unsigned_candidate(storage, archive, mode)?
+        unsigned_candidate(storage, archive, mode, layout)?
     };
-    let expected = candidate.commitment()?;
-    let slots = read_directory(storage, &candidate)?;
+    let expected = candidate.commitment_in(layout)?;
+    let slots = read_directory_in(storage, &candidate, layout)?;
     for slot in &slots {
         if requested_slot.is_some_and(|id| id != slot.id()) {
             continue;
@@ -153,9 +184,15 @@ pub(crate) fn open(
             continue;
         }
         let authenticated = if let Some(owner) = owner {
-            select(storage, archive, mode, &Authority::Owner(owner))?
+            select_in(storage, archive, mode, &Authority::Owner(owner), layout)?
         } else {
-            select(storage, archive, mode, &Authority::Symmetric(&decoded))?
+            select_in(
+                storage,
+                archive,
+                mode,
+                &Authority::Symmetric(&decoded),
+                layout,
+            )?
         };
         if authenticated.commitment != expected {
             return Err(Error::CorruptHeader);

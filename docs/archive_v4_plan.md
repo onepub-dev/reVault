@@ -28,7 +28,11 @@ states which gates remain failed or incomplete.
    experiment; it is not an implemented archive. The
    [ordering model](evidence/shared-control-ordering-2026-09-27/README.md) requires
    temporary external metadata and a second publication to return inline; budget
-   that peak space and update cost in the actual protocol. Keep C as the control.
+   that peak space and update cost in the actual protocol. The
+   [shared-control image components](evidence/shared-control-image-2026-09-27/README.md)
+   now connect authenticated placement, bootstrap and bounded private decoding,
+   including complete loss of either control region. Journal/ownership/typed
+   catalogue integration and crash-safe creation/mutation remain. Keep C as the control.
    Explicitly test the larger logical loss possible within densely packed physical
    damage regions, independently of the per-fragment random-read bound.
 2. Retain the [failed mixed aging qualification](evidence/mixed-file-aging-2026-09-27/README.md):

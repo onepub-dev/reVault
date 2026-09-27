@@ -64,6 +64,11 @@ including overflow, key records and shared descendants, before erasure. Physical
 ownership changes alter committed metadata even when logical contents are the
 same. The model's content token intentionally abstracts those encoding details.
 
+Post-format [model tests](postformat-tests.log) and [Clippy](postformat-clippy.log)
+also pass. The [image-component follow-up](../shared-control-image-2026-09-27/README.md)
+adds actual placement/authority/envelope bytes and identifies the sealed-length
+and allocation-accounting work omitted by this model’s final truncation step.
+
 Implement the shared-control profile, bounded catalogue encoding, overflow journal
 and graph-derived retirement together, then repeat actual byte-level fault,
 process-death, region-damage and lifecycle tests. No A1–A5 gate is passed here.

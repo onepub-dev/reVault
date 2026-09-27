@@ -22,6 +22,68 @@ const CHECKSUM_START: usize = SLOT_LEN - 32;
 const MAX_ROOT_BYTES: u64 = 65536;
 const DOMAIN: &[u8] = b"revault-candidate-publication-v2\0";
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Layout {
+    Separated,
+    Shared,
+}
+#[derive(Clone, Copy)]
+enum RootRole {
+    Private,
+    Allocation,
+    PublicKeys,
+}
+impl Layout {
+    fn magic(self) -> &'static [u8; 8] {
+        match self {
+            Self::Separated => MAGIC,
+            Self::Shared => b"RV4SHR01",
+        }
+    }
+    fn version(self) -> u16 {
+        match self {
+            Self::Separated => 2,
+            Self::Shared => 1,
+        }
+    }
+    fn ranges(self, root: RootRef, sealed: u64, role: RootRole) -> Result<Vec<(u64, u64)>> {
+        if self == Self::Separated {
+            return root.ranges(sealed);
+        }
+        if root.absent() {
+            return Ok(Vec::new());
+        }
+        if root.len == 0 || root.len > MAX_ROOT_BYTES {
+            return Err(Error::CorruptHeader);
+        }
+        let mut ranges = Vec::with_capacity(2);
+        for offset in [root.primary, root.mirror] {
+            let end = offset.checked_add(root.len).ok_or(Error::CorruptHeader)?;
+            if end > sealed {
+                return Err(Error::CorruptHeader);
+            }
+            if offset < REGION_LEN as u64 {
+                let local = offset % FAILURE_REGION;
+                let valid = match role {
+                    RootRole::Private => local == 16384 && root.len <= 49152,
+                    RootRole::PublicKeys => local == 12288 && root.len == 4096,
+                    RootRole::Allocation => false,
+                };
+                if !valid || (end - 1) / FAILURE_REGION != offset / FAILURE_REGION {
+                    return Err(Error::CorruptHeader);
+                }
+            } else if offset % FAILURE_REGION != 0 {
+                return Err(Error::CorruptHeader);
+            }
+            ranges.push((offset, end));
+        }
+        if root.primary / FAILURE_REGION == root.mirror / FAILURE_REGION {
+            return Err(Error::CorruptHeader);
+        }
+        Ok(ranges)
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(crate) struct RootRef {
     pub primary: u64,
@@ -110,6 +172,9 @@ pub(crate) struct Anchor {
 }
 impl Anchor {
     fn validate(&self) -> Result<()> {
+        self.validate_in(Layout::Separated)
+    }
+    fn validate_in(&self, layout: Layout) -> Result<()> {
         FormatMode::parse(self.mode.0)?;
         if self.generation == 0
             || self.sealed_len < REGION_LEN as u64
@@ -119,8 +184,12 @@ impl Anchor {
             return Err(Error::CorruptHeader);
         }
         let mut ranges = Vec::new();
-        for root in [self.index, self.allocation, self.keys] {
-            ranges.extend(root.ranges(self.sealed_len)?);
+        for (role, root) in [
+            (RootRole::Private, self.index),
+            (RootRole::Allocation, self.allocation),
+            (RootRole::PublicKeys, self.keys),
+        ] {
+            ranges.extend(layout.ranges(root, self.sealed_len, role)?);
         }
         ranges.sort_unstable();
         if ranges.windows(2).any(|pair| pair[0].1 > pair[1].0) {
@@ -128,11 +197,11 @@ impl Anchor {
         }
         Ok(())
     }
-    fn prefix(&self) -> Result<Vec<u8>> {
-        self.validate()?;
+    fn prefix_in(&self, layout: Layout) -> Result<Vec<u8>> {
+        self.validate_in(layout)?;
         let mut out = Vec::with_capacity(PREFIX_LEN);
-        out.extend_from_slice(MAGIC);
-        out.extend_from_slice(&2u16.to_le_bytes());
+        out.extend_from_slice(layout.magic());
+        out.extend_from_slice(&layout.version().to_le_bytes());
         out.extend_from_slice(&self.mode.0.to_le_bytes());
         out.extend_from_slice(&(SLOT_LEN as u32).to_le_bytes());
         out.extend_from_slice(&self.generation.to_le_bytes());
@@ -152,7 +221,10 @@ impl Anchor {
         Ok(out)
     }
     pub(crate) fn commitment(&self) -> Result<[u8; 32]> {
-        Ok(strong_checksum(&message(&self.prefix()?)))
+        self.commitment_in(Layout::Separated)
+    }
+    fn commitment_in(&self, layout: Layout) -> Result<[u8; 32]> {
+        Ok(strong_checksum(&message(&self.prefix_in(layout)?)))
     }
     fn verify_dependencies(&self, storage: &impl Storage) -> Result<()> {
         self.validate()?;
@@ -205,10 +277,18 @@ fn encode(
     authority: &Authority<'_>,
     signer: Option<&OwnerSigningKeyPair>,
 ) -> Result<Vec<u8>> {
+    encode_in(anchor, authority, signer, Layout::Separated)
+}
+fn encode_in(
+    anchor: &Anchor,
+    authority: &Authority<'_>,
+    signer: Option<&OwnerSigningKeyPair>,
+    layout: Layout,
+) -> Result<Vec<u8>> {
     if !authority.accepts(anchor.mode) {
         return Err(Error::CorruptHeader);
     }
-    let prefix = anchor.prefix()?;
+    let prefix = anchor.prefix_in(layout)?;
     let message = message(&prefix);
     let mut auth = Vec::new();
     match authority {
@@ -252,9 +332,17 @@ fn encode(
 // use it to locate a bounded public key directory; ordinary selection verifies
 // the owner/MAC before returning any publication authority.
 fn parse_untrusted(slot: &[u8], archive: LockboxId, mode: FormatMode) -> Result<Anchor> {
+    parse_untrusted_in(slot, archive, mode, Layout::Separated)
+}
+fn parse_untrusted_in(
+    slot: &[u8],
+    archive: LockboxId,
+    mode: FormatMode,
+    layout: Layout,
+) -> Result<Anchor> {
     if slot.len() != SLOT_LEN
-        || &slot[..8] != MAGIC
-        || slot[8..10] != 2u16.to_le_bytes()
+        || &slot[..8] != layout.magic()
+        || slot[8..10] != layout.version().to_le_bytes()
         || slot[10..12] != mode.0.to_le_bytes()
         || slot[12..16] != (SLOT_LEN as u32).to_le_bytes()
         || slot[48..56].iter().any(|b| *b != 0)
@@ -291,7 +379,7 @@ fn parse_untrusted(slot: &[u8], archive: LockboxId, mode: FormatMode) -> Result<
         keys: reader.root()?,
     };
     reader.done()?;
-    anchor.validate()?;
+    anchor.validate_in(layout)?;
     Ok(anchor)
 }
 fn decode(
@@ -300,10 +388,19 @@ fn decode(
     mode: FormatMode,
     authority: &Authority<'_>,
 ) -> Result<Anchor> {
+    decode_in(slot, archive, mode, authority, Layout::Separated)
+}
+fn decode_in(
+    slot: &[u8],
+    archive: LockboxId,
+    mode: FormatMode,
+    authority: &Authority<'_>,
+    layout: Layout,
+) -> Result<Anchor> {
     if !authority.accepts(mode) {
         return Err(Error::CorruptHeader);
     }
-    let anchor = parse_untrusted(slot, archive, mode)?;
+    let anchor = parse_untrusted_in(slot, archive, mode, layout)?;
     let len = u32::from_le_bytes(slot[288..292].try_into().unwrap()) as usize;
     let auth = &slot[AUTH_START..AUTH_START + len];
     let message = message(&slot[..PREFIX_LEN]);
@@ -406,6 +503,15 @@ pub(crate) fn select(
     mode: FormatMode,
     authority: &Authority<'_>,
 ) -> Result<Selection> {
+    select_in(storage, archive, mode, authority, Layout::Separated)
+}
+fn select_in(
+    storage: &impl Storage,
+    archive: LockboxId,
+    mode: FormatMode,
+    authority: &Authority<'_>,
+    layout: Layout,
+) -> Result<Selection> {
     let len = storage.len()?;
     let mut candidates = Vec::with_capacity(2);
     for slot in 0..2 {
@@ -415,9 +521,9 @@ pub(crate) fn select(
         }
         // An I/O error is not evidence that the possibly newer slot is corrupt.
         let encoded = storage.read_at(offset, SLOT_LEN)?;
-        if let Ok(anchor) = decode(&encoded, archive, mode, authority) {
+        if let Ok(anchor) = decode_in(&encoded, archive, mode, authority, layout) {
             candidates.push(Selection {
-                commitment: anchor.commitment()?,
+                commitment: anchor.commitment_in(layout)?,
                 anchor,
                 slot,
                 copies: 1 << slot,
@@ -560,3 +666,5 @@ pub(crate) fn publish_relocation(
 mod tests;
 
 pub(crate) mod bootstrap;
+
+mod shared;
