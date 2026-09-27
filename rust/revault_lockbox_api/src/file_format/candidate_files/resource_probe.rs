@@ -193,6 +193,35 @@ fn candidate_file_resource_probe() {
         let after = Resources::now();
         verify(&mut open(), &root, count, bytes);
         json!({"kind":"fixture_create","backend":"lockbox","wall_seconds":elapsed,"resources":after.delta(before),"peak_rss_kib":after.peak,"baseline_peak_rss_kib":before.peak,"archive_bytes":std::fs::metadata(&path).unwrap().len(),"archive_sha256":digest_file(&path),"verified":true})
+    } else if phase == "inspect" {
+        let files = open();
+        let snapshot = Snapshot::inspect(&files.storage, &files.anchor, &files.index).unwrap();
+        snapshot.verify_reclaimed(&files.storage).unwrap();
+        let a = snapshot.accounting;
+        let mut fragments = 0u64;
+        let mut packs = std::collections::BTreeSet::new();
+        files
+            .index
+            .visit(
+                &files.storage,
+                files.anchor.index,
+                files.anchor.sealed_len,
+                |entry| {
+                    if entry.namespace == CHUNK {
+                        let owned = OwnedRecord::decode(&entry.value)?;
+                        let slice = Slice::decode(&owned.metadata)?;
+                        fragments += slice.physical(owned.extents[0])?.len;
+                        packs.insert(owned.extents[0].start);
+                    }
+                    Ok(())
+                },
+            )
+            .unwrap();
+        json!({"kind":"accounting","total":a.total,"fixed":a.fixed,"payload":a.payload,
+            "index":a.index,"keys":a.keys,"allocation":a.allocation,"reserve":a.reserve,
+            "free":a.free,"pending":a.pending,"physical_packs":packs.len(),
+            "stored_fragments":fragments,"pack_padding":a.payload-fragments,
+            "archive_sha256":digest_file(&path),"verified_reclaimed":true})
     } else if phase == "compact" {
         // Fresh-process resource probe; signed installation requires the original
         // owner, which this read-probe protocol intentionally never persists.

@@ -118,13 +118,75 @@ including Vault containers. `0.4.x` remains format 3 and is isolated from this w
 
 | Gate | Current evidence | Status |
 | --- | --- | --- |
-| A1 | Public CLI append/reuse abort coverage and allocator fault/power-loss tests pass; C atomic file lifecycle, source-change abort and 100-cycle aging preserve ownership, whole-pack erasure and no-change bytes; file compaction passes 90 write faults and 16 process deaths | Full public mutation matrix incomplete |
+| A1 | Public CLI append/reuse abort coverage and allocator fault/power-loss tests pass; C atomic file lifecycle/source-change abort preserve ownership and erasure; 4,000 mixed operations preserve content/no-change bytes but unpadded growth fails stability; file compaction passes 90 write faults and 16 process deaths | Full public mutation matrix incomplete |
 | A2 | C fresh read-only salvage preserves intact neighbours, uses metadata mirrors and reports lost proofs; production integration and two native recovery failures remain | Production gate failed; candidate integration incomplete |
 | A3/A4 | Packed C is 3.77× ZIP raw / 4.02× compressed (8 MiB); encrypted range-open regresses. Bounded A has one passing 30-pair raw-create result; protected/complete matrix remains | A3 failed; A4 not qualified |
-| A5 | Packed C has descriptive 14.5 MiB GB creation / 66–67 MiB 100k-file creation RSS; 100k reads take 41–61 s. After compaction: small archive 6.08× ZIP (failed), raw 64 MiB 1.016× (space subcase passed); full matrix incomplete | Full resource/space gate incomplete |
+| A5 | Packed C has descriptive 14.5 MiB GB creation / 66–67 MiB 100k-file creation RSS; 100k reads take 41–61 s. After compaction: small archive 6.08× ZIP (failed), raw 64 MiB 1.016× (space subcase passed); unpadded aging grows 128 KiB at cycle 421; full matrix incomplete | Full resource/space gate incomplete |
 | A6 | Historical reader routing repaired locally; owner identity and missing v4/current Vault fixtures block the full matrix; CLI/binding interoperability still required | Failed |
 | A7 | Canonical goals, current plan/scorecard and proposed decisions exist; history is separated; new test-only pack vector exists; complete normative wire spec remains pending | In progress |
 | A8 | Separate #322 branch `d8dfa6cf`: clean release install, installed headless lifecycle, private logind, locked/denied/hung Secret Service and existing-keyring interoperability pass | Actual macOS/Windows credential services, binding packages and remote CI remain unqualified |
+
+The [mixed-file aging qualification](evidence/mixed-file-aging-2026-09-27/README.md)
+retains the failed unpadded stability assertion and all safety/accounting checks.
+
+## Whole-format eligibility review
+
+The file adapter is not a complete archive candidate. The following differences
+must be represented in the next layout decision; file throughput cannot stand in
+for them.
+
+| Required public semantics | Current implementation to retain | Candidate C gap |
+| --- | --- | --- |
+| Files, explicit directories, symlinks and permission bits | [TOC entry model](../rust/revault_lockbox_api/src/toc/toc_entry.rs), [node kinds](../rust/revault_lockbox_api/src/model/node_kind.rs) | `FileInfo` has file identity/length/unit/digest only; directories, links and permissions are absent |
+| Normal and secret variables, explicit sensitivity changes | [Variable API](../rust/revault_lockbox_api/src/lockbox/variables.rs) | No typed variable records or secure-value API; opaque index values would not establish sensitivity semantics |
+| Form definitions, revisions, record references and field validation | [Definitions](../rust/revault_lockbox_api/src/lockbox/forms/definitions.rs), [records](../rust/revault_lockbox_api/src/lockbox/forms/records.rs) | No schema/revision linkage or cross-record validation |
+| Mirror ownership, overlap/adoption and deletion policies | [Mirror API](../rust/revault_lockbox_api/src/lockbox/mirrors.rs) | Atomic file updates exist, but no persisted mirror configuration/ownership integration |
+| Password/contact access and owner pinning | [Key slots](../rust/revault_lockbox_api/src/keys/key_slot.rs), [key directory](../rust/revault_lockbox_api/src/file_format/key_directory.rs) | Callers supply authority and content key out of band; the generic key tree is not credential bootstrap |
+| Vault and binding interoperability | Shared production engine and retained migration fixtures | No candidate public constructor, credential open, binding carrier or migration path |
+
+A concrete bootstrap issue: `Transaction::put_key_record` currently uses the same
+`Index` as private contents. In encrypted mode that index requires the content
+key to decode it. Storing password/contact wrapping slots there would require the
+key before the slots could yield it. The generic key-tree ownership tests therefore
+do not demonstrate a working access directory. A selected format needs a bounded,
+public bootstrap path for existing wrapped-key algorithms, followed by selected
+publication/owner authentication before private records are trusted. Public slots
+must not expose private names or grant owner signing authority. This is a format
+integration requirement, not a proposal for new cryptography.
+
+There is also a hard size contradiction in C's current placement. Its fixed
+publication/journal prefix is 262,144 bytes. Even the smallest two-bank allocation
+map reserves at least another 131,072 bytes. That **393,216-byte lower bound**,
+before any payload or file index, already exceeds the small-corpus proposed limit
+of `1.50 × 237,078 = 355,617` bytes. Faster encoding, caching or compaction cannot
+make the current control layout pass that case. The measured 1,441,792-byte
+compacted result has further metadata/padding costs on top of that floor.
+
+Physical packing also incorrectly couples two distinct access units: the builder
+limits the sum of decoded bytes across a pack to 256 KiB, although its fragments
+are independently decoded. The 2 MiB small-file corpus therefore needs at least
+eight packs; at 64 KiB minimum padding each, payload allocations alone occupy at
+least 524,288 bytes. A replacement layout should independently bound each decode,
+each physical allocation, member count and retained descriptor memory. Relaxing
+aggregate decoded-pack size is only safe when no operation materializes all members
+at once; it must retain independent fragment authentication and whole-pack erasure.
+
+Read-only accounting of the compacted small fixture confirms the complete cost:
+262,144 fixed + 131,072 allocation map + 524,288 file index + 524,288 payload =
+1,441,792 bytes. The payload contains 177,152 stored fragment bytes and 347,136
+padding bytes in eight physical packs. There is no leftover free space to trim.
+The doubled descriptor catalogue and aggregate pack bound are therefore separate
+layout costs alongside the fixed-control floor.
+
+The next layout comparison must budget public bootstrap, owner publication,
+reservation/cleanup state, membership and allocation metadata together. Evaluate
+sharing physical control regions while preserving separate failure regions for
+redundant copies, bounded parsing, privacy padding and write-before-use ordering.
+Do not implement a full public adapter around a layout already ruled out by the
+unchanged size gate. A different placement is a new bounded candidate experiment;
+retain the current C revision as the correctness/performance control. A product
+change to the size/damage/privacy contract is an explicit alternative, never an
+implicit consequence of these measurements.
 
 ## Selection discipline
 

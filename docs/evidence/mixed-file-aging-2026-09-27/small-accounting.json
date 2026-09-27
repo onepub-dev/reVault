@@ -1,0 +1,22 @@
+{
+  "allocation": 131072,
+  "archive_sha256": "b6f611fabb46dc6ee761fb95d9cc60f4796b089ac61c206f4399df0494d7d664",
+  "candidate_scope": "file-only shared private packs; no public record/access integration",
+  "candidate_test_executable_sha256": "c309da3ddb83aed3189012e9f5342f15de8f106ca48a1b22ed25188c6dabc73a",
+  "extent_unit": 262144,
+  "file_adapter_version": 2,
+  "fixed": 262144,
+  "free": 0,
+  "index": 524288,
+  "keys": 0,
+  "kind": "accounting",
+  "layout": "candidate-262144",
+  "pack_padding": 347136,
+  "payload": 524288,
+  "pending": 0,
+  "physical_packs": 8,
+  "reserve": 0,
+  "stored_fragments": 177152,
+  "total": 1441792,
+  "verified_reclaimed": true
+}

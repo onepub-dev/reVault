@@ -395,6 +395,9 @@ impl Snapshot {
             accounting,
         })
     }
+    pub(crate) fn reusable_ranges(&self) -> &[Reservation] {
+        &self.available
+    }
     pub(crate) fn verify_reclaimed(&self, storage: &impl Storage) -> Result<()> {
         for range in &self.available {
             let mut position = range.start;
@@ -592,6 +595,39 @@ impl<S: Storage> Allocator<S> {
         } else {
             let current = state.prepared.len()?;
             let start = place(current, len, Placement::Aligned)?;
+            if std::env::var_os("REVAULT_CANDIDATE_TRACE_ARENA").is_some() {
+                let largest_aligned = state
+                    .available
+                    .values()
+                    .map(|range| {
+                        let aligned = align_region(range.start)?;
+                        Ok((range.start + range.len).saturating_sub(aligned))
+                    })
+                    .collect::<Result<Vec<_>>>()?
+                    .into_iter()
+                    .max()
+                    .unwrap_or(0);
+                let mut joined_start = 0;
+                let mut joined_end = 0;
+                let mut largest_joined_aligned = 0;
+                for range in state.available.values() {
+                    if range.start != joined_end {
+                        joined_start = range.start;
+                    }
+                    joined_end = range.start + range.len;
+                    largest_joined_aligned = largest_joined_aligned
+                        .max(joined_end.saturating_sub(align_region(joined_start)?));
+                }
+                eprintln!(
+                    "CANDIDATE_ARENA_APPEND {}",
+                    serde_json::json!({
+                        "before":current,"start":start,"required":len,
+                        "reusable_total":state.available.values().map(|r|r.len).sum::<u64>(),
+                        "reusable_ranges":state.available.len(),"largest_aligned":largest_aligned,
+                        "largest_joined_aligned":largest_joined_aligned
+                    })
+                );
+            }
             append_zeros(&mut state.prepared, start - current + len)?;
             start
         };

@@ -1825,3 +1825,5 @@ fn compaction_refuses_nonempty_output_and_damaged_source_in_lazy_modes() {
 }
 
 mod compaction_tests;
+
+mod aging;
