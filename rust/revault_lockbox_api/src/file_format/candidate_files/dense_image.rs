@@ -54,6 +54,9 @@ impl<S: Storage> Image<S> {
             Ok(image)
         })?
     }
+    pub fn filesystem_metadata(&self) -> Result<Vec<super::dense_catalogue::Metadata>> {
+        self.catalogue.filesystem_metadata()
+    }
     pub fn info(&self, path: &[u8]) -> Result<Option<FileInfo>> {
         Ok(self
             .catalogue
@@ -254,6 +257,11 @@ pub(super) fn salvage<S: Storage>(
     let mut codec = Codec::shared_packed(archive, mode, key)?;
     let catalogue = Catalogue::decode(&body, &codec, anchor.sealed_len)?;
     catalogue.graph(&anchor)?;
+    if !catalogue.nodes.is_empty() {
+        return Err(Error::InvalidOperation(
+            "typed node recovery requires a node-aware sink".into(),
+        ));
+    }
     let actual = storage.len()?;
     let mut report = SalvageReport {
         generation: anchor.generation,

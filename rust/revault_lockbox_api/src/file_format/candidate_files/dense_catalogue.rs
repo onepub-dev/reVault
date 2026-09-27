@@ -8,6 +8,8 @@ use crate::file_format::publication_anchor::shared::ownership::{Graph, Span, Vac
 use crate::file_format::publication_anchor::REGION_LEN;
 use crate::page_buffer::ZeroizingBytes;
 use std::collections::BTreeSet;
+mod nodes;
+pub(super) use nodes::Metadata;
 const MAX_BODY: usize = 65536;
 const MAX_MODEL_FILES: usize = 1024;
 const MAX_FRAGMENTS: usize = 4096;
@@ -31,6 +33,8 @@ pub(super) struct Pack {
 }
 pub(super) struct Catalogue {
     legacy: bool,
+    typed: bool,
+    pub nodes: Vec<nodes::Node>,
     pub vacant: Vec<Vacant>,
     pub files: Vec<File>,
     pub packs: Vec<Pack>,
@@ -76,9 +80,10 @@ impl Catalogue {
             return Err(Error::CorruptRecord);
         }
         let mut cursor = Cursor(body);
-        let legacy = match cursor.take(8)? {
-            b"RV4COST1" => true,
-            b"RV4DENS2" => false,
+        let (legacy, typed) = match cursor.take(8)? {
+            b"RV4COST1" => (true, false),
+            b"RV4DENS2" => (false, false),
+            b"RV4DENS3" => (false, true),
             _ => return Err(Error::CorruptRecord),
         };
         let count = cursor.count(MAX_MODEL_FILES)?;
@@ -94,7 +99,7 @@ impl Catalogue {
                 return Err(Error::CorruptRecord);
             }
             let permissions = u32::from_le_bytes(cursor.take(4)?.try_into().unwrap());
-            if permissions & !0o7777 != 0 {
+            if crate::security::validate_permissions(permissions).is_err() {
                 return Err(Error::CorruptRecord);
             }
             let path_len = cursor.count(4096)?;
@@ -153,6 +158,14 @@ impl Catalogue {
                 info,
                 fragments,
             });
+        }
+        let nodes = if typed {
+            nodes::decode(&mut cursor, files.len())?
+        } else {
+            Vec::new()
+        };
+        if typed {
+            nodes::validate(&files, &nodes)?;
         }
         let count = cursor.count(MAX_FRAGMENTS)?;
         if count > cursor.0.len() / 73 {
@@ -255,6 +268,8 @@ impl Catalogue {
         }
         Ok(Self {
             legacy,
+            typed,
+            nodes,
             vacant,
             files,
             packs,
@@ -296,7 +311,7 @@ impl Catalogue {
             ));
         }
         let mut out = Writer(ZeroizingBytes::new(Vec::with_capacity(MAX_BODY)));
-        out.put(b"RV4DENS2")?;
+        out.put(if self.typed { b"RV4DENS3" } else { b"RV4DENS2" })?;
         out.uint(self.files.len() as u64)?;
         for file in &self.files {
             out.put(&[1])?;
@@ -326,6 +341,9 @@ impl Catalogue {
                 out.put(&d.encode()[44..53])?;
                 out.put(&fragment.digest)?;
             }
+        }
+        if self.typed {
+            nodes::encode(&self.nodes, &mut out)?;
         }
         out.uint(self.packs.len() as u64)?;
         for pack in &self.packs {

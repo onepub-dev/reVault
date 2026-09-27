@@ -172,7 +172,10 @@ pub(super) fn edit(
     to: &[u8],
     permissions: Option<u32>,
 ) -> Result<bool> {
-    if !valid_path(from) || !valid_path(to) || permissions.is_some_and(|bits| bits & !0o7777 != 0) {
+    if !valid_path(from)
+        || !valid_path(to)
+        || permissions.is_some_and(|bits| crate::security::validate_permissions(bits).is_err())
+    {
         return Err(Error::InvalidInput("invalid file metadata edit".into()));
     }
     recover(storage, archive, mode, authority, key)?;
@@ -209,6 +212,40 @@ pub(super) fn edit(
     catalogue.files[index].path = Zeroizing::new(to.to_vec());
     catalogue.files[index].permissions = permissions;
     catalogue.files.sort_by(|a, b| a.path.cmp(&b.path));
+    publish_catalogue(
+        storage, archive, mode, authority, signer, key, anchor, catalogue, false,
+    )?;
+    Ok(true)
+}
+/// Replace a complete filesystem-metadata snapshot. This internal operation
+/// does not implement mirror ownership policy or file payload mutations.
+#[allow(clippy::too_many_arguments)]
+pub(super) fn replace_filesystem_metadata(
+    storage: &mut impl Storage,
+    archive: LockboxId,
+    mode: FormatMode,
+    authority: &Authority<'_>,
+    signer: Option<&OwnerSigningKeyPair>,
+    key: Option<&[u8]>,
+    entries: &[super::dense_catalogue::Metadata],
+) -> Result<bool> {
+    recover(storage, archive, mode, authority, key)?;
+    Image::open(
+        allocation::compaction::View(storage),
+        archive,
+        mode,
+        authority,
+        key,
+    )?
+    .verify_all()?;
+    let (anchor, old_body) = shared::snapshot(storage, archive, mode, authority, key)?;
+    let codec = Codec::shared_packed(archive, mode, key)?;
+    let mut catalogue = Catalogue::decode(&old_body, &codec, anchor.sealed_len)?;
+    catalogue.upgrade(&anchor)?;
+    catalogue.set_filesystem_metadata(entries)?;
+    if catalogue.encode(&codec, anchor.sealed_len)?.as_slice() == old_body.as_slice() {
+        return Ok(false);
+    }
     publish_catalogue(
         storage, archive, mode, authority, signer, key, anchor, catalogue, false,
     )?;

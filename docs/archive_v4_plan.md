@@ -44,7 +44,10 @@ states which gates remain failed or incomplete.
    complete 100 metadata edits and 100 unchanged repeats at their original sizes;
    both small archives finish at 320 KiB, using 448 KiB temporarily. This is only
    a metadata-size subcase; mixed payload aging and public semantics remain.
-   Integrate typed catalogue overflow, public record semantics, payload updates,
+   The [typed filesystem metadata experiment](evidence/typed-filesystem-metadata-2026-09-27/README.md)
+   now persists directories, symlink targets and real permissions through the same
+   COW protocol; public mutation policy and node-aware recovery remain pending.
+   Integrate typed catalogue overflow, remaining public records, payload updates,
    overflow transitions and compaction/installation before qualification. Preserve the existing candidate as the control.
    Five retained images now match the size model; both small fixtures are actual
    320 KiB files (1.382× ZIP), with full persisted-byte verification. Budget

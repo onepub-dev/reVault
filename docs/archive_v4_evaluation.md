@@ -156,7 +156,7 @@ for them.
 
 | Required public semantics | Current implementation to retain | Candidate C gap |
 | --- | --- | --- |
-| Files, explicit directories, symlinks and permission bits | [TOC entry model](../rust/revault_lockbox_api/src/toc/toc_entry.rs), [node kinds](../rust/revault_lockbox_api/src/model/node_kind.rs) | `FileInfo` has file identity/length/unit/digest only; the dense image stores a synthetic `0644`, not real permission/directory/link semantics |
+| Files, explicit directories, symlinks and permission bits | [TOC entry model](../rust/revault_lockbox_api/src/toc/toc_entry.rs), [node kinds](../rust/revault_lockbox_api/src/model/node_kind.rs) | The [typed metadata experiment](evidence/typed-filesystem-metadata-2026-09-27/README.md) persists actual public node metadata and validates canonical hierarchy/`0777` permissions; public filesystem operations, payload mutation and node-aware recovery remain unconnected |
 | Normal and secret variables, explicit sensitivity changes | [Variable API](../rust/revault_lockbox_api/src/lockbox/variables.rs) | No typed variable records or secure-value API; opaque index values would not establish sensitivity semantics |
 | Form definitions, revisions, record references and field validation | [Definitions](../rust/revault_lockbox_api/src/lockbox/forms/definitions.rs), [records](../rust/revault_lockbox_api/src/lockbox/forms/records.rs) | No schema/revision linkage or cross-record validation |
 | Mirror ownership, overlap/adoption and deletion policies | [Mirror API](../rust/revault_lockbox_api/src/lockbox/mirrors.rs) | Atomic file updates exist, but no persisted mirror configuration/ownership integration |

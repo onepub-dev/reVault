@@ -3886,3 +3886,374 @@ fn dense_metadata_tail_cleanup_resumes_after_interruption_and_bank_loss() {
     }
     println!("DENSE_METADATA_TAIL_RECOVERY_INTERRUPTION_CASES {cases}; bank_loss=6");
 }
+
+// Public APIs construct the logical source. Internal candidate storage is needed
+// because this experimental image still has no public CLI constructor.
+fn public_filesystem_metadata(
+    owner: &OwnerSigningKeyPair,
+) -> Vec<super::dense_catalogue::Metadata> {
+    use crate::{
+        ListOptions, Lockbox, LockboxEntryKind, LockboxPath, LockboxProtection, SecretString,
+    };
+    let password = SecretString::try_from_slice(b"synthetic typed source password").unwrap();
+    let mut source =
+        Lockbox::create_in_memory(LockboxProtection::Password(&password), owner).unwrap();
+    source
+        .add_file_with_permissions(
+            &LockboxPath::new("/docs/data").unwrap(),
+            b"payload",
+            0o640,
+            false,
+        )
+        .unwrap();
+    source
+        .set_permissions(&LockboxPath::new("/docs").unwrap(), 0o750)
+        .unwrap();
+    source
+        .create_dir(&LockboxPath::new("/empty").unwrap(), false)
+        .unwrap();
+    source
+        .add_symlink(
+            &LockboxPath::new("/link").unwrap(),
+            &LockboxPath::new("/docs/data").unwrap(),
+            false,
+        )
+        .unwrap();
+    source
+        .set_permissions(&LockboxPath::new("/link").unwrap(), 0o700)
+        .unwrap();
+    source.commit().unwrap();
+    assert_eq!(
+        source
+            .read_file_range(&LockboxPath::new("/docs/data").unwrap(), 0, 7)
+            .unwrap(),
+        b"payload"
+    );
+    let mut options = ListOptions::new(&LockboxPath::new("/").unwrap());
+    options.recursive = true;
+    source
+        .list(options)
+        .unwrap()
+        .map(|entry| {
+            let entry = entry.unwrap();
+            let target = (entry.kind == LockboxEntryKind::Symlink)
+                .then(|| source.get_symlink_target(&entry.path).unwrap());
+            super::dense_catalogue::Metadata { entry, target }
+        })
+        .collect()
+}
+fn canonical_dense_seed(
+    mode: FormatMode,
+    authority: &Authority<'_>,
+    signer: Option<&OwnerSigningKeyPair>,
+) -> StorageBackend {
+    let storage = Files::create(
+        StorageBackend::memory(Vec::new()),
+        archive(),
+        mode,
+        authority,
+        signer,
+        key(mode),
+        65536,
+        [Input {
+            path: b"/docs/data".to_vec(),
+            reader: Cursor::new(b"payload".to_vec()),
+        }],
+    )
+    .unwrap();
+    let mut source = Files::open(storage, archive(), mode, authority, key(mode)).unwrap();
+    super::dense_image::from_candidate(
+        &mut source,
+        StorageBackend::memory(Vec::new()),
+        authority,
+        signer,
+        key(mode),
+        &[],
+    )
+    .unwrap()
+}
+fn check_filesystem_snapshot(
+    storage: &StorageBackend,
+    mode: FormatMode,
+    authority: &Authority<'_>,
+    expected: &[super::dense_catalogue::Metadata],
+) {
+    let mut image =
+        super::dense_image::Image::open(storage.clone(), archive(), mode, authority, key(mode))
+            .unwrap();
+    assert_eq!(image.filesystem_metadata().unwrap(), expected);
+    let mut bytes = Vec::new();
+    image
+        .read_range(b"/docs/data", 0, 7, |part| {
+            bytes.extend_from_slice(part);
+            Ok(())
+        })
+        .unwrap();
+    assert_eq!(bytes, b"payload");
+}
+#[test]
+fn dense_filesystem_metadata_preserves_public_nodes_permissions_and_no_change_all_modes() {
+    let owner = OwnerSigningKeyPair::generate().unwrap();
+    let public = owner.public_key();
+    let entries = public_filesystem_metadata(&owner);
+    for encrypted in [false, true] {
+        for signed in [false, true] {
+            for compressed in [false, true] {
+                for padded in [false, true] {
+                    let mode = mode(encrypted, signed, compressed, padded);
+                    let authority = authority(mode, &public);
+                    let signer = signed.then_some(&owner);
+                    let mut storage = canonical_dense_seed(mode, &authority, signer);
+                    let size = storage.len().unwrap();
+                    assert!(super::dense_update::replace_filesystem_metadata(
+                        &mut storage,
+                        archive(),
+                        mode,
+                        &authority,
+                        signer,
+                        key(mode),
+                        &entries
+                    )
+                    .unwrap());
+                    check_filesystem_snapshot(&storage, mode, &authority, &entries);
+                    assert!(super::dense_update::return_inline(
+                        &mut storage,
+                        archive(),
+                        mode,
+                        &authority,
+                        signer,
+                        key(mode)
+                    )
+                    .unwrap());
+                    assert_eq!(storage.len().unwrap(), size);
+                    check_filesystem_snapshot(&storage, mode, &authority, &entries);
+                    let before = storage.read_all().unwrap();
+                    assert!(!super::dense_update::replace_filesystem_metadata(
+                        &mut storage,
+                        archive(),
+                        mode,
+                        &authority,
+                        signer,
+                        key(mode),
+                        &entries
+                    )
+                    .unwrap());
+                    assert_eq!(storage.read_all().unwrap(), before);
+                    let mut next = entries.clone();
+                    next.retain(|row| row.entry.path.as_str() != "/empty");
+                    next.iter_mut()
+                        .find(|row| row.target.is_some())
+                        .unwrap()
+                        .target = Some(crate::LockboxPath::new("/missing").unwrap());
+                    next.iter_mut()
+                        .find(|row| row.entry.path.as_str() == "/docs/data")
+                        .unwrap()
+                        .entry
+                        .permissions = 0o600;
+                    super::dense_update::replace_filesystem_metadata(
+                        &mut storage,
+                        archive(),
+                        mode,
+                        &authority,
+                        signer,
+                        key(mode),
+                        &next,
+                    )
+                    .unwrap();
+                    super::dense_update::return_inline(
+                        &mut storage,
+                        archive(),
+                        mode,
+                        &authority,
+                        signer,
+                        key(mode),
+                    )
+                    .unwrap();
+                    assert_eq!(storage.len().unwrap(), size);
+                    check_filesystem_snapshot(&storage, mode, &authority, &next);
+                    for bank in [0, publication::FAILURE_REGION] {
+                        let mut damaged = StorageBackend::memory(storage.read_all().unwrap());
+                        damaged
+                            .write_at(bank, &vec![0; publication::FAILURE_REGION as usize])
+                            .unwrap();
+                        super::dense_update::recover(
+                            &mut damaged,
+                            archive(),
+                            mode,
+                            &authority,
+                            key(mode),
+                        )
+                        .unwrap();
+                        check_filesystem_snapshot(&damaged, mode, &authority, &next);
+                    }
+                    let mut sink = Salvaged::default();
+                    assert!(matches!(
+                        super::dense_image::salvage(
+                            &storage,
+                            archive(),
+                            mode,
+                            &authority,
+                            key(mode),
+                            &mut sink
+                        ),
+                        Err(Error::InvalidOperation(_))
+                    ));
+                    assert!(sink.files.is_empty()); // File-only sink must not silently drop typed nodes.
+                }
+            }
+        }
+    }
+}
+#[test]
+fn dense_filesystem_metadata_refuses_ambiguous_or_incomplete_snapshots_before_writes() {
+    let owner = OwnerSigningKeyPair::generate().unwrap();
+    let public = owner.public_key();
+    let entries = public_filesystem_metadata(&owner);
+    let mode = mode(true, true, true, true);
+    let authority = authority(mode, &public);
+    let mut storage = canonical_dense_seed(mode, &authority, Some(&owner));
+    let before = storage.read_all().unwrap();
+    let mut invalid = Vec::new();
+    let mut value = entries.clone();
+    value.retain(|row| row.entry.path.as_str() != "/docs");
+    invalid.push(value);
+    let mut value = entries.clone();
+    value.retain(|row| row.entry.path.as_str() != "/docs/data");
+    invalid.push(value);
+    let mut value = entries.clone();
+    value.push(value[0].clone());
+    invalid.push(value);
+    let mut value = entries.clone();
+    value[0].entry.permissions = 0o4755;
+    invalid.push(value);
+    let mut value = entries.clone();
+    value
+        .iter_mut()
+        .find(|row| row.entry.len > 0)
+        .unwrap()
+        .entry
+        .len += 1;
+    invalid.push(value);
+    let mut value = entries.clone();
+    value
+        .iter_mut()
+        .find(|row| row.target.is_some())
+        .unwrap()
+        .target = None;
+    invalid.push(value);
+    let mut value = entries.clone();
+    value[0].entry.path = crate::LockboxPath::from_unchecked_for_test("/bad/../path");
+    invalid.push(value);
+    let mut value = entries.clone();
+    value[0].entry.path = crate::LockboxPath::from_unchecked_for_test("/e\u{301}");
+    invalid.push(value);
+    for rows in invalid {
+        assert!(super::dense_update::replace_filesystem_metadata(
+            &mut storage,
+            archive(),
+            mode,
+            &authority,
+            Some(&owner),
+            key(mode),
+            &rows
+        )
+        .is_err());
+        assert_eq!(storage.read_all().unwrap(), before);
+    }
+    assert!(super::dense_update::edit(
+        &mut storage,
+        archive(),
+        mode,
+        &authority,
+        Some(&owner),
+        key(mode),
+        b"/docs/data",
+        b"/docs/data",
+        Some(0o4755)
+    )
+    .is_err());
+    assert_eq!(storage.read_all().unwrap(), before);
+}
+#[test]
+fn dense_filesystem_metadata_recovery_selects_complete_old_or_typed_new_state() {
+    use crate::file_format::preparation_journal::tests::CrashStore;
+    let owner = OwnerSigningKeyPair::generate().unwrap();
+    let public = owner.public_key();
+    let entries = public_filesystem_metadata(&owner);
+    let mut cases = 0;
+    for mode in [
+        mode(false, false, false, false),
+        mode(false, true, true, true),
+        mode(true, false, false, true),
+        mode(true, true, true, true),
+    ] {
+        let authority = authority(mode, &public);
+        let signer = mode.signed().then_some(&owner);
+        let seed = canonical_dense_seed(mode, &authority, signer)
+            .read_all()
+            .unwrap();
+        let mut observed = CrashStore::new(seed.clone(), None, 0, false);
+        super::dense_update::replace_filesystem_metadata(
+            &mut observed,
+            archive(),
+            mode,
+            &authority,
+            signer,
+            key(mode),
+            &entries,
+        )
+        .unwrap();
+        for at in 0..observed.operations() {
+            for prefix in [0, 97, usize::MAX] {
+                for persist in [false, true] {
+                    let mut failed = CrashStore::new(seed.clone(), Some(at), prefix, persist);
+                    let _ = super::dense_update::replace_filesystem_metadata(
+                        &mut failed,
+                        archive(),
+                        mode,
+                        &authority,
+                        signer,
+                        key(mode),
+                        &entries,
+                    );
+                    let mut reopened = StorageBackend::memory(failed.durable());
+                    super::dense_update::recover(
+                        &mut reopened,
+                        archive(),
+                        mode,
+                        &authority,
+                        key(mode),
+                    )
+                    .unwrap_or_else(|e| {
+                        panic!("typed at={at} prefix={prefix} sync={persist}: {e}")
+                    });
+                    let mut image = super::dense_image::Image::open(
+                        reopened,
+                        archive(),
+                        mode,
+                        &authority,
+                        key(mode),
+                    )
+                    .unwrap();
+                    match image.filesystem_metadata() {
+                        Ok(actual) => assert_eq!(actual, entries),
+                        Err(Error::InvalidOperation(_)) => {
+                            assert_eq!(image.info(b"/docs/data").unwrap().unwrap().len, 7)
+                        }
+                        Err(error) => panic!("unexpected typed state error: {error}"),
+                    }
+                    let mut bytes = Vec::new();
+                    image
+                        .read_range(b"/docs/data", 0, 7, |part| {
+                            bytes.extend_from_slice(part);
+                            Ok(())
+                        })
+                        .unwrap();
+                    assert_eq!(bytes, b"payload");
+                    cases += 1;
+                }
+            }
+        }
+    }
+    println!("DENSE_FILESYSTEM_METADATA_POWER_LOSS_CASES {cases}");
+}
