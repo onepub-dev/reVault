@@ -28,8 +28,10 @@ states which gates remain failed or incomplete.
    Payload mutation remains unconnected. The first edit retains two extra 64 KiB
    control allocations: both retained small fixtures grow from 320 to 448 KiB
    (1.935× ZIP), stable through 100 metadata edits and 100 unchanged repeats.
-   Test two smaller private slots per bank, with a larger/external fallback,
-   before claiming mutable small-archive size compliance.
+   [Split slots were ruled out for the primary corpus](evidence/inline-slot-feasibility-2026-09-27/README.md):
+   its 29/37 KiB encoded catalogues cannot fit a 24 KiB slot. Compare paged
+   catalogue COW, budgeting root/publication, complete leaves and staging space
+   together on retained records before implementing another writer.
    Integrate typed catalogue overflow, public record semantics, payload updates,
    overflow transitions and compaction/installation before qualification. Preserve the existing candidate as the control.
    Five retained images now match the size model; both small fixtures are actual

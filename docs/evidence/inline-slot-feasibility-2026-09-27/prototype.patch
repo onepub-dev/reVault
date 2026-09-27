@@ -1,0 +1,706 @@
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue.rs
+index 3b906bec..ce7cb444 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue.rs
+@@ -273,18 +273,7 @@ impl Catalogue {
+     pub(super) fn upgrade(&mut self, anchor: &Anchor) -> Result<()> {
+         self.graph(anchor)?;
+         if self.legacy {
+-            if anchor.keys == publication::RootRef::default() {
+-                self.vacant = [0, publication::FAILURE_REGION]
+-                    .into_iter()
+-                    .map(|bank| Vacant {
+-                        span: Span {
+-                            start: bank + 12288,
+-                            len: 4096,
+-                        },
+-                        kind: VacantKind::Free,
+-                    })
+-                    .collect();
+-            }
++            self.vacant=Graph::fresh_vacancies(anchor)?;
+             self.legacy = false;
+         }
+         Ok(())
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/dense_image.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/dense_image.rs
+index 60f21dd4..7436f185 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/dense_image.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/dense_image.rs
+@@ -190,7 +190,7 @@ pub(super) fn from_candidate<S: Storage, T: Storage>(
+         {
+             return Err(Error::CorruptRecord);
+         }
+-        shared::initialize(
++        shared::initialize_compact(
+             &mut destination,
+             archive,
+             mode,
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/dense_update.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/dense_update.rs
+index a69a2123..b1c45d8a 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/dense_update.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/dense_update.rs
+@@ -91,7 +91,7 @@ pub(super) fn recover(
+ }
+ /// Select a vacant private slot. Each external slot starts in its own 64 KiB
+ /// failure region; leftover alignment/tail bytes remain explicit zeroed free space.
+-fn take_slot(vacant: &mut Vec<Vacant>, wanted: Option<u64>, sealed: &mut u64) -> Result<u64> {
++fn take_slot(vacant: &mut Vec<Vacant>, wanted: Option<u64>, sealed: &mut u64,size:u64) -> Result<u64> {
+     let found = vacant.iter().enumerate().find_map(|(index, entry)| {
+         let start = if let Some(wanted) = wanted {
+             wanted
+@@ -102,7 +102,7 @@ fn take_slot(vacant: &mut Vec<Vacant>, wanted: Option<u64>, sealed: &mut u64) ->
+             entry.span.start.checked_add(FAILURE_REGION - 1)? / FAILURE_REGION * FAILURE_REGION
+         };
+         (start >= entry.span.start
+-            && start.checked_add(PRIVATE_BYTES)? <= entry.span.start.checked_add(entry.span.len)?)
++            && start.checked_add(size)? <= entry.span.start.checked_add(entry.span.len)?)
+         .then_some((index, start))
+     });
+     if let Some((index, start)) = found {
+@@ -117,11 +117,11 @@ fn take_slot(vacant: &mut Vec<Vacant>, wanted: Option<u64>, sealed: &mut u64) ->
+                 kind: old.kind,
+             });
+         }
+-        if start + PRIVATE_BYTES < end {
++        if start + size < end {
+             vacant.push(Vacant {
+                 span: Span {
+-                    start: start + PRIVATE_BYTES,
+-                    len: end - start - PRIVATE_BYTES,
++                    start: start + size,
++                    len: end - start - size,
+                 },
+                 kind: old.kind,
+             });
+@@ -150,13 +150,37 @@ fn take_slot(vacant: &mut Vec<Vacant>, wanted: Option<u64>, sealed: &mut u64) ->
+         .ok_or(Error::CorruptRecord)?;
+     vacant.push(Vacant {
+         span: Span {
+-            start: start + PRIVATE_BYTES,
+-            len: FAILURE_REGION - PRIVATE_BYTES,
++            start: start + size,
++            len: FAILURE_REGION - size,
+         },
+         kind: VacantKind::Free,
+     });
+     Ok(start)
+ }
++// Recovery proved all these intervals erased. Keep typed inline boundaries;
++// coalesce only complete private areas or external vacant space, never controls.
++fn normalize(vacant:&[Vacant])->Vec<Vacant> {
++    let mut sorted=vacant.to_vec();sorted.sort_by_key(|entry|entry.span.start);
++    let mut out:Vec<Vacant>=Vec::new();
++    for mut entry in sorted {
++        entry.kind=VacantKind::Free;
++        if let Some(old)=out.last_mut() {
++            let end=entry.span.start+entry.span.len;
++            let private=old.span.start%FAILURE_REGION==PRIVATE_START && end-old.span.start==PRIVATE_BYTES && old.span.start<REGION_LEN as u64;
++            if old.span.start+old.span.len==entry.span.start && (old.span.start>=REGION_LEN as u64 || private) {old.span.len=end-old.span.start;continue;}
++        }
++        out.push(entry);
++    }
++    out
++}
++fn inline_slot(vacant:&[Vacant],bank:u64,size:u64)->Option<u64> {
++    for local in [PRIVATE_START,PRIVATE_START+PRIVATE_BYTES/2] {
++        if size==PRIVATE_BYTES && local!=PRIVATE_START {continue;}
++        let start=bank+local;
++        if vacant.iter().any(|entry|entry.span.start<=start && entry.span.start+entry.span.len>=start+size) {return Some(start);}
++    }
++    None
++}
+ /// Rename one file and optionally replace its permission bits. Identities,
+ /// fragment AEAD bindings, payload bytes and wrapped keys remain unchanged.
+ #[allow(clippy::too_many_arguments)]
+@@ -209,37 +233,27 @@ pub(super) fn edit(
+     catalogue.files[index].path = Zeroizing::new(to.to_vec());
+     catalogue.files[index].permissions = permissions;
+     catalogue.files.sort_by(|a, b| a.path.cmp(&b.path));
+-    let mut sealed = anchor.sealed_len;
+-    let inline =
+-        anchor.index.primary >= REGION_LEN as u64 && anchor.index.mirror >= REGION_LEN as u64;
+-    let first = take_slot(
+-        &mut catalogue.vacant,
+-        inline.then_some(PRIVATE_START),
+-        &mut sealed,
+-    )?;
+-    let second = take_slot(
+-        &mut catalogue.vacant,
+-        inline.then_some(FAILURE_REGION + PRIVATE_START),
+-        &mut sealed,
+-    )?;
+-    for start in [anchor.index.primary, anchor.index.mirror] {
+-        catalogue.vacant.push(Vacant {
+-            span: Span {
+-                start,
+-                len: anchor.index.len,
+-            },
+-            kind: VacantKind::Pending,
+-        });
++    let original_vacant=catalogue.vacant.clone();
++    let mut chosen=None;
++    for size in [PRIVATE_BYTES/2,PRIVATE_BYTES] {
++        catalogue.vacant=normalize(&original_vacant);
++        let mut sealed=anchor.sealed_len;
++        let preferred=match (inline_slot(&catalogue.vacant,0,size),inline_slot(&catalogue.vacant,FAILURE_REGION,size)) {
++            (Some(a),Some(b))=>(Some(a),Some(b)),_ => (None,None),
++        };
++        let first=take_slot(&mut catalogue.vacant,preferred.0,&mut sealed,size)?;
++        let second=take_slot(&mut catalogue.vacant,preferred.1,&mut sealed,size)?;
++        for start in [anchor.index.primary,anchor.index.mirror] {catalogue.vacant.push(Vacant {span:Span {start,len:anchor.index.len},kind:VacantKind::Pending});}
++        catalogue.vacant.sort_by_key(|entry|entry.span.start);
++        let body=catalogue.encode(&codec,sealed)?;
++        let encoded=match shared::encode_private_sized(archive,mode,key,&body,size as usize) {
++            Err(Error::SecurityLimitExceeded(_)) if size==PRIVATE_BYTES/2 => continue,
++            result => result?,
++        };
++        let root=RootRef {primary:first,mirror:second,len:encoded.len() as u64,digest:strong_checksum(&encoded)};
++        chosen=Some((sealed,encoded,root));break;
+     }
+-    catalogue.vacant.sort_by_key(|entry| entry.span.start);
+-    let body = catalogue.encode(&codec, sealed)?;
+-    let encoded = shared::encode_private(archive, mode, key, &body)?;
+-    let root = RootRef {
+-        primary: first,
+-        mirror: second,
+-        len: encoded.len() as u64,
+-        digest: strong_checksum(&encoded),
+-    };
++    let (sealed,encoded,root)=chosen.ok_or_else(||Error::SecurityLimitExceeded("private catalogue needs overflow".into()))?;
+     let commit = shared::commitment(&anchor)?;
+     let next = Anchor {
+         generation: anchor
+@@ -255,36 +269,21 @@ pub(super) fn edit(
+     let prepared = shared::prepare(&next, authority, signer)?;
+     let next_graph = catalogue.graph(&next)?;
+     let plan = old_graph.transition_to(&next_graph)?;
+-    let old_catalogue = Catalogue::decode(
+-        &shared::snapshot(storage, archive, mode, authority, key)?.1,
+-        &codec,
+-        anchor.sealed_len,
+-    )?;
+-    let mut old_catalogue = old_catalogue;
+-    old_catalogue.upgrade(&anchor)?;
+-    let mut reservations = Vec::new();
++    let mut reservations=Vec::new();
+     for span in &plan.writes {
+-        if span.start >= anchor.sealed_len {
+-            continue;
++        if span.start>=anchor.sealed_len {continue;}
++        let mut position=span.start;
++        let end=span.start+span.len;
++        while position<end {
++            let old=original_vacant.iter().find(|entry|entry.span.start<=position && entry.span.start+entry.span.len>position).ok_or(Error::CorruptRecord)?;
++            let limit=(old.span.start+old.span.len).min(end);
++            reservations.push(Reservation {namespace:match old.kind {VacantKind::Free=>FREE,VacantKind::Pending=>PENDING},base:old.span.start,start:position,len:limit-position});
++            position=limit;
+         }
+-        let old = old_catalogue
+-            .vacant
+-            .iter()
+-            .find(|entry| {
+-                entry.span.start <= span.start
+-                    && entry.span.start + entry.span.len >= span.start + span.len
+-            })
+-            .ok_or(Error::CorruptRecord)?;
+-        reservations.push(Reservation {
+-            namespace: match old.kind {
+-                VacantKind::Free => FREE,
+-                VacantKind::Pending => PENDING,
+-            },
+-            base: old.span.start,
+-            start: span.start,
+-            len: span.len,
+-        });
+     }
++    // Normalization may turn pending intervals into free or join adjacent slots.
++    // Obtain the erasure proof before recording reservations or changing bytes.
++    old_graph.verify_reclaimed(storage)?;
+     old_graph.validate_reservations(&reservations)?;
+     let mut journal = InlineSession::open(storage, archive, mode, key)?;
+     journal.begin(storage, commit, reservations)?;
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tests.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tests.rs
+index 58023056..de9a73e7 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tests.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tests.rs
+@@ -2746,7 +2746,7 @@ fn dense_ownership_catalogue_persists_canonical_states_and_preserves_file_bindin
+                 .unwrap();
+             let mut replacement = StorageBackend::memory(storage.read_all().unwrap());
+             replacement.write_at(0, &vec![0; REGION_LEN]).unwrap();
+-            shared::initialize(
++            shared::initialize_compact(
+                 &mut replacement,
+                 archive(),
+                 mode,
+@@ -2928,7 +2928,9 @@ fn dense_metadata_edits_reopen_with_bounded_control_growth_in_all_modes() {
+                             shared::open_private(&storage, archive(), mode, &authority, key(mode))
+                                 .unwrap();
+                         assert_eq!(next.generation, cycle + 2);
+-                        assert_eq!(next.index.primary < REGION_LEN as u64, cycle % 2 == 1);
++                        assert_eq!(next.index.len,24576);
++                        assert_eq!(next.index.primary,if cycle%2==0 {40960} else {16384});
++                        assert_eq!(next.sealed_len,anchor.sealed_len);
+                         if cycle == 0 {
+                             high_water = next.sealed_len;
+                         } else {
+@@ -2992,7 +2994,8 @@ fn dense_metadata_edits_recover_every_returned_storage_failure() {
+     ] {
+         let authority = authority(mode, &public);
+         let signer = mode.signed().then_some(&owner);
+-        let mut seed = dense_seed(mode, &authority, signer);
++        for full in [false,true] {
++        let mut seed = if full {dense_full_slot_seed(mode,&authority,signer)} else {dense_seed(mode,&authority,signer)};
+         for reverse in [false, true] {
+             let (from, to, bits) = if reverse {
+                 (b"renamed".as_slice(), b"erase".as_slice(), 0o644)
+@@ -3041,6 +3044,7 @@ fn dense_metadata_edits_recover_every_returned_storage_failure() {
+             seed = StorageBackend::memory(observed.read_all().unwrap());
+         }
+     }
++    }
+     println!("DENSE_METADATA_RETURNED_FAILURES {cases}");
+ }
+ #[test]
+@@ -3057,7 +3061,8 @@ fn dense_metadata_edits_survive_volatile_writes_torn_records_and_failed_sync() {
+     ] {
+         let authority = authority(mode, &public);
+         let signer = mode.signed().then_some(&owner);
+-        let mut seed = dense_seed(mode, &authority, signer).read_all().unwrap();
++        for full in [false,true] {
++        let mut seed = (if full {dense_full_slot_seed(mode,&authority,signer)} else {dense_seed(mode,&authority,signer)}).read_all().unwrap();
+         for reverse in [false, true] {
+             let (from, to, bits) = if reverse {
+                 (b"renamed".as_slice(), b"erase".as_slice(), 0o644)
+@@ -3103,6 +3108,7 @@ fn dense_metadata_edits_survive_volatile_writes_torn_records_and_failed_sync() {
+             seed = observed.durable();
+         }
+     }
++    }
+     println!("DENSE_METADATA_POWER_LOSS_CASES {cases}");
+ }
+ 
+@@ -3193,7 +3199,8 @@ fn dense_recovery_itself_survives_interruption_in_abort_and_commit_cleanup() {
+     ] {
+         let authority = authority(mode, &public);
+         let signer = mode.signed().then_some(&owner);
+-        let mut seed = dense_seed(mode, &authority, signer).read_all().unwrap();
++        for full in [false,true] {
++        let mut seed = (if full {dense_full_slot_seed(mode,&authority,signer)} else {dense_seed(mode,&authority,signer)}).read_all().unwrap();
+         for reverse in [false, true] {
+             let (from, to, bits) = if reverse {
+                 (b"renamed".as_slice(), b"erase".as_slice(), 0o644)
+@@ -3269,6 +3276,7 @@ fn dense_recovery_itself_survives_interruption_in_abort_and_commit_cleanup() {
+             seed = observed.durable();
+         }
+     }
++    }
+     println!("DENSE_METADATA_RECOVERY_INTERRUPTION_CASES {cases}");
+ }
+ #[test]
+@@ -3285,7 +3293,8 @@ fn dense_metadata_updates_keep_authority_after_either_control_or_external_root_r
+     ] {
+         let authority = authority(mode, &public);
+         let signer = mode.signed().then_some(&owner);
+-        let mut storage = dense_seed(mode, &authority, signer);
++        for full in [false,true] {
++        let mut storage = if full {dense_full_slot_seed(mode,&authority,signer)} else {dense_seed(mode,&authority,signer)};
+         let mut regions = vec![0, FAILURE_REGION];
+         for reverse in [false, true] {
+             let (from, to, bits) = if reverse {
+@@ -3308,7 +3317,8 @@ fn dense_metadata_updates_keep_authority_after_either_control_or_external_root_r
+             let (anchor, _) =
+                 shared::snapshot(&storage, archive(), mode, &authority, key(mode)).unwrap();
+             if !reverse {
+-                regions.extend([anchor.index.primary, anchor.index.mirror]);
++                regions.extend([anchor.index.primary/FAILURE_REGION*FAILURE_REGION, anchor.index.mirror/FAILURE_REGION*FAILURE_REGION]);
++                regions.sort_unstable();regions.dedup();
+             }
+             for start in &regions {
+                 let mut damaged = StorageBackend::memory(storage.read_all().unwrap());
+@@ -3337,6 +3347,7 @@ fn dense_metadata_updates_keep_authority_after_either_control_or_external_root_r
+             }
+         }
+     }
++    }
+     println!("DENSE_METADATA_SEPARATE_REGION_LOSS_CASES {cases}");
+ }
+ 
+@@ -3391,3 +3402,61 @@ fn dense_metadata_file_updates_close_and_reopen_with_persisted_permissions_and_c
+         drop(reader);
+     }
+ }
++
++// Preserve the earlier full-slot geometry as a reader/update control, including
++// its external-allocation and tail-abort paths. No CLI writes either experiment.
++fn dense_full_slot_seed(mode:FormatMode,authority:&Authority<'_>,signer:Option<&OwnerSigningKeyPair>)->StorageBackend {
++    use crate::file_format::publication_anchor::{shared,REGION_LEN};
++    let mut storage=dense_seed(mode,authority,signer);
++    let (_,body)=shared::open_private(&storage,archive(),mode,authority,key(mode)).unwrap();
++    storage.write_at(0,&vec![0;REGION_LEN]).unwrap();
++    shared::initialize(&mut storage,archive(),mode,authority,signer,key(mode),&body,&[]).unwrap();
++    storage
++}
++
++#[test]
++fn dense_private_catalogue_growth_and_shrink_reuse_external_control_space() {
++    use crate::file_format::publication_anchor::{shared,REGION_LEN};
++    let owner=OwnerSigningKeyPair::generate().unwrap();let public=owner.public_key();
++    for encrypted in [false,true] {for signed in [false,true] {
++        let mode=mode(encrypted,signed,false,true);let authority=authority(mode,&public);let signer=signed.then_some(&owner);
++        let names:Vec<_>=(0..200).map(|index|format!("file-{index:04}-{}","a".repeat(44)).into_bytes()).collect();
++        let inputs=names.iter().map(|path|Input {path:path.clone(),reader:Cursor::new(Vec::new())});
++        let source=Files::create(StorageBackend::memory(Vec::new()),archive(),mode,&authority,signer,key(mode),65536,inputs).unwrap();
++        let mut source=Files::open(source,archive(),mode,&authority,key(mode)).unwrap();
++        let mut storage=super::dense_image::from_candidate(&mut source,StorageBackend::memory(Vec::new()),&authority,signer,key(mode),&[]).unwrap();
++        let (initial,_)=shared::snapshot(&storage,archive(),mode,&authority,key(mode)).unwrap();
++        assert_eq!(initial.index.len,24576);assert_eq!(initial.sealed_len,REGION_LEN as u64);
++        let long=vec![b'x';4096];let mut high_water=0;
++        for cycle in 0..8 {
++            let grow=cycle%2==0;let (from,to)=if grow {(names[0].as_slice(),long.as_slice())}else{(long.as_slice(),names[0].as_slice())};
++            assert!(super::dense_update::edit(&mut storage,archive(),mode,&authority,signer,key(mode),from,to,None).unwrap());
++            let (anchor,body)=shared::open_private(&storage,archive(),mode,&authority,key(mode)).unwrap();
++            assert_eq!(anchor.index.len,if grow {49152}else{24576});
++            assert_eq!(anchor.index.primary>=REGION_LEN as u64,grow);
++            if cycle==0 {high_water=anchor.sealed_len;}else{assert_eq!(anchor.sealed_len,high_water);}
++            let codec=Codec::shared_packed(archive(),mode,key(mode)).unwrap();let catalogue=super::dense_catalogue::Catalogue::decode(&body,&codec,anchor.sealed_len).unwrap();
++            catalogue.graph(&anchor).unwrap().verify_reclaimed(&storage).unwrap();
++            assert_eq!(catalogue.files.len(),200);assert!(catalogue.files.iter().any(|file|file.path.as_slice()==to));assert!(!catalogue.files.iter().any(|file|file.path.as_slice()==from));
++            let mut image=super::dense_image::Image::open(StorageBackend::memory(storage.read_all().unwrap()),archive(),mode,&authority,key(mode)).unwrap();
++            for name in names.iter().skip(1) {image.read_range(name,0,0,|_|panic!("empty file returned data")).unwrap();}
++            image.read_range(to,0,0,|_|panic!("empty file returned data")).unwrap();
++        }
++    }}
++}
++#[test]
++fn dense_password_bootstrap_still_reads_files_after_inline_metadata_updates() {
++    use crate::file_format::publication_anchor::bootstrap::Credential;
++    let owner=OwnerSigningKeyPair::generate().unwrap();let public=owner.public_key();
++    let mode=mode(true,true,true,true);let authority=authority(mode,&public);
++    let mut source=Files::open(packed_pair(mode,&authority,Some(&owner)),archive(),mode,&authority,key(mode)).unwrap();
++    let slots=[crate::key_slot::KeySlot::password_bytes(1,b"synthetic lane password",vec![94;16],KEY).unwrap()];
++    let mut storage=super::dense_image::from_candidate(&mut source,StorageBackend::memory(Vec::new()),&authority,Some(&owner),key(mode),&slots).unwrap();
++    for name in [b"renamed".as_slice(),b"erase".as_slice()] {
++        let from=if name==b"renamed" {b"erase".as_slice()}else{b"renamed".as_slice()};
++        super::dense_update::edit(&mut storage,archive(),mode,&authority,Some(&owner),key(mode),from,name,None).unwrap();
++        let password=crate::SecretString::try_from_slice(b"synthetic lane password").unwrap();
++        let mut image=super::dense_image::Image::open_credential(StorageBackend::memory(storage.read_all().unwrap()),archive(),mode,Some(&public),Credential::Password(&password),Some(1)).unwrap();
++        let mut data=Vec::new();image.read_range(name,0,4096,|part|{data.extend_from_slice(part);Ok(())}).unwrap();assert_eq!(data,vec![0xa7;4096]);
++    }
++}
+diff --git a/rust/revault_lockbox_api/src/file_format/publication_anchor.rs b/rust/revault_lockbox_api/src/file_format/publication_anchor.rs
+index 0d8f9b79..1325f3d9 100644
+--- a/rust/revault_lockbox_api/src/file_format/publication_anchor.rs
++++ b/rust/revault_lockbox_api/src/file_format/publication_anchor.rs
+@@ -65,7 +65,7 @@ impl Layout {
+             if offset < REGION_LEN as u64 {
+                 let local = offset % FAILURE_REGION;
+                 let valid = match role {
+-                    RootRole::Private => local == 16384 && root.len <= 49152,
++                    RootRole::Private => (local == 16384 && root.len <= 49152) || (local == 40960 && root.len <= 24576),
+                     RootRole::PublicKeys => local == 12288 && root.len == 4096,
+                     RootRole::Allocation => false,
+                 };
+diff --git a/rust/revault_lockbox_api/src/file_format/publication_anchor/shared.rs b/rust/revault_lockbox_api/src/file_format/publication_anchor/shared.rs
+index e745a079..21e7d0a6 100644
+--- a/rust/revault_lockbox_api/src/file_format/publication_anchor/shared.rs
++++ b/rust/revault_lockbox_api/src/file_format/publication_anchor/shared.rs
+@@ -59,6 +59,33 @@ pub(crate) fn initialize(
+     key: Option<&[u8]>,
+     body: &[u8],
+     slots: &[crate::key_slot::KeySlot],
++) -> Result<Anchor> {
++    initialize_in(storage,archive,mode,authority,signer,key,body,slots,false)
++}
++#[allow(clippy::too_many_arguments)]
++pub(crate) fn initialize_compact(
++    storage: &mut impl Storage,
++    archive: LockboxId,
++    mode: FormatMode,
++    authority: &Authority<'_>,
++    signer: Option<&OwnerSigningKeyPair>,
++    key: Option<&[u8]>,
++    body: &[u8],
++    slots: &[crate::key_slot::KeySlot],
++) -> Result<Anchor> {
++    initialize_in(storage,archive,mode,authority,signer,key,body,slots,true)
++}
++#[allow(clippy::too_many_arguments)]
++fn initialize_in(
++    storage: &mut impl Storage,
++    archive: LockboxId,
++    mode: FormatMode,
++    authority: &Authority<'_>,
++    signer: Option<&OwnerSigningKeyPair>,
++    key: Option<&[u8]>,
++    body: &[u8],
++    slots: &[crate::key_slot::KeySlot],
++    compact:bool,
+ ) -> Result<Anchor> {
+     if storage.len()? < REGION_LEN as u64
+         || storage
+@@ -80,7 +107,8 @@ pub(crate) fn initialize(
+             "plaintext image cannot contain decryption slots".into(),
+         ));
+     }
+-    let private = catalogue::Codec::new(archive, mode, key)?.encode(body)?;
++    let codec=catalogue::Codec::new(archive,mode,key)?;
++    let private=if compact {codec.encode_compact(body)?} else {codec.encode(body)?};
+     let public = if slots.is_empty() {
+         None
+     } else {
+@@ -211,7 +239,7 @@ pub(crate) fn credential_open(
+ fn validate_fresh_shape(anchor: &Anchor) -> Result<()> {
+     anchor.validate_in(Layout::Shared)?;
+     if anchor.generation != 1
+-        || anchor.index.len != PRIVATE_BYTES as u64
++        || ![PRIVATE_BYTES as u64/2, PRIVATE_BYTES as u64].contains(&anchor.index.len)
+         || anchor.object_root != anchor.index.digest
+         || !anchor.allocation.absent()
+         || anchor.index.primary >= REGION_LEN as u64
+@@ -235,7 +263,7 @@ pub(crate) fn snapshot(
+     key: Option<&[u8]>,
+ ) -> Result<(Anchor, crate::page_buffer::ZeroizingBytes)> {
+     let anchor = select_in(storage, archive, mode, authority, Layout::Shared)?.anchor;
+-    if anchor.index.len != PRIVATE_BYTES as u64
++    if ![PRIVATE_BYTES as u64/2, PRIVATE_BYTES as u64].contains(&anchor.index.len)
+         || anchor.object_root != anchor.index.digest
+         || !anchor.allocation.absent()
+         || (!anchor.keys.absent() && anchor.keys.len != 4096)
+@@ -352,3 +380,7 @@ pub(crate) fn publish(
+     storage.sync()?;
+     Ok(())
+ }
++
++pub(crate) fn encode_private_sized(archive:LockboxId,mode:FormatMode,key:Option<&[u8]>,body:&[u8],slot_bytes:usize)->Result<crate::page_buffer::ZeroizingBytes> {
++    if slot_bytes==PRIVATE_BYTES {encode_private(archive,mode,key,body)} else {catalogue::Codec::new(archive,mode,key)?.encode_sized(body,slot_bytes)}
++}
+diff --git a/rust/revault_lockbox_api/src/file_format/publication_anchor/shared/catalogue.rs b/rust/revault_lockbox_api/src/file_format/publication_anchor/shared/catalogue.rs
+index 07b91ccd..6ea80794 100644
+--- a/rust/revault_lockbox_api/src/file_format/publication_anchor/shared/catalogue.rs
++++ b/rust/revault_lockbox_api/src/file_format/publication_anchor/shared/catalogue.rs
+@@ -32,7 +32,15 @@ impl Codec {
+         });
+         Ok(Self { archive, mode, key })
+     }
+-    pub(super) fn encode(&self, plain: &[u8]) -> Result<ZeroizingBytes> {
++    pub(super) fn encode(&self, plain: &[u8]) -> Result<ZeroizingBytes> { self.encode_sized(plain,PRIVATE_BYTES) }
++    pub(super) fn encode_compact(&self, plain: &[u8]) -> Result<ZeroizingBytes> {
++        match self.encode_sized(plain,PRIVATE_BYTES/2) {
++            Err(Error::SecurityLimitExceeded(_)) => self.encode(plain),
++            result => result,
++        }
++    }
++    pub(super) fn encode_sized(&self, plain: &[u8],slot_bytes:usize) -> Result<ZeroizingBytes> {
++        if ![PRIVATE_BYTES/2,PRIVATE_BYTES].contains(&slot_bytes) { return Err(Error::CorruptRecord); }
+         if plain.len() > MAX_PLAIN {
+             return Err(Error::SecurityLimitExceeded(
+                 "inline catalogue decoded limit".into(),
+@@ -40,7 +48,7 @@ impl Codec {
+         }
+         let (codec, encoded) = encode_with_compression(plain, self.mode.options().compression);
+         let encoded = ZeroizingBytes::new(encoded);
+-        let body_len = PRIVATE_BYTES - HEADER - if self.key.is_some() { 16 } else { 0 };
++        let body_len = slot_bytes - HEADER - if self.key.is_some() { 16 } else { 0 };
+         if BODY_HEADER + encoded.len() > body_len {
+             return Err(Error::SecurityLimitExceeded(
+                 "catalogue needs authenticated overflow".into(),
+@@ -53,7 +61,7 @@ impl Codec {
+         body.extend_from_slice(&[0; 3]);
+         body.extend_from_slice(&encoded);
+         body.resize(body_len, 0);
+-        let mut out = ZeroizingBytes::new(Vec::with_capacity(PRIVATE_BYTES));
++        let mut out = ZeroizingBytes::new(Vec::with_capacity(slot_bytes));
+         out.extend_from_slice(MAGIC);
+         out.extend_from_slice(&1u16.to_le_bytes());
+         out.extend_from_slice(&self.mode.0.to_le_bytes());
+@@ -68,17 +76,17 @@ impl Codec {
+             out.extend_from_slice(&(body.len() as u32).to_le_bytes());
+             out.extend_from_slice(&body);
+         }
+-        debug_assert_eq!(out.len(), PRIVATE_BYTES);
++        debug_assert_eq!(out.len(), slot_bytes);
+         Ok(out)
+     }
+     pub(super) fn decode(&self, bytes: &[u8]) -> Result<ZeroizingBytes> {
+-        if bytes.len() != PRIVATE_BYTES
++        if ![PRIVATE_BYTES/2,PRIVATE_BYTES].contains(&bytes.len())
+             || &bytes[..8] != MAGIC
+             || bytes[8..10] != 1u16.to_le_bytes()
+             || bytes[10..12] != self.mode.0.to_le_bytes()
+             || bytes[12..28] != *self.archive.as_bytes()
+             || u32::from_le_bytes(bytes[40..44].try_into().unwrap()) as usize
+-                != PRIVATE_BYTES - HEADER
++                != bytes.len() - HEADER
+         {
+             return Err(Error::CorruptRecord);
+         }
+@@ -229,3 +237,31 @@ mod tests {
+         assert!(Codec::new(LockboxId::from_bytes([64; 16]), mode, Some(&[0; 32])).is_err());
+     }
+ }
++
++#[cfg(test)]
++mod compact_tests {
++    use super::*;
++    use crate::{Compression,EncryptionMode,LockboxFormatOptions,SigningMode,SizePadding};
++    #[test]
++    fn private_slot_sizes_preserve_decode_limits_and_refuse_silent_truncation() {
++        let archive=LockboxId::from_bytes([92;16]);let key=[93;32];
++        for encrypted in [false,true] {for signed in [false,true] {
++            let mode=FormatMode::new(LockboxFormatOptions {encryption:if encrypted {EncryptionMode::ChaCha20Poly1305}else{EncryptionMode::None},signing:if signed {SigningMode::Owner}else{SigningMode::None},compression:Compression::None,size_padding:SizePadding::Default});
++            let codec=Codec::new(archive,mode,encrypted.then_some(key.as_slice())).unwrap();
++            let short_limit=PRIVATE_BYTES/2-HEADER-BODY_HEADER-if encrypted {16}else{0};
++            for len in [0,short_limit,short_limit+1,40000] {
++                let plain=vec![0x52;len];let encoded=codec.encode_compact(&plain).unwrap();
++                assert_eq!(encoded.len(),if len<=short_limit {PRIVATE_BYTES/2}else{PRIVATE_BYTES});
++                assert_eq!(codec.decode(&encoded).unwrap().as_slice(),plain);
++                if len>short_limit {assert!(codec.encode_sized(&plain,PRIVATE_BYTES/2).is_err());assert!(codec.decode(&encoded[..PRIVATE_BYTES/2]).is_err());}
++                else {let mut extended=encoded.to_vec();extended.resize(PRIVATE_BYTES,0);assert!(codec.decode(&extended).is_err());}
++            }
++            for unsupported in [0,16384,32768,65536] {assert!(codec.encode_sized(b"contents",unsupported).is_err());}
++            let compressed=FormatMode::new(LockboxFormatOptions {compression:Compression::default(),..mode.options()});
++            let codec=Codec::new(archive,compressed,encrypted.then_some(key.as_slice())).unwrap();
++            let plain=vec![0x52;65536];let encoded=codec.encode_compact(&plain).unwrap();
++            assert_eq!(encoded.len(),24576);assert_eq!(codec.decode(&encoded).unwrap().as_slice(),plain);
++            assert!(codec.encode_compact(&vec![0;65537]).is_err());
++        }}
++    }
++}
+diff --git a/rust/revault_lockbox_api/src/file_format/publication_anchor/shared/ownership.rs b/rust/revault_lockbox_api/src/file_format/publication_anchor/shared/ownership.rs
+index 507e5bd4..98b21d43 100644
+--- a/rust/revault_lockbox_api/src/file_format/publication_anchor/shared/ownership.rs
++++ b/rust/revault_lockbox_api/src/file_format/publication_anchor/shared/ownership.rs
+@@ -69,7 +69,7 @@ pub(crate) struct Transition {
+ impl Graph {
+     pub(crate) fn derive(anchor: &Anchor, packs: &[Extent], vacant: &[Vacant]) -> Result<Self> {
+         anchor.validate_in(Layout::Shared)?;
+-        if anchor.index.len != PRIVATE_BYTES as u64
++        if ![PRIVATE_BYTES as u64/2, PRIVATE_BYTES as u64].contains(&anchor.index.len)
+             || anchor.object_root != anchor.index.digest
+             || !anchor.allocation.absent()
+             || (!anchor.keys.absent() && anchor.keys.len != 4096)
+@@ -127,6 +127,7 @@ impl Graph {
+                 // preparation or a merged interval across private/public slots.
+                 let local = entry.span.start % FAILURE_REGION;
+                 if !((local == PRIVATE_START && entry.span.len == PRIVATE_BYTES as u64)
++                    || ([PRIVATE_START,PRIVATE_START+PRIVATE_BYTES as u64/2].contains(&local) && entry.span.len == PRIVATE_BYTES as u64/2)
+                     || (local == KEYS_START && entry.span.len == 4096))
+                     || end > REGION_LEN as u64
+                 {
+@@ -189,23 +190,22 @@ impl Graph {
+             })
+             .ok_or(Error::CorruptRecord)
+     }
+-    pub(crate) fn fresh_files(anchor: &Anchor, packs: &[Extent]) -> Result<Self> {
++    pub(crate) fn fresh_vacancies(anchor:&Anchor)->Result<Vec<Vacant>> {
+         validate_fresh_shape(anchor)?;
+-        let vacant = if anchor.keys.absent() {
+-            [0, FAILURE_REGION]
+-                .into_iter()
+-                .map(|bank| Vacant {
+-                    span: Span {
+-                        start: bank + KEYS_START,
+-                        len: 4096,
+-                    },
+-                    kind: VacantKind::Free,
+-                })
+-                .collect()
+-        } else {
+-            Vec::new()
+-        };
+-        Self::derive(anchor, packs, &vacant)
++        let mut vacant=Vec::new();
++        for bank in [0,FAILURE_REGION] {
++            if anchor.keys.absent() {vacant.push(Vacant {span:Span {start:bank+KEYS_START,len:4096},kind:VacantKind::Free});}
++            if anchor.index.len==PRIVATE_BYTES as u64/2 {
++                let root=[anchor.index.primary,anchor.index.mirror].into_iter().find(|start|start/FAILURE_REGION==bank/FAILURE_REGION).ok_or(Error::CorruptRecord)?;
++                let start=if root==bank+PRIVATE_START {root+anchor.index.len} else {bank+PRIVATE_START};
++                vacant.push(Vacant {span:Span {start,len:anchor.index.len},kind:VacantKind::Free});
++            }
++        }
++        vacant.sort_by_key(|entry|entry.span.start);
++        Ok(vacant)
++    }
++    pub(crate) fn fresh_files(anchor:&Anchor,packs:&[Extent])->Result<Self> {
++        Self::derive(anchor,packs,&Self::fresh_vacancies(anchor)?)
+     }
+     /// Free means durably erased, not merely unreachable. Pending bytes may still
+     /// contain an old secret and are deliberately not accepted by this check.
+@@ -301,12 +301,14 @@ impl Graph {
+                 continue;
+             }
+             if claim.span.start < self.anchor.sealed_len {
+-                let previous = self.covering(claim.span)?;
+-                if !previous.kind.vacant() {
+-                    return Err(Error::CorruptRecord);
+-                }
+-                if previous.kind == Kind::Pending {
+-                    result.erase_before_write.push(claim.span);
++                let mut position=claim.span.start;
++                let end=claim.span.end()?;
++                while position<end {
++                    let previous=self.covering(Span {start:position,len:1})?;
++                    if !previous.kind.vacant() {return Err(Error::CorruptRecord);}
++                    let limit=previous.span.end()?.min(end);
++                    if previous.kind==Kind::Pending {result.erase_before_write.push(Span {start:position,len:limit-position});}
++                    position=limit;
+                 }
+             }
+             result.writes.push(claim.span);
+diff --git a/rust/revault_lockbox_api/src/file_format/publication_anchor/shared/ownership/tests.rs b/rust/revault_lockbox_api/src/file_format/publication_anchor/shared/ownership/tests.rs
+index b407f365..091c64c3 100644
+--- a/rust/revault_lockbox_api/src/file_format/publication_anchor/shared/ownership/tests.rs
++++ b/rust/revault_lockbox_api/src/file_format/publication_anchor/shared/ownership/tests.rs
+@@ -271,3 +271,30 @@ fn free_bytes_are_checked_but_pending_secret_bytes_are_not_misclassified_as_free
+         .verify_free(&storage)
+         .is_err());
+ }
++
++#[test]
++fn private_slot_growth_requires_all_previous_subranges_to_be_vacant() {
++    let (anchor,packs,_)=initial();
++    let (external,mut vacant)=external(&anchor);
++    vacant.retain(|entry|entry.span.start>=REGION_LEN as u64 || entry.span.len==4096);
++    for bank in [0,FAILURE_REGION] {
++        vacant.push(Vacant {span:Span {start:bank+PRIVATE_START,len:24576},kind:VacantKind::Free});
++        vacant.push(Vacant {span:Span {start:bank+PRIVATE_START+24576,len:24576},kind:VacantKind::Pending});
++    }
++    let old=Graph::derive(&external,&packs,&vacant).unwrap();
++    let next=advance(&external,RootRef {digest:[9;32],..anchor.index},external.sealed_len);
++    let mut retired=key_slots();
++    for start in [external.index.primary,external.index.mirror] {
++        retired.push(Vacant {span:Span {start,len:PRIVATE_BYTES as u64},kind:VacantKind::Pending});
++        retired.push(Vacant {span:Span {start:start+PRIVATE_BYTES as u64,len:FAILURE_REGION-PRIVATE_BYTES as u64},kind:VacantKind::Free});
++    }
++    let next=Graph::derive(&next,&packs,&retired).unwrap();
++    let plan=old.transition_to(&next).unwrap();assert_eq!(plan.writes.len(),2);
++    assert_eq!(plan.erase_before_write,vec![Span {start:40960,len:24576},Span {start:106496,len:24576}]);
++    // Free first halves cannot authorize overwrite of live second halves.
++    let mut live=anchor.clone();live.index=RootRef {primary:40960,mirror:106496,len:24576,digest:[7;32]};live.object_root=live.index.digest;
++    let mut vacant=key_slots();for bank in [0,FAILURE_REGION] {vacant.push(Vacant {span:Span {start:bank+PRIVATE_START,len:24576},kind:VacantKind::Free});}
++    let old=Graph::derive(&live,&packs,&vacant).unwrap();
++    let next=advance(&live,anchor.index,anchor.sealed_len);
++    assert!(old.transition_to(&Graph::derive(&next,&packs,&key_slots()).unwrap()).is_err());
++}
+diff --git a/rust/revault_lockbox_api/src/file_format/publication_anchor/shared/tests.rs b/rust/revault_lockbox_api/src/file_format/publication_anchor/shared/tests.rs
+index 12cc5fd1..0a1845b6 100644
+--- a/rust/revault_lockbox_api/src/file_format/publication_anchor/shared/tests.rs
++++ b/rust/revault_lockbox_api/src/file_format/publication_anchor/shared/tests.rs
+@@ -284,3 +284,17 @@ fn shared_control_image_bootstraps_and_decrypts_after_either_region_is_lost() {
+         }
+     }
+ }
++
++#[test]
++fn compact_private_slots_stay_inside_their_role_and_failure_region() {
++    let (_,mut anchor)=fixture(mode(false,false));
++    anchor.index.len=24576;
++    for local in [16384,40960] {
++        anchor.index.primary=local;anchor.index.mirror=FAILURE_REGION+local;
++        anchor.validate_in(Layout::Shared).unwrap();
++    }
++    for (local,len) in [(40960,49152),(40961,24576),(12288,24576),(65536-24575,24576)] {
++        anchor.index.primary=local;anchor.index.mirror=FAILURE_REGION+local;anchor.index.len=len;
++        assert!(anchor.validate_in(Layout::Shared).is_err());
++    }
++}

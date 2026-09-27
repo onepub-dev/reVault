@@ -117,3 +117,11 @@ new metadata outside the prefix until retirement. Test two 24 KiB private slots
 within each bank for smaller catalogues, with the existing larger/external route
 when necessary. This changes allocation geometry, not fragment decode bounds or
 publication/erasure ordering. No format decision or gate change is implied.
+
+
+The [split-slot prototype](../evidence/inline-slot-feasibility-2026-09-27/README.md)
+passes correctness checks but is not adopted: the primary catalogues are already
+29/37 KiB encoded and cannot fit a 24 KiB slot. The next feasibility comparison
+uses paged metadata COW and budgets any embedded root against actual hybrid
+publication bytes. Do not infer spare publication capacity or retain old private
+values in an overlay to avoid erasure.
