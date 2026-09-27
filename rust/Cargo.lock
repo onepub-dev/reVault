@@ -2712,9 +2712,14 @@ dependencies = [
 name = "revault_vault_api"
 version = "0.0.42"
 dependencies = [
+ "aes",
+ "async-io",
  "base64ct",
+ "cbc",
  "chacha20poly1305",
+ "futures-lite",
  "getrandom 0.4.3",
+ "hkdf 0.13.0",
  "keyring",
  "libc",
  "objc2-core-foundation",

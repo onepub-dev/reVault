@@ -11,7 +11,7 @@ normal CLI build. Its build script required `dbus-1.pc`. Credential storage was
 already using the Rust `zbus` backend. The watcher now also uses `zbus`, retaining
 logind signal filtering and file-descriptor inhibitors. The delay inhibitor stays
 held until the suspend handler has cleared cached secrets; resume reacquires it.
-Method calls use a five-second timeout. Missing logind remains an unavailable
+System-bus authentication and method calls use five-second bounds. Missing logind remains an unavailable
 optional capability, as before.
 
 Do not remove all `libdbus-sys` entries from Cargo.lock: historical migration
@@ -29,8 +29,9 @@ The sleep-watcher integration test requires the `dbus-daemon` executable as a
 **test-only** fixture. It starts its own private bus and synthetic logind service;
 it neither accesses the host's logind nor requests real system sleep. The test
 checks signal delivery, delay-inhibitor lifetime, resume reacquisition and block
-inhibitor lifetime. Unit tests of secret storage use an in-memory store and do
-not establish integration with a desktop keychain.
+inhibitor lifetime. Unit tests of secret storage use an in-memory store. The additional
+`linux_secret_service` integration suite uses a separate private bus and synthetic
+Secret Service provider; it never connects to the host desktop keychain.
 
 ## Platform audit
 
@@ -72,12 +73,53 @@ migration dev-dependencies. The same test also runs normally in `revault_cli`.
 The installed debug executable passed this test inside the clean container
 (78.23 seconds total, every command below the 30-second bound). All 25 Vault
 unit tests and 23 Vault integration tests passed locally, and affected-package
-Clippy passed with warnings denied. Release-mode CI and other operating systems
-have not been run locally.
+Clippy passed with warnings denied. That initial check used debug installation. The later deadline checkpoint also
+passes a fresh release-mode installation and its installed CLI lifecycle; remote
+CI and real other-platform execution remain unverified.
 
-This fixes the reported Linux build dependency. It does not establish bounded
-behavior for every locked/denied/hung desktop credential service: those broader
-H1 acceptance cases remain outstanding. In particular, the pre-existing Secret
-Service unlock-prompt paths were not redesigned by this change. Explicit Vault
-credentials remain the tested noninteractive alternative; there is no plaintext
-credential fallback.
+## Bounded credential-store operations
+
+Linux reads, stores and removals now use the asynchronous pure-Rust Secret Service
+client behind the existing synchronous API. One five-second deadline covers bus
+connection/authentication, DH session negotiation, method calls and prompt signal
+waiting. The future is cancelled on timeout; no detached credential worker is left
+running. System-bus authentication is also bounded, separately from its method
+call timeout, so an unresponsive bus cannot indefinitely block sleep setup.
+
+Auto Open refuses a locked credential without requesting an unlock prompt. Explicit
+store/removal operations may encounter service-requested prompts, but they share
+the overall deadline. Errors advise unlocking the desktop store or using explicit
+Vault credentials. No plaintext credential fallback is introduced. macOS and
+Windows continue to use their existing native keyring backends.
+
+Existing `service` and `username` attributes, item labels and encrypted DH session
+negotiation are preserved. Private-bus tests exercise create, read, replacement,
+removal and no-change removal through separate connections, including actual
+keyring-backend writes read by the new API and new-API writes read by keyring.
+Explicit session addresses are honored without changing the process environment.
+Locked and denied stores fail for reads, writes and removals. Stalled bus
+handshakes, session negotiation, methods and a prompt whose method returns but
+never emits completion all return within the deadline. The synthetic provider's
+trivial test DH exponent and CBC oracle are test-only; production cryptography is
+unchanged.
+
+A timeout on a state-changing operation does not prove the desktop provider made
+no change. Callers should check the stored result before retrying. As before,
+disabling local Auto Open proceeds even if best-effort removal cannot reach the
+store; remove any retained desktop credential when that store becomes available.
+
+Run the new integration suite with:
+
+```sh
+cd rust
+cargo test --locked -p revault_vault_api@0.0.42 --test linux_secret_service
+```
+
+The normal Linux package-test job discovers this new integration target, including
+release validation that runs `vault_api` separately. `dbus-daemon` is a test fixture,
+not a runtime or build dependency of the installed CLI. Retained logs in
+[credential-store evidence](../evidence/headless-credential-deadlines-2026-09-27/README.md)
+record the actual validation. Windows cross-compilation is checked locally; real
+macOS Keychain, Windows service-account/denied-store behavior, packaged native
+bindings and release-mode CI remain platform qualification work. No remote CI run
+or published-package readiness is claimed.

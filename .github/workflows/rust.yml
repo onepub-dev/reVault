@@ -232,7 +232,7 @@ jobs:
           key: linux-tests-${{ matrix.cache }}
 
       - name: Install Linux dependencies
-        run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config
+        run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config dbus
 
       - name: Run required package tests
         env:

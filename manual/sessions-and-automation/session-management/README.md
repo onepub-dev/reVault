@@ -77,7 +77,7 @@ Disable Auto Open and close all open Lockboxes with:
 lbx session auto-open disable
 ```
 
-The command removes the Vault passphrase from the platform credential store.
+The command disables local Auto Open and attempts to remove the saved Vault passphrase. If the credential store is unavailable, remove that saved credential from the desktop store when it becomes available again.
 
 {% hint style="danger" %}
 With Auto Open enabled, anyone or anything operating as you in your unlocked desktop session may be able to open your Vault or Lockboxes. Lock your desktop whenever you walk away.
@@ -94,5 +94,7 @@ reVault uses the credential store supplied by the operating system:
 | Windows | Credential Manager |
 | Linux | Secret Service, commonly provided by libsecret-compatible desktop keyrings |
 | macOS | Keychain |
+
+On Linux, Auto Open requires an unlocked Secret Service credential. It does not open a desktop unlock prompt. Unlock the store and retry, or supply your Vault credentials explicitly. Each credential-store operation stops waiting after five seconds if the service or a requested prompt does not respond. A timed-out store or removal operation may already have completed; check its result before retrying.
 
 Run `lbx doctor` to check the capabilities available on your machine.

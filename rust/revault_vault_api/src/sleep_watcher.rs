@@ -94,7 +94,9 @@ impl SleepWatcher {
 mod platform {
     use super::*;
     use std::time::Duration;
-    use zbus::blocking::{connection::Builder, Connection, Proxy};
+    #[cfg(test)]
+    use zbus::blocking::connection::Builder;
+    use zbus::blocking::{Connection, Proxy};
     use zbus::zvariant::OwnedFd;
 
     pub(super) fn spawn_handler(handler: SleepHandler) -> io::Result<()> {
@@ -159,9 +161,30 @@ mod platform {
     }
 
     fn system_connection() -> zbus::Result<Connection> {
-        Builder::system()?
-            .method_timeout(Duration::from_secs(5))
-            .build()
+        bounded_connection(zbus::connection::Builder::system()?)
+    }
+
+    fn bounded_connection(builder: zbus::connection::Builder<'_>) -> zbus::Result<Connection> {
+        // A method timeout starts after authentication. Bound connection setup
+        // too, so an unresponsive bus cannot stall agent startup or secret use.
+        let timeout = Duration::from_secs(5);
+        async_io::block_on(futures_lite::future::or(
+            async {
+                builder
+                    .method_timeout(timeout)
+                    .build()
+                    .await
+                    .map(Connection::from)
+            },
+            async {
+                async_io::Timer::after(timeout).await;
+                Err(io::Error::new(
+                    io::ErrorKind::TimedOut,
+                    "system D-Bus connection timed out after 5 seconds",
+                )
+                .into())
+            },
+        ))
     }
 
     fn logind_proxy(connection: &Connection) -> zbus::Result<Proxy<'_>> {
@@ -227,6 +250,29 @@ mod platform {
                     .unwrap();
                 OwnedFd::from(std::os::fd::OwnedFd::from(write))
             }
+        }
+
+        #[test]
+        fn unresponsive_system_bus_handshake_is_bounded() {
+            let directory = std::env::temp_dir().join(format!(
+                "lbx-logind-stalled-{}-{}",
+                std::process::id(),
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_nanos()
+            ));
+            std::fs::create_dir(&directory).unwrap();
+            let address = format!("unix:path={}", directory.join("bus").display());
+            let listener = std::os::unix::net::UnixListener::bind(directory.join("bus")).unwrap();
+            let started = Instant::now();
+            let result =
+                bounded_connection(zbus::connection::Builder::address(address.as_str()).unwrap());
+            drop(listener);
+            std::fs::remove_dir_all(directory).unwrap();
+            assert!(result.is_err());
+            assert!(started.elapsed() >= Duration::from_secs(4));
+            assert!(started.elapsed() < Duration::from_secs(8));
         }
 
         #[test]
