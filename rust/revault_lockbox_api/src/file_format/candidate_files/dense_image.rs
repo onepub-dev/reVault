@@ -54,6 +54,14 @@ impl<S: Storage> Image<S> {
             Ok(image)
         })?
     }
+    pub fn info(&self, path: &[u8]) -> Result<Option<FileInfo>> {
+        Ok(self
+            .catalogue
+            .files
+            .binary_search_by(|file| file.path.as_slice().cmp(path))
+            .ok()
+            .map(|index| self.catalogue.files[index].info.clone()))
+    }
     pub fn read_range(
         &mut self,
         path: &[u8],

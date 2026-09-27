@@ -1,3 +1,4 @@
+mod existing;
 use revault_lockbox_api::{
     Compression, Encryption, Lockbox, LockboxCreateOptions, LockboxOpen, LockboxPath,
     LockboxProtection, OwnerSigningKeyPair, ReadOnly, SecretVec, Signing, SizePadding,
@@ -445,6 +446,7 @@ pub fn main() {
             println!("{}", sample(Path::new(&args[1]), &args[2], &args[3], passes));
         }
         "run" => run(&args),
+        "compare-existing" => existing::compare(&args),
         "summarize" => { assert_eq!(args.len(),2); summarize(Path::new(&args[1])); }
         _ => panic!("usage: archive_evaluation run NEW_ROOT FILES BYTES pattern|random|mixed raw|compressed plain|encrypted|signed|encrypted-signed SAMPLES stream|range|create PASSES default|none [OTHER_EXECUTABLE [PRIMARY_EXECUTABLE]]"),
     }

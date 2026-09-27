@@ -60,7 +60,47 @@ impl Resources {
         json!({"user_seconds":self.user-before.user,"system_seconds":self.system-before.system,"cpu_seconds":self.user+self.system-before.user-before.system,"major_faults":self.faults-before.faults})
     }
 }
-fn verify(files: &mut Files<StorageBackend>, root: &Path, count: usize, bytes: u64) {
+// One measurement/verification loop for both archive layouts; only the reader
+// implementation differs. No fixture hashes or source reads are inside timers.
+trait ReadImage {
+    fn info(&self, path: &[u8]) -> Result<Option<FileInfo>>;
+    fn visit(
+        &mut self,
+        path: &[u8],
+        offset: u64,
+        len: u64,
+        visitor: impl FnMut(&[u8]) -> Result<()>,
+    ) -> Result<()>;
+}
+impl<S: Storage> ReadImage for Files<S> {
+    fn info(&self, path: &[u8]) -> Result<Option<FileInfo>> {
+        Files::info(self, path)
+    }
+    fn visit(
+        &mut self,
+        path: &[u8],
+        offset: u64,
+        len: u64,
+        visitor: impl FnMut(&[u8]) -> Result<()>,
+    ) -> Result<()> {
+        self.read_range(path, offset, len, visitor)
+    }
+}
+impl<S: Storage> ReadImage for super::dense_image::Image<S> {
+    fn info(&self, path: &[u8]) -> Result<Option<FileInfo>> {
+        super::dense_image::Image::info(self, path)
+    }
+    fn visit(
+        &mut self,
+        path: &[u8],
+        offset: u64,
+        len: u64,
+        visitor: impl FnMut(&[u8]) -> Result<()>,
+    ) -> Result<()> {
+        self.read_range(path, offset, len, visitor)
+    }
+}
+fn verify(files: &mut impl ReadImage, root: &Path, count: usize, bytes: u64) {
     let mut expected = vec![0; MAX_LOGICAL];
     for index in 0..count {
         let name = name(index);
@@ -68,7 +108,7 @@ fn verify(files: &mut Files<StorageBackend>, root: &Path, count: usize, bytes: u
         assert_eq!(files.info(name.as_bytes()).unwrap().unwrap().len, bytes);
         let mut position = 0;
         files
-            .read_range(name.as_bytes(), 0, bytes, |chunk| {
+            .visit(name.as_bytes(), 0, bytes, |chunk| {
                 source.read_exact(&mut expected[..chunk.len()]).unwrap();
                 assert!(
                     chunk == &expected[..chunk.len()],
@@ -148,6 +188,36 @@ fn candidate_file_resource_probe() {
             cycles,
             phase == "dense-tail-lifecycle",
         );
+        return;
+    }
+    if phase == "dense-sample" {
+        let public =
+            OwnerSigningPublicKey::from_bytes(&std::fs::read(root.join("dense.public")).unwrap())
+                .unwrap();
+        let authority = if signed {
+            Authority::Owner(&public)
+        } else if encrypted {
+            Authority::Symmetric(KEY)
+        } else {
+            Authority::Checksum
+        };
+        let open = || {
+            super::dense_image::Image::open(
+                StorageBackend::file(root.join("dense.lbox")).unwrap(),
+                archive(),
+                mode,
+                &authority,
+                key,
+            )
+            .unwrap()
+        };
+        let mut result = sample(&root, count, bytes, open);
+        result["layout"] = json!("shared-control-full-catalogue");
+        result["candidate_scope"] =
+            json!("bounded file-only reader; no public API or full format qualification");
+        result["candidate_test_executable_sha256"] =
+            json!(digest_file(&std::env::current_exe().unwrap()));
+        println!("CANDIDATE_SAMPLE {result}");
         return;
     }
     if phase == "dense-damage" {
@@ -274,71 +344,7 @@ fn candidate_file_resource_probe() {
         json!({"kind":"compaction","backend":"lockbox","wall_seconds":elapsed,"resources":after.delta(before),"peak_rss_kib":after.peak,"baseline_peak_rss_kib":before.peak,"source_archive_bytes":original_bytes,"replacement_archive_bytes":replacement_bytes,"peak_extra_logical_file_bytes":replacement_bytes,"space_method":"replacement is append-only until atomic rename; excludes filesystem allocation granularity and existing backups","verified":true})
     } else {
         assert_eq!(phase, "sample");
-        let access = std::env::var("REVAULT_CANDIDATE_ACCESS").unwrap();
-        assert!(["stream", "range"].contains(&access.as_str()));
-        let passes: usize = std::env::var("REVAULT_CANDIDATE_PASSES")
-            .unwrap()
-            .parse()
-            .unwrap();
-        assert!((1..=1000).contains(&passes));
-        let before = Resources::now();
-        let started = Instant::now();
-        let mut files = open();
-        let open_seconds = started.elapsed().as_secs_f64();
-        let opened = Resources::now();
-        let read_started = Instant::now();
-        let mut first = None;
-        let mut total = 0;
-        let mut copy = [0; 65536];
-        for _ in 0..passes {
-            for index in 0..count {
-                let name = name(index);
-                let (offset, len) = if access == "range" {
-                    (bytes / 2, 4096.min(bytes - bytes / 2))
-                } else {
-                    (0, bytes)
-                };
-                files
-                    .read_range(name.as_bytes(), offset, len, |chunk| {
-                        for part in chunk.chunks(copy.len()) {
-                            copy[..part.len()].copy_from_slice(part);
-                            first.get_or_insert_with(|| started.elapsed().as_secs_f64());
-                            std::hint::black_box(&copy[..part.len()]);
-                            total += part.len() as u64;
-                        }
-                        Ok(())
-                    })
-                    .unwrap();
-            }
-        }
-        let read_seconds = read_started.elapsed().as_secs_f64();
-        let elapsed = started.elapsed().as_secs_f64();
-        let after = Resources::now();
-        drop(files);
-        // Independent requested-range and full-file checks are outside timers.
-        if access == "range" {
-            let mut checked = open();
-            let offset = bytes / 2;
-            let len = 4096.min(bytes - offset);
-            let mut expected = [0; 4096];
-            for index in 0..count {
-                let name = name(index);
-                let mut source = File::open(root.join("source").join(&name)).unwrap();
-                source.seek(SeekFrom::Start(offset)).unwrap();
-                source.read_exact(&mut expected[..len as usize]).unwrap();
-                let mut position = 0;
-                checked
-                    .read_range(name.as_bytes(), offset, len, |chunk| {
-                        assert!(chunk == &expected[position..position + chunk.len()]);
-                        position += chunk.len();
-                        Ok(())
-                    })
-                    .unwrap();
-                assert_eq!(position, len as usize);
-            }
-        }
-        verify(&mut open(), &root, count, bytes);
-        json!({"kind":"sample","backend":"lockbox","access":access,"passes":passes,"open_seconds":open_seconds,"read_seconds":read_seconds,"total_seconds":elapsed,"first_byte_seconds":first.unwrap_or(0.0),"logical_bytes_read":total,"probe_overhead_seconds":elapsed-open_seconds-read_seconds,"open_resources":opened.delta(before),"read_resources":after.delta(opened),"resources":after.delta(before),"peak_rss_kib":after.peak,"baseline_peak_rss_kib":before.peak,"verified":true})
+        sample(&root, count, bytes, open)
     };
     result["layout"] = json!(format!("candidate-{unit}"));
     result["candidate_test_executable_sha256"] = json!(binary_hash);
@@ -690,4 +696,72 @@ fn dense_damage(root: &Path, count: usize, bytes: u64, mode: FormatMode, key: Op
     }
     let result = json!({"kind":"dense_recovery_comparison","files":count,"bytes_per_file":bytes,"results":results,"source_archives_unchanged":true,"scope":"read-only corruption comparison, no performance claim","binary_sha256":digest_file(&std::env::current_exe().unwrap())});
     println!("CANDIDATE_SAMPLE {result}");
+}
+
+fn sample<R: ReadImage>(root: &Path, count: usize, bytes: u64, open: impl Fn() -> R) -> Value {
+    let access = std::env::var("REVAULT_CANDIDATE_ACCESS").unwrap();
+    assert!(["stream", "range"].contains(&access.as_str()));
+    let passes: usize = std::env::var("REVAULT_CANDIDATE_PASSES")
+        .unwrap()
+        .parse()
+        .unwrap();
+    assert!((1..=1000).contains(&passes));
+    let before = Resources::now();
+    let started = Instant::now();
+    let mut files = open();
+    let open_seconds = started.elapsed().as_secs_f64();
+    let opened = Resources::now();
+    let read_started = Instant::now();
+    let mut first = None;
+    let mut total = 0;
+    let mut copy = [0; 65536];
+    for _ in 0..passes {
+        for index in 0..count {
+            let name = name(index);
+            let (offset, len) = if access == "range" {
+                (bytes / 2, 4096.min(bytes - bytes / 2))
+            } else {
+                (0, bytes)
+            };
+            files
+                .visit(name.as_bytes(), offset, len, |chunk| {
+                    for part in chunk.chunks(copy.len()) {
+                        copy[..part.len()].copy_from_slice(part);
+                        first.get_or_insert_with(|| started.elapsed().as_secs_f64());
+                        std::hint::black_box(&copy[..part.len()]);
+                        total += part.len() as u64;
+                    }
+                    Ok(())
+                })
+                .unwrap();
+        }
+    }
+    let read_seconds = read_started.elapsed().as_secs_f64();
+    let elapsed = started.elapsed().as_secs_f64();
+    let after = Resources::now();
+    drop(files);
+    // Independent requested-range and full-file checks are outside timers.
+    if access == "range" {
+        let mut checked = open();
+        let offset = bytes / 2;
+        let len = 4096.min(bytes - offset);
+        let mut expected = [0; 4096];
+        for index in 0..count {
+            let name = name(index);
+            let mut source = File::open(root.join("source").join(&name)).unwrap();
+            source.seek(SeekFrom::Start(offset)).unwrap();
+            source.read_exact(&mut expected[..len as usize]).unwrap();
+            let mut position = 0;
+            checked
+                .visit(name.as_bytes(), offset, len, |chunk| {
+                    assert!(chunk == &expected[position..position + chunk.len()]);
+                    position += chunk.len();
+                    Ok(())
+                })
+                .unwrap();
+            assert_eq!(position, len as usize);
+        }
+    }
+    verify(&mut open(), root, count, bytes);
+    json!({"kind":"sample","backend":"lockbox","access":access,"passes":passes,"open_seconds":open_seconds,"read_seconds":read_seconds,"total_seconds":elapsed,"first_byte_seconds":first.unwrap_or(0.0),"logical_bytes_read":total,"probe_overhead_seconds":elapsed-open_seconds-read_seconds,"open_resources":opened.delta(before),"read_resources":after.delta(opened),"resources":after.delta(before),"peak_rss_kib":after.peak,"baseline_peak_rss_kib":before.peak,"verified":true})
 }

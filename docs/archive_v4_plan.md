@@ -67,7 +67,10 @@ states which gates remain failed or incomplete.
    metadata access/cache policy and normal-open padding verification together.
    Retain the failed results: C is 3.77× ZIP raw / 4.02× compressed on 8 MiB reads;
    small files remain 6.08× ZIP after compaction; encrypted range-open regresses.
-   Raw 64 MiB passes its size subcase at 1.016× ZIP. No A3/A4 pass is claimed.
+   Raw 64 MiB passes its size subcase at 1.016× ZIP. No A3/A4 pass is claimed. The declared
+   [shared-control read comparison](evidence/shared-control-read-comparison-2026-09-27/README.md)
+   measures the bounded reader after 100 metadata cycles against retained C and
+   ZIP, using six fixed cases and the same verification/timing loop.
    Preserve source, authority, erasure and padding guarantees; do not resume an
    unlimited sequence of buffer/encoder changes or silently replace workloads.
 4. Finish migration/owner fixtures, bidirectional CLI/binding/Vault compatibility

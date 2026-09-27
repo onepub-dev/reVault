@@ -11,6 +11,16 @@ fn main() {
         .map(std::ffi::OsString::from)
         .or_else(|| std::env::var_os("REVAULT_CANDIDATE_TEST_BINARY"))
         .expect("set test executable");
+    let dense = option_env!("REVAULT_CANDIDATE_FROZEN_DENSE") == Some("1");
+    let phase = if dense {
+        if args[0] == "create" {
+            "dense-create"
+        } else {
+            "dense-sample"
+        }
+    } else {
+        &args[0]
+    };
     let mut command = Command::new(binary);
     command
         .args([
@@ -20,7 +30,7 @@ fn main() {
             "--nocapture",
         ])
         .env("REVAULT_CANDIDATE_ROOT", &args[1])
-        .env("REVAULT_CANDIDATE_PHASE", &args[0]);
+        .env("REVAULT_CANDIDATE_PHASE", phase);
     if args[0] == "sample" {
         command
             .env("REVAULT_CANDIDATE_ACCESS", &args[3])
