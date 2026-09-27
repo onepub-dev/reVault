@@ -1,0 +1,15 @@
+
+running 1 test
+test file_format::candidate_files::resource_probe::candidate_file_resource_probe ... 
+thread 'file_format::candidate_files::resource_probe::candidate_file_resource_probe' panicked at revault_lockbox_api/src/file_format/candidate_files/resource_probe.rs:453:10:
+called `Result::unwrap()` on an `Err` value: Io("write /tmp/revault-dense-metadata-lifecycle-20260927/small-plain/dense.lbox: Bad file descriptor (os error 9)")
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    file_format::candidate_files::resource_probe::candidate_file_resource_probe
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 510 filtered out; finished in 0.13s
+

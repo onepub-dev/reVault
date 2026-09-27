@@ -75,3 +75,14 @@ The original C mixed-file aging failure and A3/A4 failures remain unchanged.
 [All 184 format tests pass](format-tests.log), with five explicit probes ignored;
 [strict Clippy passes](clippy.log). The [focused log](tests.log) retains the exact
 fault/region counts above and the persisted catalogue round-trip checks.
+
+
+Post-hook [dense tests](postformat-tests.log) and [Clippy](postformat-clippy.log)
+also pass. The first real-file lifecycle probe at `3b8fdcad`
+[failed before its first edit](read-only-probe-failure.log): its update handle used
+the read-only file constructor. The follow-up uses `file_for_write`, with a separate
+real-file test closing the writer and reopening a reader after both placement
+transitions. This probe failure supplies no size result; reruns use a new directory
+and a newly frozen executable, preserving the failed artifact.
+
+The [real-file regression](file-tests.log) and [strict lints](file-clippy.log) pass.

@@ -438,7 +438,7 @@ fn dense_create(
     let mut first_update_bytes = initial_bytes;
     for cycle in 0..cycles {
         let bits = if cycle % 2 == 0 { 0o600 } else { 0o644 };
-        let mut storage = StorageBackend::file(&target).unwrap();
+        let mut storage = StorageBackend::file_for_write(&target).unwrap();
         assert!(super::dense_update::edit(
             &mut storage,
             archive(),
@@ -490,7 +490,7 @@ fn dense_create(
         assert_eq!(catalogue.files[0].permissions, bits);
         drop(image);
         let before = digest_file(&target);
-        let mut storage = StorageBackend::file(&target).unwrap();
+        let mut storage = StorageBackend::file_for_write(&target).unwrap();
         assert!(!super::dense_update::edit(
             &mut storage,
             archive(),

@@ -3339,3 +3339,55 @@ fn dense_metadata_updates_keep_authority_after_either_control_or_external_root_r
     }
     println!("DENSE_METADATA_SEPARATE_REGION_LOSS_CASES {cases}");
 }
+
+#[test]
+fn dense_metadata_file_updates_close_and_reopen_with_persisted_permissions_and_contents() {
+    struct Cleanup(std::path::PathBuf);
+    impl Drop for Cleanup {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_file(&self.0);
+        }
+    }
+    let mut random = [0; 8];
+    getrandom::fill(&mut random).unwrap();
+    let cleanup = Cleanup(std::env::temp_dir().join(format!(
+        "revault-dense-metadata-{}-{}",
+        std::process::id(),
+        u64::from_le_bytes(random)
+    )));
+    let owner = OwnerSigningKeyPair::generate().unwrap();
+    let public = owner.public_key();
+    let mode = mode(true, true, true, true);
+    let authority = authority(mode, &public);
+    let seed = dense_seed(mode, &authority, Some(&owner));
+    let storage = StorageBackend::create_file(&cleanup.0, &seed.read_all().unwrap()).unwrap();
+    storage.sync().unwrap();
+    drop(storage);
+    for reverse in [false, true] {
+        let (from, to, bits) = if reverse {
+            (b"renamed".as_slice(), b"erase".as_slice(), 0o644)
+        } else {
+            (b"erase".as_slice(), b"renamed".as_slice(), 0o600)
+        };
+        let mut writable = StorageBackend::file_for_write(&cleanup.0).unwrap();
+        super::dense_update::edit(
+            &mut writable,
+            archive(),
+            mode,
+            &authority,
+            Some(&owner),
+            key(mode),
+            from,
+            to,
+            Some(bits),
+        )
+        .unwrap();
+        drop(writable);
+        let reader = StorageBackend::file(&cleanup.0).unwrap();
+        assert_eq!(
+            check_dense_edit(&reader, mode, &authority, b"erase", b"renamed"),
+            !reverse
+        );
+        drop(reader);
+    }
+}
