@@ -70,7 +70,11 @@ states which gates remain failed or incomplete.
    Raw 64 MiB passes its size subcase at 1.016× ZIP. No A3/A4 pass is claimed. The declared
    [shared-control read comparison](evidence/shared-control-read-comparison-2026-09-27/README.md)
    measures the bounded reader after 100 metadata cycles against retained C and
-   ZIP, using six fixed cases and the same verification/timing loop.
+   ZIP, using six fixed cases and the same verification/timing loop. Its small
+   plaintext result is 0.626× ZIP (upper 95% 0.654); large plaintext reads remain
+   2.85–3.36× ZIP. Large raw read-only time remains 0.969× C despite halving open
+   time. Profile the remaining payload work before changing it; do not treat the
+   small-file result as a complete A3 pass.
    Preserve source, authority, erasure and padding guarantees; do not resume an
    unlimited sequence of buffer/encoder changes or silently replace workloads.
 4. Finish migration/owner fixtures, bidirectional CLI/binding/Vault compatibility
