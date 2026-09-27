@@ -512,6 +512,38 @@ pub(crate) fn publish(
     })
 }
 
+/// Publish a verified relocation into a separate, unpublished replacement.
+/// The caller must preserve logical membership and hold the source's writer lock
+/// through verification and installation. Generation and predecessor are retained
+/// across replacement; this must not reset an existing archive to generation one.
+pub(crate) fn publish_relocation(
+    source: &impl Storage,
+    destination: &mut impl Storage,
+    next: &Anchor,
+    authority: &Authority<'_>,
+    signer: Option<&OwnerSigningKeyPair>,
+) -> Result<Published> {
+    let current = select(source, next.archive, next.mode, authority)?;
+    if next.previous != current.commitment
+        || current.anchor.generation.checked_add(1) != Some(next.generation)
+        || destination.len()? != next.sealed_len
+        || destination.read_at(0, REGION_LEN)?.iter().any(|b| *b != 0)
+    {
+        return Err(Error::CorruptHeader);
+    }
+    next.verify_dependencies(destination)?;
+    let encoded = encode(next, authority, signer)?;
+    destination.sync()?;
+    destination.write_at(0, &encoded)?;
+    destination.sync()?;
+    destination.write_at(SLOT_STRIDE as u64, &encoded)?;
+    destination.sync()?;
+    Ok(Published {
+        anchor: next.clone(),
+        commitment: next.commitment()?,
+    })
+}
+
 #[cfg(test)]
 #[path = "publication_anchor_tests.rs"]
 mod tests;

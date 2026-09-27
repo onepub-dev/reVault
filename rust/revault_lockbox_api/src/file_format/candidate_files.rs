@@ -19,6 +19,7 @@ const MAX_FILES: usize = 100_000;
 const MAX_PATH_BYTES: usize = 32 * 1024 * 1024;
 const MAX_ENTRIES: usize = 1_000_000;
 const MAGIC: &[u8; 8] = b"RV4FIL02";
+pub(super) mod compaction;
 mod mutation;
 mod packing;
 mod recovery;
@@ -246,12 +247,14 @@ impl<S: Storage> Files<S> {
         Ok(files)
     }
     fn audit(&mut self) -> Result<()> {
+        self.audit_with(self.anchor.mode.signed() && self.anchor.mode.plaintext())
+    }
+    fn audit_with(&mut self, eager: bool) -> Result<()> {
         struct State {
             info: FileInfo,
             next: u64,
             hash: Option<Sha256>,
         }
-        let eager = self.anchor.mode.signed() && self.anchor.mode.plaintext();
         let mut files = BTreeMap::<[u8; 16], State>::new();
         let mut count = 0;
         let mut path_bytes = 0usize;
@@ -421,6 +424,59 @@ impl<S: Storage> Files<S> {
         }
         Ok(())
     }
+    /// Build and independently verify a private replacement while retaining the
+    /// source. Installation is a separate platform operation, under an exclusive
+    /// source lock; this test-only adapter never overwrites the current archive.
+    pub(crate) fn compact_into<T: Storage>(
+        &mut self,
+        destination: T,
+        authority: &Authority<'_>,
+        signer: Option<&OwnerSigningKeyPair>,
+        key: Option<&[u8]>,
+    ) -> Result<T> {
+        if destination.len()? != 0 {
+            return Err(Error::InvalidInput(
+                "compaction requires an empty replacement".into(),
+            ));
+        }
+        self.audit_with(true)?;
+        let mut destination = allocation::compaction::relocate(
+            &self.storage,
+            &self.anchor,
+            destination,
+            authority,
+            signer,
+            key,
+        )?;
+        // Fresh components verify all stored contents without a full archive
+        // clone. Any setup, read, authentication or decoding error clears the copy.
+        let result = (|| {
+            let next = publication::select(
+                &destination,
+                self.anchor.archive,
+                self.anchor.mode,
+                authority,
+            )?
+            .anchor;
+            let index = Index::new(next.archive, next.mode, key)?;
+            let codec = Codec::packed(next.archive, next.mode, key)?;
+            let mut checked = Files {
+                storage: allocation::compaction::View(&destination),
+                anchor: next,
+                index,
+                codec,
+            };
+            checked.audit_with(true)
+        })();
+        if let Err(error) = result {
+            if let Err(cleanup) = allocation::compaction::discard(&mut destination) {
+                return Err(Error::Io(format!("compaction verification failed ({error}); replacement cleanup failed ({cleanup})")));
+            }
+            return Err(error);
+        }
+        Ok(destination)
+    }
+
     pub(crate) fn into_storage(self) -> S {
         self.storage
     }

@@ -1627,3 +1627,201 @@ fn salvage_discards_partial_files_and_preserves_authenticated_empty_files() {
     assert_eq!(sink.files[b"empty".as_slice()], b"");
     assert_eq!(sink.files[b"intact".as_slice()], b"surviving bytes");
 }
+
+#[test]
+fn compaction_preserves_identity_content_and_generation_in_every_mode() {
+    // Internal test-only format: no public CLI can construct candidate C.
+    let owner = OwnerSigningKeyPair::generate().unwrap();
+    let public = owner.public_key();
+    for encrypted in [false, true] {
+        for signed in [false, true] {
+            for compressed in [false, true] {
+                for padded in [false, true] {
+                    let mode = mode(encrypted, signed, compressed, padded);
+                    let authority = authority(mode, &public);
+                    let signer = signed.then_some(&owner);
+                    let mut storage = packed_pair(mode, &authority, signer);
+                    storage = Files::update(
+                        storage,
+                        archive(),
+                        mode,
+                        &authority,
+                        signer,
+                        key(mode),
+                        MAX_LOGICAL,
+                        update_inputs(&[(b"erase", &vec![0xa1; 700_000]), (b"empty", b"")]),
+                        [],
+                    )
+                    .unwrap();
+                    storage = Files::update(
+                        storage,
+                        archive(),
+                        mode,
+                        &authority,
+                        signer,
+                        key(mode),
+                        MAX_LOGICAL,
+                        update_inputs(&[(b"erase", b"current small replacement")]),
+                        [],
+                    )
+                    .unwrap();
+                    let original = storage.read_all().unwrap();
+                    let mut files =
+                        Files::open(storage, archive(), mode, &authority, key(mode)).unwrap();
+                    let generation = files.anchor.generation;
+                    let commitment = files.anchor.commitment().unwrap();
+                    let identities: Vec<_> = [b"erase".as_slice(), b"keep", b"empty"]
+                        .iter()
+                        .map(|path| files.info(path).unwrap().unwrap().encode())
+                        .collect();
+                    let compacted = files
+                        .compact_into(
+                            StorageBackend::memory(Vec::new()),
+                            &authority,
+                            signer,
+                            key(mode),
+                        )
+                        .unwrap();
+                    assert_eq!(files.storage.read_all().unwrap(), original);
+                    assert!(compacted.len().unwrap() < original.len() as u64);
+                    let mut reopened = Files::open(
+                        StorageBackend::memory(compacted.read_all().unwrap()),
+                        archive(),
+                        mode,
+                        &authority,
+                        key(mode),
+                    )
+                    .unwrap();
+                    assert_eq!(reopened.anchor.generation, generation + 1);
+                    assert_eq!(reopened.anchor.previous, commitment);
+                    for (path, identity) in [b"erase".as_slice(), b"keep", b"empty"]
+                        .iter()
+                        .zip(identities)
+                    {
+                        assert_eq!(reopened.info(path).unwrap().unwrap().encode(), identity);
+                    }
+                    assert_file(&mut reopened, b"erase", Some(b"current small replacement"));
+                    assert_file(&mut reopened, b"keep", Some(&vec![0x39; 8192]));
+                    assert_file(&mut reopened, b"empty", Some(b""));
+                    Snapshot::inspect(&reopened.storage, &reopened.anchor, &reopened.index)
+                        .unwrap()
+                        .verify_reclaimed(&reopened.storage)
+                        .unwrap();
+                    // The replacement is writable through the existing journal, not merely
+                    // a readable copy with an uninitialized preparation region.
+                    let updated = Files::update(
+                        reopened.into_storage(),
+                        archive(),
+                        mode,
+                        &authority,
+                        signer,
+                        key(mode),
+                        MAX_LOGICAL,
+                        update_inputs(&[(b"later", b"after compaction")]),
+                        [b"erase".to_vec()],
+                    )
+                    .unwrap();
+                    let mut reopened =
+                        Files::open(updated, archive(), mode, &authority, key(mode)).unwrap();
+                    assert_eq!(reopened.anchor.generation, generation + 2);
+                    assert_file(&mut reopened, b"later", Some(b"after compaction"));
+                    assert_file(&mut reopened, b"erase", None);
+                    assert_file(&mut reopened, b"keep", Some(&vec![0x39; 8192]));
+                }
+            }
+        }
+    }
+}
+#[test]
+fn failed_compaction_clears_replacement_and_never_modifies_source() {
+    let owner = OwnerSigningKeyPair::generate().unwrap();
+    let public = owner.public_key();
+    let mut cases = 0;
+    for mode in [
+        mode(false, false, false, false),
+        mode(true, true, true, true),
+        mode(false, true, true, true),
+        mode(true, false, false, true),
+    ] {
+        let authority = authority(mode, &public);
+        let signer = mode.signed().then_some(&owner);
+        let storage = packed_pair(mode, &authority, signer);
+        let before = storage.read_all().unwrap();
+        let mut files = Files::open(storage, archive(), mode, &authority, key(mode)).unwrap();
+        let observed = SharedMemory::new(Vec::new());
+        files
+            .compact_into(observed.clone(), &authority, signer, key(mode))
+            .unwrap();
+        for at in 0..observed.operations() {
+            let replacement = SharedMemory::new(Vec::new());
+            replacement.fail(at);
+            assert!(
+                files
+                    .compact_into(replacement.clone(), &authority, signer, key(mode))
+                    .is_err(),
+                "failure case {at}"
+            );
+            assert_eq!(
+                replacement.len().unwrap(),
+                0,
+                "failed replacement must be cleared"
+            );
+            assert_eq!(files.storage.read_all().unwrap(), before);
+            let mut original = Files::open(
+                StorageBackend::memory(before.clone()),
+                archive(),
+                mode,
+                &authority,
+                key(mode),
+            )
+            .unwrap();
+            assert_file(&mut original, b"erase", Some(&vec![0xa7; 4096]));
+            assert_file(&mut original, b"keep", Some(&vec![0x39; 8192]));
+            cases += 1;
+        }
+    }
+    println!("CANDIDATE_COMPACTION_FAILURE_CASES {cases}");
+}
+#[test]
+fn compaction_refuses_nonempty_output_and_damaged_source_in_lazy_modes() {
+    for encrypted in [false, true] {
+        let mode = mode(encrypted, false, true, true);
+        let authority = if encrypted {
+            Authority::Symmetric(KEY)
+        } else {
+            Authority::Checksum
+        };
+        let mut files = Files::open(
+            packed_pair(mode, &authority, None),
+            archive(),
+            mode,
+            &authority,
+            key(mode),
+        )
+        .unwrap();
+        let replacement = SharedMemory::new(b"must preserve destination".to_vec());
+        assert!(files
+            .compact_into(replacement.clone(), &authority, None, key(mode))
+            .is_err());
+        assert_eq!(
+            replacement.read_all().unwrap(),
+            b"must preserve destination"
+        );
+        let record = first_record(&files, b"erase");
+        let fragment = Slice::decode(&record.metadata)
+            .unwrap()
+            .physical(record.extents[0])
+            .unwrap();
+        let byte = files.storage.read_at(fragment.start, 1).unwrap()[0];
+        files.storage.write_at(fragment.start, &[byte ^ 1]).unwrap();
+        let damaged = files.storage.read_all().unwrap();
+        let replacement = SharedMemory::new(Vec::new());
+        assert!(files
+            .compact_into(replacement.clone(), &authority, None, key(mode))
+            .is_err());
+        assert_eq!(replacement.operations(), 0);
+        assert_eq!(files.storage.read_all().unwrap(), damaged);
+    }
+}
+
+mod compaction_tests;

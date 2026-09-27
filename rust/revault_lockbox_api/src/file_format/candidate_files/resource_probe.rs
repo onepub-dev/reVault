@@ -193,6 +193,23 @@ fn candidate_file_resource_probe() {
         let after = Resources::now();
         verify(&mut open(), &root, count, bytes);
         json!({"kind":"fixture_create","backend":"lockbox","wall_seconds":elapsed,"resources":after.delta(before),"peak_rss_kib":after.peak,"baseline_peak_rss_kib":before.peak,"archive_bytes":std::fs::metadata(&path).unwrap().len(),"archive_sha256":digest_file(&path),"verified":true})
+    } else if phase == "compact" {
+        // Fresh-process resource probe; signed installation requires the original
+        // owner, which this read-probe protocol intentionally never persists.
+        assert!(
+            !signed,
+            "signed compaction is covered by the synthetic correctness matrix"
+        );
+        let original_bytes = std::fs::metadata(&path).unwrap().len();
+        let before = Resources::now();
+        let started = Instant::now();
+        let compacted = Files::compact_path(&path, archive(), mode, &authority, None, key).unwrap();
+        drop(compacted);
+        let elapsed = started.elapsed().as_secs_f64();
+        let after = Resources::now();
+        let replacement_bytes = std::fs::metadata(&path).unwrap().len();
+        verify(&mut open(), &root, count, bytes);
+        json!({"kind":"compaction","backend":"lockbox","wall_seconds":elapsed,"resources":after.delta(before),"peak_rss_kib":after.peak,"baseline_peak_rss_kib":before.peak,"source_archive_bytes":original_bytes,"replacement_archive_bytes":replacement_bytes,"peak_extra_logical_file_bytes":replacement_bytes,"space_method":"replacement is append-only until atomic rename; excludes filesystem allocation granularity and existing backups","verified":true})
     } else {
         assert_eq!(phase, "sample");
         let access = std::env::var("REVAULT_CANDIDATE_ACCESS").unwrap();

@@ -11,12 +11,15 @@ Updated 2026-09-27. P2 is still an architecture comparison, not a selected forma
 The production default writer has bounded staging; candidate C has authenticated
 membership, separated metadata mirrors, resumable allocation/erasure, file/range
 reads and [independently protected physical packs](evidence/independent-file-packs-2026-09-27/README.md)
-with [tested updates and explicit read-only salvage](evidence/candidate-file-lifecycle-2026-09-27/README.md).
+with [tested updates and explicit read-only salvage](evidence/candidate-file-lifecycle-2026-09-27/README.md)
+and [source-preserving file compaction](evidence/candidate-compaction-2026-09-27/README.md).
 C remains test-only and lacks complete public
 record/access semantics. The [current scorecard](archive_v4_evaluation.md#current-scorecard)
 states which gates remain failed or incomplete.
 
-1. Complete record/access/permission and compaction comparison coverage. Retain
+1. Complete record/access/permission comparison and compaction resource/platform
+   coverage. File-only compaction now has source-preserving failure and real-process
+   checks; complete access trees remain explicitly unsupported. Retain
    the [packed comparison failures](evidence/packed-file-comparison-2026-09-27/README.md):
    C remains 3.77× ZIP raw / 4.02× compressed on 8 MiB reads; the small-file archive
    is 7.19× ZIP; encrypted range-open cost regresses. No A3/A4 pass is claimed.
@@ -31,9 +34,11 @@ states which gates remain failed or incomplete.
 4. Finish migration/owner fixtures, bidirectional CLI/binding/Vault compatibility
    and release qualification. Obtain a corrected published compression dependency
    and verify isolated packaged builds before removing the temporary vendor patch.
-5. Continue H1 independently: #322's Linux fix is on its separate branch; locked/
-   denied/hung credential-store cases, platform/binding packaging and permanent CI
-   qualification remain. Do not mix unfinished v4 into format-3 `0.4.x`.
+5. Complete H1's remaining platform/binding packaging and remote CI qualification.
+   The separate #322 branch at `d8dfa6cf` now passes Linux locked, denied and hung
+   credential-store tests, existing-keyring interoperability, a clean release
+   install without D-Bus development packages and the installed headless lifecycle.
+   Do not mix unfinished v4 into format-3 `0.4.x`.
 
 The [checkpoint history](archive_v4_history.md) preserves earlier decisions and
 measurements without competing next-work instructions. Guarantees and numeric
@@ -134,6 +139,17 @@ own reproducibility and interoperability evidence. No dates or staffing are
 assumed by this plan.
 
 ### H1 — Fix headless installation and audit other targets (#322)
+
+Local checkpoint: `issue-322-headless-cli` at `d8dfa6cf`. Linux uses pure-Rust
+D-Bus with a five-second total credential-operation deadline, including bus
+handshake and prompts. Private-service tests cover healthy interoperability,
+locked/denied stores and hung authentication, session negotiation, methods and
+prompts. The release CLI installs and passes a persisted-byte headless lifecycle
+in an offline Linux container without D-Bus development packages. Vault tests,
+strict Clippy and Windows GNU cross-check pass. Evidence is retained on that
+branch in `docs/evidence/headless-credential-deadlines-2026-09-27/`.
+Actual macOS/Windows credential-service behaviour, binding packages, remote CI
+and appropriate-release-line integration remain unqualified; A8 is not complete.
 
 This is a separate issue branch/worktree owned by the CLI/platform maintainer.
 It may proceed alongside the archive milestones. The issue is a build failure,

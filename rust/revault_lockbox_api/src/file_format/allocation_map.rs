@@ -14,6 +14,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{Arc, Mutex};
 use zeroize::Zeroizing;
 
+pub(crate) mod compaction;
+
 const MAGIC: &[u8; 8] = b"RV4OWN01";
 const MAX_EXTENTS: usize = 512;
 const MAX_RECORD: usize = 49152;
