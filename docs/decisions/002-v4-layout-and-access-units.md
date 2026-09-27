@@ -134,3 +134,30 @@ catalogues inline and retires a suffix through an authenticated shorter sealed
 length, with metadata-only tail proofs and resumable wipe-before-truncate. It
 must account for extra publications and transient growth. No size/performance
 acceptance or format choice follows from this proposed sequence.
+
+
+## Current implementation and performance checkpoint
+
+The [metadata-tail retirement experiment](../evidence/metadata-tail-retirement-2026-09-27/README.md)
+now implements the shorter-seal transition with durable preparation, ownership
+proofs and resumable erasure. Both primary small archives finish each of 100
+metadata edits at 320 KiB, temporarily using 448 KiB. This resolves that measured
+metadata-size failure; it does not resolve mixed payload aging or qualify the
+whole format.
+
+The [whole-image read comparison](../evidence/shared-control-read-comparison-2026-09-27/README.md)
+measures the resulting geometry against retained C and ZIP controls. Plaintext
+small-file reads pass their ZIP subcase, but large plaintext reads remain roughly
+2.85–3.36 times ZIP. Profiles put most raw-read user CPU in hardware-accelerated
+SHA-256; further catalogue or buffer tuning cannot plausibly close that gap.
+Keep the integrity and worker-policy requirements unchanged. Any proposal to
+change them needs an explicit security/performance decision and fresh comparable
+measurements, not an implicit benchmark shortcut.
+
+[Typed filesystem metadata and recovery](../evidence/typed-filesystem-metadata-2026-09-27/README.md)
+now preserve directories, symlink targets and public permissions. Complete the
+remaining record classes, bounded catalogue overflow, payload mutation and public
+mirror semantics before declaring this a replacement archive format. Then qualify
+correctness, mixed aging, CPU and incremental memory on the same implementation.
+The [current plan](../archive_v4_plan.md) remains the implementation authority;
+this decision is still proposed and no production format has been selected.
