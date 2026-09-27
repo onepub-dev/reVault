@@ -165,6 +165,10 @@ fn shared_control_roles_exclude_anchors_journals_and_other_private_subranges() {
     external.index.mirror = REGION_LEN as u64 + FAILURE_REGION;
     external.sealed_len = 4 * FAILURE_REGION;
     assert!(external.validate_in(Layout::Shared).is_ok());
+    assert!(
+        validate_fresh_shape(&external).is_err(),
+        "fresh payload-only catalogue cannot own external metadata"
+    );
     external.index.primary += 1;
     assert!(external.validate_in(Layout::Shared).is_err());
 }

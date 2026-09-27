@@ -74,8 +74,10 @@ permission and access-label semantics are absent. Generation restarts at one in
 a distinct experimental profile; this is not an accepted migration/history policy.
 
 Only fresh images with an initial idle journal are accepted. Incremental mutation,
-reservation overflow transitions, graph-derived retirement, recovery/salvage and
-compaction/installation are not connected. The catalogue cannot yet encode free,
+reservation overflow transitions, graph-derived retirement and
+compaction/installation are not connected. A subsequent
+[read-only salvage checkpoint](../dense-salvage-2026-09-27/README.md) tests
+independent recovery and the physical damage-locality trade-off. The catalogue cannot yet encode free,
 pending or external metadata state. Those protocols and the full public record
 model must precede format selection and a new performance claim.
 

@@ -162,6 +162,9 @@ pub(super) fn open_in(
         unsigned_candidate(storage, archive, mode, layout)?
     };
     let expected = candidate.commitment_in(layout)?;
+    if candidate.keys.absent() {
+        return Err(Error::InvalidKey);
+    }
     let slots = read_directory_in(storage, &candidate, layout)?;
     for slot in &slots {
         if requested_slot.is_some_and(|id| id != slot.id()) {

@@ -29,8 +29,11 @@ states which gates remain failed or incomplete.
    320 KiB files (1.382× ZIP), with full persisted-byte verification. Budget
    temporary metadata, sealed-length/cleanup and any relocation publication; this
    size result does not qualify mutation, CPU/RSS or full public semantics.
-   Explicitly test the larger logical loss possible within densely packed physical
-   damage regions, independently of the per-fragment random-read bound.
+   [Read-only salvage](evidence/dense-salvage-2026-09-27/README.md) now verifies
+   intact neighbours independently. A highly compressible stress case loses
+   512 files per destroyed physical region versus C's 64; one-byte corruption
+   loses one file. Record retained-corpus locality alongside size, and explicitly
+   decide this trade-off independently of the per-fragment random-read bound.
 2. Retain the [failed mixed aging qualification](evidence/mixed-file-aging-2026-09-27/README.md):
    all four 1,000-operation modes preserve contents and erasure, but unpadded
    control-space growth at cycle 421 exceeds the first-100 high water. Diagnose

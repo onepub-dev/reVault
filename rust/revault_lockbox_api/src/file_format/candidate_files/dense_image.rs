@@ -224,3 +224,70 @@ pub(super) fn from_candidate<S: Storage, T: Storage>(
     }
     Ok(destination)
 }
+
+pub(super) struct SalvageReport {
+    pub generation: u64,
+    pub complete: u64,
+    pub incomplete: u64,
+}
+/// Caller retains a stable snapshot/read lock and stages the entire sink batch
+/// until this returns Ok. The sink's existing per-file finish contract applies.
+/// Missing selected catalogue authority is fatal; no old-generation scan occurs.
+pub(super) fn salvage<S: Storage>(
+    storage: &S,
+    archive: LockboxId,
+    mode: FormatMode,
+    authority: &Authority<'_>,
+    key: Option<&[u8]>,
+    sink: &mut impl super::recovery::Sink,
+) -> Result<SalvageReport> {
+    let (anchor, body) = shared::salvage_private(storage, archive, mode, authority, key)?;
+    let mut codec = Codec::shared_packed(archive, mode, key)?;
+    let catalogue = Catalogue::decode(&body, &codec, anchor.sealed_len)?;
+    let actual = storage.len()?;
+    let mut report = SalvageReport {
+        generation: anchor.generation,
+        complete: 0,
+        incomplete: 0,
+    };
+    for file in &catalogue.files {
+        sink.begin(&file.path, file.info.len)?;
+        let mut valid = true;
+        let mut hash = Sha256::new();
+        for fragment in &file.fragments {
+            let pack = &catalogue.packs[fragment.pack];
+            let extent = Extent {
+                start: pack.extent.start + fragment.relative as u64,
+                len: fragment.descriptor.stored_len() as u64,
+                digest: fragment.digest,
+            };
+            if extent
+                .start
+                .checked_add(extent.len)
+                .is_none_or(|end| end > actual)
+            {
+                valid = false;
+                break;
+            }
+            match codec.load(storage, extent, anchor.sealed_len, &fragment.descriptor) {
+                Ok(bytes) => {
+                    sink.data(&bytes)?;
+                    hash.update(bytes.as_slice());
+                }
+                Err(Error::CorruptRecord | Error::CorruptHeader | Error::Truncated) => {
+                    valid = false;
+                    break;
+                }
+                Err(error) => return Err(error),
+            }
+        }
+        valid &= <[u8; 32]>::from(hash.finalize()) == file.info.digest;
+        sink.finish(valid)?;
+        if valid {
+            report.complete += 1;
+        } else {
+            report.incomplete += 1;
+        }
+    }
+    Ok(report)
+}

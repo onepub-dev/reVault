@@ -132,6 +132,10 @@ fn candidate_file_resource_probe() {
         dense_create(&root, count, bytes, unit, mode, key);
         return;
     }
+    if phase == "dense-damage" {
+        dense_damage(&root, count, bytes, mode, key);
+        return;
+    }
     let path = root.join("candidate.lbox");
     let binary_hash = digest_file(&std::env::current_exe().unwrap());
     if phase == "create" {
@@ -422,5 +426,148 @@ fn dense_create(
     drop(source);
     std::fs::remove_file(&source_path).unwrap();
     let result = json!({"kind":"dense_file_image_size","archive_bytes":std::fs::metadata(&target).unwrap().len(),"archive_sha256":digest_file(&target),"binary_sha256":digest_file(&std::env::current_exe().unwrap()),"files":count,"bytes_per_file":bytes,"verified":true,"scope":"fresh file-only image; no mutation/public API/migration or performance qualification"});
+    println!("CANDIDATE_SAMPLE {result}");
+}
+
+struct VerifyRecovered<'a> {
+    root: &'a Path,
+    count: usize,
+    bytes: u64,
+    active: Option<(File, u64)>,
+    seen: std::collections::BTreeSet<usize>,
+    scratch: Vec<u8>,
+}
+impl recovery::Sink for VerifyRecovered<'_> {
+    fn begin(&mut self, path: &[u8], len: u64) -> Result<()> {
+        assert!(self.active.is_none());
+        assert_eq!(len, self.bytes);
+        let text = std::str::from_utf8(path).unwrap();
+        let index: usize = text
+            .strip_prefix("file-")
+            .unwrap()
+            .strip_suffix(".bin")
+            .unwrap()
+            .parse()
+            .unwrap();
+        assert!(index < self.count && self.seen.insert(index));
+        assert_eq!(text, name(index));
+        self.active = Some((
+            File::open(self.root.join("source").join(name(index))).unwrap(),
+            0,
+        ));
+        Ok(())
+    }
+    fn data(&mut self, bytes: &[u8]) -> Result<()> {
+        let (file, position) = self.active.as_mut().unwrap();
+        file.read_exact(&mut self.scratch[..bytes.len()]).unwrap();
+        assert_eq!(bytes, &self.scratch[..bytes.len()]);
+        *position += bytes.len() as u64;
+        Ok(())
+    }
+    fn finish(&mut self, complete: bool) -> Result<()> {
+        let (mut file, position) = self.active.take().unwrap();
+        if complete {
+            assert_eq!(position, self.bytes);
+            assert_eq!(file.read(&mut self.scratch[..1]).unwrap(), 0);
+        }
+        Ok(())
+    }
+}
+/// Damage only in-memory copies. All successfully recovered file bytes are
+/// compared with the retained corpus; original archives remain unchanged.
+fn dense_damage(root: &Path, count: usize, bytes: u64, mode: FormatMode, key: Option<&[u8]>) {
+    use crate::file_format::publication_anchor::{FAILURE_REGION, REGION_LEN};
+    let control = std::path::PathBuf::from(std::env::var_os("REVAULT_CANDIDATE_CONTROL").unwrap());
+    let mut results = Vec::new();
+    for dense in [false, true] {
+        let (path, public_path) = if dense {
+            (root.join("dense.lbox"), root.join("dense.public"))
+        } else {
+            (
+                control.join("candidate.lbox"),
+                control.join("candidate.public"),
+            )
+        };
+        let hash_before = digest_file(&path);
+        let public =
+            OwnerSigningPublicKey::from_bytes(&std::fs::read(public_path).unwrap()).unwrap();
+        let authority = if mode.signed() {
+            Authority::Owner(&public)
+        } else if mode.plaintext() {
+            Authority::Checksum
+        } else {
+            Authority::Symmetric(KEY)
+        };
+        let seed = std::fs::read(&path).unwrap();
+        let at = if dense {
+            REGION_LEN as u64
+        } else {
+            let files = Files::open(
+                StorageBackend::memory(seed.clone()),
+                archive(),
+                mode,
+                &authority,
+                key,
+            )
+            .unwrap();
+            let info = files.info(name(0).as_bytes()).unwrap().unwrap();
+            let record = files
+                .index
+                .get(
+                    &files.storage,
+                    files.anchor.index,
+                    files.anchor.sealed_len,
+                    CHUNK,
+                    &chunk_key(info.id, 0),
+                )
+                .unwrap()
+                .unwrap();
+            let owned = OwnedRecord::decode(&record.value).unwrap();
+            assert_eq!(owned.extents[0].start % FAILURE_REGION, 0);
+            owned.extents[0].start
+        };
+        for region in [false, true] {
+            let mut damaged = StorageBackend::memory(seed.clone());
+            if region {
+                let n = (seed.len() as u64 - at).min(FAILURE_REGION) as usize;
+                damaged.write_at(at, &vec![0; n]).unwrap();
+            } else {
+                let byte = damaged.read_at(at, 1).unwrap()[0];
+                damaged.write_at(at, &[byte ^ 1]).unwrap();
+            }
+            let mut sink = VerifyRecovered {
+                root,
+                count,
+                bytes,
+                active: None,
+                seen: Default::default(),
+                scratch: vec![0; MAX_LOGICAL],
+            };
+            let (complete, incomplete) = if dense {
+                let report = super::dense_image::salvage(
+                    &damaged,
+                    archive(),
+                    mode,
+                    &authority,
+                    key,
+                    &mut sink,
+                )
+                .unwrap();
+                (report.complete, report.incomplete)
+            } else {
+                let report =
+                    Files::salvage(&damaged, archive(), mode, &authority, key, &mut sink).unwrap();
+                assert_eq!(report.membership.unavailable, 0);
+                assert_eq!(report.orphan_chunks, 0);
+                (report.complete, report.incomplete)
+            };
+            assert_eq!(sink.seen.len(), count);
+            assert!(sink.active.is_none());
+            assert_eq!(complete + incomplete, count as u64);
+            results.push(json!({"layout":if dense { "shared-control" } else { "C-control" },"damage":if region { "64KiB payload region" } else { "one payload byte" },"complete_files":complete,"incomplete_files":incomplete,"incomplete_file_bytes":incomplete * bytes,"recovered_bytes_verified":true}));
+        }
+        assert_eq!(digest_file(&path), hash_before);
+    }
+    let result = json!({"kind":"dense_recovery_comparison","files":count,"bytes_per_file":bytes,"results":results,"source_archives_unchanged":true,"scope":"read-only corruption comparison, no performance claim","binary_sha256":digest_file(&std::env::current_exe().unwrap())});
     println!("CANDIDATE_SAMPLE {result}");
 }

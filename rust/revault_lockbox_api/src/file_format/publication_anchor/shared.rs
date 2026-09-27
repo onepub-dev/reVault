@@ -148,26 +148,45 @@ pub(crate) fn open_private(
     authority: &Authority<'_>,
     key: Option<&[u8]>,
 ) -> Result<(Anchor, crate::page_buffer::ZeroizingBytes)> {
+    private_in(storage, archive, mode, authority, key, true)
+}
+/// Explicit read-only recovery trusts selected publication/private membership,
+/// not unrelated preparation, public wrappers, payload availability or padding.
+pub(crate) fn salvage_private(
+    storage: &impl Storage,
+    archive: LockboxId,
+    mode: FormatMode,
+    authority: &Authority<'_>,
+    key: Option<&[u8]>,
+) -> Result<(Anchor, crate::page_buffer::ZeroizingBytes)> {
+    private_in(storage, archive, mode, authority, key, false)
+}
+fn private_in(
+    storage: &impl Storage,
+    archive: LockboxId,
+    mode: FormatMode,
+    authority: &Authority<'_>,
+    key: Option<&[u8]>,
+    strict: bool,
+) -> Result<(Anchor, crate::page_buffer::ZeroizingBytes)> {
     let selected = select_in(storage, archive, mode, authority, Layout::Shared)?;
     let anchor = selected.anchor;
-    if anchor.generation != 1
-        || anchor.index.len != PRIVATE_BYTES as u64
-        || anchor.object_root != anchor.index.digest
-        || !anchor.allocation.absent()
-        || storage.len()? != anchor.sealed_len
-    {
+    validate_fresh_shape(&anchor)?;
+    if strict && storage.len()? != anchor.sealed_len {
         return Err(Error::CorruptRecord);
     }
-    if !anchor.keys.absent() {
-        super::bootstrap::read_directory_in(storage, &anchor, Layout::Shared)?;
+    if strict {
+        if !anchor.keys.absent() {
+            super::bootstrap::read_directory_in(storage, &anchor, Layout::Shared)?;
+        }
+        crate::file_format::preparation_journal::compact::validate_initial_idle(
+            storage,
+            archive,
+            mode,
+            key,
+            selected.commitment,
+        )?;
     }
-    crate::file_format::preparation_journal::compact::validate_initial_idle(
-        storage,
-        archive,
-        mode,
-        key,
-        selected.commitment,
-    )?;
     let stored =
         crate::page_buffer::ZeroizingBytes::new(read_root(storage, &anchor, RootRole::Private)?);
     let body = catalogue::Codec::new(archive, mode, key)?.decode(&stored)?;
@@ -191,4 +210,24 @@ pub(crate) fn credential_open(
         slot,
         Layout::Shared,
     )
+}
+
+/// The fresh file catalogue partitions every byte after the control prefix as
+/// payload. External metadata/key roots would alias that graph; general shared
+/// root placement alone is not sufficient ownership validation for this adapter.
+fn validate_fresh_shape(anchor: &Anchor) -> Result<()> {
+    anchor.validate_in(Layout::Shared)?;
+    if anchor.generation != 1
+        || anchor.index.len != PRIVATE_BYTES as u64
+        || anchor.object_root != anchor.index.digest
+        || !anchor.allocation.absent()
+        || anchor.index.primary >= REGION_LEN as u64
+        || anchor.index.mirror >= REGION_LEN as u64
+        || (!anchor.keys.absent()
+            && (anchor.keys.primary >= REGION_LEN as u64
+                || anchor.keys.mirror >= REGION_LEN as u64))
+    {
+        return Err(Error::CorruptRecord);
+    }
+    Ok(())
 }

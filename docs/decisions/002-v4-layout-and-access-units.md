@@ -95,3 +95,14 @@ size projection is therefore neither a peak-space nor an update-cost estimate.
 The abstract model passes interruption and separate region-loss checks; actual
 wire encoding, journal overflow, graph ownership and byte-level crash tests remain.
 It does not authorize in-place overwrite or select a compaction policy.
+
+
+## Damage locality checkpoint
+
+[Read-only recovery tests](../evidence/dense-salvage-2026-09-27/README.md)
+distinguish isolated fragment corruption from whole-region loss. On a deliberately
+highly compressible 512-file stress corpus, one destroyed 64 KiB region loses
+64 files in C and 512 in the denser image; one changed byte loses one dense file.
+The independent restart/decode bound is not a bound on logical bytes lost per
+physical failure region. Compare retained primary corpora before deciding whether
+to accept this trade-off or constrain packing; no new guarantee is selected here.

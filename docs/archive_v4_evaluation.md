@@ -134,6 +134,9 @@ now measures 327,680 bytes for both retained small plaintext and encrypted/signe
 fixtures: 1.382× the 237,078-byte ZIP, with every persisted byte verified after
 reopen. Five cases match their earlier projections. This is bounded, immutable,
 file-only size evidence; full A5 and A3/A4 remain unqualified for this variant.
+[Salvage/locality checks](evidence/dense-salvage-2026-09-27/README.md) preserve
+intact neighbours after isolated corruption, but expose larger logical loss per
+physical region in denser packs. This trade-off remains part of selection.
 
 ## Whole-format eligibility review
 

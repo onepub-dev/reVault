@@ -2309,3 +2309,340 @@ fn dense_image_rejects_owner_substitution_and_reads_password_directory() {
     )
     .is_err());
 }
+
+#[test]
+fn dense_salvage_preserves_intact_neighbours_and_ignores_unrelated_controls() {
+    use super::dense_image::{from_candidate, salvage, Image};
+    use crate::file_format::publication_anchor::{FAILURE_REGION, REGION_LEN};
+    let owner = OwnerSigningKeyPair::generate().unwrap();
+    let public = owner.public_key();
+    for encrypted in [false, true] {
+        for signed in [false, true] {
+            for compressed in [false, true] {
+                let mode = mode(encrypted, signed, compressed, true);
+                let authority = authority(mode, &public);
+                let mut source = Files::open(
+                    packed_pair(mode, &authority, signed.then_some(&owner)),
+                    archive(),
+                    mode,
+                    &authority,
+                    key(mode),
+                )
+                .unwrap();
+                let output = from_candidate(
+                    &mut source,
+                    StorageBackend::memory(Vec::new()),
+                    &authority,
+                    signed.then_some(&owner),
+                    key(mode),
+                    &[],
+                )
+                .unwrap();
+                let seed = output.read_all().unwrap();
+                for kind in ["fragment", "padding", "journal", "metadata"] {
+                    let mut damaged = StorageBackend::memory(seed.clone());
+                    match kind {
+                        "fragment" => {
+                            let old = damaged.read_at(REGION_LEN as u64, 1).unwrap()[0];
+                            damaged.write_at(REGION_LEN as u64, &[old ^ 1]).unwrap();
+                        }
+                        "padding" => {
+                            let at = damaged.len().unwrap() - 1;
+                            let old = damaged.read_at(at, 1).unwrap()[0];
+                            damaged.write_at(at, &[old ^ 1]).unwrap();
+                        }
+                        "journal" => {
+                            for bank in [0, FAILURE_REGION] {
+                                damaged.write_at(bank + 8192, &vec![0; 4096]).unwrap();
+                            }
+                        }
+                        "metadata" => {
+                            for bank in [0, FAILURE_REGION] {
+                                damaged.write_at(bank + 16384, &vec![0; 49152]).unwrap();
+                            }
+                        }
+                        _ => unreachable!(),
+                    }
+                    let before = damaged.read_all().unwrap();
+                    let mut sink = Salvaged::default();
+                    let report =
+                        salvage(&damaged, archive(), mode, &authority, key(mode), &mut sink);
+                    if kind == "metadata" {
+                        assert!(report.is_err());
+                        assert!(sink.files.is_empty() && sink.active.is_none());
+                    } else {
+                        let report = report.unwrap();
+                        assert_eq!(report.generation, 1);
+                        if kind == "fragment" {
+                            assert_eq!((report.complete, report.incomplete), (1, 1));
+                            assert_eq!(sink.incomplete, vec![b"erase".to_vec()]);
+                        } else {
+                            assert_eq!((report.complete, report.incomplete), (2, 0));
+                        }
+                        assert_eq!(sink.files[b"keep".as_slice()], vec![0x39; 8192]);
+                    }
+                    if kind != "fragment" || mode.plaintext() && mode.signed() {
+                        assert!(Image::open(
+                            StorageBackend::memory(before.clone()),
+                            archive(),
+                            mode,
+                            &authority,
+                            key(mode)
+                        )
+                        .is_err());
+                    }
+                    assert_eq!(damaged.read_all().unwrap(), before);
+                }
+                // Truncate inside the last file's stored fragment, leaving all selected
+                // front metadata intact. Earlier authenticated contents remain salvageable.
+                let (_, body) = publication::shared::open_private(
+                    &output,
+                    archive(),
+                    mode,
+                    &authority,
+                    key(mode),
+                )
+                .unwrap();
+                let codec = Codec::shared_packed(archive(), mode, key(mode)).unwrap();
+                let catalogue =
+                    super::dense_catalogue::Catalogue::decode(&body, &codec, output.len().unwrap())
+                        .unwrap();
+                let file = catalogue
+                    .files
+                    .iter()
+                    .find(|file| file.path.as_slice() == b"keep")
+                    .unwrap();
+                let fragment = file.fragments.last().unwrap();
+                let end = catalogue.packs[fragment.pack].extent.start
+                    + fragment.relative as u64
+                    + fragment.descriptor.stored_len() as u64;
+                let mut truncated = StorageBackend::memory(seed);
+                truncated.truncate(end - 1).unwrap();
+                let mut sink = Salvaged::default();
+                let report = salvage(
+                    &truncated,
+                    archive(),
+                    mode,
+                    &authority,
+                    key(mode),
+                    &mut sink,
+                )
+                .unwrap();
+                assert_eq!((report.complete, report.incomplete), (1, 1));
+                assert_eq!(sink.files[b"erase".as_slice()], vec![0xa7; 4096]);
+                assert_eq!(sink.incomplete, vec![b"keep".to_vec()]);
+            }
+        }
+    }
+}
+#[test]
+fn dense_packing_exposes_the_larger_logical_loss_from_a_physical_region_failure() {
+    use super::dense_image::{from_candidate, salvage};
+    use crate::file_format::publication_anchor::{FAILURE_REGION, REGION_LEN};
+    let mode = mode(false, true, true, true);
+    let owner = OwnerSigningKeyPair::generate().unwrap();
+    let public = owner.public_key();
+    let authority = authority(mode, &public);
+    let inputs = (0..512).map(|index| Input {
+        path: format!("file-{index:04}").into_bytes(),
+        reader: Cursor::new(vec![index as u8; 4096]),
+    });
+    let source = Files::create(
+        StorageBackend::memory(Vec::new()),
+        archive(),
+        mode,
+        &authority,
+        Some(&owner),
+        None,
+        MAX_LOGICAL,
+        inputs,
+    )
+    .unwrap();
+    let mut source = Files::open(source, archive(), mode, &authority, None).unwrap();
+    let old_pack = first_record(&source, b"file-0000").extents[0];
+    let image = from_candidate(
+        &mut source,
+        StorageBackend::memory(Vec::new()),
+        &authority,
+        Some(&owner),
+        None,
+        &[],
+    )
+    .unwrap();
+    let mut old_damaged = StorageBackend::memory(source.storage.read_all().unwrap());
+    old_damaged
+        .write_at(old_pack.start, &vec![0; FAILURE_REGION as usize])
+        .unwrap();
+    let mut sink = Salvaged::default();
+    let old = Files::salvage(&old_damaged, archive(), mode, &authority, None, &mut sink).unwrap();
+    assert_eq!((old.complete, old.incomplete), (448, 64));
+    let mut damaged = StorageBackend::memory(image.read_all().unwrap());
+    damaged
+        .write_at(REGION_LEN as u64, &vec![0; FAILURE_REGION as usize])
+        .unwrap();
+    let mut sink = Salvaged::default();
+    let dense = salvage(&damaged, archive(), mode, &authority, None, &mut sink).unwrap();
+    assert_eq!((dense.complete, dense.incomplete), (0, 512));
+    let mut one_byte = StorageBackend::memory(image.read_all().unwrap());
+    let first = one_byte.read_at(REGION_LEN as u64, 1).unwrap()[0];
+    one_byte.write_at(REGION_LEN as u64, &[first ^ 1]).unwrap();
+    let mut sink = Salvaged::default();
+    let isolated = salvage(&one_byte, archive(), mode, &authority, None, &mut sink).unwrap();
+    assert_eq!((isolated.complete, isolated.incomplete), (511, 1));
+    for (path, bytes) in &sink.files {
+        let index: usize = std::str::from_utf8(path)
+            .unwrap()
+            .trim_start_matches("file-")
+            .parse()
+            .unwrap();
+        assert_eq!(bytes, &vec![index as u8; 4096]);
+    }
+    println!("DENSE_REGION_LOSS old_incomplete={} old_logical_bytes={} dense_incomplete={} dense_logical_bytes={} single_byte_incomplete={}", old.incomplete, old.incomplete * 4096, dense.incomplete, dense.incomplete * 4096, isolated.incomplete);
+}
+
+#[derive(Clone, Debug)]
+struct DenseReadFailure {
+    storage: StorageBackend,
+    fail_at: u64,
+}
+impl Storage for DenseReadFailure {
+    fn len(&self) -> Result<u64> {
+        self.storage.len()
+    }
+    fn read_at(&self, offset: u64, len: usize) -> Result<Vec<u8>> {
+        if offset == self.fail_at {
+            return Err(Error::InvalidInput(
+                "synthetic dense recovery I/O failure".into(),
+            ));
+        }
+        self.storage.read_at(offset, len)
+    }
+    fn read_at_into(&self, offset: u64, out: &mut [u8]) -> Result<()> {
+        out.copy_from_slice(&self.read_at(offset, out.len())?);
+        Ok(())
+    }
+    fn append(&mut self, _: &[u8]) -> Result<u64> {
+        panic!("salvage wrote storage")
+    }
+    fn write_at(&mut self, _: u64, _: &[u8]) -> Result<()> {
+        panic!("salvage wrote storage")
+    }
+    fn truncate(&mut self, _: u64) -> Result<()> {
+        panic!("salvage truncated storage")
+    }
+    fn sync(&self) -> Result<()> {
+        panic!("salvage synced storage")
+    }
+}
+#[test]
+fn dense_salvage_discards_partial_files_and_propagates_fatal_errors() {
+    use super::dense_image::{from_candidate, salvage, Image};
+    let mode = mode(true, true, true, true);
+    let owner = OwnerSigningKeyPair::generate().unwrap();
+    let public = owner.public_key();
+    let authority = authority(mode, &public);
+    let source = Files::create(
+        StorageBackend::memory(Vec::new()),
+        archive(),
+        mode,
+        &authority,
+        Some(&owner),
+        key(mode),
+        65536,
+        update_inputs(&[
+            (b"empty", b""),
+            (b"intact", b"intact contents"),
+            (b"partial", &vec![0x91; 150_000]),
+        ]),
+    )
+    .unwrap();
+    let mut source = Files::open(source, archive(), mode, &authority, key(mode)).unwrap();
+    let image = from_candidate(
+        &mut source,
+        StorageBackend::memory(Vec::new()),
+        &authority,
+        Some(&owner),
+        key(mode),
+        &[],
+    )
+    .unwrap();
+    let (_, body) =
+        publication::shared::open_private(&image, archive(), mode, &authority, key(mode)).unwrap();
+    let codec = Codec::shared_packed(archive(), mode, key(mode)).unwrap();
+    let catalogue =
+        super::dense_catalogue::Catalogue::decode(&body, &codec, image.len().unwrap()).unwrap();
+    let file = catalogue
+        .files
+        .iter()
+        .find(|file| file.path.as_slice() == b"partial")
+        .unwrap();
+    let fragment = &file.fragments[1];
+    let at = catalogue.packs[fragment.pack].extent.start + fragment.relative as u64;
+    let mut damaged = StorageBackend::memory(image.read_all().unwrap());
+    let byte = damaged.read_at(at, 1).unwrap()[0];
+    damaged.write_at(at, &[byte ^ 1]).unwrap();
+    let mut sink = Salvaged::default();
+    let report = salvage(&damaged, archive(), mode, &authority, key(mode), &mut sink).unwrap();
+    assert_eq!((report.complete, report.incomplete), (2, 1));
+    assert_eq!(sink.files[b"empty".as_slice()], b"");
+    assert_eq!(sink.files[b"intact".as_slice()], b"intact contents");
+    assert!(!sink.files.contains_key(b"partial".as_slice()));
+    let mut sink = Salvaged::default();
+    assert!(salvage(
+        &image,
+        archive(),
+        mode,
+        &authority,
+        Some(&[99; 32]),
+        &mut sink
+    )
+    .is_err());
+    assert!(sink.files.is_empty() && sink.active.is_none());
+    let wrong = OwnerSigningKeyPair::generate().unwrap().public_key();
+    assert!(salvage(
+        &image,
+        archive(),
+        mode,
+        &Authority::Owner(&wrong),
+        key(mode),
+        &mut sink
+    )
+    .is_err());
+    assert!(sink.files.is_empty() && sink.active.is_none());
+    let guarded = DenseReadFailure {
+        storage: StorageBackend::memory(image.read_all().unwrap()),
+        fail_at: at,
+    };
+    assert!(
+        matches!(salvage(&guarded, archive(), mode, &authority, key(mode), &mut sink), Err(Error::InvalidInput(ref reason)) if reason == "synthetic dense recovery I/O failure")
+    );
+    assert_eq!(sink.files.len(), 2); // Previously finished files are still only staged.
+    sink.files.clear(); // Caller discards the entire failed batch.
+    struct FailingSink;
+    impl recovery::Sink for FailingSink {
+        fn begin(&mut self, _: &[u8], _: u64) -> Result<()> {
+            Ok(())
+        }
+        fn data(&mut self, _: &[u8]) -> Result<()> {
+            Err(Error::InvalidInput("synthetic sink failure".into()))
+        }
+        fn finish(&mut self, _: bool) -> Result<()> {
+            Ok(())
+        }
+    }
+    assert!(
+        matches!(salvage(&image, archive(), mode, &authority, key(mode), &mut FailingSink), Err(Error::InvalidInput(ref reason)) if reason == "synthetic sink failure")
+    );
+    let password = crate::SecretString::try_from_slice(b"no password slot exists").unwrap();
+    assert!(matches!(
+        Image::open_credential(
+            image,
+            archive(),
+            mode,
+            Some(&public),
+            publication::bootstrap::Credential::Password(&password),
+            None
+        ),
+        Err(Error::InvalidKey)
+    ));
+}
