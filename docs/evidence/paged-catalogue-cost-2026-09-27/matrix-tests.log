@@ -1,0 +1,11 @@
+   Compiling revault_lockbox_api v0.0.41 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api)
+    Finished `release` profile [optimized] target(s) in 45.55s
+     Running unittests src/lib.rs (target/release/deps/revault_lockbox_api-5338344f5af7f73d)
+
+running 3 tests
+test file_format::candidate_files::tests::paged_cost_model_handles_two_byte_leaf_counts ... ok
+test file_format::candidate_files::tests::paged_cost_model_preserves_source_and_budgets_actual_hybrid_publication_bytes ... ok
+test file_format::candidate_files::tests::paged_cost_model_keeps_large_pack_tables_out_of_the_embedded_root ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 512 filtered out; finished in 0.16s
+

@@ -57,3 +57,30 @@ plain/protected cases keep multi-page pack tables out of the small root. Retaine
 corpus measurements follow only after freezing the containing commit.
 
 [Strict Clippy passes](clippy.log) for the frozen-source candidate.
+
+## Frozen 32-record baseline and declared follow-up
+
+[Five retained-corpus results](baseline-32/batch.json) use commit `951c43d3`,
+executable SHA-256 `501ec0baad29607bcdf6ce86eef23e10f708ddd460b2421b69b1b6f87f0f51ec`.
+All source hashes remain unchanged and all measured frames round-trip.
+
+| Corpus | Live leaves/bank | Largest staged leaf | Peak/bank | Root maximum | Fits |
+| --- | ---: | ---: | ---: | ---: | --- |
+| Small plain | 49,408 | 3,072 | 52,480 | 824 | No |
+| Small encrypted/signed | 49,408 | 3,072 | 52,480 | 840 | No |
+| 8 MiB raw plain | 17,152 | 5,888 | 23,040 | 479 | Yes |
+| 8 MiB compressed plain | 1,792 | 1,536 | 3,328 | 226 | Yes |
+| 8 MiB compressed encrypted/signed | 1,792 | 1,536 | 3,328 | 242 | Yes |
+
+The primary small corpus exceeds each 49,152-byte private pool by 3,328 bytes.
+The embedded root fits, including the actual 5,379-byte hybrid authentication
+block. This does not justify a writer. There is no small-input compression cutoff
+in `encode_with_compression`; independent leaf compression and allocation rounding
+must be measured together with the reserve needed to replace a leaf.
+
+Before further implementation, compare the finite set of **16, 32, 64 and 128
+records per leaf**, keeping the 16 KiB decoded bound, 256-byte allocation quantum,
+all fields and hashes, protection settings and retained corpora unchanged. Measure
+unrounded frame bytes and decoded bytes as well as total live/staged allocation.
+This is a page-granularity comparison, not permission to relax size or security
+requirements. Preserve this failed baseline regardless of the comparison outcome.

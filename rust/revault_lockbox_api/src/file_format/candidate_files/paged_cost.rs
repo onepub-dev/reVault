@@ -13,7 +13,7 @@ const PRIVATE_START: u64 = 16384;
 const PRIVATE_BYTES: usize = 49152;
 const ROOT_START: usize = 6144;
 const ROOT_BYTES: usize = 2016; // Publication footer retains its independent checksum.
-const LEAF_RECORDS: usize = 32;
+const LEAF_RECORD_CHOICES: [usize; 4] = [16, 32, 64, 128];
 const MAX_PLAIN: usize = 65536;
 const MAX_LEAF_PLAIN: usize = 16384;
 const QUANTUM: usize = 256;
@@ -172,6 +172,7 @@ struct Leaf {
     start: u64,
     last: Zeroizing<Vec<u8>>,
     count: usize,
+    required: usize,
 }
 fn root_body(
     leaves: &[Leaf],
@@ -234,10 +235,16 @@ fn root_body(
     }
     Ok(out)
 }
-fn measure(catalogue: &Catalogue, codec: &FrameCodec, auth_bytes: usize) -> Result<Value> {
+fn measure(
+    catalogue: &Catalogue,
+    codec: &FrameCodec,
+    auth_bytes: usize,
+    leaf_records: usize,
+) -> Result<Value> {
+    assert!(LEAF_RECORD_CHOICES.contains(&leaf_records));
     let mut leaves = Vec::new();
     let mut records = Vec::new();
-    let mut plain_bytes = 10;
+    let mut plain_bytes = 11; // Largest possible header: 128 has a two-byte count.
     let mut used = 0;
     let finish =
         |records: &mut Vec<&File>, leaves: &mut Vec<Leaf>, used: &mut usize| -> Result<()> {
@@ -251,7 +258,7 @@ fn measure(catalogue: &Catalogue, codec: &FrameCodec, auth_bytes: usize) -> Resu
             for file in records.iter() {
                 plain.extend_from_slice(&file_record(file)?);
             }
-            let (stored, _) = codec.encode(&plain, None)?;
+            let (stored, required) = codec.encode(&plain, None)?;
             let leaf = Leaf {
                 namespace: 1,
                 plain,
@@ -259,6 +266,7 @@ fn measure(catalogue: &Catalogue, codec: &FrameCodec, auth_bytes: usize) -> Resu
                 start: PRIVATE_START + *used as u64,
                 last: records.last().unwrap().path.clone(),
                 count: records.len(),
+                required,
             };
             *used += leaf.stored.len();
             leaves.push(leaf);
@@ -267,45 +275,46 @@ fn measure(catalogue: &Catalogue, codec: &FrameCodec, auth_bytes: usize) -> Resu
         };
     for file in &catalogue.files {
         let len = file_record(file)?.len();
-        if len + 10 > MAX_LEAF_PLAIN {
+        if len + 11 > MAX_LEAF_PLAIN {
             return Ok(
                 json!({"inline_geometry_fits":false,"reason":"one file record exceeds leaf model bound; fragment-index overflow required"}),
             );
         }
-        if records.len() == LEAF_RECORDS || plain_bytes + len > MAX_LEAF_PLAIN {
+        if records.len() == leaf_records || plain_bytes + len > MAX_LEAF_PLAIN {
             finish(&mut records, &mut leaves, &mut used)?;
-            plain_bytes = 10;
+            plain_bytes = 11;
         }
         records.push(file);
         plain_bytes += len;
     }
     finish(&mut records, &mut leaves, &mut used)?;
     let file_leaf_count = leaves.len();
-    for (group, packs) in catalogue.packs.chunks(LEAF_RECORDS).enumerate() {
+    for (group, packs) in catalogue.packs.chunks(leaf_records).enumerate() {
         let mut plain = ZeroizingBytes::new(Vec::with_capacity(MAX_PLAIN));
         plain.extend_from_slice(b"RV4MLF01");
         plain.push(2);
         uint(&mut plain, packs.len() as u64);
         for (index, pack) in packs.iter().enumerate() {
             plain.push(2);
-            plain.extend_from_slice(&((group * LEAF_RECORDS + index) as u64).to_be_bytes());
+            plain.extend_from_slice(&((group * leaf_records + index) as u64).to_be_bytes());
             plain.extend_from_slice(&pack.extent.start.to_le_bytes());
             uint(&mut plain, pack.extent.len);
             plain.extend_from_slice(&pack.extent.digest);
             plain.extend_from_slice(&pack.padding_digest);
         }
-        let (stored, _) = codec.encode(&plain, None)?;
+        let (stored, required) = codec.encode(&plain, None)?;
         let leaf = Leaf {
             namespace: 2,
             plain,
             stored,
             start: PRIVATE_START + used as u64,
             last: Zeroizing::new(
-                ((group * LEAF_RECORDS + packs.len() - 1) as u64)
+                ((group * leaf_records + packs.len() - 1) as u64)
                     .to_be_bytes()
                     .to_vec(),
             ),
             count: packs.len(),
+            required,
         };
         used += leaf.stored.len();
         leaves.push(leaf);
@@ -325,8 +334,9 @@ fn measure(catalogue: &Catalogue, codec: &FrameCodec, auth_bytes: usize) -> Resu
             continue;
         }
         let mut changed = leaf.plain.clone();
-        // Count is one canonical byte because this model admits at most 32 rows.
-        changed[11..15].copy_from_slice(&0o600u32.to_le_bytes());
+        // Skip the header, canonical count and record kind before permissions.
+        let permissions = 10 + if leaf.count >= 128 { 2 } else { 1 };
+        changed[permissions..permissions + 4].copy_from_slice(&0o600u32.to_le_bytes());
         let (stored, _) = codec.encode(&changed, None)?;
         largest_staged = largest_staged.max(stored.len());
         let root = root_body(
@@ -347,7 +357,7 @@ fn measure(catalogue: &Catalogue, codec: &FrameCodec, auth_bytes: usize) -> Resu
         && largest_root <= ROOT_BYTES
         && used + largest_staged <= PRIVATE_BYTES;
     Ok(
-        json!({"inline_geometry_fits":eligible,"leaf_pages":leaves.len(),"file_leaf_pages":file_leaf_count,"pack_leaf_pages":leaves.len()-file_leaf_count,"max_records_per_leaf":LEAF_RECORDS,"max_leaf_decoded_bytes":MAX_LEAF_PLAIN,"metadata_allocation_quantum":QUANTUM,"live_leaf_bytes_per_bank":used,"largest_staged_leaf_bytes_per_bank":largest_staged,"peak_leaf_bytes_per_bank":used+largest_staged,"private_pool_bytes_per_bank":PRIVATE_BYTES,"private_pool_headroom_bytes":PRIVATE_BYTES as i64-used as i64-largest_staged as i64,"initial_root_required_bytes":initial_root_required,"largest_edited_root_required_bytes":largest_root,"embedded_root_capacity":ROOT_BYTES,"embedded_root_start":ROOT_START,"authenticated_owner_or_mac_bytes":auth_bytes,"publication_auth_end":auth_end,"publication_auth_fits_before_root":auth_end<=ROOT_START,"frame_roundtrips_verified":true,"scope":"one-level file-only cost model; tests one permission change in every leaf, not arbitrary updates or a persisted format"}),
+        json!({"inline_geometry_fits":eligible,"leaf_pages":leaves.len(),"file_leaf_pages":file_leaf_count,"pack_leaf_pages":leaves.len()-file_leaf_count,"max_records_per_leaf":leaf_records,"max_leaf_decoded_bytes":MAX_LEAF_PLAIN,"metadata_allocation_quantum":QUANTUM,"leaf_decoded_bytes_per_bank":leaves.iter().map(|leaf|leaf.plain.len()).sum::<usize>(),"leaf_unrounded_frame_bytes_per_bank":leaves.iter().map(|leaf|leaf.required).sum::<usize>(),"largest_leaf_decoded_bytes":leaves.iter().map(|leaf|leaf.plain.len()).max().unwrap_or(0),"live_leaf_bytes_per_bank":used,"largest_staged_leaf_bytes_per_bank":largest_staged,"peak_leaf_bytes_per_bank":used+largest_staged,"private_pool_bytes_per_bank":PRIVATE_BYTES,"private_pool_headroom_bytes":PRIVATE_BYTES as i64-used as i64-largest_staged as i64,"initial_root_required_bytes":initial_root_required,"largest_edited_root_required_bytes":largest_root,"embedded_root_capacity":ROOT_BYTES,"embedded_root_start":ROOT_START,"authenticated_owner_or_mac_bytes":auth_bytes,"publication_auth_end":auth_end,"publication_auth_fits_before_root":auth_end<=ROOT_START,"frame_roundtrips_verified":true,"scope":"one-level file-only cost model; tests one permission change in every leaf, not arbitrary updates or a persisted format"}),
     )
 }
 pub(super) fn project<S: Storage>(
@@ -374,7 +384,13 @@ pub(super) fn project<S: Storage>(
         },
         |body| {
             let catalogue = Catalogue::decode(body, &data, sealed.get())?;
-            measured = Some(measure(&catalogue, &codec, auth_bytes)?);
+            let variants = LEAF_RECORD_CHOICES
+                .into_iter()
+                .map(|count| measure(&catalogue, &codec, auth_bytes, count))
+                .collect::<Result<Vec<_>>>()?;
+            let mut baseline = variants[1].clone();
+            baseline["page_granularity_comparison"] = json!(variants);
+            measured = Some(baseline);
             Ok(())
         },
     )?;

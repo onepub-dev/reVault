@@ -3430,6 +3430,19 @@ fn paged_cost_model_preserves_source_and_budgets_actual_hybrid_publication_bytes
                     } else {
                         assert_eq!(auth, if encrypted { 32 } else { 0 });
                     }
+                    let variants = result["page_granularity_comparison"].as_array().unwrap();
+                    assert_eq!(variants.len(), 4);
+                    for (variant, count) in variants.iter().zip([16, 32, 64, 128]) {
+                        assert_eq!(variant["max_records_per_leaf"], count);
+                        assert_eq!(variant["frame_roundtrips_verified"], true);
+                        assert!(variant["largest_leaf_decoded_bytes"].as_u64().unwrap() <= 16384);
+                        assert!(
+                            variant["leaf_unrounded_frame_bytes_per_bank"]
+                                .as_u64()
+                                .unwrap()
+                                <= variant["live_leaf_bytes_per_bank"].as_u64().unwrap()
+                        );
+                    }
                     assert_eq!(files.storage.read_all().unwrap(), before);
                 }
             }
@@ -3479,4 +3492,38 @@ fn paged_cost_model_keeps_large_pack_tables_out_of_the_embedded_root() {
         );
         assert_eq!(Sha256::digest(files.storage.read_all().unwrap()), before);
     }
+}
+
+#[test]
+fn paged_cost_model_handles_two_byte_leaf_counts() {
+    let mode = mode(true, false, true, true);
+    let authority = Authority::Symmetric(KEY);
+    let storage = Files::create(
+        StorageBackend::memory(Vec::new()),
+        archive(),
+        mode,
+        &authority,
+        None,
+        key(mode),
+        65536,
+        (0..128).map(|index| Input {
+            path: format!("empty-{index:03}").into_bytes(),
+            reader: Cursor::new(Vec::<u8>::new()),
+        }),
+    )
+    .unwrap();
+    let mut files = Files::open(storage, archive(), mode, &authority, key(mode)).unwrap();
+    let before = files.storage.read_all().unwrap();
+    let result = super::paged_cost::project(&mut files, &authority, key(mode)).unwrap();
+    for (variant, pages) in result["page_granularity_comparison"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .zip([8, 4, 2, 1])
+    {
+        assert_eq!(variant["file_leaf_pages"], pages);
+        assert_eq!(variant["pack_leaf_pages"], 0);
+        assert_eq!(variant["frame_roundtrips_verified"], true);
+    }
+    assert_eq!(files.storage.read_all().unwrap(), before);
 }
