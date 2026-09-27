@@ -2646,3 +2646,50 @@ fn dense_salvage_discards_partial_files_and_propagates_fatal_errors() {
         Err(Error::InvalidKey)
     ));
 }
+
+#[test]
+fn dense_normal_open_checks_unallocated_public_slots_without_blocking_salvage() {
+    use super::dense_image::{from_candidate, Image};
+    let owner = OwnerSigningKeyPair::generate().unwrap();
+    let public = owner.public_key();
+    for encrypted in [false, true] {
+        let mode = mode(encrypted, true, true, true);
+        let authority = authority(mode, &public);
+        let mut source = Files::open(
+            packed_pair(mode, &authority, Some(&owner)),
+            archive(),
+            mode,
+            &authority,
+            key(mode),
+        )
+        .unwrap();
+        let mut storage = from_candidate(
+            &mut source,
+            StorageBackend::memory(Vec::new()),
+            &authority,
+            Some(&owner),
+            key(mode),
+            &[],
+        )
+        .unwrap();
+        storage
+            .write_at(12288, b"unowned retired key wrapper")
+            .unwrap();
+        assert!(Image::open(storage.clone(), archive(), mode, &authority, key(mode)).is_err());
+        let mut sink = Salvaged::default();
+        let report = super::dense_image::salvage(
+            &storage,
+            archive(),
+            mode,
+            &authority,
+            key(mode),
+            &mut sink,
+        )
+        .unwrap();
+        assert_eq!((report.complete, report.incomplete), (2, 0));
+        assert_eq!(
+            sink.files.get(b"keep".as_slice()).unwrap(),
+            &vec![0x39; 8192]
+        );
+    }
+}

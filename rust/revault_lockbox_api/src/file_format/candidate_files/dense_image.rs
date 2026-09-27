@@ -23,6 +23,15 @@ impl<S: Storage> Image<S> {
         let (anchor, body) = shared::open_private(&storage, archive, mode, authority, key)?;
         let codec = Codec::shared_packed(archive, mode, key)?;
         let catalogue = Catalogue::decode(&body, &codec, anchor.sealed_len)?;
+        shared::ownership::Graph::fresh_files(
+            &anchor,
+            &catalogue
+                .packs
+                .iter()
+                .map(|pack| pack.extent)
+                .collect::<Vec<_>>(),
+        )?
+        .verify_free(&storage)?;
         catalogue.verify_padding(&storage, &codec)?;
         let mut image = Self {
             storage,

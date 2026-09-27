@@ -44,6 +44,7 @@ pub(super) fn read_root(
 mod tests;
 
 mod catalogue;
+pub(crate) mod ownership;
 
 /// Publish a freshly staged comparison image. The file-image builder validates
 /// all payload membership/bytes first and owns cleanup of the empty destination.

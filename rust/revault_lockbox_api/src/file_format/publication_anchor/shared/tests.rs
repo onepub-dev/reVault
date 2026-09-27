@@ -2,7 +2,7 @@
 use super::*;
 use crate::storage::StorageBackend;
 use crate::{Compression, EncryptionMode, LockboxFormatOptions, SigningMode, SizePadding};
-fn mode(encrypted: bool, signed: bool) -> FormatMode {
+pub(super) fn mode(encrypted: bool, signed: bool) -> FormatMode {
     FormatMode::new(LockboxFormatOptions {
         encryption: if encrypted {
             EncryptionMode::ChaCha20Poly1305
@@ -18,7 +18,7 @@ fn mode(encrypted: bool, signed: bool) -> FormatMode {
         size_padding: SizePadding::Default,
     })
 }
-fn fixture(mode: FormatMode) -> (StorageBackend, Anchor) {
+pub(super) fn fixture(mode: FormatMode) -> (StorageBackend, Anchor) {
     let mut storage = StorageBackend::memory(vec![0; REGION_LEN]);
     // Synthetic opaque stored bytes only: confidentiality/typed-catalogue encoding
     // is not established by a publication placement test.
