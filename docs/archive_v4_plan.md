@@ -50,6 +50,18 @@ states which gates remain failed or incomplete.
    independently verified file results; public mutation policy remains pending.
    Integrate typed catalogue overflow, remaining public records, payload updates,
    overflow transitions and compaction/installation before qualification. Preserve the existing candidate as the control.
+   Implement overflow before adding an inline-only variable/form prototype: the
+   [existing variable limit](../rust/revault_lockbox_api/src/constants.rs) is
+   1 MiB per value, already larger than the entire 64 KiB decoded experimental
+   catalogue. Preserve that public capacity and secure-value semantics.
+   The next implementation tranche must connect authenticated child references,
+   bounded traversal and allocation ownership, followed by journal overflow and
+   interruption-safe retirement. Keep the small inline case and test transition
+   into overflow, further growth, replacement/deletion and return to inline.
+   Include missing/corrupt children, duplicate ownership, stale references, and
+   control-bank loss; recovery must not scan old generations to replace missing
+   selected membership. Re-measure completed and temporary space, CPU and RSS
+   across the transition rather than extrapolating the file-only results.
    Five retained images now match the size model; both small fixtures are actual
    320 KiB files (1.382× ZIP), with full persisted-byte verification. Budget
    temporary metadata, sealed-length/cleanup and any relocation publication; this
