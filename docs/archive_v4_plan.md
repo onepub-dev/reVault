@@ -19,7 +19,9 @@ states which gates remain failed or incomplete.
 
 1. Resolve the [whole-format eligibility findings](archive_v4_evaluation.md#whole-format-eligibility-review)
    before expanding C into a public adapter. Its encrypted key tree cannot bootstrap
-   credentials, and its minimum fixed/map space already exceeds the small-corpus
+   credentials; the [bootstrap component](evidence/credential-bootstrap-2026-09-27/README.md)
+   now tests password/Contact access and rekey selection separately, but lacks
+   allocator/public-API integration. Its minimum fixed/map space already exceeds the small-corpus
    size gate. Specify public bootstrap, record/permission semantics and shared
    control placement together. The [read-only cost model](evidence/whole-layout-cost-model-2026-09-27/README.md)
    projects 1.382× ZIP for the small corpus, so the geometry merits a protocol

@@ -1,0 +1,29 @@
+   Compiling revault_lockbox_api v0.0.41 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api)
+    Finished `release` profile [optimized] target(s) in 1m 00s
+     Running unittests src/lib.rs (target/release/deps/revault_lockbox_api-5338344f5af7f73d)
+
+running 21 tests
+test file_format::publication_anchor::tests::independent_checksum_and_hmac_vectors_match_exact_bytes ... ok
+test file_format::publication_anchor::tests::old_adjacent_publication_geometry_is_not_selected_as_current_format ... ok
+test file_format::publication_anchor::tests::owner_mode_archive_and_every_signed_field_are_pinned ... ok
+test file_format::publication_anchor::tests::publication_process_child ... ok
+test file_format::publication_anchor::tests::slot_read_errors_do_not_authorize_selecting_the_other_generation ... ok
+test file_format::publication_anchor::tests::symmetric_authentication_rejects_wrong_keys_modified_fields_and_short_tags ... ok
+test file_format::publication_anchor::tests::damaged_roots_never_authorize_rollback_to_an_older_publication ... ok
+test file_format::publication_anchor::tests::preparation_signatures_cannot_be_reused_as_publication_authority ... ok
+test file_format::publication_anchor::tests::mirrored_publications_round_trip_all_modes_and_ignore_prepared_tail_records ... ok
+test file_format::publication_anchor::tests::one_slot_can_be_lost_but_conflicting_or_unlinked_valid_slots_are_rejected ... ok
+test file_format::publication_anchor::tests::every_mutating_storage_failure_preserves_a_selected_complete_generation ... ok
+test file_format::publication_anchor::bootstrap::tests::directory_rejects_noncanonical_and_overflow_inputs ... ok
+test file_format::publication_anchor::bootstrap::tests::directory_identity_generation_and_slot_ids_are_checked ... ok
+test file_format::publication_anchor::tests::every_byte_prefix_of_a_torn_slot_keeps_an_old_or_new_authenticated_root ... ok
+test file_format::publication_anchor::tests::publication_and_mirror_repair_survive_real_process_death ... ok
+test file_format::publication_anchor::tests::power_loss_and_failed_final_sync_do_not_grant_cleanup_early ... ok
+test file_format::publication_anchor::bootstrap::tests::forged_unsigned_generation_never_grants_old_credentials_fallback ... ok
+test file_format::publication_anchor::bootstrap::tests::bootstrap_reads_only_bounded_public_records_and_propagates_io_errors ... ok
+test file_format::publication_anchor::bootstrap::tests::public_directory_mirrors_and_trust_context_are_enforced ... ok
+test file_format::publication_anchor::bootstrap::tests::old_credential_cannot_reopen_previous_generation_during_rekey ... ok
+test file_format::publication_anchor::bootstrap::tests::password_and_contact_bootstrap_authenticate_before_private_metadata ... ok
+
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 456 filtered out; finished in 2.36s
+

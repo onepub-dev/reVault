@@ -141,7 +141,7 @@ for them.
 | Normal and secret variables, explicit sensitivity changes | [Variable API](../rust/revault_lockbox_api/src/lockbox/variables.rs) | No typed variable records or secure-value API; opaque index values would not establish sensitivity semantics |
 | Form definitions, revisions, record references and field validation | [Definitions](../rust/revault_lockbox_api/src/lockbox/forms/definitions.rs), [records](../rust/revault_lockbox_api/src/lockbox/forms/records.rs) | No schema/revision linkage or cross-record validation |
 | Mirror ownership, overlap/adoption and deletion policies | [Mirror API](../rust/revault_lockbox_api/src/lockbox/mirrors.rs) | Atomic file updates exist, but no persisted mirror configuration/ownership integration |
-| Password/contact access and owner pinning | [Key slots](../rust/revault_lockbox_api/src/keys/key_slot.rs), [key directory](../rust/revault_lockbox_api/src/file_format/key_directory.rs) | Callers supply authority and content key out of band; the generic key tree is not credential bootstrap |
+| Password/contact access and owner pinning | [Key slots](../rust/revault_lockbox_api/src/keys/key_slot.rs), [key directory](../rust/revault_lockbox_api/src/file_format/key_directory.rs) | File callers still supply authority/key out of band; isolated public-wrapper bootstrap tests pass, but access integration/overflow remain absent |
 | Vault and binding interoperability | Shared production engine and retained migration fixtures | No candidate public constructor, credential open, binding carrier or migration path |
 
 A concrete bootstrap issue: `Transaction::put_key_record` currently uses the same
@@ -152,7 +152,11 @@ do not demonstrate a working access directory. A selected format needs a bounded
 public bootstrap path for existing wrapped-key algorithms, followed by selected
 publication/owner authentication before private records are trusted. Public slots
 must not expose private names or grant owner signing authority. This is a format
-integration requirement, not a proposal for new cryptography.
+integration requirement, not a proposal for new cryptography. The
+[bootstrap component experiment](evidence/credential-bootstrap-2026-09-27/README.md)
+now verifies password/Contact unwrapping, owner/MAC selection and refusal to fall
+back after rekeying. It remains separate from the allocator, public API and
+shared-control placement; its inline limit is not an accepted access-capacity cut.
 
 There is also a hard size contradiction in C's current placement. Its fixed
 publication/journal prefix is 262,144 bytes. Even the smallest two-bank allocation
@@ -207,6 +211,7 @@ The [checkpoint history](archive_v4_history.md) retains earlier commentary.
 | [Initial CPU/RSS](evidence/archive-evaluation-2026-09-26/README.md) | A/B/ZIP and GB resource baseline |
 | [Bounded A writer](evidence/writer-memory-2026-09-26/README.md) | Streaming staging and paired creation improvement |
 | [Recovery proofs](evidence/recovery-commitments-2026-09-26/README.md) | Owner-authorized membership without global payload verification |
+| [Credential bootstrap](evidence/credential-bootstrap-2026-09-27/README.md) | Bounded public wrappers, authority selection and rekey no-fallback component tests |
 | [Publication](evidence/publication-anchors-2026-09-27/README.md) | Mirrored selection, fault and process-death protocol |
 | [Initial index](evidence/authenticated-index-2026-09-27/README.md) / [packed index](evidence/packed-index-2026-09-27/README.md) | Rejected one-record leaves and bounded packed-page comparison |
 | [Preparation journal](evidence/preparation-journal-2026-09-27/README.md) / [allocation accounting](evidence/allocation-accounting-2026-09-27/README.md) | Reservation, erasure, reuse and aging |

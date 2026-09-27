@@ -248,15 +248,12 @@ fn encode(
     Ok(out)
 }
 
-fn decode(
-    slot: &[u8],
-    archive: LockboxId,
-    mode: FormatMode,
-    authority: &Authority<'_>,
-) -> Result<Anchor> {
+// Structural inspection is not authentication. Only credential bootstrap may
+// use it to locate a bounded public key directory; ordinary selection verifies
+// the owner/MAC before returning any publication authority.
+fn parse_untrusted(slot: &[u8], archive: LockboxId, mode: FormatMode) -> Result<Anchor> {
     if slot.len() != SLOT_LEN
         || &slot[..8] != MAGIC
-        || !authority.accepts(mode)
         || slot[8..10] != 2u16.to_le_bytes()
         || slot[10..12] != mode.0.to_le_bytes()
         || slot[12..16] != (SLOT_LEN as u32).to_le_bytes()
@@ -274,6 +271,40 @@ fn decode(
     {
         return Err(Error::CorruptHeader);
     }
+    let mut reader = Reader::new(&slot[16..PREFIX_LEN]);
+    let generation = reader.u64()?;
+    let found_archive = LockboxId::from_bytes(reader.take(16)?.try_into().unwrap());
+    if found_archive != archive {
+        return Err(Error::CorruptHeader);
+    }
+    let sealed_len = reader.u64()?;
+    reader.take(8)?; // Reserved; the fixed prefix check above requires zero.
+    let anchor = Anchor {
+        generation,
+        archive,
+        mode,
+        sealed_len,
+        object_root: reader.take(32)?.try_into().unwrap(),
+        previous: reader.take(32)?.try_into().unwrap(),
+        index: reader.root()?,
+        allocation: reader.root()?,
+        keys: reader.root()?,
+    };
+    reader.done()?;
+    anchor.validate()?;
+    Ok(anchor)
+}
+fn decode(
+    slot: &[u8],
+    archive: LockboxId,
+    mode: FormatMode,
+    authority: &Authority<'_>,
+) -> Result<Anchor> {
+    if !authority.accepts(mode) {
+        return Err(Error::CorruptHeader);
+    }
+    let anchor = parse_untrusted(slot, archive, mode)?;
+    let len = u32::from_le_bytes(slot[288..292].try_into().unwrap()) as usize;
     let auth = &slot[AUTH_START..AUTH_START + len];
     let message = message(&slot[..PREFIX_LEN]);
     match authority {
@@ -310,29 +341,9 @@ fn decode(
             }
         }
     }
-    let mut reader = Reader::new(&slot[16..PREFIX_LEN]);
-    let generation = reader.u64()?;
-    let found_archive = LockboxId::from_bytes(reader.take(16)?.try_into().unwrap());
-    if found_archive != archive {
-        return Err(Error::CorruptHeader);
-    }
-    let sealed_len = reader.u64()?;
-    reader.take(8)?; // Reserved; the fixed prefix check above requires zero.
-    let anchor = Anchor {
-        generation,
-        archive,
-        mode,
-        sealed_len,
-        object_root: reader.take(32)?.try_into().unwrap(),
-        previous: reader.take(32)?.try_into().unwrap(),
-        index: reader.root()?,
-        allocation: reader.root()?,
-        keys: reader.root()?,
-    };
-    reader.done()?;
-    anchor.validate()?;
     Ok(anchor)
 }
+
 struct Reader<'a> {
     bytes: &'a [u8],
     position: usize,
@@ -547,3 +558,5 @@ pub(crate) fn publish_relocation(
 #[cfg(test)]
 #[path = "publication_anchor_tests.rs"]
 mod tests;
+
+pub(crate) mod bootstrap;
