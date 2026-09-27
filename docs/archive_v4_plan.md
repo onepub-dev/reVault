@@ -46,7 +46,8 @@ states which gates remain failed or incomplete.
    a metadata-size subcase; mixed payload aging and public semantics remain.
    The [typed filesystem metadata experiment](evidence/typed-filesystem-metadata-2026-09-27/README.md)
    now persists directories, symlink targets and real permissions through the same
-   COW protocol; public mutation policy and node-aware recovery remain pending.
+   COW protocol. Node-aware salvage preserves authenticated metadata alongside
+   independently verified file results; public mutation policy remains pending.
    Integrate typed catalogue overflow, remaining public records, payload updates,
    overflow transitions and compaction/installation before qualification. Preserve the existing candidate as the control.
    Five retained images now match the size model; both small fixtures are actual

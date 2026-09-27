@@ -55,8 +55,22 @@ This is a metadata snapshot operation, not complete public filesystem semantics:
 recursive directory rename/delete, symlink-following reads/extraction, file payload
 mutation, mirror ownership/adoption rules and the public adapter remain pending.
 The old file-only salvage sink explicitly refuses node-bearing images before
-emitting output; a node-aware recovery sink must preserve metadata and file-result
-status together. Variables, forms, access mutation/overflow and the large-catalogue
+emitting output. The separate `salvage_filesystem` entry point authenticates the
+selected catalogue and validates its complete hierarchy before delivering metadata,
+then uses the same independently verified file recovery loop. Its sink must stage
+the entire batch until success and discard it on any fatal error. Metadata includes
+authenticated membership for incomplete files; their partial contents must be
+discarded. Symlink targets are reported without following or installing links.
+
+The node-aware recovery test exercises all 16 protection/compression/padding modes
+with intact data, fragment corruption, truncated payload, and loss of either complete
+control bank. It verifies exact public metadata, file-result status and unchanged
+source bytes through a backend that refuses writes. Metadata-sink refusal and late
+payload I/O errors propagate; loss of both selected catalogues, wrong encryption
+keys and wrong owner pins fail before metadata delivery. These remain internal
+format tests, not a public extraction adapter. The [node-aware recovery test](node-salvage-tests.log),
+[197-test format regression suite](node-salvage-format-tests.log) (five explicit
+probes ignored), and [strict Clippy](node-salvage-clippy.log) pass. Variables, forms, access mutation/overflow and the large-catalogue
 hierarchy remain separate missing record classes.
 
 The experiment admits at most 1,024 combined files/nodes and a 64 KiB decoded

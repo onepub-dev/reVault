@@ -4257,3 +4257,188 @@ fn dense_filesystem_metadata_recovery_selects_complete_old_or_typed_new_state() 
     }
     println!("DENSE_FILESYSTEM_METADATA_POWER_LOSS_CASES {cases}");
 }
+
+#[derive(Default)]
+struct FilesystemSalvaged {
+    files: Salvaged,
+    metadata: Option<Vec<super::dense_catalogue::Metadata>>,
+    reject_metadata: bool,
+}
+impl recovery::Sink for FilesystemSalvaged {
+    fn begin(&mut self, path: &[u8], len: u64) -> Result<()> {
+        assert!(self.metadata.is_some());
+        self.files.begin(path, len)
+    }
+    fn data(&mut self, bytes: &[u8]) -> Result<()> {
+        self.files.data(bytes)
+    }
+    fn finish(&mut self, complete: bool) -> Result<()> {
+        self.files.finish(complete)
+    }
+}
+impl super::dense_image::FilesystemSink for FilesystemSalvaged {
+    fn metadata(&mut self, entries: &[super::dense_catalogue::Metadata]) -> Result<()> {
+        assert!(self.metadata.is_none());
+        if self.reject_metadata {
+            return Err(Error::InvalidInput("metadata sink refused".into()));
+        }
+        self.metadata = Some(entries.to_vec());
+        Ok(())
+    }
+}
+
+#[test]
+fn dense_filesystem_salvage_preserves_nodes_even_when_payload_is_lost_all_modes() {
+    use super::dense_image::salvage_filesystem;
+    let owner = OwnerSigningKeyPair::generate().unwrap();
+    let public = owner.public_key();
+    let entries = public_filesystem_metadata(&owner);
+    for encrypted in [false, true] {
+        for signed in [false, true] {
+            for compressed in [false, true] {
+                for padded in [false, true] {
+                    let mode = mode(encrypted, signed, compressed, padded);
+                    let authority = authority(mode, &public);
+                    let signer = signed.then_some(&owner);
+                    let mut storage = canonical_dense_seed(mode, &authority, signer);
+                    super::dense_update::replace_filesystem_metadata(
+                        &mut storage,
+                        archive(),
+                        mode,
+                        &authority,
+                        signer,
+                        key(mode),
+                        &entries,
+                    )
+                    .unwrap();
+                    super::dense_update::return_inline(
+                        &mut storage,
+                        archive(),
+                        mode,
+                        &authority,
+                        signer,
+                        key(mode),
+                    )
+                    .unwrap();
+                    let (anchor, body) = publication::shared::open_private(
+                        &storage,
+                        archive(),
+                        mode,
+                        &authority,
+                        key(mode),
+                    )
+                    .unwrap();
+                    let codec = Codec::shared_packed(archive(), mode, key(mode)).unwrap();
+                    let catalogue =
+                        super::dense_catalogue::Catalogue::decode(&body, &codec, anchor.sealed_len)
+                            .unwrap();
+                    let fragment = &catalogue.files[0].fragments[0];
+                    let at = catalogue.packs[fragment.pack].extent.start + fragment.relative as u64;
+                    let original = storage.read_all().unwrap();
+                    // There is no public CLI writer for this experimental layout.
+                    // Inject damage into copies; the recovery backend forbids writes.
+                    for damage in 0..5 {
+                        let mut damaged = StorageBackend::memory(original.clone());
+                        match damage {
+                            1 => {
+                                let byte = damaged.read_at(at, 1).unwrap()[0];
+                                damaged.write_at(at, &[byte ^ 1]).unwrap();
+                            }
+                            2 => damaged.truncate(at).unwrap(),
+                            3 => damaged.write_at(0, &vec![0; 65536]).unwrap(),
+                            4 => damaged.write_at(65536, &vec![0; 65536]).unwrap(),
+                            _ => (),
+                        }
+                        let before = damaged.read_all().unwrap();
+                        let guarded = DenseReadFailure {
+                            storage: damaged,
+                            fail_at: u64::MAX,
+                        };
+                        let mut sink = FilesystemSalvaged::default();
+                        let report = salvage_filesystem(
+                            &guarded,
+                            archive(),
+                            mode,
+                            &authority,
+                            key(mode),
+                            &mut sink,
+                        )
+                        .unwrap();
+                        assert_eq!(sink.metadata.as_deref(), Some(entries.as_slice()));
+                        let complete = damage != 1 && damage != 2;
+                        assert_eq!(
+                            (report.complete, report.incomplete),
+                            (u64::from(complete), u64::from(!complete))
+                        );
+                        if complete {
+                            assert_eq!(sink.files.files[b"/docs/data".as_slice()], b"payload");
+                        } else {
+                            assert!(sink.files.files.is_empty());
+                            assert_eq!(sink.files.incomplete, vec![b"/docs/data".to_vec()]);
+                        }
+                        assert_eq!(guarded.storage.read_all().unwrap(), before);
+                    }
+                    let mut sink = FilesystemSalvaged {
+                        reject_metadata: true,
+                        ..Default::default()
+                    };
+                    assert!(
+                        matches!(salvage_filesystem(&storage, archive(), mode, &authority, key(mode), &mut sink), Err(Error::InvalidInput(ref why)) if why == "metadata sink refused")
+                    );
+                    assert!(sink.metadata.is_none() && sink.files.active.is_none());
+                    let guarded = DenseReadFailure {
+                        storage: StorageBackend::memory(original.clone()),
+                        fail_at: at,
+                    };
+                    let mut sink = FilesystemSalvaged::default();
+                    assert!(
+                        matches!(salvage_filesystem(&guarded, archive(), mode, &authority, key(mode), &mut sink), Err(Error::InvalidInput(ref why)) if why == "synthetic dense recovery I/O failure")
+                    );
+                    // Metadata was staged before the late error: the whole batch
+                    // must be discarded by the caller, never installed piecemeal.
+                    assert!(sink.metadata.is_some());
+                    assert!(sink.files.files.is_empty());
+                    let mut damaged = StorageBackend::memory(original);
+                    damaged.write_at(16384, &vec![0; 49152]).unwrap();
+                    damaged.write_at(81920, &vec![0; 49152]).unwrap();
+                    let mut sink = FilesystemSalvaged::default();
+                    assert!(salvage_filesystem(
+                        &damaged,
+                        archive(),
+                        mode,
+                        &authority,
+                        key(mode),
+                        &mut sink
+                    )
+                    .is_err());
+                    assert!(sink.metadata.is_none() && sink.files.active.is_none());
+                    if encrypted {
+                        assert!(salvage_filesystem(
+                            &storage,
+                            archive(),
+                            mode,
+                            &authority,
+                            Some(&[99; 32]),
+                            &mut sink
+                        )
+                        .is_err());
+                        assert!(sink.metadata.is_none());
+                    }
+                    if signed {
+                        let wrong = OwnerSigningKeyPair::generate().unwrap().public_key();
+                        assert!(salvage_filesystem(
+                            &storage,
+                            archive(),
+                            mode,
+                            &Authority::Owner(&wrong),
+                            key(mode),
+                            &mut sink
+                        )
+                        .is_err());
+                        assert!(sink.metadata.is_none());
+                    }
+                }
+            }
+        }
+    }
+}

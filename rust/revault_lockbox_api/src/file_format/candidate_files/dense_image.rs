@@ -1,7 +1,8 @@
-//! Fresh file-only shared-control image for correctness/size comparison. No
-//! mutation, public adapter or migration contract is exposed. Caller supplies a
-//! stable source snapshot/read lock; destination must be a fresh owned backend.
-use super::dense_catalogue::Catalogue;
+//! Shared-control image reads, recovery and fresh file-image construction.
+//! Metadata transactions live in dense_update; no public adapter or migration
+//! contract is exposed. Creation requires a stable source snapshot/read lock
+//! and a fresh owned destination backend.
+use super::dense_catalogue::{Catalogue, Metadata};
 use super::*;
 use crate::file_format::allocation_map::Extent;
 use crate::file_format::publication_anchor::{shared, REGION_LEN};
@@ -254,7 +255,7 @@ pub(super) fn salvage<S: Storage>(
     sink: &mut impl super::recovery::Sink,
 ) -> Result<SalvageReport> {
     let (anchor, body) = shared::salvage_private(storage, archive, mode, authority, key)?;
-    let mut codec = Codec::shared_packed(archive, mode, key)?;
+    let codec = Codec::shared_packed(archive, mode, key)?;
     let catalogue = Catalogue::decode(&body, &codec, anchor.sealed_len)?;
     catalogue.graph(&anchor)?;
     if !catalogue.nodes.is_empty() {
@@ -262,6 +263,43 @@ pub(super) fn salvage<S: Storage>(
             "typed node recovery requires a node-aware sink".into(),
         ));
     }
+    salvage_catalogue(storage, &anchor, &catalogue, codec, sink)
+}
+
+/// Stage metadata and file contents together until the entire call succeeds.
+/// Metadata describes authenticated membership, including files later reported
+/// incomplete. Do not follow symlinks or install incomplete file contents.
+pub(super) trait FilesystemSink: super::recovery::Sink {
+    fn metadata(&mut self, entries: &[Metadata]) -> Result<()>;
+}
+
+/// Recover canonical filesystem metadata and independently verified file bytes.
+/// The caller holds a stable snapshot/read lock and discards the entire staged
+/// batch on any error, including metadata/sink errors and late storage errors.
+pub(super) fn salvage_filesystem<S: Storage>(
+    storage: &S,
+    archive: LockboxId,
+    mode: FormatMode,
+    authority: &Authority<'_>,
+    key: Option<&[u8]>,
+    sink: &mut impl FilesystemSink,
+) -> Result<SalvageReport> {
+    let (anchor, body) = shared::salvage_private(storage, archive, mode, authority, key)?;
+    let codec = Codec::shared_packed(archive, mode, key)?;
+    let catalogue = Catalogue::decode(&body, &codec, anchor.sealed_len)?;
+    catalogue.graph(&anchor)?;
+    let metadata = catalogue.filesystem_metadata()?;
+    sink.metadata(&metadata)?;
+    salvage_catalogue(storage, &anchor, &catalogue, codec, sink)
+}
+
+fn salvage_catalogue<S: Storage>(
+    storage: &S,
+    anchor: &Anchor,
+    catalogue: &Catalogue,
+    mut codec: Codec,
+    sink: &mut impl super::recovery::Sink,
+) -> Result<SalvageReport> {
     let actual = storage.len()?;
     let mut report = SalvageReport {
         generation: anchor.generation,
