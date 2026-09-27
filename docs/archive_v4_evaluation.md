@@ -140,7 +140,10 @@ control allocations. The fresh size result does not qualify a mutable archive. T
 [paged-catalogue cost comparison](evidence/paged-catalogue-cost-2026-09-27/README.md)
 fails both primary small cases at all four declared page sizes; no page writer
 is justified by that budget. Authenticated metadata-tail retirement is the next
-bounded protocol experiment, with temporary space and write costs still unknown.
+bounded protocol experiment. Its [persisted lifecycle evidence](evidence/metadata-tail-retirement-2026-09-27/README.md#retained-persisted-lifecycle-results)
+now returns both small archives to 320 KiB after each of 100 metadata edits, with
+448 KiB temporary size. This passes only that metadata-size subcase; CPU/write
+costs, mixed payload aging and complete public semantics remain unqualified.
 [Salvage/locality checks](evidence/dense-salvage-2026-09-27/README.md) preserve
 intact neighbours after isolated corruption, but expose larger logical loss per
 physical region in denser packs. This trade-off remains part of selection.

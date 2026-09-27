@@ -40,7 +40,10 @@ states which gates remain failed or incomplete.
    the retired external tail; preserve payload/key ownership and interruption
    recovery. The [metadata-tail experiment](evidence/metadata-tail-retirement-2026-09-27/README.md)
    now connects that narrow transition to durable preparation and recovery. Measure
-   its temporary space and extra publications before adoption.
+   its extra publications and CPU cost before adoption. Five retained corpora now
+   complete 100 metadata edits and 100 unchanged repeats at their original sizes;
+   both small archives finish at 320 KiB, using 448 KiB temporarily. This is only
+   a metadata-size subcase; mixed payload aging and public semantics remain.
    Integrate typed catalogue overflow, public record semantics, payload updates,
    overflow transitions and compaction/installation before qualification. Preserve the existing candidate as the control.
    Five retained images now match the size model; both small fixtures are actual

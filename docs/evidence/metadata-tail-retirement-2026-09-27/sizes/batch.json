@@ -1,0 +1,14 @@
+{
+  "revision": "4b04e382",
+  "binary_sha256": "1cbac289ec35db484e84a1b3486ab55f2c26a7632ff9e1f03acda62bf711bb95",
+  "cases": {
+    "small-plain": "/tmp/revault-packed-comparison-20260927/small/other",
+    "small-protected": "/tmp/revault-whole-layout-cost-model-20260927/small-protected",
+    "large-raw": "/tmp/revault-packed-comparison-20260927/raw64/other",
+    "large-compressed": "/tmp/revault-packed-comparison-20260927/compressed256/other",
+    "large-protected": "/tmp/revault-packed-comparison-20260927/compressed-encrypted-signed/other"
+  },
+  "cycles": 100,
+  "unit": 262144,
+  "scope": "file-only metadata edits plus explicit return-inline; verify every persisted source byte after each edit; no CPU/RSS qualification"
+}

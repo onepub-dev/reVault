@@ -72,3 +72,32 @@ claim follows. A `dense-tail-lifecycle` probe will compare completed size agains
 its initial size, report peak temporary allocation, close/reopen and compare every
 source byte after every edit, and hash every unchanged repeat. It is a correctness
 and size probe, not an A3/A4 timing or full A5 qualification.
+
+## Retained persisted lifecycle results
+
+Frozen commit `4b04e382`, executable SHA-256
+`1cbac289ec35db484e84a1b3486ab55f2c26a7632ff9e1f03acda62bf711bb95`.
+[Batch and corpus paths](sizes/batch.json) and individual JSON/log files retain
+100 permission edits plus 100 byte-identical unchanged repeats per corpus. Each
+changed edit includes an explicit return-inline step; each is closed and reopened
+through a separate reader, with every source file compared byte-for-byte. Persisted
+permission bits and both generations per cycle are checked. Source corpora and
+older archive controls remain unchanged.
+
+| Corpus | Initial bytes | Temporary bytes after edit | Completed bytes after each return-inline |
+| --- | ---: | ---: | ---: |
+| 512 × 4 KiB plain | 327,680 | 458,752 | 327,680 |
+| 512 × 4 KiB encrypted/signed | 327,680 | 458,752 | 327,680 |
+| 8 MiB raw plain | 8,519,680 | 8,650,752 | 8,519,680 |
+| 8 MiB compressed plain | 196,608 | 327,680 | 196,608 |
+| 8 MiB compressed encrypted/signed | 196,608 | 327,680 | 196,608 |
+
+Both small completed archives remain 1.382× the retained 237,078-byte ZIP, below
+the proposed 1.50× completed-size bound. Temporary space is 128 KiB above the
+initial archive for these aligned cases. This is a passing bounded **metadata-only
+size subcase**, not mixed payload aging, a public mirror lifecycle, general
+compaction, CPU/RSS qualification or a full A5 pass. It does not overturn the
+original C growth failure at mixed-operation cycle 421.
+
+Post-hook [dense tests](postformat-tests.log), [tail graph proof](postformat-graph.log)
+and [strict Clippy](postformat-clippy.log) all pass before the executable was frozen.
