@@ -51,7 +51,7 @@ pub(crate) fn directory(archive: LockboxId, generation: u64, slots: &[KeySlot]) 
 fn read_directory(storage: &impl Storage, anchor: &Anchor) -> Result<Vec<KeySlot>> {
     read_directory_in(storage, anchor, Layout::Separated)
 }
-fn read_directory_in(
+pub(super) fn read_directory_in(
     storage: &impl Storage,
     anchor: &Anchor,
     layout: Layout,

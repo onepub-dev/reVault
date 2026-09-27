@@ -205,3 +205,44 @@ fn select(context: &Context, storage: &impl Storage) -> Result<Record> {
 }
 #[cfg(test)]
 mod tests;
+
+/// Fresh-image idle marker only; not an active overflow transition or cleanup API.
+pub(crate) fn initial_stub(
+    archive: LockboxId,
+    mode: FormatMode,
+    key: Option<&[u8]>,
+    base: [u8; 32],
+) -> Result<Vec<u8>> {
+    let context = Context::new(archive, mode, key)?;
+    let record = Record {
+        sequence: 1,
+        previous: [0; 32],
+        base,
+        active: false,
+        cleanup_commit: [0; 32],
+        cleanup_bytes: 0,
+        reservations: Vec::new(),
+    };
+    Ok(encode(&context, &record, None)?.stub)
+}
+pub(crate) fn validate_initial_idle(
+    storage: &impl Storage,
+    archive: LockboxId,
+    mode: FormatMode,
+    key: Option<&[u8]>,
+    base: [u8; 32],
+) -> Result<()> {
+    let context = Context::new(archive, mode, key)?;
+    let record = select(&context, storage)?;
+    if record.sequence != 1
+        || record.previous != [0; 32]
+        || record.base != base
+        || record.active
+        || !record.reservations.is_empty()
+        || record.cleanup_bytes != 0
+        || record.cleanup_commit != [0; 32]
+    {
+        return Err(Error::CorruptRecord);
+    }
+    Ok(())
+}

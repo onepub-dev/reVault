@@ -55,6 +55,9 @@ The torn-prefix cases are byte-level representation tests, not process-death or
 power-loss qualification of a new writer. Existing journal fault, process-death
 and independent-vector tests also pass after extracting shared serialization.
 
+After the hook, [journal tests](postformat-tests.log) pass (18 passed, one ignored)
+and [strict Clippy](postformat-clippy.log) passes.
+
 ## Required integration
 
 Before writing overflow, establish durable append ownership. Synchronize both

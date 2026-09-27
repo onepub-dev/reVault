@@ -1875,3 +1875,437 @@ fn whole_layout_cost_model_preserves_source_and_descriptor_bindings() {
         }
     }
 }
+
+#[test]
+fn dense_catalogue_reconstructs_and_reads_relocated_fragments_in_all_modes() {
+    use super::dense_catalogue::Catalogue;
+    use crate::file_format::allocation_map::Extent;
+    use crate::file_format::publication_anchor::REGION_LEN;
+    use crate::page_buffer::ZeroizingBytes;
+    let owner = OwnerSigningKeyPair::generate().unwrap();
+    let public = owner.public_key();
+    for encrypted in [false, true] {
+        for signed in [false, true] {
+            for compressed in [false, true] {
+                for padded in [false, true] {
+                    let mode = mode(encrypted, signed, compressed, padded);
+                    let authority = authority(mode, &public);
+                    let large = vec![0x92; 400_013];
+                    let source = Files::create(
+                        StorageBackend::memory(Vec::new()),
+                        archive(),
+                        mode,
+                        &authority,
+                        signed.then_some(&owner),
+                        key(mode),
+                        MAX_LOGICAL,
+                        update_inputs(&[
+                            (b"empty", b""),
+                            (b"multiple", &large),
+                            (b"small", b"small contents"),
+                        ]),
+                    )
+                    .unwrap();
+                    let original = source.read_all().unwrap();
+                    let mut source =
+                        Files::open(source, archive(), mode, &authority, key(mode)).unwrap();
+                    let mut payload = StorageBackend::memory(vec![0; REGION_LEN]);
+                    let mut body = None;
+                    let projection = super::cost_model::project_into(
+                        &mut source,
+                        |extent, bytes| {
+                            assert_eq!(payload.append(bytes)?, extent.start);
+                            Ok(())
+                        },
+                        |bytes| {
+                            body = Some(ZeroizingBytes::new(bytes.to_vec()));
+                            Ok(())
+                        },
+                    )
+                    .unwrap();
+                    let body = body.unwrap();
+                    assert_eq!(
+                        payload.len().unwrap(),
+                        projection["projected_compacted_bytes"].as_u64().unwrap()
+                    );
+                    let mut codec = Codec::shared_packed(archive(), mode, key(mode)).unwrap();
+                    let catalogue =
+                        Catalogue::decode(&body, &codec, payload.len().unwrap()).unwrap();
+                    catalogue.verify_padding(&payload, &codec).unwrap();
+                    assert_eq!(catalogue.files.len(), 3);
+                    for file in &catalogue.files {
+                        assert_eq!(file.permissions, 0o644); // Explicit synthetic cost-model value.
+                        let mut decoded =
+                            ZeroizingBytes::new(Vec::with_capacity(file.info.len as usize));
+                        for fragment in &file.fragments {
+                            let pack = &catalogue.packs[fragment.pack];
+                            let extent = Extent {
+                                start: pack.extent.start + fragment.relative as u64,
+                                len: fragment.descriptor.stored_len() as u64,
+                                digest: fragment.digest,
+                            };
+                            decoded.extend_from_slice(
+                                &codec
+                                    .load(
+                                        &payload,
+                                        extent,
+                                        payload.len().unwrap(),
+                                        &fragment.descriptor,
+                                    )
+                                    .unwrap(),
+                            );
+                            if extent.start < crate::file_format::preparation_journal::DATA_START {
+                                let old = Codec::packed(archive(), mode, key(mode)).unwrap();
+                                assert!(old
+                                    .validate_extent(
+                                        extent,
+                                        payload.len().unwrap(),
+                                        &fragment.descriptor
+                                    )
+                                    .is_err());
+                            }
+                        }
+                        let expected: &[u8] = match file.path.as_slice() {
+                            b"empty" => b"",
+                            b"multiple" => &large,
+                            b"small" => b"small contents",
+                            _ => panic!("unexpected path"),
+                        };
+                        assert_eq!(decoded.as_slice(), expected);
+                        assert_eq!(
+                            <[u8; 32]>::from(Sha256::digest(decoded.as_slice())),
+                            file.info.digest
+                        );
+                    }
+                    assert_eq!(source.storage.read_all().unwrap(), original);
+                    // The body is a complete fresh catalogue. Prefixes and trailing bytes
+                    // cannot be accepted as a partial or different allocation graph.
+                    for end in 0..body.len() {
+                        assert!(
+                            Catalogue::decode(&body[..end], &codec, payload.len().unwrap())
+                                .is_err()
+                        );
+                    }
+                    let mut malformed = body.to_vec();
+                    malformed.push(0);
+                    assert!(Catalogue::decode(&malformed, &codec, payload.len().unwrap()).is_err());
+                    let mut malformed = body.to_vec();
+                    malformed[8] = 0x83;
+                    malformed.insert(9, 0);
+                    assert!(Catalogue::decode(&malformed, &codec, payload.len().unwrap()).is_err());
+                    let mut malformed = body.to_vec();
+                    malformed[9] = 2;
+                    assert!(Catalogue::decode(&malformed, &codec, payload.len().unwrap()).is_err());
+                    let mut malformed = body.to_vec();
+                    malformed[10..14].copy_from_slice(&u32::MAX.to_le_bytes());
+                    assert!(Catalogue::decode(&malformed, &codec, payload.len().unwrap()).is_err());
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn dense_catalogue_sink_failure_preserves_source_and_propagates() {
+    let mode = mode(false, false, true, true);
+    let owner = OwnerSigningKeyPair::generate().unwrap();
+    let public = owner.public_key();
+    let authority = authority(mode, &public);
+    let storage = Files::create(
+        StorageBackend::memory(Vec::new()),
+        archive(),
+        mode,
+        &authority,
+        None,
+        None,
+        MAX_LOGICAL,
+        update_inputs(&[(b"file", b"synthetic content")]),
+    )
+    .unwrap();
+    let before = storage.read_all().unwrap();
+    let mut files = Files::open(storage, archive(), mode, &authority, None).unwrap();
+    for fail_body in [false, true] {
+        let result = super::cost_model::project_into(
+            &mut files,
+            |_, _| {
+                if !fail_body {
+                    Err(Error::InvalidInput("synthetic pack sink failure".into()))
+                } else {
+                    Ok(())
+                }
+            },
+            |_| {
+                Err(Error::InvalidInput(
+                    "synthetic catalogue sink failure".into(),
+                ))
+            },
+        );
+        assert!(matches!(result, Err(Error::InvalidInput(_))));
+        assert_eq!(files.storage.read_all().unwrap(), before);
+    }
+}
+
+#[test]
+fn dense_image_reopens_files_ranges_and_separated_controls_in_all_modes() {
+    use super::dense_image::{from_candidate, Image};
+    use crate::file_format::publication_anchor::FAILURE_REGION;
+    let owner = OwnerSigningKeyPair::generate().unwrap();
+    let public = owner.public_key();
+    let large = vec![0x57; 400_013];
+    for encrypted in [false, true] {
+        for signed in [false, true] {
+            for compressed in [false, true] {
+                for padded in [false, true] {
+                    let mode = mode(encrypted, signed, compressed, padded);
+                    let authority = authority(mode, &public);
+                    let source = Files::create(
+                        StorageBackend::memory(Vec::new()),
+                        archive(),
+                        mode,
+                        &authority,
+                        signed.then_some(&owner),
+                        key(mode),
+                        MAX_LOGICAL,
+                        update_inputs(&[
+                            (b"empty", b""),
+                            (b"multiple", &large),
+                            (b"small", b"small contents"),
+                        ]),
+                    )
+                    .unwrap();
+                    let before = source.read_all().unwrap();
+                    let mut source =
+                        Files::open(source, archive(), mode, &authority, key(mode)).unwrap();
+                    let output = from_candidate(
+                        &mut source,
+                        StorageBackend::memory(Vec::new()),
+                        &authority,
+                        signed.then_some(&owner),
+                        key(mode),
+                        &[],
+                    )
+                    .unwrap();
+                    assert_eq!(source.storage.read_all().unwrap(), before);
+                    for lost in [None, Some(0), Some(FAILURE_REGION)] {
+                        let mut fresh = StorageBackend::memory(output.read_all().unwrap());
+                        if let Some(offset) = lost {
+                            fresh
+                                .write_at(offset, &vec![0; FAILURE_REGION as usize])
+                                .unwrap();
+                        }
+                        let mut image =
+                            Image::open(fresh, archive(), mode, &authority, key(mode)).unwrap();
+                        for (name, expected) in [
+                            (b"empty".as_slice(), b"".as_slice()),
+                            (b"multiple", large.as_slice()),
+                            (b"small", b"small contents"),
+                        ] {
+                            let mut found = Vec::new();
+                            image
+                                .read_range(name, 0, expected.len() as u64, |bytes| {
+                                    found.extend_from_slice(bytes);
+                                    Ok(())
+                                })
+                                .unwrap();
+                            assert_eq!(found, expected);
+                        }
+                        let mut range = Vec::new();
+                        image
+                            .read_range(b"multiple", 61000, 9000, |bytes| {
+                                range.extend_from_slice(bytes);
+                                Ok(())
+                            })
+                            .unwrap();
+                        assert_eq!(range, large[61000..70000]);
+                        assert!(image
+                            .read_range(b"multiple", u64::MAX, 1, |_| Ok(()))
+                            .is_err());
+                        assert!(image.read_range(b"absent", 0, 0, |_| Ok(())).is_err());
+                        assert!(image.read_range(b"empty", 1, 0, |_| Ok(())).is_err());
+                    }
+                    let mut damaged = StorageBackend::memory(output.read_all().unwrap());
+                    let offset = crate::file_format::publication_anchor::REGION_LEN as u64;
+                    let byte = damaged.read_at(offset, 1).unwrap()[0];
+                    damaged.write_at(offset, &[byte ^ 1]).unwrap();
+                    let opened = Image::open(damaged, archive(), mode, &authority, key(mode));
+                    if mode.plaintext() && mode.signed() {
+                        assert!(opened.is_err());
+                    } else {
+                        let mut image = opened.unwrap();
+                        let mut exposed = 0;
+                        assert!(image
+                            .read_range(b"multiple", 0, 1, |bytes| {
+                                exposed += bytes.len();
+                                Ok(())
+                            })
+                            .is_err());
+                        assert_eq!(exposed, 0);
+                    }
+                }
+            }
+        }
+    }
+}
+#[test]
+fn dense_image_failures_clear_fresh_output_and_preserve_source() {
+    use super::dense_image::from_candidate;
+    let owner = OwnerSigningKeyPair::generate().unwrap();
+    let public = owner.public_key();
+    let mut cases = 0;
+    for mode in [
+        mode(false, false, true, true),
+        mode(true, true, true, true),
+        mode(false, true, false, false),
+        mode(true, false, false, true),
+    ] {
+        let authority = authority(mode, &public);
+        let signer = mode.signed().then_some(&owner);
+        let storage = packed_pair(mode, &authority, signer);
+        let before = storage.read_all().unwrap();
+        let mut source = Files::open(storage, archive(), mode, &authority, key(mode)).unwrap();
+        let observed = SharedMemory::new(Vec::new());
+        from_candidate(
+            &mut source,
+            observed.clone(),
+            &authority,
+            signer,
+            key(mode),
+            &[],
+        )
+        .unwrap();
+        for at in 0..observed.operations() {
+            let output = SharedMemory::new(Vec::new());
+            output.fail(at);
+            assert!(
+                from_candidate(
+                    &mut source,
+                    output.clone(),
+                    &authority,
+                    signer,
+                    key(mode),
+                    &[]
+                )
+                .is_err(),
+                "failure {at}"
+            );
+            assert_eq!(output.len().unwrap(), 0);
+            assert_eq!(source.storage.read_all().unwrap(), before);
+            cases += 1;
+        }
+        let output = SharedMemory::new(b"existing destination".to_vec());
+        assert!(from_candidate(
+            &mut source,
+            output.clone(),
+            &authority,
+            signer,
+            key(mode),
+            &[]
+        )
+        .is_err());
+        assert_eq!(output.read_all().unwrap(), b"existing destination");
+    }
+    println!("DENSE_IMAGE_MUTATION_FAILURES {cases}");
+}
+#[test]
+fn dense_image_rejects_owner_substitution_and_reads_password_directory() {
+    use super::dense_image::{from_candidate, Image};
+    let owner = OwnerSigningKeyPair::generate().unwrap();
+    let public = owner.public_key();
+    let mode = mode(true, true, true, true);
+    let authority = authority(mode, &public);
+    let mut source = Files::open(
+        packed_pair(mode, &authority, Some(&owner)),
+        archive(),
+        mode,
+        &authority,
+        key(mode),
+    )
+    .unwrap();
+    let wrong_owner = OwnerSigningKeyPair::generate().unwrap();
+    let wrong_public = wrong_owner.public_key();
+    let output = SharedMemory::new(Vec::new());
+    assert!(from_candidate(
+        &mut source,
+        output.clone(),
+        &Authority::Owner(&wrong_public),
+        Some(&wrong_owner),
+        key(mode),
+        &[]
+    )
+    .is_err());
+    assert_eq!(output.operations(), 0);
+    let original_keys = source.anchor.keys;
+    source.anchor.keys = source.anchor.index; // No public candidate access-tree writer exists.
+    assert!(from_candidate(
+        &mut source,
+        output.clone(),
+        &authority,
+        Some(&owner),
+        key(mode),
+        &[]
+    )
+    .is_err());
+    assert_eq!(output.operations(), 0);
+    source.anchor.keys = original_keys;
+    let slots = [crate::key_slot::KeySlot::password_bytes(
+        1,
+        b"synthetic dense password",
+        vec![77; 16],
+        KEY,
+    )
+    .unwrap()];
+    let storage = from_candidate(
+        &mut source,
+        StorageBackend::memory(Vec::new()),
+        &authority,
+        Some(&owner),
+        key(mode),
+        &slots,
+    )
+    .unwrap();
+    let mut reopened = Image::open(
+        StorageBackend::memory(storage.read_all().unwrap()),
+        archive(),
+        mode,
+        &authority,
+        key(mode),
+    )
+    .unwrap();
+    let mut bytes = Vec::new();
+    reopened
+        .read_range(b"keep", 0, 8192, |part| {
+            bytes.extend_from_slice(part);
+            Ok(())
+        })
+        .unwrap();
+    assert_eq!(bytes, vec![0x39; 8192]);
+    assert_eq!(reopened.storage.len().unwrap(), storage.len().unwrap());
+    let password = crate::SecretString::try_from_slice(b"synthetic dense password").unwrap();
+    let mut credential_open = Image::open_credential(
+        StorageBackend::memory(storage.read_all().unwrap()),
+        archive(),
+        mode,
+        Some(&public),
+        publication::bootstrap::Credential::Password(&password),
+        Some(1),
+    )
+    .unwrap();
+    let mut bytes = Vec::new();
+    credential_open
+        .read_range(b"keep", 0, 8192, |part| {
+            bytes.extend_from_slice(part);
+            Ok(())
+        })
+        .unwrap();
+    assert_eq!(bytes, vec![0x39; 8192]);
+    let wrong = crate::SecretString::try_from_slice(b"wrong synthetic password").unwrap();
+    assert!(Image::open_credential(
+        storage,
+        archive(),
+        mode,
+        Some(&public),
+        publication::bootstrap::Credential::Password(&wrong),
+        None
+    )
+    .is_err());
+}

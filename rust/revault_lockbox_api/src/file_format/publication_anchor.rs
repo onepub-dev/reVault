@@ -667,4 +667,4 @@ mod tests;
 
 pub(crate) mod bootstrap;
 
-mod shared;
+pub(crate) mod shared;

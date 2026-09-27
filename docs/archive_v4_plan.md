@@ -17,25 +17,16 @@ C remains test-only and lacks complete public
 record/access semantics. The [current scorecard](archive_v4_evaluation.md#current-scorecard)
 states which gates remain failed or incomplete.
 
-1. Resolve the [whole-format eligibility findings](archive_v4_evaluation.md#whole-format-eligibility-review)
-   before expanding C into a public adapter. Its encrypted key tree cannot bootstrap
-   credentials; the [bootstrap component](evidence/credential-bootstrap-2026-09-27/README.md)
-   now tests password/Contact access and rekey selection separately, but lacks
-   allocator/public-API integration. Its minimum fixed/map space already exceeds the small-corpus
-   size gate. Specify public bootstrap, record/permission semantics and shared
-   control placement together. The [read-only cost model](evidence/whole-layout-cost-model-2026-09-27/README.md)
-   projects 1.382× ZIP for the small corpus, so the geometry merits a protocol
-   experiment; it is not an implemented archive. The
-   [ordering model](evidence/shared-control-ordering-2026-09-27/README.md) requires
-   temporary external metadata and a second publication to return inline; budget
-   that peak space and update cost in the actual protocol. The
-   [shared-control image components](evidence/shared-control-image-2026-09-27/README.md)
-   now connect authenticated placement, bootstrap and bounded private decoding,
-   including complete loss of either control region. The
-   [compact journal representation](evidence/compact-preparation-2026-09-27/README.md)
-   retains all 2,048 reservations through mirrored overflow. Durable overflow
-   ownership, typed catalogue integration and crash-safe creation/mutation remain.
-   Keep C as the control.
+1. Finish the shared-control architecture experiment against the
+   [whole-format eligibility findings](archive_v4_evaluation.md#whole-format-eligibility-review).
+   The [fresh dense file image](evidence/dense-file-image-2026-09-27/README.md) now
+   connects authenticated controls, credential bootstrap, a bounded catalogue,
+   denser independent fragments and verified file/range reads. It remains file-only
+   and immutable. Integrate typed catalogue overflow, public record semantics,
+   durable reservation/overflow transitions, graph-derived ownership and inline
+   retirement before qualification. Preserve the existing candidate as the control.
+   Measure actual image size separately from the cost projection, then budget
+   temporary metadata, sealed-length/cleanup and any relocation publication.
    Explicitly test the larger logical loss possible within densely packed physical
    damage regions, independently of the per-fragment random-read bound.
 2. Retain the [failed mixed aging qualification](evidence/mixed-file-aging-2026-09-27/README.md):

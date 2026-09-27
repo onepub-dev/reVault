@@ -798,4 +798,4 @@ fn decode_body(body: &[u8]) -> Result<Record> {
     })
 }
 
-mod compact;
+pub(crate) mod compact;

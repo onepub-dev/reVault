@@ -128,6 +128,10 @@ fn candidate_file_resource_probe() {
         },
     });
     let key = encrypted.then_some(KEY.as_slice());
+    if phase == "dense-create" {
+        dense_create(&root, count, bytes, unit, mode, key);
+        return;
+    }
     let path = root.join("candidate.lbox");
     let binary_hash = digest_file(&std::env::current_exe().unwrap());
     if phase == "create" {
@@ -315,5 +319,108 @@ fn candidate_file_resource_probe() {
     result["file_adapter_version"] = json!(2);
     result["candidate_scope"] =
         json!("file-only shared private packs; no public record/access integration");
+    println!("CANDIDATE_SAMPLE {result}");
+}
+
+/// Correctness/size probe only. Building C as a source is not a comparable
+/// creation workload, so no time/CPU/RSS fields are reported for this phase.
+fn dense_create(
+    root: &Path,
+    count: usize,
+    bytes: u64,
+    unit: usize,
+    mode: FormatMode,
+    key: Option<&[u8]>,
+) {
+    use super::dense_image::{from_candidate, Image};
+    let source_path = root.join("dense-staging.lbox");
+    let target = root.join("dense.lbox");
+    let owner_path = root.join("dense.public");
+    assert!(!source_path.exists() && !target.exists() && !owner_path.exists());
+    let owner = OwnerSigningKeyPair::generate().unwrap();
+    let public = owner.public_key();
+    let authority = if mode.signed() {
+        Authority::Owner(&public)
+    } else if mode.plaintext() {
+        Authority::Checksum
+    } else {
+        Authority::Symmetric(KEY)
+    };
+    let signer = mode.signed().then_some(&owner);
+    let inputs = (0..count).map(|index| {
+        let name = name(index);
+        Input {
+            path: name.as_bytes().to_vec(),
+            reader: File::open(root.join("source").join(name)).unwrap(),
+        }
+    });
+    let staging = Files::create(
+        StorageBackend::create_file(&source_path, &[]).unwrap(),
+        archive(),
+        mode,
+        &authority,
+        signer,
+        key,
+        unit,
+        inputs,
+    )
+    .unwrap();
+    let mut source = Files::open(staging, archive(), mode, &authority, key).unwrap();
+    let slots = if mode.plaintext() {
+        Vec::new()
+    } else {
+        vec![crate::key_slot::KeySlot::password_bytes(
+            1,
+            b"synthetic dense fixture password",
+            vec![85; 16],
+            KEY,
+        )
+        .unwrap()]
+    };
+    let output = from_candidate(
+        &mut source,
+        StorageBackend::create_file(&target, &[]).unwrap(),
+        &authority,
+        signer,
+        key,
+        &slots,
+    )
+    .unwrap();
+    drop(output);
+    std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&owner_path)
+        .unwrap()
+        .write_all(&public.to_bytes())
+        .unwrap();
+    let mut reopened = Image::open(
+        StorageBackend::file(&target).unwrap(),
+        archive(),
+        mode,
+        &authority,
+        key,
+    )
+    .unwrap();
+    let mut expected = vec![0; MAX_LOGICAL];
+    for index in 0..count {
+        let name = name(index);
+        let mut input = File::open(root.join("source").join(&name)).unwrap();
+        let mut actual = 0;
+        reopened
+            .read_range(name.as_bytes(), 0, bytes, |part| {
+                input.read_exact(&mut expected[..part.len()]).unwrap();
+                assert_eq!(part, &expected[..part.len()]);
+                actual += part.len() as u64;
+                Ok(())
+            })
+            .unwrap();
+        assert_eq!(actual, bytes);
+        assert_eq!(input.read(&mut expected[..1]).unwrap(), 0);
+    }
+    drop(reopened);
+    drop(source);
+    std::fs::remove_file(&source_path).unwrap();
+    let result = json!({"kind":"dense_file_image_size","archive_bytes":std::fs::metadata(&target).unwrap().len(),"archive_sha256":digest_file(&target),"binary_sha256":digest_file(&std::env::current_exe().unwrap()),"files":count,"bytes_per_file":bytes,"verified":true,"scope":"fresh file-only image; no mutation/public API/migration or performance qualification"});
     println!("CANDIDATE_SAMPLE {result}");
 }

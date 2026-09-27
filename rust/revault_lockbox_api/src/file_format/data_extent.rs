@@ -82,6 +82,7 @@ pub(crate) struct Codec {
     key: Option<Zeroizing<[u8; 32]>>,
     scratch: ZeroizingBytes,
     packed: bool,
+    data_start: u64,
 }
 impl Codec {
     pub(crate) fn new(archive: LockboxId, mode: FormatMode, key: Option<&[u8]>) -> Result<Self> {
@@ -91,6 +92,18 @@ impl Codec {
     /// codec, nonce/tag, context and owner-authenticated stored-byte commitment.
     pub(crate) fn packed(archive: LockboxId, mode: FormatMode, key: Option<&[u8]>) -> Result<Self> {
         Self::with_packing(archive, mode, key, true)
+    }
+    /// Shared-control experiment: only its authenticated catalogue may supply
+    /// extents above the smaller protected prefix. Other callers retain the
+    /// original candidate floor and cannot read inline/control bytes as payload.
+    pub(crate) fn shared_packed(
+        archive: LockboxId,
+        mode: FormatMode,
+        key: Option<&[u8]>,
+    ) -> Result<Self> {
+        let mut codec = Self::with_packing(archive, mode, key, true)?;
+        codec.data_start = super::publication_anchor::REGION_LEN as u64;
+        Ok(codec)
     }
     fn with_packing(
         archive: LockboxId,
@@ -124,6 +137,7 @@ impl Codec {
             key,
             scratch: ZeroizingBytes::new(Vec::new()),
             packed,
+            data_start: super::preparation_journal::DATA_START,
         })
     }
     /// Raw data stays inside a 64 KiB stored allocation, including nonce/tag.
@@ -294,7 +308,7 @@ impl Codec {
             || descriptor.allocation_len as usize
                 != self.allocation_len(descriptor.encoded_len as usize)
             || extent.len != descriptor.allocation_len as u64
-            || extent.start < super::preparation_journal::DATA_START
+            || extent.start < self.data_start
             || extent
                 .start
                 .checked_add(extent.len)

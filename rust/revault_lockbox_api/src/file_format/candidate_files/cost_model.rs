@@ -1,7 +1,9 @@
-//! Read-only feasibility model, NOT an archive encoding or publication protocol.
+//! Feasibility model and bounded streaming hooks for the fresh-image experiment.
 //! Repack independently authenticated fragments without coupling aggregate decoded
 //! bytes to the per-fragment restart bound. Measure a compact private catalogue
-//! with shared physical-pack records. No source or destination archive is written.
+//! with shared physical-pack records. `project` remains read-only; `project_into`
+//! emits verified packs and the bounded body to caller-owned sinks. Publication
+//! and cleanup belong to the fresh-image builder, not this model.
 use super::*;
 use crate::compression::{encode_with_compression, COMPRESSION_NONE};
 use crate::crypto::strong_checksum;
@@ -40,6 +42,7 @@ fn finish_pack(
     bytes: &mut ZeroizingBytes,
     packs: &mut Vec<Pack>,
     end: &mut u64,
+    emit: &mut impl FnMut(Extent, &[u8]) -> Result<()>,
 ) -> Result<()> {
     if bytes.is_empty() {
         return Ok(());
@@ -53,6 +56,7 @@ fn finish_pack(
         len: bytes.len() as u64,
         digest: strong_checksum(bytes),
     };
+    emit(extent, bytes)?;
     *end += extent.len;
     packs.push(Pack {
         extent,
@@ -64,6 +68,13 @@ fn finish_pack(
 }
 
 pub(super) fn project<S: Storage>(archive: &mut Files<S>) -> Result<Value> {
+    project_into(archive, |_, _| Ok(()), |_| Ok(()))
+}
+pub(super) fn project_into<S: Storage>(
+    archive: &mut Files<S>,
+    mut emit: impl FnMut(Extent, &[u8]) -> Result<()>,
+    mut catalogue: impl FnMut(&[u8]) -> Result<()>,
+) -> Result<Value> {
     archive.audit_with(true)?;
     let mut files = Vec::<File>::new();
     let mut identities = BTreeMap::new();
@@ -150,7 +161,7 @@ pub(super) fn project<S: Storage>(archive: &mut Files<S>) -> Result<Value> {
             }
             if !packed.is_empty() && (packed.len() + stored.len() > unit || members == MAX_MEMBERS)
             {
-                finish_pack(&archive.codec, &mut packed, &mut packs, &mut end)?;
+                finish_pack(&archive.codec, &mut packed, &mut packs, &mut end, &mut emit)?;
                 members = 0;
                 logical = 0;
             }
@@ -164,7 +175,7 @@ pub(super) fn project<S: Storage>(archive: &mut Files<S>) -> Result<Value> {
             total_stored += stored.len() as u64;
         }
     }
-    finish_pack(&archive.codec, &mut packed, &mut packs, &mut end)?;
+    finish_pack(&archive.codec, &mut packed, &mut packs, &mut end, &mut emit)?;
 
     let mut body = ZeroizingBytes::new(Vec::with_capacity(1024 * 1024));
     body.extend_from_slice(b"RV4COST1");
@@ -241,6 +252,9 @@ pub(super) fn project<S: Storage>(archive: &mut Files<S>) -> Result<Value> {
     // header and a 16-byte tag. The tag budget is conservative for plaintext.
     let fits = body.len() <= REGION && encoded.len() + 72 <= PRIVATE_SLOT;
     let payload = end - (2 * REGION) as u64;
+    if fits {
+        catalogue(&body)?;
+    }
     Ok(json!({
         "kind":"whole_layout_cost_model","source_archive_bytes":archive.storage.len()?,
         "files":files.len(),"fragments":chunks,"physical_packs":packs.len(),

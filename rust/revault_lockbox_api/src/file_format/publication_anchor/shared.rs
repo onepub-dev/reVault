@@ -44,3 +44,151 @@ pub(super) fn read_root(
 mod tests;
 
 mod catalogue;
+
+/// Publish a freshly staged comparison image. The file-image builder validates
+/// all payload membership/bytes first and owns cleanup of the empty destination.
+/// This function does not perform updates, install a path, or authorize retirement.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn initialize(
+    storage: &mut impl Storage,
+    archive: LockboxId,
+    mode: FormatMode,
+    authority: &Authority<'_>,
+    signer: Option<&OwnerSigningKeyPair>,
+    key: Option<&[u8]>,
+    body: &[u8],
+    slots: &[crate::key_slot::KeySlot],
+) -> Result<Anchor> {
+    if storage.len()? < REGION_LEN as u64
+        || storage
+            .read_at(0, REGION_LEN)?
+            .iter()
+            .any(|byte| *byte != 0)
+    {
+        return Err(Error::InvalidInput(
+            "shared image requires an empty control prefix".into(),
+        ));
+    }
+    if let Authority::Symmetric(authority_key) = authority {
+        if key != Some(*authority_key) {
+            return Err(Error::InvalidKey);
+        }
+    }
+    if mode.plaintext() && !slots.is_empty() {
+        return Err(Error::InvalidInput(
+            "plaintext image cannot contain decryption slots".into(),
+        ));
+    }
+    let private = catalogue::Codec::new(archive, mode, key)?.encode(body)?;
+    let public = if slots.is_empty() {
+        None
+    } else {
+        Some(super::bootstrap::directory(archive, 1, slots)?)
+    };
+    let index = RootRef {
+        primary: PRIVATE_START,
+        mirror: FAILURE_REGION + PRIVATE_START,
+        len: private.len() as u64,
+        digest: strong_checksum(&private),
+    };
+    let keys = public.as_ref().map_or(RootRef::default(), |bytes| RootRef {
+        primary: KEYS_START,
+        mirror: FAILURE_REGION + KEYS_START,
+        len: bytes.len() as u64,
+        digest: strong_checksum(bytes),
+    });
+    let anchor = Anchor {
+        archive,
+        generation: 1,
+        mode,
+        sealed_len: storage.len()?,
+        object_root: index.digest,
+        previous: [0; 32],
+        index,
+        allocation: RootRef::default(),
+        keys,
+    };
+    anchor.validate_in(Layout::Shared)?;
+    let base = commitment(&anchor)?;
+    let stub =
+        crate::file_format::preparation_journal::compact::initial_stub(archive, mode, key, base)?;
+    let encoded = encode_in(&anchor, authority, signer, Layout::Shared)?;
+    for bank in [0, FAILURE_REGION] {
+        storage.write_at(bank + PRIVATE_START, &private)?;
+        if let Some(public) = &public {
+            storage.write_at(bank + KEYS_START, public)?;
+        }
+        storage.write_at(bank + 8192, &stub)?;
+    }
+    // Read back both dependencies before exposing either publication copy.
+    for root in [index, keys] {
+        if root.absent() {
+            continue;
+        }
+        for offset in [root.primary, root.mirror] {
+            if strong_checksum(&storage.read_at(offset, root.len as usize)?) != root.digest {
+                return Err(Error::CorruptRecord);
+            }
+        }
+    }
+    crate::file_format::preparation_journal::compact::validate_initial_idle(
+        storage, archive, mode, key, base,
+    )?;
+    storage.sync()?;
+    storage.write_at(0, &encoded)?;
+    storage.sync()?;
+    storage.write_at(FAILURE_REGION, &encoded)?;
+    storage.sync()?;
+    Ok(anchor)
+}
+pub(crate) fn open_private(
+    storage: &impl Storage,
+    archive: LockboxId,
+    mode: FormatMode,
+    authority: &Authority<'_>,
+    key: Option<&[u8]>,
+) -> Result<(Anchor, crate::page_buffer::ZeroizingBytes)> {
+    let selected = select_in(storage, archive, mode, authority, Layout::Shared)?;
+    let anchor = selected.anchor;
+    if anchor.generation != 1
+        || anchor.index.len != PRIVATE_BYTES as u64
+        || anchor.object_root != anchor.index.digest
+        || !anchor.allocation.absent()
+        || storage.len()? != anchor.sealed_len
+    {
+        return Err(Error::CorruptRecord);
+    }
+    if !anchor.keys.absent() {
+        super::bootstrap::read_directory_in(storage, &anchor, Layout::Shared)?;
+    }
+    crate::file_format::preparation_journal::compact::validate_initial_idle(
+        storage,
+        archive,
+        mode,
+        key,
+        selected.commitment,
+    )?;
+    let stored =
+        crate::page_buffer::ZeroizingBytes::new(read_root(storage, &anchor, RootRole::Private)?);
+    let body = catalogue::Codec::new(archive, mode, key)?.decode(&stored)?;
+    Ok((anchor, body))
+}
+
+pub(crate) fn credential_open(
+    storage: &impl Storage,
+    archive: LockboxId,
+    mode: FormatMode,
+    owner: Option<&OwnerSigningPublicKey>,
+    credential: super::bootstrap::Credential<'_>,
+    slot: Option<u64>,
+) -> Result<super::bootstrap::Opened> {
+    super::bootstrap::open_in(
+        storage,
+        archive,
+        mode,
+        owner,
+        credential,
+        slot,
+        Layout::Shared,
+    )
+}
