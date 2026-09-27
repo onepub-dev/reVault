@@ -136,7 +136,11 @@ reopen. Five cases match their earlier projections. This is bounded, immutable,
 file-only size evidence; full A5 and A3/A4 remain unqualified for this variant.
 [Metadata edits](evidence/dense-metadata-update-2026-09-27/README.md) now exercise
 persisted ownership and retirement, but the first edit retains two extra 64 KiB
-control allocations. The fresh size result does not qualify a mutable archive.
+control allocations. The fresh size result does not qualify a mutable archive. The
+[paged-catalogue cost comparison](evidence/paged-catalogue-cost-2026-09-27/README.md)
+fails both primary small cases at all four declared page sizes; no page writer
+is justified by that budget. Authenticated metadata-tail retirement is the next
+bounded protocol experiment, with temporary space and write costs still unknown.
 [Salvage/locality checks](evidence/dense-salvage-2026-09-27/README.md) preserve
 intact neighbours after isolated corruption, but expose larger logical loss per
 physical region in denser packs. This trade-off remains part of selection.
@@ -167,8 +171,9 @@ must not expose private names or grant owner signing authority. This is a format
 integration requirement, not a proposal for new cryptography. The
 [bootstrap component experiment](evidence/credential-bootstrap-2026-09-27/README.md)
 now verifies password/Contact unwrapping, owner/MAC selection and refusal to fall
-back after rekeying. It remains separate from the allocator, public API and
-shared-control placement; its inline limit is not an accepted access-capacity cut.
+back after rekeying. Wrapped-key bootstrap is connected to fresh shared-control images; access
+mutation/overflow and public API integration remain absent. Its inline limit is
+not an accepted access-capacity cut.
 
 There is also a hard size contradiction in C's current placement. Its fixed
 publication/journal prefix is 262,144 bytes. Even the smallest two-bank allocation

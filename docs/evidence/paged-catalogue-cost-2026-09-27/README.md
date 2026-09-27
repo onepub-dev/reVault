@@ -84,3 +84,35 @@ all fields and hashes, protection settings and retained corpora unchanged. Measu
 unrounded frame bytes and decoded bytes as well as total live/staged allocation.
 This is a page-granularity comparison, not permission to relax size or security
 requirements. Preserve this failed baseline regardless of the comparison outcome.
+
+## Page-granularity result: do not implement this inline layout
+
+The [frozen comparison](granularity/batch.json) uses commit `0ee379d0`, executable
+SHA-256 `e494241ea2e93189d90ca1695ce1d42817f6def1031b11be46b5f4c811ba3a09`.
+All five source archives remain byte-identical. The three focused tests and strict
+Clippy pass again after the formatting hook (see `matrix-postformat-*.log`).
+
+| Record cap | Small plain peak/bank | Small protected peak/bank | Plain live, before rounding | Protected live, before rounding |
+| --- | ---: | ---: | ---: | ---: |
+| 16 | 59,392 | 59,392 | 50,273 | 50,843 |
+| 32 | 52,480 | 52,480 | 47,346 | 47,653 |
+| 64 | 53,248 | 53,248 | 46,422 | 46,546 |
+| 128 | 58,368 | 58,624 | 46,216 | 46,272 |
+
+Every variant exceeds the 49,152-byte private pool on both primary small cases.
+The larger-page compression saving is smaller than its increased replacement
+reserve. The root fits in every case. All variants fit the three 8 MiB cases,
+but that cannot compensate for a failing primary case. No persistent page writer
+will be built around this failed inline coexistence budget.
+
+The next experiment addresses **publication and reclaimable tail ownership**:
+retain the full bounded catalogue, stage replacements externally, then copy the
+selected catalogue back inline and publish a shorter sealed length before wiping
+and truncating the retired external tail. This trades temporary write/space cost
+for a bounded completed archive; those costs must be measured, not assumed fast.
+A smaller published length is valid only after proving that the removed suffix
+contains retired metadata/vacancies, all payload/key claims are unchanged, and
+both replacement publications are durable before any suffix erasure. Interrupted
+cleanup must resume without requiring erased old metadata or losing selected
+publication authority. Do not simply truncate an archive whose selected anchor
+still seals the tail. This is a distinct protocol hypothesis, not adoption.

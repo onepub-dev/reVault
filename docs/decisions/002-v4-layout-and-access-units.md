@@ -125,3 +125,12 @@ passes correctness checks but is not adopted: the primary catalogues are already
 uses paged metadata COW and budgets any embedded root against actual hybrid
 publication bytes. Do not infer spare publication capacity or retain old private
 values in an overlay to avoid erasure.
+
+
+The [paged cost comparison](../evidence/paged-catalogue-cost-2026-09-27/README.md#page-granularity-result-do-not-implement-this-inline-layout)
+also fails the primary inline pool at every declared page size. Its embedded root
+fits; leaf coexistence does not. The next protocol experiment returns full
+catalogues inline and retires a suffix through an authenticated shorter sealed
+length, with metadata-only tail proofs and resumable wipe-before-truncate. It
+must account for extra publications and transient growth. No size/performance
+acceptance or format choice follows from this proposed sequence.

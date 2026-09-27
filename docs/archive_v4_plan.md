@@ -34,8 +34,11 @@ states which gates remain failed or incomplete.
    budgeting actual hybrid publication bytes, complete file/pack leaves and staging
    space together on retained records before implementing another writer. The frozen
    32-record model misses each primary private pool by 3,328 bytes; its embedded
-   root fits. A declared 16/32/64/128-record comparison tests the compression versus
-   replacement-reserve trade-off without dropping fields or changing the gates.
+   root fits. The declared 16/32/64/128-record comparison fails both small cases
+   in every variant. Stop tuning page size. Test a bounded metadata return-to-inline
+   protocol that authenticates a shorter sealed length before erasing/truncating
+   the retired external tail; preserve payload/key ownership and interruption
+   recovery. Measure its temporary space and extra publications before adoption.
    Integrate typed catalogue overflow, public record semantics, payload updates,
    overflow transitions and compaction/installation before qualification. Preserve the existing candidate as the control.
    Five retained images now match the size model; both small fixtures are actual
