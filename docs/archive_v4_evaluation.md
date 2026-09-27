@@ -211,6 +211,7 @@ The [checkpoint history](archive_v4_history.md) retains earlier commentary.
 | [Initial CPU/RSS](evidence/archive-evaluation-2026-09-26/README.md) | A/B/ZIP and GB resource baseline |
 | [Bounded A writer](evidence/writer-memory-2026-09-26/README.md) | Streaming staging and paired creation improvement |
 | [Recovery proofs](evidence/recovery-commitments-2026-09-26/README.md) | Owner-authorized membership without global payload verification |
+| [Compact preparation](evidence/compact-preparation-2026-09-27/README.md) | 4 KiB stub and mirrored overflow preserve 2,048 reservations; writer/cleanup integration remains |
 | [Shared-control image](evidence/shared-control-image-2026-09-27/README.md) | Distinct authenticated profile, role-bound placement and private-envelope/bootstrap integration; no complete archive writer |
 | [Shared-control ordering](evidence/shared-control-ordering-2026-09-27/README.md) | Abstract interruption/region-loss model; temporary-space and second-publication costs |
 | [Credential bootstrap](evidence/credential-bootstrap-2026-09-27/README.md) | Bounded public wrappers, authority selection and rekey no-fallback component tests |

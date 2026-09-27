@@ -75,30 +75,8 @@ impl Context {
         })
     }
     fn encode(&self, record: &Record) -> Result<Vec<u8>> {
-        if record.sequence == 0
-            || ((record.sequence == 1) != (record.previous == [0; 32]))
-            || record.reservations.len() > MAX_RESERVATIONS
-            || (!record.active && (!record.reservations.is_empty() || record.cleanup_bytes != 0))
-            || ((record.cleanup_bytes == 0) != (record.cleanup_commit == [0; 32]))
-        {
-            return Err(Error::CorruptRecord);
-        }
         let body_size = CHECKSUM - HEADER - if self.key.is_some() { 16 } else { 0 };
-        let mut body = Zeroizing::new(Vec::with_capacity(body_size));
-        body.extend_from_slice(&record.sequence.to_le_bytes());
-        body.extend_from_slice(&record.previous);
-        body.extend_from_slice(&record.base);
-        body.push(u8::from(record.active));
-        body.extend_from_slice(&record.cleanup_commit);
-        body.extend_from_slice(&record.cleanup_bytes.to_le_bytes());
-        body.extend_from_slice(&(record.reservations.len() as u32).to_le_bytes());
-        for r in &record.reservations {
-            body.push(r.namespace);
-            body.extend_from_slice(&r.base.to_le_bytes());
-            body.extend_from_slice(&r.start.to_le_bytes());
-            body.extend_from_slice(&r.len.to_le_bytes());
-        }
-        body.resize(body_size, 0);
+        let body = encode_body(record, body_size)?;
         let mut out = Vec::with_capacity(SLOT_BYTES);
         out.extend_from_slice(MAGIC);
         out.extend_from_slice(&2u16.to_le_bytes());
@@ -145,47 +123,7 @@ impl Context {
             }
             Zeroizing::new(bytes[HEADER..CHECKSUM].to_vec())
         };
-        let mut cursor = Cursor(&body);
-        let sequence = cursor.u64()?;
-        let previous = cursor.take(32)?.try_into().unwrap();
-        let base = cursor.take(32)?.try_into().unwrap();
-        let active = match cursor.take(1)?[0] {
-            0 => false,
-            1 => true,
-            _ => return Err(Error::CorruptRecord),
-        };
-        let cleanup_commit = cursor.take(32)?.try_into().unwrap();
-        let cleanup_bytes = cursor.u64()?;
-        let count = u32::from_le_bytes(cursor.take(4)?.try_into().unwrap()) as usize;
-        if sequence == 0
-            || ((sequence == 1) != (previous == [0; 32]))
-            || count > MAX_RESERVATIONS
-            || (!active && (count != 0 || cleanup_bytes != 0))
-            || ((cleanup_bytes == 0) != (cleanup_commit == [0; 32]))
-        {
-            return Err(Error::CorruptRecord);
-        }
-        let mut reservations = Vec::with_capacity(count);
-        for _ in 0..count {
-            reservations.push(Reservation {
-                namespace: cursor.take(1)?[0],
-                base: cursor.u64()?,
-                start: cursor.u64()?,
-                len: cursor.u64()?,
-            });
-        }
-        if cursor.0.iter().any(|byte| *byte != 0) {
-            return Err(Error::CorruptRecord);
-        }
-        Ok(Record {
-            sequence,
-            previous,
-            base,
-            active,
-            cleanup_commit,
-            cleanup_bytes,
-            reservations,
-        })
+        decode_body(&body)
     }
     fn select(&self, storage: &impl Storage) -> Result<Selected> {
         let mut candidates = Vec::new();
@@ -782,3 +720,82 @@ impl<'a> Cursor<'a> {
 #[cfg(test)]
 #[path = "preparation_journal_tests.rs"]
 pub(super) mod tests;
+
+fn encode_body(record: &Record, body_size: usize) -> Result<Zeroizing<Vec<u8>>> {
+    if record.sequence == 0
+        || ((record.sequence == 1) != (record.previous == [0; 32]))
+        || record.reservations.len() > MAX_RESERVATIONS
+        || (!record.active && (!record.reservations.is_empty() || record.cleanup_bytes != 0))
+        || ((record.cleanup_bytes == 0) != (record.cleanup_commit == [0; 32]))
+    {
+        return Err(Error::CorruptRecord);
+    }
+    if 117 + record.reservations.len() * 25 > body_size {
+        return Err(Error::SecurityLimitExceeded(
+            "preparation record needs overflow".into(),
+        ));
+    }
+    let mut body = Zeroizing::new(Vec::with_capacity(body_size));
+    body.extend_from_slice(&record.sequence.to_le_bytes());
+    body.extend_from_slice(&record.previous);
+    body.extend_from_slice(&record.base);
+    body.push(u8::from(record.active));
+    body.extend_from_slice(&record.cleanup_commit);
+    body.extend_from_slice(&record.cleanup_bytes.to_le_bytes());
+    body.extend_from_slice(&(record.reservations.len() as u32).to_le_bytes());
+    for r in &record.reservations {
+        body.push(r.namespace);
+        body.extend_from_slice(&r.base.to_le_bytes());
+        body.extend_from_slice(&r.start.to_le_bytes());
+        body.extend_from_slice(&r.len.to_le_bytes());
+    }
+    body.resize(body_size, 0);
+    Ok(body)
+}
+
+fn decode_body(body: &[u8]) -> Result<Record> {
+    let mut cursor = Cursor(body);
+    let sequence = cursor.u64()?;
+    let previous = cursor.take(32)?.try_into().unwrap();
+    let base = cursor.take(32)?.try_into().unwrap();
+    let active = match cursor.take(1)?[0] {
+        0 => false,
+        1 => true,
+        _ => return Err(Error::CorruptRecord),
+    };
+    let cleanup_commit = cursor.take(32)?.try_into().unwrap();
+    let cleanup_bytes = cursor.u64()?;
+    let count = u32::from_le_bytes(cursor.take(4)?.try_into().unwrap()) as usize;
+    if sequence == 0
+        || ((sequence == 1) != (previous == [0; 32]))
+        || count > MAX_RESERVATIONS
+        || count > cursor.0.len() / 25
+        || (!active && (count != 0 || cleanup_bytes != 0))
+        || ((cleanup_bytes == 0) != (cleanup_commit == [0; 32]))
+    {
+        return Err(Error::CorruptRecord);
+    }
+    let mut reservations = Vec::with_capacity(count);
+    for _ in 0..count {
+        reservations.push(Reservation {
+            namespace: cursor.take(1)?[0],
+            base: cursor.u64()?,
+            start: cursor.u64()?,
+            len: cursor.u64()?,
+        });
+    }
+    if cursor.0.iter().any(|byte| *byte != 0) {
+        return Err(Error::CorruptRecord);
+    }
+    Ok(Record {
+        sequence,
+        previous,
+        base,
+        active,
+        cleanup_commit,
+        cleanup_bytes,
+        reservations,
+    })
+}
+
+mod compact;

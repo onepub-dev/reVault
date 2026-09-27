@@ -62,6 +62,9 @@ lengths/padding/codec and explicit overflow refusal. Existing publication crash,
 independent-vector and bootstrap rekey tests remain green. No new process-death
 or power-loss claim is made for the shared-control profile.
 
+Post-format [publication tests](postformat-tests.log) and
+[strict Clippy](postformat-clippy.log) also pass.
+
 The cost model now budgets 72 bytes rather than 60 for worst-case envelope
 overhead and follows the archive's compression policy. Earlier frozen cost-model
 results remain historical observations; this change does not relabel them as
@@ -83,3 +86,23 @@ must agree. A safe implementation may retain erased temporary ranges as explicit
 owned free space until source-preserving compaction, or prove a separate shrink
 protocol. Do not infer permission to truncate from the model's reachability check.
 The proposed compacted size is not a bound on update-time disk usage.
+
+## Read-only cost recheck
+
+The five retained inputs were rechecked once with the frozen `dd606b0a` binary
+[identified by SHA-256](cost-recheck/binary.sha256). This is a size/encoding model,
+not a timing run or persisted shared-control archive. [Inputs](cost-recheck/batch.json)
+and per-case JSON/logs are retained in `cost-recheck/`. No source archive was rebuilt.
+
+| Case | Catalogue plain/encoded bytes | Projected compacted bytes |
+| --- | --- | --- |
+| Small, plaintext compressed | 61,478 / 29,385 | 327,680 |
+| Small, encrypted signed compressed | 61,482 / 37,733 | 327,680 |
+| 8 MiB raw | 15,194 / 15,194 | 8,519,680 |
+| 8 MiB compressible plaintext | 1,593 / 1,446 | 196,608 |
+| 8 MiB compressible encrypted signed | 1,593 / 1,456 | 196,608 |
+
+All five still fit after accounting for the 12-byte private prefix. The raw case
+now correctly leaves metadata uncompressed. The small projection remains 1.382×
+ZIP; actual candidate C remains 6.08× after compaction. Neither number is a
+measurement of an implemented complete shared-control archive.

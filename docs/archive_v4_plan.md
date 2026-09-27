@@ -31,8 +31,11 @@ states which gates remain failed or incomplete.
    that peak space and update cost in the actual protocol. The
    [shared-control image components](evidence/shared-control-image-2026-09-27/README.md)
    now connect authenticated placement, bootstrap and bounded private decoding,
-   including complete loss of either control region. Journal/ownership/typed
-   catalogue integration and crash-safe creation/mutation remain. Keep C as the control.
+   including complete loss of either control region. The
+   [compact journal representation](evidence/compact-preparation-2026-09-27/README.md)
+   retains all 2,048 reservations through mirrored overflow. Durable overflow
+   ownership, typed catalogue integration and crash-safe creation/mutation remain.
+   Keep C as the control.
    Explicitly test the larger logical loss possible within densely packed physical
    damage regions, independently of the per-fragment random-read bound.
 2. Retain the [failed mixed aging qualification](evidence/mixed-file-aging-2026-09-27/README.md):

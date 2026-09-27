@@ -1,0 +1,7 @@
+
+running 1 test
+test file_format::candidate_files::resource_probe::candidate_file_resource_probe ... CANDIDATE_SAMPLE {"candidate_scope":"file-only shared private packs; no public record/access integration","candidate_test_executable_sha256":"267f2fef355bfa37ae44521df45645d07bff1f1547bbedfa9fd085efe295f084","catalogue_codec":1,"catalogue_decoder_window":65536,"catalogue_encoded_bytes":1446,"catalogue_plain_bytes":1593,"control_region_bytes":65536,"control_regions":2,"descriptor_binding_preserved":true,"extent_unit":262144,"file_adapter_version":2,"files":1,"fragments":32,"inline_catalogue_fits":true,"inline_private_slot_bytes":49152,"kind":"whole_layout_cost_model","largest_fragment_decoded_bytes":262144,"largest_pack_logical_bytes":8388608,"layout":"candidate-262144","max_members_per_pack":4096,"metadata_roundtrip_verified":true,"pack_padding_bytes":5617,"payload_allocation_bytes":65536,"physical_packs":1,"projected_compacted_bytes":196608,"scope":"cost-only, no persisted archive, bootstrap/overflow journal/ownership/publication protocol not implemented","source_archive_bytes":2883584,"stored_fragment_bytes":59919}
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 484 filtered out; finished in 0.03s
+
