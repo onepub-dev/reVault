@@ -11,16 +11,18 @@ Updated 2026-09-27. P2 is still an architecture comparison, not a selected forma
 The production default writer has bounded staging; candidate C has authenticated
 membership, separated metadata mirrors, resumable allocation/erasure, file/range
 reads and [independently protected physical packs](evidence/independent-file-packs-2026-09-27/README.md)
-with tested whole-pack deletion. C remains test-only and lacks complete public
+with [tested updates and explicit read-only salvage](evidence/candidate-file-lifecycle-2026-09-27/README.md).
+C remains test-only and lacks complete public
 record/access semantics. The [current scorecard](archive_v4_evaluation.md#current-scorecard)
 states which gates remain failed or incomplete.
 
-1. Complete C's file additions/replacements and explicit read-only recovery with
-   owner-proven membership, intact-neighbour salvage and no deleted/uncommitted
-   resurrection. Keep shared-pack erasure and default padding guarantees intact.
-2. Run the declared packed/unpacked lifecycle and same-corpus CPU/RSS/space matrix,
-   including 100k-file limits. Measure metadata access and fixed control costs
-   separately; do not resume open-ended buffer/encoder tuning.
+1. Run the declared packed/unpacked lifecycle and same-corpus CPU/RSS/space matrix,
+   including 100k-file limits. The file lifecycle now includes additions,
+   replacements, complete pack retirement, source-change abort and read-only salvage.
+   Measure metadata access and fixed control costs separately; do not resume
+   open-ended buffer/encoder tuning.
+2. Extend failure/resource coverage to packed-file process death, mixed 1,000-cycle
+   aging and public source-handle orchestration before claiming full qualification.
 3. Complete record/access/permission and compaction comparison coverage, then
    review the evidence against the frozen contract before selecting A, B or C.
    Latest unpacked C still takes 3.75–3.84× ZIP on its 8 MiB raw/compressed cases.

@@ -52,6 +52,8 @@ is itself authenticated zero plaintext; visible zero gaps would leak encoded siz
 Whole-pack deletion verifies and relocates surviving encoded fragments, publishes
 all references together and erases the old allocation. Coverage rejects hidden
 deleted bytes, overlapping members and incompatible shared commitments. This
-remains a private-file-only experiment, not acceptance of decision 002. Full
-mutation/recovery/public semantics, packing measurements and fixed control-space
+remains a private-file-only experiment, not acceptance of decision 002. The
+[file lifecycle and salvage](../evidence/candidate-file-lifecycle-2026-09-27/README.md)
+now pass internal tests; public semantics, expanded failure/resource qualification,
+packing measurements and fixed control-space
 trade-offs remain required before selecting a format.

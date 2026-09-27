@@ -16,7 +16,7 @@ Historical microbenchmarks remain evidence about their own revisions.
 | --- | --- | --- |
 | A | Current default data pages plus v4 transactions | Baseline; default library suite passes. Release migration matrix fails |
 | B | Same source with `native-block-layout` | Experimental; two reproducible recovery failures. Not eligible for activation |
-| C | Authenticated index, publication and allocator prototype | Independent file fragments/shared-pack deletion pass correctness; latest unpacked comparison still fails read/space targets. Full lifecycle, recovery and public paths remain |
+| C | Authenticated index, publication and allocator prototype | Independent fragments, atomic file updates and read-only salvage pass internal tests; latest unpacked comparison still fails read/space targets. Public paths and full qualification remain |
 
 Do not count a prototype lacking signatures, padding, wiping or crash recovery as
 a faster implementation of the same contract. A cost-only prototype may reject a
@@ -118,8 +118,8 @@ including Vault containers. `0.4.x` remains format 3 and is isolated from this w
 
 | Gate | Current evidence | Status |
 | --- | --- | --- |
-| A1 | Public CLI append/reuse abort coverage and allocator fault/power-loss tests pass; C shared-pack creation/deletion/repeats preserve exact ownership and whole-allocation erasure | Full public mutation matrix incomplete |
-| A2 | C independent fragment proofs preserve a neighbour inside a damaged shared pack; explicit fresh salvage and production integration remain; two native recovery failures persist | Production gate failed; candidate recovery incomplete |
+| A1 | Public CLI append/reuse abort coverage and allocator fault/power-loss tests pass; C atomic file lifecycle, source-change abort and 100-cycle aging preserve ownership, whole-pack erasure and no-change bytes | Full public mutation matrix incomplete |
+| A2 | C fresh read-only salvage preserves intact neighbours, uses metadata mirrors and reports lost proofs; production integration and two native recovery failures remain | Production gate failed; candidate integration incomplete |
 | A3/A4 | Latest unpacked C is 3.75× ZIP raw / 3.84× compressed (8 MiB). Initial corrected A/B compressed ratios are about 4.8×/5.1×. Bounded A has one passing 30-pair raw-create result; protected/complete matrix remains | A3 failed; A4 not qualified |
 | A5 | A 1 GiB creation is about 191 MiB peak RSS; previous unpacked C probe is 14.2 MiB (one measured pair). Allocator aging stabilizes; new pack and 100k-file resources are not yet measured | Full resource/space gate incomplete |
 | A6 | Historical reader routing repaired locally; owner identity and missing v4/current Vault fixtures block the full matrix; CLI/binding interoperability still required | Failed |
@@ -154,3 +154,4 @@ The [checkpoint history](archive_v4_history.md) retains earlier commentary.
 | [Ordered reads](evidence/ordered-file-reads-2026-09-27/README.md) | Paired traversal results and CPU profiles |
 | [Normalized buffers](evidence/candidate-buffer-normalization-2026-09-27/README.md) | Latest measured unpacked C, still failing ZIP parity |
 | [Independent physical packs](evidence/independent-file-packs-2026-09-27/README.md) | Packing/deletion correctness, damage containment and privacy; no new timings |
+| [Candidate file lifecycle](evidence/candidate-file-lifecycle-2026-09-27/README.md) | Atomic updates, source consistency, aging and explicit owner-authorized read-only salvage |

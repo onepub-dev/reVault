@@ -15,10 +15,13 @@ use zeroize::Zeroizing;
 const FILE: u8 = 10;
 const CHUNK: u8 = 11;
 const MAX_FILES: usize = 100_000;
+// Shared admission limit: anything we write must fit the salvage path budget.
+const MAX_PATH_BYTES: usize = 32 * 1024 * 1024;
 const MAX_ENTRIES: usize = 1_000_000;
 const MAGIC: &[u8; 8] = b"RV4FIL02";
 mod mutation;
 mod packing;
+mod recovery;
 use packing::{Builder, Coverage, Slice};
 
 pub(crate) struct Input<R: Read> {
@@ -122,6 +125,7 @@ impl<S: Storage> Files<S> {
             let mut entries = Vec::new();
             let mut packs = Builder::new(&codec, logical_unit);
             let mut paths = std::collections::BTreeSet::new();
+            let mut path_bytes = 0usize;
             let mut ids = std::collections::BTreeSet::new();
             let mut input_bytes = crate::page_buffer::ZeroizingBytes::new(vec![0; logical_unit]);
             for input in inputs {
@@ -133,6 +137,14 @@ impl<S: Storage> Files<S> {
                 {
                     return Err(Error::InvalidInput(
                         "invalid, duplicate or excessive candidate file paths".into(),
+                    ));
+                }
+                path_bytes = path_bytes
+                    .checked_add(path.len())
+                    .ok_or(Error::CorruptRecord)?;
+                if path_bytes > MAX_PATH_BYTES {
+                    return Err(Error::SecurityLimitExceeded(
+                        "candidate path metadata limit".into(),
                     ));
                 }
                 let mut id = [0; 16];
@@ -242,6 +254,7 @@ impl<S: Storage> Files<S> {
         let eager = self.anchor.mode.signed() && self.anchor.mode.plaintext();
         let mut files = BTreeMap::<[u8; 16], State>::new();
         let mut count = 0;
+        let mut path_bytes = 0usize;
         let mut coverage = Coverage::default();
         self.index.visit(
             &self.storage,
@@ -255,6 +268,14 @@ impl<S: Storage> Files<S> {
                 let record = OwnedRecord::decode(&entry.value)?;
                 match entry.namespace {
                     FILE => {
+                        path_bytes = path_bytes
+                            .checked_add(entry.key.len())
+                            .ok_or(Error::CorruptRecord)?;
+                        if path_bytes > MAX_PATH_BYTES {
+                            return Err(Error::SecurityLimitExceeded(
+                                "candidate path metadata limit".into(),
+                            ));
+                        }
                         if !valid_path(&entry.key)
                             || !record.extents.is_empty()
                             || files.len() == MAX_FILES
