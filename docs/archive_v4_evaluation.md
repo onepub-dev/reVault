@@ -129,6 +129,12 @@ including Vault containers. `0.4.x` remains format 3 and is isolated from this w
 The [mixed-file aging qualification](evidence/mixed-file-aging-2026-09-27/README.md)
 retains the failed unpadded stability assertion and all safety/accounting checks.
 
+The [fresh shared-control file image](evidence/dense-file-image-2026-09-27/README.md#measured-persisted-image-sizes)
+now measures 327,680 bytes for both retained small plaintext and encrypted/signed
+fixtures: 1.382× the 237,078-byte ZIP, with every persisted byte verified after
+reopen. Five cases match their earlier projections. This is bounded, immutable,
+file-only size evidence; full A5 and A3/A4 remain unqualified for this variant.
+
 ## Whole-format eligibility review
 
 The file adapter is not a complete archive candidate. The following differences
@@ -137,11 +143,11 @@ for them.
 
 | Required public semantics | Current implementation to retain | Candidate C gap |
 | --- | --- | --- |
-| Files, explicit directories, symlinks and permission bits | [TOC entry model](../rust/revault_lockbox_api/src/toc/toc_entry.rs), [node kinds](../rust/revault_lockbox_api/src/model/node_kind.rs) | `FileInfo` has file identity/length/unit/digest only; directories, links and permissions are absent |
+| Files, explicit directories, symlinks and permission bits | [TOC entry model](../rust/revault_lockbox_api/src/toc/toc_entry.rs), [node kinds](../rust/revault_lockbox_api/src/model/node_kind.rs) | `FileInfo` has file identity/length/unit/digest only; the dense image stores a synthetic `0644`, not real permission/directory/link semantics |
 | Normal and secret variables, explicit sensitivity changes | [Variable API](../rust/revault_lockbox_api/src/lockbox/variables.rs) | No typed variable records or secure-value API; opaque index values would not establish sensitivity semantics |
 | Form definitions, revisions, record references and field validation | [Definitions](../rust/revault_lockbox_api/src/lockbox/forms/definitions.rs), [records](../rust/revault_lockbox_api/src/lockbox/forms/records.rs) | No schema/revision linkage or cross-record validation |
 | Mirror ownership, overlap/adoption and deletion policies | [Mirror API](../rust/revault_lockbox_api/src/lockbox/mirrors.rs) | Atomic file updates exist, but no persisted mirror configuration/ownership integration |
-| Password/contact access and owner pinning | [Key slots](../rust/revault_lockbox_api/src/keys/key_slot.rs), [key directory](../rust/revault_lockbox_api/src/file_format/key_directory.rs) | File callers still supply authority/key out of band; isolated public-wrapper bootstrap tests pass, but access integration/overflow remain absent |
+| Password/contact access and owner pinning | [Key slots](../rust/revault_lockbox_api/src/keys/key_slot.rs), [key directory](../rust/revault_lockbox_api/src/file_format/key_directory.rs) | Shared file images support explicit keys and wrapped-key bootstrap; access mutation/overflow, labels and public integration remain absent |
 | Vault and binding interoperability | Shared production engine and retained migration fixtures | No candidate public constructor, credential open, binding carrier or migration path |
 
 A concrete bootstrap issue: `Transaction::put_key_record` currently uses the same

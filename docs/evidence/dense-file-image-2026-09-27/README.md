@@ -85,3 +85,32 @@ corpus. It intentionally reports size and verification only: its conversion/stag
 work is not a comparable creation workload, and no CPU/RSS/time result is claimed.
 Run retained cases with a frozen committed binary; preserve old controls and record
 actual image sizes separately from the earlier projections.
+
+## Measured persisted image sizes
+
+Five retained corpora were built once with frozen revision `9fc6c20c`, binary
+SHA-256 `3fe7508a072ceee4443571956c9b3e7afe21f934504e908442417a63b09da9e8`.
+[Batch inputs](sizes/batch.json), [binary hash](sizes/binary.sha256), per-case
+JSON and logs are in `sizes/`. Source/control artifacts were not overwritten.
+Each new file was closed, reopened through a fresh file handle and compared with
+every source byte. Synthetic private owner keys were not persisted.
+
+| Case | Actual persisted bytes | Verification |
+| --- | --- | --- |
+| 512 × 4 KiB, plaintext compressed | 327,680 | All files match |
+| 512 × 4 KiB, encrypted signed compressed | 327,680 | All files match |
+| 8 MiB raw plaintext | 8,519,680 | Full contents match |
+| 8 MiB compressible plaintext | 196,608 | Full contents match |
+| 8 MiB compressible encrypted signed | 196,608 | Full contents match |
+
+The small images are 320 KiB, or **1.382×** the retained 237,078-byte ZIP; the
+proposed small-corpus bound is 355,617 bytes. The plaintext image is 77.3% smaller
+than the existing candidate's measured 1,441,792-byte compacted file. These actual
+images match the five size projections after the corrected envelope budget.
+The compressed large cases are compressible data, not an incompressible-data test.
+
+This clears the size-feasibility objection for these bounded fresh file images.
+It does not pass the full A5 gate: larger metadata, aging, mutation, cleanup, public
+semantics and the resource matrix remain. It supplies no A3/A4 timing result.
+Post-hook [image tests](postformat-tests.log) and [strict Clippy](postformat-clippy.log)
+also pass on the frozen source.

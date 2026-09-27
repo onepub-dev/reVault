@@ -25,8 +25,10 @@ states which gates remain failed or incomplete.
    and immutable. Integrate typed catalogue overflow, public record semantics,
    durable reservation/overflow transitions, graph-derived ownership and inline
    retirement before qualification. Preserve the existing candidate as the control.
-   Measure actual image size separately from the cost projection, then budget
-   temporary metadata, sealed-length/cleanup and any relocation publication.
+   Five retained images now match the size model; both small fixtures are actual
+   320 KiB files (1.382× ZIP), with full persisted-byte verification. Budget
+   temporary metadata, sealed-length/cleanup and any relocation publication; this
+   size result does not qualify mutation, CPU/RSS or full public semantics.
    Explicitly test the larger logical loss possible within densely packed physical
    damage regions, independently of the per-fragment random-read bound.
 2. Retain the [failed mixed aging qualification](evidence/mixed-file-aging-2026-09-27/README.md):
