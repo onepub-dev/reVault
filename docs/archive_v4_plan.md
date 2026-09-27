@@ -16,17 +16,18 @@ C remains test-only and lacks complete public
 record/access semantics. The [current scorecard](archive_v4_evaluation.md#current-scorecard)
 states which gates remain failed or incomplete.
 
-1. Run the declared packed/unpacked lifecycle and same-corpus CPU/RSS/space matrix,
-   including 100k-file limits. The file lifecycle now includes additions,
-   replacements, complete pack retirement, source-change abort and read-only salvage.
-   Measure metadata access and fixed control costs separately; do not resume
-   open-ended buffer/encoder tuning.
+1. Complete record/access/permission and compaction comparison coverage. Retain
+   the [packed comparison failures](evidence/packed-file-comparison-2026-09-27/README.md):
+   C remains 3.77× ZIP raw / 4.02× compressed on 8 MiB reads; the small-file archive
+   is 7.19× ZIP; encrypted range-open cost regresses. No A3/A4 pass is claimed.
 2. Extend failure/resource coverage to packed-file process death, mixed 1,000-cycle
-   aging and public source-handle orchestration before claiming full qualification.
-3. Complete record/access/permission and compaction comparison coverage, then
-   review the evidence against the frozen contract before selecting A, B or C.
-   Latest unpacked C still takes 3.75–3.84× ZIP on its 8 MiB raw/compressed cases.
-   No new packing performance result or A3/A4 pass is claimed.
+   aging and public source-handle orchestration. The first 100k-file probes use
+   66–67 MiB peak creation RSS but take 41–61 seconds to read 12.8 MB of tiny files.
+   These descriptive results do not qualify the complete 256 MiB resource budget.
+3. Review layout, normal-open padding checks, metadata access/cache policy and fixed
+   control costs together against the frozen contract before selecting A, B or C.
+   Preserve source, authority, erasure and default padding guarantees. Do not resume
+   open-ended buffer/encoder tuning or silently replace the failed workloads.
 4. Finish migration/owner fixtures, bidirectional CLI/binding/Vault compatibility
    and release qualification. Obtain a corrected published compression dependency
    and verify isolated packaged builds before removing the temporary vendor patch.

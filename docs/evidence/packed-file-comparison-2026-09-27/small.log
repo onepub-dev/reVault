@@ -1,0 +1,1 @@
+{"case":{"bytes":4096,"compressed":true,"corpus":"mixed","files":512,"mode":"plain","unpadded":false},"completed_pairs":30,"evidence":"/tmp/revault-packed-comparison-20260927/small/samples.jsonl","layout":"external-primary","warmup_pairs":3}
