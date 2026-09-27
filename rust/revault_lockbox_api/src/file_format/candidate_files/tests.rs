@@ -372,7 +372,7 @@ fn semantic_audit_rejects_missing_and_orphaned_chunk_membership() {
                 storage,
                 anchor,
                 index: Index::new(archive(), mode, None).unwrap(),
-                codec: Codec::new(archive(), mode, None).unwrap(),
+                codec: Codec::packed(archive(), mode, None).unwrap(),
             };
             assert!(matches!(
                 files.read_range(b"file", 0, info.len, |_| Ok(())),
@@ -433,4 +433,417 @@ fn source_failure_aborts_real_file_allocations_and_reopens_empty() {
     )
     .unwrap();
     assert!(files.info(b"file").unwrap().is_none());
+}
+
+fn packed_pair(
+    mode: FormatMode,
+    authority: &Authority<'_>,
+    signer: Option<&OwnerSigningKeyPair>,
+) -> StorageBackend {
+    Files::create(
+        StorageBackend::memory(Vec::new()),
+        archive(),
+        mode,
+        authority,
+        signer,
+        key(mode),
+        65536,
+        [
+            Input {
+                path: b"erase".to_vec(),
+                reader: Cursor::new(vec![0xa7; 4096]),
+            },
+            Input {
+                path: b"keep".to_vec(),
+                reader: Cursor::new(vec![0x39; 8192]),
+            },
+        ],
+    )
+    .unwrap()
+}
+fn first_record<S: Storage>(files: &Files<S>, path: &[u8]) -> OwnedRecord {
+    let info = files.info(path).unwrap().unwrap();
+    let entry = files
+        .index
+        .get(
+            &files.storage,
+            files.anchor.index,
+            files.anchor.sealed_len,
+            CHUNK,
+            &chunk_key(info.id, 0),
+        )
+        .unwrap()
+        .unwrap();
+    OwnedRecord::decode(&entry.value).unwrap()
+}
+#[test]
+fn shared_pack_deletion_rewrites_survivor_and_erases_whole_old_allocation_all_modes() {
+    let owner = OwnerSigningKeyPair::generate().unwrap();
+    let public = owner.public_key();
+    for encrypted in [false, true] {
+        for signed in [false, true] {
+            for compressed in [false, true] {
+                for padded in [false, true] {
+                    let mode = mode(encrypted, signed, compressed, padded);
+                    let authority = authority(mode, &public);
+                    let storage = packed_pair(mode, &authority, signed.then_some(&owner));
+                    let files =
+                        Files::open(storage, archive(), mode, &authority, key(mode)).unwrap();
+                    let erased = first_record(&files, b"erase");
+                    let kept = first_record(&files, b"keep");
+                    assert_eq!(erased.extents, kept.extents);
+                    let old = erased.extents[0];
+                    let mut storage = Files::remove(
+                        files.into_storage(),
+                        archive(),
+                        mode,
+                        &authority,
+                        signed.then_some(&owner),
+                        key(mode),
+                        [b"erase".to_vec()],
+                    )
+                    .unwrap();
+                    let anchor =
+                        allocation::recover(&mut storage, archive(), mode, &authority, key(mode))
+                            .unwrap();
+                    Snapshot::inspect(
+                        &storage,
+                        &anchor,
+                        &Index::new(archive(), mode, key(mode)).unwrap(),
+                    )
+                    .unwrap()
+                    .verify_reclaimed(&storage)
+                    .unwrap();
+                    assert!(storage
+                        .read_at(old.start, old.len as usize)
+                        .unwrap()
+                        .iter()
+                        .all(|byte| *byte == 0));
+                    let mut files = Files::open(
+                        StorageBackend::memory(storage.read_all().unwrap()),
+                        archive(),
+                        mode,
+                        &authority,
+                        key(mode),
+                    )
+                    .unwrap();
+                    assert!(files.info(b"erase").unwrap().is_none());
+                    let kept = first_record(&files, b"keep");
+                    assert_ne!(old.start, kept.extents[0].start);
+                    let slice = Slice::decode(&kept.metadata).unwrap();
+                    assert_eq!(slice.start, 0);
+                    assert_eq!(slice.descriptor.logical_len, 8192);
+                    let mut got = Vec::new();
+                    files
+                        .read_range(b"keep", 0, 8192, |bytes| {
+                            got.extend_from_slice(bytes);
+                            Ok(())
+                        })
+                        .unwrap();
+                    assert_eq!(got, vec![0x39; 8192]);
+                    let storage = files.into_storage();
+                    let before = storage.read_all().unwrap();
+                    let storage = Files::remove(
+                        storage,
+                        archive(),
+                        mode,
+                        &authority,
+                        signed.then_some(&owner),
+                        key(mode),
+                        [b"erase".to_vec()],
+                    )
+                    .unwrap();
+                    assert_eq!(
+                        storage.read_all().unwrap(),
+                        before,
+                        "no-change deletion wrote bytes"
+                    );
+                    let storage = Files::remove(
+                        storage,
+                        archive(),
+                        mode,
+                        &authority,
+                        signed.then_some(&owner),
+                        key(mode),
+                        [b"keep".to_vec()],
+                    )
+                    .unwrap();
+                    let files =
+                        Files::open(storage, archive(), mode, &authority, key(mode)).unwrap();
+                    assert!(files.info(b"keep").unwrap().is_none());
+                }
+            }
+        }
+    }
+}
+#[test]
+fn shared_pack_audit_rejects_hidden_deleted_bytes_overlaps_and_conflicting_descriptors() {
+    let mode = mode(false, false, false, true);
+    let authority = Authority::Checksum;
+    let original = packed_pair(mode, &authority, None);
+    for fault in 0..4 {
+        let files = Files::open(original.clone(), archive(), mode, &authority, None).unwrap();
+        let erase_id = files.info(b"erase").unwrap().unwrap().id;
+        let keep_id = files.info(b"keep").unwrap().unwrap().id;
+        let kept = first_record(&files, b"keep");
+        let mut slice = Slice::decode(&kept.metadata).unwrap();
+        let mut tx =
+            Transaction::begin(files.into_storage(), archive(), mode, &authority, None).unwrap();
+        // Internal authenticated writer-bug fixtures: the public CLI cannot emit
+        // this candidate or create an orphaned logical slice directly.
+        if fault == 0 {
+            tx.remove(FILE, b"erase").unwrap();
+            tx.remove(CHUNK, &chunk_key(erase_id, 0)).unwrap();
+        } else if fault == 3 {
+            tx.remove(FILE, b"keep").unwrap();
+            tx.remove(CHUNK, &chunk_key(keep_id, 0)).unwrap();
+        } else {
+            if fault == 1 {
+                slice.start -= 1;
+            } else {
+                slice.descriptor.object[0] ^= 1;
+            }
+            tx.put(
+                CHUNK,
+                &chunk_key(keep_id, 0),
+                &slice.encode(),
+                &kept.extents,
+            )
+            .unwrap();
+        }
+        let (storage, _) = tx.commit(&authority, None).unwrap();
+        assert!(Files::open(storage, archive(), mode, &authority, None).is_err());
+    }
+}
+
+#[derive(Clone, Debug)]
+struct SharedMemory(std::sync::Arc<std::sync::Mutex<StorageBackend>>);
+impl SharedMemory {
+    fn new(bytes: Vec<u8>) -> Self {
+        Self(std::sync::Arc::new(std::sync::Mutex::new(
+            StorageBackend::memory(bytes),
+        )))
+    }
+    fn operations(&self) -> usize {
+        self.0.lock().unwrap().memory_operation_count()
+    }
+    fn fail(&self, at: usize) {
+        self.0
+            .lock()
+            .unwrap()
+            .fail_memory_operation_after_successes(at);
+    }
+}
+impl Storage for SharedMemory {
+    fn len(&self) -> Result<u64> {
+        self.0.lock().unwrap().len()
+    }
+    fn read_at(&self, offset: u64, len: usize) -> Result<Vec<u8>> {
+        self.0.lock().unwrap().read_at(offset, len)
+    }
+    fn read_at_into(&self, offset: u64, out: &mut [u8]) -> Result<()> {
+        self.0.lock().unwrap().read_at_into(offset, out)
+    }
+    fn append(&mut self, bytes: &[u8]) -> Result<u64> {
+        self.0.lock().unwrap().append(bytes)
+    }
+    fn write_at(&mut self, offset: u64, bytes: &[u8]) -> Result<()> {
+        self.0.lock().unwrap().write_at(offset, bytes)
+    }
+    fn truncate(&mut self, len: u64) -> Result<()> {
+        self.0.lock().unwrap().truncate(len)
+    }
+    fn sync(&self) -> Result<()> {
+        self.0.lock().unwrap().sync()
+    }
+}
+#[test]
+fn shared_pack_removal_recovers_complete_old_or_new_files_at_every_storage_failure() {
+    let owner = OwnerSigningKeyPair::generate().unwrap();
+    let public = owner.public_key();
+    let mut cases = 0;
+    for mode in [
+        mode(false, false, false, false),
+        mode(true, true, true, true),
+        mode(false, true, true, true),
+        mode(true, false, false, true),
+    ] {
+        let authority = authority(mode, &public);
+        let signer = mode.signed().then_some(&owner);
+        let seed = packed_pair(mode, &authority, signer).read_all().unwrap();
+        let files = Files::open(
+            StorageBackend::memory(seed.clone()),
+            archive(),
+            mode,
+            &authority,
+            key(mode),
+        )
+        .unwrap();
+        let base = files.anchor.generation;
+        let old = first_record(&files, b"erase").extents[0];
+        drop(files);
+        let observed = SharedMemory::new(seed.clone());
+        Files::remove(
+            observed.clone(),
+            archive(),
+            mode,
+            &authority,
+            signer,
+            key(mode),
+            [b"erase".to_vec()],
+        )
+        .unwrap();
+        let count = observed.operations();
+        assert!(count > 10);
+        for at in 0..count {
+            let mut damaged = SharedMemory::new(seed.clone());
+            damaged.fail(at);
+            let _result = Files::remove(
+                damaged.clone(),
+                archive(),
+                mode,
+                &authority,
+                signer,
+                key(mode),
+                [b"erase".to_vec()],
+            );
+            let selected =
+                allocation::recover(&mut damaged, archive(), mode, &authority, key(mode)).unwrap();
+            Snapshot::inspect(
+                &damaged,
+                &selected,
+                &Index::new(archive(), mode, key(mode)).unwrap(),
+            )
+            .unwrap()
+            .verify_reclaimed(&damaged)
+            .unwrap();
+            let mut files = Files::open(
+                StorageBackend::memory(damaged.read_all().unwrap()),
+                archive(),
+                mode,
+                &authority,
+                key(mode),
+            )
+            .unwrap();
+            let mut kept = Vec::new();
+            files
+                .read_range(b"keep", 0, 8192, |bytes| {
+                    kept.extend_from_slice(bytes);
+                    Ok(())
+                })
+                .unwrap();
+            assert_eq!(kept, vec![0x39; 8192]);
+            if selected.generation == base {
+                let mut erased = Vec::new();
+                files
+                    .read_range(b"erase", 0, 4096, |bytes| {
+                        erased.extend_from_slice(bytes);
+                        Ok(())
+                    })
+                    .unwrap();
+                assert_eq!(erased, vec![0xa7; 4096]);
+            } else {
+                assert_eq!(selected.generation, base + 1);
+                assert!(files.info(b"erase").unwrap().is_none());
+                assert!(damaged
+                    .read_at(old.start, old.len as usize)
+                    .unwrap()
+                    .iter()
+                    .all(|byte| *byte == 0));
+            }
+            cases += 1;
+        }
+    }
+    println!("PACKED_FILE_REMOVAL_FAILURE_CASES {cases}");
+}
+#[test]
+fn packed_slice_version_and_bounds_fail_closed() {
+    let mode = mode(false, false, false, true);
+    let codec = Codec::new(archive(), mode, None).unwrap();
+    let files = Files::open(
+        packed_pair(mode, &Authority::Checksum, None),
+        archive(),
+        mode,
+        &Authority::Checksum,
+        None,
+    )
+    .unwrap();
+    let info = files.info(b"keep").unwrap().unwrap();
+    let mut old = info.encode();
+    old[..8].copy_from_slice(b"RV4FIL01");
+    assert!(FileInfo::decode(&old, &codec).is_err());
+    let record = first_record(&files, b"keep");
+    let slice = Slice::decode(&record.metadata).unwrap();
+    assert!(Slice::decode(&slice.descriptor.encode()).is_err());
+    let mut invalid = slice.clone();
+    invalid.start = u32::MAX;
+    assert!(Slice::decode(&invalid.encode()).is_err());
+    let mut invalid = slice.encode();
+    invalid[76] = 1;
+    assert!(Slice::decode(&invalid).is_err());
+}
+
+#[test]
+fn shared_pack_keeps_intact_neighbor_readable_after_other_fragment_damage() {
+    let owner = OwnerSigningKeyPair::generate().unwrap();
+    let public = owner.public_key();
+    for encrypted in [false, true] {
+        for signed in [false, true] {
+            for compressed in [false, true] {
+                let mode = mode(encrypted, signed, compressed, true);
+                let authority = authority(mode, &public);
+                let mut files = Files::open(
+                    packed_pair(mode, &authority, signed.then_some(&owner)),
+                    archive(),
+                    mode,
+                    &authority,
+                    key(mode),
+                )
+                .unwrap();
+                let first = first_record(&files, b"erase");
+                let second = first_record(&files, b"keep");
+                assert_eq!(first.extents, second.extents);
+                // Out-of-band payload damage has no public CLI operation. Keep the
+                // selected authenticated membership and damage only the first fragment.
+                let start = first.extents[0].start;
+                let byte = files.storage.read_at(start, 1).unwrap()[0];
+                files.storage.write_at(start, &[byte ^ 0x80]).unwrap();
+                assert!(files.read_range(b"erase", 0, 4096, |_| Ok(())).is_err());
+                let mut got = Vec::new();
+                files
+                    .read_range(b"keep", 0, 8192, |bytes| {
+                        got.extend_from_slice(bytes);
+                        Ok(())
+                    })
+                    .unwrap();
+                assert_eq!(got, vec![0x39; 8192]);
+            }
+        }
+    }
+}
+
+#[test]
+fn encrypted_pack_padding_is_authenticated_ciphertext_and_cannot_hide_retired_bytes() {
+    let mode = mode(true, true, true, true);
+    let owner = OwnerSigningKeyPair::generate().unwrap();
+    let public = owner.public_key();
+    let authority = authority(mode, &public);
+    let storage = packed_pair(mode, &authority, Some(&owner));
+    let files = Files::open(storage, archive(), mode, &authority, key(mode)).unwrap();
+    let first = first_record(&files, b"erase");
+    let second = first_record(&files, b"keep");
+    let slice = Slice::decode(&second.metadata).unwrap();
+    let end = slice.start as u64 + slice.descriptor.stored_len() as u64;
+    let pack = first.extents[0];
+    let padding = files
+        .storage
+        .read_at(pack.start + end, (pack.len - end) as usize)
+        .unwrap();
+    assert!(padding.len() >= 28);
+    assert!(padding.iter().any(|b| *b != 0));
+    files.codec.verify_pack_padding(&padding).unwrap();
+    let mut storage = files.into_storage();
+    let byte = storage.read_at(pack.start + end, 1).unwrap()[0];
+    storage.write_at(pack.start + end, &[byte ^ 1]).unwrap();
+    assert!(Files::open(storage, archive(), mode, &authority, key(mode)).is_err());
 }

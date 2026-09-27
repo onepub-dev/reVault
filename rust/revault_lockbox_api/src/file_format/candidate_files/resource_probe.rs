@@ -264,7 +264,8 @@ fn candidate_file_resource_probe() {
     result["layout"] = json!(format!("candidate-{unit}"));
     result["candidate_test_executable_sha256"] = json!(binary_hash);
     result["extent_unit"] = json!(unit);
+    result["file_adapter_version"] = json!(2);
     result["candidate_scope"] =
-        json!("file-only; no small-file packing or public record/access integration");
+        json!("file-only shared private packs; no public record/access integration");
     println!("CANDIDATE_SAMPLE {result}");
 }

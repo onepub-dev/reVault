@@ -55,6 +55,9 @@ impl Descriptor {
         descriptor.validate()?;
         Ok(descriptor)
     }
+    pub(crate) fn stored_len(&self) -> usize {
+        self.allocation_len as usize
+    }
     fn validate(&self) -> Result<()> {
         if self.object == [0; 16]
             || self.logical_len == 0
@@ -78,9 +81,23 @@ pub(crate) struct Codec {
     mode: FormatMode,
     key: Option<Zeroizing<[u8; 32]>>,
     scratch: ZeroizingBytes,
+    packed: bool,
 }
 impl Codec {
     pub(crate) fn new(archive: LockboxId, mode: FormatMode, key: Option<&[u8]>) -> Result<Self> {
+        Self::with_packing(archive, mode, key, false)
+    }
+    /// Physical packs apply padding collectively; each member retains its own
+    /// codec, nonce/tag, context and owner-authenticated stored-byte commitment.
+    pub(crate) fn packed(archive: LockboxId, mode: FormatMode, key: Option<&[u8]>) -> Result<Self> {
+        Self::with_packing(archive, mode, key, true)
+    }
+    fn with_packing(
+        archive: LockboxId,
+        mode: FormatMode,
+        key: Option<&[u8]>,
+        packed: bool,
+    ) -> Result<Self> {
         FormatMode::parse(mode.0)?;
         if mode.0 == 0 || (!mode.plaintext() && key.is_none_or(|k| k.len() != 32)) {
             return Err(Error::InvalidKey);
@@ -90,7 +107,14 @@ impl Codec {
         } else {
             let mut derived = Zeroizing::new([0; 32]);
             hkdf::Hkdf::<Sha256>::new(Some(archive.as_bytes()), key.unwrap())
-                .expand(b"revault-candidate-data-key-v1\0", &mut *derived)
+                .expand(
+                    if packed {
+                        b"revault-candidate-packed-data-key-v1\0"
+                    } else {
+                        b"revault-candidate-data-key-v1\0"
+                    },
+                    &mut *derived,
+                )
                 .map_err(|_| Error::InvalidKey)?;
             Some(derived)
         };
@@ -99,6 +123,7 @@ impl Codec {
             mode,
             key,
             scratch: ZeroizingBytes::new(Vec::new()),
+            packed,
         })
     }
     /// Raw data stays inside a 64 KiB stored allocation, including nonce/tag.
@@ -126,14 +151,88 @@ impl Codec {
     }
     fn allocation_len(&self, encoded_len: usize) -> usize {
         let size = encoded_len + self.overhead();
-        if self.mode.unpadded() {
+        if self.packed || self.mode.unpadded() {
             size
         } else {
             size.div_ceil(PAD_UNIT) * PAD_UNIT
         }
     }
+    pub(crate) fn pack_padded_len(&self, used: usize) -> Result<usize> {
+        if !self.packed || used == 0 || used > MAX_ALLOCATION {
+            return Err(Error::CorruptRecord);
+        }
+        if self.mode.unpadded() {
+            return Ok(used);
+        }
+        let mut total = used.div_ceil(PAD_UNIT) * PAD_UNIT;
+        if self.key.is_some() && total != used && total - used < 28 {
+            total += PAD_UNIT;
+        }
+        if total > MAX_ALLOCATION {
+            return Err(Error::CorruptRecord);
+        }
+        Ok(total)
+    }
+    fn padding_aad(&self) -> Vec<u8> {
+        let mut aad = b"revault-candidate-pack-padding-v1\0".to_vec();
+        aad.extend_from_slice(self.archive.as_bytes());
+        aad.extend_from_slice(&self.mode.0.to_le_bytes());
+        aad
+    }
+    pub(crate) fn pack_padding(&self, len: usize) -> Result<ZeroizingBytes> {
+        if !self.packed || len > PAD_UNIT + 27 {
+            return Err(Error::CorruptRecord);
+        }
+        if len == 0 {
+            return Ok(ZeroizingBytes::new(Vec::new()));
+        }
+        if let Some(key) = &self.key {
+            if len < 28 {
+                return Err(Error::CorruptRecord);
+            }
+            let zeros = ZeroizingBytes::new(vec![0; len - 28]);
+            let (nonce, body) =
+                seal_with_random_nonce(&zeros, key.as_slice(), &self.padding_aad())?;
+            let mut padding = ZeroizingBytes::new(Vec::with_capacity(len));
+            padding.extend_from_slice(&nonce);
+            padding.extend_from_slice(&body);
+            Ok(padding)
+        } else {
+            Ok(ZeroizingBytes::new(vec![0; len]))
+        }
+    }
+    pub(crate) fn verify_pack_padding(&self, bytes: &[u8]) -> Result<()> {
+        if !self.packed || bytes.len() > PAD_UNIT + 27 {
+            return Err(Error::CorruptRecord);
+        }
+        if bytes.is_empty() {
+            return Ok(());
+        }
+        let zeros = if let Some(key) = &self.key {
+            if bytes.len() < 28 {
+                return Err(Error::CorruptRecord);
+            }
+            ZeroizingBytes::new(open_with_nonce(
+                &bytes[12..],
+                key.as_slice(),
+                &bytes[..12],
+                &self.padding_aad(),
+            )?)
+        } else {
+            ZeroizingBytes::new(bytes.to_vec())
+        };
+        if zeros.iter().any(|b| *b != 0) {
+            return Err(Error::CorruptRecord);
+        }
+        Ok(())
+    }
     fn aad(&self, descriptor: &Descriptor) -> Vec<u8> {
-        let mut bytes = b"revault-candidate-data-v1\0".to_vec();
+        let mut bytes = if self.packed {
+            b"revault-candidate-packed-data-v1\0".as_slice()
+        } else {
+            b"revault-candidate-data-v1\0".as_slice()
+        }
+        .to_vec();
         bytes.extend_from_slice(self.archive.as_bytes());
         bytes.extend_from_slice(&self.mode.0.to_le_bytes());
         bytes.extend_from_slice(&descriptor.encode());
@@ -146,7 +245,7 @@ impl Codec {
         offset: u64,
         plain: &[u8],
     ) -> Result<(Descriptor, ZeroizingBytes)> {
-        if plain.is_empty() || plain.len() > MAX_LOGICAL {
+        if plain.is_empty() || plain.len() > self.logical_unit(MAX_LOGICAL)? {
             return Err(Error::SecurityLimitExceeded(
                 "candidate extent logical limit".into(),
             ));
@@ -163,7 +262,14 @@ impl Codec {
             allocation_len: self.allocation_len(encoded.len()) as u32,
         };
         descriptor.validate()?;
-        encoded.resize(descriptor.allocation_len as usize - self.overhead(), 0);
+        let padded_len = descriptor.allocation_len as usize - self.overhead();
+        if encoded.capacity() < padded_len {
+            // Reallocation must not release an unwiped private input allocation.
+            let mut padded = ZeroizingBytes::new(Vec::with_capacity(padded_len));
+            padded.extend_from_slice(&encoded);
+            encoded = padded;
+        }
+        encoded.resize(padded_len, 0);
         let stored = if let Some(key) = &self.key {
             let (nonce, ciphertext) =
                 seal_with_random_nonce(&encoded, key.as_slice(), &self.aad(&descriptor))?;
@@ -184,8 +290,9 @@ impl Codec {
         descriptor: &Descriptor,
     ) -> Result<()> {
         descriptor.validate()?;
-        if descriptor.allocation_len as usize
-            != self.allocation_len(descriptor.encoded_len as usize)
+        if descriptor.logical_len as usize > self.logical_unit(MAX_LOGICAL)?
+            || descriptor.allocation_len as usize
+                != self.allocation_len(descriptor.encoded_len as usize)
             || extent.len != descriptor.allocation_len as u64
             || extent.start < super::preparation_journal::DATA_START
             || extent

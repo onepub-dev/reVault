@@ -16,7 +16,10 @@ const FILE: u8 = 10;
 const CHUNK: u8 = 11;
 const MAX_FILES: usize = 100_000;
 const MAX_ENTRIES: usize = 1_000_000;
-const MAGIC: &[u8; 8] = b"RV4FIL01";
+const MAGIC: &[u8; 8] = b"RV4FIL02";
+mod mutation;
+mod packing;
+use packing::{Builder, Coverage, Slice};
 
 pub(crate) struct Input<R: Read> {
     pub path: Vec<u8>,
@@ -65,15 +68,15 @@ impl FileInfo {
         }
         Ok(info)
     }
-    fn validate_chunk(&self, ordinal: u64, descriptor: &Descriptor) -> Result<()> {
+    fn validate_chunk(&self, ordinal: u64, slice: &Slice) -> Result<()> {
         let offset = ordinal
             .checked_mul(self.unit as u64)
             .ok_or(Error::CorruptRecord)?;
         if ordinal >= self.count()
-            || descriptor.object != self.id
-            || descriptor.ordinal != ordinal
-            || descriptor.offset != offset
-            || descriptor.logical_len as u64 != (self.len - offset).min(self.unit as u64)
+            || slice.descriptor.object != self.id
+            || slice.descriptor.ordinal != ordinal
+            || slice.descriptor.offset != offset
+            || slice.descriptor.logical_len as u64 != (self.len - offset).min(self.unit as u64)
         {
             return Err(Error::CorruptRecord);
         }
@@ -111,12 +114,13 @@ impl<S: Storage> Files<S> {
         unit: usize,
         inputs: impl IntoIterator<Item = Input<R>>,
     ) -> Result<S> {
-        let codec = Codec::new(archive, mode, key)?;
+        let codec = Codec::packed(archive, mode, key)?;
         let logical_unit = codec.logical_unit(unit)?;
         allocation::create_empty(&mut storage, archive, mode, authority, signer, key)?;
         let mut tx = Transaction::begin(storage, archive, mode, authority, key)?;
         let result = (|| {
             let mut entries = Vec::new();
+            let mut packs = Builder::new(&codec, logical_unit);
             let mut paths = std::collections::BTreeSet::new();
             let mut ids = std::collections::BTreeSet::new();
             let mut input_bytes = crate::page_buffer::ZeroizingBytes::new(vec![0; logical_unit]);
@@ -163,19 +167,17 @@ impl<S: Storage> Files<S> {
                     if filled == 0 {
                         break;
                     }
-                    if entries.len() >= MAX_ENTRIES - 1 {
+                    if entries.len() + packs.pending() >= MAX_ENTRIES - 1 {
                         return Err(Error::SecurityLimitExceeded(
                             "candidate file index limit".into(),
                         ));
                     }
-                    let (descriptor, stored) =
-                        codec.encode(id, ordinal, info.len, &input_bytes[..filled])?;
-                    let extent = tx.append_encoded_extent(&stored)?;
-                    entries.push(Entry::new(
-                        CHUNK,
-                        &chunk_key(id, ordinal),
-                        &OwnedRecord::encode(&descriptor.encode(), &[extent])?,
-                    )?);
+                    packs.push(
+                        (id, ordinal, info.len),
+                        &input_bytes[..filled],
+                        &mut tx,
+                        &mut entries,
+                    )?;
                     hash.update(&input_bytes[..filled]);
                     info.len = info
                         .len
@@ -187,7 +189,7 @@ impl<S: Storage> Files<S> {
                     }
                 }
                 info.digest = hash.finalize().into();
-                if entries.len() == MAX_ENTRIES {
+                if entries.len() + packs.pending() == MAX_ENTRIES {
                     return Err(Error::SecurityLimitExceeded(
                         "candidate file index limit".into(),
                     ));
@@ -198,6 +200,7 @@ impl<S: Storage> Files<S> {
                     &OwnedRecord::encode(&info.encode(), &[])?,
                 )?);
             }
+            packs.flush(&mut tx, &mut entries)?;
             entries.sort_by(|a, b| {
                 (a.namespace, a.key.as_slice()).cmp(&(b.namespace, b.key.as_slice()))
             });
@@ -219,7 +222,7 @@ impl<S: Storage> Files<S> {
     ) -> Result<Self> {
         let anchor = publication::select(&storage, archive, mode, authority)?.anchor;
         let index = Index::new(archive, mode, key)?;
-        let codec = Codec::new(archive, mode, key)?;
+        let codec = Codec::packed(archive, mode, key)?;
         Snapshot::inspect(&storage, &anchor, &index)?;
         let mut files = Self {
             storage,
@@ -239,6 +242,7 @@ impl<S: Storage> Files<S> {
         let eager = self.anchor.mode.signed() && self.anchor.mode.plaintext();
         let mut files = BTreeMap::<[u8; 16], State>::new();
         let mut count = 0;
+        let mut coverage = Coverage::default();
         self.index.visit(
             &self.storage,
             self.anchor.index,
@@ -282,20 +286,23 @@ impl<S: Storage> Files<S> {
                         if ordinal != state.next {
                             return Err(Error::CorruptRecord);
                         }
-                        let descriptor = Descriptor::decode(&record.metadata)?;
-                        state.info.validate_chunk(ordinal, &descriptor)?;
+                        let slice = Slice::decode(&record.metadata)?;
+                        state.info.validate_chunk(ordinal, &slice)?;
+                        coverage.add(record.extents[0], &slice)?;
+                        let fragment = slice.physical(record.extents[0])?;
                         self.codec.validate_extent(
-                            record.extents[0],
+                            fragment,
                             self.anchor.sealed_len,
-                            &descriptor,
+                            &slice.descriptor,
                         )?;
                         if let Some(hash) = &mut state.hash {
-                            hash.update(&*self.codec.load(
+                            let decoded = self.codec.load(
                                 &self.storage,
-                                record.extents[0],
+                                fragment,
                                 self.anchor.sealed_len,
-                                &descriptor,
-                            )?);
+                                &slice.descriptor,
+                            )?;
+                            hash.update(&*decoded);
                         }
                         state.next += 1;
                     }
@@ -304,6 +311,7 @@ impl<S: Storage> Files<S> {
                 Ok(())
             },
         )?;
+        coverage.finish(&self.storage, &self.codec)?;
         for state in files.into_values() {
             if state.next != state.info.count()
                 || state
@@ -368,19 +376,20 @@ impl<S: Storage> Files<S> {
                     return Err(Error::CorruptRecord);
                 }
                 let record = OwnedRecord::decode(&entry.value)?;
-                let descriptor = Descriptor::decode(&record.metadata)?;
-                info.validate_chunk(next, &descriptor)?;
+                let slice = Slice::decode(&record.metadata)?;
+                info.validate_chunk(next, &slice)?;
                 if record.extents.len() != 1 {
                     return Err(Error::CorruptRecord);
                 }
                 let decoded = self.codec.load(
                     &self.storage,
-                    record.extents[0],
+                    slice.physical(record.extents[0])?,
                     self.anchor.sealed_len,
-                    &descriptor,
+                    &slice.descriptor,
                 )?;
-                let start = offset.saturating_sub(descriptor.offset) as usize;
-                let stop = (end - descriptor.offset).min(descriptor.logical_len as u64) as usize;
+                let logical_offset = next * info.unit as u64;
+                let start = offset.saturating_sub(logical_offset) as usize;
+                let stop = (end - logical_offset).min(slice.descriptor.logical_len as u64) as usize;
                 visitor(&decoded[start..stop])?;
                 next += 1;
                 Ok(())

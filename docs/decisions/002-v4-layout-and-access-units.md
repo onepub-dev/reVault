@@ -39,3 +39,19 @@ A2 independent recovery is mandatory. Evaluate A3/A4 and the proposed resource
 budgets in the evaluation contract. No production winner until the same revision
 meets correctness and performance. If every candidate fails, report the specific
 trade-off and revise an explicit requirement rather than selecting by sunk effort.
+
+
+## Independent physical packing experiment — 2026-09-27
+
+[The file-pack checkpoint](../evidence/independent-file-packs-2026-09-27/README.md)
+shares allocation and padding while retaining independent per-fragment codecs,
+AEAD context and owner-bound stored-byte digests. A provisional shared codec/AEAD
+frame was rejected by an intact-neighbour damage regression. Encrypted padding
+is itself authenticated zero plaintext; visible zero gaps would leak encoded size.
+
+Whole-pack deletion verifies and relocates surviving encoded fragments, publishes
+all references together and erases the old allocation. Coverage rejects hidden
+deleted bytes, overlapping members and incompatible shared commitments. This
+remains a private-file-only experiment, not acceptance of decision 002. Full
+mutation/recovery/public semantics, packing measurements and fixed control-space
+trade-offs remain required before selecting a format.

@@ -350,3 +350,80 @@ fn repeated_decoder_matches_fresh_decoder_for_independent_extent_streams() {
         );
     }
 }
+
+#[test]
+fn raw_extent_budget_includes_encryption_and_rejects_oversized_packs() {
+    for encrypted in [false, true] {
+        let mode = mode(encrypted, false, false, true);
+        let codec = Codec::new(archive(), mode, key(mode)).unwrap();
+        let unit = codec.logical_unit(MAX_LOGICAL).unwrap();
+        assert!(codec.encode([7; 16], 0, 0, &vec![1; unit + 1]).is_err());
+        let (descriptor, stored) = codec.encode([7; 16], 0, 0, &vec![1; unit]).unwrap();
+        assert!(stored.len() <= 65536);
+        let mut oversized = descriptor;
+        oversized.logical_len += 4096;
+        oversized.encoded_len += 4096;
+        oversized.allocation_len += 65536;
+        let extent = Extent {
+            start: super::super::preparation_journal::DATA_START,
+            len: oversized.allocation_len as u64,
+            digest: [0; 32],
+        };
+        assert!(codec.validate_extent(extent, u64::MAX, &oversized).is_err());
+    }
+}
+
+#[test]
+fn packed_codec_and_padding_contexts_are_distinct_and_bounded() {
+    let mode = mode(true, true, true, false);
+    let mut packed = Codec::packed(archive(), mode, key(mode)).unwrap();
+    let mut standalone = Codec::new(archive(), mode, key(mode)).unwrap();
+    let (descriptor, bytes) = packed
+        .encode([7; 16], 0, 0, b"independent fragment")
+        .unwrap();
+    let mut storage = StorageBackend::memory(vec![
+        0;
+        super::super::preparation_journal::DATA_START
+            as usize
+    ]);
+    let start = storage.append(&bytes).unwrap();
+    let extent = Extent {
+        start,
+        len: bytes.len() as u64,
+        digest: strong_checksum(&bytes),
+    };
+    assert!(standalone
+        .load(&storage, extent, storage.len().unwrap(), &descriptor)
+        .is_err());
+    assert!(
+        packed.verify_pack_padding(&bytes).is_err(),
+        "file ciphertext must not be accepted as empty padding"
+    );
+    assert_eq!(
+        &**packed
+            .load(&storage, extent, storage.len().unwrap(), &descriptor)
+            .unwrap(),
+        b"independent fragment"
+    );
+    let padded_mode = super::tests::mode(true, true, true, true);
+    let padded = Codec::packed(archive(), padded_mode, key(padded_mode)).unwrap();
+    for used in [
+        1,
+        65508,
+        65509,
+        65535,
+        65536,
+        65537,
+        MAX_LOGICAL - 1,
+        MAX_LOGICAL + 28,
+    ] {
+        let total = padded.pack_padded_len(used).unwrap();
+        assert_eq!(total % 65536, 0);
+        assert!(total <= MAX_ALLOCATION);
+        let padding = padded.pack_padding(total - used).unwrap();
+        padded.verify_pack_padding(&padding).unwrap();
+        if !padding.is_empty() {
+            assert!(standalone.verify_pack_padding(&padding).is_err());
+        }
+    }
+}

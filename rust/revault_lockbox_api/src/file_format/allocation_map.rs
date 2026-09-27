@@ -819,6 +819,11 @@ impl<S: Storage> Transaction<S> {
             payloads: BTreeMap::new(),
         })
     }
+    /// Read the selected base's immutable payloads while constructing replacements.
+    /// The allocator never reuses live base extents before publication.
+    pub(crate) fn read_storage(&self) -> &impl Storage {
+        &self.storage
+    }
     /// The caller supplies already encoded/protected bytes. Codec/frame semantics
     /// are outside this allocator; raw plaintext is not an encrypted file codec.
     pub(crate) fn append_encoded_extent(&mut self, bytes: &[u8]) -> Result<Extent> {

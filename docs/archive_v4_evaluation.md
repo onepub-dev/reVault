@@ -16,7 +16,7 @@ Historical microbenchmarks remain evidence about their own revisions.
 | --- | --- | --- |
 | A | Current default data pages plus v4 transactions | Baseline; default library suite passes. Release migration matrix fails |
 | B | Same source with `native-block-layout` | Experimental; two reproducible recovery failures. Not eligible for activation |
-| C | Authenticated index, publication and allocator prototype | File-only data adapter passes correctness, but first comparison fails read/space targets; public paths remain unintegrated. Must preserve A's full guarantees to compete |
+| C | Authenticated index, publication and allocator prototype | Independent file fragments/shared-pack deletion pass correctness; latest unpacked comparison still fails read/space targets. Full lifecycle, recovery and public paths remain |
 
 Do not count a prototype lacking signatures, padding, wiping or crash recovery as
 a faster implementation of the same contract. A cost-only prototype may reject a
@@ -118,70 +118,39 @@ including Vault containers. `0.4.x` remains format 3 and is isolated from this w
 
 | Gate | Current evidence | Status |
 | --- | --- | --- |
-| A1 | Default/native transaction tests pass; deterministic public CLI abort after physical writes passes for append and reuse in both layouts; full P4 matrix remains | Baseline established; qualification incomplete |
-| A2 | Proof, publication and persisted keyed-index layers pass focused fault/real-page tests; production integration is pending and retains two native recovery failures | Prototype validated; production gate failed |
-| A3/A4 | Initial 8 MiB compressed read: A 4.757× ZIP, B 5.119× ZIP. Bounded A passes 30-pair 256 MiB raw create nonregression (17.7% less elapsed, 17.1% less CPU); read comparison unchanged | A3 still fails; A4 passes one write case, full matrix incomplete |
-| A5 | Bounded file-page staging reduces default 1 GiB create peak from 1,067.14 to 190.43 MiB in the new paired probe; small-file/index/aging matrix remains | Measured large-file creation improved; full resource gate incomplete |
-| A6 | Historical reader routing repaired locally; snapshot owner coverage and missing v4/current Vault fixtures block full test | Failed |
-| A7 | Goals, plan, security/evaluation drafts and three proposed decisions exist; normative wire spec remains historical | In progress |
-| A8 | Independent #322 branch removes native Linux D-Bus build dependency; clean install, headless lifecycle and private logind tests pass | Linux fix verified; broader platform/store matrix incomplete |
+| A1 | Public CLI append/reuse abort coverage and allocator fault/power-loss tests pass; C shared-pack creation/deletion/repeats preserve exact ownership and whole-allocation erasure | Full public mutation matrix incomplete |
+| A2 | C independent fragment proofs preserve a neighbour inside a damaged shared pack; explicit fresh salvage and production integration remain; two native recovery failures persist | Production gate failed; candidate recovery incomplete |
+| A3/A4 | Latest unpacked C is 3.75× ZIP raw / 3.84× compressed (8 MiB). Initial corrected A/B compressed ratios are about 4.8×/5.1×. Bounded A has one passing 30-pair raw-create result; protected/complete matrix remains | A3 failed; A4 not qualified |
+| A5 | A 1 GiB creation is about 191 MiB peak RSS; previous unpacked C probe is 14.2 MiB (one measured pair). Allocator aging stabilizes; new pack and 100k-file resources are not yet measured | Full resource/space gate incomplete |
+| A6 | Historical reader routing repaired locally; owner identity and missing v4/current Vault fixtures block the full matrix; CLI/binding interoperability still required | Failed |
+| A7 | Canonical goals, current plan/scorecard and proposed decisions exist; history is separated; new test-only pack vector exists; complete normative wire spec remains pending | In progress |
+| A8 | Separate #322 branch removes native Linux D-Bus build dependency; clean install, headless lifecycle and private logind tests pass | Broader platform/store/CI matrix incomplete |
 
-## Decision gates
+## Selection discipline
 
-The [CPU/memory baseline](evidence/archive-evaluation-2026-09-26/README.md)
-retains exact commands, raw paired samples, hashes, measurement scope and the GB
-probe. It is initial evidence for the comparison, not a selection of candidate B
-or qualification of a release. Creation/read memory trade-offs now explicitly
-constrain the candidate-C and bounded-staging designs.
+P1 closes when mode assignment, budgets and decision records have named reviewers
+and are frozen. Prototype work does not accept a changed guarantee. P3 requires
+complete same-contract candidate results, public semantics and resource evidence;
+no format is selected by the amount of code already written. Preserve independent
+recovery, erasure, padding and authority even when a speed/space target fails.
 
-The [bounded writer evidence](evidence/writer-memory-2026-09-26/README.md) retains
-its exact source patch, CPU/RSS samples and safety checks. Candidate A has changed;
-future architecture comparisons must identify whether they use original or bounded A.
+## Evidence index
 
-The [recovery commitment experiment](evidence/recovery-commitments-2026-09-26/README.md)
-adds a tested proof model and component CPU/memory costs. The subsequent
-[publication experiment](evidence/publication-anchors-2026-09-27/README.md) now persists
-and authenticates the selected anchor with fault/process-death coverage. The
-[authenticated index](evidence/authenticated-index-2026-09-27/README.md) connects that
-root to mirrored private descriptors. Its 100k-entry CPU/RSS/space measurements
-reject one-record-per-leaf physical storage: small resident memory does not offset
-excessive append-only construction and padded space. The subsequent
-[packed-page comparison](evidence/packed-index-2026-09-27/README.md) removes that
-construction waste: 100k descriptors use about 21.4–21.6 MB, with 48–61 ms median
-construction CPU over 30 fresh processes per mode. Maximum observed process RSS is
-4,584 KiB. It retains default padding and authority but increases single-record
-write amplification; batching, allocator/reclamation and full archive gates remain.
-The normal archive still needs selected index, allocator and public-path integration.
+Historical conditions and raw data remain authoritative for their own revisions.
+The [checkpoint history](archive_v4_history.md) retains earlier commentary.
 
-P1 closes only when the proposed mode assignment, budgets and decisions have
-named reviewers and are frozen. P2 begins with an instrumented common runner and
-bounded candidate-C prototype after that contract. P3 requires all candidate
-results, not a preference for whichever branch contains the most code. Preserve
-independent recovery and ownership constraints even if no candidate meets speed
-budgets; revisit the specific trade-off explicitly.
-
-
-The [first file-only A/B/C comparison](evidence/candidate-file-comparison-2026-09-27/README.md)
-uses the corrected encoder across all candidates. C fails read and small-file
-space targets: 256 KiB compressed C is 9.64× ZIP / 2.02× A, and 512 small files
-read 92.9× slower than A. Its 1 GiB creation probe uses 14.2 MiB RSS versus A's
-190.9 MiB, but that single measured pair is descriptive only. Preserve both the
-resource improvement and failed cases. Next evaluate ordered extent traversal;
-payload packing and complete public semantics remain architecture blockers.
-
-
-[Ordered C reads](evidence/ordered-file-reads-2026-09-27/README.md) remove repeated
-per-extent index traversal. New C is 6.31× ZIP for 8 MiB raw and 7.11× for 256 KiB
-compressed units; the same-revision old/new comparison shows useful streaming
-improvements but unchanged small-file weakness. All modes retain authentication;
-signed plaintext open stays eager. Profiles require normalizing C's bulk memory
-wiping to the existing production abstraction before further layout interpretation.
-
-
-[Normalized bulk buffers](evidence/candidate-buffer-normalization-2026-09-27/README.md)
-remove C's avoidable generic-vector wiping cost using production's existing tested
-abstraction. Raw/compressed 8 MiB C/ZIP duration ratios are now 3.75/3.84, with all
-checks retained; A3 still fails and no new paired C/A A4 result is claimed. Next
-address shared-pack ownership and physical deletion, separately from control-space
-and metadata-access costs. Keep historical checkpoints as evidence, not current
-gate status or a reason to continue isolated buffer tuning.
+| Evidence | Scope |
+| --- | --- |
+| [Baseline reproduction](evidence/v4-baseline-2026-09-26.md) | CLI mirror aborts, native failures and migration blockers |
+| [Initial CPU/RSS](evidence/archive-evaluation-2026-09-26/README.md) | A/B/ZIP and GB resource baseline |
+| [Bounded A writer](evidence/writer-memory-2026-09-26/README.md) | Streaming staging and paired creation improvement |
+| [Recovery proofs](evidence/recovery-commitments-2026-09-26/README.md) | Owner-authorized membership without global payload verification |
+| [Publication](evidence/publication-anchors-2026-09-27/README.md) | Mirrored selection, fault and process-death protocol |
+| [Initial index](evidence/authenticated-index-2026-09-27/README.md) / [packed index](evidence/packed-index-2026-09-27/README.md) | Rejected one-record leaves and bounded packed-page comparison |
+| [Preparation journal](evidence/preparation-journal-2026-09-27/README.md) / [allocation accounting](evidence/allocation-accounting-2026-09-27/README.md) | Reservation, erasure, reuse and aging |
+| [Separated mirrors](evidence/separated-mirrors-2026-09-27/README.md) | Failure-region repair and bounded map banks |
+| [File extents and encoder fix](evidence/candidate-file-extents-2026-09-27/README.md) | Correctness integration and mandatory dependency release fix |
+| [First file comparison](evidence/candidate-file-comparison-2026-09-27/README.md) | Failed reads/space and descriptive 14.2 MiB GB creation probe |
+| [Ordered reads](evidence/ordered-file-reads-2026-09-27/README.md) | Paired traversal results and CPU profiles |
+| [Normalized buffers](evidence/candidate-buffer-normalization-2026-09-27/README.md) | Latest measured unpacked C, still failing ZIP parity |
+| [Independent physical packs](evidence/independent-file-packs-2026-09-27/README.md) | Packing/deletion correctness, damage containment and privacy; no new timings |
