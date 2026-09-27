@@ -31,6 +31,7 @@ pub(crate) struct Vacant {
 enum Kind {
     Fixed,
     Private,
+    Descendant,
     Keys,
     Payload,
     Free,
@@ -38,7 +39,10 @@ enum Kind {
 }
 impl Kind {
     fn live(self) -> bool {
-        matches!(self, Self::Private | Self::Keys | Self::Payload)
+        matches!(
+            self,
+            Self::Private | Self::Descendant | Self::Keys | Self::Payload
+        )
     }
     fn vacant(self) -> bool {
         matches!(self, Self::Free | Self::Pending)
@@ -70,6 +74,17 @@ pub(crate) struct Transition {
 }
 impl Graph {
     pub(crate) fn derive(anchor: &Anchor, packs: &[Extent], vacant: &[Vacant]) -> Result<Self> {
+        Self::derive_with_descendants(anchor, packs, vacant, &[])
+    }
+    /// References must be enumerated from the authenticated selected catalogue
+    /// traversal. This checks physical ownership, not reachability or page bytes.
+    /// It does not authorize allocation or erasure without durable preparation.
+    pub(crate) fn derive_with_descendants(
+        anchor: &Anchor,
+        packs: &[Extent],
+        vacant: &[Vacant],
+        descendants: &[RootRef],
+    ) -> Result<Self> {
         anchor.validate_in(Layout::Shared)?;
         if anchor.index.len != PRIVATE_BYTES as u64
             || anchor.object_root != anchor.index.digest
@@ -78,8 +93,9 @@ impl Graph {
         {
             return Err(Error::CorruptRecord);
         }
-        // This bounded graph has one private root and one optional public root.
-        // Descendant metadata/journal-overflow arenas need an explicit graph type.
+        // Descendant metadata has a distinct claim kind: the narrow private-root
+        // tail-retirement proof must never silently erase descendant pages.
+        // Journal-overflow arenas still require their own explicit graph type.
         let mut graph = Self {
             anchor: anchor.clone(),
             claims: BTreeMap::new(),
@@ -107,6 +123,35 @@ impl Graph {
                     digest: root.digest,
                     kind,
                 })?;
+            }
+        }
+        for reference in descendants {
+            if reference.len == 0 || reference.len > FAILURE_REGION {
+                return Err(Error::CorruptRecord);
+            }
+            let mut regions = [0; 2];
+            for (index, start) in [reference.primary, reference.mirror]
+                .into_iter()
+                .enumerate()
+            {
+                let end = start
+                    .checked_add(reference.len)
+                    .ok_or(Error::CorruptRecord)?;
+                regions[index] = start / FAILURE_REGION;
+                if start < REGION_LEN as u64 || regions[index] != (end - 1) / FAILURE_REGION {
+                    return Err(Error::CorruptRecord);
+                }
+                graph.insert(Claim {
+                    span: Span {
+                        start,
+                        len: reference.len,
+                    },
+                    digest: reference.digest,
+                    kind: Kind::Descendant,
+                })?;
+            }
+            if regions[0] == regions[1] {
+                return Err(Error::CorruptRecord);
             }
         }
         for extent in packs {
@@ -294,7 +339,7 @@ impl Graph {
             graph
                 .claims
                 .values()
-                .filter(|claim| matches!(claim.kind, Kind::Payload | Kind::Keys))
+                .filter(|claim| matches!(claim.kind, Kind::Payload | Kind::Keys | Kind::Descendant))
                 .copied()
                 .collect::<Vec<_>>()
         };

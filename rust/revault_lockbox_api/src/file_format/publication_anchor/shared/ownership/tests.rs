@@ -317,3 +317,148 @@ fn metadata_tail_transition_preserves_payload_and_proves_removed_suffix() {
         .metadata_tail_transition_to(&Graph::derive(&stale, &packs, &vacant).unwrap())
         .is_err());
 }
+
+#[test]
+fn descendant_graph_requires_disjoint_failure_regions_and_complete_ownership() {
+    let (mut anchor, packs, vacant) = initial();
+    let reference = RootRef {
+        primary: anchor.sealed_len,
+        mirror: anchor.sealed_len + FAILURE_REGION,
+        len: FAILURE_REGION,
+        digest: [42; 32],
+    };
+    anchor.sealed_len += 2 * FAILURE_REGION;
+    let derive = |refs: &[RootRef]| Graph::derive_with_descendants(&anchor, &packs, &vacant, refs);
+    let graph = derive(&[reference]).unwrap();
+    assert_eq!(
+        graph
+            .claims
+            .values()
+            .filter(|claim| claim.kind == Kind::Descendant)
+            .count(),
+        2
+    );
+    assert!(derive(&[]).is_err());
+    assert!(derive(&[reference, reference]).is_err());
+    for invalid in [
+        RootRef {
+            primary: packs[0].start,
+            ..reference
+        },
+        RootRef {
+            primary: PRIVATE_START,
+            ..reference
+        },
+        RootRef {
+            mirror: reference.primary,
+            ..reference
+        },
+        RootRef {
+            primary: reference.primary + 1,
+            ..reference
+        },
+        RootRef {
+            primary: u64::MAX,
+            ..reference
+        },
+        RootRef {
+            len: 0,
+            ..reference
+        },
+        RootRef {
+            len: FAILURE_REGION + 1,
+            ..reference
+        },
+        RootRef {
+            mirror: anchor.sealed_len,
+            ..reference
+        },
+    ] {
+        assert!(derive(&[invalid]).is_err());
+    }
+    // Even disjoint short copies cannot share one physical failure region.
+    let mut gaps = vacant.clone();
+    gaps.push(Vacant {
+        span: Span {
+            start: reference.primary + 8192,
+            len: 2 * FAILURE_REGION - 8192,
+        },
+        kind: VacantKind::Free,
+    });
+    let same_region = RootRef {
+        mirror: reference.primary + 4096,
+        len: 4096,
+        ..reference
+    };
+    assert!(Graph::derive_with_descendants(&anchor, &packs, &gaps, &[same_region]).is_err());
+}
+
+#[test]
+fn descendant_retirement_requires_pending_state_and_cannot_use_private_tail_proof() {
+    let (initial, packs, vacant) = initial();
+    let (mut external, external_vacant) = external(&initial);
+    let reference = RootRef {
+        primary: external.sealed_len,
+        mirror: external.sealed_len + FAILURE_REGION,
+        len: FAILURE_REGION,
+        digest: [42; 32],
+    };
+    external.sealed_len += 2 * FAILURE_REGION;
+    let old =
+        Graph::derive_with_descendants(&external, &packs, &external_vacant, &[reference]).unwrap();
+    let next = advance(
+        &external,
+        RootRef {
+            digest: [8; 32],
+            ..initial.index
+        },
+        initial.sealed_len,
+    );
+    let inline = Graph::derive(&next, &packs, &vacant).unwrap();
+    assert!(old.metadata_tail_transition_to(&inline).is_err());
+    let next = advance(&external, next.index, external.sealed_len);
+    let mut retired = vacant.clone();
+    for root in [external.index, reference] {
+        for start in [root.primary, root.mirror] {
+            retired.push(Vacant {
+                span: Span {
+                    start,
+                    len: root.len,
+                },
+                kind: VacantKind::Pending,
+            });
+            if root.len < FAILURE_REGION {
+                retired.push(Vacant {
+                    span: Span {
+                        start: start + root.len,
+                        len: FAILURE_REGION - root.len,
+                    },
+                    kind: VacantKind::Free,
+                });
+            }
+        }
+    }
+    let new = Graph::derive(&next, &packs, &retired).unwrap();
+    let transition = old.transition_to(&new).unwrap();
+    for start in [reference.primary, reference.mirror] {
+        assert!(transition.retire_after_publication.contains(&Span {
+            start,
+            len: reference.len
+        }));
+    }
+    for entry in &mut retired {
+        entry.kind = VacantKind::Free;
+    }
+    assert!(old
+        .transition_to(&Graph::derive(&next, &packs, &retired).unwrap())
+        .is_err());
+    let rewritten = RootRef {
+        digest: [99; 32],
+        ..reference
+    };
+    let unchanged_root = advance(&external, external.index, external.sealed_len);
+    let replaced =
+        Graph::derive_with_descendants(&unchanged_root, &packs, &external_vacant, &[rewritten])
+            .unwrap();
+    assert!(old.transition_to(&replaced).is_err());
+}

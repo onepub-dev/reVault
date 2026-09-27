@@ -68,8 +68,10 @@ states which gates remain failed or incomplete.
    limit means a 1 MiB variable still needs authenticated value segments; raising
    that limit would invalidate the bounded-page design. Reuse is conditional on
    integrating descendant claims into the [shared ownership graph](../rust/revault_lockbox_api/src/file_format/publication_anchor/shared/ownership.rs),
-   which currently accounts only for the private root, key root and payload packs.
-   Keep descendant retirement distinct from the metadata-only suffix proof.
+   whose [descendant ownership component](evidence/shared-ownership-2026-09-27/README.md#descendant-metadata-ownership-component)
+   now checks mirrored placement and retirement separately from the private-root
+   suffix proof. The selected-catalogue traversal and wire reader/writer still need
+   to supply those authenticated descendant references; current images use none.
    Preserve the [variable API's secure-page and scoped-secret access](../rust/revault_lockbox_api/src/lockbox/variables.rs);
    ordinary wipe-on-drop index bytes alone do not establish equivalent secret
    memory handling. This is the starting implementation route, not approval of

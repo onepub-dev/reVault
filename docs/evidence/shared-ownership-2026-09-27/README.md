@@ -41,3 +41,37 @@ refusals, and free/pending byte distinctions. A fifth test uses actual signed
 plaintext and encrypted images: nonzero unused public slots fail normal open while
 both files remain independently recoverable. Internal fixtures are necessary because
 no public CLI writes the experimental shared-control profile.
+
+
+## Descendant metadata ownership component
+
+The graph now has an explicit descendant-metadata claim kind. A new
+`derive_with_descendants` input accepts page pairs enumerated from an authenticated
+selected catalogue traversal. It checks complete physical coverage, no overlap
+with payload, control or vacant bytes, nonempty bounded pages, checked offsets,
+and copies wholly contained in different 64 KiB failure regions. Duplicate page
+ownership is refused even when both references have the same digest.
+
+Descendant pages participate in the existing COW proof: changed live bytes cannot
+be rewritten in place, retirement must become pending after publication, and early
+freeing is refused. The narrow private-root tail-retirement proof requires all
+descendant claims to remain unchanged; it cannot discard descendant pages to
+shorten the file. This preserves that proof's existing scope while overflow is
+being integrated.
+
+This component does not authenticate caller-supplied references or traverse a
+wire catalogue. The caller must provide the selected authenticated traversal and
+verify page contents; journal reservations and durable publication still control
+writes and erasure. Current image codecs continue to call the empty-descendant
+path. The overflow reader/writer, journal overflow and segmented public records
+remain unimplemented. The 8,192-claim experimental bound is unchanged.
+
+The internal tests use explicit graph fixtures because no public CLI writes this
+experimental layout. They check valid ownership, missing/duplicate/aliased claims,
+same-region copies, boundary crossing, offset overflow, excessive/empty pages,
+retirement obligations, early freeing, in-place substitution and attempted removal
+through the private-root-only tail proof.
+
+Validation: [focused descendant tests](descendant-tests.log), the
+[199-test format regression suite](descendant-format-tests.log) (five explicit
+probes ignored), and [strict Clippy](descendant-clippy.log) all pass.
