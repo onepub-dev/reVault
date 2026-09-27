@@ -59,6 +59,9 @@ storage refuses any private read, write, truncate or sync during bootstrap and
 checks public reads are no larger than 8 KiB. Internal fixtures are necessary
 because no public CLI creates this experimental layout.
 
+After the formatting hook, [publication tests](postformat-tests.log) and
+[strict Clippy](postformat-clippy.log) also passed.
+
 Initial test development exposed a fixture error (passing a signer for unsigned
 publication); the fixture was corrected without relaxing production checks.
 

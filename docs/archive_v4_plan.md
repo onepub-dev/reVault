@@ -25,7 +25,10 @@ states which gates remain failed or incomplete.
    size gate. Specify public bootstrap, record/permission semantics and shared
    control placement together. The [read-only cost model](evidence/whole-layout-cost-model-2026-09-27/README.md)
    projects 1.382× ZIP for the small corpus, so the geometry merits a protocol
-   experiment; it is not an implemented archive. Keep current C as the control.
+   experiment; it is not an implemented archive. The
+   [ordering model](evidence/shared-control-ordering-2026-09-27/README.md) requires
+   temporary external metadata and a second publication to return inline; budget
+   that peak space and update cost in the actual protocol. Keep C as the control.
    Explicitly test the larger logical loss possible within densely packed physical
    damage regions, independently of the per-fragment random-read bound.
 2. Retain the [failed mixed aging qualification](evidence/mixed-file-aging-2026-09-27/README.md):

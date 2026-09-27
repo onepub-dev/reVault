@@ -52,3 +52,7 @@ pub(crate) mod data_extent;
 // File-only comparison adapter; full public record/access integration remains.
 #[cfg(test)]
 pub(crate) mod candidate_files;
+
+// Executable ordering model for the proposed shared-control placement, not a wire format.
+#[cfg(test)]
+mod shared_control_model;

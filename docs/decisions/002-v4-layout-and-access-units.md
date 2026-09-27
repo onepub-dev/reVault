@@ -83,3 +83,15 @@ If it fits, implement and fault-test bootstrap, copy-on-write metadata, journal
 overflow, inline-metadata retirement and ownership before any speed claim. Typed
 public records and migration remain required; a file-only size model cannot prove
 a full format. This is still a proposed decision, with no active wire change.
+
+
+## Shared-control ordering checkpoint
+
+The [executable ordering model](../evidence/shared-control-ordering-2026-09-27/README.md)
+requires staging new metadata externally, publishing both copies, then retiring
+old inline metadata. Returning to compact inline placement needs another complete
+publication before the temporary external copies can be erased. The compacted
+size projection is therefore neither a peak-space nor an update-cost estimate.
+The abstract model passes interruption and separate region-loss checks; actual
+wire encoding, journal overflow, graph ownership and byte-level crash tests remain.
+It does not authorize in-place overwrite or select a compaction policy.
