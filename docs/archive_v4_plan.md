@@ -55,8 +55,7 @@ readback and retirement recovery in the **test-only (`cfg(test)`) shared-tree
 adapter**. It preserves normal/secret access, no-change and explicit downgrade
 semantics alongside existing file and metadata changes, and adds selected
 variable salvage. The pre-final implementation passes 257 format tests (8
-ignored) with serialized execution plus strict Clippy; final affected checks
-are retained separately. Representative fault evidence covers 3,432 transaction
+ignored) with serialized execution plus strict Clippy; final affected and post-format checks pass and are retained separately. Representative fault evidence covers 3,432 transaction
 cuts and 2,724 interrupted recoveries. No public variable API is activated.
 
 Two concurrent test runs hit the host's 8,192 KiB locked-memory limit. Isolated

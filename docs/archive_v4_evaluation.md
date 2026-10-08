@@ -122,7 +122,7 @@ is a **test-only (`cfg(test)`) adapter**, following the independently checked
 It connects selected membership/exact payload ownership to guarded value reads,
 transactions and salvage without putting values in index entries. The pre-final
 variant passes 257 release format tests (8 ignored) with serialized execution
-and strict Clippy; final affected-check evidence is separate. Representative
+and strict Clippy; final affected and post-format checks pass with separate evidence. Representative
 fault controls cover 3,432 transaction cuts and 2,724 interrupted recoveries.
 
 Two concurrent focused runs failed secure allocation at the host's 8,192 KiB

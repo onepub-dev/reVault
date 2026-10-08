@@ -141,3 +141,14 @@ outputs. The file-only open/read control passes; the fresh exporter module passe
 conditional value-key adjustment. Formatting and post-format checks follow as a
 separate checkpoint step; the 19-minute full suite was not relabeled as this
 final variant or needlessly repeated for the narrowly affected source.
+
+## Post-format checkpoint
+
+Commit `803bc37d` passed the tracked hook (11 Rust files formatted). Post-format
+affected checks pass: all **5** variable tests with serialized execution
+(**269.54 seconds**), the file-only open/read control, the fresh exporter module
+(**7 passed, 1 ignored**, retaining 93 faults), and strict archive Clippy.
+The variable matrix again reports **3,432** transaction cuts and **2,724**
+interrupted recoveries, with all 16 region-loss outputs. Post-format logs and
+source hashes are retained separately. No source edits were made during these
+runs, and no public activation or resource gate is inferred from their success.
