@@ -128,8 +128,12 @@ fault controls cover 3,432 transaction cuts and 2,724 interrupted recoveries.
 Two concurrent focused runs failed secure allocation at the host's 8,192 KiB
 locked-memory limit; isolated 1 MiB functionality and serialized checks pass.
 The [borrowed source experiment](evidence/variable-resource-2026-10-09/README.md)
-removes one full staging clone; affected correctness and one declared parallel
-regression pass before formatting. Matched resource results are pending.
+removes one full staging clone; final affected correctness, strict Clippy and one
+declared parallel regression pass. Fixed 30-pair/mode evidence reduces every
+locked-memory endpoint by 1,028 KiB, with create/no-change CPU ratios 0.939/0.959
+across modes. Three read modes show small regressions; whole-process peak RSS
+barely changes and incremental peak remains unqualified. All 992 producer and
+independent-reader attempts plus 32 reciprocal frozen-version readers pass.
 Retained allocator arenas and remaining staging copies are still a qualification
 gap. In the two-small-variable fixture, independent 64 KiB loss affects both
 variables in unpadded modes and one in padded modes. Public variable/form APIs,

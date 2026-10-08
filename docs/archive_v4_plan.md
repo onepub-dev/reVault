@@ -67,10 +67,13 @@ corruption result. Dense return refuses variable-bearing images before writes;
 whole-archive migration/compaction with variables remains unqualified.
 
 The [borrowed source checkpoint](evidence/variable-resource-2026-10-09/README.md)
-removes the test-only secret setter's full guarded clone. Affected correctness,
-strict Clippy and one fixed parallel regression pass; the earlier allocation
-failures remain evidence. Next finish post-format checks and the frozen matched
-resource comparison before extending the adapter.
+removes the test-only secret setter's full guarded clone. Final affected checks,
+strict Clippy and one fixed parallel regression pass. The fixed 30-pair/mode
+comparison reduces locked-memory endpoints by 1,028 KiB and create/no-change
+CPU; three read modes retain small measured regressions. All independent readers
+and 32 reciprocal readers pass. Earlier allocation failures remain evidence,
+and concurrency/incremental-peak gates stay open. Next add metadata-only atomic
+variable moves with public validation, selected recovery and guarded ownership.
 Keep the security policy and failure evidence; no allocator weakening is implied.
 Forms/references, variable moves and broader public adapters, native selected
 membership/recovery, architecture selection and complete CPU/RSS/aging/size and

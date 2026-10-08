@@ -1,0 +1,13 @@
+Fixed resource batch result
+Protocol: 16 modes; 1 warmup per binary/mode; 30 alternating control/candidate pairs per mode; no retries.
+Attempts: 992 total (32 warmups + 960 measured producer runs); 0 failed; 30 complete measured pairs for every mode.
+Binary/runner identity: stable through run. Control SHA-256 2dbd1a1502fe3f356eafbd009d991d6b4f3cdb12bb5d76fc69d21ca77fdc5796; candidate SHA-256 377372f7ac9efd75384dcf62c1804b1e00b9b58ecd78c40754bbfdf6cf3a1a54; runner SHA-256 510818b5c7bb265454fce48ae5216deb2293e85fdb1ae0af7093eae37ce7fe07.
+Independent reciprocal cross-reader verification: 32/32 passed on retained pair-29 outputs.
+Aggregate geometric mean of per-mode candidate/control ratios (95% CIs remain mode-specific in summary.md):
+- create: CPU 0.939, wall 0.939; all 16 mode CIs below 1.0.
+- no_change: CPU 0.959, wall 0.959; all 16 mode CIs below 1.0.
+- replace: CPU 0.980, wall 0.980; 13/16 mode CIs below 1.0, remaining CIs overlap 1.0.
+- open_and_read: CPU 1.004, wall 1.004; 3/16 mode CIs above 1.0, 13 overlap 1.0.
+All mode summaries and 95% bootstrap CIs: summary.md and summary.json (10,000 resamples, seed 31020261009).
+Endpoint memory: locked-memory median after each phase fell from 3,992–6,620 KiB control to 2,964–5,592 KiB candidate (about 1,028 KiB reduction). Paired after-phase RSS median differences ranged -1,242 to -1,122 KiB. VmHWM paired median differences ranged -68 to +58 KiB; endpoint metrics do not establish incremental peak RSS.
+Runner, analysis and reciprocal verification stdout logs are alongside the batch directory; raw per-attempt outcomes are attempts.jsonl. The run had no additional samples.

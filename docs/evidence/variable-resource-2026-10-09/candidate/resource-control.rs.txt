@@ -1,0 +1,238 @@
+//! Linux-only, synthetic 1 MiB lifecycle probe. Not a full-format resource gate.
+use super::*;
+use serde_json::{json, Value};
+use std::path::Path;
+use std::time::Instant;
+
+fn cpu() -> (f64, f64, i64) {
+    let mut value = std::mem::MaybeUninit::<libc::rusage>::uninit();
+    // SAFETY: successful getrusage initializes the valid output pointer.
+    assert_eq!(
+        unsafe { libc::getrusage(libc::RUSAGE_SELF, value.as_mut_ptr()) },
+        0
+    );
+    // SAFETY: the successful call above initialized this structure.
+    let value = unsafe { value.assume_init() };
+    let seconds = |time: libc::timeval| time.tv_sec as f64 + time.tv_usec as f64 / 1e6;
+    (
+        seconds(value.ru_utime),
+        seconds(value.ru_stime),
+        value.ru_maxrss,
+    )
+}
+fn memory() -> Value {
+    let status = std::fs::read_to_string("/proc/self/status").unwrap();
+    let field = |name: &str| {
+        status
+            .lines()
+            .find_map(|line| line.strip_prefix(name))
+            .unwrap()
+            .split_whitespace()
+            .next()
+            .unwrap()
+            .parse::<u64>()
+            .unwrap()
+    };
+    json!({"vm_lck_kib":field("VmLck:"),"vm_rss_kib":field("VmRSS:"),"vm_hwm_kib":field("VmHWM:")})
+}
+struct Meter {
+    phase: &'static str,
+    before: Value,
+    cpu: (f64, f64, i64),
+    wall: Instant,
+}
+impl Meter {
+    fn start(phase: &'static str) -> Self {
+        let before = memory();
+        let cpu = cpu();
+        Self {
+            phase,
+            before,
+            cpu,
+            wall: Instant::now(),
+        }
+    }
+    fn stop(self) -> Value {
+        let wall = self.wall.elapsed().as_secs_f64();
+        let after_cpu = cpu();
+        json!({"phase":self.phase,"wall_seconds":wall,
+            "user_seconds":after_cpu.0-self.cpu.0,"system_seconds":after_cpu.1-self.cpu.1,
+            "cpu_seconds":after_cpu.0+after_cpu.1-self.cpu.0-self.cpu.1,
+            "before":self.before,"after":memory(),"process_peak_rss_kib":after_cpu.2})
+    }
+}
+fn record(mut metric: Value, result: &Result<bool>, out: &mut Vec<Value>) {
+    metric["result"] = match result {
+        Ok(changed) => json!({"changed":changed}),
+        Err(error) => json!({"error":error.to_string()}),
+    };
+    println!("VARIABLE_RESOURCE_PHASE {metric}");
+    out.push(metric);
+}
+fn digest(storage: &impl Storage) -> String {
+    let mut hash = Sha256::new();
+    let len = storage.len().unwrap();
+    let mut at = 0;
+    while at < len {
+        let n = (len - at).min(65536) as usize;
+        let bytes = storage.read_at_secure(at, n).unwrap();
+        bytes.with_bytes(|bytes| hash.update(bytes)).unwrap();
+        at += n as u64;
+    }
+    hash.finalize().iter().map(|b| format!("{b:02x}")).collect()
+}
+fn verify(path: &Path, mode: FormatMode, authority: &Authority<'_>, expected: u8) -> Value {
+    let storage = StorageBackend::file(path).unwrap();
+    let mut opened = TreeImage::open(storage, archive(), mode, authority, key(mode)).unwrap();
+    let name = VariableName::new("resource_probe").unwrap();
+    opened
+        .with_secret_variable(&name, |value| {
+            value
+                .with_str(|text| {
+                    assert_eq!(text.len(), 1024 * 1024);
+                    assert!(text.bytes().all(|b| b == expected));
+                })
+                .unwrap()
+        })
+        .unwrap()
+        .unwrap();
+    assert!(opened.get_variable(&name).is_err());
+    let mut neighbor = Vec::new();
+    opened
+        .image
+        .read_range(b"/docs/neighbor", 0, 8, |bytes| {
+            neighbor.extend_from_slice(bytes);
+            Ok(())
+        })
+        .unwrap();
+    assert_eq!(neighbor, b"neighbor");
+    let layout = &opened.image.catalogue.variables[0].layout;
+    json!({"archive_bytes":opened.image.storage.len().unwrap(),"archive_sha256":digest(&opened.image.storage),
+        "revision":layout.revision,"segments":layout.extents.len(),"length":layout.length})
+}
+
+#[test]
+#[ignore = "fixed fresh-process variable resource runner only"]
+fn typed_variable_resource_probe() {
+    let bits: u8 = std::env::var("REVAULT_VARIABLE_MODE")
+        .unwrap()
+        .parse()
+        .unwrap();
+    assert!(bits < 16);
+    let mode = mode(bits & 1 != 0, bits & 2 != 0, bits & 4 != 0, bits & 8 != 0);
+    let path = std::path::PathBuf::from(std::env::var_os("REVAULT_VARIABLE_IMAGE").unwrap());
+    let public_path = path.with_extension("public");
+    if std::env::var_os("REVAULT_VARIABLE_VERIFY_ONLY").is_some() {
+        let public =
+            crate::OwnerSigningPublicKey::from_bytes(&std::fs::read(public_path).unwrap()).unwrap();
+        let authority = authority(mode, &public);
+        println!(
+            "VARIABLE_RESOURCE_VERIFIED {}",
+            verify(&path, mode, &authority, b'b')
+        );
+        return;
+    }
+    assert!(
+        !path.exists() && !public_path.exists(),
+        "fresh owned output paths required"
+    );
+    let owner = OwnerSigningKeyPair::generate().unwrap();
+    let public = owner.public_key();
+    let authority = authority(mode, &public);
+    let signer = mode.signed().then_some(&owner);
+    // Small synthetic fixture construction is outside every timed phase. Its
+    // memory backend and archive copy are dropped before the phase baselines.
+    {
+        let seed = super::super::mutation::seed(mode, &authority, &owner);
+        std::fs::write(&path, seed.read_all().unwrap()).unwrap();
+    }
+    std::fs::write(&public_path, public.to_bytes()).unwrap();
+    let mut storage = StorageBackend::file_for_write(&path).unwrap();
+    storage.sync().unwrap();
+    let name = VariableName::new("resource_probe").unwrap();
+    let first = SecretString::try_from_slice(&vec![b'a'; 1024 * 1024]).unwrap();
+    let mut phases = Vec::new();
+    let meter = Meter::start("create");
+    let result = set_secret_variable(
+        &mut storage,
+        archive(),
+        mode,
+        &authority,
+        signer,
+        key(mode),
+        &name,
+        &first,
+    );
+    record(meter.stop(), &result, &mut phases);
+    assert!(result.unwrap());
+    drop(storage);
+    let created = verify(&path, mode, &authority, b'a');
+    assert_eq!(created["revision"], 1);
+    let mut storage = StorageBackend::file_for_write(&path).unwrap();
+    let before = digest(&storage);
+    let meter = Meter::start("no_change");
+    let result = set_secret_variable(
+        &mut storage,
+        archive(),
+        mode,
+        &authority,
+        signer,
+        key(mode),
+        &name,
+        &first,
+    );
+    record(meter.stop(), &result, &mut phases);
+    assert!(!result.unwrap());
+    assert_eq!(digest(&storage), before);
+    drop(first);
+    let second = SecretString::try_from_slice(&vec![b'b'; 1024 * 1024]).unwrap();
+    let meter = Meter::start("replace");
+    let result = set_secret_variable(
+        &mut storage,
+        archive(),
+        mode,
+        &authority,
+        signer,
+        key(mode),
+        &name,
+        &second,
+    );
+    record(meter.stop(), &result, &mut phases);
+    assert!(result.unwrap());
+    drop(storage);
+    drop(second);
+    // Include fresh open and signed-plaintext eager verification. Stop at the
+    // fully assembled callback entry; byte verification happens after the timer.
+    let mut meter = Some(Meter::start("open_and_read"));
+    let opened = TreeImage::open(
+        StorageBackend::file(&path).unwrap(),
+        archive(),
+        mode,
+        &authority,
+        key(mode),
+    )
+    .unwrap();
+    opened
+        .with_secret_variable(&name, |value| {
+            let metric = meter.take().unwrap().stop();
+            println!("VARIABLE_RESOURCE_PHASE {metric}");
+            phases.push(metric);
+            value
+                .with_str(|text| {
+                    assert_eq!(text.len(), 1024 * 1024);
+                    assert!(text.bytes().all(|b| b == b'b'));
+                })
+                .unwrap();
+        })
+        .unwrap()
+        .unwrap();
+    drop(opened);
+    let replaced = verify(&path, mode, &authority, b'b');
+    assert_eq!(replaced["revision"], 2);
+    println!(
+        "VARIABLE_RESOURCE {}",
+        json!({"mode_bits":bits,"format_mode":mode.0,
+        "backend":"FileStore","value_bytes":1024*1024,"phases":phases,
+        "created":created,"replaced":replaced,"final_process_memory":memory()})
+    );
+}

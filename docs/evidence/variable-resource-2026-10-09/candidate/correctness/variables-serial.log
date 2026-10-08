@@ -1,0 +1,13 @@
+    Finished `release` profile [optimized] target(s) in 0.09s
+     Running unittests src/lib.rs (target/release/deps/revault_lockbox_api-5338344f5af7f73d)
+
+running 6 tests
+test file_format::candidate_files::tests::tree_tests::variables::resource::typed_variable_resource_probe ... ignored, fixed fresh-process variable resource runner only
+test file_format::candidate_files::tests::tree_tests::variables::typed_tree_variable_max_revision_can_be_deleted_but_not_replaced ... ok
+test file_format::candidate_files::tests::tree_tests::variables::typed_tree_variables_guarded_transaction_and_recovery_faults ... ok
+test file_format::candidate_files::tests::tree_tests::variables::typed_tree_variables_lifecycle_secure_read_and_file_coexistence_all_modes ... ok
+test file_format::candidate_files::tests::tree_tests::variables::typed_tree_variables_maximum_empty_and_one_over_all_modes ... ok
+test file_format::candidate_files::tests::tree_tests::variables::typed_tree_variables_selected_ownership_corruption_and_salvage_all_modes ... ok
+
+test result: ok. 5 passed; 0 failed; 1 ignored; 0 measured; 585 filtered out; finished in 273.45s
+

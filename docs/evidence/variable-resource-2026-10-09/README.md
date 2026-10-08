@@ -55,9 +55,47 @@ lint; `control/probe-comment-only.diff` preserves the exact source difference.
 Control and candidate execute the same probe, but their probe source bytes and
 hashes differ. No production behavior or allocator protection was changed.
 
-Post-format candidate checks/freeze and the fixed comparison are next. The
-retained runner requires all four phases, independent persisted verification,
-stable binary/runner identities and inherited CPU-affinity reporting. Analysis
-requires exactly 992 distinct declared attempts (32 warmups and 960 measured
-processes) plus stable completion. Reciprocal frozen-version readers follow
-sampling; none of this is released CLI/binding compatibility qualification.
+Post-format checks at `b6af42eb` pass: page API **20**, segments **4**, typed
+variables **5** serialized and strict Clippy for both crates. Full transcripts
+are retained under `candidate/correctness/`; the parallel control was not
+repeated. The candidate manifest/snapshots bind its executable SHA-256
+`377372f7ac9efd75384dcf62c1804b1e00b9b58ecd78c40754bbfdf6cf3a1a54`.
+
+## Fixed resource comparison
+
+All **992** declared producer attempts pass: 32 warmups plus 960 measured
+processes, providing exactly **30 complete pairs in each of 16 modes**. Every
+output passed a separate fresh reader and full stored digest comparison; no
+attempts were retried or excluded. Binary/runner identities stayed stable.
+No owned builds/tests overlapped sampling. After sampling, all **32** reciprocal
+frozen-version reader checks pass against retained last-sample outputs. This
+is bounded experimental wire compatibility, not released CLI/binding qualification.
+
+[All 64 mode/phase results](fixed-batch/summary.md) include fixed seeded paired
+bootstrap 95% intervals. Across-mode geometric means of candidate/control CPU
+ratios are **0.939 create**, **0.959 no-change**, **0.980 replace**, and **1.004
+fresh open/read**; wall ratios round to the same values. Every create/no-change
+mode interval is below 1; replacement has 13 below and 3 overlapping 1. Three
+read modes regress with intervals above 1: mode 8 **1.021** [1.008, 1.033], mode
+13 **1.017** [1.003, 1.030], mode 15 **1.016** [1.003, 1.029]. The other 13 read
+intervals overlap 1. The read algorithm was unchanged, but these observations
+remain measured regressions, not a claim of identical read cost or grounds for
+resampling. Aggregate ratios do not have an aggregate confidence interval.
+
+Every phase's median locked-memory endpoint drops **1,028 KiB**: control endpoints
+range 3,992–6,620 KiB, candidate 2,964–5,592 KiB. Paired median RSS endpoint changes
+range **−1,242 to −1,122 KiB**. Whole-process VmHWM paired median changes range
+**−68 to +58 KiB**, offering no useful incremental-peak evidence. Retained arenas
+and earlier verification affect later phase baselines. The 8 MiB locked-memory
+policy is unchanged; a single passing parallel regression and this bounded
+fresh-process lifecycle do not establish arbitrary concurrent capacity.
+
+Raw per-attempt metrics, metadata, stable-completion record, analysis and
+cross-reader results are retained under `fixed-batch/`. The artifact manifest
+hashes all retained `/tmp` producer/verifier logs and final synthetic images;
+large binaries/images are deliberately not committed. Nonfinal successful
+sample images were removed only after separate verification and digest recording,
+according to the frozen protocol. Source hashes and exact commands are in both
+variant manifests. No ZIP, A3/A4/A5, full-format resource or public-activation
+claim follows. Next implement bounded test-only variable moves, preserving
+selected ownership, existing public validation and secret access semantics.

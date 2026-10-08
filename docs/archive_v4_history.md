@@ -14,9 +14,11 @@ remain the sole goals authority. No historical prototype result selects a format
 freeze a FileStore lifecycle control at `9d00053c` before removing the test-only
 secret setter's full guarded source clone. Page API 20, segments 4, serial typed
 variables 5 and one declared parallel 5-test regression pass, with strict Clippy.
-A comment-only probe lint correction is recorded separately. Post-format freeze
-and fixed matched resource sampling remain next; this does not qualify full
-concurrency, public activation or an archive resource gate.
+A comment-only probe lint correction is recorded separately. Post-format checks pass. Fixed 30-pair/mode sampling completes all 992 declared
+producers/readers plus 32 reciprocal readers; locked-memory endpoints fall
+1,028 KiB and create/no-change CPU improves, while three read modes retain small
+regressions. Whole-process RSS peak does not establish incremental-peak savings.
+This does not qualify full concurrency, public activation or an archive gate.
 
 
 ### Implementation checkpoint — 2026-09-26
