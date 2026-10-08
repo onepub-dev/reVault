@@ -406,6 +406,15 @@ endpoint is 2,788 KiB under 8,192 KiB; no peak, concurrency, timing or A3/A4/A5
 qualification follows. Two-pass encoding and additional pre-write checks are new
 work not covered by the frozen borrowed-source ratios. Forms remain pending.
 
+The [typed form snapshot adapter](evidence/typed-forms-2026-10-09/README.md)
+connects full-size metadata/values and exact references to selected ownership in
+test-only code. The pre-final format suite passes 267 tests (11 ignored), and final affected
+checks/Clippy pass; separately frozen initial/final 16-mode batches of fresh
+13.6 MB FileStore snapshots reopen and verify under the unchanged 8 MiB memlock
+policy, with a maximum 4,076 KiB endpoint. Full multi-secret object assembly,
+concurrency, deletion/salvage/mutation and public activation remain unqualified;
+no performance gate follows from these functional endpoint probes.
+
 ## Evidence index
 
 Historical conditions and raw data remain authoritative for their own revisions.

@@ -1,0 +1,680 @@
+{
+  "binary_sha256": "9b9c4b1d182b5e921c2fddd3e043cce84508f5924262dfc0b05292cf0ad4c745",
+  "memlock_kib": 8192,
+  "attempted_modes": 16,
+  "failures": [],
+  "results": [
+    {
+      "mode": 0,
+      "exit_code": 0,
+      "log": "/tmp/revault-typed-forms-2026-10-09/final-variant/aggregate/mode-00.log",
+      "archive_path": "/tmp/revault-typed-forms-2026-10-09/final-variant/aggregate/mode-00.lbox",
+      "archive_bytes": 14548992,
+      "archive_sha256": "7990b796531382f1710146c51a57469f71af5aec18cd2de81671896fa20eda74",
+      "marker_count": 1,
+      "marker": {
+        "after_definition": {
+          "vm_hwm_kib": 77352,
+          "vm_lck_kib": 1940,
+          "vm_rss_kib": 22616
+        },
+        "after_read": {
+          "vm_hwm_kib": 77352,
+          "vm_lck_kib": 3872,
+          "vm_rss_kib": 18980
+        },
+        "after_record": {
+          "vm_hwm_kib": 77352,
+          "vm_lck_kib": 3872,
+          "vm_rss_kib": 24932
+        },
+        "after_source": {
+          "vm_hwm_kib": 77352,
+          "vm_lck_kib": 1352,
+          "vm_rss_kib": 19980
+        },
+        "archive_bytes": 14548992,
+        "before_source": {
+          "vm_hwm_kib": 77352,
+          "vm_lck_kib": 324,
+          "vm_rss_kib": 14532
+        },
+        "logical_bytes": 13631586,
+        "mode": 0,
+        "secret_fields": 8,
+        "source_secret_bytes": 1048576,
+        "stored_payload_bytes": 13697298
+      }
+    },
+    {
+      "mode": 1,
+      "exit_code": 0,
+      "log": "/tmp/revault-typed-forms-2026-10-09/final-variant/aggregate/mode-01.log",
+      "archive_path": "/tmp/revault-typed-forms-2026-10-09/final-variant/aggregate/mode-01.lbox",
+      "archive_bytes": 14548992,
+      "archive_sha256": "088796e1157d8925d6802c2de6c9a48f4a73fff64f583b71ef15072f2e3d4c3a",
+      "marker_count": 1,
+      "marker": {
+        "after_definition": {
+          "vm_hwm_kib": 77120,
+          "vm_lck_kib": 2144,
+          "vm_rss_kib": 22472
+        },
+        "after_read": {
+          "vm_hwm_kib": 77120,
+          "vm_lck_kib": 4076,
+          "vm_rss_kib": 18708
+        },
+        "after_record": {
+          "vm_hwm_kib": 77120,
+          "vm_lck_kib": 4076,
+          "vm_rss_kib": 24660
+        },
+        "after_source": {
+          "vm_hwm_kib": 77120,
+          "vm_lck_kib": 1352,
+          "vm_rss_kib": 19888
+        },
+        "archive_bytes": 14548992,
+        "before_source": {
+          "vm_hwm_kib": 77120,
+          "vm_lck_kib": 324,
+          "vm_rss_kib": 14376
+        },
+        "logical_bytes": 13631586,
+        "mode": 1,
+        "secret_fields": 8,
+        "source_secret_bytes": 1048576,
+        "stored_payload_bytes": 13697520
+      }
+    },
+    {
+      "mode": 2,
+      "exit_code": 0,
+      "log": "/tmp/revault-typed-forms-2026-10-09/final-variant/aggregate/mode-02.log",
+      "archive_path": "/tmp/revault-typed-forms-2026-10-09/final-variant/aggregate/mode-02.lbox",
+      "archive_bytes": 14548992,
+      "archive_sha256": "91f187d7270668cc75d954c677bbc82c5387c3250ce86285c8e0fe426ced2297",
+      "marker_count": 1,
+      "marker": {
+        "after_definition": {
+          "vm_hwm_kib": 77268,
+          "vm_lck_kib": 1940,
+          "vm_rss_kib": 22144
+        },
+        "after_read": {
+          "vm_hwm_kib": 77268,
+          "vm_lck_kib": 3872,
+          "vm_rss_kib": 18380
+        },
+        "after_record": {
+          "vm_hwm_kib": 77268,
+          "vm_lck_kib": 3872,
+          "vm_rss_kib": 24332
+        },
+        "after_source": {
+          "vm_hwm_kib": 77268,
+          "vm_lck_kib": 1352,
+          "vm_rss_kib": 19892
+        },
+        "archive_bytes": 14548992,
+        "before_source": {
+          "vm_hwm_kib": 77268,
+          "vm_lck_kib": 324,
+          "vm_rss_kib": 14444
+        },
+        "logical_bytes": 13631586,
+        "mode": 2,
+        "secret_fields": 8,
+        "source_secret_bytes": 1048576,
+        "stored_payload_bytes": 13697298
+      }
+    },
+    {
+      "mode": 3,
+      "exit_code": 0,
+      "log": "/tmp/revault-typed-forms-2026-10-09/final-variant/aggregate/mode-03.log",
+      "archive_path": "/tmp/revault-typed-forms-2026-10-09/final-variant/aggregate/mode-03.lbox",
+      "archive_bytes": 14548992,
+      "archive_sha256": "a4cd7d6701e61246a2f17d7c3f4730b60701e99e302d7b355ff3f3ea93be90d7",
+      "marker_count": 1,
+      "marker": {
+        "after_definition": {
+          "vm_hwm_kib": 77560,
+          "vm_lck_kib": 2144,
+          "vm_rss_kib": 22548
+        },
+        "after_read": {
+          "vm_hwm_kib": 77560,
+          "vm_lck_kib": 4076,
+          "vm_rss_kib": 18912
+        },
+        "after_record": {
+          "vm_hwm_kib": 77560,
+          "vm_lck_kib": 4076,
+          "vm_rss_kib": 24800
+        },
+        "after_source": {
+          "vm_hwm_kib": 77560,
+          "vm_lck_kib": 1352,
+          "vm_rss_kib": 19964
+        },
+        "archive_bytes": 14548992,
+        "before_source": {
+          "vm_hwm_kib": 77560,
+          "vm_lck_kib": 324,
+          "vm_rss_kib": 14584
+        },
+        "logical_bytes": 13631586,
+        "mode": 3,
+        "secret_fields": 8,
+        "source_secret_bytes": 1048576,
+        "stored_payload_bytes": 13697520
+      }
+    },
+    {
+      "mode": 4,
+      "exit_code": 0,
+      "log": "/tmp/revault-typed-forms-2026-10-09/final-variant/aggregate/mode-04.log",
+      "archive_path": "/tmp/revault-typed-forms-2026-10-09/final-variant/aggregate/mode-04.lbox",
+      "archive_bytes": 14548992,
+      "archive_sha256": "7ebaac0c1b53e288d021a07f84e12d0244390395252cfb4955970e74fb9ff6de",
+      "marker_count": 1,
+      "marker": {
+        "after_definition": {
+          "vm_hwm_kib": 77916,
+          "vm_lck_kib": 1940,
+          "vm_rss_kib": 22400
+        },
+        "after_read": {
+          "vm_hwm_kib": 77916,
+          "vm_lck_kib": 3872,
+          "vm_rss_kib": 18572
+        },
+        "after_record": {
+          "vm_hwm_kib": 77916,
+          "vm_lck_kib": 3872,
+          "vm_rss_kib": 24524
+        },
+        "after_source": {
+          "vm_hwm_kib": 77916,
+          "vm_lck_kib": 1352,
+          "vm_rss_kib": 19892
+        },
+        "archive_bytes": 14548992,
+        "before_source": {
+          "vm_hwm_kib": 77916,
+          "vm_lck_kib": 324,
+          "vm_rss_kib": 16388
+        },
+        "logical_bytes": 13631586,
+        "mode": 4,
+        "secret_fields": 8,
+        "source_secret_bytes": 1048576,
+        "stored_payload_bytes": 13697298
+      }
+    },
+    {
+      "mode": 5,
+      "exit_code": 0,
+      "log": "/tmp/revault-typed-forms-2026-10-09/final-variant/aggregate/mode-05.log",
+      "archive_path": "/tmp/revault-typed-forms-2026-10-09/final-variant/aggregate/mode-05.lbox",
+      "archive_bytes": 14548992,
+      "archive_sha256": "3b0f4be7555e3321d8d3a470bf7d01f1ca734695eb44084094b7e3c4bdfd0045",
+      "marker_count": 1,
+      "marker": {
+        "after_definition": {
+          "vm_hwm_kib": 78108,
+          "vm_lck_kib": 2144,
+          "vm_rss_kib": 22208
+        },
+        "after_read": {
+          "vm_hwm_kib": 78108,
+          "vm_lck_kib": 4076,
+          "vm_rss_kib": 18508
+        },
+        "after_record": {
+          "vm_hwm_kib": 78108,
+          "vm_lck_kib": 4076,
+          "vm_rss_kib": 24396
+        },
+        "after_source": {
+          "vm_hwm_kib": 78108,
+          "vm_lck_kib": 1352,
+          "vm_rss_kib": 19624
+        },
+        "archive_bytes": 14548992,
+        "before_source": {
+          "vm_hwm_kib": 78108,
+          "vm_lck_kib": 324,
+          "vm_rss_kib": 16184
+        },
+        "logical_bytes": 13631586,
+        "mode": 5,
+        "secret_fields": 8,
+        "source_secret_bytes": 1048576,
+        "stored_payload_bytes": 13697520
+      }
+    },
+    {
+      "mode": 6,
+      "exit_code": 0,
+      "log": "/tmp/revault-typed-forms-2026-10-09/final-variant/aggregate/mode-06.log",
+      "archive_path": "/tmp/revault-typed-forms-2026-10-09/final-variant/aggregate/mode-06.lbox",
+      "archive_bytes": 14548992,
+      "archive_sha256": "f721aca3a32a7d680014adba4d631cbc8d135820c189e43937e4821224b92f04",
+      "marker_count": 1,
+      "marker": {
+        "after_definition": {
+          "vm_hwm_kib": 78216,
+          "vm_lck_kib": 1940,
+          "vm_rss_kib": 22432
+        },
+        "after_read": {
+          "vm_hwm_kib": 78216,
+          "vm_lck_kib": 3872,
+          "vm_rss_kib": 18860
+        },
+        "after_record": {
+          "vm_hwm_kib": 78216,
+          "vm_lck_kib": 3872,
+          "vm_rss_kib": 24748
+        },
+        "after_source": {
+          "vm_hwm_kib": 78216,
+          "vm_lck_kib": 1352,
+          "vm_rss_kib": 19924
+        },
+        "archive_bytes": 14548992,
+        "before_source": {
+          "vm_hwm_kib": 78216,
+          "vm_lck_kib": 324,
+          "vm_rss_kib": 16484
+        },
+        "logical_bytes": 13631586,
+        "mode": 6,
+        "secret_fields": 8,
+        "source_secret_bytes": 1048576,
+        "stored_payload_bytes": 13697298
+      }
+    },
+    {
+      "mode": 7,
+      "exit_code": 0,
+      "log": "/tmp/revault-typed-forms-2026-10-09/final-variant/aggregate/mode-07.log",
+      "archive_path": "/tmp/revault-typed-forms-2026-10-09/final-variant/aggregate/mode-07.lbox",
+      "archive_bytes": 14548992,
+      "archive_sha256": "f0b052835347a744557b122f888cb7c0c914dfb0c22cb070e0dd57f9ebc480e7",
+      "marker_count": 1,
+      "marker": {
+        "after_definition": {
+          "vm_hwm_kib": 77988,
+          "vm_lck_kib": 2144,
+          "vm_rss_kib": 22408
+        },
+        "after_read": {
+          "vm_hwm_kib": 77988,
+          "vm_lck_kib": 4076,
+          "vm_rss_kib": 18644
+        },
+        "after_record": {
+          "vm_hwm_kib": 77988,
+          "vm_lck_kib": 4076,
+          "vm_rss_kib": 24596
+        },
+        "after_source": {
+          "vm_hwm_kib": 77988,
+          "vm_lck_kib": 1352,
+          "vm_rss_kib": 19824
+        },
+        "archive_bytes": 14548992,
+        "before_source": {
+          "vm_hwm_kib": 77988,
+          "vm_lck_kib": 324,
+          "vm_rss_kib": 16320
+        },
+        "logical_bytes": 13631586,
+        "mode": 7,
+        "secret_fields": 8,
+        "source_secret_bytes": 1048576,
+        "stored_payload_bytes": 13697520
+      }
+    },
+    {
+      "mode": 8,
+      "exit_code": 0,
+      "log": "/tmp/revault-typed-forms-2026-10-09/final-variant/aggregate/mode-08.log",
+      "archive_path": "/tmp/revault-typed-forms-2026-10-09/final-variant/aggregate/mode-08.lbox",
+      "archive_bytes": 29818880,
+      "archive_sha256": "c8e1122c21cc5509dccabe9ec189f01b229bf075303eedc0d640d2e38ca5bdc7",
+      "marker_count": 1,
+      "marker": {
+        "after_definition": {
+          "vm_hwm_kib": 77472,
+          "vm_lck_kib": 1876,
+          "vm_rss_kib": 22192
+        },
+        "after_read": {
+          "vm_hwm_kib": 77472,
+          "vm_lck_kib": 3680,
+          "vm_rss_kib": 18304
+        },
+        "after_record": {
+          "vm_hwm_kib": 77472,
+          "vm_lck_kib": 3680,
+          "vm_rss_kib": 24316
+        },
+        "after_source": {
+          "vm_hwm_kib": 77472,
+          "vm_lck_kib": 1352,
+          "vm_rss_kib": 19748
+        },
+        "archive_bytes": 29818880,
+        "before_source": {
+          "vm_hwm_kib": 77472,
+          "vm_lck_kib": 324,
+          "vm_rss_kib": 14508
+        },
+        "logical_bytes": 13631586,
+        "mode": 8,
+        "secret_fields": 8,
+        "source_secret_bytes": 1048576,
+        "stored_payload_bytes": 29097984
+      }
+    },
+    {
+      "mode": 9,
+      "exit_code": 0,
+      "log": "/tmp/revault-typed-forms-2026-10-09/final-variant/aggregate/mode-09.log",
+      "archive_path": "/tmp/revault-typed-forms-2026-10-09/final-variant/aggregate/mode-09.lbox",
+      "archive_bytes": 29818880,
+      "archive_sha256": "44e33de0f1cdbee7d58060ed7e8f978e2deb9608f46e35593b19962c7f0799b4",
+      "marker_count": 1,
+      "marker": {
+        "after_definition": {
+          "vm_hwm_kib": 77856,
+          "vm_lck_kib": 2008,
+          "vm_rss_kib": 22200
+        },
+        "after_read": {
+          "vm_hwm_kib": 77856,
+          "vm_lck_kib": 3812,
+          "vm_rss_kib": 18372
+        },
+        "after_record": {
+          "vm_hwm_kib": 77856,
+          "vm_lck_kib": 3812,
+          "vm_rss_kib": 24324
+        },
+        "after_source": {
+          "vm_hwm_kib": 77856,
+          "vm_lck_kib": 1352,
+          "vm_rss_kib": 19752
+        },
+        "archive_bytes": 29818880,
+        "before_source": {
+          "vm_hwm_kib": 77856,
+          "vm_lck_kib": 324,
+          "vm_rss_kib": 14380
+        },
+        "logical_bytes": 13631586,
+        "mode": 9,
+        "secret_fields": 8,
+        "source_secret_bytes": 1048576,
+        "stored_payload_bytes": 29097984
+      }
+    },
+    {
+      "mode": 10,
+      "exit_code": 0,
+      "log": "/tmp/revault-typed-forms-2026-10-09/final-variant/aggregate/mode-10.log",
+      "archive_path": "/tmp/revault-typed-forms-2026-10-09/final-variant/aggregate/mode-10.lbox",
+      "archive_bytes": 29818880,
+      "archive_sha256": "aaf37f80b4ca0cd1a1c46b180644088bb090ddf7dd6aeceb88a47f77efaf3de4",
+      "marker_count": 1,
+      "marker": {
+        "after_definition": {
+          "vm_hwm_kib": 77760,
+          "vm_lck_kib": 1876,
+          "vm_rss_kib": 22216
+        },
+        "after_read": {
+          "vm_hwm_kib": 77760,
+          "vm_lck_kib": 3680,
+          "vm_rss_kib": 24340
+        },
+        "after_record": {
+          "vm_hwm_kib": 77760,
+          "vm_lck_kib": 3680,
+          "vm_rss_kib": 24340
+        },
+        "after_source": {
+          "vm_hwm_kib": 77760,
+          "vm_lck_kib": 1352,
+          "vm_rss_kib": 19772
+        },
+        "archive_bytes": 29818880,
+        "before_source": {
+          "vm_hwm_kib": 77760,
+          "vm_lck_kib": 324,
+          "vm_rss_kib": 14640
+        },
+        "logical_bytes": 13631586,
+        "mode": 10,
+        "secret_fields": 8,
+        "source_secret_bytes": 1048576,
+        "stored_payload_bytes": 29097984
+      }
+    },
+    {
+      "mode": 11,
+      "exit_code": 0,
+      "log": "/tmp/revault-typed-forms-2026-10-09/final-variant/aggregate/mode-11.log",
+      "archive_path": "/tmp/revault-typed-forms-2026-10-09/final-variant/aggregate/mode-11.lbox",
+      "archive_bytes": 29818880,
+      "archive_sha256": "fe2bfd471828552b028f442d214f8a2fa7582af0ba48f473ca2a8457d19103f5",
+      "marker_count": 1,
+      "marker": {
+        "after_definition": {
+          "vm_hwm_kib": 77748,
+          "vm_lck_kib": 2008,
+          "vm_rss_kib": 22240
+        },
+        "after_read": {
+          "vm_hwm_kib": 77748,
+          "vm_lck_kib": 3812,
+          "vm_rss_kib": 24364
+        },
+        "after_record": {
+          "vm_hwm_kib": 77748,
+          "vm_lck_kib": 3812,
+          "vm_rss_kib": 24364
+        },
+        "after_source": {
+          "vm_hwm_kib": 77748,
+          "vm_lck_kib": 1352,
+          "vm_rss_kib": 19664
+        },
+        "archive_bytes": 29818880,
+        "before_source": {
+          "vm_hwm_kib": 77748,
+          "vm_lck_kib": 324,
+          "vm_rss_kib": 14588
+        },
+        "logical_bytes": 13631586,
+        "mode": 11,
+        "secret_fields": 8,
+        "source_secret_bytes": 1048576,
+        "stored_payload_bytes": 29097984
+      }
+    },
+    {
+      "mode": 12,
+      "exit_code": 0,
+      "log": "/tmp/revault-typed-forms-2026-10-09/final-variant/aggregate/mode-12.log",
+      "archive_path": "/tmp/revault-typed-forms-2026-10-09/final-variant/aggregate/mode-12.lbox",
+      "archive_bytes": 29818880,
+      "archive_sha256": "b14c9285b3f216ddd2e9a8e8b5f1879699731ee8c4b81b85ba31f65087e17462",
+      "marker_count": 1,
+      "marker": {
+        "after_definition": {
+          "vm_hwm_kib": 78180,
+          "vm_lck_kib": 1876,
+          "vm_rss_kib": 22196
+        },
+        "after_read": {
+          "vm_hwm_kib": 78180,
+          "vm_lck_kib": 3680,
+          "vm_rss_kib": 18304
+        },
+        "after_record": {
+          "vm_hwm_kib": 78180,
+          "vm_lck_kib": 3680,
+          "vm_rss_kib": 24320
+        },
+        "after_source": {
+          "vm_hwm_kib": 78180,
+          "vm_lck_kib": 1352,
+          "vm_rss_kib": 19752
+        },
+        "archive_bytes": 29818880,
+        "before_source": {
+          "vm_hwm_kib": 78180,
+          "vm_lck_kib": 324,
+          "vm_rss_kib": 16312
+        },
+        "logical_bytes": 13631586,
+        "mode": 12,
+        "secret_fields": 8,
+        "source_secret_bytes": 1048576,
+        "stored_payload_bytes": 29097984
+      }
+    },
+    {
+      "mode": 13,
+      "exit_code": 0,
+      "log": "/tmp/revault-typed-forms-2026-10-09/final-variant/aggregate/mode-13.log",
+      "archive_path": "/tmp/revault-typed-forms-2026-10-09/final-variant/aggregate/mode-13.lbox",
+      "archive_bytes": 29818880,
+      "archive_sha256": "c07e75861d0b11de1e78eebda0a41f0cc03a8d5ce774e66d050f363505c98777",
+      "marker_count": 1,
+      "marker": {
+        "after_definition": {
+          "vm_hwm_kib": 77968,
+          "vm_lck_kib": 2008,
+          "vm_rss_kib": 22052
+        },
+        "after_read": {
+          "vm_hwm_kib": 77968,
+          "vm_lck_kib": 3812,
+          "vm_rss_kib": 18096
+        },
+        "after_record": {
+          "vm_hwm_kib": 77968,
+          "vm_lck_kib": 3812,
+          "vm_rss_kib": 24112
+        },
+        "after_source": {
+          "vm_hwm_kib": 77968,
+          "vm_lck_kib": 1352,
+          "vm_rss_kib": 19732
+        },
+        "archive_bytes": 29818880,
+        "before_source": {
+          "vm_hwm_kib": 77968,
+          "vm_lck_kib": 324,
+          "vm_rss_kib": 16292
+        },
+        "logical_bytes": 13631586,
+        "mode": 13,
+        "secret_fields": 8,
+        "source_secret_bytes": 1048576,
+        "stored_payload_bytes": 29097984
+      }
+    },
+    {
+      "mode": 14,
+      "exit_code": 0,
+      "log": "/tmp/revault-typed-forms-2026-10-09/final-variant/aggregate/mode-14.log",
+      "archive_path": "/tmp/revault-typed-forms-2026-10-09/final-variant/aggregate/mode-14.lbox",
+      "archive_bytes": 29818880,
+      "archive_sha256": "a26ea31c8425265440193673d383c64b881f4f8070722a7be4bd1f2232e086c9",
+      "marker_count": 1,
+      "marker": {
+        "after_definition": {
+          "vm_hwm_kib": 78024,
+          "vm_lck_kib": 1876,
+          "vm_rss_kib": 22068
+        },
+        "after_read": {
+          "vm_hwm_kib": 78024,
+          "vm_lck_kib": 3680,
+          "vm_rss_kib": 18112
+        },
+        "after_record": {
+          "vm_hwm_kib": 78024,
+          "vm_lck_kib": 3680,
+          "vm_rss_kib": 24128
+        },
+        "after_source": {
+          "vm_hwm_kib": 78024,
+          "vm_lck_kib": 1352,
+          "vm_rss_kib": 19880
+        },
+        "archive_bytes": 29818880,
+        "before_source": {
+          "vm_hwm_kib": 78024,
+          "vm_lck_kib": 324,
+          "vm_rss_kib": 16240
+        },
+        "logical_bytes": 13631586,
+        "mode": 14,
+        "secret_fields": 8,
+        "source_secret_bytes": 1048576,
+        "stored_payload_bytes": 29097984
+      }
+    },
+    {
+      "mode": 15,
+      "exit_code": 0,
+      "log": "/tmp/revault-typed-forms-2026-10-09/final-variant/aggregate/mode-15.log",
+      "archive_path": "/tmp/revault-typed-forms-2026-10-09/final-variant/aggregate/mode-15.lbox",
+      "archive_bytes": 29818880,
+      "archive_sha256": "4393e8f6ee8f6f67f7ad25c93c14f37250c1cbbe4c920d4e528b98399de8a531",
+      "marker_count": 1,
+      "marker": {
+        "after_definition": {
+          "vm_hwm_kib": 78140,
+          "vm_lck_kib": 2008,
+          "vm_rss_kib": 22296
+        },
+        "after_read": {
+          "vm_hwm_kib": 78140,
+          "vm_lck_kib": 3812,
+          "vm_rss_kib": 24420
+        },
+        "after_record": {
+          "vm_hwm_kib": 78140,
+          "vm_lck_kib": 3812,
+          "vm_rss_kib": 24420
+        },
+        "after_source": {
+          "vm_hwm_kib": 78140,
+          "vm_lck_kib": 1352,
+          "vm_rss_kib": 19720
+        },
+        "archive_bytes": 29818880,
+        "before_source": {
+          "vm_hwm_kib": 78140,
+          "vm_lck_kib": 324,
+          "vm_rss_kib": 16324
+        },
+        "logical_bytes": 13631586,
+        "mode": 15,
+        "secret_fields": 8,
+        "source_secret_bytes": 1048576,
+        "stored_payload_bytes": 29097984
+      }
+    }
+  ]
+}

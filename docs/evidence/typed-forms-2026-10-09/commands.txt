@@ -1,0 +1,16 @@
+Run Cargo from the archive worktree rust/ directory with Rust1.88.0.
+Full pre-final source:
+cargo +1.88.0 test -p revault_lockbox_api --release --features external-source --lib file_format:: -- --test-threads=1 --nocapture
+Final affected source:
+cargo +1.88.0 test -p revault_lockbox_api --release --features external-source --lib form_segments:: -- --test-threads=1 --nocapture
+cargo +1.88.0 test -p revault_lockbox_api --release --features external-source --lib tree_tests::forms:: -- --test-threads=1 --nocapture
+cargo +1.88.0 test -p revault_lockbox_api --release --features external-source --lib typed_tree_variables_lifecycle_secure_read_and_file_coexistence_all_modes -- --test-threads=1 --nocapture
+cargo +1.88.0 test -p revault_lockbox_api --release --features external-source --lib typed_tree_payload_add_replace_no_change_and_invalid_plans_all_modes -- --test-threads=1 --nocapture
+cargo +1.88.0 clippy -p revault_lockbox_api --features external-source --lib --tests --benches -- -D warnings
+Functional endpoint probes: initial and final are separately frozen variants.
+Each runs one fresh process for each REVAULT_FORM_MODE=0..15, with a unique
+previously nonexistent absolute REVAULT_FORM_IMAGE path and inherited8192KiB
+RLIMIT_MEMLOCK. Invoke the respective frozen binary with arguments:
+typed_form_aggregate_guarded_snapshot_probe --ignored --test-threads=1 --nocapture
+Require exit0 and exactly one FORM_AGGREGATE marker. Retain every attempted mode,
+log, archive byte length and SHA256; no retries or excluded modes. No timings.

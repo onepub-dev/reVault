@@ -1,0 +1,7 @@
+
+running 1 test
+test file_format::candidate_files::tests::tree_tests::forms::aggregate::typed_form_aggregate_guarded_snapshot_probe ... FORM_AGGREGATE {"after_definition":{"vm_hwm_kib":77988,"vm_lck_kib":2144,"vm_rss_kib":22408},"after_read":{"vm_hwm_kib":77988,"vm_lck_kib":4076,"vm_rss_kib":18644},"after_record":{"vm_hwm_kib":77988,"vm_lck_kib":4076,"vm_rss_kib":24596},"after_source":{"vm_hwm_kib":77988,"vm_lck_kib":1352,"vm_rss_kib":19824},"archive_bytes":14548992,"before_source":{"vm_hwm_kib":77988,"vm_lck_kib":324,"vm_rss_kib":16320},"logical_bytes":13631586,"mode":7,"secret_fields":8,"source_secret_bytes":1048576,"stored_payload_bytes":13697520}
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 601 filtered out; finished in 3.47s
+

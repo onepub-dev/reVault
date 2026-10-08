@@ -18,7 +18,10 @@ impl Catalogue {
         codec: &Codec,
         sealed: u64,
     ) -> Result<Option<ZeroizingBytes>> {
-        if !self.variables.is_empty() || self.files.len() + self.nodes.len() > MAX_MODEL_FILES {
+        if !self.variables.is_empty()
+            || !self.forms.is_empty()
+            || self.files.len() + self.nodes.len() > MAX_MODEL_FILES
+        {
             return Ok(None);
         }
         match self.encode(codec, sealed) {
@@ -60,6 +63,8 @@ impl Catalogue {
         }
         nodes::validate_bounded(&self.files, &self.nodes, MAX_NODES)?;
         validate_variables(&self.variables)?;
+        validate_form_identities(&self.forms, &self.files, &self.variables)?;
+        let form_records = self.forms.encode()?;
         let mut path_bytes = 0usize;
         for len in self
             .files
@@ -71,13 +76,16 @@ impl Catalogue {
                     .map(|n| n.path.len() + 5 + n.target.as_ref().map_or(0, |v| v.len())),
             )
             .chain(self.variables.iter().map(|v| v.name.as_str().len()))
+            .chain(form_records.iter().map(|row| row.key.len()))
         {
             path_bytes = path_bytes.checked_add(len).ok_or(Error::CorruptRecord)?;
         }
         if path_bytes > super::super::MAX_PATH_BYTES {
             return Err(Error::SecurityLimitExceeded("typed tree path bytes".into()));
         }
-        let version = if self.variables.is_empty() {
+        let version = if !self.forms.is_empty() {
+            b"RV4FS003"
+        } else if self.variables.is_empty() {
             b"RV4FS001"
         } else {
             b"RV4FS002"
@@ -90,6 +98,7 @@ impl Catalogue {
                 &variable.layout.encode_metadata(),
             )?);
         }
+        out.extend(form_records);
         for file in &self.files {
             let mut value = Zeroizing::new(file.permissions.to_le_bytes().to_vec());
             value.extend_from_slice(&file.info.encode());
@@ -139,6 +148,7 @@ impl Catalogue {
         let mut path_bytes = 0usize;
         let mut format = 0;
         let mut variables = Vec::new();
+        let mut form_rows = Vec::new();
         let tree = visit(&mut |entry| {
             match entry.namespace {
                 FILE_RECORD => {
@@ -236,12 +246,27 @@ impl Catalogue {
                         .ok_or(Error::CorruptRecord)?;
                     variables.push(entry);
                 }
+                7..=10 => {
+                    forms::Forms::admit_row(&entry)?;
+                    if form_rows.len() >= 4096 {
+                        return Err(Error::CorruptRecord);
+                    }
+                    path_bytes = path_bytes
+                        .checked_add(entry.key.len())
+                        .ok_or(Error::CorruptRecord)?;
+                    form_rows.push(entry);
+                }
                 FORMAT_RECORD
                     if format == 0
                         && entry.key.as_slice() == b"format"
-                        && matches!(entry.value.as_slice(), b"RV4FS001" | b"RV4FS002") =>
+                        && matches!(
+                            entry.value.as_slice(),
+                            b"RV4FS001" | b"RV4FS002" | b"RV4FS003"
+                        ) =>
                 {
-                    format = if entry.value.as_slice() == b"RV4FS001" {
+                    format = if entry.value.as_slice() == b"RV4FS003" {
+                        3
+                    } else if entry.value.as_slice() == b"RV4FS001" {
                         1
                     } else {
                         2
@@ -271,14 +296,30 @@ impl Catalogue {
             })
             .collect::<Result<Vec<_>>>()?;
         validate_variables(&variables)?;
+        let forms = forms::Forms::decode(form_rows, tree.anchor.mode, tree.anchor.sealed_len)?;
+        validate_form_identities(&forms, &files, &variables)?;
         let mut payloads: Vec<_> = packs.iter().map(|pack| pack.extent).collect();
         payloads.extend(
             variables
                 .iter()
                 .flat_map(|v| v.layout.extents.iter().copied()),
         );
+        payloads.extend(
+            forms
+                .texts()
+                .into_iter()
+                .flat_map(|text| text.extents.iter().copied()),
+        );
         payloads.sort_by_key(|extent| extent.start);
-        if format != (if variables.is_empty() { 1 } else { 2 }) || payloads != tree.graph.payloads()
+        if format
+            != (if !forms.is_empty() {
+                3
+            } else if variables.is_empty() {
+                1
+            } else {
+                2
+            })
+            || payloads != tree.graph.payloads()
         {
             return Err(Error::CorruptRecord);
         }
@@ -316,6 +357,7 @@ impl Catalogue {
             legacy: false,
             typed: true,
             variables,
+            forms,
             files,
             nodes,
             packs,
@@ -345,6 +387,30 @@ fn validate_variables(variables: &[Variable]) -> Result<()> {
             if names.contains(&name[..offset]) {
                 return Err(Error::CorruptRecord);
             }
+        }
+    }
+    Ok(())
+}
+
+fn validate_form_identities(
+    forms: &forms::Forms,
+    files: &[File],
+    variables: &[Variable],
+) -> Result<()> {
+    forms.validate()?;
+    if forms.is_empty() {
+        return Ok(());
+    }
+    let mut ids = BTreeSet::new();
+    for id in files
+        .iter()
+        .map(|f| f.info.id)
+        .chain(variables.iter().map(|v| v.layout.id))
+        .chain(forms.records.iter().map(|r| r.id))
+        .chain(forms.texts().into_iter().map(|t| t.id))
+    {
+        if !ids.insert(id) {
+            return Err(Error::CorruptRecord);
         }
     }
     Ok(())

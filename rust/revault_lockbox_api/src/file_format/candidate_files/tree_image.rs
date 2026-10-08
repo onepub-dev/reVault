@@ -1,6 +1,7 @@
 //! Experimental typed filesystem adapter over the authenticated shared tree.
 //! Fresh export preserves its source. Filesystem and guarded variable transactions
-//! are test-only; forms, public activation and complete migration remain separate.
+//! and form snapshots are test-only; public activation, complete form mutation
+//! and migration remain separate.
 use super::dense_catalogue::{Catalogue, Metadata};
 use super::dense_image::Image;
 use super::*;
@@ -8,6 +9,7 @@ use crate::file_format::publication_anchor::{shared, FAILURE_REGION, REGION_LEN}
 use shared::tree::{self, Tree};
 mod fresh;
 pub(super) use fresh::from_candidate;
+pub(super) mod forms;
 mod mutation;
 pub(super) mod variables;
 pub(super) use mutation::{remove_files, update_files};

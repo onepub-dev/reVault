@@ -1,0 +1,6 @@
+Command: cargo +1.88.0 test -p revault_lockbox_api --release --features external-source --lib file_format:: -- --test-threads=1 --nocapture
+Pinned Rust: 1.88.0 per archive rust-toolchain.toml.
+Result: 267 passed; 0 failed; 11 ignored; 0 measured; 324 filtered out.
+Test harness reported 1,258.84 seconds; /usr/bin/time reported 1,259.03 seconds elapsed.
+Exact complete transcript: full-format.log (includes ELAPSED_SECONDS 1259.03 at end).
+HEAD: full-format.HEAD.txt. Source-state capture: full-format.git-status.txt and full-format.source-hashes.sha256. Implementation had uncommitted working-tree changes at this checkpoint; no source edits were made by the validator.

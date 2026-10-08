@@ -1,0 +1,289 @@
+use super::*;
+use crate::storage::StorageBackend;
+use crate::{Compression, EncryptionMode, LockboxFormatOptions, SigningMode, SizePadding};
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    Arc,
+};
+fn mode(bits: usize) -> FormatMode {
+    FormatMode::new(LockboxFormatOptions {
+        encryption: if bits & 1 != 0 {
+            EncryptionMode::ChaCha20Poly1305
+        } else {
+            EncryptionMode::None
+        },
+        signing: if bits & 2 != 0 {
+            SigningMode::Owner
+        } else {
+            SigningMode::None
+        },
+        compression: if bits & 4 != 0 {
+            Compression::default()
+        } else {
+            Compression::None
+        },
+        size_padding: if bits & 8 != 0 {
+            SizePadding::Default
+        } else {
+            SizePadding::None
+        },
+    })
+}
+fn archive() -> LockboxId {
+    LockboxId::from_bytes([42; 16])
+}
+const KEY: [u8; 32] = [43; 32];
+#[derive(Clone, Debug)]
+struct Guarded {
+    storage: StorageBackend,
+    reads: Arc<AtomicUsize>,
+}
+impl Storage for Guarded {
+    fn len(&self) -> Result<u64> {
+        self.storage.len()
+    }
+    fn read_at(&self, _: u64, _: usize) -> Result<Vec<u8>> {
+        panic!("segment read allocated ordinary payload storage")
+    }
+    fn read_at_into(&self, at: u64, out: &mut [u8]) -> Result<()> {
+        self.reads.fetch_add(1, Ordering::Relaxed);
+        self.storage.read_at_into(at, out)
+    }
+    fn append(&mut self, bytes: &[u8]) -> Result<u64> {
+        self.storage.append(bytes)
+    }
+    fn write_at(&mut self, at: u64, bytes: &[u8]) -> Result<()> {
+        self.storage.write_at(at, bytes)
+    }
+    fn truncate(&mut self, len: u64) -> Result<()> {
+        self.storage.truncate(len)
+    }
+    fn sync(&self) -> Result<()> {
+        self.storage.sync()
+    }
+}
+
+struct Encoded {
+    layout: Layout,
+    pages: Vec<SecureVec>,
+}
+#[allow(clippy::too_many_arguments)]
+fn encode(
+    value: &SecureVec,
+    archive: LockboxId,
+    mode: FormatMode,
+    key: &[u8; 32],
+    id: [u8; 16],
+    revision: u64,
+    sensitivity: VariableSensitivity,
+) -> Result<Encoded> {
+    let mut prepared = prepare_source(
+        Source::Bytes(value),
+        archive,
+        mode,
+        key,
+        id,
+        [81; 32],
+        revision,
+        sensitivity,
+    )?;
+    let mut pages = Vec::new();
+    for n in 0..prepared.pages.len() {
+        let raw = (prepared.payload)(n)?;
+        pages.push(prepared.pages.render(n, &raw)?);
+    }
+    Ok(Encoded {
+        layout: prepared.layout,
+        pages,
+    })
+}
+
+fn stored(bytes: &[u8], mode: FormatMode) -> (Guarded, Layout) {
+    let value = SecureVec::try_from_slice(bytes).unwrap();
+    let mut encoded = encode(
+        &value,
+        archive(),
+        mode,
+        &KEY,
+        [41; 16],
+        3,
+        VariableSensitivity::Secret,
+    )
+    .unwrap();
+    let mut storage = StorageBackend::memory(vec![0; super::super::publication_anchor::REGION_LEN]);
+    let mut extents = Vec::new();
+    for (page, prior) in encoded.pages.iter().zip(&encoded.layout.extents) {
+        let start = page
+            .with_bytes(|bytes| storage.append(bytes))
+            .unwrap()
+            .unwrap();
+        extents.push(Extent { start, ..*prior });
+    }
+    encoded.layout.rebind(&extents).unwrap();
+    (
+        Guarded {
+            storage,
+            reads: Arc::new(AtomicUsize::new(0)),
+        },
+        encoded.layout,
+    )
+}
+#[test]
+fn form_segments_empty_utf8_boundary_and_one_mib_all_modes() {
+    let mut boundary = vec![b'x'; SEGMENT_BYTES - 1];
+    boundary.extend_from_slice("🦀".as_bytes());
+    for bits in 0..16 {
+        for bytes in [
+            Vec::new(),
+            vec![b'q'; 1],
+            boundary.clone(),
+            vec![b'z'; MAX_VALUE],
+        ] {
+            let (storage, layout) = stored(&bytes, mode(bits));
+            let metadata = layout.encode_metadata();
+            assert!(metadata.len() <= 856);
+            let parsed =
+                Layout::decode_metadata(&metadata, mode(bits), storage.len().unwrap()).unwrap();
+            assert_eq!(parsed, layout);
+            let value = parsed
+                .read(&storage, archive(), &KEY, storage.len().unwrap())
+                .unwrap();
+            value.with_bytes(|value| assert_eq!(value, bytes)).unwrap();
+            assert_eq!(storage.reads.load(Ordering::Relaxed), layout.extents.len());
+        }
+    }
+}
+#[test]
+fn form_segments_refuse_limits_context_substitution_and_corruption() {
+    let oversized = SecureVec::try_from_slice(&vec![b'x'; MAX_VALUE + 1]).unwrap();
+    assert!(matches!(
+        encode(
+            &oversized,
+            archive(),
+            mode(0),
+            &KEY,
+            [41; 16],
+            3,
+            VariableSensitivity::Secret
+        ),
+        Err(Error::SecurityLimitExceeded(_))
+    ));
+    let valid = SecureVec::try_from_slice(b"valid").unwrap();
+    for bad in [FormatMode::default(), FormatMode(u16::MAX)] {
+        assert!(encode(
+            &valid,
+            archive(),
+            bad,
+            &KEY,
+            [41; 16],
+            3,
+            VariableSensitivity::Secret
+        )
+        .is_err());
+    }
+    for bits in 0..16 {
+        let (mut storage, layout) = stored(&vec![b'x'; SEGMENT_BYTES + 7], mode(bits));
+        for attempt in 0..10 {
+            let mut changed = layout.clone();
+            match attempt {
+                0 => changed.id[0] ^= 1,
+                1 => changed.revision += 1,
+                2 => changed.sensitivity = VariableSensitivity::Normal,
+                3 => changed.mode = mode(bits ^ 4),
+                4 => changed.length -= 1,
+                5 => changed.extents.swap(0, 1),
+                6 => changed.extents[1] = changed.extents[0],
+                7 => changed.extents[0].start = u64::MAX,
+                8 => changed.context[0] ^= 1,
+                _ => changed.length = MAX_VALUE + 1,
+            }
+            assert!(
+                changed
+                    .read(&storage, archive(), &KEY, storage.len().unwrap())
+                    .is_err(),
+                "context case {attempt}, mode {bits}"
+            );
+        }
+        let mut metadata = layout.encode_metadata();
+        metadata[48..52].copy_from_slice(&u32::MAX.to_le_bytes());
+        assert!(Layout::decode_metadata(&metadata, mode(bits), storage.len().unwrap()).is_err());
+        let mut metadata = layout.encode_metadata();
+        metadata[35] = 1;
+        assert!(Layout::decode_metadata(&metadata, mode(bits), storage.len().unwrap()).is_err());
+        assert!(layout
+            .read(
+                &storage,
+                LockboxId::from_bytes([99; 16]),
+                &KEY,
+                storage.len().unwrap()
+            )
+            .is_err());
+        if !mode(bits).plaintext() {
+            assert!(layout
+                .read(&storage, archive(), &[9; 32], storage.len().unwrap())
+                .is_err());
+        }
+        let first = layout.extents[0];
+        let byte = storage.storage.read_at(first.start + 100, 1).unwrap()[0];
+        storage.write_at(first.start + 100, &[byte ^ 1]).unwrap();
+        assert!(layout
+            .read(&storage, archive(), &KEY, storage.len().unwrap())
+            .is_err());
+    }
+}
+
+#[test]
+fn form_segments_same_size_permutation_and_cross_value_substitution() {
+    let mut bytes = vec![b'a'; SEGMENT_BYTES];
+    bytes.extend_from_slice(&vec![b'b'; SEGMENT_BYTES]);
+    for bits in 0..16 {
+        let (mut storage, layout) = stored(&bytes, mode(bits));
+        assert_eq!(layout.extents[0].len, layout.extents[1].len);
+        let mut permuted = layout.clone();
+        permuted.extents.swap(0, 1);
+        permuted.validate(storage.len().unwrap()).unwrap();
+        assert!(permuted
+            .read(&storage, archive(), &KEY, storage.len().unwrap())
+            .is_err());
+        assert!(storage.reads.load(Ordering::Relaxed) > 0);
+
+        let other = SecureVec::try_from_slice(&vec![b'c'; 2 * SEGMENT_BYTES]).unwrap();
+        let mut other = encode(
+            &other,
+            archive(),
+            mode(bits),
+            &KEY,
+            [73; 16],
+            3,
+            VariableSensitivity::Secret,
+        )
+        .unwrap();
+        let mut extents = Vec::new();
+        for (page, prior) in other.pages.iter().zip(&other.layout.extents) {
+            let start = page
+                .with_bytes(|bytes| storage.append(bytes))
+                .unwrap()
+                .unwrap();
+            extents.push(Extent { start, ..*prior });
+        }
+        other.layout.rebind(&extents).unwrap();
+        let mut substituted = layout.clone();
+        substituted.extents[0] = other.layout.extents[0];
+        substituted.validate(storage.len().unwrap()).unwrap();
+        // The complete stored descriptor is valid for another selected value:
+        // same length and correct digest, but its UUID/page context differs.
+        let page = storage
+            .read_at_secure(
+                substituted.extents[0].start,
+                substituted.extents[0].len as usize,
+            )
+            .unwrap();
+        assert_eq!(
+            page.with_bytes(strong_checksum).unwrap(),
+            substituted.extents[0].digest
+        );
+        assert!(substituted
+            .read(&storage, archive(), &KEY, storage.len().unwrap())
+            .is_err());
+    }
+}

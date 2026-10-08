@@ -83,9 +83,15 @@ probes (16 modes, one/twelve 1 MiB values) reopen and verify under the unchanged
 ready-vector and affected production checks and strict Clippy pass after the
 tracked formatting hook. The [public form baseline](evidence/form-history-2026-10-09/README.md)
 passes mixed historical captures and independent form/file namespace states in
-all 16 modes. Next connect full-size typed form snapshots, references and selected
-ownership using that admission contract, then mutation/recovery; broader public
-integration is separate.
+all 16 modes. The [test-only typed form snapshots](evidence/typed-forms-2026-10-09/README.md)
+now connect full-size segmented texts, exact references and complete selected
+ownership. The pre-final format suite passes 267 tests (11 ignored); final affected tests
+and Clippy pass. Both separately frozen 16-mode FileStore batches verify
+13.6 MB logical snapshots with a maximum 4,076 KiB locked-memory endpoint under
+the 8,192 KiB policy. This is bounded staging/scoped reading, not full-object or
+concurrency qualification. Next connect record deletion and streamed selected
+salvage with interrupted recovery, then field/revision mutation and broader public
+integration.
 Keep the security policy and failure evidence; no allocator weakening is implied.
 Forms/references and broader public adapters, native selected
 membership/recovery, architecture selection and complete CPU/RSS/aging/size and

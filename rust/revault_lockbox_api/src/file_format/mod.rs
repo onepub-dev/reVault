@@ -53,7 +53,11 @@ pub(crate) mod data_extent;
 #[cfg(test)]
 pub(crate) mod secure_segments;
 
-// File-only comparison adapter; full public record/access integration remains.
+// Domain-bound form texts remain a selected-metadata experiment.
+#[cfg(test)]
+pub(crate) mod form_segments;
+
+// Candidate comparisons and typed shared-tree adapters; no public activation.
 #[cfg(test)]
 pub(crate) mod candidate_files;
 

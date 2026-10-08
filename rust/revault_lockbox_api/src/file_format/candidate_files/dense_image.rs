@@ -136,6 +136,14 @@ impl<S: Storage> Image<S> {
                 self.anchor.sealed_len,
             )?;
         }
+        if !self.catalogue.forms.is_empty() {
+            self.catalogue.forms.verify(
+                &self.storage,
+                self.anchor.archive,
+                self.value_key.as_ref().ok_or(Error::CorruptRecord)?,
+                self.anchor.sealed_len,
+            )?;
+        }
         Ok(())
     }
 }
@@ -377,7 +385,7 @@ pub(super) fn value_key_for(
     mode: FormatMode,
     key: Option<&[u8]>,
 ) -> Result<Option<Zeroizing<[u8; 32]>>> {
-    if catalogue.variables.is_empty() {
+    if catalogue.variables.is_empty() && catalogue.forms.is_empty() {
         Ok(None)
     } else {
         value_key(mode, key).map(Some)

@@ -1,6 +1,6 @@
-//! Bounded experimental filesystem catalogue and typed-tree variable metadata.
-//! Dense serialization remains filesystem-only and refuses variable records.
-//! Public activation, forms and the full mirror model remain separate work.
+//! Bounded experimental filesystem, variable and form snapshot metadata.
+//! Dense serialization remains filesystem-only and refuses other record families.
+//! Public activation, complete form mutation and mirror semantics remain separate.
 use super::*;
 use crate::crypto::strong_checksum;
 use crate::file_format::allocation_map::Extent;
@@ -8,6 +8,7 @@ use crate::file_format::publication_anchor::shared::ownership::{Graph, Span, Vac
 use crate::file_format::publication_anchor::REGION_LEN;
 use crate::page_buffer::ZeroizingBytes;
 use std::collections::BTreeSet;
+pub(super) mod forms;
 mod nodes;
 pub(super) mod overflow;
 pub(super) use nodes::Metadata;
@@ -41,6 +42,7 @@ pub(super) struct Catalogue {
     typed: bool,
     pub nodes: Vec<nodes::Node>,
     pub variables: Vec<Variable>,
+    pub forms: forms::Forms,
     pub vacant: Vec<Vacant>,
     pub files: Vec<File>,
     pub packs: Vec<Pack>,
@@ -99,6 +101,7 @@ impl Catalogue {
         }
         let mut catalogue = Self {
             variables: Vec::new(),
+            forms: forms::Forms::default(),
             legacy: false,
             typed: false,
             nodes: Vec::new(),
@@ -257,6 +260,7 @@ impl Catalogue {
         }
         let mut catalogue = Self {
             variables: Vec::new(),
+            forms: forms::Forms::default(),
             legacy,
             typed,
             nodes,
@@ -324,6 +328,12 @@ impl Catalogue {
                 .iter()
                 .flat_map(|v| v.layout.extents.iter().copied()),
         );
+        packs.extend(
+            self.forms
+                .texts()
+                .into_iter()
+                .flat_map(|text| text.extents.iter().copied()),
+        );
         packs.sort_by_key(|extent| extent.start);
         if self.legacy {
             Graph::fresh_files(anchor, &packs)
@@ -353,9 +363,9 @@ impl Catalogue {
         Ok(())
     }
     pub(super) fn encode(&self, codec: &Codec, sealed: u64) -> Result<ZeroizingBytes> {
-        if !self.variables.is_empty() {
+        if !self.variables.is_empty() || !self.forms.is_empty() {
             return Err(Error::SecurityLimitExceeded(
-                "variables require typed tree metadata".into(),
+                "variables and forms require typed tree metadata".into(),
             ));
         }
         if self.legacy {

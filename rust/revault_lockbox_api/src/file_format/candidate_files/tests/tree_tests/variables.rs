@@ -327,12 +327,12 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 #[derive(Clone, Debug)]
-struct Guarded<S> {
-    inner: S,
-    spans: Rc<RefCell<Vec<(u64, u64)>>>,
+pub(super) struct Guarded<S> {
+    pub(super) inner: S,
+    pub(super) spans: Rc<RefCell<Vec<(u64, u64)>>>,
 }
 impl<S: Storage> Guarded<S> {
-    fn new(inner: S, spans: Vec<(u64, u64)>) -> Self {
+    pub(super) fn new(inner: S, spans: Vec<(u64, u64)>) -> Self {
         Self {
             inner,
             spans: Rc::new(RefCell::new(spans)),

@@ -1,0 +1,10 @@
+    Finished `release` profile [optimized] target(s) in 0.09s
+     Running unittests src/lib.rs (target/release/deps/revault_lockbox_api-e3bcc2539127e239)
+
+running 3 tests
+test file_format::candidate_files::tests::tree_tests::forms::admission::typed_form_guarded_admission_and_semantic_page_substitution_all_modes ... ok
+test file_format::candidate_files::tests::tree_tests::forms::aggregate::typed_form_aggregate_guarded_snapshot_probe ... ignored, fresh-process form aggregate endpoint probe
+test file_format::candidate_files::tests::tree_tests::forms::typed_form_snapshots_large_metadata_history_and_retention_all_modes ... ok
+
+test result: ok. 2 passed; 0 failed; 1 ignored; 0 measured; 599 filtered out; finished in 14.65s
+

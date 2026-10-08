@@ -8,6 +8,19 @@ remain the sole goals authority. No historical prototype result selects a format
 
 ## Implementation checkpoints
 
+### Typed form snapshot checkpoint — 2026-10-09
+
+[Selected snapshot evidence](evidence/typed-forms-2026-10-09/README.md) adds
+test-only exact-revision definition and historical captured-record import/get,
+full-size text segmentation, physical ownership and scoped field reading. Two
+all-mode connected tests and strict Clippy pass. The pre-final format suite passes
+267 tests (11 ignored), followed by final admission checks. Both separately frozen
+initial/final sixteen-mode aggregate batches
+verify 13,631,586 logical bytes, with a maximum 4,076 KiB locked-memory endpoint
+under the unchanged 8,192 KiB limit. One caller secret is shared across eight
+logical fields; this is not whole-object/concurrency or performance qualification.
+Deletion, streamed selected salvage and mutation remain followthrough work.
+
 ### Public form history baseline — 2026-10-09
 
 [Public API evidence](evidence/form-history-2026-10-09/README.md) verifies mixed
