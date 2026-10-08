@@ -15,5 +15,5 @@ Cargo.lock SHA-256: 18a3e003d76bc847bc1fb849fda615d55cda140a64c268b92d31ed98fdde
 All current modified/new file hashes: changed-file-hashes.sha256
 Tracked Rust source diff from current HEAD: tracked-source.patch
 Untracked source diff: untracked-source.patch
-Untracked source snapshots: untracked/variables/prepared.rs and untracked/page-secure-storage/prepared.rs
+Untracked source snapshots (exact bytes, evidence filenames normalized): untracked/variables/prepared.rs.txt and untracked/page-secure-storage/prepared.rs.txt
 Aggregate run: exactly 32 fresh producers (16 modes x counts 1 and 12); RLIMIT_MEMLOCK 8192 KiB; no retries. Per-process logs, per-case archive SHA-256, and instrumentation JSON are recorded in ../aggregate/outcomes.json and ../aggregate/mode-XX-count-YY.log. Aggregate outcomes SHA-256: 5c38b21f64e4d8b896ce0a1414cdc9bce30f56ed8b566b48dd85ccce1716ae63.

@@ -16,7 +16,8 @@ variable writer. All-mode callback/preflight failure recovery and prior vector
 controls pass; 32 fresh FileStore probes verify one/twelve 1 MiB values with a
 maximum 2,788 KiB locked-memory endpoint. The source is one reused guarded value,
 not twelve simultaneous caller inputs. No peak/timing or public-form claim follows.
-Pre-format production page/crypto/public secure roundtrips and strict Clippy pass.
+Production page/crypto/public secure roundtrips and strict Clippy pass; post-format
+variable, ready-vector and affected production checks pass at `edb07f36`.
 
 ### Typed variable move checkpoint — 2026-10-09
 

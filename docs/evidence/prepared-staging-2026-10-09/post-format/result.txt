@@ -1,0 +1,10 @@
+Post-format validation at HEAD edb07f36dfb9703a01b767ee3164f19dad89cf13; source tree clean.
+- Full serialized variables module: 8 passed, 2 ignored, no failures; fault counts 3,432 transaction interruptions / 2,724 interrupted recoveries and 1,512 move cases / 504 interrupted recoveries.
+- Page tests: 10/10.
+- Crypto tests: 1/1.
+- Ordinary vector add/replace/no-change/invalid plans: 1/1.
+- Ordinary vector reused-write recovery: 1/1, 792 fault cases.
+- Public secure variables/forms 16-mode integration: 1/1.
+- Strict archive Clippy (external-source, lib/tests/benches, -D warnings): pass.
+No aggregate resource probe rerun.
+Pinned compiler: rustc 1.88.0 (6b00bc388 2025-06-23), per archive rust-toolchain.toml.

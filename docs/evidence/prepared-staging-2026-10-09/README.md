@@ -46,8 +46,12 @@ The complete variable module passes **8 tests, 2 ignored** serially, including
 1,512/504 for moves. Existing ready-vector add/replace/refusal and reused-write
 controls pass, the latter covering 792 faults. Production crypto tests pass 1/1,
 page tests 10/10, and the public variables/forms roundtrip passes all 16 modes.
-Strict archive Clippy passes. Post-format results are recorded separately after
-the tracked hook; these pre-format results are not relabeled as post-format.
+Strict archive Clippy passes. Post-format verification at `edb07f36` passes the same complete variable module,
+page 10/10, crypto 1/1, both ready-vector controls (including 792 faults), public
+all-mode integration and strict Clippy. Exact logs and hashes are retained under
+`post-format/`. The frozen aggregate probe is not rerun merely for formatting;
+its pre-format source identity stays separate. Reproduction commands are in
+`commands.txt`.
 
 ## Aggregate endpoint probe
 

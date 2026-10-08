@@ -80,7 +80,8 @@ Clippy pass. The [prepared guarded staging prerequisite](evidence/prepared-stagi
 now connects bounded two-pass pages to variable mutation. All 32 fresh aggregate
 probes (16 modes, one/twelve 1 MiB values) reopen and verify under the unchanged
 8 MiB policy; endpoint snapshots are not peak or timing qualification. Variable,
-ready-vector and affected production checks pass before formatting. Next verify
+ready-vector and affected production checks and strict Clippy pass after the
+tracked formatting hook. Next verify
 the public mixed-capture form lifecycle, then implement full-size typed forms and
 references; broader public integration is separate.
 Keep the security policy and failure evidence; no allocator weakening is implied.

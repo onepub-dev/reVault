@@ -1,0 +1,9 @@
+    Finished `release` profile [optimized] target(s) in 0.09s
+     Running unittests src/lib.rs (target/release/deps/revault_lockbox_api-e3bcc2539127e239)
+
+running 1 test
+test file_format::candidate_files::tests::tree_tests::mutation::typed_tree_payload_reused_writes_recover_without_neighbor_loss ... TYPED_TREE_REUSED_PAYLOAD_FAULTS 792
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 595 filtered out; finished in 24.25s
+
