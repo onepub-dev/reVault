@@ -116,6 +116,16 @@ including Vault containers. `0.4.x` remains format 3 and is isolated from this w
 
 ## Current scorecard
 
+The [October 9 direct tree exporter](evidence/fresh-tree-export-2026-10-09/README.md)
+removes fresh packed-C export's dense-intermediate requirement while preserving
+source authority/retention and fresh-output cleanup. Seven focused tests cover
+all-mode files beyond dense metadata capacity, 93 fault cases and explicit
+refusals; the full format suite passes 248 tests (8 ignored) plus strict Clippy.
+The streamed 64 MiB raw/protected probe is functional capacity evidence only;
+it does not requalify earlier timing, remove experimental count bounds or pass
+public API/CPU/incremental-memory/ZIP gates.
+
+
 The [October 8 owned-byte correction](evidence/decoder-owned-storage-2026-10-08/README.md)
 passes 17 vendor decoder unit tests, 15 workspace tests (1 ignored), no-default-
 features checking, 21 release compression tests, 241 format tests (7 ignored)
@@ -161,17 +171,20 @@ Clippy passing in the main worktree. Four matched before/after cases show no
 material total regression; small read-only cost rises about 0.9%. This fixes a
 pre-existing comparison omission without removing stored-byte authentication.
 The overlap-copy experiment remains rejected for lack of target read benefit.
-The wipe correction covers fresh output and scoped arena storage. Ordinary
-vendor-owned decoder history still deallocates without zeroization; full
-decoder-memory wiping is an explicitly recorded qualification gap.
+The wipe correction covers fresh output and scoped arena storage. At that October 2 checkpoint, ordinary
+vendor-owned decoder history still deallocated without zeroization. The October 8
+owned-byte correction closes those specified release paths; full decoder-derived
+memory wiping remains outside that scoped guarantee.
 
 The [64 MiB transition-built extension](evidence/typed-tree-64m-2026-10-02/README.md)
 adds two matched-compiler retained-control cases without raising source/staging
 caps. Stream tree/C is 0.999 [0.967, 1.033], an inconclusive speed difference;
 range is 0.821 [0.798, 0.844]. Tree/ZIP is 3.081× stream and 15.118× range,
-both failing parity. Fresh export's dense-intermediate admission failure remains;
-this is a different, explicitly recorded construction route through validated
-mutation, not a repaired fresh exporter or a public streaming claim.
+both failing parity. That batch retained fresh export's dense-intermediate
+admission failure and used a different construction route through validated
+mutation. The October 9 adapter now removes that admission failure separately;
+this historical timing batch is not relabeled as the repaired exporter or a
+public streaming claim.
 
 The [pinned Rust 1.88.0 batch](evidence/typed-tree-pinned88-2026-10-02/README.md)
 now supersedes exploratory cross-compiler retained-control comparisons. Six

@@ -6,6 +6,8 @@ use super::dense_image::Image;
 use super::*;
 use crate::file_format::publication_anchor::{shared, FAILURE_REGION, REGION_LEN};
 use shared::tree::{self, Tree};
+mod fresh;
+pub(super) use fresh::from_candidate;
 mod mutation;
 pub(super) use mutation::{remove_files, update_files};
 

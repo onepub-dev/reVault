@@ -1,0 +1,41 @@
+
+running 1 test
+FRESH_TREE_STREAM mode=7 source_bytes=68419584 output_bytes=68026368 logical_bytes=67108864 fragments=1024
+
+thread 'file_format::candidate_files::tests::tree_tests::fresh::fresh_tree_export_streams_sixty_four_mib_without_dense_intermediate' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/fresh.rs:237:9:
+assertion failed: reopened.image.catalogue.dense_body_if_fits(&reopened.image.codec,
+            reopened.image.anchor.sealed_len).unwrap().is_none()
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test file_format::candidate_files::tests::tree_tests::fresh::fresh_tree_export_streams_sixty_four_mib_without_dense_intermediate ... FAILED
+
+failures:
+
+failures:
+    file_format::candidate_files::tests::tree_tests::fresh::fresh_tree_export_streams_sixty_four_mib_without_dense_intermediate
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 579 filtered out; finished in 4.44s
+
+Command exited with non-zero status 101
+	Command being timed: "target/release/deps/revault_lockbox_api-5338344f5af7f73d fresh_tree_export_streams_sixty_four_mib_without_dense_intermediate --ignored --nocapture"
+	User time (seconds): 4.13
+	System time (seconds): 0.30
+	Percent of CPU this job got: 99%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:04.44
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 16688
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 72959
+	Voluntary context switches: 3
+	Involuntary context switches: 55
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 0
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 101

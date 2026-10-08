@@ -3,6 +3,7 @@ use super::super::dense_catalogue::Metadata;
 use super::super::tree_image::{self, TreeImage};
 use super::*;
 use crate::file_format::publication_anchor::{shared, FAILURE_REGION};
+mod fresh;
 mod mutation;
 mod open_reads;
 

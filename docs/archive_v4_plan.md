@@ -32,12 +32,21 @@ wide-write follow-up retained full-capacity erasure and measured 0.970×/0.770×
 0.994×). Residual cost against the original unwiped decoder was not directly
 remeasured; do not multiply ratios across batches or claim archive parity.
 
-Next remove the dense-catalogue intermediate from fresh packed-C-to-typed-tree
-export, using shared verified repacking directly into bounded typed records.
-Preserve source retention, empty-destination cleanup, authority/ownership and
-access-slot refusal; qualify independently reopened files beyond dense capacity.
-Do not replace the 64 KiB bottleneck with a larger serialized intermediate or
-claim experimental count caps establish public product capacity. Public record
+The [October 9 direct tree exporter](evidence/fresh-tree-export-2026-10-09/README.md)
+now bypasses both dense and cost-model serialized intermediates through shared
+audited repacking. Seven focused tests cover all-mode beyond-dense reopen/read,
+93 destination faults, source commitment changes and access/count refusals.
+A file-backed streamed 64 MiB probe covers the original raw capacity failure
+plus compressed/protected cases. The format suite passes 248 tests (8 ignored)
+and strict Clippy. Source retention, full ownership/content verification and
+empty-destination cleanup remain required; experimental count caps are unchanged.
+These are private adapter results, not public activation or resource gate passes.
+
+Next establish secure segmented variable payload storage and authenticated
+membership before broad typed-record/public API integration. Preserve 1 MiB
+values and scoped secure-page/SecretString access: ordinary wipe-on-drop index
+values cannot carry decrypted secret segments. Reproduce the two known native
+failures without weakening selected membership or owner proof. Public record
 semantics, native recovery, architecture selection and complete qualification
 remain unfinished; no further codec micro-tuning is implied by this sequence.
 
@@ -89,7 +98,7 @@ already-computed checksum; fresh fallback errors wipe the entire writable output
 Its separate paired comparison shows no material total regression. Streaming API
 semantics and all architecture decisions remain separate. The subsequent accepted
 FSE arithmetic experiment is summarized above and retains this correction.
-Ordinary vendor-owned decoder history remains outside the output/arena wipe
+At that October 2 checkpoint, ordinary vendor-owned decoder history remained outside the output/arena wipe
 correction and still deallocates without zeroization; full decoder-memory wiping
 requires separate qualification.
 

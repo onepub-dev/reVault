@@ -76,6 +76,34 @@ impl<'a> Cursor<'a> {
     }
 }
 impl Catalogue {
+    /// Build directly from the shared audited repacker; no dense body is created.
+    /// Keep explicit experimental count limits even when metadata uses a tree.
+    pub(super) fn from_repacked(
+        files: Vec<File>,
+        packs: Vec<Pack>,
+        codec: &Codec,
+        sealed: u64,
+    ) -> Result<Self> {
+        if files.len() > MAX_MODEL_FILES
+            || packs.len() > MAX_FRAGMENTS
+            || files.iter().map(|file| file.fragments.len()).sum::<usize>() > MAX_FRAGMENTS
+        {
+            return Err(Error::SecurityLimitExceeded(
+                "fresh tree repacking count budget".into(),
+            ));
+        }
+        let mut catalogue = Self {
+            legacy: false,
+            typed: false,
+            nodes: Vec::new(),
+            vacant: Vec::new(),
+            files,
+            packs,
+        };
+        catalogue.validate_fragments(codec, sealed)?;
+        Ok(catalogue)
+    }
+
     pub fn decode(body: &[u8], codec: &Codec, sealed: u64) -> Result<Self> {
         if body.len() > MAX_BODY || sealed < REGION_LEN as u64 {
             return Err(Error::CorruptRecord);

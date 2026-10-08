@@ -30,6 +30,57 @@ struct Pack {
     extent: Extent,
     padding_digest: [u8; 32],
 }
+
+/// Audited encoded fragments and bounded metadata, without a serialized catalogue.
+/// Payload copying has completed, but publication and fresh-destination cleanup
+/// remain the caller's responsibility.
+pub(super) struct Repacked {
+    files: Vec<File>,
+    packs: Vec<Pack>,
+    end: u64,
+    chunks: usize,
+    total_stored: u64,
+    largest_pack_logical: u64,
+    largest_fragment: u32,
+}
+impl Repacked {
+    pub(super) fn end(&self) -> u64 {
+        self.end
+    }
+
+    pub(super) fn into_catalogue(self, codec: &Codec) -> Result<super::dense_catalogue::Catalogue> {
+        use super::dense_catalogue;
+        let files = self
+            .files
+            .into_iter()
+            .map(|file| dense_catalogue::File {
+                path: file.path,
+                permissions: 0o644,
+                info: file.info,
+                fragments: file
+                    .fragments
+                    .into_iter()
+                    .map(|fragment| dense_catalogue::Fragment {
+                        descriptor: fragment.descriptor,
+                        pack: fragment.pack,
+                        relative: fragment.relative,
+                        digest: fragment.source.digest,
+                    })
+                    .collect(),
+            })
+            .collect();
+        let packs = self
+            .packs
+            .into_iter()
+            .map(|pack| dense_catalogue::Pack {
+                extent: pack.extent,
+                padding_digest: pack.padding_digest,
+                used: 0,
+            })
+            .collect();
+        dense_catalogue::Catalogue::from_repacked(files, packs, codec, self.end)
+    }
+}
 fn uint(out: &mut Vec<u8>, mut n: u64) {
     while n >= 128 {
         out.push(n as u8 | 128);
@@ -72,9 +123,116 @@ pub(super) fn project<S: Storage>(archive: &mut Files<S>) -> Result<Value> {
 }
 pub(super) fn project_into<S: Storage>(
     archive: &mut Files<S>,
-    mut emit: impl FnMut(Extent, &[u8]) -> Result<()>,
+    emit: impl FnMut(Extent, &[u8]) -> Result<()>,
     mut catalogue: impl FnMut(&[u8]) -> Result<()>,
 ) -> Result<Value> {
+    let Repacked {
+        files,
+        packs,
+        end,
+        chunks,
+        total_stored,
+        largest_pack_logical,
+        largest_fragment,
+    } = repack_into(archive, emit)?;
+
+    let mut body = ZeroizingBytes::new(Vec::with_capacity(1024 * 1024));
+    body.extend_from_slice(b"RV4COST1");
+    uint(&mut body, files.len() as u64);
+    for file in &files {
+        // Reserve was made before private bytes were copied. Refuse before any
+        // operation could grow/reallocate that private buffer beyond its budget.
+        if body.len() + file.path.len() + 128 + file.fragments.len() * 64 > 1024 * 1024 {
+            return Err(Error::SecurityLimitExceeded(
+                "cost model catalogue budget".into(),
+            ));
+        }
+        body.push(1); // File kind; real directory/symlink semantics remain absent.
+        body.extend_from_slice(&0o644u32.to_le_bytes()); // Explicit synthetic permission cost.
+        uint(&mut body, file.path.len() as u64);
+        body.extend_from_slice(&file.path);
+        body.extend_from_slice(&file.info.id);
+        uint(&mut body, file.info.len);
+        uint(&mut body, file.info.unit as u64);
+        body.extend_from_slice(&file.info.digest);
+        uint(&mut body, file.fragments.len() as u64);
+        for fragment in &file.fragments {
+            uint(&mut body, fragment.pack as u64);
+            uint(&mut body, fragment.relative as u64);
+            // Encoded length, stored length and codec remain explicit. Logical
+            // binding fields are reconstructed and checked above, not discarded.
+            body.extend_from_slice(&fragment.descriptor.encode()[44..53]);
+            body.extend_from_slice(&fragment.source.digest);
+        }
+    }
+    if body.len() + 20 + packs.len() * 96 > 1024 * 1024 {
+        return Err(Error::SecurityLimitExceeded(
+            "cost model pack-table budget".into(),
+        ));
+    }
+    uint(&mut body, packs.len() as u64);
+    for pack in &packs {
+        body.extend_from_slice(&pack.extent.start.to_le_bytes());
+        uint(&mut body, pack.extent.len);
+        body.extend_from_slice(&pack.extent.digest);
+        body.extend_from_slice(&pack.padding_digest);
+    }
+    uint(&mut body, 0); // Fresh compacted image: no external free/pending ranges.
+    if body.len() > 1024 * 1024 {
+        return Err(Error::SecurityLimitExceeded(
+            "cost model catalogue budget".into(),
+        ));
+    }
+    let (codec, encoded) =
+        encode_with_compression(&body, archive.anchor.mode.options().compression);
+    let encoded = ZeroizingBytes::new(encoded);
+    let decoder_window = body.len().next_power_of_two().max(REGION);
+    if codec == COMPRESSION_NONE {
+        if encoded.as_slice() != body.as_slice() {
+            return Err(Error::CorruptRecord);
+        }
+    } else {
+        let required = StaticDecoderWorkspace::required_size(decoder_window, 0)
+            .map_err(|_| Error::CorruptRecord)?;
+        let mut scratch = ZeroizingBytes::new(vec![0; required]);
+        let mut output = ZeroizingBytes::new(vec![0; body.len()]);
+        let mut decoder = StaticDecoderWorkspace::new(&mut scratch, decoder_window, 0)
+            .map_err(|_| Error::CorruptRecord)?;
+        if decoder
+            .decode_into(&encoded, &mut output)
+            .map_err(|_| Error::CorruptRecord)?
+            != body.len()
+            || output.as_slice() != body.as_slice()
+        {
+            return Err(Error::CorruptRecord);
+        }
+    }
+    // The shared envelope needs a 44-byte header, 12-byte private length/codec
+    // header and a 16-byte tag. The tag budget is conservative for plaintext.
+    let fits = body.len() <= REGION && encoded.len() + 72 <= PRIVATE_SLOT;
+    let payload = end - (2 * REGION) as u64;
+    if fits {
+        catalogue(&body)?;
+    }
+    Ok(json!({
+        "kind":"whole_layout_cost_model","source_archive_bytes":archive.storage.len()?,
+        "files":files.len(),"fragments":chunks,"physical_packs":packs.len(),
+        "stored_fragment_bytes":total_stored,"pack_padding_bytes":payload-total_stored,
+        "payload_allocation_bytes":payload,"largest_fragment_decoded_bytes":largest_fragment,
+        "largest_pack_logical_bytes":largest_pack_logical,"max_members_per_pack":MAX_MEMBERS,
+        "catalogue_plain_bytes":body.len(),"catalogue_encoded_bytes":encoded.len(),
+        "catalogue_codec":codec,"catalogue_decoder_window":decoder_window,"inline_private_slot_bytes":PRIVATE_SLOT,
+        "control_regions":2,"control_region_bytes":REGION,"inline_catalogue_fits":fits,
+        "projected_compacted_bytes":if fits { Some(end) } else { None },
+        "metadata_roundtrip_verified":true,"descriptor_binding_preserved":true,
+        "scope":"cost-only, no persisted archive, bootstrap/overflow journal/ownership/publication protocol not implemented"
+    }))
+}
+
+pub(super) fn repack_into<S: Storage>(
+    archive: &mut Files<S>,
+    mut emit: impl FnMut(Extent, &[u8]) -> Result<()>,
+) -> Result<Repacked> {
     archive.audit_with(true)?;
     let mut files = Vec::<File>::new();
     let mut identities = BTreeMap::new();
@@ -177,95 +335,13 @@ pub(super) fn project_into<S: Storage>(
     }
     finish_pack(&archive.codec, &mut packed, &mut packs, &mut end, &mut emit)?;
 
-    let mut body = ZeroizingBytes::new(Vec::with_capacity(1024 * 1024));
-    body.extend_from_slice(b"RV4COST1");
-    uint(&mut body, files.len() as u64);
-    for file in &files {
-        // Reserve was made before private bytes were copied. Refuse before any
-        // operation could grow/reallocate that private buffer beyond its budget.
-        if body.len() + file.path.len() + 128 + file.fragments.len() * 64 > 1024 * 1024 {
-            return Err(Error::SecurityLimitExceeded(
-                "cost model catalogue budget".into(),
-            ));
-        }
-        body.push(1); // File kind; real directory/symlink semantics remain absent.
-        body.extend_from_slice(&0o644u32.to_le_bytes()); // Explicit synthetic permission cost.
-        uint(&mut body, file.path.len() as u64);
-        body.extend_from_slice(&file.path);
-        body.extend_from_slice(&file.info.id);
-        uint(&mut body, file.info.len);
-        uint(&mut body, file.info.unit as u64);
-        body.extend_from_slice(&file.info.digest);
-        uint(&mut body, file.fragments.len() as u64);
-        for fragment in &file.fragments {
-            uint(&mut body, fragment.pack as u64);
-            uint(&mut body, fragment.relative as u64);
-            // Encoded length, stored length and codec remain explicit. Logical
-            // binding fields are reconstructed and checked above, not discarded.
-            body.extend_from_slice(&fragment.descriptor.encode()[44..53]);
-            body.extend_from_slice(&fragment.source.digest);
-        }
-    }
-    if body.len() + 20 + packs.len() * 96 > 1024 * 1024 {
-        return Err(Error::SecurityLimitExceeded(
-            "cost model pack-table budget".into(),
-        ));
-    }
-    uint(&mut body, packs.len() as u64);
-    for pack in &packs {
-        body.extend_from_slice(&pack.extent.start.to_le_bytes());
-        uint(&mut body, pack.extent.len);
-        body.extend_from_slice(&pack.extent.digest);
-        body.extend_from_slice(&pack.padding_digest);
-    }
-    uint(&mut body, 0); // Fresh compacted image: no external free/pending ranges.
-    if body.len() > 1024 * 1024 {
-        return Err(Error::SecurityLimitExceeded(
-            "cost model catalogue budget".into(),
-        ));
-    }
-    let (codec, encoded) =
-        encode_with_compression(&body, archive.anchor.mode.options().compression);
-    let encoded = ZeroizingBytes::new(encoded);
-    let decoder_window = body.len().next_power_of_two().max(REGION);
-    if codec == COMPRESSION_NONE {
-        if encoded.as_slice() != body.as_slice() {
-            return Err(Error::CorruptRecord);
-        }
-    } else {
-        let required = StaticDecoderWorkspace::required_size(decoder_window, 0)
-            .map_err(|_| Error::CorruptRecord)?;
-        let mut scratch = ZeroizingBytes::new(vec![0; required]);
-        let mut output = ZeroizingBytes::new(vec![0; body.len()]);
-        let mut decoder = StaticDecoderWorkspace::new(&mut scratch, decoder_window, 0)
-            .map_err(|_| Error::CorruptRecord)?;
-        if decoder
-            .decode_into(&encoded, &mut output)
-            .map_err(|_| Error::CorruptRecord)?
-            != body.len()
-            || output.as_slice() != body.as_slice()
-        {
-            return Err(Error::CorruptRecord);
-        }
-    }
-    // The shared envelope needs a 44-byte header, 12-byte private length/codec
-    // header and a 16-byte tag. The tag budget is conservative for plaintext.
-    let fits = body.len() <= REGION && encoded.len() + 72 <= PRIVATE_SLOT;
-    let payload = end - (2 * REGION) as u64;
-    if fits {
-        catalogue(&body)?;
-    }
-    Ok(json!({
-        "kind":"whole_layout_cost_model","source_archive_bytes":archive.storage.len()?,
-        "files":files.len(),"fragments":chunks,"physical_packs":packs.len(),
-        "stored_fragment_bytes":total_stored,"pack_padding_bytes":payload-total_stored,
-        "payload_allocation_bytes":payload,"largest_fragment_decoded_bytes":largest_fragment,
-        "largest_pack_logical_bytes":largest_pack_logical,"max_members_per_pack":MAX_MEMBERS,
-        "catalogue_plain_bytes":body.len(),"catalogue_encoded_bytes":encoded.len(),
-        "catalogue_codec":codec,"catalogue_decoder_window":decoder_window,"inline_private_slot_bytes":PRIVATE_SLOT,
-        "control_regions":2,"control_region_bytes":REGION,"inline_catalogue_fits":fits,
-        "projected_compacted_bytes":if fits { Some(end) } else { None },
-        "metadata_roundtrip_verified":true,"descriptor_binding_preserved":true,
-        "scope":"cost-only, no persisted archive, bootstrap/overflow journal/ownership/publication protocol not implemented"
-    }))
+    Ok(Repacked {
+        files,
+        packs,
+        end,
+        chunks,
+        total_stored,
+        largest_pack_logical,
+        largest_fragment,
+    })
 }
