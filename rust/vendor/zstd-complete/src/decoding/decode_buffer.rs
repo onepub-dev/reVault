@@ -1,3 +1,4 @@
+use super::wiping::WipingBytes;
 use crate::io::{Error, Read, Write};
 use crate::workspace::ReusableVec;
 use alloc::vec::Vec;
@@ -10,7 +11,7 @@ use crate::decoding::errors::DecodeBufferError;
 
 pub struct DecodeBuffer {
     buffer: RingBuffer,
-    pub dict_content: ReusableVec<u8>,
+    pub dict_content: WipingBytes,
 
     pub window_size: usize,
     total_output_counter: u64,
@@ -37,7 +38,7 @@ impl DecodeBuffer {
     pub fn new(window_size: usize) -> DecodeBuffer {
         DecodeBuffer {
             buffer: RingBuffer::new(),
-            dict_content: ReusableVec::new(),
+            dict_content: WipingBytes::new(),
             window_size,
             total_output_counter: 0,
             #[cfg(feature = "hash")]
@@ -51,7 +52,7 @@ impl DecodeBuffer {
     ) -> Self {
         Self {
             buffer: RingBuffer::from_static_storage(history),
-            dict_content: dictionary,
+            dict_content: WipingBytes::from_static(dictionary),
             window_size: 0,
             total_output_counter: 0,
             #[cfg(feature = "hash")]

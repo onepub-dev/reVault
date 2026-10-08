@@ -50,6 +50,18 @@ impl RingBuffer {
         }
     }
 
+    fn wipe_owned_allocation(&mut self) {
+        #[cfg(all(test, feature = "std"))]
+        {
+            let (first, second) = self.as_slices();
+            super::wiping::note_initialized(first);
+            super::wiping::note_initialized(second);
+        }
+        // SAFETY: only owned release/reallocation paths call this helper; the
+        // exclusive allocation is still live, including spare and sentinel bytes.
+        unsafe { super::wiping::wipe_allocation(self.buf.as_ptr(), self.cap) };
+    }
+
     /// Return the number of bytes in the buffer.
     pub fn len(&self) -> usize {
         let (x, y) = self.data_slice_lengths();
@@ -125,6 +137,7 @@ impl RingBuffer {
                     .as_ptr()
                     .add(s1_len)
                     .copy_from_nonoverlapping(s2_ptr, s2_len);
+                self.wipe_owned_allocation();
                 dealloc(self.buf.as_ptr(), current_layout);
             }
 
@@ -590,6 +603,7 @@ impl Drop for RingBuffer {
         let current_layout = unsafe { Layout::array::<u8>(self.cap).unwrap_unchecked() };
 
         unsafe {
+            self.wipe_owned_allocation();
             dealloc(self.buf.as_ptr(), current_layout);
         }
     }

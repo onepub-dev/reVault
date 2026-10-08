@@ -1,8 +1,27 @@
 use super::scratch::DecoderScratch;
 use crate::decoding::errors::ExecuteSequencesError;
 
+fn block_output_length(
+    literals: usize,
+    mut matches: impl Iterator<Item = usize>,
+) -> Result<usize, ExecuteSequencesError> {
+    let length = matches
+        .try_fold(literals, |total, length| total.checked_add(length))
+        .ok_or(ExecuteSequencesError::BlockOutputTooLarge)?;
+    if length > crate::common::MAX_BLOCK_SIZE as usize {
+        return Err(ExecuteSequencesError::BlockOutputTooLarge);
+    }
+    Ok(length)
+}
+
 /// Take the provided decoder and execute the sequences stored within
 pub fn execute_sequences(scratch: &mut DecoderScratch) -> Result<(), ExecuteSequencesError> {
+    // Reject impossible decoded blocks before history writes or offset updates.
+    // The bound includes all literal bytes (also the unsequenced final suffix).
+    block_output_length(
+        scratch.literals_buffer.len(),
+        scratch.sequences.iter().map(|seq| seq.ml as usize),
+    )?;
     let mut literals_copy_counter = 0;
     let old_buffer_size = scratch.buffer.len();
     let mut seq_sum = 0;
@@ -112,4 +131,73 @@ fn do_offset_history(offset_value: u32, lit_len: u32, scratch: &mut [u32; 3]) ->
     }
 
     actual_offset
+}
+
+#[cfg(test)]
+mod bound_tests {
+    use super::*;
+    use crate::blocks::sequence_section::Sequence;
+    use crate::workspace::Arena;
+    use alloc::vec;
+    use core::mem::MaybeUninit;
+
+    fn exercise(scratch: &mut DecoderScratch) {
+        let maximum = crate::common::MAX_BLOCK_SIZE;
+        for matches in [maximum - 1, maximum, u32::MAX] {
+            scratch.reset(0);
+            scratch.literals_buffer.extend_from_slice(b"x");
+            scratch.sequences.push(Sequence {
+                ll: 1,
+                ml: matches,
+                of: 1,
+            });
+            let before_offsets = scratch.offset_hist;
+            let result = execute_sequences(scratch);
+            if matches == maximum - 1 {
+                result.unwrap();
+                let decoded = scratch.buffer.drain();
+                assert_eq!(decoded.len(), maximum as usize);
+                assert!(decoded.iter().all(|byte| *byte == b'x'));
+            } else {
+                assert!(matches!(
+                    result,
+                    Err(ExecuteSequencesError::BlockOutputTooLarge)
+                ));
+                assert_eq!(scratch.buffer.len(), 0);
+                assert_eq!(scratch.offset_hist, before_offsets);
+            }
+        }
+    }
+
+    #[test]
+    fn sequence_block_limits_precede_owned_and_static_history_mutation() {
+        exercise(&mut DecoderScratch::new(0));
+        let required = DecoderScratch::workspace_size(1, 0).unwrap();
+        let mut memory = vec![MaybeUninit::new(0x6d); required + 32];
+        {
+            let mut arena = Arena::new(&mut memory[16..required + 16]);
+            let mut scratch = DecoderScratch::new_in(&mut arena, 1, 0).unwrap();
+            exercise(&mut scratch);
+        }
+        for byte in memory[..16].iter().chain(&memory[required + 16..]) {
+            // SAFETY: canaries were initialized and are outside the arena.
+            assert_eq!(unsafe { byte.assume_init() }, 0x6d);
+        }
+    }
+
+    #[test]
+    fn sequence_block_length_rejects_arithmetic_overflow() {
+        assert!(matches!(
+            block_output_length(usize::MAX, [1].iter().copied()),
+            Err(ExecuteSequencesError::BlockOutputTooLarge)
+        ));
+        assert!(matches!(
+            block_output_length(0, [usize::MAX, 1].iter().copied()),
+            Err(ExecuteSequencesError::BlockOutputTooLarge)
+        ));
+        assert_eq!(
+            block_output_length(1, [131071].iter().copied()).unwrap(),
+            131072
+        );
+    }
 }

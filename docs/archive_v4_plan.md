@@ -17,14 +17,22 @@ retain their exact bytes under `.rs.txt` names to protect them from formatting.
 Historical `/tmp` benchmark artifacts are unavailable in this environment;
 new comparisons must rebuild matched controls and retain their own identities.
 
-The next bounded correctness tranche qualifies wiping of the ordinary decoder's
-owned plaintext history/literal buffers on release and reallocation, as specified
-by the final decoder evidence. The codec has no archive-mode context: protected
-archives also pass decrypted bytes through it. Keep caller-owned scoped scratch
-semantics and distinguish byte-buffer wiping from unqualified entropy/sequence
-metadata. This is not another attempt to close the ZIP gap by micro-tuning;
-public record semantics, native recovery, architecture selection and complete
-qualification remain separate unfinished work.
+The [owned decoder storage correction](evidence/decoder-owned-storage-2026-10-08/README.md)
+now wipes specified owned byte allocations on growth/release and rejects excess
+literal/sequence block output before static storage can overflow. It passes 17
+vendor decoder unit tests, 15 workspace tests (1 ignored), no-default-features
+checking and the unchanged archive compression/format/Clippy suites. This is a
+scoped byte-buffer guarantee, not full entropy/sequence/caller-memory wiping.
+The matched codec-only cost batch and post-format checks remain separate steps.
+
+Next remove the dense-catalogue intermediate from fresh packed-C-to-typed-tree
+export, using shared verified repacking directly into bounded typed records.
+Preserve source retention, empty-destination cleanup, authority/ownership and
+access-slot refusal; qualify independently reopened files beyond dense capacity.
+Do not replace the 64 KiB bottleneck with a larger serialized intermediate or
+claim experimental count caps establish public product capacity. Public record
+semantics, native recovery, architecture selection and complete qualification
+remain unfinished; no further codec micro-tuning is implied by this sequence.
 
 ### Local implementation checkpoint — 2026-10-02
 

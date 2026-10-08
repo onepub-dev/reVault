@@ -53,3 +53,11 @@ were unavailable in this resumed environment. Repository evidence remains intact
 this does not re-create or revalidate the historical measurements. A new cost
 comparison must rebuild matched baseline/current executables and identical
 fixtures, record the current host/toolchain, and retain its own artifacts.
+
+## Committed checkpoint and post-format verification
+
+Checkpoint `f1dcc2f7` was committed through the tracked hook, which formatted
+27 staged Rust files. Post-format reruns pass the same 21 compression tests,
+241 format tests (7 ignored), strict Clippy, 13 vendor workspace tests (1 ignored)
+and the exhaustive FSE equivalence test. The latter took 0.41 seconds after a
+3.47-second rebuild. The `postformat-*.log` files retain those results.

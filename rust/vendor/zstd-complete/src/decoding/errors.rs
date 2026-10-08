@@ -601,6 +601,7 @@ pub enum DecompressLiteralsError {
     ExtraPadding { skipped_bits: i32 },
     BitstreamReadMismatch { read_til: isize, expected: isize },
     DecodedLiteralCountMismatch { decoded: usize, expected: usize },
+    TooManyLiterals { declared: u32 },
 }
 
 #[cfg(feature = "std")]
@@ -656,10 +657,16 @@ impl core::fmt::Display for DecompressLiteralsError {
                     "Bitstream was read till: {read_til}, should have been: {expected}",
                 )
             }
+            DecompressLiteralsError::TooManyLiterals { declared } => {
+                write!(
+                    f,
+                    "Declared literal size {declared} exceeds the 128 KiB block limit"
+                )
+            }
             DecompressLiteralsError::DecodedLiteralCountMismatch { decoded, expected } => {
                 write!(
                     f,
-                    "Did not decode enough literals: {decoded}, Should have been: {expected}",
+                    "Decoded literal count mismatch: {decoded}, expected: {expected}",
                 )
             }
         }
@@ -687,6 +694,7 @@ impl From<HuffmanTableError> for DecompressLiteralsError {
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum ExecuteSequencesError {
+    BlockOutputTooLarge,
     DecodebufferError(DecodeBufferError),
     NotEnoughBytesForSequence { wanted: usize, have: usize },
     ZeroOffset,
@@ -695,6 +703,9 @@ pub enum ExecuteSequencesError {
 impl core::fmt::Display for ExecuteSequencesError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
+            ExecuteSequencesError::BlockOutputTooLarge => {
+                write!(f, "Decoded sequence output exceeds the 128 KiB block limit")
+            }
             ExecuteSequencesError::DecodebufferError(e) => {
                 write!(f, "{e:?}")
             }

@@ -35,9 +35,9 @@ fresh fallback decode errors, ensuring partial output is wiped. That change is
 outside this vendor directory. Both consumer wrappers also reject declared-length
 mismatches before transferring output out of the zeroizing guard. See the
 [checksum/wiping evidence](../../docs/evidence/decoder-checksum-2026-10-02/README.md).
-This does not cover the ordinary vendor decoder's owned internal history:
-`RingBuffer` and owned `ReusableVec` retain their pre-existing non-zeroizing
-deallocation behavior. Full decoder-memory wiping remains unqualified.
+That October 2 correction did not cover ordinary decoder-owned internal history.
+The subsequent October 8 owned-byte correction below closes specified release
+paths; full decoder-memory wiping remains unqualified.
 
 ## FSE decoding-table arithmetic
 
@@ -56,6 +56,23 @@ parity. Unexplained process RSS and raw open-time shifts are not claimed as gain
 
 An overlapping-copy experiment was rejected for lack of demonstrated read
 benefit and is not included in this vendor copy.
+
+## Owned byte release and decoded-block bounds — 2026-10-08
+
+Owned history, literal/block byte buffers and decoder-owned dictionary contents
+now wipe full capacity before replacement/deallocation. Controlled byte storage
+prevents hidden Vec reallocations. Caller-owned workspace policy and the public
+Dictionary API remain unchanged. Entropy/sequence metadata, caller-owned data
+and process abort are outside this scoped claim. No per-block wipe or mode-based
+bypass is introduced; protected archives also pass decrypted data to this codec.
+
+Separate literal-size/count and checked sequence-output bounds reject decoded
+blocks beyond 128 KiB before static storage can grow. Short literal inputs return
+errors before slicing. Valid multi-block frames remain supported. Tests observe
+known live bytes before erasure and zeros before free, plus owned/static error
+paths, canaries and allocation-free static decoding. See the
+[owned-storage evidence](../../docs/evidence/decoder-owned-storage-2026-10-08/README.md)
+for exact limits, qualification and the declared combined cost comparison.
 
 ## Release boundary
 

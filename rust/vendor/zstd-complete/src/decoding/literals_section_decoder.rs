@@ -3,21 +3,100 @@
 
 use super::super::blocks::literals_section::{LiteralsSection, LiteralsSectionType};
 use super::scratch::HuffmanScratch;
+use super::wiping::WipingBytes;
 use crate::bit_io::BitReaderReversed;
+use crate::common::MAX_BLOCK_SIZE;
 use crate::decoding::errors::DecompressLiteralsError;
 use crate::huff0::HuffmanDecoder;
 use alloc::vec::Vec;
 
+// Keep Vec-backed internal encoder tests usable without exposing a mutable Vec
+// facade from decoder-owned plaintext storage.
+pub(crate) trait LiteralOutput {
+    fn len(&self) -> usize;
+    fn reserve(&mut self, additional: usize);
+    fn extend_bytes(&mut self, bytes: &[u8]);
+    fn resize(&mut self, length: usize, byte: u8);
+    fn push(&mut self, byte: u8);
+}
+impl LiteralOutput for Vec<u8> {
+    fn len(&self) -> usize {
+        Vec::len(self)
+    }
+    fn reserve(&mut self, additional: usize) {
+        Vec::reserve(self, additional);
+    }
+    fn extend_bytes(&mut self, bytes: &[u8]) {
+        self.extend_from_slice(bytes);
+    }
+    fn resize(&mut self, length: usize, byte: u8) {
+        Vec::resize(self, length, byte);
+    }
+    fn push(&mut self, byte: u8) {
+        Vec::push(self, byte);
+    }
+}
+impl LiteralOutput for WipingBytes {
+    fn len(&self) -> usize {
+        self.as_slice().len()
+    }
+    fn reserve(&mut self, additional: usize) {
+        WipingBytes::reserve(self, additional);
+    }
+    fn extend_bytes(&mut self, bytes: &[u8]) {
+        self.extend_from_slice(bytes);
+    }
+    fn resize(&mut self, length: usize, byte: u8) {
+        WipingBytes::resize(self, length, byte);
+    }
+    fn push(&mut self, byte: u8) {
+        WipingBytes::push(self, byte);
+    }
+}
+
+fn push_literal(
+    target: &mut impl LiteralOutput,
+    byte: u8,
+    expected: usize,
+) -> Result<(), DecompressLiteralsError> {
+    if target.len() >= expected {
+        return Err(DecompressLiteralsError::DecodedLiteralCountMismatch {
+            decoded: target.len().saturating_add(1),
+            expected,
+        });
+    }
+    target.push(byte);
+    Ok(())
+}
+
 /// Decode and decompress the provided literals section into `target`, returning the number of bytes read.
-pub fn decode_literals(
+pub(crate) fn decode_literals(
     section: &LiteralsSection,
     scratch: &mut HuffmanScratch,
     source: &[u8],
-    target: &mut Vec<u8>,
+    target: &mut impl LiteralOutput,
 ) -> Result<u32, DecompressLiteralsError> {
+    if section.regenerated_size > MAX_BLOCK_SIZE {
+        return Err(DecompressLiteralsError::TooManyLiterals {
+            declared: section.regenerated_size,
+        });
+    }
+    let needed = match section.ls_type {
+        LiteralsSectionType::Raw => section.regenerated_size as usize,
+        LiteralsSectionType::RLE => 1,
+        _ => section
+            .compressed_size
+            .ok_or(DecompressLiteralsError::MissingCompressedSize)? as usize,
+    };
+    if source.len() < needed {
+        return Err(DecompressLiteralsError::MissingBytesForLiterals {
+            got: source.len(),
+            needed,
+        });
+    }
     match section.ls_type {
         LiteralsSectionType::Raw => {
-            target.extend(&source[0..section.regenerated_size as usize]);
+            target.extend_bytes(&source[0..section.regenerated_size as usize]);
             Ok(section.regenerated_size)
         }
         LiteralsSectionType::RLE => {
@@ -41,7 +120,7 @@ fn decompress_literals(
     section: &LiteralsSection,
     scratch: &mut HuffmanScratch,
     source: &[u8],
-    target: &mut Vec<u8>,
+    target: &mut impl LiteralOutput,
 ) -> Result<u32, DecompressLiteralsError> {
     use DecompressLiteralsError as err;
 
@@ -110,7 +189,11 @@ fn decompress_literals(
             decoder.init_state(&mut br);
 
             while br.bits_remaining() > -(scratch.table.max_num_bits as isize) {
-                target.push(decoder.decode_symbol());
+                push_literal(
+                    target,
+                    decoder.decode_symbol(),
+                    section.regenerated_size as usize,
+                )?;
                 decoder.next_state(&mut br);
             }
             if br.bits_remaining() != -(scratch.table.max_num_bits as isize) {
@@ -141,7 +224,11 @@ fn decompress_literals(
         }
         decoder.init_state(&mut br);
         while br.bits_remaining() > -(scratch.table.max_num_bits as isize) {
-            target.push(decoder.decode_symbol());
+            push_literal(
+                target,
+                decoder.decode_symbol(),
+                section.regenerated_size as usize,
+            )?;
             decoder.next_state(&mut br);
         }
         bytes_read += source.len() as u32;
@@ -155,4 +242,44 @@ fn decompress_literals(
     }
 
     Ok(bytes_read)
+}
+
+#[cfg(test)]
+mod bounds_tests {
+    use super::*;
+    use alloc::vec;
+
+    #[test]
+    fn short_literal_sources_return_errors_before_output_changes() {
+        for kind in [
+            LiteralsSectionType::Raw,
+            LiteralsSectionType::RLE,
+            LiteralsSectionType::Compressed,
+        ] {
+            let mut section = LiteralsSection::new();
+            section.ls_type = kind;
+            section.regenerated_size = 1;
+            section.compressed_size = Some(1);
+            let mut scratch = HuffmanScratch::new();
+            let mut output = vec![0x6d];
+            assert!(matches!(
+                decode_literals(&section, &mut scratch, &[], &mut output),
+                Err(DecompressLiteralsError::MissingBytesForLiterals { got: 0, needed: 1 })
+            ));
+            assert_eq!(output, [0x6d]);
+        }
+    }
+
+    #[test]
+    fn excessive_literal_header_rejected_before_reserving() {
+        let mut section = LiteralsSection::new();
+        section.ls_type = LiteralsSectionType::RLE;
+        section.regenerated_size = MAX_BLOCK_SIZE + 1;
+        let mut output = Vec::new();
+        assert!(matches!(
+            decode_literals(&section, &mut HuffmanScratch::new(), &[0xab], &mut output),
+            Err(DecompressLiteralsError::TooManyLiterals { .. })
+        ));
+        assert_eq!(output.capacity(), 0);
+    }
 }

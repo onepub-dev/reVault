@@ -2,6 +2,7 @@
 
 use super::super::blocks::sequence_section::Sequence;
 use super::decode_buffer::DecodeBuffer;
+use super::wiping::WipingBytes;
 use crate::decoding::dictionary::Dictionary;
 use crate::decoding::dictionary::MAGIC_NUM;
 use crate::decoding::errors::DictionaryDecodeError;
@@ -31,9 +32,9 @@ pub struct DecoderScratch {
     pub buffer: DecodeBuffer,
     pub offset_hist: [u32; 3],
 
-    pub literals_buffer: ReusableVec<u8>,
+    pub literals_buffer: WipingBytes,
     pub sequences: ReusableVec<Sequence>,
-    pub block_content_buffer: ReusableVec<u8>,
+    pub block_content_buffer: WipingBytes,
 }
 
 impl DecoderScratch {
@@ -53,8 +54,8 @@ impl DecoderScratch {
             buffer: DecodeBuffer::new(window_size),
             offset_hist: [1, 4, 8],
 
-            block_content_buffer: ReusableVec::new(),
-            literals_buffer: ReusableVec::new(),
+            block_content_buffer: WipingBytes::new(),
+            literals_buffer: WipingBytes::new(),
             sequences: ReusableVec::new(),
         }
     }
@@ -86,8 +87,10 @@ impl DecoderScratch {
             },
             buffer: DecodeBuffer::from_static_storage(history, dictionary),
             offset_hist: [1, 4, 8],
-            block_content_buffer: arena.allocate_reusable_vec(block_size)?,
-            literals_buffer: arena.allocate_reusable_vec(block_size)?,
+            block_content_buffer: WipingBytes::from_static(
+                arena.allocate_reusable_vec(block_size)?,
+            ),
+            literals_buffer: WipingBytes::from_static(arena.allocate_reusable_vec(block_size)?),
             sequences: arena.allocate_reusable_vec(MAX_ENCODED_SEQUENCES)?,
         })
     }

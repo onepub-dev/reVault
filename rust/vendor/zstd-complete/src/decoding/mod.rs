@@ -5,6 +5,7 @@ mod frame_decoder;
 #[cfg(feature = "std")]
 mod multi_frame_decoder;
 mod streaming_decoder;
+mod wiping;
 mod workspace;
 
 pub use dictionary::Dictionary;

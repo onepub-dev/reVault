@@ -116,6 +116,14 @@ including Vault containers. `0.4.x` remains format 3 and is isolated from this w
 
 ## Current scorecard
 
+The [October 8 owned-byte correction](evidence/decoder-owned-storage-2026-10-08/README.md)
+passes 17 vendor decoder unit tests, 15 workspace tests (1 ignored), no-default-
+features checking, 21 release compression tests, 241 format tests (7 ignored)
+and strict Clippy. Owned byte releases and decoded-block bounds are now tested;
+full decoder-derived memory wiping is not claimed. The declared codec-only cost
+batch will include both corrections and cannot establish an A3/A4 archive pass.
+
+
 The [October 8 resumed checkpoint](evidence/resume-2026-10-08/README.md)
 reproduces 21 compression tests, 241 format tests (7 ignored), strict Clippy and
 13 vendor workspace tests (1 ignored), using Rust 1.88.0. This is regression

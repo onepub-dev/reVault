@@ -148,6 +148,26 @@ impl FrameDecoderState {
     }
 }
 
+// Dictionary remains a public Vec-backed type. Only allocations transferred
+// into this decoder's private map are covered here; caller-held dictionaries
+// retain their caller's memory policy and public field/move behavior.
+fn wipe_dictionary_content(dict: &mut Dictionary) {
+    #[cfg(all(test, feature = "std"))]
+    super::wiping::note_initialized(&dict.dict_content);
+    // SAFETY: the decoder exclusively owns this live Vec and its full capacity.
+    unsafe {
+        super::wiping::wipe_allocation(dict.dict_content.as_mut_ptr(), dict.dict_content.capacity())
+    };
+}
+
+impl Drop for FrameDecoder {
+    fn drop(&mut self) {
+        for dictionary in self.dicts.values_mut() {
+            wipe_dictionary_content(dictionary);
+        }
+    }
+}
+
 impl Default for FrameDecoder {
     fn default() -> Self {
         Self::new()
@@ -267,7 +287,9 @@ impl FrameDecoder {
 
     /// Add a dict to the FrameDecoder that can be used when needed. The FrameDecoder uses the appropriate one dynamically
     pub fn add_dict(&mut self, dict: Dictionary) -> Result<(), FrameDecoderError> {
-        self.dicts.insert(dict.id, dict);
+        if let Some(mut previous) = self.dicts.insert(dict.id, dict) {
+            wipe_dictionary_content(&mut previous);
+        }
         Ok(())
     }
 

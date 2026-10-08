@@ -657,3 +657,121 @@ fn capacity_queries_and_errors_are_deterministic() {
     let mut decoder_too_small = vec![0_u8; decoder_required - 1];
     assert!(StaticDecoderWorkspace::new(&mut decoder_too_small, 1 << 18, 0).is_err());
 }
+
+// Hand-authored compressed block with RLE literals and no sequences. The frame
+// uses a 128 KiB window and deliberately omits the optional content checksum.
+fn literal_rle_frame(length: u32) -> Vec<u8> {
+    let mut frame = vec![0x28, 0xb5, 0x2f, 0xfd, 0, 56, 45, 0, 0];
+    frame.extend_from_slice(&((length << 4) | 13).to_le_bytes()[..3]);
+    frame.extend_from_slice(&[b'x', 0]);
+    frame
+}
+
+#[test]
+fn literal_block_limit_errors_preserve_owned_and_static_buffer_bounds() {
+    use zstd_complete::decoding::FrameDecoder;
+    const MAX: usize = 128 * 1024;
+    let required = StaticDecoderWorkspace::required_size(MAX, 0).unwrap();
+    let mut storage = vec![0x6d; required + 32];
+    let mut output = vec![0x6d; MAX + 32];
+    for length in [MAX, MAX + 1] {
+        let frame = literal_rle_frame(length as u32);
+        let mut ordinary = FrameDecoder::new();
+        let result = ordinary.decode_all(&frame, &mut output[16..MAX + 16]);
+        if length == MAX {
+            assert_eq!(result.unwrap(), MAX);
+            assert!(output[16..MAX + 16].iter().all(|byte| *byte == b'x'));
+        } else {
+            assert!(result.is_err());
+        }
+        output[16..MAX + 16].fill(0x6d);
+        let mut decoder =
+            StaticDecoderWorkspace::new(&mut storage[16..required + 16], MAX, 0).unwrap();
+        assert_eq!(
+            allocation_count(|| {
+                let result = decoder.decode_into(&frame, &mut output[16..MAX + 16]);
+                if length == MAX {
+                    assert_eq!(result.unwrap(), MAX);
+                } else {
+                    assert!(result.is_err());
+                }
+            }),
+            0
+        );
+        drop(decoder);
+        if length == MAX {
+            assert!(output[16..MAX + 16].iter().all(|byte| *byte == b'x'));
+        }
+        if length == MAX + 1 {
+            assert!(output.iter().all(|byte| *byte == 0x6d));
+        }
+        assert!(output[..16]
+            .iter()
+            .chain(&output[MAX + 16..])
+            .all(|byte| *byte == 0x6d));
+        assert!(storage[..16]
+            .iter()
+            .chain(&storage[required + 16..])
+            .all(|byte| *byte == 0x6d));
+    }
+}
+
+#[test]
+fn huffman_literal_overproduction_returns_error_without_static_growth() {
+    use zstd_complete::decoding::FrameDecoder;
+    let mut random = 0x3108u32;
+    let raw: Vec<_> = (0..8192)
+        .map(|_| {
+            random ^= random << 13;
+            random ^= random >> 17;
+            random ^= random << 5;
+            (random & 15) as u8
+        })
+        .collect();
+    let mut frame = zstd::bulk::compress(&raw, 3).unwrap();
+    let descriptor = frame[4];
+    let single = descriptor & 0x20 != 0;
+    let dictionary_bytes = [0, 1, 2, 4][(descriptor & 3) as usize];
+    let content_bytes = [usize::from(single), 2, 4, 8][(descriptor >> 6) as usize];
+    let block = 5 + usize::from(!single) + dictionary_bytes + content_bytes;
+    assert_eq!(
+        (frame[block] >> 1) & 3,
+        2,
+        "fixture must have a compressed first block"
+    );
+    let literals = block + 3;
+    assert_eq!(
+        frame[literals] & 3,
+        2,
+        "fixture must use a new Huffman literal table"
+    );
+    let size_format = (frame[literals] >> 2) & 3;
+    let bits = [10, 10, 14, 18][size_format as usize];
+    let count = [3, 3, 4, 5][size_format as usize];
+    let mut header = [0u8; 8];
+    header[..count].copy_from_slice(&frame[literals..literals + count]);
+    let header = (u64::from_le_bytes(header) & !(((1 << bits) - 1) << 4)) | (1 << 4);
+    frame[literals..literals + count].copy_from_slice(&header.to_le_bytes()[..count]);
+    let mut output = vec![0x6d; raw.len() + 32];
+    assert!(FrameDecoder::new()
+        .decode_all(&frame, &mut output[16..raw.len() + 16])
+        .is_err());
+    let required = StaticDecoderWorkspace::required_size(128 * 1024, 0).unwrap();
+    let mut storage = vec![0x6d; required + 32];
+    let mut decoder =
+        StaticDecoderWorkspace::new(&mut storage[16..required + 16], 128 * 1024, 0).unwrap();
+    assert_eq!(
+        allocation_count(|| {
+            assert!(decoder
+                .decode_into(&frame, &mut output[16..raw.len() + 16])
+                .is_err());
+        }),
+        0
+    );
+    drop(decoder);
+    assert!(output.iter().all(|byte| *byte == 0x6d));
+    assert!(storage[..16]
+        .iter()
+        .chain(&storage[required + 16..])
+        .all(|byte| *byte == 0x6d));
+}
