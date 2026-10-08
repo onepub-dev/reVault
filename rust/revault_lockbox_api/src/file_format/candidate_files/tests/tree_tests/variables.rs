@@ -905,6 +905,35 @@ fn typed_tree_variable_max_revision_can_be_deleted_but_not_replaced() {
     )
     .is_err());
     assert_eq!(storage.read_all().unwrap(), before);
+    let prior = TreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
+        .unwrap()
+        .image
+        .catalogue
+        .variables[0]
+        .layout
+        .clone();
+    let moved = VariableName::new("moved_max_revision").unwrap();
+    for (from, to) in [(name.clone(), moved.clone()), (moved, name.clone())] {
+        assert!(tree_image::variables::move_variables(
+            &mut storage,
+            archive(),
+            mode,
+            &authority,
+            None,
+            key(mode),
+            &[(from, to)]
+        )
+        .unwrap());
+        assert_eq!(
+            TreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
+                .unwrap()
+                .image
+                .catalogue
+                .variables[0]
+                .layout,
+            prior
+        );
+    }
     assert!(delete_variable(
         &mut storage,
         archive(),
@@ -956,3 +985,5 @@ fn check_erasure(
 
 #[cfg(target_os = "linux")]
 mod resource;
+
+mod moves;

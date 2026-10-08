@@ -8,6 +8,15 @@ remain the sole goals authority. No historical prototype result selects a format
 
 ## Implementation checkpoints
 
+### Typed variable move checkpoint — 2026-10-09
+
+[Atomic move evidence](evidence/variable-moves-2026-10-09/README.md) preserves
+normal/secret identity, sensitivity, revision and exact segment ownership while
+renaming selected metadata. All-mode lifecycle/refusals/salvage, 1,512 transaction
+cuts and 504 interrupted recoveries pass; post-format checks follow. An invalid
+relative grouped-name fixture was corrected with its failed run retained.
+No public activation or performance gate follows.
+
 ### Borrowed guarded source checkpoint — 2026-10-09
 
 [Resource protocol and correctness evidence](evidence/variable-resource-2026-10-09/README.md)

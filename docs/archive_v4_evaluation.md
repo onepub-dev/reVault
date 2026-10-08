@@ -140,6 +140,12 @@ variables in unpadded modes and one in padded modes. Public variable/form APIs,
 complete variable migration/compaction and CPU/RSS/aging/ZIP gates remain open.
 No architecture or release readiness follows from these correctness results.
 
+[Atomic typed variable moves](evidence/variable-moves-2026-10-09/README.md)
+add metadata-only name changes without changing guarded value identity/revision
+or payload extents. All-mode lifecycle/refusal/selected salvage and 1,512 fault
+cuts plus 504 interrupted recoveries pass before formatting; public activation
+and full-format performance qualification remain separate.
+
 The [October 9 direct tree exporter](evidence/fresh-tree-export-2026-10-09/README.md)
 removes fresh packed-C export's dense-intermediate requirement while preserving
 source authority/retention and fresh-output cleanup. Seven focused tests cover

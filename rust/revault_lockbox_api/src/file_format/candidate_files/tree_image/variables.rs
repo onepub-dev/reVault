@@ -135,6 +135,88 @@ pub(in crate::file_format::candidate_files) fn delete_variable(
     change(storage, archive, mode, authority, signer, key, name, None)
 }
 
+/// Atomic name changes over selected metadata. Guarded content authentication
+/// remains mandatory, but value identity, revision and segment placement do not
+/// change. Callers hold exclusive writer access throughout this transaction.
+#[allow(clippy::too_many_arguments)]
+pub(in crate::file_format::candidate_files) fn move_variables(
+    storage: &mut impl Storage,
+    archive: LockboxId,
+    mode: FormatMode,
+    authority: &Authority<'_>,
+    signer: Option<&OwnerSigningKeyPair>,
+    key: Option<&[u8]>,
+    moves: &[(VariableName, VariableName)],
+) -> Result<bool> {
+    use std::collections::{BTreeMap, BTreeSet};
+    let mut opened = TreeImage::open(
+        allocation::compaction::View(&*storage),
+        archive,
+        mode,
+        authority,
+        key,
+    )?;
+    shared::prepare(&opened.image.anchor, authority, signer)?;
+    opened.image.verify_all()?;
+    let sources: BTreeSet<_> = moves.iter().map(|(source, _)| source.clone()).collect();
+    if sources.len() != moves.len() {
+        return Err(Error::InvalidInput(
+            "a variable cannot be moved more than once".into(),
+        ));
+    }
+    let existing: BTreeSet<_> = opened
+        .image
+        .catalogue
+        .variables
+        .iter()
+        .map(|v| v.name.clone())
+        .collect();
+    let mut destinations = BTreeSet::new();
+    for (source, destination) in moves {
+        if !existing.contains(source) {
+            return Err(Error::NotFound(format!("variable {source}")));
+        }
+        if !destinations.insert(destination.clone())
+            || (source != destination
+                && existing.contains(destination)
+                && !sources.contains(destination))
+        {
+            return Err(Error::AlreadyExists(destination.to_string()));
+        }
+    }
+    let final_names: BTreeSet<_> = existing
+        .iter()
+        .filter(|name| !sources.contains(*name))
+        .chain(destinations.iter())
+        .map(|name| name.as_str())
+        .collect();
+    // Check every canonical ancestor, as the persisted typed validator does.
+    for name in &final_names {
+        for (offset, _) in name.match_indices('/').skip(1) {
+            if final_names.contains(&name[..offset]) {
+                return Err(Error::AlreadyExists(format!(
+                    "variable namespace conflict at {name}"
+                )));
+            }
+        }
+    }
+    if moves
+        .iter()
+        .all(|(source, destination)| source == destination)
+    {
+        return Ok(false);
+    }
+    let mapping: BTreeMap<_, _> = moves.iter().cloned().collect();
+    for variable in &mut opened.image.catalogue.variables {
+        if let Some(destination) = mapping.get(&variable.name) {
+            variable.name = destination.clone();
+        }
+    }
+    let records = opened.image.catalogue.tree_records()?;
+    drop(opened);
+    tree::rewrite_records(storage, archive, mode, authority, signer, key, records)
+}
+
 #[allow(clippy::too_many_arguments)]
 fn change(
     storage: &mut impl Storage,

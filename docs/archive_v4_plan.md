@@ -72,10 +72,13 @@ strict Clippy and one fixed parallel regression pass. The fixed 30-pair/mode
 comparison reduces locked-memory endpoints by 1,028 KiB and create/no-change
 CPU; three read modes retain small measured regressions. All independent readers
 and 32 reciprocal readers pass. Earlier allocation failures remain evidence,
-and concurrency/incremental-peak gates stay open. Next add metadata-only atomic
-variable moves with public validation, selected recovery and guarded ownership.
+and concurrency/incremental-peak gates stay open. The subsequent
+[test-only atomic moves](evidence/variable-moves-2026-10-09/README.md) preserve
+value identity/revision/extents and public validation across all modes, 1,512
+transaction cuts and 504 interrupted recoveries. Post-format verification is
+next, followed by typed forms/references; broader public integration is separate.
 Keep the security policy and failure evidence; no allocator weakening is implied.
-Forms/references, variable moves and broader public adapters, native selected
+Forms/references and broader public adapters, native selected
 membership/recovery, architecture selection and complete CPU/RSS/aging/size and
 compatibility qualification remain unfinished. The two native failures remain
 preserved, and no further decoder micro-tuning is implied by this sequence.
