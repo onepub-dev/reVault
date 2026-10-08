@@ -1,0 +1,9 @@
+   Compiling revault_lockbox_api v0.0.41 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api)
+    Finished `release` profile [optimized] target(s) in 29.33s
+     Running tests/size_padding.rs (target/release/deps/size_padding-fb1c612642679d5f)
+
+running 1 test
+test secure_variables_and_forms_round_trip_all_sixteen_modes ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.15s
+

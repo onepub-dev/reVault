@@ -1,5 +1,5 @@
 //! Bounded record transition writer. Raw rewrites preserve payload/key ownership;
-//! a typed adapter may explicitly stage new payloads and retire exact old packs.
+//! a typed adapter may stage new payloads and retire exact old payload extents.
 use super::*;
 use crate::file_format::preparation_journal::compact::session::{InlineSession, OverflowSession};
 
@@ -15,6 +15,110 @@ pub(crate) struct PayloadPlan {
     pub retired: Vec<Extent>,
     pub bytes: Vec<crate::page_buffer::ZeroizingBytes>,
     pub rebind: RebindRecords,
+}
+
+/// Guarded staging for payloads which can contain plaintext secret values.
+pub(crate) struct SecurePayloadPlan {
+    pub base: [u8; 32],
+    pub retired: Vec<Extent>,
+    pub bytes: Vec<crate::secret_vec::SecureVec>,
+    pub rebind: RebindRecords,
+}
+enum PayloadBytes {
+    Ordinary(crate::page_buffer::ZeroizingBytes),
+    Secure(crate::secret_vec::SecureVec),
+}
+impl PayloadBytes {
+    fn len(&self) -> usize {
+        match self {
+            Self::Ordinary(v) => v.len(),
+            Self::Secure(v) => v.len(),
+        }
+    }
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+    fn with_bytes<R>(&self, f: impl FnOnce(&[u8]) -> R) -> Result<R> {
+        match self {
+            Self::Ordinary(v) => Ok(f(v)),
+            Self::Secure(v) => Ok(v.with_bytes(f)?),
+        }
+    }
+    fn verify(&self, storage: &impl Storage, extent: Extent) -> Result<()> {
+        let digest = match self {
+            Self::Ordinary(_) => {
+                let read = crate::page_buffer::ZeroizingBytes::new(
+                    storage.read_at(extent.start, self.len())?,
+                );
+                if read.len() != self.len() {
+                    return Err(Error::CorruptRecord);
+                }
+                strong_checksum(&read)
+            }
+            Self::Secure(_) => {
+                let read = storage.read_at_secure(extent.start, self.len())?;
+                if read.len() != self.len() {
+                    return Err(Error::CorruptRecord);
+                }
+                read.with_bytes(strong_checksum)?
+            }
+        };
+        if digest != extent.digest {
+            return Err(Error::CorruptRecord);
+        }
+        Ok(())
+    }
+}
+struct StagingPlan {
+    base: [u8; 32],
+    retired: Vec<Extent>,
+    bytes: Vec<PayloadBytes>,
+    rebind: RebindRecords,
+}
+impl From<PayloadPlan> for StagingPlan {
+    fn from(plan: PayloadPlan) -> Self {
+        Self {
+            base: plan.base,
+            retired: plan.retired,
+            bytes: plan.bytes.into_iter().map(PayloadBytes::Ordinary).collect(),
+            rebind: plan.rebind,
+        }
+    }
+}
+impl From<SecurePayloadPlan> for StagingPlan {
+    fn from(plan: SecurePayloadPlan) -> Self {
+        Self {
+            base: plan.base,
+            retired: plan.retired,
+            bytes: plan.bytes.into_iter().map(PayloadBytes::Secure).collect(),
+            rebind: plan.rebind,
+        }
+    }
+}
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn rewrite_secure_payload_records(
+    storage: &mut impl Storage,
+    archive: LockboxId,
+    mode: FormatMode,
+    authority: &Authority<'_>,
+    signer: Option<&OwnerSigningKeyPair>,
+    key: Option<&[u8]>,
+    records: Vec<Entry>,
+    payloads: SecurePayloadPlan,
+) -> Result<bool> {
+    rewrite_inner(
+        storage,
+        archive,
+        mode,
+        authority,
+        signer,
+        key,
+        records,
+        false,
+        true,
+        false,
+        Some(payloads.into()),
+    )
 }
 
 /// Resume the actual selected generation, never a caller-selected old snapshot.
@@ -73,7 +177,7 @@ pub(crate) fn rewrite_payload_records(
         false,
         true,
         false,
-        Some(payloads),
+        Some(payloads.into()),
     )
 }
 #[allow(clippy::too_many_arguments)]
@@ -98,7 +202,7 @@ pub(crate) fn grow_dense_payload_records(
         true,
         true,
         false,
-        Some(payloads),
+        Some(payloads.into()),
     )
 }
 #[allow(clippy::too_many_arguments)]
@@ -141,7 +245,7 @@ fn rewrite_inner(
     dense: bool,
     force: bool,
     append_private: bool,
-    payloads: Option<PayloadPlan>,
+    payloads: Option<StagingPlan>,
 ) -> Result<bool> {
     let (old, dense_records) = if dense {
         let (anchor, graph) = crate::file_format::candidate_files::tree_image::dense_base(
@@ -338,13 +442,13 @@ fn rewrite_inner(
         })
         .ok_or(Error::CorruptRecord)?;
     let payload_start = tail;
-    let staged: Vec<(Extent, crate::page_buffer::ZeroizingBytes)> = if let Some(plan) = payloads {
+    let staged: Vec<(Extent, PayloadBytes)> = if let Some(plan) = payloads {
         let mut extents = Vec::new();
         for (bytes, slot) in plan.bytes.iter().zip(&payload_slots) {
             let extent = Extent {
                 start: slot.map_or(tail, |span| span.start),
                 len: bytes.len() as u64,
-                digest: strong_checksum(bytes),
+                digest: bytes.with_bytes(strong_checksum)?,
             };
             if slot.is_none() {
                 tail = tail.checked_add(extent.len).ok_or(Error::CorruptRecord)?;
@@ -469,16 +573,15 @@ fn rewrite_inner(
             return Err(Error::CorruptRecord);
         }
         for (extent, bytes) in &staged {
-            if extent.start < sealed {
-                append.storage.borrow_mut().write_at(extent.start, bytes)?;
-            } else if append.append(bytes)? != extent.start {
-                return Err(Error::CorruptRecord);
-            }
-            let checked =
-                crate::page_buffer::ZeroizingBytes::new(append.read_at(extent.start, bytes.len())?);
-            if checked.len() != bytes.len() || strong_checksum(&checked) != strong_checksum(bytes) {
-                return Err(Error::CorruptRecord);
-            }
+            bytes.with_bytes(|slice| -> Result<()> {
+                if extent.start < sealed {
+                    append.storage.borrow_mut().write_at(extent.start, slice)?;
+                } else if append.append(slice)? != extent.start {
+                    return Err(Error::CorruptRecord);
+                }
+                Ok(())
+            })??;
+            bytes.verify(&append, *extent)?;
         }
         let padded = payload_end.div_ceil(FAILURE_REGION) * FAILURE_REGION;
         if padded > payload_end {

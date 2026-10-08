@@ -6,6 +6,7 @@ use crate::file_format::publication_anchor::{shared, FAILURE_REGION};
 mod fresh;
 mod mutation;
 mod open_reads;
+mod variables;
 
 fn exported(
     mode: FormatMode,

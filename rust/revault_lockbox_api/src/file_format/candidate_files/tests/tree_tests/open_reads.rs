@@ -58,6 +58,8 @@ fn typed_tree_single_traversal_preserves_complete_open_all_modes() {
         let mut previous = super::super::super::dense_image::Image {
             storage: counted.clone(),
             anchor: tree.anchor,
+            value_key: super::super::super::dense_image::value_key_for(&catalogue, mode, key(mode))
+                .unwrap(),
             catalogue,
             codec,
         };

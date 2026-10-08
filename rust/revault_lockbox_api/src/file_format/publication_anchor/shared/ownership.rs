@@ -4,7 +4,6 @@
 //! the journal and both durable publications must authorize actual execution.
 use super::*;
 use crate::file_format::allocation_map::Extent;
-use crate::page_buffer::ZeroizingBytes;
 use std::collections::BTreeMap;
 const MAX_CLAIMS: usize = 8192;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -272,8 +271,10 @@ impl Graph {
             let end = claim.span.end()?;
             while start < end {
                 let n = (end - start).min(65536) as usize;
-                let bytes = ZeroizingBytes::new(storage.read_at(start, n)?);
-                if bytes.len() != n || bytes.iter().any(|byte| *byte != 0) {
+                let bytes = storage.read_at_secure(start, n)?;
+                if bytes.len() != n
+                    || bytes.with_bytes(|bytes| bytes.iter().any(|byte| *byte != 0))?
+                {
                     return Err(Error::CorruptRecord);
                 }
                 start += n as u64;
@@ -740,8 +741,8 @@ impl Graph {
 fn verify_zero(storage: &impl Storage, mut position: u64, end: u64) -> Result<()> {
     while position < end {
         let n = (end - position).min(65536) as usize;
-        let bytes = ZeroizingBytes::new(storage.read_at(position, n)?);
-        if bytes.len() != n || bytes.iter().any(|byte| *byte != 0) {
+        let bytes = storage.read_at_secure(position, n)?;
+        if bytes.len() != n || bytes.with_bytes(|bytes| bytes.iter().any(|byte| *byte != 0))? {
             return Err(Error::CorruptRecord);
         }
         position += n as u64;

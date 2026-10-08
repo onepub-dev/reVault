@@ -51,6 +51,7 @@ pub(in crate::file_format::candidate_files) fn from_candidate<S: Storage, T: Sto
                 sealed_len: destination.len()?,
                 ..source.anchor.clone()
             },
+            value_key: super::super::dense_image::value_key_for(&catalogue, mode, key)?,
             catalogue,
             codec,
         };

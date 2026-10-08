@@ -1,0 +1,10 @@
+   Compiling revault_lockbox_api v0.0.41 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api)
+    Finished `release` profile [optimized] target(s) in 48.85s
+     Running unittests src/lib.rs (target/release/deps/revault_lockbox_api-5338344f5af7f73d)
+
+running 2 tests
+test file_format::candidate_files::tests::tree_tests::variables::typed_tree_variables_maximum_empty_and_one_over_all_modes ... ok
+test file_format::candidate_files::tests::tree_tests::variables::typed_tree_variables_lifecycle_secure_read_and_file_coexistence_all_modes ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 584 filtered out; finished in 14.78s
+

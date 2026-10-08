@@ -1,6 +1,6 @@
 use super::*;
 mod dense;
-fn seed(
+pub(super) fn seed(
     mode: FormatMode,
     authority: &Authority<'_>,
     owner: &OwnerSigningKeyPair,

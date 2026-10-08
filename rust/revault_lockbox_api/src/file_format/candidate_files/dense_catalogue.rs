@@ -1,6 +1,6 @@
-//! Bounded parser for the file-only feasibility catalogue. This is not the full
-//! public record model: directories, links, variables, forms and mirror ownership
-//! still need explicit semantics. All paths and encoded bodies remain wipeable.
+//! Bounded experimental filesystem catalogue and typed-tree variable metadata.
+//! Dense serialization remains filesystem-only and refuses variable records.
+//! Public activation, forms and the full mirror model remain separate work.
 use super::*;
 use crate::crypto::strong_checksum;
 use crate::file_format::allocation_map::Extent;
@@ -32,10 +32,15 @@ pub(super) struct Pack {
     pub padding_digest: [u8; 32],
     pub used: usize,
 }
+pub(super) struct Variable {
+    pub name: crate::VariableName,
+    pub layout: crate::file_format::secure_segments::Layout,
+}
 pub(super) struct Catalogue {
     legacy: bool,
     typed: bool,
     pub nodes: Vec<nodes::Node>,
+    pub variables: Vec<Variable>,
     pub vacant: Vec<Vacant>,
     pub files: Vec<File>,
     pub packs: Vec<Pack>,
@@ -93,6 +98,7 @@ impl Catalogue {
             ));
         }
         let mut catalogue = Self {
+            variables: Vec::new(),
             legacy: false,
             typed: false,
             nodes: Vec::new(),
@@ -250,6 +256,7 @@ impl Catalogue {
             return Err(Error::CorruptRecord);
         }
         let mut catalogue = Self {
+            variables: Vec::new(),
             legacy,
             typed,
             nodes,
@@ -311,7 +318,13 @@ impl Catalogue {
         Ok(())
     }
     pub(super) fn graph(&self, anchor: &Anchor) -> Result<Graph> {
-        let packs: Vec<_> = self.packs.iter().map(|pack| pack.extent).collect();
+        let mut packs: Vec<_> = self.packs.iter().map(|pack| pack.extent).collect();
+        packs.extend(
+            self.variables
+                .iter()
+                .flat_map(|v| v.layout.extents.iter().copied()),
+        );
+        packs.sort_by_key(|extent| extent.start);
         if self.legacy {
             Graph::fresh_files(anchor, &packs)
         } else {
@@ -340,6 +353,11 @@ impl Catalogue {
         Ok(())
     }
     pub(super) fn encode(&self, codec: &Codec, sealed: u64) -> Result<ZeroizingBytes> {
+        if !self.variables.is_empty() {
+            return Err(Error::SecurityLimitExceeded(
+                "variables require typed tree metadata".into(),
+            ));
+        }
         if self.legacy {
             return Err(Error::InvalidInput(
                 "upgrade catalogue before encoding ownership states".into(),

@@ -94,3 +94,12 @@ recovery. Staging, read-after-write and pending/free zero checks must avoid
 ordinary plaintext scratch for secret segments. Return-to-dense must refuse
 unsupported variable records rather than discard them. Public activation,
 forms/revisions, migration and full-format qualification remain separate work.
+
+## Component checkpoint after formatting
+
+Commit `73b9378f` passed the tracked formatting hook. Post-format release format
+checks again passed **252 tests, 8 ignored**; the public 16-mode secret
+variable/form lifecycle and all **19** page-api tests passed. Strict archive
+Clippy (library/tests/benches) and page-api Clippy (library/tests) passed. The
+`postformat-*` logs record those runs. Connected typed-variable integration is
+a subsequent tranche and is not attributed to these component results.

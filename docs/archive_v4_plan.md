@@ -45,19 +45,35 @@ Post-format format/probe/Clippy checks passed. Both preserved native recovery
 failures reproduce under `native-block-layout`; their assertions remain intact.
 
 The [secure segment component](evidence/secure-segments-2026-10-09/README.md)
-now preserves established page wire bytes with guarded staging and supports
-empty through 1 MiB values in bounded byte segments. All-mode public baseline,
-component controls, 252 format tests (8 ignored), 19 page-api tests and strict
-Clippy pass. It remains disconnected from selected typed variable membership.
+preserves established page wire bytes and the public 1 MiB value limit with
+bounded guarded segments. Its separate post-format component/public baseline,
+252 format tests (8 ignored), 19 page-api tests and strict Clippy pass.
 
-Next connect those segments to selected typed metadata and exact physical
-ownership, secure transaction/readback/retirement recovery, and the existing
-normal/secret access semantics before broad public API integration. Preserve 1 MiB
-values and scoped secure-page/SecretString access: ordinary wipe-on-drop index
-values cannot carry decrypted secret segments. Reproduce the two known native
-failures without weakening selected membership or owner proof. Public record
-semantics, native recovery, architecture selection and complete qualification
-remain unfinished; no further codec micro-tuning is implied by this sequence.
+The subsequent [selected typed-variable integration](evidence/typed-variables-2026-10-09/README.md)
+connects those segments to exact selected physical ownership, guarded staging,
+readback and retirement recovery in the **test-only (`cfg(test)`) shared-tree
+adapter**. It preserves normal/secret access, no-change and explicit downgrade
+semantics alongside existing file and metadata changes, and adds selected
+variable salvage. The pre-final implementation passes 257 format tests (8
+ignored) with serialized execution plus strict Clippy; final affected checks
+are retained separately. Representative fault evidence covers 3,432 transaction
+cuts and 2,724 interrupted recoveries. No public variable API is activated.
+
+Two concurrent test runs hit the host's 8,192 KiB locked-memory limit. Isolated
+maximum-value and serialized full-suite checks pass, but guarded-memory arenas
+remain retained and concurrent capacity is unqualified. Independent 64 KiB
+region loss co-loses both small variables in the unpadded fixture; padded modes
+lose one and retain the neighbor. Neither outcome is hidden by the one-byte
+corruption result. Dense return refuses variable-bearing images before writes;
+whole-archive migration/compaction with variables remains unqualified.
+
+Next qualify the guarded source/staging memory cost with matched controls before
+extending the adapter, including the observed full SecretString source copy.
+Keep the security policy and failure evidence; no allocator weakening is implied.
+Forms/references, variable moves and broader public adapters, native selected
+membership/recovery, architecture selection and complete CPU/RSS/aging/size and
+compatibility qualification remain unfinished. The two native failures remain
+preserved, and no further decoder micro-tuning is implied by this sequence.
 
 ### Local implementation checkpoint — 2026-10-02
 

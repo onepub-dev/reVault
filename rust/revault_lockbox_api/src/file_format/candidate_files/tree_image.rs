@@ -1,6 +1,6 @@
 //! Experimental typed filesystem adapter over the authenticated shared tree.
-//! Fresh export preserves its source. Bounded metadata and file transactions are
-//! experimental; public activation, variables/forms and migration remain separate.
+//! Fresh export preserves its source. Filesystem and guarded variable transactions
+//! are test-only; forms, public activation and complete migration remain separate.
 use super::dense_catalogue::{Catalogue, Metadata};
 use super::dense_image::Image;
 use super::*;
@@ -9,6 +9,7 @@ use shared::tree::{self, Tree};
 mod fresh;
 pub(super) use fresh::from_candidate;
 mod mutation;
+pub(super) mod variables;
 pub(super) use mutation::{remove_files, update_files};
 
 pub(super) struct TreeImage<S: Storage> {
@@ -31,6 +32,7 @@ impl<S: Storage> TreeImage<S> {
         let mut image = Image {
             storage,
             anchor: tree.anchor.clone(),
+            value_key: super::dense_image::value_key_for(&catalogue, mode, key)?,
             catalogue,
             codec,
         };

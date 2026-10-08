@@ -9,6 +9,7 @@ const FRAGMENT_RECORD: u8 = 2;
 const PACK_RECORD: u8 = 3;
 const NODE_RECORD: u8 = 4;
 const FORMAT_RECORD: u8 = 5;
+const VARIABLE_RECORD: u8 = 6;
 const MAX_NODES: usize = 100_000;
 
 impl Catalogue {
@@ -17,7 +18,7 @@ impl Catalogue {
         codec: &Codec,
         sealed: u64,
     ) -> Result<Option<ZeroizingBytes>> {
-        if self.files.len() + self.nodes.len() > MAX_MODEL_FILES {
+        if !self.variables.is_empty() || self.files.len() + self.nodes.len() > MAX_MODEL_FILES {
             return Ok(None);
         }
         match self.encode(codec, sealed) {
@@ -58,7 +59,37 @@ impl Catalogue {
             ));
         }
         nodes::validate_bounded(&self.files, &self.nodes, MAX_NODES)?;
-        let mut out = vec![Entry::new(FORMAT_RECORD, b"format", b"RV4FS001")?];
+        validate_variables(&self.variables)?;
+        let mut path_bytes = 0usize;
+        for len in self
+            .files
+            .iter()
+            .map(|f| f.path.len())
+            .chain(
+                self.nodes
+                    .iter()
+                    .map(|n| n.path.len() + 5 + n.target.as_ref().map_or(0, |v| v.len())),
+            )
+            .chain(self.variables.iter().map(|v| v.name.as_str().len()))
+        {
+            path_bytes = path_bytes.checked_add(len).ok_or(Error::CorruptRecord)?;
+        }
+        if path_bytes > super::super::MAX_PATH_BYTES {
+            return Err(Error::SecurityLimitExceeded("typed tree path bytes".into()));
+        }
+        let version = if self.variables.is_empty() {
+            b"RV4FS001"
+        } else {
+            b"RV4FS002"
+        };
+        let mut out = vec![Entry::new(FORMAT_RECORD, b"format", version)?];
+        for variable in &self.variables {
+            out.push(Entry::new(
+                VARIABLE_RECORD,
+                variable.name.as_str().as_bytes(),
+                &variable.layout.encode_metadata(),
+            )?);
+        }
         for file in &self.files {
             let mut value = Zeroizing::new(file.permissions.to_le_bytes().to_vec());
             value.extend_from_slice(&file.info.encode());
@@ -106,7 +137,8 @@ impl Catalogue {
         let mut packs = Vec::new();
         let mut fragments = BTreeMap::new();
         let mut path_bytes = 0usize;
-        let mut format = false;
+        let mut format = 0;
+        let mut variables = Vec::new();
         let tree = visit(&mut |entry| {
             match entry.namespace {
                 FILE_RECORD => {
@@ -195,12 +227,25 @@ impl Catalogue {
                         target,
                     });
                 }
+                VARIABLE_RECORD => {
+                    if variables.len() >= MAX_NODES || entry.value.len() > 824 {
+                        return Err(Error::CorruptRecord);
+                    }
+                    path_bytes = path_bytes
+                        .checked_add(entry.key.len())
+                        .ok_or(Error::CorruptRecord)?;
+                    variables.push(entry);
+                }
                 FORMAT_RECORD
-                    if !format
+                    if format == 0
                         && entry.key.as_slice() == b"format"
-                        && entry.value.as_slice() == b"RV4FS001" =>
+                        && matches!(entry.value.as_slice(), b"RV4FS001" | b"RV4FS002") =>
                 {
-                    format = true
+                    format = if entry.value.as_slice() == b"RV4FS001" {
+                        1
+                    } else {
+                        2
+                    }
                 }
                 _ => return Err(Error::CorruptRecord),
             }
@@ -209,8 +254,31 @@ impl Catalogue {
             }
             Ok(())
         })?;
-        if !format
-            || packs.iter().map(|pack| pack.extent).collect::<Vec<_>>() != tree.graph.payloads()
+        let variables = variables
+            .into_iter()
+            .map(|entry| {
+                let text = std::str::from_utf8(&entry.key).map_err(|_| Error::CorruptRecord)?;
+                let name = crate::VariableName::new(text).map_err(|_| Error::CorruptRecord)?;
+                if name.as_str() != text {
+                    return Err(Error::CorruptRecord);
+                }
+                let layout = crate::file_format::secure_segments::Layout::decode_metadata(
+                    &entry.value,
+                    tree.anchor.mode,
+                    tree.anchor.sealed_len,
+                )?;
+                Ok(Variable { name, layout })
+            })
+            .collect::<Result<Vec<_>>>()?;
+        validate_variables(&variables)?;
+        let mut payloads: Vec<_> = packs.iter().map(|pack| pack.extent).collect();
+        payloads.extend(
+            variables
+                .iter()
+                .flat_map(|v| v.layout.extents.iter().copied()),
+        );
+        payloads.sort_by_key(|extent| extent.start);
+        if format != (if variables.is_empty() { 1 } else { 2 }) || payloads != tree.graph.payloads()
         {
             return Err(Error::CorruptRecord);
         }
@@ -247,6 +315,7 @@ impl Catalogue {
         let mut result = Self {
             legacy: false,
             typed: true,
+            variables,
             files,
             nodes,
             packs,
@@ -255,4 +324,28 @@ impl Catalogue {
         result.validate_fragments(codec, tree.anchor.sealed_len)?;
         Ok((result, tree))
     }
+}
+
+// Variables have their own namespace, independent of filesystem names. Reject
+// duplicate identities and parent/child name collisions before exposing values.
+fn validate_variables(variables: &[Variable]) -> Result<()> {
+    if variables.len() > MAX_NODES {
+        return Err(Error::CorruptRecord);
+    }
+    let mut names = BTreeSet::new();
+    let mut ids = BTreeSet::new();
+    for variable in variables {
+        let name = variable.name.as_str();
+        if !names.insert(name) || !ids.insert(variable.layout.id) {
+            return Err(Error::CorruptRecord);
+        }
+    }
+    for name in &names {
+        for (offset, _) in name.match_indices('/').skip(1) {
+            if names.contains(&name[..offset]) {
+                return Err(Error::CorruptRecord);
+            }
+        }
+    }
+    Ok(())
 }

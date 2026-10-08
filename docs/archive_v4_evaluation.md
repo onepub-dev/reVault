@@ -116,13 +116,22 @@ including Vault containers. `0.4.x` remains format 3 and is isolated from this w
 
 ## Current scorecard
 
-The [secure segmented-value component](evidence/secure-segments-2026-10-09/README.md)
-passes all-mode page/segment controls and public secret-value lifecycle baseline,
-252 format tests (8 ignored), 19 page-api tests and strict Clippy. It retains
-the 1 MiB limit and guarded processing without placing values in index entries.
-Selected typed membership/ownership and mutation/recovery integration are still
-required; no public variable or resource gate is marked complete by this component.
+The [selected typed-variable integration](evidence/typed-variables-2026-10-09/README.md)
+is a **test-only (`cfg(test)`) adapter**, following the independently checked
+[secure segmented-value component](evidence/secure-segments-2026-10-09/README.md).
+It connects selected membership/exact payload ownership to guarded value reads,
+transactions and salvage without putting values in index entries. The pre-final
+variant passes 257 release format tests (8 ignored) with serialized execution
+and strict Clippy; final affected-check evidence is separate. Representative
+fault controls cover 3,432 transaction cuts and 2,724 interrupted recoveries.
 
+Two concurrent focused runs failed secure allocation at the host's 8,192 KiB
+locked-memory limit; isolated 1 MiB functionality and serialized checks pass.
+Retained allocator arenas and staging copies remain a resource qualification
+gap. In the two-small-variable fixture, independent 64 KiB loss affects both
+variables in unpadded modes and one in padded modes. Public variable/form APIs,
+complete variable migration/compaction and CPU/RSS/aging/ZIP gates remain open.
+No architecture or release readiness follows from these correctness results.
 
 The [October 9 direct tree exporter](evidence/fresh-tree-export-2026-10-09/README.md)
 removes fresh packed-C export's dense-intermediate requirement while preserving

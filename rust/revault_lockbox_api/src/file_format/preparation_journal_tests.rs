@@ -606,7 +606,10 @@ impl Storage for CrashStore {
             .ok_or(Error::Truncated)
     }
     fn read_at_into(&self, offset: u64, out: &mut [u8]) -> Result<()> {
-        out.copy_from_slice(&self.read_at(offset, out.len())?);
+        let state = self.0.lock().unwrap();
+        let start = usize::try_from(offset).map_err(|_| Error::Truncated)?;
+        let end = start.checked_add(out.len()).ok_or(Error::Truncated)?;
+        out.copy_from_slice(state.volatile.get(start..end).ok_or(Error::Truncated)?);
         Ok(())
     }
     fn append(&mut self, bytes: &[u8]) -> Result<u64> {

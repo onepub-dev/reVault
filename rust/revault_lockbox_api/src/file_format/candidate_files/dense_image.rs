@@ -12,6 +12,7 @@ pub(super) struct Image<S: Storage> {
     pub(super) anchor: Anchor,
     pub(super) catalogue: Catalogue,
     pub(super) codec: Codec,
+    pub(super) value_key: Option<Zeroizing<[u8; 32]>>,
 }
 impl<S: Storage> Image<S> {
     pub fn open(
@@ -29,6 +30,7 @@ impl<S: Storage> Image<S> {
         let mut image = Self {
             storage,
             anchor,
+            value_key: value_key_for(&catalogue, mode, key)?,
             catalogue,
             codec,
         };
@@ -126,6 +128,14 @@ impl<S: Storage> Image<S> {
                 return Err(Error::CorruptRecord);
             }
         }
+        for variable in &self.catalogue.variables {
+            variable.layout.read(
+                &self.storage,
+                self.anchor.archive,
+                self.value_key.as_ref().ok_or(Error::CorruptRecord)?,
+                self.anchor.sealed_len,
+            )?;
+        }
         Ok(())
     }
 }
@@ -192,6 +202,7 @@ pub(super) fn from_candidate<S: Storage, T: Storage>(
                 sealed_len: destination.len()?,
                 ..source.anchor.clone()
             },
+            value_key: value_key_for(&catalogue, mode, key)?,
             catalogue,
             codec,
         };
@@ -346,4 +357,29 @@ pub(super) fn salvage_catalogue<S: Storage>(
         }
     }
     Ok(report)
+}
+
+/// Match the public archive bootstrap: plaintext archives use the public zero
+/// key, and protected archives use the supplied archive key before the page KDF.
+pub(super) fn value_key(mode: FormatMode, key: Option<&[u8]>) -> Result<Zeroizing<[u8; 32]>> {
+    let input = if mode.plaintext() {
+        &[0u8; 32][..]
+    } else {
+        key.ok_or(Error::CorruptRecord)?
+    };
+    Ok(Zeroizing::new(crate::crypto::derive_page_content_key(
+        input,
+    )))
+}
+
+pub(super) fn value_key_for(
+    catalogue: &Catalogue,
+    mode: FormatMode,
+    key: Option<&[u8]>,
+) -> Result<Option<Zeroizing<[u8; 32]>>> {
+    if catalogue.variables.is_empty() {
+        Ok(None)
+    } else {
+        value_key(mode, key).map(Some)
+    }
 }
