@@ -99,5 +99,7 @@ cargo clippy -p revault_lockbox_api --features external-source --lib --tests --b
 ```
 
 The recovery run selects `typed_form_definition_and_empty_record_atomic_recovery_faults`
-with the same library/release/features/serial flags. Formatting and post-format
-affected verification remain pending at this source checkpoint.
+with the same library/release/features/serial flags. The tracked hook formatted three Rust files at `7201cfae`. Post-format affected
+verification passes: four definition controls, the namespace/name control and strict
+Clippy. Logs and source hashes are under `postformat/`; the unchanged recovery
+matrix and public baseline were not rerun.

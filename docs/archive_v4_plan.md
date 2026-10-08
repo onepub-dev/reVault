@@ -115,7 +115,8 @@ records. The [test-only definition adapter](evidence/form-definitions-2026-10-09
 now connects revision/resolution and empty-record creation over one selected
 snapshot. Five controls, four public history tests and strict Clippy pass, along
 with 3,168 transaction cuts and 1,164 interrupted recoveries. Eleven MiB of normal
-metadata passes all modes with explicit caller/getter costs. Next design whole-tree
+metadata passes all modes with explicit caller/getter costs. Post-format affected
+checks and strict Clippy pass at `7201cfae`. Next design whole-tree
 source-preserving compaction for files, variables and forms, retaining publication
 lineage and refusing unsupported access roots before any writes.
 Keep the security policy and failure evidence; no allocator weakening is implied.
