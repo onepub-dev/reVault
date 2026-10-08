@@ -419,7 +419,7 @@ The [form deletion/streamed salvage followthrough](evidence/form-lifecycle-2026-
 passes all-mode selected membership and exact-definition damage controls, 1,704
 transaction cuts and 564 interrupted recoveries. Sixteen fresh aggregate streams
 verify all eight 1 MiB secret values individually, with a maximum 4,076 KiB VmLck
-endpoint. Operational failures remain fatal after possible partial delivery;
+endpoint. Post-format affected checks and strict Clippy pass at `9ec6c89f`. Operational failures remain fatal after possible partial delivery;
 whole-call staging and stable storage are required. This is functional bounded
 processing and modeled recovery evidence, not performance or process-death qualification.
 

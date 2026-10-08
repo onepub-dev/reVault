@@ -93,4 +93,9 @@ exact untracked `.rs.txt` snapshots are retained here. Frozen binaries and
 synthetic archives remain under `/tmp/revault-form-lifecycle-2026-10-09-final-qualified/`;
 only bounded text artifacts are committed. The `.rs.txt` suffix protects exact
 source evidence from the Rust formatting hook; provenance source paths are unchanged.
-Post-format qualification is recorded separately after the implementation checkpoint.
+At implementation checkpoint `9ec6c89f`, the tracked hook formatted six Rust
+files. Post-format lifecycle, delivery, classification, snapshot/admission and
+three form-segment tests all pass, as does strict Clippy. Logs and final source
+hashes are retained in `postformat/`. The fault matrix and frozen aggregate
+batch were not repeated solely for formatting; their earlier exact source
+identities remain authoritative.

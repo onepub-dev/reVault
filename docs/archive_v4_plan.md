@@ -93,7 +93,7 @@ the 8,192 KiB policy. This is bounded staging/scoped reading, not full-object or
 concurrency qualification. The [form lifecycle followthrough](evidence/form-lifecycle-2026-10-09/README.md)
 adds selected deletion and streamed salvage, passing 1,704 transaction cuts and
 564 interrupted recoveries, all-mode corruption/dependency controls and 16 fresh
-aggregate streaming probes under the unchanged memory policy. Partial delivery
+aggregate streaming probes under the unchanged memory policy. Post-format affected checks and strict Clippy pass at `9ec6c89f`. Partial delivery
 requires whole-call staging; stable storage remains a precondition. Next connect
 metadata-only form moves, then field/revision mutation and broader public integration.
 Keep the security policy and failure evidence; no allocator weakening is implied.
