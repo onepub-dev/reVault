@@ -1,0 +1,168 @@
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue/forms.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue/forms.rs
+index 34c93628..4f507a62 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue/forms.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue/forms.rs
+@@ -365,35 +365,19 @@ impl Forms {
+         key: &[u8; 32],
+         sealed: u64,
+     ) -> Result<()> {
+-        for d in &self.definitions {
+-            FormDefinition::validated_name(&read_normal(&d.name, storage, archive, key, sealed)?)?;
+-            FormDefinition::validated_description(&read_normal(
+-                &d.description,
+-                storage,
+-                archive,
+-                key,
+-                sealed,
+-            )?)?;
+-            for f in &d.fields {
+-                FormFieldDefinition::validated_label(&read_normal(
+-                    &f.label, storage, archive, key, sealed,
+-                )?)?;
+-            }
+-        }
+-        for r in &self.records {
+-            FormRecord::validated_name(&read_normal(&r.name, storage, archive, key, sealed)?)?;
+-            for f in &r.fields {
+-                FormFieldDefinition::validated_label(&read_normal(
+-                    &f.label, storage, archive, key, sealed,
+-                )?)?;
+-                let value = read_value(&f.value, storage, archive, key, sealed)?;
+-                f.kind.validate_value(&value)?;
+-            }
+-        }
++        for definition in &self.definitions {definition.verify(storage,archive,key,sealed)?;}
++        for record in &self.records {record.verify(storage,archive,key,sealed)?;}
+         Ok(())
+     }
+ }
+ impl Definition {
++    pub fn verify(&self,storage:&impl Storage,archive:LockboxId,key:&[u8;32],sealed:u64)->Result<()> {
++        FormDefinition::validated_name(&read_normal(&self.name,storage,archive,key,sealed)?).map_err(|_|Error::CorruptRecord)?;
++        FormDefinition::validated_description(&read_normal(&self.description,storage,archive,key,sealed)?).map_err(|_|Error::CorruptRecord)?;
++        for field in &self.fields {FormFieldDefinition::validated_label(&read_normal(&field.label,storage,archive,key,sealed)?).map_err(|_|Error::CorruptRecord)?;}
++        Ok(())
++    }
++
+     pub fn matches(
+         &self,
+         expected: &FormDefinition,
+@@ -460,6 +444,12 @@ impl Definition {
+     }
+ }
+ impl Record {
++    pub fn verify(&self,storage:&impl Storage,archive:LockboxId,key:&[u8;32],sealed:u64)->Result<()> {
++        FormRecord::validated_name(&read_normal(&self.name,storage,archive,key,sealed)?).map_err(|_|Error::CorruptRecord)?;
++        for field in &self.fields {FormFieldDefinition::validated_label(&read_normal(&field.label,storage,archive,key,sealed)?).map_err(|_|Error::CorruptRecord)?;field.read_value(storage,archive,key,sealed)?;}
++        Ok(())
++    }
++
+     pub fn read(
+         &self,
+         storage: &impl Storage,
+@@ -470,7 +460,7 @@ impl Record {
+         let mut values = Vec::new();
+         for f in &self.fields {
+             let value = read_value(&f.value, storage, archive, key, sealed)?;
+-            f.kind.validate_value(&value)?;
++            validate_stored_value(f.kind,&value)?;
+             values.push(FormFieldValue {
+                 field_id: f.id.clone(),
+                 captured_label: FormFieldDefinition::validated_label(&read_normal(
+@@ -492,7 +482,7 @@ impl Record {
+         })
+     }
+ }
+-fn read_normal(
++pub(in crate::file_format::candidate_files) fn read_normal(
+     layout: &Layout,
+     storage: &impl Storage,
+     archive: LockboxId,
+@@ -626,7 +616,18 @@ impl Capture {
+         sealed: u64,
+     ) -> Result<FormValue> {
+         let value = read_value(&self.value, storage, archive, key, sealed)?;
+-        self.kind.validate_value(&value)?;
++        validate_stored_value(self.kind,&value)?;
+         Ok(value)
+     }
+ }
++
++fn validate_stored_value(kind:FormFieldKind,value:&FormValue)->Result<()> {
++ kind.validate_value(value).map_err(stored_value_error)
++}
++
++fn stored_value_error(error:Error)->Error {match error{Error::InvalidInput(_)|Error::InvalidOperation(_)=>Error::CorruptRecord,other=>other}}
++#[test]
++fn stored_form_validation_preserves_operational_errors(){
++ for error in [Error::SecurityLimitExceeded("access".into()),Error::Io("read".into())]{assert_eq!(stored_value_error(error.clone()),error);}
++ for error in [Error::InvalidInput("value".into()),Error::InvalidOperation("sensitivity".into())]{assert_eq!(stored_value_error(error),Error::CorruptRecord);}
++}
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms.rs
+index 5124b9e3..c89f4943 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms.rs
+@@ -1,6 +1,7 @@
+ //! Internal selected-tree fixtures: the public CLI cannot construct this adapter.
+ use super::*;
+ mod admission;
++mod lifecycle;
+ #[cfg(target_os = "linux")]
+ mod aggregate;
+ use crate::{
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/aggregate.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/aggregate.rs
+index eeeabd41..64d823d9 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/aggregate.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/aggregate.rs
+@@ -165,17 +165,39 @@ fn typed_form_aggregate_guarded_snapshot_probe() {
+             .unwrap();
+     }
+     let after_read = memory();
++
++    let mut definitions = 0;
++    let mut definition_fields = 0;
++    let mut records = 0;
++    let mut captures = 0;
++    let mut ends = 0;
++    let report = tree_image::forms::salvage_forms(&opened.image.storage,archive(),mode,&authority,key(mode),|event| {
++      use tree_image::forms::SalvageEvent;
++      let repeated = |text:&str,byte:u8| {assert_eq!(text.len(),size);assert!(text.bytes().all(|b|b==byte));};
++      match event {
++        SalvageEvent::DefinitionStart{type_id:actual,revision,alias,name,description,fields}=>{assert_eq!(actual,type_id);assert_eq!(revision,1);assert_eq!(alias,"aggregate");assert_eq!(fields,8);repeated(&name,b'n');repeated(&description,b'd');definitions+=1;},
++        SalvageEvent::DefinitionField(field)=>{assert_eq!(field.id,format!("field_{definition_fields}"));assert_eq!(field.kind,FormFieldKind::Secret);assert!(!field.required);if definition_fields==0{repeated(&field.label,b'l');}else{assert_eq!(field.label,format!("Label {definition_fields}"));}definition_fields+=1;},
++        SalvageEvent::DefinitionEnd{type_id:actual,revision}=>{assert_eq!(actual,type_id);assert_eq!(revision,1);assert_eq!(definition_fields,8);ends+=1;},
++        SalvageEvent::RecordStart{path,name,type_id:actual,definition_revision,definition_alias,fields,..}=>{assert_eq!(path,record_path);assert_eq!(actual,type_id);assert_eq!(definition_revision,1);assert_eq!(definition_alias,"aggregate");assert_eq!(fields,8);repeated(&name,b'r');records+=1;},
++        SalvageEvent::CapturedField(field)=>{assert_eq!(field.field_id,format!("field_{captures}"));assert_eq!(field.kind,FormFieldKind::Secret);if captures==0{repeated(&field.captured_label,b'c');}else{assert_eq!(field.captured_label,format!("Label {captures}"));}match field.value{FormValue::Secret(secret)=>secret.with_str(|s|repeated(s,b's'))?,_=>panic!("secret downgraded")};captures+=1;},
++        SalvageEvent::RecordEnd{path,..}=>{assert_eq!(path,record_path);assert_eq!(captures,8);ends+=1;},
++      }Ok(())
++    }).unwrap();
++    assert_eq!(report,tree_image::forms::SalvageReport::default());
++    assert_eq!((definitions,definition_fields,records,captures,ends),(1,8,1,8,2));
++    let after_salvage = memory();
+     for metric in [
+         &before_source,
+         &after_source,
+         &after_definition,
+         &after_record,
+         &after_read,
++        &after_salvage,
+     ] {
+         assert!(metric["vm_lck_kib"].as_u64().unwrap() <= 8192);
+     }
+     println!(
+         "FORM_AGGREGATE {}",
+-        serde_json::json!({"mode":bits,"source_secret_bytes":size,"secret_fields":8,"logical_bytes":logical_bytes,"stored_payload_bytes":stored_payload_bytes,"archive_bytes":opened.image.storage.len().unwrap(),"before_source":before_source,"after_source":after_source,"after_definition":after_definition,"after_record":after_record,"after_read":after_read})
++        serde_json::json!({"mode":bits,"source_secret_bytes":size,"secret_fields":8,"logical_bytes":logical_bytes,"stored_payload_bytes":stored_payload_bytes,"archive_bytes":opened.image.storage.len().unwrap(),"before_source":before_source,"after_source":after_source,"after_definition":after_definition,"after_record":after_record,"after_read":after_read,"after_salvage":after_salvage})
+     );
+ }
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/forms.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/forms.rs
+index 255c9c49..e8531a18 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/forms.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/forms.rs
+@@ -478,3 +478,6 @@ fn create_parents(catalogue: &mut Catalogue, path: &LockboxPath) -> Result<()> {
+     }
+     catalogue.set_tree_metadata(&metadata)
+ }
++
++mod lifecycle;
++pub(in crate::file_format::candidate_files) use lifecycle::{delete_record,salvage_forms,SalvageEvent,SalvageReport};

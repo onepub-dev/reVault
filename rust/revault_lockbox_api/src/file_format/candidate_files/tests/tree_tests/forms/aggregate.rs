@@ -165,17 +165,120 @@ fn typed_form_aggregate_guarded_snapshot_probe() {
             .unwrap();
     }
     let after_read = memory();
+
+    let mut definitions = 0;
+    let mut definition_fields = 0;
+    let mut records = 0;
+    let mut captures = 0;
+    let mut ends = 0;
+    let report = tree_image::forms::salvage_forms(
+        &opened.image.storage,
+        archive(),
+        mode,
+        &authority,
+        key(mode),
+        |event| {
+            use tree_image::forms::SalvageEvent;
+            let repeated = |text: &str, byte: u8| {
+                assert_eq!(text.len(), size);
+                assert!(text.bytes().all(|b| b == byte));
+            };
+            match event {
+                SalvageEvent::DefinitionStart {
+                    type_id: actual,
+                    revision,
+                    alias,
+                    name,
+                    description,
+                    fields,
+                } => {
+                    assert_eq!(actual, type_id);
+                    assert_eq!(revision, 1);
+                    assert_eq!(alias, "aggregate");
+                    assert_eq!(fields, 8);
+                    repeated(&name, b'n');
+                    repeated(&description, b'd');
+                    definitions += 1;
+                }
+                SalvageEvent::DefinitionField(field) => {
+                    assert_eq!(field.id, format!("field_{definition_fields}"));
+                    assert_eq!(field.kind, FormFieldKind::Secret);
+                    assert!(!field.required);
+                    if definition_fields == 0 {
+                        repeated(&field.label, b'l');
+                    } else {
+                        assert_eq!(field.label, format!("Label {definition_fields}"));
+                    }
+                    definition_fields += 1;
+                }
+                SalvageEvent::DefinitionEnd {
+                    type_id: actual,
+                    revision,
+                } => {
+                    assert_eq!(actual, type_id);
+                    assert_eq!(revision, 1);
+                    assert_eq!(definition_fields, 8);
+                    ends += 1;
+                }
+                SalvageEvent::RecordStart {
+                    path,
+                    name,
+                    type_id: actual,
+                    definition_revision,
+                    definition_alias,
+                    fields,
+                    ..
+                } => {
+                    assert_eq!(path, record_path);
+                    assert_eq!(actual, type_id);
+                    assert_eq!(definition_revision, 1);
+                    assert_eq!(definition_alias, "aggregate");
+                    assert_eq!(fields, 8);
+                    repeated(&name, b'r');
+                    records += 1;
+                }
+                SalvageEvent::CapturedField(field) => {
+                    assert_eq!(field.field_id, format!("field_{captures}"));
+                    assert_eq!(field.kind, FormFieldKind::Secret);
+                    if captures == 0 {
+                        repeated(&field.captured_label, b'c');
+                    } else {
+                        assert_eq!(field.captured_label, format!("Label {captures}"));
+                    }
+                    match field.value {
+                        FormValue::Secret(secret) => secret.with_str(|s| repeated(s, b's'))?,
+                        _ => panic!("secret downgraded"),
+                    };
+                    captures += 1;
+                }
+                SalvageEvent::RecordEnd { path, .. } => {
+                    assert_eq!(path, record_path);
+                    assert_eq!(captures, 8);
+                    ends += 1;
+                }
+            }
+            Ok(())
+        },
+    )
+    .unwrap();
+    assert_eq!(report, tree_image::forms::SalvageReport::default());
+    assert_eq!(
+        (definitions, definition_fields, records, captures, ends),
+        (1, 8, 1, 8, 2)
+    );
+    let after_salvage = memory();
     for metric in [
         &before_source,
         &after_source,
         &after_definition,
         &after_record,
         &after_read,
+        &after_salvage,
     ] {
         assert!(metric["vm_lck_kib"].as_u64().unwrap() <= 8192);
     }
     println!(
         "FORM_AGGREGATE {}",
-        serde_json::json!({"mode":bits,"source_secret_bytes":size,"secret_fields":8,"logical_bytes":logical_bytes,"stored_payload_bytes":stored_payload_bytes,"archive_bytes":opened.image.storage.len().unwrap(),"before_source":before_source,"after_source":after_source,"after_definition":after_definition,"after_record":after_record,"after_read":after_read})
+        serde_json::json!({"mode":bits,"source_secret_bytes":size,"secret_fields":8,"logical_bytes":logical_bytes,"stored_payload_bytes":stored_payload_bytes,"archive_bytes":opened.image.storage.len().unwrap(),"before_source":before_source,"after_source":after_source,"after_definition":after_definition,"after_record":after_record,"after_read":after_read,"after_salvage":after_salvage})
     );
 }

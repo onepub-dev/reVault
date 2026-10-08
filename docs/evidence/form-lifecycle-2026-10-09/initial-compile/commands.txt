@@ -1,0 +1,2 @@
+Attempted command: cargo +1.88.0 test -p revault_lockbox_api --release --features external-source --lib typed_form_delete_and_stream_salvage_all_modes -- --nocapture --test-threads=1
+Outcome: compile failure; test binary did not run. This gate prevented running stored_form_validation_preserves_operational_errors and form_salvage_only_marks_stored_corruption_unavailable.

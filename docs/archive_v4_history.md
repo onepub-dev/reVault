@@ -8,6 +8,19 @@ remain the sole goals authority. No historical prototype result selects a format
 
 ## Implementation checkpoints
 
+### Selected form lifecycle checkpoint — 2026-10-09
+
+[Deletion and streamed salvage evidence](evidence/form-lifecycle-2026-10-09/README.md)
+adds test-only selected record deletion, guarded retirement and sequential
+definition/record streaming. All-mode controls preserve intact neighbors after
+record damage and suppress exact-definition dependents appropriately. The
+strengthened module passes 5 tests (1 ignored), including 1,704 transaction cuts
+and 564 interrupted recoveries; classification/segment controls and strict Clippy
+pass. Sixteen fresh aggregate processes verify 13,631,586 logical bytes including
+eight separately delivered 1 MiB secrets, maximum locked-memory endpoint 4,076 KiB.
+Partial delivery, stable-source and modeled-failure limitations remain explicit.
+Moves, field/revision mutation and public activation remain followthrough work.
+
 ### Typed form snapshot checkpoint — 2026-10-09
 
 [Selected snapshot evidence](evidence/typed-forms-2026-10-09/README.md) adds

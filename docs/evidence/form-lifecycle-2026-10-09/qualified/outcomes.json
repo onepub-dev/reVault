@@ -1,0 +1,873 @@
+{
+  "binary": "/tmp/revault-form-lifecycle-2026-10-09-final-qualified/frozen/revault_lockbox_api-tests",
+  "binary_sha256_start": "7586ee55e600f375280df11dd8ba43e7ce5e643c52a6a096c29adef20dda6ef5",
+  "binary_sha256_end": "7586ee55e600f375280df11dd8ba43e7ce5e643c52a6a096c29adef20dda6ef5",
+  "binary_stable": true,
+  "locked_memory_limit_bytes": 8388608,
+  "cases": [
+    {
+      "mode": 0,
+      "command": [
+        "/tmp/revault-form-lifecycle-2026-10-09-final-qualified/frozen/revault_lockbox_api-tests",
+        "typed_form_aggregate_guarded_snapshot_probe",
+        "--ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "image": "/tmp/revault-form-lifecycle-2026-10-09-final-qualified/aggregate/mode-00.lbox",
+      "log": "/tmp/revault-form-lifecycle-2026-10-09-final-qualified/aggregate/mode-00.log",
+      "exit_code": 0,
+      "marker": {
+        "after_definition": {
+          "vm_hwm_kib": 77648,
+          "vm_lck_kib": 1940,
+          "vm_rss_kib": 22472
+        },
+        "after_read": {
+          "vm_hwm_kib": 77648,
+          "vm_lck_kib": 3872,
+          "vm_rss_kib": 18836
+        },
+        "after_record": {
+          "vm_hwm_kib": 77648,
+          "vm_lck_kib": 3872,
+          "vm_rss_kib": 24724
+        },
+        "after_salvage": {
+          "vm_hwm_kib": 77648,
+          "vm_lck_kib": 3872,
+          "vm_rss_kib": 20884
+        },
+        "after_source": {
+          "vm_hwm_kib": 77648,
+          "vm_lck_kib": 1352,
+          "vm_rss_kib": 20220
+        },
+        "archive_bytes": 14548992,
+        "before_source": {
+          "vm_hwm_kib": 77648,
+          "vm_lck_kib": 324,
+          "vm_rss_kib": 14716
+        },
+        "logical_bytes": 13631586,
+        "mode": 0,
+        "secret_fields": 8,
+        "source_secret_bytes": 1048576,
+        "stored_payload_bytes": 13697298
+      },
+      "archive_sha256": "dad78f3ecf33b8a4e41f15fa16fbdea779cd998107e3be650bfbd6894f9f4a99",
+      "archive_bytes": 14548992,
+      "locked_memory_limit_bytes": 8388608
+    },
+    {
+      "mode": 1,
+      "command": [
+        "/tmp/revault-form-lifecycle-2026-10-09-final-qualified/frozen/revault_lockbox_api-tests",
+        "typed_form_aggregate_guarded_snapshot_probe",
+        "--ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "image": "/tmp/revault-form-lifecycle-2026-10-09-final-qualified/aggregate/mode-01.lbox",
+      "log": "/tmp/revault-form-lifecycle-2026-10-09-final-qualified/aggregate/mode-01.log",
+      "exit_code": 0,
+      "marker": {
+        "after_definition": {
+          "vm_hwm_kib": 77476,
+          "vm_lck_kib": 2144,
+          "vm_rss_kib": 22776
+        },
+        "after_read": {
+          "vm_hwm_kib": 77476,
+          "vm_lck_kib": 4076,
+          "vm_rss_kib": 19268
+        },
+        "after_record": {
+          "vm_hwm_kib": 77476,
+          "vm_lck_kib": 4076,
+          "vm_rss_kib": 25092
+        },
+        "after_salvage": {
+          "vm_hwm_kib": 77476,
+          "vm_lck_kib": 4076,
+          "vm_rss_kib": 21316
+        },
+        "after_source": {
+          "vm_hwm_kib": 77476,
+          "vm_lck_kib": 1352,
+          "vm_rss_kib": 20384
+        },
+        "archive_bytes": 14548992,
+        "before_source": {
+          "vm_hwm_kib": 77476,
+          "vm_lck_kib": 324,
+          "vm_rss_kib": 14876
+        },
+        "logical_bytes": 13631586,
+        "mode": 1,
+        "secret_fields": 8,
+        "source_secret_bytes": 1048576,
+        "stored_payload_bytes": 13697520
+      },
+      "archive_sha256": "3164c4609dbbed5945fc4204ac0db528e97b9f8beac267a64d92fd9a6b6f7527",
+      "archive_bytes": 14548992,
+      "locked_memory_limit_bytes": 8388608
+    },
+    {
+      "mode": 2,
+      "command": [
+        "/tmp/revault-form-lifecycle-2026-10-09-final-qualified/frozen/revault_lockbox_api-tests",
+        "typed_form_aggregate_guarded_snapshot_probe",
+        "--ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "image": "/tmp/revault-form-lifecycle-2026-10-09-final-qualified/aggregate/mode-02.lbox",
+      "log": "/tmp/revault-form-lifecycle-2026-10-09-final-qualified/aggregate/mode-02.log",
+      "exit_code": 0,
+      "marker": {
+        "after_definition": {
+          "vm_hwm_kib": 77320,
+          "vm_lck_kib": 1940,
+          "vm_rss_kib": 22396
+        },
+        "after_read": {
+          "vm_hwm_kib": 77320,
+          "vm_lck_kib": 3872,
+          "vm_rss_kib": 18760
+        },
+        "after_record": {
+          "vm_hwm_kib": 77320,
+          "vm_lck_kib": 3872,
+          "vm_rss_kib": 24712
+        },
+        "after_salvage": {
+          "vm_hwm_kib": 77320,
+          "vm_lck_kib": 3872,
+          "vm_rss_kib": 20808
+        },
+        "after_source": {
+          "vm_hwm_kib": 77320,
+          "vm_lck_kib": 1352,
+          "vm_rss_kib": 20080
+        },
+        "archive_bytes": 14548992,
+        "before_source": {
+          "vm_hwm_kib": 77320,
+          "vm_lck_kib": 324,
+          "vm_rss_kib": 14640
+        },
+        "logical_bytes": 13631586,
+        "mode": 2,
+        "secret_fields": 8,
+        "source_secret_bytes": 1048576,
+        "stored_payload_bytes": 13697298
+      },
+      "archive_sha256": "01e4e04d6d06105cdbe311b7183f4ff0ca1e7097bc37acd8da53dc2898f5ddb8",
+      "archive_bytes": 14548992,
+      "locked_memory_limit_bytes": 8388608
+    },
+    {
+      "mode": 3,
+      "command": [
+        "/tmp/revault-form-lifecycle-2026-10-09-final-qualified/frozen/revault_lockbox_api-tests",
+        "typed_form_aggregate_guarded_snapshot_probe",
+        "--ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "image": "/tmp/revault-form-lifecycle-2026-10-09-final-qualified/aggregate/mode-03.lbox",
+      "log": "/tmp/revault-form-lifecycle-2026-10-09-final-qualified/aggregate/mode-03.log",
+      "exit_code": 0,
+      "marker": {
+        "after_definition": {
+          "vm_hwm_kib": 77356,
+          "vm_lck_kib": 2144,
+          "vm_rss_kib": 22588
+        },
+        "after_read": {
+          "vm_hwm_kib": 77356,
+          "vm_lck_kib": 4076,
+          "vm_rss_kib": 18952
+        },
+        "after_record": {
+          "vm_hwm_kib": 77356,
+          "vm_lck_kib": 4076,
+          "vm_rss_kib": 24904
+        },
+        "after_salvage": {
+          "vm_hwm_kib": 77356,
+          "vm_lck_kib": 4076,
+          "vm_rss_kib": 21000
+        },
+        "after_source": {
+          "vm_hwm_kib": 77356,
+          "vm_lck_kib": 1352,
+          "vm_rss_kib": 20068
+        },
+        "archive_bytes": 14548992,
+        "before_source": {
+          "vm_hwm_kib": 77356,
+          "vm_lck_kib": 324,
+          "vm_rss_kib": 14620
+        },
+        "logical_bytes": 13631586,
+        "mode": 3,
+        "secret_fields": 8,
+        "source_secret_bytes": 1048576,
+        "stored_payload_bytes": 13697520
+      },
+      "archive_sha256": "87507f428bc7922cda5491f02eb4c095cc19065fa3ced78da95143c9a1f01bc1",
+      "archive_bytes": 14548992,
+      "locked_memory_limit_bytes": 8388608
+    },
+    {
+      "mode": 4,
+      "command": [
+        "/tmp/revault-form-lifecycle-2026-10-09-final-qualified/frozen/revault_lockbox_api-tests",
+        "typed_form_aggregate_guarded_snapshot_probe",
+        "--ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "image": "/tmp/revault-form-lifecycle-2026-10-09-final-qualified/aggregate/mode-04.lbox",
+      "log": "/tmp/revault-form-lifecycle-2026-10-09-final-qualified/aggregate/mode-04.log",
+      "exit_code": 0,
+      "marker": {
+        "after_definition": {
+          "vm_hwm_kib": 78152,
+          "vm_lck_kib": 1940,
+          "vm_rss_kib": 22440
+        },
+        "after_read": {
+          "vm_hwm_kib": 78152,
+          "vm_lck_kib": 3872,
+          "vm_rss_kib": 18868
+        },
+        "after_record": {
+          "vm_hwm_kib": 78152,
+          "vm_lck_kib": 3872,
+          "vm_rss_kib": 24820
+        },
+        "after_salvage": {
+          "vm_hwm_kib": 78152,
+          "vm_lck_kib": 3872,
+          "vm_rss_kib": 20980
+        },
+        "after_source": {
+          "vm_hwm_kib": 78152,
+          "vm_lck_kib": 1352,
+          "vm_rss_kib": 20188
+        },
+        "archive_bytes": 14548992,
+        "before_source": {
+          "vm_hwm_kib": 78152,
+          "vm_lck_kib": 324,
+          "vm_rss_kib": 16684
+        },
+        "logical_bytes": 13631586,
+        "mode": 4,
+        "secret_fields": 8,
+        "source_secret_bytes": 1048576,
+        "stored_payload_bytes": 13697298
+      },
+      "archive_sha256": "09ac9fd2d14b82fffa46173ce03f5adf3946869cd119a80465aab642ff8868ba",
+      "archive_bytes": 14548992,
+      "locked_memory_limit_bytes": 8388608
+    },
+    {
+      "mode": 5,
+      "command": [
+        "/tmp/revault-form-lifecycle-2026-10-09-final-qualified/frozen/revault_lockbox_api-tests",
+        "typed_form_aggregate_guarded_snapshot_probe",
+        "--ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "image": "/tmp/revault-form-lifecycle-2026-10-09-final-qualified/aggregate/mode-05.lbox",
+      "log": "/tmp/revault-form-lifecycle-2026-10-09-final-qualified/aggregate/mode-05.log",
+      "exit_code": 0,
+      "marker": {
+        "after_definition": {
+          "vm_hwm_kib": 78160,
+          "vm_lck_kib": 2144,
+          "vm_rss_kib": 22328
+        },
+        "after_read": {
+          "vm_hwm_kib": 78160,
+          "vm_lck_kib": 4076,
+          "vm_rss_kib": 18692
+        },
+        "after_record": {
+          "vm_hwm_kib": 78160,
+          "vm_lck_kib": 4076,
+          "vm_rss_kib": 24644
+        },
+        "after_salvage": {
+          "vm_hwm_kib": 78160,
+          "vm_lck_kib": 4076,
+          "vm_rss_kib": 20740
+        },
+        "after_source": {
+          "vm_hwm_kib": 78160,
+          "vm_lck_kib": 1352,
+          "vm_rss_kib": 19808
+        },
+        "archive_bytes": 14548992,
+        "before_source": {
+          "vm_hwm_kib": 78160,
+          "vm_lck_kib": 324,
+          "vm_rss_kib": 16368
+        },
+        "logical_bytes": 13631586,
+        "mode": 5,
+        "secret_fields": 8,
+        "source_secret_bytes": 1048576,
+        "stored_payload_bytes": 13697520
+      },
+      "archive_sha256": "a30d6d7ebf3fdc61362d319c2bab01526e191d53be0a25ef2975f841d826f53d",
+      "archive_bytes": 14548992,
+      "locked_memory_limit_bytes": 8388608
+    },
+    {
+      "mode": 6,
+      "command": [
+        "/tmp/revault-form-lifecycle-2026-10-09-final-qualified/frozen/revault_lockbox_api-tests",
+        "typed_form_aggregate_guarded_snapshot_probe",
+        "--ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "image": "/tmp/revault-form-lifecycle-2026-10-09-final-qualified/aggregate/mode-06.lbox",
+      "log": "/tmp/revault-form-lifecycle-2026-10-09-final-qualified/aggregate/mode-06.log",
+      "exit_code": 0,
+      "marker": {
+        "after_definition": {
+          "vm_hwm_kib": 78408,
+          "vm_lck_kib": 1940,
+          "vm_rss_kib": 22308
+        },
+        "after_read": {
+          "vm_hwm_kib": 78408,
+          "vm_lck_kib": 3872,
+          "vm_rss_kib": 18608
+        },
+        "after_record": {
+          "vm_hwm_kib": 78408,
+          "vm_lck_kib": 3872,
+          "vm_rss_kib": 24496
+        },
+        "after_salvage": {
+          "vm_hwm_kib": 78408,
+          "vm_lck_kib": 3872,
+          "vm_rss_kib": 20656
+        },
+        "after_source": {
+          "vm_hwm_kib": 78408,
+          "vm_lck_kib": 1352,
+          "vm_rss_kib": 20120
+        },
+        "archive_bytes": 14548992,
+        "before_source": {
+          "vm_hwm_kib": 78408,
+          "vm_lck_kib": 324,
+          "vm_rss_kib": 16616
+        },
+        "logical_bytes": 13631586,
+        "mode": 6,
+        "secret_fields": 8,
+        "source_secret_bytes": 1048576,
+        "stored_payload_bytes": 13697298
+      },
+      "archive_sha256": "75c45e468630de649abe67f88b3fe0610677b7f2ebb67e452c428da7d47e9197",
+      "archive_bytes": 14548992,
+      "locked_memory_limit_bytes": 8388608
+    },
+    {
+      "mode": 7,
+      "command": [
+        "/tmp/revault-form-lifecycle-2026-10-09-final-qualified/frozen/revault_lockbox_api-tests",
+        "typed_form_aggregate_guarded_snapshot_probe",
+        "--ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "image": "/tmp/revault-form-lifecycle-2026-10-09-final-qualified/aggregate/mode-07.lbox",
+      "log": "/tmp/revault-form-lifecycle-2026-10-09-final-qualified/aggregate/mode-07.log",
+      "exit_code": 0,
+      "marker": {
+        "after_definition": {
+          "vm_hwm_kib": 78452,
+          "vm_lck_kib": 2144,
+          "vm_rss_kib": 22496
+        },
+        "after_read": {
+          "vm_hwm_kib": 78452,
+          "vm_lck_kib": 4076,
+          "vm_rss_kib": 18796
+        },
+        "after_record": {
+          "vm_hwm_kib": 78452,
+          "vm_lck_kib": 4076,
+          "vm_rss_kib": 24684
+        },
+        "after_salvage": {
+          "vm_hwm_kib": 78452,
+          "vm_lck_kib": 4076,
+          "vm_rss_kib": 20844
+        },
+        "after_source": {
+          "vm_hwm_kib": 78452,
+          "vm_lck_kib": 1352,
+          "vm_rss_kib": 20104
+        },
+        "archive_bytes": 14548992,
+        "before_source": {
+          "vm_hwm_kib": 78452,
+          "vm_lck_kib": 324,
+          "vm_rss_kib": 16600
+        },
+        "logical_bytes": 13631586,
+        "mode": 7,
+        "secret_fields": 8,
+        "source_secret_bytes": 1048576,
+        "stored_payload_bytes": 13697520
+      },
+      "archive_sha256": "5fe33027afc3add547fc33ad74f66feaa6cbbba3b84f3e8a70d9e87f130ce698",
+      "archive_bytes": 14548992,
+      "locked_memory_limit_bytes": 8388608
+    },
+    {
+      "mode": 8,
+      "command": [
+        "/tmp/revault-form-lifecycle-2026-10-09-final-qualified/frozen/revault_lockbox_api-tests",
+        "typed_form_aggregate_guarded_snapshot_probe",
+        "--ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "image": "/tmp/revault-form-lifecycle-2026-10-09-final-qualified/aggregate/mode-08.lbox",
+      "log": "/tmp/revault-form-lifecycle-2026-10-09-final-qualified/aggregate/mode-08.log",
+      "exit_code": 0,
+      "marker": {
+        "after_definition": {
+          "vm_hwm_kib": 77896,
+          "vm_lck_kib": 1876,
+          "vm_rss_kib": 22300
+        },
+        "after_read": {
+          "vm_hwm_kib": 77896,
+          "vm_lck_kib": 3680,
+          "vm_rss_kib": 18472
+        },
+        "after_record": {
+          "vm_hwm_kib": 77896,
+          "vm_lck_kib": 3680,
+          "vm_rss_kib": 24488
+        },
+        "after_salvage": {
+          "vm_hwm_kib": 77896,
+          "vm_lck_kib": 3680,
+          "vm_rss_kib": 20456
+        },
+        "after_source": {
+          "vm_hwm_kib": 77896,
+          "vm_lck_kib": 1352,
+          "vm_rss_kib": 20112
+        },
+        "archive_bytes": 29818880,
+        "before_source": {
+          "vm_hwm_kib": 77896,
+          "vm_lck_kib": 324,
+          "vm_rss_kib": 14808
+        },
+        "logical_bytes": 13631586,
+        "mode": 8,
+        "secret_fields": 8,
+        "source_secret_bytes": 1048576,
+        "stored_payload_bytes": 29097984
+      },
+      "archive_sha256": "9f0d622b3284ff6c76d639a2a4a2e8864f8b3f98eaa70e48b952a0cb89e7fa9f",
+      "archive_bytes": 29818880,
+      "locked_memory_limit_bytes": 8388608
+    },
+    {
+      "mode": 9,
+      "command": [
+        "/tmp/revault-form-lifecycle-2026-10-09-final-qualified/frozen/revault_lockbox_api-tests",
+        "typed_form_aggregate_guarded_snapshot_probe",
+        "--ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "image": "/tmp/revault-form-lifecycle-2026-10-09-final-qualified/aggregate/mode-09.lbox",
+      "log": "/tmp/revault-form-lifecycle-2026-10-09-final-qualified/aggregate/mode-09.log",
+      "exit_code": 0,
+      "marker": {
+        "after_definition": {
+          "vm_hwm_kib": 77928,
+          "vm_lck_kib": 2008,
+          "vm_rss_kib": 22364
+        },
+        "after_read": {
+          "vm_hwm_kib": 77928,
+          "vm_lck_kib": 3812,
+          "vm_rss_kib": 24616
+        },
+        "after_record": {
+          "vm_hwm_kib": 77928,
+          "vm_lck_kib": 3812,
+          "vm_rss_kib": 24552
+        },
+        "after_salvage": {
+          "vm_hwm_kib": 77928,
+          "vm_lck_kib": 3812,
+          "vm_rss_kib": 24680
+        },
+        "after_source": {
+          "vm_hwm_kib": 77928,
+          "vm_lck_kib": 1352,
+          "vm_rss_kib": 20044
+        },
+        "archive_bytes": 29818880,
+        "before_source": {
+          "vm_hwm_kib": 77928,
+          "vm_lck_kib": 324,
+          "vm_rss_kib": 14904
+        },
+        "logical_bytes": 13631586,
+        "mode": 9,
+        "secret_fields": 8,
+        "source_secret_bytes": 1048576,
+        "stored_payload_bytes": 29097984
+      },
+      "archive_sha256": "829367fe38e5a365c9bd1353ccc025aae8dc342d47aca4750d1f8b37403ed225",
+      "archive_bytes": 29818880,
+      "locked_memory_limit_bytes": 8388608
+    },
+    {
+      "mode": 10,
+      "command": [
+        "/tmp/revault-form-lifecycle-2026-10-09-final-qualified/frozen/revault_lockbox_api-tests",
+        "typed_form_aggregate_guarded_snapshot_probe",
+        "--ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "image": "/tmp/revault-form-lifecycle-2026-10-09-final-qualified/aggregate/mode-10.lbox",
+      "log": "/tmp/revault-form-lifecycle-2026-10-09-final-qualified/aggregate/mode-10.log",
+      "exit_code": 0,
+      "marker": {
+        "after_definition": {
+          "vm_hwm_kib": 77544,
+          "vm_lck_kib": 1876,
+          "vm_rss_kib": 22040
+        },
+        "after_read": {
+          "vm_hwm_kib": 77544,
+          "vm_lck_kib": 3680,
+          "vm_rss_kib": 24292
+        },
+        "after_record": {
+          "vm_hwm_kib": 77544,
+          "vm_lck_kib": 3680,
+          "vm_rss_kib": 24292
+        },
+        "after_salvage": {
+          "vm_hwm_kib": 77544,
+          "vm_lck_kib": 3680,
+          "vm_rss_kib": 24420
+        },
+        "after_source": {
+          "vm_hwm_kib": 77544,
+          "vm_lck_kib": 1352,
+          "vm_rss_kib": 19724
+        },
+        "archive_bytes": 29818880,
+        "before_source": {
+          "vm_hwm_kib": 77544,
+          "vm_lck_kib": 324,
+          "vm_rss_kib": 14400
+        },
+        "logical_bytes": 13631586,
+        "mode": 10,
+        "secret_fields": 8,
+        "source_secret_bytes": 1048576,
+        "stored_payload_bytes": 29097984
+      },
+      "archive_sha256": "7314f0912e35e54fec337aa3c5057d86603219dcf775a51f68aa675644d23424",
+      "archive_bytes": 29818880,
+      "locked_memory_limit_bytes": 8388608
+    },
+    {
+      "mode": 11,
+      "command": [
+        "/tmp/revault-form-lifecycle-2026-10-09-final-qualified/frozen/revault_lockbox_api-tests",
+        "typed_form_aggregate_guarded_snapshot_probe",
+        "--ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "image": "/tmp/revault-form-lifecycle-2026-10-09-final-qualified/aggregate/mode-11.lbox",
+      "log": "/tmp/revault-form-lifecycle-2026-10-09-final-qualified/aggregate/mode-11.log",
+      "exit_code": 0,
+      "marker": {
+        "after_definition": {
+          "vm_hwm_kib": 77808,
+          "vm_lck_kib": 2008,
+          "vm_rss_kib": 22248
+        },
+        "after_read": {
+          "vm_hwm_kib": 77808,
+          "vm_lck_kib": 3812,
+          "vm_rss_kib": 24564
+        },
+        "after_record": {
+          "vm_hwm_kib": 77808,
+          "vm_lck_kib": 3812,
+          "vm_rss_kib": 24436
+        },
+        "after_salvage": {
+          "vm_hwm_kib": 77808,
+          "vm_lck_kib": 3812,
+          "vm_rss_kib": 24628
+        },
+        "after_source": {
+          "vm_hwm_kib": 77808,
+          "vm_lck_kib": 1352,
+          "vm_rss_kib": 19992
+        },
+        "archive_bytes": 29818880,
+        "before_source": {
+          "vm_hwm_kib": 77808,
+          "vm_lck_kib": 324,
+          "vm_rss_kib": 14852
+        },
+        "logical_bytes": 13631586,
+        "mode": 11,
+        "secret_fields": 8,
+        "source_secret_bytes": 1048576,
+        "stored_payload_bytes": 29097984
+      },
+      "archive_sha256": "9cb437753aa25a96aa28af8558632c1c92f1ac2d366f7ecaa12f2a82aeff3e4e",
+      "archive_bytes": 29818880,
+      "locked_memory_limit_bytes": 8388608
+    },
+    {
+      "mode": 12,
+      "command": [
+        "/tmp/revault-form-lifecycle-2026-10-09-final-qualified/frozen/revault_lockbox_api-tests",
+        "typed_form_aggregate_guarded_snapshot_probe",
+        "--ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "image": "/tmp/revault-form-lifecycle-2026-10-09-final-qualified/aggregate/mode-12.lbox",
+      "log": "/tmp/revault-form-lifecycle-2026-10-09-final-qualified/aggregate/mode-12.log",
+      "exit_code": 0,
+      "marker": {
+        "after_definition": {
+          "vm_hwm_kib": 78532,
+          "vm_lck_kib": 1876,
+          "vm_rss_kib": 22300
+        },
+        "after_read": {
+          "vm_hwm_kib": 78532,
+          "vm_lck_kib": 3680,
+          "vm_rss_kib": 18408
+        },
+        "after_record": {
+          "vm_hwm_kib": 78532,
+          "vm_lck_kib": 3680,
+          "vm_rss_kib": 24424
+        },
+        "after_salvage": {
+          "vm_hwm_kib": 78532,
+          "vm_lck_kib": 3680,
+          "vm_rss_kib": 20392
+        },
+        "after_source": {
+          "vm_hwm_kib": 78532,
+          "vm_lck_kib": 1352,
+          "vm_rss_kib": 20112
+        },
+        "archive_bytes": 29818880,
+        "before_source": {
+          "vm_hwm_kib": 78532,
+          "vm_lck_kib": 324,
+          "vm_rss_kib": 16608
+        },
+        "logical_bytes": 13631586,
+        "mode": 12,
+        "secret_fields": 8,
+        "source_secret_bytes": 1048576,
+        "stored_payload_bytes": 29097984
+      },
+      "archive_sha256": "c3b6a7202b7993964bd16b858251e3ee16ffd5d79c7f521138ea1259c3feb631",
+      "archive_bytes": 29818880,
+      "locked_memory_limit_bytes": 8388608
+    },
+    {
+      "mode": 13,
+      "command": [
+        "/tmp/revault-form-lifecycle-2026-10-09-final-qualified/frozen/revault_lockbox_api-tests",
+        "typed_form_aggregate_guarded_snapshot_probe",
+        "--ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "image": "/tmp/revault-form-lifecycle-2026-10-09-final-qualified/aggregate/mode-13.lbox",
+      "log": "/tmp/revault-form-lifecycle-2026-10-09-final-qualified/aggregate/mode-13.log",
+      "exit_code": 0,
+      "marker": {
+        "after_definition": {
+          "vm_hwm_kib": 78492,
+          "vm_lck_kib": 2008,
+          "vm_rss_kib": 22392
+        },
+        "after_read": {
+          "vm_hwm_kib": 78492,
+          "vm_lck_kib": 3812,
+          "vm_rss_kib": 18628
+        },
+        "after_record": {
+          "vm_hwm_kib": 78492,
+          "vm_lck_kib": 3812,
+          "vm_rss_kib": 24644
+        },
+        "after_salvage": {
+          "vm_hwm_kib": 78492,
+          "vm_lck_kib": 3812,
+          "vm_rss_kib": 20676
+        },
+        "after_source": {
+          "vm_hwm_kib": 78492,
+          "vm_lck_kib": 1352,
+          "vm_rss_kib": 20072
+        },
+        "archive_bytes": 29818880,
+        "before_source": {
+          "vm_hwm_kib": 78492,
+          "vm_lck_kib": 324,
+          "vm_rss_kib": 16568
+        },
+        "logical_bytes": 13631586,
+        "mode": 13,
+        "secret_fields": 8,
+        "source_secret_bytes": 1048576,
+        "stored_payload_bytes": 29097984
+      },
+      "archive_sha256": "dbd3cf66a93ce89c978e40c19da30506586b832f62eeb0476c38cf5627fdfd0a",
+      "archive_bytes": 29818880,
+      "locked_memory_limit_bytes": 8388608
+    },
+    {
+      "mode": 14,
+      "command": [
+        "/tmp/revault-form-lifecycle-2026-10-09-final-qualified/frozen/revault_lockbox_api-tests",
+        "typed_form_aggregate_guarded_snapshot_probe",
+        "--ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "image": "/tmp/revault-form-lifecycle-2026-10-09-final-qualified/aggregate/mode-14.lbox",
+      "log": "/tmp/revault-form-lifecycle-2026-10-09-final-qualified/aggregate/mode-14.log",
+      "exit_code": 0,
+      "marker": {
+        "after_definition": {
+          "vm_hwm_kib": 78512,
+          "vm_lck_kib": 1876,
+          "vm_rss_kib": 22372
+        },
+        "after_read": {
+          "vm_hwm_kib": 78512,
+          "vm_lck_kib": 3680,
+          "vm_rss_kib": 18608
+        },
+        "after_record": {
+          "vm_hwm_kib": 78512,
+          "vm_lck_kib": 3680,
+          "vm_rss_kib": 24560
+        },
+        "after_salvage": {
+          "vm_hwm_kib": 78512,
+          "vm_lck_kib": 3680,
+          "vm_rss_kib": 20592
+        },
+        "after_source": {
+          "vm_hwm_kib": 78512,
+          "vm_lck_kib": 1352,
+          "vm_rss_kib": 20184
+        },
+        "archive_bytes": 29818880,
+        "before_source": {
+          "vm_hwm_kib": 78512,
+          "vm_lck_kib": 324,
+          "vm_rss_kib": 16484
+        },
+        "logical_bytes": 13631586,
+        "mode": 14,
+        "secret_fields": 8,
+        "source_secret_bytes": 1048576,
+        "stored_payload_bytes": 29097984
+      },
+      "archive_sha256": "7bb5c78d7321f6607cb594abe39e45cc1c38a6a5696616490d2f64b30623cd66",
+      "archive_bytes": 29818880,
+      "locked_memory_limit_bytes": 8388608
+    },
+    {
+      "mode": 15,
+      "command": [
+        "/tmp/revault-form-lifecycle-2026-10-09-final-qualified/frozen/revault_lockbox_api-tests",
+        "typed_form_aggregate_guarded_snapshot_probe",
+        "--ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "image": "/tmp/revault-form-lifecycle-2026-10-09-final-qualified/aggregate/mode-15.lbox",
+      "log": "/tmp/revault-form-lifecycle-2026-10-09-final-qualified/aggregate/mode-15.log",
+      "exit_code": 0,
+      "marker": {
+        "after_definition": {
+          "vm_hwm_kib": 78584,
+          "vm_lck_kib": 2008,
+          "vm_rss_kib": 22252
+        },
+        "after_read": {
+          "vm_hwm_kib": 78584,
+          "vm_lck_kib": 3812,
+          "vm_rss_kib": 24504
+        },
+        "after_record": {
+          "vm_hwm_kib": 78584,
+          "vm_lck_kib": 3812,
+          "vm_rss_kib": 24504
+        },
+        "after_salvage": {
+          "vm_hwm_kib": 78584,
+          "vm_lck_kib": 3812,
+          "vm_rss_kib": 24632
+        },
+        "after_source": {
+          "vm_hwm_kib": 78584,
+          "vm_lck_kib": 1352,
+          "vm_rss_kib": 19996
+        },
+        "archive_bytes": 29818880,
+        "before_source": {
+          "vm_hwm_kib": 78584,
+          "vm_lck_kib": 324,
+          "vm_rss_kib": 16536
+        },
+        "logical_bytes": 13631586,
+        "mode": 15,
+        "secret_fields": 8,
+        "source_secret_bytes": 1048576,
+        "stored_payload_bytes": 29097984
+      },
+      "archive_sha256": "1dcdd218124643a33abc5d871a2560e084057ceebce2f83c1234ff3ad17df665",
+      "archive_bytes": 29818880,
+      "locked_memory_limit_bytes": 8388608
+    }
+  ]
+}

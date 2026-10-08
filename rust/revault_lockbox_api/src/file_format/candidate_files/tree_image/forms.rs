@@ -478,3 +478,8 @@ fn create_parents(catalogue: &mut Catalogue, path: &LockboxPath) -> Result<()> {
     }
     catalogue.set_tree_metadata(&metadata)
 }
+
+mod lifecycle;
+pub(in crate::file_format::candidate_files) use lifecycle::{
+    delete_record, salvage_forms, SalvageEvent, SalvageReport,
+};

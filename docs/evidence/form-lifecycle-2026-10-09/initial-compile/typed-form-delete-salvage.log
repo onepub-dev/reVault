@@ -1,0 +1,35 @@
+   Compiling revault_lockbox_api v0.0.41 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api)
+error[E0425]: cannot find value `f` in this scope
+   --> revault_lockbox_api/src/file_format/candidate_files/dense_catalogue/forms.rs:619:34
+    |
+619 |         selvalidate_stored_value(f.kind,&value)?;
+    |                                  ^ not found in this scope
+
+error[E0425]: cannot find function `selvalidate_stored_value` in this scope
+   --> revault_lockbox_api/src/file_format/candidate_files/dense_catalogue/forms.rs:619:9
+    |
+619 |         selvalidate_stored_value(f.kind,&value)?;
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^ help: a function with a similar name exists: `validate_stored_value`
+...
+624 | fn validate_stored_value(kind:FormFieldKind,value:&FormValue)->Result<()> {
+    | ------------------------------------------------------------------------- similarly named function `validate_stored_value` defined here
+
+error[E0061]: this function takes 2 arguments but 1 argument was supplied
+   --> revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/lifecycle.rs:6:18
+    |
+6   |  let mut storage=Guarded::new(super::super::mutation::seed(mode,authority,owner));
+    |                  ^^^^^^^^^^^^---------------------------------------------------- argument #2 of type `Vec<(u64, u64)>` is missing
+    |
+note: associated function defined here
+   --> revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/variables.rs:335:19
+    |
+335 |     pub(super) fn new(inner: S, spans: Vec<(u64, u64)>) -> Self {
+    |                   ^^^           ----------------------
+help: provide the argument
+    |
+6   |  let mut storage=Guarded::new(super::super::mutation::seed(mode,authority,owner), /* Vec<(u64, u64)> */);
+    |                                                                                 +++++++++++++++++++++++
+
+Some errors have detailed explanations: E0061, E0425.
+For more information about an error, try `rustc --explain E0061`.
+error: could not compile `revault_lockbox_api` (lib test) due to 3 previous errors

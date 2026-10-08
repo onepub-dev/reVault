@@ -365,35 +365,46 @@ impl Forms {
         key: &[u8; 32],
         sealed: u64,
     ) -> Result<()> {
-        for d in &self.definitions {
-            FormDefinition::validated_name(&read_normal(&d.name, storage, archive, key, sealed)?)?;
-            FormDefinition::validated_description(&read_normal(
-                &d.description,
-                storage,
-                archive,
-                key,
-                sealed,
-            )?)?;
-            for f in &d.fields {
-                FormFieldDefinition::validated_label(&read_normal(
-                    &f.label, storage, archive, key, sealed,
-                )?)?;
-            }
+        for definition in &self.definitions {
+            definition.verify(storage, archive, key, sealed)?;
         }
-        for r in &self.records {
-            FormRecord::validated_name(&read_normal(&r.name, storage, archive, key, sealed)?)?;
-            for f in &r.fields {
-                FormFieldDefinition::validated_label(&read_normal(
-                    &f.label, storage, archive, key, sealed,
-                )?)?;
-                let value = read_value(&f.value, storage, archive, key, sealed)?;
-                f.kind.validate_value(&value)?;
-            }
+        for record in &self.records {
+            record.verify(storage, archive, key, sealed)?;
         }
         Ok(())
     }
 }
 impl Definition {
+    pub fn verify(
+        &self,
+        storage: &impl Storage,
+        archive: LockboxId,
+        key: &[u8; 32],
+        sealed: u64,
+    ) -> Result<()> {
+        FormDefinition::validated_name(&read_normal(&self.name, storage, archive, key, sealed)?)
+            .map_err(|_| Error::CorruptRecord)?;
+        FormDefinition::validated_description(&read_normal(
+            &self.description,
+            storage,
+            archive,
+            key,
+            sealed,
+        )?)
+        .map_err(|_| Error::CorruptRecord)?;
+        for field in &self.fields {
+            FormFieldDefinition::validated_label(&read_normal(
+                &field.label,
+                storage,
+                archive,
+                key,
+                sealed,
+            )?)
+            .map_err(|_| Error::CorruptRecord)?;
+        }
+        Ok(())
+    }
+
     pub fn matches(
         &self,
         expected: &FormDefinition,
@@ -460,6 +471,29 @@ impl Definition {
     }
 }
 impl Record {
+    pub fn verify(
+        &self,
+        storage: &impl Storage,
+        archive: LockboxId,
+        key: &[u8; 32],
+        sealed: u64,
+    ) -> Result<()> {
+        FormRecord::validated_name(&read_normal(&self.name, storage, archive, key, sealed)?)
+            .map_err(|_| Error::CorruptRecord)?;
+        for field in &self.fields {
+            FormFieldDefinition::validated_label(&read_normal(
+                &field.label,
+                storage,
+                archive,
+                key,
+                sealed,
+            )?)
+            .map_err(|_| Error::CorruptRecord)?;
+            field.read_value(storage, archive, key, sealed)?;
+        }
+        Ok(())
+    }
+
     pub fn read(
         &self,
         storage: &impl Storage,
@@ -470,7 +504,7 @@ impl Record {
         let mut values = Vec::new();
         for f in &self.fields {
             let value = read_value(&f.value, storage, archive, key, sealed)?;
-            f.kind.validate_value(&value)?;
+            validate_stored_value(f.kind, &value)?;
             values.push(FormFieldValue {
                 field_id: f.id.clone(),
                 captured_label: FormFieldDefinition::validated_label(&read_normal(
@@ -492,7 +526,7 @@ impl Record {
         })
     }
 }
-fn read_normal(
+pub(in crate::file_format::candidate_files) fn read_normal(
     layout: &Layout,
     storage: &impl Storage,
     archive: LockboxId,
@@ -626,7 +660,33 @@ impl Capture {
         sealed: u64,
     ) -> Result<FormValue> {
         let value = read_value(&self.value, storage, archive, key, sealed)?;
-        self.kind.validate_value(&value)?;
+        validate_stored_value(self.kind, &value)?;
         Ok(value)
+    }
+}
+
+fn validate_stored_value(kind: FormFieldKind, value: &FormValue) -> Result<()> {
+    kind.validate_value(value).map_err(stored_value_error)
+}
+
+fn stored_value_error(error: Error) -> Error {
+    match error {
+        Error::InvalidInput(_) | Error::InvalidOperation(_) => Error::CorruptRecord,
+        other => other,
+    }
+}
+#[test]
+fn stored_form_validation_preserves_operational_errors() {
+    for error in [
+        Error::SecurityLimitExceeded("access".into()),
+        Error::Io("read".into()),
+    ] {
+        assert_eq!(stored_value_error(error.clone()), error);
+    }
+    for error in [
+        Error::InvalidInput("value".into()),
+        Error::InvalidOperation("sensitivity".into()),
+    ] {
+        assert_eq!(stored_value_error(error), Error::CorruptRecord);
     }
 }

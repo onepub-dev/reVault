@@ -3,6 +3,7 @@ use super::*;
 mod admission;
 #[cfg(target_os = "linux")]
 mod aggregate;
+mod lifecycle;
 use crate::{
     FormDefinition, FormFieldDefinition, FormFieldKind, FormFieldValue, FormRecord, FormTypeId,
     FormValue, LockboxPath, SecretString, VariableName,

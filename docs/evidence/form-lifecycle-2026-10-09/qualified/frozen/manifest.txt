@@ -1,0 +1,10 @@
+Final-qualified typed-form aggregate probe binary
+Worktree: /home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance
+Rust cwd: /home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust
+HEAD: c5a143f88959711a1a8c289cfdecd6cb661cc865
+Working tree had tracked modifications and untracked lifecycle source files; tracked diff and untracked source snapshots/hashes are retained in this directory.
+Build command: cargo +1.88.0 test -p revault_lockbox_api --release --features external-source --lib tree_tests::forms:: -- --test-threads=1 --nocapture
+Focused post-fix checks: typed_form_delete_and_stream_salvage_all_modes and typed_form_stream_delivery_errors_are_fatal_after_partial_events passed; strict Clippy --lib --tests --benches with external-source passed. The deletion recovery matrix in prior final-rerun source remained 1,704 cases / 564 interrupted recovery cases; it was not repeated after two constructor borrow-only changes.
+Frozen binary SHA-256 is recorded in binary.sha256. Compiler/toolchain and Cargo.lock/package manifest hashes are recorded alongside.
+Probe command per mode: frozen binary typed_form_aggregate_guarded_snapshot_probe --ignored --test-threads=1 --nocapture; REVAULT_FORM_MODE=0..15; REVAULT_FORM_IMAGE is a fresh absolute .lbox path under aggregate/.
+Exactly one fresh process was run per mode. No retries or timing measurements. RLIMIT_MEMLOCK inherited and recorded as 8,388,608 bytes (8192 KiB). Full output, marker JSON, exit status, archive digest/size and per-stage resource metrics are in aggregate/ and outcomes.json. Frozen executable SHA-256 remained identical at start/end.

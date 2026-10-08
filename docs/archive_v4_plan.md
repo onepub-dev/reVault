@@ -90,9 +90,12 @@ and Clippy pass, including post-format affected checks at `341315af`. Both
 separately frozen 16-mode FileStore batches verify
 13.6 MB logical snapshots with a maximum 4,076 KiB locked-memory endpoint under
 the 8,192 KiB policy. This is bounded staging/scoped reading, not full-object or
-concurrency qualification. Next connect record deletion and streamed selected
-salvage with interrupted recovery, then field/revision mutation and broader public
-integration.
+concurrency qualification. The [form lifecycle followthrough](evidence/form-lifecycle-2026-10-09/README.md)
+adds selected deletion and streamed salvage, passing 1,704 transaction cuts and
+564 interrupted recoveries, all-mode corruption/dependency controls and 16 fresh
+aggregate streaming probes under the unchanged memory policy. Partial delivery
+requires whole-call staging; stable storage remains a precondition. Next connect
+metadata-only form moves, then field/revision mutation and broader public integration.
 Keep the security policy and failure evidence; no allocator weakening is implied.
 Forms/references and broader public adapters, native selected
 membership/recovery, architecture selection and complete CPU/RSS/aging/size and
