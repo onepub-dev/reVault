@@ -126,3 +126,39 @@ only when reproducing elsewhere. Executables and raw corpora remain under
 fixtures, the deterministic raw generator, all pair records, runner, lockfile,
 toolchain and source commit identities are retained in this directory. Local
 binary availability is not promised for later environments.
+
+
+## Bounded wide-write follow-up
+
+The first fixed batch above revealed a material owned-lifetime regression. A
+separate hypothesis replaces byte-at-a-time volatile writes with aligned
+64-byte volatile writes and byte prefix/suffix stores, retaining the same
+full-capacity policy, compiler fence and release observers. The allocation is
+partitioned as `MaybeUninit` storage, so spare bytes are never read or asserted
+initialized before wiping. This mirrors the archive page-buffer strategy without
+adding a vendor dependency or assuming a SIMD instruction set.
+
+The fixed follow-up compares the frozen byte-wise correction `efe496bd` with
+this wide-write implementation using the identical four cases, three warmup
+pairs and 30 measured pairs. Its plan is retained in `wide-wipe-plan.txt` before
+sampling. The original unwiped-control batch stays separate: ratios from
+separate batches will not be multiplied to invent a directly measured result.
+
+The public `stream_content` path starts scoped workspace reuse only when live
+TOC files contain at least 8 MiB of logical file-slice lengths belonging to
+compressed frames of at least 64 KiB. This threshold examines the live TOC,
+not just files requested by the current operation. Within that scope, output
+lengths from 64 KiB through 4 MiB and advertised windows no larger than 4 MiB
+use static decoding. Small frames/metadata, absent scopes, oversized windows,
+skippable prefixes and unavailable thread-local storage can use the ordinary
+fallback. The experimental data-extent codec instead directly owns bounded
+static scratch with no allocating fallback; shared-catalogue decoding also uses
+static scratch. The owned 8 MiB codec result therefore cannot be projected onto
+all archive reads, nor does the static control include the caller's final wipe.
+
+
+Wide-write pre-format validation passed: 18 vendor decoder unit tests (including
+12,352 offset/length cases covering uninitialized ranges and untouched guards),
+15 release workspace tests (1 ignored), no-default-features check, 21 release
+compression tests, 241 format tests (7 ignored), and strict Clippy. Post-format
+checks and the separate fixed follow-up cost result remain to be recorded.

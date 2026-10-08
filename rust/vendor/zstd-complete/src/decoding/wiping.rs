@@ -9,9 +9,24 @@ use core::ops::{Deref, DerefMut};
 /// `pointer` must permit writes to `capacity` bytes. The allocation remains live
 /// and exclusively borrowed until this function and its test observer return.
 pub(super) unsafe fn wipe_allocation(pointer: *mut u8, capacity: usize) {
-    for offset in 0..capacity {
-        // SAFETY: the caller supplies the complete exclusive writable allocation.
-        unsafe { pointer.add(offset).write_volatile(0) };
+    // Represent spare capacity without asserting that it is initialized. The
+    // aligned blocks have no padding; no existing value is read or interpreted.
+    // SAFETY: the caller supplies the full exclusive live writable allocation.
+    let bytes = unsafe {
+        core::slice::from_raw_parts_mut(pointer.cast::<core::mem::MaybeUninit<u8>>(), capacity)
+    };
+    // SAFETY: MaybeUninit permits every initialized or uninitialized bit pattern.
+    // This splits the allocation into disjoint aligned regions of the same total
+    // size. Wide volatile stores avoid one volatile instruction per byte while
+    // retaining full-allocation erasure, including uninitialized spare capacity.
+    let (head, blocks, tail) = unsafe { bytes.align_to_mut::<core::mem::MaybeUninit<[u64; 8]>>() };
+    for byte in head.iter_mut().chain(tail.iter_mut()) {
+        // SAFETY: each byte is exclusively writable; the write initializes it.
+        unsafe { core::ptr::write_volatile(byte, core::mem::MaybeUninit::new(0)) };
+    }
+    for block in blocks {
+        // SAFETY: each padding-free block is exclusively writable and aligned.
+        unsafe { core::ptr::write_volatile(block, core::mem::MaybeUninit::new([0; 8])) };
     }
     core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
     #[cfg(all(test, feature = "std"))]
@@ -169,6 +184,33 @@ fn audit(operation: impl FnOnce()) -> Vec<Release> {
 #[cfg(all(test, feature = "std"))]
 mod tests {
     use super::*;
+
+    #[test]
+    fn allocation_wipe_covers_unaligned_and_uninitialized_regions() {
+        use core::mem::MaybeUninit;
+        for offset in 0..64 {
+            for length in 0..193 {
+                let mut bytes = [MaybeUninit::new(0xa5u8); 320];
+                bytes[offset..offset + length].fill(MaybeUninit::uninit());
+                // SAFETY: the selected range is live, exclusively writable and
+                // inside this allocation. Its contents need not be initialized.
+                unsafe { wipe_allocation(bytes.as_mut_ptr().add(offset).cast(), length) };
+                for (index, byte) in bytes.iter().enumerate() {
+                    // SAFETY: guards started initialized; wiping initialized
+                    // every byte in the selected range. Read only afterward.
+                    let value = unsafe { byte.assume_init() };
+                    assert_eq!(
+                        value,
+                        if (offset..offset + length).contains(&index) {
+                            0
+                        } else {
+                            0xa5
+                        }
+                    );
+                }
+            }
+        }
+    }
 
     #[test]
     fn owned_bytes_wipe_growth_and_truncated_spare_capacity() {

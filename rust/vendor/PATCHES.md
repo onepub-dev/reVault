@@ -72,7 +72,12 @@ errors before slicing. Valid multi-block frames remain supported. Tests observe
 known live bytes before erasure and zeros before free, plus owned/static error
 paths, canaries and allocation-free static decoding. See the
 [owned-storage evidence](../../docs/evidence/decoder-owned-storage-2026-10-08/README.md)
-for exact limits, qualification and the declared combined cost comparison.
+for exact limits, qualification and the fixed combined cost comparison.
+The initial byte-wise volatile wipe had a material lifecycle cost; aligned
+64-byte volatile stores with byte prefix/suffix now retain the identical
+full-capacity policy and fence. MaybeUninit partitions avoid reading spare
+capacity; guard coverage spans every offset 0–63 and length 0–192. The separate
+fixed comparison against the byte-wise correction is recorded with that evidence.
 
 ## Release boundary
 
