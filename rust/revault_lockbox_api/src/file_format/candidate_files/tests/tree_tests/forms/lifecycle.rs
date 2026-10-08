@@ -2,7 +2,7 @@ use super::super::variables::Guarded;
 use super::*;
 use tree_image::forms::{delete_record, salvage_forms, SalvageEvent, SalvageReport};
 
-fn fixture(
+pub(super) fn fixture(
     mode: FormatMode,
     authority: &Authority<'_>,
     owner: &OwnerSigningKeyPair,
@@ -87,7 +87,7 @@ fn fixture(
     }
     (storage, definitions, records)
 }
-fn collect(
+pub(super) fn collect(
     storage: &impl Storage,
     mode: FormatMode,
     authority: &Authority<'_>,

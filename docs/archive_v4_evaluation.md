@@ -423,6 +423,11 @@ endpoint. Post-format affected checks and strict Clippy pass at `9ec6c89f`. Oper
 whole-call staging and stable storage are required. This is functional bounded
 processing and modeled recovery evidence, not performance or process-death qualification.
 
+The [test-only atomic form moves](evidence/form-moves-2026-10-09/README.md)
+preserve payload identity/bytes and exact old/new parent sets across 1,488 modeled
+transaction cuts and 504 interrupted recoveries. All-mode functional controls
+and strict Clippy pass. This supplies no new resource/performance qualification.
+
 ## Evidence index
 
 Historical conditions and raw data remain authoritative for their own revisions.

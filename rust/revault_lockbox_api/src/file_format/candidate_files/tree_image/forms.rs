@@ -483,3 +483,6 @@ mod lifecycle;
 pub(in crate::file_format::candidate_files) use lifecycle::{
     delete_record, salvage_forms, SalvageEvent, SalvageReport,
 };
+
+mod moves;
+pub(in crate::file_format::candidate_files) use moves::move_records;

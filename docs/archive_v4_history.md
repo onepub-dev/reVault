@@ -8,6 +8,15 @@ remain the sole goals authority. No historical prototype result selects a format
 
 ## Implementation checkpoints
 
+### Atomic form moves checkpoint — 2026-10-09
+
+[Selected move evidence](evidence/form-moves-2026-10-09/README.md) adds test-only
+metadata-only simultaneous form record moves with atomic missing-parent creation.
+All-mode content/identity/refusal controls, 1,488 transaction cuts, 504 interrupted
+recoveries and strict Clippy pass. Full payload verification remains required,
+and payload bytes are unchanged. Field/revision mutation and public activation
+remain followthrough work; no performance gate is claimed.
+
 ### Selected form lifecycle checkpoint — 2026-10-09
 
 [Deletion and streamed salvage evidence](evidence/form-lifecycle-2026-10-09/README.md)

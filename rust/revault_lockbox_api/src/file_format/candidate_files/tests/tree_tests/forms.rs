@@ -243,3 +243,5 @@ fn typed_form_snapshots_large_metadata_history_and_retention_all_modes() {
         assert_eq!(bytes, b"neighbor");
     }
 }
+
+mod moves;

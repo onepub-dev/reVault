@@ -94,8 +94,11 @@ concurrency qualification. The [form lifecycle followthrough](evidence/form-life
 adds selected deletion and streamed salvage, passing 1,704 transaction cuts and
 564 interrupted recoveries, all-mode corruption/dependency controls and 16 fresh
 aggregate streaming probes under the unchanged memory policy. Post-format affected checks and strict Clippy pass at `9ec6c89f`. Partial delivery
-requires whole-call staging; stable storage remains a precondition. Next connect
-metadata-only form moves, then field/revision mutation and broader public integration.
+requires whole-call staging; stable storage remains a precondition. The [atomic form moves](evidence/form-moves-2026-10-09/README.md)
+now preserve payload identities and publish parent creation with path changes;
+all-mode controls, 1,488 transaction cuts, 504 interrupted recoveries and strict
+Clippy pass. Next establish the public cross-record secret-upgrade baseline, then
+connect bounded field/revision mutation and broader public integration.
 Keep the security policy and failure evidence; no allocator weakening is implied.
 Forms/references and broader public adapters, native selected
 membership/recovery, architecture selection and complete CPU/RSS/aging/size and
