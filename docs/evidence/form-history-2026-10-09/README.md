@@ -2,7 +2,9 @@
 
 Two integration tests use only the existing public API in all **16 archive
 modes**, commit and independently reopen persisted bytes. Both tests and targeted
-strict Clippy pass before formatting. No experimental form implementation or
+strict Clippy pass before formatting. The same checks pass after the tracked hook
+at `a39c0865`; post-format logs, HEAD and source hash are retained separately.
+No experimental form implementation or
 production semantics changed in this baseline.
 
 Updating one field advances the record's definition revision while untouched
