@@ -43,8 +43,10 @@ An initial lifecycle fixture used relative grouped names, which `VariableName`
 correctly rejects. Its failed transcript is retained; correcting the fixtures
 to absolute grouped paths passes the lifecycle test (6.39 s). The fault test
 already passed in that first run. Maximum-revision coverage (0.22 s) and strict
-archive Clippy pass after the correction. Post-format affected verification is
-next; exact source hashes precede formatting. No source-name validation bug is
+archive Clippy pass after the correction. Post-format verification at `ab0fc021`
+passes both move tests (the same 1,512 transaction and 504 interrupted-recovery
+cases), the maximum-revision test and strict Clippy. Full logs and before/after
+source hashes are retained. No source-name validation bug is
 claimed: the public name grammar excludes the punctuation counterexample
 considered during review.
 

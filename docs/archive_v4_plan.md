@@ -75,8 +75,9 @@ and 32 reciprocal readers pass. Earlier allocation failures remain evidence,
 and concurrency/incremental-peak gates stay open. The subsequent
 [test-only atomic moves](evidence/variable-moves-2026-10-09/README.md) preserve
 value identity/revision/extents and public validation across all modes, 1,512
-transaction cuts and 504 interrupted recoveries. Post-format verification is
-next, followed by typed forms/references; broader public integration is separate.
+transaction cuts and 504 interrupted recoveries. Post-format tests and strict
+Clippy pass. Next design bounded guarded staging for full-size form metadata and
+values, then typed forms/references; broader public integration is separate.
 Keep the security policy and failure evidence; no allocator weakening is implied.
 Forms/references and broader public adapters, native selected
 membership/recovery, architecture selection and complete CPU/RSS/aging/size and
