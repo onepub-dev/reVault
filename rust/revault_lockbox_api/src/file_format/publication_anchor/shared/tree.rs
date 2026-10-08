@@ -260,6 +260,8 @@ pub(crate) use commit::recover_commit;
 mod update;
 pub(crate) use update::{
     grow_dense_payload_records, grow_dense_records, recover_update, relocate_records,
-    rewrite_payload_records, rewrite_prepared_secure_payload_records, rewrite_records,
-    rewrite_secure_payload_records, PayloadPlan, PreparedSecurePayloadPlan, SecurePayloadPlan,
+    rewrite_payload_records, rewrite_prepared_secure_payload_records,
+    rewrite_prepared_storage_payload_records, rewrite_records, rewrite_secure_payload_records,
+    PayloadPlan, PreparedSecurePayloadPlan, PreparedStoragePayloadPlan, ReadView,
+    SecurePayloadPlan, SelectedSource, StoragePayloadCallback,
 };

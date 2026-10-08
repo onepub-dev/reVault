@@ -5,6 +5,9 @@ use crate::file_format::preparation_journal::compact::session::{InlineSession, O
 
 pub(super) const MAX_APPEND: u64 =
     (2 * MAX_PAGES as u64 + 5) * FAILURE_REGION + MAX_PAYLOAD_BYTES as u64;
+mod source;
+pub(crate) use source::{ReadView, SelectedSource};
+
 const MAX_RECORD_BYTES: usize = 64 * 1024 * 1024;
 const MAX_PAYLOAD_BYTES: usize = 64 * 1024 * 1024;
 type RebindRecords = Box<dyn FnOnce(&[Extent]) -> Result<Vec<Entry>>>;
@@ -34,7 +37,22 @@ pub(crate) struct PreparedSecurePayloadPlan<'a> {
     pub payload: Box<dyn FnMut(usize) -> Result<crate::secret_vec::SecureVec> + 'a>,
     pub rebind: RebindRecords,
 }
+pub(crate) type StoragePayloadCallback<'a> =
+    Box<dyn for<'s> FnMut(usize, ReadView<'s>) -> Result<crate::secret_vec::SecureVec> + 'a>;
+/// Regenerate from admitted old selected extents without cloning storage.
+pub(crate) struct PreparedStoragePayloadPlan<'a> {
+    pub source: SelectedSource,
+    pub retired: Vec<Extent>,
+    pub pages: crate::file_format::page::secure_storage::PreparedSecurePages,
+    pub payload: StoragePayloadCallback<'a>,
+    pub rebind: RebindRecords,
+}
 enum StagingBytes<'a> {
+    Selected {
+        source: SelectedSource,
+        pages: crate::file_format::page::secure_storage::PreparedSecurePages,
+        payload: StoragePayloadCallback<'a>,
+    },
     Ready(Vec<PayloadBytes>),
     Prepared {
         pages: crate::file_format::page::secure_storage::PreparedSecurePages,
@@ -45,13 +63,13 @@ impl StagingBytes<'_> {
     fn count(&self) -> usize {
         match self {
             Self::Ready(bytes) => bytes.len(),
-            Self::Prepared { pages, .. } => pages.len(),
+            Self::Prepared { pages, .. } | Self::Selected { pages, .. } => pages.len(),
         }
     }
     fn size(&self, index: usize) -> Result<usize> {
         match self {
             Self::Ready(bytes) => Ok(bytes.get(index).ok_or(Error::CorruptRecord)?.len()),
-            Self::Prepared { pages, .. } => pages.size(index),
+            Self::Prepared { pages, .. } | Self::Selected { pages, .. } => pages.size(index),
         }
     }
     fn digest(&self, index: usize) -> Result<[u8; 32]> {
@@ -60,21 +78,37 @@ impl StagingBytes<'_> {
                 .get(index)
                 .ok_or(Error::CorruptRecord)?
                 .with_bytes(strong_checksum),
-            Self::Prepared { pages, .. } => pages.digest(index),
+            Self::Prepared { pages, .. } | Self::Selected { pages, .. } => pages.digest(index),
         }
     }
-    fn with_page(
+    fn with_page<S: Storage>(
         &mut self,
         index: usize,
-        f: impl FnOnce(&PayloadBytes) -> Result<()>,
+        storage: &mut S,
+        f: impl FnOnce(&PayloadBytes, &mut S) -> Result<()>,
     ) -> Result<()> {
         match self {
-            Self::Ready(bytes) => f(bytes.get(index).ok_or(Error::CorruptRecord)?),
+            Self::Ready(bytes) => f(bytes.get(index).ok_or(Error::CorruptRecord)?, storage),
             Self::Prepared { pages, payload } => {
                 let raw = payload(index)?;
                 let encoded = pages.render(index, &raw)?;
                 drop(raw);
-                f(&PayloadBytes::Secure(encoded))
+                f(&PayloadBytes::Secure(encoded), storage)
+            }
+            Self::Selected {
+                source,
+                pages,
+                payload,
+            } => {
+                // Borrow only the Append wrapper. Each source read's inner
+                // RefCell borrow ends before raw returns, rendering or writes.
+                let raw = {
+                    let view = source.view(&*storage);
+                    payload(index, view)?
+                };
+                let encoded = pages.render(index, &raw)?;
+                drop(raw);
+                f(&PayloadBytes::Secure(encoded), storage)
             }
         }
     }
@@ -161,6 +195,45 @@ impl<'a> From<PreparedSecurePayloadPlan<'a>> for StagingPlan<'a> {
             rebind: plan.rebind,
         }
     }
+}
+impl<'a> From<PreparedStoragePayloadPlan<'a>> for StagingPlan<'a> {
+    fn from(plan: PreparedStoragePayloadPlan<'a>) -> Self {
+        Self {
+            base: plan.source.base(),
+            retired: plan.retired,
+            bytes: StagingBytes::Selected {
+                source: plan.source,
+                pages: plan.pages,
+                payload: plan.payload,
+            },
+            rebind: plan.rebind,
+        }
+    }
+}
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn rewrite_prepared_storage_payload_records(
+    storage: &mut impl Storage,
+    archive: LockboxId,
+    mode: FormatMode,
+    authority: &Authority<'_>,
+    signer: Option<&OwnerSigningKeyPair>,
+    key: Option<&[u8]>,
+    records: Vec<Entry>,
+    payloads: PreparedStoragePayloadPlan<'_>,
+) -> Result<bool> {
+    rewrite_inner(
+        storage,
+        archive,
+        mode,
+        authority,
+        signer,
+        key,
+        records,
+        false,
+        true,
+        false,
+        Some(payloads.into()),
+    )
 }
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn rewrite_prepared_secure_payload_records(
@@ -369,6 +442,9 @@ fn rewrite_inner(
         let mut total = 0usize;
         if plan.base != commitment(&old.anchor)? {
             return Err(Error::CorruptRecord);
+        }
+        if let StagingBytes::Selected { source, .. } = &plan.bytes {
+            source.validate(&old)?;
         }
         for extent in &plan.retired {
             if !starts.insert(extent.start) || !live.contains(extent) {
@@ -665,7 +741,7 @@ fn rewrite_inner(
             return Err(Error::CorruptRecord);
         }
         for (index, extent) in staged.iter().enumerate() {
-            staged_bytes.with_page(index, |bytes| {
+            staged_bytes.with_page(index, &mut append, |bytes, append| {
                 // Verify source reproduction before touching its reserved extent.
                 if bytes.len() as u64 != extent.len
                     || bytes.with_bytes(strong_checksum)? != extent.digest
@@ -680,7 +756,7 @@ fn rewrite_inner(
                     }
                     Ok(())
                 })??;
-                bytes.verify(&append, *extent)
+                bytes.verify(append, *extent)
             })?;
         }
         let padded = payload_end.div_ceil(FAILURE_REGION) * FAILURE_REGION;

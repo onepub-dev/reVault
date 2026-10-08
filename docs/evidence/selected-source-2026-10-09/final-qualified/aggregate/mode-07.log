@@ -1,0 +1,7 @@
+
+running 1 test
+test file_format::candidate_files::tests::tree_tests::forms::aggregate::typed_form_selected_source_aggregate_probe ... SELECTED_FORM_AGGREGATE {"after_definition":{"vm_hwm_kib":78072,"vm_lck_kib":2144,"vm_rss_kib":22988},"after_read":{"vm_hwm_kib":78072,"vm_lck_kib":4076,"vm_rss_kib":20524},"after_record":{"vm_hwm_kib":78072,"vm_lck_kib":4076,"vm_rss_kib":25304},"after_salvage":{"vm_hwm_kib":78072,"vm_lck_kib":4076,"vm_rss_kib":22508},"after_selected_source":{"vm_hwm_kib":78072,"vm_lck_kib":4076,"vm_rss_kib":21656},"after_source":{"vm_hwm_kib":78072,"vm_lck_kib":1352,"vm_rss_kib":20212},"archive_bytes":28311552,"before_source":{"vm_hwm_kib":78072,"vm_lck_kib":324,"vm_rss_kib":16836},"logical_bytes":13631586,"mode":7,"secret_fields":8,"source_secret_bytes":1048576,"stored_payload_bytes":13697520}
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 614 filtered out; finished in 8.75s
+

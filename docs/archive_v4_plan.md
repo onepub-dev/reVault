@@ -98,9 +98,12 @@ requires whole-call staging; stable storage remains a precondition. The [atomic 
 now preserve payload identities and publish parent creation with path changes;
 all-mode controls, 1,488 transaction cuts, 504 interrupted recoveries and strict
 Clippy pass, including post-format affected checks at `29cb3ed4`. The [public cross-record secret-upgrade baseline](evidence/form-secret-upgrade-2026-10-09/README.md)
-now passes all modes, including historical secret and absent-field records. Next
-add bounded writer-supplied reads of authenticated old payloads, then connect
-atomic field/revision mutation and broader public integration.
+now passes all modes, including historical secret and absent-field records. The [selected-source prerequisite](evidence/selected-source-2026-10-09/README.md)
+now prepares guarded replacements from authenticated old extents without cloning
+the archive: 3,288 transaction cuts, 1,020 interrupted recoveries and exactly 16
+fresh aggregate probes pass. Maximum locked-memory endpoint is 4,076 KiB under
+the unchanged 8 MiB policy; archive growth remains explicit. Next connect atomic
+field/revision mutation to this bounded path, then broader public integration.
 Keep the security policy and failure evidence; no allocator weakening is implied.
 Forms/references and broader public adapters, native selected
 membership/recovery, architecture selection and complete CPU/RSS/aging/size and

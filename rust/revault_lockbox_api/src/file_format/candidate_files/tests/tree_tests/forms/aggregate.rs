@@ -20,6 +20,14 @@ fn memory() -> serde_json::Value {
 #[test]
 #[ignore = "fresh-process form aggregate endpoint probe"]
 fn typed_form_aggregate_guarded_snapshot_probe() {
+    run(false)
+}
+#[test]
+#[ignore = "fresh-process selected-source aggregate endpoint probe"]
+fn typed_form_selected_source_aggregate_probe() {
+    run(true)
+}
+fn run(selected_source: bool) {
     let bits: usize = std::env::var("REVAULT_FORM_MODE").unwrap().parse().unwrap();
     assert!(bits < 16);
     let path = std::path::PathBuf::from(std::env::var_os("REVAULT_FORM_IMAGE").unwrap());
@@ -108,6 +116,46 @@ fn typed_form_aggregate_guarded_snapshot_probe() {
     drop(record);
     drop(def);
     drop(source);
+    let mut after_selected_source = None;
+    let ranges = if selected_source {
+        let writer = Guarded::new(StorageBackend::file_for_write(&path).unwrap(), ranges);
+        let old = {
+            let opened = TreeImage::open(
+                crate::file_format::allocation_map::compaction::View(&writer),
+                archive(),
+                mode,
+                &authority,
+                key(mode),
+            )
+            .unwrap();
+            opened
+                .image
+                .catalogue
+                .forms
+                .texts()
+                .into_iter()
+                .flat_map(|t| t.extents.iter().copied())
+                .collect::<Vec<_>>()
+        };
+        let writer =
+            super::selected_source::replace_without_clone(writer, mode, &authority, &owner)
+                .unwrap();
+        after_selected_source = Some(memory());
+        for extent in old {
+            if extent.start < writer.len().unwrap() {
+                let len = extent.len.min(writer.len().unwrap() - extent.start) as usize;
+                let bytes = writer.read_at_secure(extent.start, len).unwrap();
+                bytes
+                    .with_bytes(|b| assert!(b.iter().all(|b| *b == 0)))
+                    .unwrap();
+            }
+        }
+        let ranges = writer.spans.borrow().clone();
+        drop(writer);
+        ranges
+    } else {
+        ranges
+    };
     let mut opened = TreeImage::open(
         Guarded::new(StorageBackend::file(&path).unwrap(), ranges),
         archive(),
@@ -277,8 +325,16 @@ fn typed_form_aggregate_guarded_snapshot_probe() {
     ] {
         assert!(metric["vm_lck_kib"].as_u64().unwrap() <= 8192);
     }
+    if let Some(metric) = &after_selected_source {
+        assert!(metric["vm_lck_kib"].as_u64().unwrap() <= 8192);
+    }
     println!(
-        "FORM_AGGREGATE {}",
-        serde_json::json!({"mode":bits,"source_secret_bytes":size,"secret_fields":8,"logical_bytes":logical_bytes,"stored_payload_bytes":stored_payload_bytes,"archive_bytes":opened.image.storage.len().unwrap(),"before_source":before_source,"after_source":after_source,"after_definition":after_definition,"after_record":after_record,"after_read":after_read,"after_salvage":after_salvage})
+        "{} {}",
+        if selected_source {
+            "SELECTED_FORM_AGGREGATE"
+        } else {
+            "FORM_AGGREGATE"
+        },
+        serde_json::json!({"mode":bits,"source_secret_bytes":size,"secret_fields":8,"logical_bytes":logical_bytes,"stored_payload_bytes":stored_payload_bytes,"archive_bytes":opened.image.storage.len().unwrap(),"before_source":before_source,"after_source":after_source,"after_definition":after_definition,"after_record":after_record,"after_read":after_read,"after_salvage":after_salvage,"after_selected_source":after_selected_source})
     );
 }

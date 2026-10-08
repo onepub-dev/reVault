@@ -8,6 +8,16 @@ remain the sole goals authority. No historical prototype result selects a format
 
 ## Implementation checkpoints
 
+### Selected-source preparation — 2026-10-09
+
+[Selected-source evidence](evidence/selected-source-2026-10-09/README.md) connects
+private authenticated source capabilities and guarded per-segment rendering to
+typed replacement fixtures. Four final controls, three segment tests, strict
+Clippy, 3,288 transaction cuts and 1,020 interrupted recoveries pass. Exactly 16
+frozen aggregate attempts completed before an agent restart, all passing; none
+were rerun. Field mutation remains the next connected tranche.
+
+
 ### Public cross-record form upgrade baseline — 2026-10-09
 
 [Public upgrade evidence](evidence/form-secret-upgrade-2026-10-09/README.md) confirms

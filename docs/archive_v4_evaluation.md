@@ -428,6 +428,12 @@ preserve payload identity/bytes and exact old/new parent sets across 1,488 model
 transaction cuts and 504 interrupted recoveries. All-mode functional controls
 and strict Clippy pass. This supplies no new resource/performance qualification.
 
+The [selected-source prerequisite](evidence/selected-source-2026-10-09/README.md)
+passes 3,288 modeled transaction cuts, 1,020 interrupted recoveries and 16 fresh
+13,631,586-byte aggregate replacements with a maximum 4,076 KiB locked-memory
+endpoint. Archive sizes increase to 28,311,552/58,916,864 bytes; no performance,
+concurrency, aging or complete-format gate is closed.
+
 ## Evidence index
 
 Historical conditions and raw data remain authoritative for their own revisions.

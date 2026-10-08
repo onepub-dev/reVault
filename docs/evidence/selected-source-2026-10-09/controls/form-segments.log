@@ -1,0 +1,10 @@
+    Finished `release` profile [optimized] target(s) in 0.09s
+     Running unittests src/lib.rs (target/release/deps/revault_lockbox_api-e3bcc2539127e239)
+
+running 3 tests
+test file_format::form_segments::tests::form_segments_empty_utf8_boundary_and_one_mib_all_modes ... ok
+test file_format::form_segments::tests::form_segments_refuse_limits_context_substitution_and_corruption ... ok
+test file_format::form_segments::tests::form_segments_same_size_permutation_and_cross_value_substitution ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 609 filtered out; finished in 3.52s
+

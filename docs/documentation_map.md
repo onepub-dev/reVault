@@ -79,3 +79,7 @@ published navigation, preserved frontmatter and the existing manual checks.
 
 This cleanup establishes authority without deleting evidence. It does not claim
 that all historical documentation has already been reconciled.
+
+The [selected-source evidence](evidence/selected-source-2026-10-09/README.md) retains
+authenticated stored-source preparation, final frozen aggregate outcomes and
+modeled failure controls; its component scope does not replace the format gates.

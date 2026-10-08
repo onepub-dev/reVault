@@ -182,35 +182,8 @@ impl Layout {
     ) -> Result<SecureVec> {
         self.validate(sealed)?;
         let mut value = SecureVec::new();
-        for (ordinal, extent) in self.extents.iter().enumerate() {
-            let mut page = storage.read_at_secure(extent.start, extent.len as usize)?;
-            if page.with_bytes(strong_checksum)? != extent.digest {
-                return Err(Error::CorruptRecord);
-            }
-            let decoded = decode_single_object_page_secure_with_format(
-                &mut page,
-                archive,
-                content_key,
-                self.mode,
-            )?;
-            if decoded.page_id != self.page_id(ordinal)
-                || decoded.sequence != self.revision
-                || decoded.objects.len() != 1
-            {
-                return Err(Error::CorruptRecord);
-            }
-            let object = &decoded.objects[0];
-            if object.kind != PageObjectKind::FormLeaf || object.id != self.page_id(ordinal) {
-                return Err(Error::CorruptRecord);
-            }
-            let payload = object.secure_payload().ok_or(Error::CorruptRecord)?;
-            let length = self.part_len(ordinal)?;
-            if payload.len() != PREFIX + length
-                || !payload.with_bytes(|bytes| bytes[..PREFIX] == self.prefix(archive, ordinal))?
-            {
-                return Err(Error::CorruptRecord);
-            }
-            value.try_extend_secure_range(payload, PREFIX, length)?;
+        for ordinal in 0..self.count() {
+            self.append_part(storage, archive, content_key, sealed, ordinal, &mut value)?;
         }
         if value.len() != self.length {
             return Err(Error::CorruptRecord);
@@ -220,6 +193,50 @@ impl Layout {
             crate::security::validate_variable_value_ref(text).map_err(|_| Error::CorruptRecord)
         })??;
         Ok(value)
+    }
+    /// Validate one stored segment before appending only its body. Individual
+    /// segments may split UTF-8; full-text semantic admission remains separate.
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn append_part(
+        &self,
+        storage: &impl Storage,
+        archive: LockboxId,
+        content_key: &[u8; 32],
+        sealed: u64,
+        ordinal: usize,
+        target: &mut SecureVec,
+    ) -> Result<()> {
+        self.validate(sealed)?;
+        let extent = self.extents.get(ordinal).ok_or(Error::CorruptRecord)?;
+        let mut page = storage.read_at_secure(extent.start, extent.len as usize)?;
+        if page.with_bytes(strong_checksum)? != extent.digest {
+            return Err(Error::CorruptRecord);
+        }
+        let decoded = decode_single_object_page_secure_with_format(
+            &mut page,
+            archive,
+            content_key,
+            self.mode,
+        )?;
+        if decoded.page_id != self.page_id(ordinal)
+            || decoded.sequence != self.revision
+            || decoded.objects.len() != 1
+        {
+            return Err(Error::CorruptRecord);
+        }
+        let object = &decoded.objects[0];
+        if object.kind != PageObjectKind::FormLeaf || object.id != self.page_id(ordinal) {
+            return Err(Error::CorruptRecord);
+        }
+        let payload = object.secure_payload().ok_or(Error::CorruptRecord)?;
+        let length = self.part_len(ordinal)?;
+        if payload.len() != PREFIX + length
+            || !payload.with_bytes(|bytes| bytes[..PREFIX] == self.prefix(archive, ordinal))?
+        {
+            return Err(Error::CorruptRecord);
+        }
+        target.try_extend_secure_range(payload, PREFIX, length)?;
+        Ok(())
     }
 }
 
@@ -377,3 +394,76 @@ pub(crate) fn context(
 
 #[cfg(test)]
 mod tests;
+
+pub(crate) struct PreparedStoredSegments {
+    pub layout: Layout,
+    pub pages: super::page::secure_storage::PreparedSecurePages,
+    pub payload: super::publication_anchor::shared::tree::StoragePayloadCallback<'static>,
+}
+/// Source capability is admitted before this first full semantic read. Rendering
+/// later revalidates each old segment and the prepared destination fingerprint.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn prepare_stored(
+    source: &Layout,
+    view: super::publication_anchor::shared::tree::ReadView<'_>,
+    archive: LockboxId,
+    mode: FormatMode,
+    content_key: &[u8; 32],
+    id: [u8; 16],
+    context: [u8; 32],
+    revision: u64,
+    sensitivity: VariableSensitivity,
+) -> Result<PreparedStoredSegments> {
+    if source.mode != mode {
+        return Err(Error::CorruptRecord);
+    }
+    let sealed = view.len()?;
+    let validated = source.read(&view, archive, content_key, sealed)?;
+    let mut layout = source_layout(
+        Source::Bytes(&validated),
+        mode,
+        id,
+        context,
+        revision,
+        sensitivity,
+    )?;
+    drop(validated);
+    let template = layout.clone();
+    let source = source.clone();
+    let source_key = zeroize::Zeroizing::new(*content_key);
+    let payload = move |ordinal: usize,
+                        view: super::publication_anchor::shared::tree::ReadView<'_>|
+          -> Result<SecureVec> {
+        if ordinal >= template.count() {
+            return Err(Error::CorruptRecord);
+        }
+        let mut raw = SecureVec::try_from_slice(&template.prefix(archive, ordinal))?;
+        source.append_part(&view, archive, &source_key, view.len()?, ordinal, &mut raw)?;
+        Ok(raw)
+    };
+    let mut pages = super::page::secure_storage::PreparedSecurePages::new(layout.count())?;
+    for ordinal in 0..layout.count() {
+        let raw = payload(ordinal, view)?;
+        pages.push(SecureSingleObjectPage {
+            format_mode: mode,
+            page_size: secure_page_size(raw.len(), mode)?,
+            lockbox_id: archive,
+            page_id: layout.page_id(ordinal),
+            sequence: revision,
+            content_key,
+            kind: PageObjectKind::FormLeaf,
+            id: layout.page_id(ordinal),
+            payload: &raw,
+        })?;
+        layout.extents.push(Extent {
+            start: 0,
+            len: pages.size(ordinal)? as u64,
+            digest: pages.digest(ordinal)?,
+        });
+    }
+    Ok(PreparedStoredSegments {
+        layout,
+        pages,
+        payload: Box::new(payload),
+    })
+}
