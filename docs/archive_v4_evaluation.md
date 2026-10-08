@@ -124,7 +124,11 @@ full decoder-derived memory wiping is not claimed. Post-format checks passed.
 The fixed codec-only batch regressed 1.040×/1.382×/1.443× for owned 4 KiB/256 KiB/
 8 MiB and 1.021× for the 256 KiB static control (all intervals above 1). It includes
 both corrections and cannot establish an A3/A4 archive pass. Erasure remains
-a correctness requirement; process peak RSS is not incremental decoder memory.
+a correctness requirement; process peak RSS is not incremental decoder memory. A separate fixed
+wide-write follow-up retained full-capacity erasure and measured 0.970×/0.770×/
+0.741× owned lifecycle time against the byte-wise correction (static control
+0.994×). Residual cost against the original unwiped decoder was not directly
+remeasured; do not multiply ratios across batches or claim archive parity.
 
 
 The [October 8 resumed checkpoint](evidence/resume-2026-10-08/README.md)

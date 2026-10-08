@@ -161,4 +161,33 @@ Wide-write pre-format validation passed: 18 vendor decoder unit tests (including
 12,352 offset/length cases covering uninitialized ranges and untouched guards),
 15 release workspace tests (1 ignored), no-default-features check, 21 release
 compression tests, 241 format tests (7 ignored), and strict Clippy. Post-format
-checks and the separate fixed follow-up cost result remain to be recorded.
+units/workspaces/no-default-features/compression/Clippy also passed after commit
+`a6201f38`; logs are retained. The complete format suite had already passed
+before the hook, which only reformatted this wipe helper/test file.
+
+
+The follow-up completed once with unchanged inventories and independent
+libzstd 1.5.7 corpus verification. This directly compares wide writes to the
+byte-wise correction, **not** to the original decoder without owned wiping.
+
+| Case | Wide/byte-wise time ratio (95% interval) | Byte-wise/wide median process peak RSS |
+| --- | --- | --- |
+| 4 KiB owned | 0.970 (0.968–0.971) | 3,344 / 3,302 KiB |
+| 256 KiB owned | 0.770 (0.768–0.771) | 4,154 / 4,114 KiB |
+| 8 MiB owned | 0.741 (0.736–0.749) | 25,940 / 25,830 KiB |
+| 256 KiB static | 0.994 (0.991–0.997) | 4,194 / 4,102 KiB |
+
+Aligned writes remove a substantial avoidable cost while retaining erasure.
+Residual overhead against the original unwiped implementation has not been
+directly measured in this follow-up, so these results do not claim its complete
+elimination. The static path does not invoke this owned-release helper; its
+small timing/RSS shift is not attributed to erasure. Process peak RSS remains
+an observation, not an incremental-memory result. No archive parity claim follows.
+
+Candidate compilation took 18.34 s outside timings. `wide-cost/` retains exact
+source commits, harness, manifest/lock, runner, hypothesis, compiler log,
+independent verification, inventories and every pair. Its byte-wise baseline
+is the exact frozen candidate executable from the first batch. Corpora are
+identical to that batch, whose encoded files are retained under `cost/corpus/`.
+The executable files stay in `/tmp/revault-wide-wipe-cost`; SHA-256 identities
+are retained even if those temporary files are unavailable on a later host.
