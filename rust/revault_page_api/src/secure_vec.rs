@@ -113,7 +113,6 @@ impl SecureVec {
         offset: usize,
         len: usize,
     ) -> Result<()> {
-        let source_allocation = source.allocation.ok_or(Error::CorruptAllocation)?;
         let source_end = offset.checked_add(len).ok_or(Error::CapacityOverflow)?;
         if source_end > source.len {
             return Err(Error::CapacityOverflow);
@@ -121,6 +120,7 @@ impl SecureVec {
         if len == 0 {
             return Ok(());
         }
+        let source_allocation = source.allocation.ok_or(Error::CorruptAllocation)?;
         self.ensure_capacity(len)?;
         let destination_allocation = self.allocation.ok_or(Error::CorruptAllocation)?;
         let old_len = self.len;

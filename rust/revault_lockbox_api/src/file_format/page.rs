@@ -16,6 +16,8 @@ use zeroize::Zeroize;
 
 pub(crate) const PAGE_MAGIC: &[u8; 8] = b"LBX1PAG\0";
 pub(crate) const PAGE_HEADER_LEN: usize = 96;
+#[cfg(test)]
+pub(crate) mod secure_storage;
 pub(crate) use crate::constants::{
     DEFAULT_DATA_PAGE_BYTES, DEFAULT_METADATA_PAGE_BYTES, DEFAULT_PAGE_BYTES,
 };

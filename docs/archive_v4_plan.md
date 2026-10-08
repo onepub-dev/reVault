@@ -44,8 +44,15 @@ These are private adapter results, not public activation or resource gate passes
 Post-format format/probe/Clippy checks passed. Both preserved native recovery
 failures reproduce under `native-block-layout`; their assertions remain intact.
 
-Next establish secure segmented variable payload storage and authenticated
-membership before broad typed-record/public API integration. Preserve 1 MiB
+The [secure segment component](evidence/secure-segments-2026-10-09/README.md)
+now preserves established page wire bytes with guarded staging and supports
+empty through 1 MiB values in bounded byte segments. All-mode public baseline,
+component controls, 252 format tests (8 ignored), 19 page-api tests and strict
+Clippy pass. It remains disconnected from selected typed variable membership.
+
+Next connect those segments to selected typed metadata and exact physical
+ownership, secure transaction/readback/retirement recovery, and the existing
+normal/secret access semantics before broad public API integration. Preserve 1 MiB
 values and scoped secure-page/SecretString access: ordinary wipe-on-drop index
 values cannot carry decrypted secret segments. Reproduce the two known native
 failures without weakening selected membership or owner proof. Public record

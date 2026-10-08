@@ -321,3 +321,38 @@ fn assert_child_fails(action: &str, test_name: &str) {
         "expected child process for {action} to fail, got {status:?}"
     );
 }
+
+#[test]
+fn secure_empty_range_copy_validates_bounds_without_requiring_allocation() {
+    let empty = SecureVec::new();
+    assert!(empty.try_clone_range(0, 0).unwrap().is_empty());
+    let mut target = SecureVec::try_from_slice(b"preserved").unwrap();
+    let capacity = target.capacity_for_test();
+    target.try_extend_from_secure(&empty).unwrap();
+    target
+        .with_bytes(|bytes| assert_eq!(bytes, b"preserved"))
+        .unwrap();
+    assert_eq!(target.capacity_for_test(), capacity);
+    let source = SecureVec::try_from_slice(b"source").unwrap();
+    target
+        .try_extend_secure_range(&source, source.len(), 0)
+        .unwrap();
+    assert!(source.try_clone_range(source.len(), 0).unwrap().is_empty());
+    for (offset, length) in [(1, 0), (0, 1), (usize::MAX, 1)] {
+        assert!(matches!(
+            target.try_extend_secure_range(&empty, offset, length),
+            Err(Error::CapacityOverflow)
+        ));
+    }
+    assert!(matches!(
+        source.try_clone_range(source.len() + 1, 0),
+        Err(Error::CapacityOverflow)
+    ));
+    assert!(matches!(
+        source.try_clone_range(usize::MAX, 1),
+        Err(Error::CapacityOverflow)
+    ));
+    target
+        .with_bytes(|bytes| assert_eq!(bytes, b"preserved"))
+        .unwrap();
+}

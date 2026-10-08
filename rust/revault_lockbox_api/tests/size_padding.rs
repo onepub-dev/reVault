@@ -216,3 +216,148 @@ fn compact_password_archives_bootstrap_keys_and_preserve_policy_after_file_compa
     }
     std::fs::remove_dir_all(temp).unwrap();
 }
+
+#[test]
+fn secure_variables_and_forms_round_trip_all_sixteen_modes() {
+    use revault_lockbox_api::{FormFieldDefinition, FormFieldKind, FormValue, SecretString};
+    let signer = OwnerSigningKeyPair::generate().unwrap();
+    let key = [61; 32];
+    let variable = VariableName::new("scoped_secret").unwrap();
+    let form = LockboxPath::new("/secret-form").unwrap();
+    let initial = SecretString::try_from_slice(b"synthetic first secret").unwrap();
+    let replacement = SecretString::try_from_slice(b"synthetic replacement secret").unwrap();
+    for encrypted in [false, true] {
+        for signed in [false, true] {
+            for compression in [Compression::None, Compression::default()] {
+                for size_padding in [SizePadding::Default, SizePadding::None] {
+                    let signing = if signed {
+                        Signing::Owner(&signer)
+                    } else {
+                        Signing::None
+                    };
+                    let open = || {
+                        if encrypted {
+                            LockboxOpen::ContentKey(SecretVec::try_from_slice(&key).unwrap())
+                        } else {
+                            LockboxOpen::Unencrypted
+                        }
+                    };
+                    let mut archive =
+                        Lockbox::create_in_memory_with_options(LockboxCreateOptions {
+                            compression,
+                            size_padding,
+                            ..LockboxCreateOptions::new(
+                                if encrypted {
+                                    Encryption::Encrypted(LockboxProtection::ContentKey(
+                                        SecretVec::try_from_slice(&key).unwrap(),
+                                    ))
+                                } else {
+                                    Encryption::None
+                                },
+                                signing,
+                            )
+                        })
+                        .unwrap();
+                    archive.set_secret_variable(&variable, &initial).unwrap();
+                    archive
+                        .define_form(
+                            "secret-test",
+                            "Secret test",
+                            vec![FormFieldDefinition {
+                                id: "password".into(),
+                                label: "Password".into(),
+                                kind: FormFieldKind::Secret,
+                                required: false,
+                            }],
+                        )
+                        .unwrap();
+                    archive
+                        .create_form_record(&form, "secret-test", "Synthetic")
+                        .unwrap();
+                    archive
+                        .set_form_field_secret(&form, "password", &initial)
+                        .unwrap();
+                    archive.commit().unwrap();
+                    let bytes = archive.try_to_bytes().unwrap();
+                    drop(archive);
+                    let mut archive =
+                        Lockbox::open_bytes_for_write(bytes, open(), signing).unwrap();
+                    assert!(archive.get_variable(&variable).is_err());
+                    assert_eq!(
+                        archive
+                            .with_secret_variable(&variable, |secret| secret
+                                .with_str(|text| assert_eq!(text, "synthetic first secret"))
+                                .unwrap())
+                            .unwrap(),
+                        Some(())
+                    );
+                    let FormValue::Secret(secret) = archive
+                        .get_form_field(&form, "password")
+                        .unwrap()
+                        .unwrap()
+                        .value
+                    else {
+                        panic!("secret field downgraded")
+                    };
+                    secret
+                        .with_str(|text| assert_eq!(text, "synthetic first secret"))
+                        .unwrap();
+                    drop(secret);
+                    assert!(archive
+                        .set_variable(&variable, "forbidden downgrade")
+                        .is_err());
+                    assert!(archive
+                        .set_form_field_normal(&form, "password", "forbidden downgrade")
+                        .is_err());
+                    let before = archive.try_to_bytes().unwrap();
+                    archive.commit().unwrap();
+                    assert_eq!(archive.try_to_bytes().unwrap(), before);
+                    archive
+                        .set_secret_variable(&variable, &replacement)
+                        .unwrap();
+                    archive
+                        .set_form_field_secret(&form, "password", &replacement)
+                        .unwrap();
+                    archive.commit().unwrap();
+                    let bytes = archive.try_to_bytes().unwrap();
+                    drop(archive);
+                    let mut archive =
+                        Lockbox::open_bytes_for_write(bytes, open(), signing).unwrap();
+                    assert_eq!(
+                        archive
+                            .with_secret_variable(&variable, |secret| secret
+                                .with_str(|text| assert_eq!(text, "synthetic replacement secret"))
+                                .unwrap())
+                            .unwrap(),
+                        Some(())
+                    );
+                    let FormValue::Secret(secret) = archive
+                        .get_form_field(&form, "password")
+                        .unwrap()
+                        .unwrap()
+                        .value
+                    else {
+                        panic!("secret field downgraded")
+                    };
+                    secret
+                        .with_str(|text| assert_eq!(text, "synthetic replacement secret"))
+                        .unwrap();
+                    drop(secret);
+                    archive.delete_variable(&variable).unwrap();
+                    archive.delete_form_record(&form).unwrap();
+                    archive
+                        .set_variable(&variable, "explicitly recreated normal")
+                        .unwrap();
+                    archive.commit().unwrap();
+                    let reopened =
+                        Lockbox::open_bytes(archive.try_to_bytes().unwrap(), open()).unwrap();
+                    assert_eq!(
+                        reopened.get_variable(&variable).unwrap().as_deref(),
+                        Some("explicitly recreated normal")
+                    );
+                    assert!(reopened.get_form_record(&form).unwrap().is_none());
+                }
+            }
+        }
+    }
+}

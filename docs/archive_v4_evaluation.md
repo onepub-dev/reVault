@@ -116,6 +116,14 @@ including Vault containers. `0.4.x` remains format 3 and is isolated from this w
 
 ## Current scorecard
 
+The [secure segmented-value component](evidence/secure-segments-2026-10-09/README.md)
+passes all-mode page/segment controls and public secret-value lifecycle baseline,
+252 format tests (8 ignored), 19 page-api tests and strict Clippy. It retains
+the 1 MiB limit and guarded processing without placing values in index entries.
+Selected typed membership/ownership and mutation/recovery integration are still
+required; no public variable or resource gate is marked complete by this component.
+
+
 The [October 9 direct tree exporter](evidence/fresh-tree-export-2026-10-09/README.md)
 removes fresh packed-C export's dense-intermediate requirement while preserving
 source authority/retention and fresh-output cleanup. Seven focused tests cover

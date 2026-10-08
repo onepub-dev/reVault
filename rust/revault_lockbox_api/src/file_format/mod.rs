@@ -49,6 +49,10 @@ pub(crate) mod allocation_map;
 #[cfg(test)]
 pub(crate) mod data_extent;
 
+// Secure value segmentation remains a selected-metadata experiment.
+#[cfg(test)]
+pub(crate) mod secure_segments;
+
 // File-only comparison adapter; full public record/access integration remains.
 #[cfg(test)]
 pub(crate) mod candidate_files;
