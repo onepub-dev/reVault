@@ -163,7 +163,12 @@ cargo clippy -p revault_lockbox_api --features external-source --lib --tests --b
 The separately retained matrix and aggregate runs select their skipped names with
 the same release/features/serial flags. They were not repeated for the final combined
 controls; Clippy is retained from the same final source's aggregate-qualified run.
-Tracked-hook formatting and post-format affected verification are pending.
+The tracked hook formatted five Rust files in checkpoint `047a0f7a`.
+Post-format verification passes six whole-tree controls (including all 16 modes),
+four shared-anchor tests, 13 page tests and strict Clippy. `postformat/` retains
+the exact source hashes and logs. Compilation took 67 seconds; test runtimes
+were 47.79, 0.79 and 0.34 seconds respectively. The fault matrix, aggregate
+fixture and fresh-export regressions were not repeated after formatting.
 
 ## Remaining work
 

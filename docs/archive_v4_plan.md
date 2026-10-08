@@ -120,8 +120,9 @@ checks and strict Clippy pass at `7201cfae`. The [whole-tree extent copy](eviden
 preserves all selected file/variable/form state and checked successor lineage.
 All16-mode history controls, 1,896 returned-failure cleanup cases, late readback/
 cleanup/source-change controls and 10MiB FileStore functional fixtures pass.
-Final six controls, 13 page tests and strict Clippy pass; earlier checksum and fixture
-failures remain retained. This is extent relocation, not pack repacking or filesystem
+Post-format verification at `047a0f7a` passes six whole-tree controls, four
+shared-anchor tests, 13 page tests and strict Clippy; earlier checksum and fixture
+failures remain retained. The matrix and aggregate were not repeated for formatting. This is extent relocation, not pack repacking or filesystem
 installation. Next connect atomic path installation and process-death handling,
 with resumable temporary ownership still requiring a separate design.
 Keep the security policy and failure evidence; no allocator weakening is implied.
