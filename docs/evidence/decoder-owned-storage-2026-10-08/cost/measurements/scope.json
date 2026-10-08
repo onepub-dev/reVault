@@ -1,0 +1,65 @@
+{
+  "cpu": 2,
+  "affinity_before": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+  ],
+  "pairs": 30,
+  "warmup_pairs": 3,
+  "cases": [
+    [
+      "small-owned",
+      "small",
+      "owned",
+      256
+    ],
+    [
+      "medium-owned",
+      "medium",
+      "owned",
+      64
+    ],
+    [
+      "large-owned",
+      "large",
+      "owned",
+      4
+    ],
+    [
+      "medium-static",
+      "medium",
+      "static",
+      64
+    ]
+  ],
+  "bootstrap_seed": 3101008,
+  "bootstrap_samples": 10000,
+  "scope": "fresh decoder lifecycle including owned release; caller output allocation/erasure and final caller-owned scratch erasure excluded; process RSS is whole-lifetime high water, not incremental decoder memory",
+  "timing": "sum of per-decode lifetimes; output byte comparison outside each timer; encoded/raw inputs loaded before timing; each sample uses a fresh process",
+  "host": {
+    "sysname": "Linux",
+    "nodename": "slayer4",
+    "release": "7.0.0-38-generic",
+    "version": "#38-Ubuntu SMP PREEMPT_DYNAMIC Fri Sep  4 09:10:14 UTC 2026",
+    "machine": "x86_64"
+  },
+  "load_before": [
+    0.05615234375,
+    1.279296875,
+    2.28173828125
+  ]
+}

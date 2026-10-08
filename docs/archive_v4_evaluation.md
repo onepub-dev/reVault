@@ -120,8 +120,11 @@ The [October 8 owned-byte correction](evidence/decoder-owned-storage-2026-10-08/
 passes 17 vendor decoder unit tests, 15 workspace tests (1 ignored), no-default-
 features checking, 21 release compression tests, 241 format tests (7 ignored)
 and strict Clippy. Owned byte releases and decoded-block bounds are now tested;
-full decoder-derived memory wiping is not claimed. The declared codec-only cost
-batch will include both corrections and cannot establish an A3/A4 archive pass.
+full decoder-derived memory wiping is not claimed. Post-format checks passed.
+The fixed codec-only batch regressed 1.040×/1.382×/1.443× for owned 4 KiB/256 KiB/
+8 MiB and 1.021× for the 256 KiB static control (all intervals above 1). It includes
+both corrections and cannot establish an A3/A4 archive pass. Erasure remains
+a correctness requirement; process peak RSS is not incremental decoder memory.
 
 
 The [October 8 resumed checkpoint](evidence/resume-2026-10-08/README.md)

@@ -1,0 +1,13 @@
+{
+  "corpus/large.zst": "328048d8fd92bb0758e7777a7990322ca0bb971a958fb014801b1582e409adb4",
+  "corpus/large.raw": "9b43517804959b804ff7e27bd20a33f942456507c3dfab0fbb25b8cb3432d78c",
+  "corpus/medium.zst": "cf7895e72bf5bbe839993ec5d2d5134af7e14d69f2d5fa8e6952bf1f41d48fee",
+  "corpus/medium.raw": "37d7fd9714e3cc59b5fff40060d38e73d84a7bde792fb1ae0e323eb7665a6d84",
+  "corpus/small.zst": "528457ea6bafedb1e42dede78b35d7f27513c3599d07b42822b001c61db61340",
+  "corpus/small.raw": "6d18d7d9ac87448ebe57a688fef8d22a54d8e668ba3375398a703e13703631f8",
+  "baseline": "d5b43651f05fadd261e327d7882a401637d88b40e3fe8a14ea599f5c7f388fbd",
+  "Cargo.toml": "e7ceac149dfb3971d69cbd9658fdc8942fd4a5a72f8a140b4e766b623eb0e4b0",
+  "Cargo.lock": "16b08f5d86ef3352171547aae2a8f3710c2bfb995e9cf5cbe75fd39d2e4edfb6",
+  "src/main.rs": "4ffbdbb21c6c29f0ccea483ad98261d3d3a9753801779860e5ef75d73180e9a8",
+  "rust-toolchain.toml": "f551701b35d5a41f19bfed8c68b13a03a703590ba30bfa4cf820b193db0ee103"
+}

@@ -23,7 +23,10 @@ literal/sequence block output before static storage can overflow. It passes 17
 vendor decoder unit tests, 15 workspace tests (1 ignored), no-default-features
 checking and the unchanged archive compression/format/Clippy suites. This is a
 scoped byte-buffer guarantee, not full entropy/sequence/caller-memory wiping.
-The matched codec-only cost batch and post-format checks remain separate steps.
+Post-format checks passed. The fixed codec-only batch measured time regressions
+of 1.040×/1.382×/1.443× for fresh owned 4 KiB/256 KiB/8 MiB decodes and 1.021×
+for the 256 KiB static control. These include erasure and bounds corrections;
+no A3/A4 archive claim follows, and the correctness policy remains in place.
 
 Next remove the dense-catalogue intermediate from fresh packed-C-to-typed-tree
 export, using shared verified repacking directly into bounded typed records.
