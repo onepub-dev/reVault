@@ -97,7 +97,8 @@ aggregate streaming probes under the unchanged memory policy. Post-format affect
 requires whole-call staging; stable storage remains a precondition. The [atomic form moves](evidence/form-moves-2026-10-09/README.md)
 now preserve payload identities and publish parent creation with path changes;
 all-mode controls, 1,488 transaction cuts, 504 interrupted recoveries and strict
-Clippy pass. Next establish the public cross-record secret-upgrade baseline, then
+Clippy pass, including post-format affected checks at `29cb3ed4`. Next establish
+the public cross-record secret-upgrade baseline, then
 connect bounded field/revision mutation and broader public integration.
 Keep the security policy and failure evidence; no allocator weakening is implied.
 Forms/references and broader public adapters, native selected

@@ -13,7 +13,8 @@ remain the sole goals authority. No historical prototype result selects a format
 [Selected move evidence](evidence/form-moves-2026-10-09/README.md) adds test-only
 metadata-only simultaneous form record moves with atomic missing-parent creation.
 All-mode content/identity/refusal controls, 1,488 transaction cuts, 504 interrupted
-recoveries and strict Clippy pass. Full payload verification remains required,
+recoveries and strict Clippy pass. Post-format move/lifecycle checks and strict
+Clippy pass at `29cb3ed4`. Full payload verification remains required,
 and payload bytes are unchanged. Field/revision mutation and public activation
 remain followthrough work; no performance gate is claimed.
 

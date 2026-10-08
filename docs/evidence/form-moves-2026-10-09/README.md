@@ -52,4 +52,7 @@ Checks use pinned Rust 1.88.0, release tests with external-source and serialized
 test execution, followed by strict Clippy for library/tests/benches. Source
 identities and complete logs are retained in `initial/` and `qualified/`. Exact
 new-source snapshots use `.rs.txt` to avoid formatting frozen evidence.
-Post-format results will be retained separately after the tracked hook.
+At checkpoint `29cb3ed4`, the tracked hook formatted two new Rust files.
+Post-format all-mode move and normal lifecycle tests and strict Clippy pass;
+logs/source hashes are retained in `postformat/`. The longer fault matrix was not
+repeated solely for formatting; its qualified source identity remains explicit.
