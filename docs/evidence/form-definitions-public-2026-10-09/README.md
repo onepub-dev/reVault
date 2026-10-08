@@ -31,6 +31,8 @@ The new focused test is
 `tests/form_capture_history.rs`. Commands use pinned Rust1.88.0, release
 `external-source`, serial test execution and targeted strict Clippy for that
 integration target. Initial source hashes and exact logs are retained in `initial/`.
-Formatting/post-format checks remain pending. Next implement the bounded typed
+The tracked hook formatted the integration test at `a944aec3`; all four
+post-format public history tests and targeted strict Clippy pass. Exact logs and
+source identities are under `postformat/`. Next implement the bounded typed
 resolver/revision/empty-record adapter over one authenticated selected snapshot;
 strict migration-import and historical capture admission remain distinct.
