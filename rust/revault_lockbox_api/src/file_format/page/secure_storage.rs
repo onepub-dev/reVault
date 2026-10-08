@@ -1,6 +1,8 @@
 //! Secure-memory staging for the experimental segmented-value adapter.
 //! Existing public writers and their wire representations are unchanged.
 use super::*;
+mod prepared;
+pub(crate) use prepared::PreparedSecurePages;
 
 /// Retain the complete stored page in guarded memory. Plaintext mode keeps the
 /// existing cleartext wire representation without ordinary plaintext scratch.

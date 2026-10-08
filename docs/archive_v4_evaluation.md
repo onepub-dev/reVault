@@ -399,6 +399,13 @@ complete same-contract candidate results, public semantics and resource evidence
 no format is selected by the amount of code already written. Preserve independent
 recovery, erasure, padding and authority even when a speed/space target fails.
 
+The [prepared staging prerequisite](evidence/prepared-staging-2026-10-09/README.md)
+passes 32 fresh all-mode FileStore probes with one/twelve 1 MiB values and affected
+variable, ready-vector and production correctness checks. Maximum observed VmLck
+endpoint is 2,788 KiB under 8,192 KiB; no peak, concurrency, timing or A3/A4/A5
+qualification follows. Two-pass encoding and additional pre-write checks are new
+work not covered by the frozen borrowed-source ratios. Forms remain pending.
+
 ## Evidence index
 
 Historical conditions and raw data remain authoritative for their own revisions.

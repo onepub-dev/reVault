@@ -74,15 +74,34 @@ pub(crate) fn seal_with_content_key_secure(
     content_key: &[u8; 32],
     aad: &[u8],
 ) -> Result<[u8; 12]> {
-    let cipher = ChaCha20Poly1305::new(&Key::from(*content_key));
     let mut nonce = [0u8; 12];
     getrandom(&mut nonce).map_err(|err| Error::Io(err.to_string()))?;
+    seal_secure_nonce(payload, content_key, aad, nonce)
+}
+
+// Test-only prepared-page reproduction. The caller must prove the complete
+// plaintext and seal context unchanged before reusing a previously fresh nonce.
+#[cfg(test)]
+pub(crate) fn seal_prepared_content_secure(
+    payload: &mut SecureVec,
+    content_key: &[u8; 32],
+    aad: &[u8],
+    nonce: [u8; 12],
+) -> Result<[u8; 12]> {
+    seal_secure_nonce(payload, content_key, aad, nonce)
+}
+fn seal_secure_nonce(
+    payload: &mut SecureVec,
+    content_key: &[u8; 32],
+    aad: &[u8],
+    nonce: [u8; 12],
+) -> Result<[u8; 12]> {
+    let cipher = ChaCha20Poly1305::new(&Key::from(*content_key));
     let tag = payload.with_mut_bytes(|bytes| {
         cipher
             .encrypt_inout_detached(&Nonce::from(nonce), aad, bytes.into())
             .map_err(|_| Error::SecurityLimitExceeded("encryption failed".to_string()))
-    })?;
-    let tag = tag?;
+    })??;
     payload.try_extend_from_slice(&tag)?;
     Ok(nonce)
 }

@@ -52,6 +52,7 @@ zstd = { version = "0.14.0", default-features = false, optional = true }
 getrandom = { version = "0.4", features = ["wasm_js"] }
 
 [dev-dependencies]
+subtle = "2.6"
 rayon = "1.12"
 criterion = "0.8.2"
 oxiarc-zstd = "0.4"

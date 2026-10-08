@@ -706,6 +706,12 @@ pub(crate) fn decode_single_object_page_secure_with_format(
 pub(crate) fn encode_single_object_page_secure(
     request: SecureSingleObjectPage<'_>,
 ) -> Result<Vec<u8>> {
+    encode_single_object_page_secure_using(request, seal_with_content_key_secure)
+}
+fn encode_single_object_page_secure_using(
+    request: SecureSingleObjectPage<'_>,
+    seal: impl FnOnce(&mut SecureVec, &[u8; 32], &[u8]) -> Result<[u8; 12]>,
+) -> Result<Vec<u8>> {
     if request.page_size < PAGE_HEADER_LEN {
         return Err(Error::SecurityLimitExceeded(
             "page is smaller than the header".to_string(),
@@ -753,7 +759,7 @@ pub(crate) fn encode_single_object_page_secure(
         encrypted_len,
         request.page_size as u64,
     );
-    let nonce = seal_with_content_key_secure(&mut page_body, request.content_key, &aad)?;
+    let nonce = seal(&mut page_body, request.content_key, &aad)?;
     let stored_body_len = u32::try_from(page_body.len())
         .map_err(|_| Error::SecurityLimitExceeded("page body is too large".to_string()))?;
     if PAGE_HEADER_LEN + page_body.len() > request.page_size {

@@ -274,32 +274,7 @@ pub(crate) fn encode_source(
     revision: u64,
     sensitivity: VariableSensitivity,
 ) -> Result<Encoded> {
-    FormatMode::parse(mode.0)?;
-    if mode.0 == 0 {
-        return Err(Error::CorruptRecord);
-    }
-    let length = value.with_bytes(|bytes| -> Result<usize> {
-        if bytes.len() > MAX_VALUE {
-            return Err(Error::SecurityLimitExceeded(
-                "variable value exceeds 1 MiB".into(),
-            ));
-        }
-        if id == [0; 16] || revision == 0 {
-            return Err(Error::CorruptRecord);
-        }
-        let text = std::str::from_utf8(bytes)
-            .map_err(|_| Error::InvalidInput("variable value must be UTF-8".into()))?;
-        crate::security::validate_variable_value_ref(text)?;
-        Ok(bytes.len())
-    })??;
-    let mut layout = Layout {
-        id,
-        revision,
-        sensitivity,
-        mode,
-        length,
-        extents: Vec::new(),
-    };
+    let mut layout = source_layout(value, mode, id, revision, sensitivity)?;
     let mut pages = Vec::new();
     for ordinal in 0..layout.count() {
         let mut payload = SecureVec::try_from_slice(&layout.prefix(archive, ordinal))?;
@@ -328,6 +303,95 @@ pub(crate) fn encode_source(
         pages.push(page);
     }
     Ok(Encoded { layout, pages })
+}
+
+fn source_layout(
+    value: Source<'_>,
+    mode: FormatMode,
+    id: [u8; 16],
+    revision: u64,
+    sensitivity: VariableSensitivity,
+) -> Result<Layout> {
+    FormatMode::parse(mode.0)?;
+    if mode.0 == 0 {
+        return Err(Error::CorruptRecord);
+    }
+    let length = value.with_bytes(|bytes| -> Result<usize> {
+        if bytes.len() > MAX_VALUE {
+            return Err(Error::SecurityLimitExceeded(
+                "variable value exceeds 1 MiB".into(),
+            ));
+        }
+        if id == [0; 16] || revision == 0 {
+            return Err(Error::CorruptRecord);
+        }
+        let text = std::str::from_utf8(bytes)
+            .map_err(|_| Error::InvalidInput("variable value must be UTF-8".into()))?;
+        crate::security::validate_variable_value_ref(text)?;
+        Ok(bytes.len())
+    })??;
+    Ok(Layout {
+        id,
+        revision,
+        sensitivity,
+        mode,
+        length,
+        extents: Vec::new(),
+    })
+}
+pub(crate) struct PreparedSegments<'a> {
+    pub layout: Layout,
+    pub pages: super::page::secure_storage::PreparedSecurePages,
+    pub payload: Box<dyn FnMut(usize) -> Result<SecureVec> + 'a>,
+}
+pub(crate) fn prepare_source<'a>(
+    value: Source<'a>,
+    archive: LockboxId,
+    mode: FormatMode,
+    content_key: &[u8; 32],
+    id: [u8; 16],
+    revision: u64,
+    sensitivity: VariableSensitivity,
+) -> Result<PreparedSegments<'a>> {
+    let mut layout = source_layout(value, mode, id, revision, sensitivity)?;
+    let template = layout.clone();
+    let payload = move |ordinal: usize| -> Result<SecureVec> {
+        if ordinal >= template.count() {
+            return Err(Error::CorruptRecord);
+        }
+        let mut payload = SecureVec::try_from_slice(&template.prefix(archive, ordinal))?;
+        value.append_range(
+            &mut payload,
+            ordinal * SEGMENT_BYTES,
+            template.part_len(ordinal)?,
+        )?;
+        Ok(payload)
+    };
+    let mut pages = super::page::secure_storage::PreparedSecurePages::new(layout.count())?;
+    for ordinal in 0..layout.count() {
+        let raw = payload(ordinal)?;
+        pages.push(SecureSingleObjectPage {
+            format_mode: mode,
+            page_size: secure_page_size(raw.len(), mode)?,
+            lockbox_id: archive,
+            page_id: layout.page_id(ordinal),
+            sequence: revision,
+            content_key,
+            kind: PageObjectKind::VariableLeaf,
+            id: layout.page_id(ordinal),
+            payload: &raw,
+        })?;
+        layout.extents.push(Extent {
+            start: 0,
+            len: pages.size(ordinal)? as u64,
+            digest: pages.digest(ordinal)?,
+        });
+    }
+    Ok(PreparedSegments {
+        layout,
+        pages,
+        payload: Box::new(payload),
+    })
 }
 
 #[cfg(test)]

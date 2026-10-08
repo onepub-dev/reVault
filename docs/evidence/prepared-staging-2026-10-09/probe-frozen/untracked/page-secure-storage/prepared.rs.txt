@@ -1,0 +1,144 @@
+//! Bounded first-pass page commitments and exact guarded reproduction.
+use super::*;
+use zeroize::Zeroizing;
+use subtle::ConstantTimeEq;
+
+// Existing shared-ownership experiment bound; not a product capacity decision.
+const MAX_PREPARED: usize = 4096;
+struct Page {
+    mode: crate::creation_options::FormatMode,
+    size: usize,
+    archive: LockboxId,
+    page_id: u64,
+    sequence: u64,
+    key: Zeroizing<[u8;32]>,
+    kind: PageObjectKind,
+    object_id: u64,
+    payload_len: usize,
+    nonce: [u8;12],
+    digest: [u8;32],
+}
+pub(crate) struct PreparedSecurePages {
+    pages: Vec<Page>,
+    // One guarded allocation, with space reserved before any page is prepared.
+    fingerprints: SecureVec,
+    capacity: usize,
+}
+thread_local! {
+    static RESEALS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+impl PreparedSecurePages {
+    pub(crate) fn new(capacity: usize) -> Result<Self> {
+        if capacity > MAX_PREPARED {
+            return Err(Error::SecurityLimitExceeded("prepared page count".into()));
+        }
+        let mut fingerprints = SecureVec::new();
+        fingerprints.resize_zeroed(capacity.checked_mul(32).ok_or(Error::CorruptRecord)?)?;
+        fingerprints.truncate(0)?;
+        Ok(Self {pages: Vec::with_capacity(capacity), fingerprints, capacity})
+    }
+    /// Every fallible first-pass operation happens before entering the writer.
+    /// The existing encoder supplies a fresh random nonce for protected pages.
+    pub(crate) fn push(&mut self, request: SecureSingleObjectPage<'_>) -> Result<()> {
+        crate::creation_options::FormatMode::parse(request.format_mode.0)?;
+        if self.pages.len() == self.capacity || request.format_mode.0 == 0 {
+            return Err(Error::CorruptRecord);
+        }
+        let fingerprint = Zeroizing::new(request.payload.with_bytes(strong_checksum)?);
+        let metadata = (request.format_mode,request.page_size,request.lockbox_id,
+            request.page_id,request.sequence,Zeroizing::new(*request.content_key),request.kind,request.id,request.payload.len());
+        let encoded = encode_secure_storage(request)?;
+        let (nonce,digest) = encoded.with_bytes(|bytes| -> Result<_> {
+            Ok((array_12(&bytes[32..44])?,strong_checksum(bytes)))
+        })??;
+        self.fingerprints.try_extend_from_slice(fingerprint.as_ref())?;
+        self.pages.push(Page {mode:metadata.0,size:metadata.1,archive:metadata.2,page_id:metadata.3,
+            sequence:metadata.4,key:metadata.5,kind:metadata.6,object_id:metadata.7,payload_len:metadata.8,nonce,digest});
+        Ok(())
+    }
+    /// Combine prepared text components without retaining any encoded pages.
+    pub(crate) fn append(&mut self,other:Self) -> Result<()> {
+        if self.pages.len().checked_add(other.pages.len()).ok_or(Error::CorruptRecord)? > self.capacity {
+            return Err(Error::SecurityLimitExceeded("prepared page count".into()));
+        }
+        self.fingerprints.try_extend_from_secure(&other.fingerprints)?;
+        self.pages.extend(other.pages);
+        Ok(())
+    }
+    pub(crate) fn len(&self) -> usize { self.pages.len() }
+    pub(crate) fn size(&self,index:usize) -> Result<usize> {
+        Ok(self.pages.get(index).ok_or(Error::CorruptRecord)?.size)
+    }
+    pub(crate) fn digest(&self,index:usize) -> Result<[u8;32]> {
+        Ok(self.pages.get(index).ok_or(Error::CorruptRecord)?.digest)
+    }
+    /// All seal metadata is private and immutable. Verify the complete guarded
+    /// payload, including its context prefix, before a nonce can be reused.
+    pub(crate) fn render(&self,index:usize,payload:&SecureVec) -> Result<SecureVec> {
+        let page = self.pages.get(index).ok_or(Error::CorruptRecord)?;
+        if payload.len() != page.payload_len { return Err(Error::CorruptRecord); }
+        let actual = Zeroizing::new(payload.with_bytes(strong_checksum)?);
+        if !self.fingerprints.with_bytes(|expected| bool::from(expected[index*32..(index+1)*32].ct_eq(actual.as_ref())))? {
+            return Err(Error::CorruptRecord);
+        }
+        let request = SecureSingleObjectPage {format_mode:page.mode,page_size:page.size,
+            lockbox_id:page.archive,page_id:page.page_id,sequence:page.sequence,
+            content_key:&page.key,kind:page.kind,id:page.object_id,payload};
+        let encoded = if page.mode.plaintext() {
+            encode_secure_storage(request)?
+        } else {
+            SecureVec::try_from_vec(encode_single_object_page_secure_using(request,|payload,key,aad| {
+                RESEALS.with(|count|count.set(count.get()+1));
+                crate::crypto::seal_prepared_content_secure(payload,key,aad,page.nonce)
+            })?)?
+        };
+        if encoded.len()!=page.size || encoded.with_bytes(strong_checksum)?!=page.digest {
+            return Err(Error::CorruptRecord);
+        }
+        Ok(encoded)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{Compression,EncryptionMode,LockboxFormatOptions,SigningMode,SizePadding};
+    #[test]
+    fn prepared_secure_pages_reproduce_all_modes_and_refuse_changed_source_before_seal() {
+        for bits in 0..16 {
+            let mode=crate::creation_options::FormatMode::new(LockboxFormatOptions {
+                encryption:if bits&1!=0 {EncryptionMode::ChaCha20Poly1305}else{EncryptionMode::None},
+                signing:if bits&2!=0 {SigningMode::Owner}else{SigningMode::None},
+                compression:if bits&4!=0 {Compression::default()}else{Compression::None},
+                size_padding:if bits&8!=0 {SizePadding::Default}else{SizePadding::None},
+            });
+            let mut prepared=PreparedSecurePages::new(3).unwrap();
+            for length in [0,1,65536] {
+                let payload=SecureVec::try_from_slice(&vec![b'x';length]).unwrap();
+                prepared.push(SecureSingleObjectPage {format_mode:mode,page_size:secure_page_size(length,mode).unwrap(),
+                    lockbox_id:LockboxId::from_bytes([71;16]),page_id:length as u64+1,sequence:7,content_key:&[17;32],
+                    kind:PageObjectKind::FormLeaf,id:29,payload:&payload}).unwrap();
+            }
+            assert_eq!(prepared.fingerprints.len(),96);
+            for (index,length) in [0,1,65536].into_iter().enumerate() {
+                let payload=SecureVec::try_from_slice(&vec![b'x';length]).unwrap();
+                let first=prepared.render(index,&payload).unwrap();
+                let mut second=prepared.render(index,&payload).unwrap();
+                first.with_bytes(|first|second.with_bytes(|second|assert_eq!(first,second)).unwrap()).unwrap();
+                let decoded=decode_single_object_page_secure_with_format(&mut second,LockboxId::from_bytes([71;16]),&[17;32],mode).unwrap();
+                assert_eq!((decoded.page_id,decoded.sequence),(length as u64+1,7));
+                assert_eq!(decoded.objects[0].kind,PageObjectKind::FormLeaf);
+                decoded.objects[0].secure_payload().unwrap().with_bytes(|p|assert_eq!(p,vec![b'x';length])).unwrap();
+                let seals=RESEALS.with(|n|n.get());
+                let changed=SecureVec::try_from_slice(&vec![b'y';length.max(1)]).unwrap();
+                assert!(prepared.render(index,&changed).is_err());
+                assert_eq!(RESEALS.with(|n|n.get()),seals);
+            }
+            assert!(prepared.render(3,&SecureVec::new()).is_err());
+            let mut combined=PreparedSecurePages::new(3).unwrap();
+            combined.append(prepared).unwrap();assert_eq!(combined.len(),3);
+            assert!(PreparedSecurePages::new(0).unwrap().append(combined).is_err());
+        }
+        assert!(PreparedSecurePages::new(MAX_PREPARED+1).is_err());
+    }
+}

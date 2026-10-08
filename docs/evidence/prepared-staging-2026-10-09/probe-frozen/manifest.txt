@@ -1,0 +1,19 @@
+Frozen prepared-staging aggregate-probe executable
+Archive worktree: /home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance
+Rust working directory: /home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust
+HEAD at freeze: c0f776854ef93ce998cc7adfc7a2cea6c4522339
+The working tree contains the prepared-staging implementation being validated. Tracked changes are preserved in tracked-source.patch; newly added source files are preserved in untracked-source.patch and snapshots under untracked/.
+Exact release build/run command that compiled this test executable: cargo +1.88.0 test -p revault_lockbox_api --release --features external-source --lib prepared_staging_preflight -- --test-threads=1 --nocapture
+Features/profile: external-source; release optimized unit-test harness. The binary contains prepared_staging_aggregate_guarded_source_probe, which remains ignored except when selected explicitly.
+Build/test transcript: /tmp/revault-prepared-staging-2026-10-09/prepared-staging-preflight.log
+Frozen executable path: /tmp/revault-prepared-staging-2026-10-09/probe-frozen/revault_lockbox_api-tests
+Frozen executable SHA-256: 7e4e3c63d789a0a80e1b67a55e1150f2f9d8398df703def704f4b20ccbe987d7
+Rust toolchain pin: parent worktree rust-toolchain.toml channel 1.88.0
+Compiler output: rustc-Vv.txt (rustc 1.88.0, commit 6b00bc3880198600130e1cf62b8f8a93494488cc, x86_64-unknown-linux-gnu, LLVM 20.1.5)
+System compiler: /usr/bin/cc; version and SHA-256 in cc-version.txt
+Cargo.lock SHA-256: 18a3e003d76bc847bc1fb849fda615d55cda140a64c268b92d31ed98fdde57f1
+All current modified/new file hashes: changed-file-hashes.sha256
+Tracked Rust source diff from current HEAD: tracked-source.patch
+Untracked source diff: untracked-source.patch
+Untracked source snapshots: untracked/variables/prepared.rs and untracked/page-secure-storage/prepared.rs
+Aggregate run: exactly 32 fresh producers (16 modes x counts 1 and 12); RLIMIT_MEMLOCK 8192 KiB; no retries. Per-process logs, per-case archive SHA-256, and instrumentation JSON are recorded in ../aggregate/outcomes.json and ../aggregate/mode-XX-count-YY.log. Aggregate outcomes SHA-256: 5c38b21f64e4d8b896ce0a1414cdc9bce30f56ed8b566b48dd85ccce1716ae63.

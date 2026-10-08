@@ -8,6 +8,16 @@ remain the sole goals authority. No historical prototype result selects a format
 
 ## Implementation checkpoints
 
+### Prepared guarded staging prerequisite — 2026-10-09
+
+[Prepared staging evidence](evidence/prepared-staging-2026-10-09/README.md) connects
+immutable two-pass page descriptors and constant-time source checks to the test-only
+variable writer. All-mode callback/preflight failure recovery and prior vector
+controls pass; 32 fresh FileStore probes verify one/twelve 1 MiB values with a
+maximum 2,788 KiB locked-memory endpoint. The source is one reused guarded value,
+not twelve simultaneous caller inputs. No peak/timing or public-form claim follows.
+Pre-format production page/crypto/public secure roundtrips and strict Clippy pass.
+
 ### Typed variable move checkpoint — 2026-10-09
 
 [Atomic move evidence](evidence/variable-moves-2026-10-09/README.md) preserves

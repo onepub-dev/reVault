@@ -295,13 +295,15 @@ fn change(
             }
         }
     }
-    let mut pages = Vec::new();
+    let mut pages = crate::file_format::page::secure_storage::PreparedSecurePages::new(0)?;
+    let mut payload: Box<dyn FnMut(usize) -> Result<SecureVec> + '_> =
+        Box::new(|_| Err(Error::CorruptRecord));
     let encoded = if let Some((sensitivity, bytes, _)) = value {
         let content_key = match opened.image.value_key.take() {
             Some(content_key) => content_key,
             None => super::super::dense_image::value_key(mode, key)?,
         };
-        let encoded = secure_segments::encode_source(
+        let encoded = secure_segments::prepare_source(
             bytes,
             archive,
             mode,
@@ -311,6 +313,7 @@ fn change(
             sensitivity,
         )?;
         pages = encoded.pages;
+        payload = encoded.payload;
         Some(encoded.layout)
     } else {
         None
@@ -329,10 +332,11 @@ fn change(
         catalogue.variables.len() - 1
     });
     let records = catalogue.tree_records()?;
-    let plan = tree::SecurePayloadPlan {
+    let plan = tree::PreparedSecurePayloadPlan {
         base: shared::commitment(&anchor)?,
         retired,
-        bytes: pages,
+        pages,
+        payload,
         rebind: Box::new(move |extents| {
             if let Some(index) = updated {
                 catalogue.variables[index].layout.rebind(extents)?;
@@ -342,7 +346,7 @@ fn change(
             catalogue.tree_records()
         }),
     };
-    tree::rewrite_secure_payload_records(
+    tree::rewrite_prepared_secure_payload_records(
         storage, archive, mode, authority, signer, key, records, plan,
     )
 }

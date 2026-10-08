@@ -1,0 +1,491 @@
+diff --git a/rust/Cargo.lock b/rust/Cargo.lock
+index 58dad0f8..8c0d497f 100644
+--- a/rust/Cargo.lock
++++ b/rust/Cargo.lock
+@@ -2454,6 +2454,7 @@ dependencies = [
+  "revault_page_api 0.0.34",
+  "serde_json",
+  "sha2 0.11.0",
++ "subtle",
+  "unicode-normalization",
+  "windows-sys 0.61.2",
+  "x25519-dalek 3.0.0",
+diff --git a/rust/revault_lockbox_api/Cargo.toml b/rust/revault_lockbox_api/Cargo.toml
+index be72e581..02fe45d6 100644
+--- a/rust/revault_lockbox_api/Cargo.toml
++++ b/rust/revault_lockbox_api/Cargo.toml
+@@ -52,6 +52,7 @@ zstd = { version = "0.14.0", default-features = false, optional = true }
+ getrandom = { version = "0.4", features = ["wasm_js"] }
+ 
+ [dev-dependencies]
++subtle = "2.6"
+ rayon = "1.12"
+ criterion = "0.8.2"
+ oxiarc-zstd = "0.4"
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/variables.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/variables.rs
+index 0cd53a6c..9d5d5dcb 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/variables.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/variables.rs
+@@ -987,3 +987,5 @@ fn check_erasure(
+ mod resource;
+ 
+ mod moves;
++
++mod prepared;
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/variables.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/variables.rs
+index 39301725..1335f5af 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/variables.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/variables.rs
+@@ -295,13 +295,14 @@ fn change(
+             }
+         }
+     }
+-    let mut pages = Vec::new();
++    let mut pages = crate::file_format::page::secure_storage::PreparedSecurePages::new(0)?;
++    let mut payload: Box<dyn FnMut(usize)->Result<SecureVec>+'_> = Box::new(|_|Err(Error::CorruptRecord));
+     let encoded = if let Some((sensitivity, bytes, _)) = value {
+         let content_key = match opened.image.value_key.take() {
+             Some(content_key) => content_key,
+             None => super::super::dense_image::value_key(mode, key)?,
+         };
+-        let encoded = secure_segments::encode_source(
++        let encoded = secure_segments::prepare_source(
+             bytes,
+             archive,
+             mode,
+@@ -311,6 +312,7 @@ fn change(
+             sensitivity,
+         )?;
+         pages = encoded.pages;
++        payload = encoded.payload;
+         Some(encoded.layout)
+     } else {
+         None
+@@ -329,10 +331,11 @@ fn change(
+         catalogue.variables.len() - 1
+     });
+     let records = catalogue.tree_records()?;
+-    let plan = tree::SecurePayloadPlan {
++    let plan = tree::PreparedSecurePayloadPlan {
+         base: shared::commitment(&anchor)?,
+         retired,
+-        bytes: pages,
++        pages,
++        payload,
+         rebind: Box::new(move |extents| {
+             if let Some(index) = updated {
+                 catalogue.variables[index].layout.rebind(extents)?;
+@@ -342,7 +345,7 @@ fn change(
+             catalogue.tree_records()
+         }),
+     };
+-    tree::rewrite_secure_payload_records(
++    tree::rewrite_prepared_secure_payload_records(
+         storage, archive, mode, authority, signer, key, records, plan,
+     )
+ }
+diff --git a/rust/revault_lockbox_api/src/file_format/page.rs b/rust/revault_lockbox_api/src/file_format/page.rs
+index 18d19eca..9b21b8cf 100644
+--- a/rust/revault_lockbox_api/src/file_format/page.rs
++++ b/rust/revault_lockbox_api/src/file_format/page.rs
+@@ -705,6 +705,12 @@ pub(crate) fn decode_single_object_page_secure_with_format(
+ 
+ pub(crate) fn encode_single_object_page_secure(
+     request: SecureSingleObjectPage<'_>,
++) -> Result<Vec<u8>> {
++    encode_single_object_page_secure_using(request, seal_with_content_key_secure)
++}
++fn encode_single_object_page_secure_using(
++    request: SecureSingleObjectPage<'_>,
++    seal: impl FnOnce(&mut SecureVec, &[u8;32], &[u8]) -> Result<[u8;12]>,
+ ) -> Result<Vec<u8>> {
+     if request.page_size < PAGE_HEADER_LEN {
+         return Err(Error::SecurityLimitExceeded(
+@@ -753,7 +759,7 @@ pub(crate) fn encode_single_object_page_secure(
+         encrypted_len,
+         request.page_size as u64,
+     );
+-    let nonce = seal_with_content_key_secure(&mut page_body, request.content_key, &aad)?;
++    let nonce = seal(&mut page_body, request.content_key, &aad)?;
+     let stored_body_len = u32::try_from(page_body.len())
+         .map_err(|_| Error::SecurityLimitExceeded("page body is too large".to_string()))?;
+     if PAGE_HEADER_LEN + page_body.len() > request.page_size {
+diff --git a/rust/revault_lockbox_api/src/file_format/page/secure_storage.rs b/rust/revault_lockbox_api/src/file_format/page/secure_storage.rs
+index 3f3c1b65..f6aa1c4b 100644
+--- a/rust/revault_lockbox_api/src/file_format/page/secure_storage.rs
++++ b/rust/revault_lockbox_api/src/file_format/page/secure_storage.rs
+@@ -1,6 +1,8 @@
+ //! Secure-memory staging for the experimental segmented-value adapter.
+ //! Existing public writers and their wire representations are unchanged.
+ use super::*;
++mod prepared;
++pub(crate) use prepared::PreparedSecurePages;
+ 
+ /// Retain the complete stored page in guarded memory. Plaintext mode keeps the
+ /// existing cleartext wire representation without ordinary plaintext scratch.
+diff --git a/rust/revault_lockbox_api/src/file_format/publication_anchor/shared/tree.rs b/rust/revault_lockbox_api/src/file_format/publication_anchor/shared/tree.rs
+index 8069bcd7..a2e8364f 100644
+--- a/rust/revault_lockbox_api/src/file_format/publication_anchor/shared/tree.rs
++++ b/rust/revault_lockbox_api/src/file_format/publication_anchor/shared/tree.rs
+@@ -261,5 +261,5 @@ mod update;
+ pub(crate) use update::{
+     grow_dense_payload_records, grow_dense_records, recover_update, relocate_records,
+     rewrite_payload_records, rewrite_records, rewrite_secure_payload_records, PayloadPlan,
+-    SecurePayloadPlan,
++    SecurePayloadPlan, PreparedSecurePayloadPlan, rewrite_prepared_secure_payload_records,
+ };
+diff --git a/rust/revault_lockbox_api/src/file_format/publication_anchor/shared/tree/update.rs b/rust/revault_lockbox_api/src/file_format/publication_anchor/shared/tree/update.rs
+index 3739d57e..93f51f83 100644
+--- a/rust/revault_lockbox_api/src/file_format/publication_anchor/shared/tree/update.rs
++++ b/rust/revault_lockbox_api/src/file_format/publication_anchor/shared/tree/update.rs
+@@ -24,6 +24,45 @@ pub(crate) struct SecurePayloadPlan {
+     pub bytes: Vec<crate::secret_vec::SecureVec>,
+     pub rebind: RebindRecords,
+ }
++/// Prepared page commitments admit every extent and rebound record before any
++/// persistent write. The callback regenerates raw guarded payload only; private
++/// prepared-page state verifies its fingerprint before reproducing ciphertext.
++pub(crate) struct PreparedSecurePayloadPlan<'a> {
++    pub base: [u8;32],
++    pub retired: Vec<Extent>,
++    pub pages: crate::file_format::page::secure_storage::PreparedSecurePages,
++    pub payload: Box<dyn FnMut(usize) -> Result<crate::secret_vec::SecureVec> + 'a>,
++    pub rebind: RebindRecords,
++}
++enum StagingBytes<'a> {
++    Ready(Vec<PayloadBytes>),
++    Prepared {
++        pages: crate::file_format::page::secure_storage::PreparedSecurePages,
++        payload: Box<dyn FnMut(usize) -> Result<crate::secret_vec::SecureVec> + 'a>,
++    },
++}
++impl StagingBytes<'_> {
++    fn count(&self) -> usize {
++        match self { Self::Ready(bytes)=>bytes.len(), Self::Prepared{pages,..}=>pages.len() }
++    }
++    fn size(&self,index:usize) -> Result<usize> {
++        match self { Self::Ready(bytes)=>Ok(bytes.get(index).ok_or(Error::CorruptRecord)?.len()), Self::Prepared{pages,..}=>pages.size(index) }
++    }
++    fn digest(&self,index:usize) -> Result<[u8;32]> {
++        match self { Self::Ready(bytes)=>bytes.get(index).ok_or(Error::CorruptRecord)?.with_bytes(strong_checksum), Self::Prepared{pages,..}=>pages.digest(index) }
++    }
++    fn with_page(&mut self,index:usize,f:impl FnOnce(&PayloadBytes)->Result<()>) -> Result<()> {
++        match self {
++            Self::Ready(bytes)=>f(bytes.get(index).ok_or(Error::CorruptRecord)?),
++            Self::Prepared{pages,payload}=> {
++                let raw=payload(index)?;
++                let encoded=pages.render(index,&raw)?;
++                drop(raw);
++                f(&PayloadBytes::Secure(encoded))
++            }
++        }
++    }
++}
+ enum PayloadBytes {
+     Ordinary(crate::page_buffer::ZeroizingBytes),
+     Secure(crate::secret_vec::SecureVec),
+@@ -35,9 +74,6 @@ impl PayloadBytes {
+             Self::Secure(v) => v.len(),
+         }
+     }
+-    fn is_empty(&self) -> bool {
+-        self.len() == 0
+-    }
+     fn with_bytes<R>(&self, f: impl FnOnce(&[u8]) -> R) -> Result<R> {
+         match self {
+             Self::Ordinary(v) => Ok(f(v)),
+@@ -69,32 +105,64 @@ impl PayloadBytes {
+         Ok(())
+     }
+ }
+-struct StagingPlan {
++struct StagingPlan<'a> {
+     base: [u8; 32],
+     retired: Vec<Extent>,
+-    bytes: Vec<PayloadBytes>,
++    bytes: StagingBytes<'a>,
+     rebind: RebindRecords,
+ }
+-impl From<PayloadPlan> for StagingPlan {
++impl From<PayloadPlan> for StagingPlan<'_> {
+     fn from(plan: PayloadPlan) -> Self {
+         Self {
+             base: plan.base,
+             retired: plan.retired,
+-            bytes: plan.bytes.into_iter().map(PayloadBytes::Ordinary).collect(),
++            bytes: StagingBytes::Ready(plan.bytes.into_iter().map(PayloadBytes::Ordinary).collect()),
+             rebind: plan.rebind,
+         }
+     }
+ }
+-impl From<SecurePayloadPlan> for StagingPlan {
++impl From<SecurePayloadPlan> for StagingPlan<'_> {
+     fn from(plan: SecurePayloadPlan) -> Self {
+         Self {
+             base: plan.base,
+             retired: plan.retired,
+-            bytes: plan.bytes.into_iter().map(PayloadBytes::Secure).collect(),
++            bytes: StagingBytes::Ready(plan.bytes.into_iter().map(PayloadBytes::Secure).collect()),
+             rebind: plan.rebind,
+         }
+     }
+ }
++impl<'a> From<PreparedSecurePayloadPlan<'a>> for StagingPlan<'a> {
++    fn from(plan: PreparedSecurePayloadPlan<'a>) -> Self {
++        Self {base:plan.base,retired:plan.retired,
++            bytes:StagingBytes::Prepared{pages:plan.pages,payload:plan.payload},rebind:plan.rebind}
++    }
++}
++#[allow(clippy::too_many_arguments)]
++pub(crate) fn rewrite_prepared_secure_payload_records(
++    storage: &mut impl Storage,
++    archive: LockboxId,
++    mode: FormatMode,
++    authority: &Authority<'_>,
++    signer: Option<&OwnerSigningKeyPair>,
++    key: Option<&[u8]>,
++    records: Vec<Entry>,
++    payloads: PreparedSecurePayloadPlan<'_>,
++) -> Result<bool> {
++    rewrite_inner(
++        storage,
++        archive,
++        mode,
++        authority,
++        signer,
++        key,
++        records,
++        false,
++        true,
++        false,
++        Some(payloads.into()),
++    )
++}
++
+ #[allow(clippy::too_many_arguments)]
+ pub(crate) fn rewrite_secure_payload_records(
+     storage: &mut impl Storage,
+@@ -245,7 +313,7 @@ fn rewrite_inner(
+     dense: bool,
+     force: bool,
+     append_private: bool,
+-    payloads: Option<StagingPlan>,
++    payloads: Option<StagingPlan<'_>>,
+ ) -> Result<bool> {
+     let (old, dense_records) = if dense {
+         let (anchor, graph) = crate::file_format::candidate_files::tree_image::dense_base(
+@@ -282,9 +350,10 @@ fn rewrite_inner(
+                 return Err(Error::CorruptRecord);
+             }
+         }
+-        for bytes in &plan.bytes {
+-            total = total.checked_add(bytes.len()).ok_or(Error::CorruptRecord)?;
+-            if bytes.is_empty() || bytes.len() > 320 * 1024 || total > MAX_PAYLOAD_BYTES {
++        for index in 0..plan.bytes.count() {
++            let length=plan.bytes.size(index)?;
++            total = total.checked_add(length).ok_or(Error::CorruptRecord)?;
++            if length==0 || length > 320 * 1024 || total > MAX_PAYLOAD_BYTES {
+                 return Err(Error::SecurityLimitExceeded(
+                     "bounded payload staging".into(),
+                 ));
+@@ -342,11 +411,7 @@ fn rewrite_inner(
+     let (mut reused, mut reservations) = old.graph.reusable_regions(reserved_nodes)?;
+     let payload_slots = if let Some(plan) = &payloads {
+         old.graph.reserve_payloads(
+-            &plan
+-                .bytes
+-                .iter()
+-                .map(|bytes| bytes.len())
+-                .collect::<Vec<_>>(),
++            &(0..plan.bytes.count()).map(|index|plan.bytes.size(index)).collect::<Result<Vec<_>>>()?,
+             &mut reused,
+             &mut reservations,
+         )?
+@@ -442,13 +507,13 @@ fn rewrite_inner(
+         })
+         .ok_or(Error::CorruptRecord)?;
+     let payload_start = tail;
+-    let staged: Vec<(Extent, PayloadBytes)> = if let Some(plan) = payloads {
++    let (staged, mut staged_bytes) = if let Some(plan) = payloads {
+         let mut extents = Vec::new();
+-        for (bytes, slot) in plan.bytes.iter().zip(&payload_slots) {
++        for (index, slot) in payload_slots.iter().enumerate() {
+             let extent = Extent {
+                 start: slot.map_or(tail, |span| span.start),
+-                len: bytes.len() as u64,
+-                digest: bytes.with_bytes(strong_checksum)?,
++                len: plan.bytes.size(index)? as u64,
++                digest: plan.bytes.digest(index)?,
+             };
+             if slot.is_none() {
+                 tail = tail.checked_add(extent.len).ok_or(Error::CorruptRecord)?;
+@@ -479,9 +544,9 @@ fn rewrite_inner(
+             return Err(Error::CorruptRecord);
+         }
+         records = rebound;
+-        extents.into_iter().zip(plan.bytes).collect()
++        (extents, plan.bytes)
+     } else {
+-        Vec::new()
++        (Vec::new(), StagingBytes::Ready(Vec::new()))
+     };
+     let payload_end = tail;
+     tail = tail
+@@ -572,7 +637,10 @@ fn rewrite_inner(
+         if append.len()? != payload_start {
+             return Err(Error::CorruptRecord);
+         }
+-        for (extent, bytes) in &staged {
++        for (index, extent) in staged.iter().enumerate() {
++            staged_bytes.with_page(index, |bytes| {
++            // Verify source reproduction before touching its reserved extent.
++            if bytes.len() as u64 != extent.len || bytes.with_bytes(strong_checksum)? != extent.digest { return Err(Error::CorruptRecord); }
+             bytes.with_bytes(|slice| -> Result<()> {
+                 if extent.start < sealed {
+                     append.storage.borrow_mut().write_at(extent.start, slice)?;
+@@ -581,7 +649,8 @@ fn rewrite_inner(
+                 }
+                 Ok(())
+             })??;
+-            bytes.verify(&append, *extent)?;
++            bytes.verify(&append, *extent)
++            })?;
+         }
+         let padded = payload_end.div_ceil(FAILURE_REGION) * FAILURE_REGION;
+         if padded > payload_end {
+diff --git a/rust/revault_lockbox_api/src/file_format/secure_segments.rs b/rust/revault_lockbox_api/src/file_format/secure_segments.rs
+index a591bcf3..a941e022 100644
+--- a/rust/revault_lockbox_api/src/file_format/secure_segments.rs
++++ b/rust/revault_lockbox_api/src/file_format/secure_segments.rs
+@@ -274,32 +274,7 @@ pub(crate) fn encode_source(
+     revision: u64,
+     sensitivity: VariableSensitivity,
+ ) -> Result<Encoded> {
+-    FormatMode::parse(mode.0)?;
+-    if mode.0 == 0 {
+-        return Err(Error::CorruptRecord);
+-    }
+-    let length = value.with_bytes(|bytes| -> Result<usize> {
+-        if bytes.len() > MAX_VALUE {
+-            return Err(Error::SecurityLimitExceeded(
+-                "variable value exceeds 1 MiB".into(),
+-            ));
+-        }
+-        if id == [0; 16] || revision == 0 {
+-            return Err(Error::CorruptRecord);
+-        }
+-        let text = std::str::from_utf8(bytes)
+-            .map_err(|_| Error::InvalidInput("variable value must be UTF-8".into()))?;
+-        crate::security::validate_variable_value_ref(text)?;
+-        Ok(bytes.len())
+-    })??;
+-    let mut layout = Layout {
+-        id,
+-        revision,
+-        sensitivity,
+-        mode,
+-        length,
+-        extents: Vec::new(),
+-    };
++    let mut layout = source_layout(value,mode,id,revision,sensitivity)?;
+     let mut pages = Vec::new();
+     for ordinal in 0..layout.count() {
+         let mut payload = SecureVec::try_from_slice(&layout.prefix(archive, ordinal))?;
+@@ -330,5 +305,60 @@ pub(crate) fn encode_source(
+     Ok(Encoded { layout, pages })
+ }
+ 
++fn source_layout(value:Source<'_>,mode:FormatMode,id:[u8;16],revision:u64,sensitivity:VariableSensitivity)->Result<Layout> {
++    FormatMode::parse(mode.0)?;
++    if mode.0 == 0 {
++        return Err(Error::CorruptRecord);
++    }
++    let length = value.with_bytes(|bytes| -> Result<usize> {
++        if bytes.len() > MAX_VALUE {
++            return Err(Error::SecurityLimitExceeded(
++                "variable value exceeds 1 MiB".into(),
++            ));
++        }
++        if id == [0; 16] || revision == 0 {
++            return Err(Error::CorruptRecord);
++        }
++        let text = std::str::from_utf8(bytes)
++            .map_err(|_| Error::InvalidInput("variable value must be UTF-8".into()))?;
++        crate::security::validate_variable_value_ref(text)?;
++        Ok(bytes.len())
++    })??;
++    Ok(Layout {
++        id,
++        revision,
++        sensitivity,
++        mode,
++        length,
++        extents: Vec::new(),
++    })
++
++}
++pub(crate) struct PreparedSegments<'a> {
++    pub layout: Layout,
++    pub pages: super::page::secure_storage::PreparedSecurePages,
++    pub payload: Box<dyn FnMut(usize)->Result<SecureVec>+'a>,
++}
++pub(crate) fn prepare_source<'a>(
++    value:Source<'a>,archive:LockboxId,mode:FormatMode,content_key:&[u8;32],id:[u8;16],revision:u64,sensitivity:VariableSensitivity,
++)->Result<PreparedSegments<'a>> {
++    let mut layout=source_layout(value,mode,id,revision,sensitivity)?;
++    let template=layout.clone();
++    let payload=move |ordinal:usize| -> Result<SecureVec> {
++        if ordinal>=template.count() {return Err(Error::CorruptRecord);}
++        let mut payload=SecureVec::try_from_slice(&template.prefix(archive,ordinal))?;
++        value.append_range(&mut payload,ordinal*SEGMENT_BYTES,template.part_len(ordinal)?)?;
++        Ok(payload)
++    };
++    let mut pages=super::page::secure_storage::PreparedSecurePages::new(layout.count())?;
++    for ordinal in 0..layout.count() {
++        let raw=payload(ordinal)?;
++        pages.push(SecureSingleObjectPage {format_mode:mode,page_size:secure_page_size(raw.len(),mode)?,lockbox_id:archive,
++            page_id:layout.page_id(ordinal),sequence:revision,content_key,kind:PageObjectKind::VariableLeaf,id:layout.page_id(ordinal),payload:&raw})?;
++        layout.extents.push(Extent {start:0,len:pages.size(ordinal)? as u64,digest:pages.digest(ordinal)?});
++    }
++    Ok(PreparedSegments{layout,pages,payload:Box::new(payload)})
++}
++
+ #[cfg(test)]
+ mod tests;
+diff --git a/rust/revault_lockbox_api/src/keys/crypto.rs b/rust/revault_lockbox_api/src/keys/crypto.rs
+index a6f447de..92b6799e 100644
+--- a/rust/revault_lockbox_api/src/keys/crypto.rs
++++ b/rust/revault_lockbox_api/src/keys/crypto.rs
+@@ -74,15 +74,27 @@ pub(crate) fn seal_with_content_key_secure(
+     content_key: &[u8; 32],
+     aad: &[u8],
+ ) -> Result<[u8; 12]> {
+-    let cipher = ChaCha20Poly1305::new(&Key::from(*content_key));
+     let mut nonce = [0u8; 12];
+     getrandom(&mut nonce).map_err(|err| Error::Io(err.to_string()))?;
++    seal_secure_nonce(payload, content_key, aad, nonce)
++}
++
++// Test-only prepared-page reproduction. The caller must prove the complete
++// plaintext and seal context unchanged before reusing a previously fresh nonce.
++#[cfg(test)]
++pub(crate) fn seal_prepared_content_secure(
++    payload: &mut SecureVec, content_key: &[u8;32], aad: &[u8], nonce: [u8;12],
++) -> Result<[u8;12]> {
++    seal_secure_nonce(payload, content_key, aad, nonce)
++}
++fn seal_secure_nonce(
++    payload: &mut SecureVec, content_key: &[u8;32], aad: &[u8], nonce: [u8;12],
++) -> Result<[u8;12]> {
++    let cipher = ChaCha20Poly1305::new(&Key::from(*content_key));
+     let tag = payload.with_mut_bytes(|bytes| {
+-        cipher
+-            .encrypt_inout_detached(&Nonce::from(nonce), aad, bytes.into())
++        cipher.encrypt_inout_detached(&Nonce::from(nonce), aad, bytes.into())
+             .map_err(|_| Error::SecurityLimitExceeded("encryption failed".to_string()))
+-    })?;
+-    let tag = tag?;
++    })??;
+     payload.try_extend_from_slice(&tag)?;
+     Ok(nonce)
+ }

@@ -987,3 +987,5 @@ fn check_erasure(
 mod resource;
 
 mod moves;
+
+mod prepared;

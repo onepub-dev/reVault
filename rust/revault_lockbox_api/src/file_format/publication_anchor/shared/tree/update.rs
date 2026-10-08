@@ -24,6 +24,61 @@ pub(crate) struct SecurePayloadPlan {
     pub bytes: Vec<crate::secret_vec::SecureVec>,
     pub rebind: RebindRecords,
 }
+/// Prepared page commitments admit every extent and rebound record before any
+/// persistent write. The callback regenerates raw guarded payload only; private
+/// prepared-page state verifies its fingerprint before reproducing ciphertext.
+pub(crate) struct PreparedSecurePayloadPlan<'a> {
+    pub base: [u8; 32],
+    pub retired: Vec<Extent>,
+    pub pages: crate::file_format::page::secure_storage::PreparedSecurePages,
+    pub payload: Box<dyn FnMut(usize) -> Result<crate::secret_vec::SecureVec> + 'a>,
+    pub rebind: RebindRecords,
+}
+enum StagingBytes<'a> {
+    Ready(Vec<PayloadBytes>),
+    Prepared {
+        pages: crate::file_format::page::secure_storage::PreparedSecurePages,
+        payload: Box<dyn FnMut(usize) -> Result<crate::secret_vec::SecureVec> + 'a>,
+    },
+}
+impl StagingBytes<'_> {
+    fn count(&self) -> usize {
+        match self {
+            Self::Ready(bytes) => bytes.len(),
+            Self::Prepared { pages, .. } => pages.len(),
+        }
+    }
+    fn size(&self, index: usize) -> Result<usize> {
+        match self {
+            Self::Ready(bytes) => Ok(bytes.get(index).ok_or(Error::CorruptRecord)?.len()),
+            Self::Prepared { pages, .. } => pages.size(index),
+        }
+    }
+    fn digest(&self, index: usize) -> Result<[u8; 32]> {
+        match self {
+            Self::Ready(bytes) => bytes
+                .get(index)
+                .ok_or(Error::CorruptRecord)?
+                .with_bytes(strong_checksum),
+            Self::Prepared { pages, .. } => pages.digest(index),
+        }
+    }
+    fn with_page(
+        &mut self,
+        index: usize,
+        f: impl FnOnce(&PayloadBytes) -> Result<()>,
+    ) -> Result<()> {
+        match self {
+            Self::Ready(bytes) => f(bytes.get(index).ok_or(Error::CorruptRecord)?),
+            Self::Prepared { pages, payload } => {
+                let raw = payload(index)?;
+                let encoded = pages.render(index, &raw)?;
+                drop(raw);
+                f(&PayloadBytes::Secure(encoded))
+            }
+        }
+    }
+}
 enum PayloadBytes {
     Ordinary(crate::page_buffer::ZeroizingBytes),
     Secure(crate::secret_vec::SecureVec),
@@ -34,9 +89,6 @@ impl PayloadBytes {
             Self::Ordinary(v) => v.len(),
             Self::Secure(v) => v.len(),
         }
-    }
-    fn is_empty(&self) -> bool {
-        self.len() == 0
     }
     fn with_bytes<R>(&self, f: impl FnOnce(&[u8]) -> R) -> Result<R> {
         match self {
@@ -69,32 +121,73 @@ impl PayloadBytes {
         Ok(())
     }
 }
-struct StagingPlan {
+struct StagingPlan<'a> {
     base: [u8; 32],
     retired: Vec<Extent>,
-    bytes: Vec<PayloadBytes>,
+    bytes: StagingBytes<'a>,
     rebind: RebindRecords,
 }
-impl From<PayloadPlan> for StagingPlan {
+impl From<PayloadPlan> for StagingPlan<'_> {
     fn from(plan: PayloadPlan) -> Self {
         Self {
             base: plan.base,
             retired: plan.retired,
-            bytes: plan.bytes.into_iter().map(PayloadBytes::Ordinary).collect(),
+            bytes: StagingBytes::Ready(
+                plan.bytes.into_iter().map(PayloadBytes::Ordinary).collect(),
+            ),
             rebind: plan.rebind,
         }
     }
 }
-impl From<SecurePayloadPlan> for StagingPlan {
+impl From<SecurePayloadPlan> for StagingPlan<'_> {
     fn from(plan: SecurePayloadPlan) -> Self {
         Self {
             base: plan.base,
             retired: plan.retired,
-            bytes: plan.bytes.into_iter().map(PayloadBytes::Secure).collect(),
+            bytes: StagingBytes::Ready(plan.bytes.into_iter().map(PayloadBytes::Secure).collect()),
             rebind: plan.rebind,
         }
     }
 }
+impl<'a> From<PreparedSecurePayloadPlan<'a>> for StagingPlan<'a> {
+    fn from(plan: PreparedSecurePayloadPlan<'a>) -> Self {
+        Self {
+            base: plan.base,
+            retired: plan.retired,
+            bytes: StagingBytes::Prepared {
+                pages: plan.pages,
+                payload: plan.payload,
+            },
+            rebind: plan.rebind,
+        }
+    }
+}
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn rewrite_prepared_secure_payload_records(
+    storage: &mut impl Storage,
+    archive: LockboxId,
+    mode: FormatMode,
+    authority: &Authority<'_>,
+    signer: Option<&OwnerSigningKeyPair>,
+    key: Option<&[u8]>,
+    records: Vec<Entry>,
+    payloads: PreparedSecurePayloadPlan<'_>,
+) -> Result<bool> {
+    rewrite_inner(
+        storage,
+        archive,
+        mode,
+        authority,
+        signer,
+        key,
+        records,
+        false,
+        true,
+        false,
+        Some(payloads.into()),
+    )
+}
+
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn rewrite_secure_payload_records(
     storage: &mut impl Storage,
@@ -245,7 +338,7 @@ fn rewrite_inner(
     dense: bool,
     force: bool,
     append_private: bool,
-    payloads: Option<StagingPlan>,
+    payloads: Option<StagingPlan<'_>>,
 ) -> Result<bool> {
     let (old, dense_records) = if dense {
         let (anchor, graph) = crate::file_format::candidate_files::tree_image::dense_base(
@@ -282,9 +375,10 @@ fn rewrite_inner(
                 return Err(Error::CorruptRecord);
             }
         }
-        for bytes in &plan.bytes {
-            total = total.checked_add(bytes.len()).ok_or(Error::CorruptRecord)?;
-            if bytes.is_empty() || bytes.len() > 320 * 1024 || total > MAX_PAYLOAD_BYTES {
+        for index in 0..plan.bytes.count() {
+            let length = plan.bytes.size(index)?;
+            total = total.checked_add(length).ok_or(Error::CorruptRecord)?;
+            if length == 0 || length > 320 * 1024 || total > MAX_PAYLOAD_BYTES {
                 return Err(Error::SecurityLimitExceeded(
                     "bounded payload staging".into(),
                 ));
@@ -342,11 +436,9 @@ fn rewrite_inner(
     let (mut reused, mut reservations) = old.graph.reusable_regions(reserved_nodes)?;
     let payload_slots = if let Some(plan) = &payloads {
         old.graph.reserve_payloads(
-            &plan
-                .bytes
-                .iter()
-                .map(|bytes| bytes.len())
-                .collect::<Vec<_>>(),
+            &(0..plan.bytes.count())
+                .map(|index| plan.bytes.size(index))
+                .collect::<Result<Vec<_>>>()?,
             &mut reused,
             &mut reservations,
         )?
@@ -442,13 +534,13 @@ fn rewrite_inner(
         })
         .ok_or(Error::CorruptRecord)?;
     let payload_start = tail;
-    let staged: Vec<(Extent, PayloadBytes)> = if let Some(plan) = payloads {
+    let (staged, mut staged_bytes) = if let Some(plan) = payloads {
         let mut extents = Vec::new();
-        for (bytes, slot) in plan.bytes.iter().zip(&payload_slots) {
+        for (index, slot) in payload_slots.iter().enumerate() {
             let extent = Extent {
                 start: slot.map_or(tail, |span| span.start),
-                len: bytes.len() as u64,
-                digest: bytes.with_bytes(strong_checksum)?,
+                len: plan.bytes.size(index)? as u64,
+                digest: plan.bytes.digest(index)?,
             };
             if slot.is_none() {
                 tail = tail.checked_add(extent.len).ok_or(Error::CorruptRecord)?;
@@ -479,9 +571,9 @@ fn rewrite_inner(
             return Err(Error::CorruptRecord);
         }
         records = rebound;
-        extents.into_iter().zip(plan.bytes).collect()
+        (extents, plan.bytes)
     } else {
-        Vec::new()
+        (Vec::new(), StagingBytes::Ready(Vec::new()))
     };
     let payload_end = tail;
     tail = tail
@@ -572,16 +664,24 @@ fn rewrite_inner(
         if append.len()? != payload_start {
             return Err(Error::CorruptRecord);
         }
-        for (extent, bytes) in &staged {
-            bytes.with_bytes(|slice| -> Result<()> {
-                if extent.start < sealed {
-                    append.storage.borrow_mut().write_at(extent.start, slice)?;
-                } else if append.append(slice)? != extent.start {
+        for (index, extent) in staged.iter().enumerate() {
+            staged_bytes.with_page(index, |bytes| {
+                // Verify source reproduction before touching its reserved extent.
+                if bytes.len() as u64 != extent.len
+                    || bytes.with_bytes(strong_checksum)? != extent.digest
+                {
                     return Err(Error::CorruptRecord);
                 }
-                Ok(())
-            })??;
-            bytes.verify(&append, *extent)?;
+                bytes.with_bytes(|slice| -> Result<()> {
+                    if extent.start < sealed {
+                        append.storage.borrow_mut().write_at(extent.start, slice)?;
+                    } else if append.append(slice)? != extent.start {
+                        return Err(Error::CorruptRecord);
+                    }
+                    Ok(())
+                })??;
+                bytes.verify(&append, *extent)
+            })?;
         }
         let padded = payload_end.div_ceil(FAILURE_REGION) * FAILURE_REGION;
         if padded > payload_end {

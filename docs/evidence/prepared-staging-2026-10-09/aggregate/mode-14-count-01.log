@@ -1,0 +1,7 @@
+
+running 1 test
+test file_format::candidate_files::tests::tree_tests::variables::prepared::prepared_staging_aggregate_guarded_source_probe ... PREPARED_STAGING {"after_prepare":{"vm_hwm_kib":78424,"vm_lck_kib":1744,"vm_rss_kib":18292},"after_read":{"vm_hwm_kib":78424,"vm_lck_kib":2652,"vm_rss_kib":19648},"after_source":{"vm_hwm_kib":78424,"vm_lck_kib":1352,"vm_rss_kib":17708},"after_write":{"vm_hwm_kib":78424,"vm_lck_kib":1744,"vm_rss_kib":18676},"archive_bytes":2686976,"before_source":{"vm_hwm_kib":78424,"vm_lck_kib":324,"vm_rss_kib":16512},"logical_bytes":1048576,"mode":14,"source_bytes":1048576,"stored_payload_bytes":2097152,"values":1}
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 595 filtered out; finished in 0.38s
+

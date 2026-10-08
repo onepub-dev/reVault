@@ -1,0 +1,24 @@
+    Finished `release` profile [optimized] target(s) in 0.11s
+     Running unittests src/lib.rs (target/release/deps/revault_lockbox_api-e3bcc2539127e239)
+
+running 1 test
+test file_format::candidate_files::tests::tree_tests::mutation::typed_tree_payload_add_replace_no_change_and_invalid_plans_all_modes ... TYPED_TREE_PAYLOAD_UPDATE mode=0 initial_bytes=327680 completed_bytes=720896 changed_logical_bytes=140008
+TYPED_TREE_PAYLOAD_UPDATE mode=1 initial_bytes=327680 completed_bytes=589824 changed_logical_bytes=140008
+TYPED_TREE_PAYLOAD_UPDATE mode=2 initial_bytes=327680 completed_bytes=720896 changed_logical_bytes=140008
+TYPED_TREE_PAYLOAD_UPDATE mode=3 initial_bytes=327680 completed_bytes=589824 changed_logical_bytes=140008
+TYPED_TREE_PAYLOAD_UPDATE mode=4 initial_bytes=327680 completed_bytes=589824 changed_logical_bytes=140008
+TYPED_TREE_PAYLOAD_UPDATE mode=5 initial_bytes=327680 completed_bytes=589824 changed_logical_bytes=140008
+TYPED_TREE_PAYLOAD_UPDATE mode=6 initial_bytes=327680 completed_bytes=589824 changed_logical_bytes=140008
+TYPED_TREE_PAYLOAD_UPDATE mode=7 initial_bytes=327680 completed_bytes=589824 changed_logical_bytes=140008
+TYPED_TREE_PAYLOAD_UPDATE mode=8 initial_bytes=327680 completed_bytes=851968 changed_logical_bytes=140008
+TYPED_TREE_PAYLOAD_UPDATE mode=9 initial_bytes=327680 completed_bytes=851968 changed_logical_bytes=140008
+TYPED_TREE_PAYLOAD_UPDATE mode=10 initial_bytes=327680 completed_bytes=851968 changed_logical_bytes=140008
+TYPED_TREE_PAYLOAD_UPDATE mode=11 initial_bytes=327680 completed_bytes=851968 changed_logical_bytes=140008
+TYPED_TREE_PAYLOAD_UPDATE mode=12 initial_bytes=327680 completed_bytes=851968 changed_logical_bytes=140008
+TYPED_TREE_PAYLOAD_UPDATE mode=13 initial_bytes=327680 completed_bytes=851968 changed_logical_bytes=140008
+TYPED_TREE_PAYLOAD_UPDATE mode=14 initial_bytes=327680 completed_bytes=851968 changed_logical_bytes=140008
+TYPED_TREE_PAYLOAD_UPDATE mode=15 initial_bytes=327680 completed_bytes=851968 changed_logical_bytes=140008
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 595 filtered out; finished in 2.77s
+
