@@ -8,6 +8,14 @@ remain the sole goals authority. No historical prototype result selects a format
 
 ## Implementation checkpoints
 
+### Public definition/resolution baseline — 2026-10-09
+
+[Definition baseline](evidence/form-definitions-public-2026-10-09/README.md) passes
+all 16 modes and targeted Clippy, establishing revision/import distinctions,
+latest alias ambiguity and type-ID precedence, required-field empty creation and
+parent/refusal behavior. No production behavior is changed.
+
+
 ### Atomic form field mutation — 2026-10-09
 
 [Field evidence](evidence/form-fields-2026-10-09/README.md) connects borrowed

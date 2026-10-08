@@ -680,3 +680,263 @@ fn public_form_secret_upgrade_updates_all_captures_and_absent_references_all_mod
         }
     }
 }
+
+#[test]
+fn public_form_definition_resolution_revision_and_empty_creation_all_modes() {
+    use revault_lockbox_api::Error;
+    let owner = OwnerSigningKeyPair::generate().unwrap();
+    let key = [93; 32];
+    let id = FormTypeId::new("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb").unwrap();
+    for bits in 0..16 {
+        let signing = if bits & 2 != 0 {
+            Signing::Owner(&owner)
+        } else {
+            Signing::None
+        };
+        let open = || {
+            if bits & 1 != 0 {
+                LockboxOpen::ContentKey(SecretVec::try_from_slice(&key).unwrap())
+            } else {
+                LockboxOpen::Unencrypted
+            }
+        };
+        let mut archive = Lockbox::create_in_memory_with_options(LockboxCreateOptions {
+            compression: if bits & 4 != 0 {
+                Compression::default()
+            } else {
+                Compression::None
+            },
+            size_padding: if bits & 8 != 0 {
+                SizePadding::Default
+            } else {
+                SizePadding::None
+            },
+            ..LockboxCreateOptions::new(
+                if bits & 1 != 0 {
+                    Encryption::Encrypted(LockboxProtection::ContentKey(
+                        SecretVec::try_from_slice(&key).unwrap(),
+                    ))
+                } else {
+                    Encryption::None
+                },
+                signing,
+            )
+        })
+        .unwrap();
+        let mut required = field("value", "Required", FormFieldKind::Text);
+        required.required = true;
+        let first = archive
+            .define_form_with_type_id_and_description(
+                id.clone(),
+                "base",
+                "Name",
+                "Description",
+                vec![required.clone()],
+            )
+            .unwrap();
+        assert_eq!(first.revision, 1);
+        let path = LockboxPath::new("/new/deep/empty").unwrap();
+        let captured = archive
+            .create_form_record(&path, "base", "Empty required record")
+            .unwrap();
+        assert!(captured.values.is_empty());
+        assert_eq!(captured.definition_revision, 1);
+        assert!(matches!(
+            archive.define_form_with_type_id(id.clone(), "bad alias", "No", vec![required.clone()]),
+            Err(Error::InvalidInput(_))
+        ));
+        assert_eq!(
+            archive
+                .resolve_form_definition(id.as_str())
+                .unwrap()
+                .revision,
+            1
+        );
+        let second = archive
+            .define_form_with_type_id_and_description(
+                id.clone(),
+                "ignored_new_alias",
+                "Name",
+                "Description",
+                vec![required.clone()],
+            )
+            .unwrap();
+        assert_eq!(second.revision, 2);
+        assert_eq!(second.alias, "base");
+        let third = archive
+            .define_form_with_description("base", "Name", "Description", vec![required.clone()])
+            .unwrap();
+        assert_eq!(third.revision, 3);
+        assert_eq!(third.type_id, id);
+        assert_eq!(
+            archive.resolve_form_definition(&"B".repeat(36)).unwrap(),
+            third
+        );
+        archive.commit().unwrap();
+        let bytes = archive.try_to_bytes().unwrap();
+        drop(archive);
+        let mut archive = Lockbox::open_bytes_for_write(bytes, open(), signing).unwrap();
+        assert_eq!(archive.get_form_record(&path).unwrap().unwrap(), captured);
+        assert!(archive.is_dir(&LockboxPath::new("/new").unwrap()));
+        assert!(archive.is_dir(&LockboxPath::new("/new/deep").unwrap()));
+        assert_eq!(
+            archive.list_form_definition_revisions(&id).unwrap(),
+            vec![first.clone(), second.clone(), third.clone()]
+        );
+        // Exact import is idempotent, unlike repeated define.
+        let before = archive.try_to_bytes().unwrap();
+        assert_eq!(
+            archive.import_form_definition(third.clone()).unwrap(),
+            third
+        );
+        archive.commit().unwrap();
+        assert_eq!(before, archive.try_to_bytes().unwrap());
+        let mut conflicting = third.clone();
+        conflicting.name = "Conflict".into();
+        assert!(matches!(
+            archive.import_form_definition(conflicting),
+            Err(Error::InvalidOperation(_))
+        ));
+        let mut alias_collision = third.clone();
+        alias_collision.type_id = FormTypeId::new("cccccccccccccccccccccccccccccccccccc").unwrap();
+        alias_collision.revision = 1;
+        archive
+            .import_form_definition(alias_collision.clone())
+            .unwrap();
+        assert!(matches!(
+            archive.resolve_form_definition("base"),
+            Err(Error::InvalidOperation(_))
+        ));
+        assert!(matches!(
+            archive.define_form("base", "No", vec![required.clone()]),
+            Err(Error::InvalidOperation(_))
+        ));
+        assert!(matches!(
+            archive.resolve_form_definition("bad alias"),
+            Err(Error::InvalidInput(_))
+        ));
+        assert!(matches!(
+            archive.resolve_form_definition("missing"),
+            Err(Error::NotFound(_))
+        ));
+        assert!(matches!(
+            archive.create_form_record(
+                &LockboxPath::new("/refused/ambiguous").unwrap(),
+                "base",
+                "No"
+            ),
+            Err(Error::InvalidOperation(_))
+        ));
+        assert!(!archive.is_dir(&LockboxPath::new("/refused").unwrap()));
+        assert!(matches!(
+            archive.create_form_record(&path, id.as_str(), "Duplicate"),
+            Err(Error::AlreadyExists(_))
+        ));
+        // Alias overlaps accepted type-ID syntax: resolver does not fall back to alias.
+        let hex = "a".repeat(36);
+        let h1 = archive
+            .define_form(&hex, "Hex", vec![required.clone()])
+            .unwrap();
+        let h2 = archive
+            .define_form(&hex, "Hex", vec![required.clone()])
+            .unwrap();
+        assert_ne!(h1.type_id, h2.type_id);
+        assert_eq!((h1.revision, h2.revision), (1, 1));
+        assert!(matches!(
+            archive.resolve_form_definition(&hex),
+            Err(Error::NotFound(_))
+        ));
+        let explicit = LockboxPath::new("/explicit/hex").unwrap();
+        archive
+            .create_form_record(&explicit, h1.type_id.as_str(), "Explicit ID")
+            .unwrap();
+        let routed_id = FormTypeId::new("dddddddddddddddddddddddddddddddddddd").unwrap();
+        archive
+            .define_form_with_type_id(
+                routed_id.clone(),
+                "typed_route",
+                "Route one",
+                vec![required.clone()],
+            )
+            .unwrap();
+        let routed = archive
+            .define_form(routed_id.as_str(), "Route two", vec![required.clone()])
+            .unwrap();
+        assert_eq!(routed.type_id, routed_id);
+        assert_eq!(routed.revision, 2);
+        assert_eq!(routed.alias, "typed_route");
+        let mut imported_latest = third.clone();
+        imported_latest.revision = 10;
+        imported_latest.alias = "latest_alias".into();
+        archive
+            .import_form_definition(imported_latest.clone())
+            .unwrap();
+        assert_eq!(
+            archive.resolve_form_definition("base").unwrap(),
+            alias_collision
+        );
+        assert_eq!(
+            archive.resolve_form_definition("latest_alias").unwrap(),
+            imported_latest
+        );
+        archive.commit().unwrap();
+        let bytes = archive.try_to_bytes().unwrap();
+        drop(archive);
+        let archive = Lockbox::open_bytes(bytes, open()).unwrap();
+        assert_eq!(archive.get_form_record(&path).unwrap().unwrap(), captured);
+        assert_eq!(
+            archive.get_form_record(&explicit).unwrap().unwrap().type_id,
+            h1.type_id
+        );
+        assert!(archive.is_dir(&LockboxPath::new("/explicit").unwrap()));
+        assert!(!archive.is_dir(&LockboxPath::new("/refused").unwrap()));
+        assert_eq!(
+            archive.resolve_form_definition(id.as_str()).unwrap(),
+            imported_latest
+        );
+        assert_eq!(
+            archive
+                .list_form_definition_revisions(&id)
+                .unwrap()
+                .iter()
+                .map(|d| d.revision)
+                .collect::<Vec<_>>(),
+            vec![1, 2, 3, 10]
+        );
+        assert_eq!(
+            archive
+                .resolve_form_definition(alias_collision.type_id.as_str())
+                .unwrap(),
+            alias_collision
+        );
+        assert_eq!(
+            archive.resolve_form_definition("base").unwrap(),
+            alias_collision
+        );
+        assert_eq!(
+            archive.resolve_form_definition("latest_alias").unwrap(),
+            imported_latest
+        );
+        assert!(matches!(
+            archive.resolve_form_definition(&hex),
+            Err(Error::NotFound(_))
+        ));
+        let latest = archive.list_form_definitions().unwrap();
+        let ids = latest
+            .iter()
+            .map(|d| d.type_id.as_str())
+            .collect::<Vec<_>>();
+        let mut sorted = ids.clone();
+        sorted.sort_unstable();
+        assert_eq!(ids, sorted);
+        assert_eq!(latest.len(), 5);
+        assert_eq!(
+            archive.resolve_form_definition("typed_route").unwrap(),
+            routed
+        );
+        assert_eq!(
+            archive.resolve_form_definition(routed_id.as_str()).unwrap(),
+            routed
+        );
+    }
+}

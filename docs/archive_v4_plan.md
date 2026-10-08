@@ -109,8 +109,10 @@ controls, public history/segment checks, strict Clippy, 2,232 transaction cuts a
 672 interrupted recoveries pass. Exactly 16 fresh nine-value aggregate upgrades
 pass with maximum 4,140 KiB locked-memory endpoint; archive growth stays explicit.
 Post-format affected controls and strict Clippy pass at `b104513a`.
-Next establish definition/revision/resolution and empty-record creation semantics
-and connect them before broader public integration.
+The [public definition/resolution baseline](evidence/form-definitions-public-2026-10-09/README.md)
+now passes all modes, including type-ID/alias precedence and empty required-field
+records. Next connect definition revision/resolution and empty-record creation over
+one selected snapshot before broader public integration.
 Keep the security policy and failure evidence; no allocator weakening is implied.
 Forms/references and broader public adapters, native selected
 membership/recovery, architecture selection and complete CPU/RSS/aging/size and
