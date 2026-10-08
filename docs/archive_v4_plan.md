@@ -86,7 +86,8 @@ passes mixed historical captures and independent form/file namespace states in
 all 16 modes. The [test-only typed form snapshots](evidence/typed-forms-2026-10-09/README.md)
 now connect full-size segmented texts, exact references and complete selected
 ownership. The pre-final format suite passes 267 tests (11 ignored); final affected tests
-and Clippy pass. Both separately frozen 16-mode FileStore batches verify
+and Clippy pass, including post-format affected checks at `341315af`. Both
+separately frozen 16-mode FileStore batches verify
 13.6 MB logical snapshots with a maximum 4,076 KiB locked-memory endpoint under
 the 8,192 KiB policy. This is bounded staging/scoped reading, not full-object or
 concurrency qualification. Next connect record deletion and streamed selected

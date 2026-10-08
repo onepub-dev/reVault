@@ -120,8 +120,10 @@ frozen executable is `9b9c4b1d182b5e921c2fddd3e043cce84508f5924262dfc0b05292cf0a
 Logical/archive sizes match the initial batch's declared workload, and maximum
 observed VmLck endpoint is again 4,076 KiB. Exact source, outcomes and logs are in
 `final-variant/`. The initial batch is preserved; no timing ratio or causal RSS
-improvement is inferred between them. Post-format checks are recorded separately
-rather than relabeling these frozen pre-format artifacts.
+improvement is inferred between them. Post-format checks at `341315af` pass form segments 3/3, connected forms 2/2
+(one probe ignored), variable lifecycle 1/1, ordinary-vector add/update 1/1 and
+strict archive Clippy. Logs and source hashes are in `post-format/`; frozen
+pre-format artifacts remain separately identified.
 
 Public APIs/migration, full form lifecycle, region-loss co-loss, native selected
 recovery, architecture decisions and complete CPU/RSS/aging/compatibility gates

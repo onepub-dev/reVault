@@ -19,7 +19,8 @@ initial/final sixteen-mode aggregate batches
 verify 13,631,586 logical bytes, with a maximum 4,076 KiB locked-memory endpoint
 under the unchanged 8,192 KiB limit. One caller secret is shared across eight
 logical fields; this is not whole-object/concurrency or performance qualification.
-Deletion, streamed selected salvage and mutation remain followthrough work.
+Post-format affected checks and strict Clippy pass at `341315af`. Deletion,
+streamed selected salvage and mutation remain followthrough work.
 
 ### Public form history baseline — 2026-10-09
 
