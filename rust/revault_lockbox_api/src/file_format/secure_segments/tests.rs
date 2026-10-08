@@ -250,3 +250,57 @@ fn secure_segments_same_size_permutation_and_cross_value_substitution() {
             .is_err());
     }
 }
+
+#[test]
+fn secure_segments_borrowed_secret_preserves_plaintext_wire_and_validation() {
+    let mut boundary = vec![b'x'; SEGMENT_BYTES - 1];
+    boundary.extend_from_slice("🦀".as_bytes());
+    for bits in (0usize..16).filter(|bits| *bits & 1 == 0) {
+        let mode = mode(bits);
+        for bytes in [b"".as_slice(), b"x".as_slice(), boundary.as_slice()] {
+            let owned = SecureVec::try_from_slice(bytes).unwrap();
+            let secret = crate::SecretString::try_from_slice(bytes).unwrap();
+            let expected = encode(
+                &owned,
+                archive(),
+                mode,
+                &KEY,
+                [41; 16],
+                3,
+                VariableSensitivity::Secret,
+            )
+            .unwrap();
+            let actual = encode_source(
+                Source::Secret(&secret),
+                archive(),
+                mode,
+                &KEY,
+                [41; 16],
+                3,
+                VariableSensitivity::Secret,
+            )
+            .unwrap();
+            assert_eq!(actual.layout, expected.layout);
+            for (actual, expected) in actual.pages.iter().zip(&expected.pages) {
+                actual
+                    .with_bytes(|actual| {
+                        expected
+                            .with_bytes(|expected| assert_eq!(actual, expected))
+                            .unwrap()
+                    })
+                    .unwrap();
+            }
+        }
+    }
+    let invalid = crate::SecretString::try_from_slice(&[0xff]).unwrap();
+    assert!(encode_source(
+        Source::Secret(&invalid),
+        archive(),
+        mode(0),
+        &KEY,
+        [41; 16],
+        3,
+        VariableSensitivity::Secret
+    )
+    .is_err());
+}

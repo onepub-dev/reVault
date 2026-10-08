@@ -6,8 +6,8 @@ use std::time::Instant;
 
 fn cpu() -> (f64, f64, i64) {
     let mut value = std::mem::MaybeUninit::<libc::rusage>::uninit();
+    // SAFETY: successful getrusage initializes the valid output pointer.
     assert_eq!(
-        // SAFETY: successful getrusage initializes the valid output pointer.
         unsafe { libc::getrusage(libc::RUSAGE_SELF, value.as_mut_ptr()) },
         0
     );

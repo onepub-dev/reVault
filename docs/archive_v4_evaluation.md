@@ -127,7 +127,10 @@ fault controls cover 3,432 transaction cuts and 2,724 interrupted recoveries.
 
 Two concurrent focused runs failed secure allocation at the host's 8,192 KiB
 locked-memory limit; isolated 1 MiB functionality and serialized checks pass.
-Retained allocator arenas and staging copies remain a resource qualification
+The [borrowed source experiment](evidence/variable-resource-2026-10-09/README.md)
+removes one full staging clone; affected correctness and one declared parallel
+regression pass before formatting. Matched resource results are pending.
+Retained allocator arenas and remaining staging copies are still a qualification
 gap. In the two-small-variable fixture, independent 64 KiB loss affects both
 variables in unpadded modes and one in padded modes. Public variable/form APIs,
 complete variable migration/compaction and CPU/RSS/aging/ZIP gates remain open.

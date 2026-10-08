@@ -1,0 +1,25 @@
+Resource probe frozen control executable
+Archive worktree: /home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance
+Rust working directory: /home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust
+HEAD: 9d00053c2e6112d5eb227c9ae290c10e314ca395
+Toolchain pin: ../rust-toolchain.toml channel 1.88.0
+Exact build command: cargo +1.88.0 test -p revault_lockbox_api --release --features external-source --lib typed_variable_resource_probe --no-run
+Executable: /tmp/revault-variable-resource-2026-10-09/control/revault_lockbox_api-tests
+Test features: release profile, external-source; unit-test harness; probe remains ignored unless selected explicitly
+Build log: /tmp/revault-variable-resource-2026-10-09/control/build-postformat.log
+Rust compiler: rustc 1.88.0 (6b00bc388 2025-06-23)
+Rustc verbose:
+rustc 1.88.0 (6b00bc388 2025-06-23)
+binary: rustc
+commit-hash: 6b00bc3880198600130e1cf62b8f8a93494488cc
+commit-date: 2025-06-23
+host: x86_64-unknown-linux-gnu
+release: 1.88.0
+LLVM version: 20.1.5
+System C compiler: /usr/bin/cc (Ubuntu 15.2.0-16ubuntu1) sha256 b5f1b773a7c733738352000c92a077dc5852a1a2fc6d836b1e411be1e9ec5f88
+Cargo.lock sha256: 05c39385e697a0775480fc010e1ba050a93395118753c1bcaed2392701540380
+resource.rs sha256: f7d290e1783f29c543c7e61b7ac417b1314db5ffa06e1259d5c6228b834ffc13
+PLAN.md sha256: cf8f6821fe558dfc23fc912e5ef5cf39bf855db3a731a1fdaa918e509f6e1457
+Frozen executable sha256: 2dbd1a1502fe3f356eafbd009d991d6b4f3cdb12bb5d76fc69d21ca77fdc5796
+Snapshots: resource.rs.txt, PLAN.md
+Post-format smoke: modes 0 and 15; fresh producer + independent VERIFY_ONLY process each; RLIMIT_MEMLOCK 8192 KiB; all four invocations passed. Logs/outcomes under control/smoke/.

@@ -8,6 +8,16 @@ remain the sole goals authority. No historical prototype result selects a format
 
 ## Implementation checkpoints
 
+### Borrowed guarded source checkpoint — 2026-10-09
+
+[Resource protocol and correctness evidence](evidence/variable-resource-2026-10-09/README.md)
+freeze a FileStore lifecycle control at `9d00053c` before removing the test-only
+secret setter's full guarded source clone. Page API 20, segments 4, serial typed
+variables 5 and one declared parallel 5-test regression pass, with strict Clippy.
+A comment-only probe lint correction is recorded separately. Post-format freeze
+and fixed matched resource sampling remain next; this does not qualify full
+concurrency, public activation or an archive resource gate.
+
 
 ### Implementation checkpoint — 2026-09-26
 

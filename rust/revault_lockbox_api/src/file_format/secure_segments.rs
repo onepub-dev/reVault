@@ -11,7 +11,7 @@ use crate::creation_options::FormatMode;
 use crate::crypto::strong_checksum;
 use crate::secret_vec::SecureVec;
 use crate::storage::Storage;
-use crate::{Error, LockboxId, Result, VariableSensitivity};
+use crate::{Error, LockboxId, Result, SecretString, VariableSensitivity};
 
 pub(crate) const SEGMENT_BYTES: usize = 64 * 1024;
 const MAX_VALUE: usize = crate::constants::MAX_VARIABLE_VALUE_BYTES;
@@ -223,8 +223,50 @@ impl Layout {
     }
 }
 
+/// Borrowed guarded input. Neither variant exposes plaintext beyond its scoped
+/// reader or requires an owned full-value copy before segment construction.
+#[derive(Clone, Copy)]
+pub(crate) enum Source<'a> {
+    Bytes(&'a SecureVec),
+    Secret(&'a SecretString),
+}
+impl Source<'_> {
+    pub(crate) fn with_bytes<R>(&self, f: impl FnOnce(&[u8]) -> R) -> Result<R> {
+        match self {
+            Self::Bytes(value) => Ok(value.with_bytes(f)?),
+            Self::Secret(value) => Ok(value.with_bytes(f)?),
+        }
+    }
+    fn append_range(&self, target: &mut SecureVec, offset: usize, len: usize) -> Result<()> {
+        match self {
+            Self::Bytes(value) => target.try_extend_secure_range(value, offset, len)?,
+            Self::Secret(value) => value.append_range_to_secure_vec(target, offset, len)?,
+        }
+        Ok(())
+    }
+}
+
 pub(crate) fn encode(
     value: &SecureVec,
+    archive: LockboxId,
+    mode: FormatMode,
+    content_key: &[u8; 32],
+    id: [u8; 16],
+    revision: u64,
+    sensitivity: VariableSensitivity,
+) -> Result<Encoded> {
+    encode_source(
+        Source::Bytes(value),
+        archive,
+        mode,
+        content_key,
+        id,
+        revision,
+        sensitivity,
+    )
+}
+pub(crate) fn encode_source(
+    value: Source<'_>,
     archive: LockboxId,
     mode: FormatMode,
     content_key: &[u8; 32],
@@ -236,32 +278,33 @@ pub(crate) fn encode(
     if mode.0 == 0 {
         return Err(Error::CorruptRecord);
     }
-    if value.len() > MAX_VALUE {
-        return Err(Error::SecurityLimitExceeded(
-            "variable value exceeds 1 MiB".into(),
-        ));
-    }
-    if id == [0; 16] || revision == 0 {
-        return Err(Error::CorruptRecord);
-    }
-    value.with_bytes(|bytes| {
+    let length = value.with_bytes(|bytes| -> Result<usize> {
+        if bytes.len() > MAX_VALUE {
+            return Err(Error::SecurityLimitExceeded(
+                "variable value exceeds 1 MiB".into(),
+            ));
+        }
+        if id == [0; 16] || revision == 0 {
+            return Err(Error::CorruptRecord);
+        }
         let text = std::str::from_utf8(bytes)
             .map_err(|_| Error::InvalidInput("variable value must be UTF-8".into()))?;
-        crate::security::validate_variable_value_ref(text)
+        crate::security::validate_variable_value_ref(text)?;
+        Ok(bytes.len())
     })??;
     let mut layout = Layout {
         id,
         revision,
         sensitivity,
         mode,
-        length: value.len(),
+        length,
         extents: Vec::new(),
     };
     let mut pages = Vec::new();
     for ordinal in 0..layout.count() {
         let mut payload = SecureVec::try_from_slice(&layout.prefix(archive, ordinal))?;
-        payload.try_extend_secure_range(
-            value,
+        value.append_range(
+            &mut payload,
             ordinal * SEGMENT_BYTES,
             layout.part_len(ordinal)?,
         )?;

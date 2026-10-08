@@ -76,6 +76,7 @@ pub(in crate::file_format::candidate_files) fn set_variable(
     value: &str,
 ) -> Result<bool> {
     crate::security::validate_variable_value_ref(value)?;
+    let bytes = SecureVec::try_from_slice(value.as_bytes())?;
     change(
         storage,
         archive,
@@ -86,7 +87,8 @@ pub(in crate::file_format::candidate_files) fn set_variable(
         name,
         Some((
             VariableSensitivity::Normal,
-            SecureVec::try_from_slice(value.as_bytes())?,
+            secure_segments::Source::Bytes(&bytes),
+            value.len(),
         )),
     )
 }
@@ -101,9 +103,10 @@ pub(in crate::file_format::candidate_files) fn set_secret_variable(
     name: &VariableName,
     value: &SecretString,
 ) -> Result<bool> {
-    value.with_str(crate::security::validate_variable_value_ref)??;
-    let mut bytes = SecureVec::new();
-    value.append_to_secure_vec(&mut bytes)?;
+    let length = value.with_str(|text| -> Result<usize> {
+        crate::security::validate_variable_value_ref(text)?;
+        Ok(text.len())
+    })??;
     change(
         storage,
         archive,
@@ -112,7 +115,11 @@ pub(in crate::file_format::candidate_files) fn set_secret_variable(
         signer,
         key,
         name,
-        Some((VariableSensitivity::Secret, bytes)),
+        Some((
+            VariableSensitivity::Secret,
+            secure_segments::Source::Secret(value),
+            length,
+        )),
     )
 }
 #[allow(clippy::too_many_arguments)]
@@ -137,7 +144,7 @@ fn change(
     signer: Option<&OwnerSigningKeyPair>,
     key: Option<&[u8]>,
     name: &VariableName,
-    value: Option<(VariableSensitivity, SecureVec)>,
+    value: Option<(VariableSensitivity, secure_segments::Source<'_>, usize)>,
 ) -> Result<bool> {
     let mut opened = TreeImage::open(
         allocation::compaction::View(&*storage),
@@ -159,7 +166,7 @@ fn change(
     let mut retired = Vec::new();
     let (id, revision) = if let Some(index) = old {
         let existing = &opened.image.catalogue.variables[index];
-        if let Some((sensitivity, bytes)) = &value {
+        if let Some((sensitivity, bytes, length)) = &value {
             if existing.layout.sensitivity == VariableSensitivity::Secret
                 && *sensitivity == VariableSensitivity::Normal
             {
@@ -167,8 +174,7 @@ fn change(
                     "variable is secret; delete and recreate to change sensitivity".into(),
                 ));
             }
-            if existing.layout.sensitivity == *sensitivity && existing.layout.length == bytes.len()
-            {
+            if existing.layout.sensitivity == *sensitivity && existing.layout.length == *length {
                 let prior = opened.read_variable(existing)?;
                 if prior.with_bytes(|prior| bytes.with_bytes(|bytes| prior == bytes))?? {
                     return Ok(false);
@@ -208,13 +214,13 @@ fn change(
         }
     }
     let mut pages = Vec::new();
-    let encoded = if let Some((sensitivity, bytes)) = value {
+    let encoded = if let Some((sensitivity, bytes, _)) = value {
         let content_key = match opened.image.value_key.take() {
             Some(content_key) => content_key,
             None => super::super::dense_image::value_key(mode, key)?,
         };
-        let encoded = secure_segments::encode(
-            &bytes,
+        let encoded = secure_segments::encode_source(
+            bytes,
             archive,
             mode,
             &content_key,

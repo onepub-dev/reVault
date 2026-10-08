@@ -66,8 +66,11 @@ lose one and retain the neighbor. Neither outcome is hidden by the one-byte
 corruption result. Dense return refuses variable-bearing images before writes;
 whole-archive migration/compaction with variables remains unqualified.
 
-Next qualify the guarded source/staging memory cost with matched controls before
-extending the adapter, including the observed full SecretString source copy.
+The [borrowed source checkpoint](evidence/variable-resource-2026-10-09/README.md)
+removes the test-only secret setter's full guarded clone. Affected correctness,
+strict Clippy and one fixed parallel regression pass; the earlier allocation
+failures remain evidence. Next finish post-format checks and the frozen matched
+resource comparison before extending the adapter.
 Keep the security policy and failure evidence; no allocator weakening is implied.
 Forms/references, variable moves and broader public adapters, native selected
 membership/recovery, architecture selection and complete CPU/RSS/aging/size and

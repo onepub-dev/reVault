@@ -1,0 +1,11 @@
+{
+  "base_commit": "9d00053c2e6112d5eb227c9ae290c10e314ca395",
+  "sha256": {
+    "rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/variables/resource.rs": "e26bebd89145e4447eaa0135e699d754ab210535a25128cc95dfbd41886f8ba8",
+    "rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/variables.rs": "d3a08544cdd7a7d2fae18eafdfec83dc396c7604bbe4884feee19cf5a51a3748",
+    "rust/revault_lockbox_api/src/file_format/secure_segments.rs": "df63031ad2e4a71c63194b4052de856dfbaa3d79725c4f0c6fedabc6a4a84a0a",
+    "rust/revault_lockbox_api/src/file_format/secure_segments/tests.rs": "fa6907bb2e5d43e2d788160b9cee37afb262229cb845d21eca59e390f67e8558",
+    "rust/revault_page_api/src/secure_string.rs": "d27e8bc5fb303f47d62dfd3b6bb240b971ec5ebec20d8eefa2cdc8e8049813d3",
+    "rust/revault_page_api/src/tests.rs": "d55ef786c0dfa2f5a58b874c5d49f00e9f123d0f335b4d637fb06e0215f36ee4"
+  }
+}

@@ -356,3 +356,48 @@ fn secure_empty_range_copy_validates_bounds_without_requiring_allocation() {
         .with_bytes(|bytes| assert_eq!(bytes, b"preserved"))
         .unwrap();
 }
+
+#[test]
+fn secure_string_range_append_keeps_bounds_utf8_bytes_and_read_scope_policy() {
+    let empty = SecureString::new();
+    let source = SecureString::try_from_slice("A🦀Z".as_bytes()).unwrap();
+    let mut target = SecureVec::new();
+    empty.append_range_to_secure_vec(&mut target, 0, 0).unwrap();
+    assert_eq!(target.capacity_for_test(), 0);
+    source
+        .append_range_to_secure_vec(&mut target, 1, 2)
+        .unwrap();
+    target
+        .with_bytes(|v| assert_eq!(v, &"🦀".as_bytes()[..2]))
+        .unwrap();
+    source
+        .append_range_to_secure_vec(&mut target, 3, 2)
+        .unwrap();
+    target
+        .with_bytes(|v| assert_eq!(v, "🦀".as_bytes()))
+        .unwrap();
+    let capacity = target.capacity_for_test();
+    source
+        .append_range_to_secure_vec(&mut target, 6, 0)
+        .unwrap();
+    empty.append_range_to_secure_vec(&mut target, 0, 0).unwrap();
+    for (offset, len) in [(7, 0), (6, 1), (usize::MAX, 1), (1, usize::MAX)] {
+        assert_eq!(
+            source.append_range_to_secure_vec(&mut target, offset, len),
+            Err(Error::CapacityOverflow)
+        );
+    }
+    assert_eq!(
+        empty.append_range_to_secure_vec(&mut target, 1, 0),
+        Err(Error::CapacityOverflow)
+    );
+    let error = source
+        .with_str(|_| source.append_range_to_secure_vec(&mut target, 0, 1))
+        .unwrap()
+        .unwrap_err();
+    assert_eq!(error, Error::ReadAccessActive);
+    assert_eq!(target.capacity_for_test(), capacity);
+    target
+        .with_bytes(|v| assert_eq!(v, "🦀".as_bytes()))
+        .unwrap();
+}
