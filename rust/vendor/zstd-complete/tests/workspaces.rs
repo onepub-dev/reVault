@@ -495,6 +495,127 @@ fn decoder_workspace_recovers_after_errors_without_allocating() {
 }
 
 #[test]
+fn static_decoder_overlap_errors_preserve_output_bounds_and_checksum() {
+    use std::io::Write;
+    for period in [1, 3, 31, 257] {
+        let input: Vec<_> = (0..131071).map(|n| ((n % period) * 37) as u8).collect();
+        let mut encoder = zstd::stream::Encoder::new(Vec::new(), 3).unwrap();
+        encoder.window_log(18).unwrap();
+        encoder.include_checksum(true).unwrap();
+        encoder.write_all(&input).unwrap();
+        let encoded = encoder.finish().unwrap();
+        let mut scratch = vec![0; StaticDecoderWorkspace::required_size(1 << 18, 0).unwrap()];
+        let mut decoder = StaticDecoderWorkspace::new(&mut scratch, 1 << 18, 0).unwrap();
+        let mut output = vec![0x6d; input.len() + 32];
+        assert!(decoder
+            .decode_into(&encoded, &mut output[..input.len() - 1])
+            .is_err());
+        assert!(output[input.len() - 1..].iter().all(|byte| *byte == 0x6d));
+        for removed in [1, 4, encoded.len() / 2] {
+            assert!(decoder
+                .decode_into(
+                    &encoded[..encoded.len() - removed],
+                    &mut output[..input.len()]
+                )
+                .is_err());
+            assert!(output[input.len()..].iter().all(|byte| *byte == 0x6d));
+        }
+        let mut corrupt = encoded.clone();
+        corrupt[0] ^= 1;
+        assert!(decoder
+            .decode_into(&corrupt, &mut output[..input.len()])
+            .is_err());
+        assert!(output[input.len()..].iter().all(|byte| *byte == 0x6d));
+        assert_eq!(
+            decoder
+                .decode_into(&encoded, &mut output[..input.len()])
+                .unwrap(),
+            input.len()
+        );
+        assert_eq!(&output[..input.len()], input);
+        // Full-buffer decoding validates the computed checksum before success.
+        let mut frame = zstd_complete::decoding::FrameDecoder::new();
+        assert_eq!(
+            frame
+                .decode_all(&encoded, &mut output[..input.len()])
+                .unwrap(),
+            input.len()
+        );
+        assert_eq!(
+            frame.get_calculated_checksum(),
+            frame.get_checksum_from_data()
+        );
+        let mut bad_checksum = encoded.clone();
+        *bad_checksum.last_mut().unwrap() ^= 1;
+        assert!(matches!(
+            frame.decode_all(&bad_checksum, &mut output[..input.len()]),
+            Err(zstd_complete::decoding::errors::FrameDecoderError::ChecksumMismatch)
+        ));
+        assert_ne!(
+            frame.get_calculated_checksum(),
+            frame.get_checksum_from_data()
+        );
+    }
+}
+
+#[test]
+fn decoder_workspaces_check_each_concatenated_frame_checksum() {
+    use std::io::Write;
+    use zstd_complete::decoding::errors::FrameDecoderError;
+
+    let mut frames = Vec::new();
+    let mut expected = Vec::new();
+    for ordinal in 0..3 {
+        let input = alternate_input(8192 + ordinal * 257, ordinal as u32 + 7);
+        let mut encoder = zstd::stream::Encoder::new(Vec::new(), 3).unwrap();
+        encoder.window_log(18).unwrap();
+        encoder.include_checksum(true).unwrap();
+        encoder.write_all(&input).unwrap();
+        frames.push(encoder.finish().unwrap());
+        expected.extend_from_slice(&input);
+    }
+    let encoded = frames.concat();
+    let mut scratch = vec![0; StaticDecoderWorkspace::required_size(1 << 18, 0).unwrap()];
+    let mut decoder = StaticDecoderWorkspace::new(&mut scratch, 1 << 18, 0).unwrap();
+    let mut owned = DecoderWorkspace::new(1 << 18, 0).unwrap();
+    let mut output = vec![0x6d; expected.len() + 32];
+    for corrupt_frame in 0..3 {
+        let mut corrupt = frames.clone();
+        *corrupt[corrupt_frame].last_mut().unwrap() ^= 1;
+        let corrupt = corrupt.concat();
+        assert!(matches!(
+            decoder.decode_into(&corrupt, &mut output[..expected.len()]),
+            Err(DecoderWorkspaceError::Decode(
+                FrameDecoderError::ChecksumMismatch
+            ))
+        ));
+        assert!(matches!(
+            owned.decode_into(&corrupt, &mut output[..expected.len()]),
+            Err(DecoderWorkspaceError::Decode(
+                FrameDecoderError::ChecksumMismatch
+            ))
+        ));
+        assert!(output[expected.len()..].iter().all(|byte| *byte == 0x6d));
+        assert_eq!(
+            decoder
+                .decode_into(&encoded, &mut output[..expected.len()])
+                .unwrap(),
+            expected.len()
+        );
+        assert_eq!(&output[..expected.len()], expected);
+    }
+    // A checksum is optional in the format; absence remains valid.
+    let no_checksum = zstd::bulk::compress(&expected, 3).unwrap();
+    assert_eq!(
+        decoder
+            .decode_into(&no_checksum, &mut output[..expected.len()])
+            .unwrap(),
+        expected.len()
+    );
+    assert_eq!(&output[..expected.len()], expected);
+}
+
+#[test]
 fn decoder_workspace_handles_concatenated_and_skippable_frames_without_allocating() {
     let first = alternate_input(24 * 1024, 0xbe54_66cf);
     let second = alternate_input(19 * 1024, 0x34e9_0c6c);

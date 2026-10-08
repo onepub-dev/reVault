@@ -1,0 +1,17 @@
+All commands ran in /tmp/revault-typed-read-20261002/source/rust, Rust 1.88.0, with CARGO_TARGET_DIR=/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target, REVAULT_TASK_DEADLINE_UTC=2026-10-02T16:55:00Z, and timeout --signal=TERM --kill-after=10s 600s.
+
+Qualification, all exit 0:
+cargo test --manifest-path vendor/zstd-complete/Cargo.toml --test workspaces decoder_ -- --nocapture
+cargo test --manifest-path vendor/zstd-complete/Cargo.toml --lib decoding:: -- --nocapture
+cargo test --manifest-path vendor/zstd-complete/Cargo.toml --lib tests::test_decode_all -- --nocapture
+cargo test --manifest-path vendor/zstd-complete/Cargo.toml --lib tests::test_decode_from_to -- --nocapture
+cargo test --manifest-path vendor/zstd-complete/Cargo.toml --lib tests::test_incremental_read -- --nocapture
+cargo test -p revault_lockbox_api --release --features external-source --lib compression:: -- --nocapture
+cargo test -p revault_lockbox_api --release --features external-source --lib file_format:: -- --nocapture
+cargo clippy -p revault_lockbox_api --features external-source --lib --tests --benches -- -D warnings
+cargo test -p revault_lockbox_api --release --features external-source --lib --no-run
+
+Timing command per case (exit 0, 30 pairs / 3 warmups each):
+taskset -c 2 /tmp/revault-shared-read-runner compare-existing NEW_OUTPUT ZIP_ROOT /tmp/revault-typed-read-20261002/tree-driver-transition88 OLD_TREE_ROOT /tmp/revault-typed-read-20261002/tree-driver-checksum88 CHECKSUM_TREE_ROOT stream 1 30
+Units: 262144 for large-compressed, large-protected, small-plain; 65536 for large-raw. After each case:
+/tmp/revault-shared-read-runner summarize NEW_OUTPUT/samples.jsonl

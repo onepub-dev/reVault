@@ -1,0 +1,44 @@
+{
+  "compiler": "rustc 1.88.0",
+  "baseline": "original FrameDecoder behavior / typed-tree reader, frozen tree-resource-transition88",
+  "candidate": "checksum verification + error handling changes, frozen tree-resource-checksum88",
+  "access": "stream",
+  "passes": 1,
+  "samples": 30,
+  "warmup_pairs": 3,
+  "workers": 1,
+  "cpu_affinity": "CPU 2",
+  "runner": "/tmp/revault-shared-read-runner compare-existing; three workers ZIP, baseline tree and checksum tree; fixed alternating order",
+  "case_results_directory": "/tmp/revault-typed-read-20261002/measurements-checksum88",
+  "input_manifest_before": "/tmp/revault-typed-read-20261002/checksum-inputs-before.json",
+  "input_manifest_after": "/tmp/revault-typed-read-20261002/checksum-inputs-after.json",
+  "binary_manifest": "/tmp/revault-typed-read-20261002/checksum-binaries.sha256",
+  "binary_after_verification": "/tmp/revault-typed-read-20261002/checksum-binaries-after.log",
+  "changed_source_manifest": "/tmp/revault-typed-read-20261002/checksum-source-proof.json",
+  "cases": [
+    {
+      "name": "large-compressed",
+      "root": "/tmp/revault-typed-read-20261002/fixtures/large-compressed",
+      "zip_root": "/tmp/revault-packed-comparison-20260927/compressed256",
+      "unit": 262144
+    },
+    {
+      "name": "large-protected",
+      "root": "/tmp/revault-typed-read-20261002/fixtures/large-protected",
+      "zip_root": "/tmp/revault-packed-comparison-20260927/compressed-encrypted-signed",
+      "unit": 262144
+    },
+    {
+      "name": "small-plain",
+      "root": "/tmp/revault-typed-read-20261002/fixtures/small-plain",
+      "zip_root": "/tmp/revault-packed-comparison-20260927/small",
+      "unit": 262144
+    },
+    {
+      "name": "large-raw",
+      "root": "/tmp/revault-typed-read-20261002/fixtures/large-raw",
+      "zip_root": "/tmp/revault-packed-comparison-20260927/raw64",
+      "unit": 65536
+    }
+  ]
+}

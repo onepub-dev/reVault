@@ -477,6 +477,7 @@ pub enum FrameDecoderError {
     FailedToReadBlockHeader(BlockHeaderReadError),
     FailedToReadBlockBody(DecodeBlockContentError),
     FailedToReadChecksum(Error),
+    ChecksumMismatch,
     NotYetInitialized,
     FailedToInitialize(FrameHeaderError),
     FailedToDrainDecodebuffer(Error),
@@ -530,6 +531,9 @@ impl core::fmt::Display for FrameDecoderError {
             }
             FrameDecoderError::FailedToReadChecksum(e) => {
                 write!(f, "Failed to read checksum: {e}")
+            }
+            FrameDecoderError::ChecksumMismatch => {
+                write!(f, "Frame checksum does not match decoded content")
             }
             FrameDecoderError::NotYetInitialized => {
                 write!(f, "Decoder must initialized or reset before using it",)

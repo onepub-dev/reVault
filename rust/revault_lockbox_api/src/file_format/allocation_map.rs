@@ -750,13 +750,22 @@ impl<S: Storage> Storage for ArenaWriter<S> {
         ))
     }
     fn append_pair(&mut self, bytes: &[u8]) -> Result<(u64, u64)> {
-        if self.arena.start % FAILURE_REGION != 0 || self.arena.len % (2 * FAILURE_REGION) != 0 {
+        if self.arena.start % FAILURE_REGION != 0 || self.arena.len <= FAILURE_REGION {
             return Err(Error::CorruptRecord);
         }
-        let half = self.arena.len / 2;
+        // A single unpadded node needs one region of separation, not a whole
+        // trailing region of unused reserve. Larger banks retain full regions.
+        let half = if self.arena.len < 2 * FAILURE_REGION {
+            FAILURE_REGION
+        } else {
+            if self.arena.len % (2 * FAILURE_REGION) != 0 {
+                return Err(Error::CorruptRecord);
+            }
+            self.arena.len / 2
+        };
         let mut position = self.position.lock().unwrap();
         let primary = place(*position, bytes.len() as u64, Placement::Node(None))?;
-        if primary + bytes.len() as u64 > self.arena.start + half {
+        if primary + bytes.len() as u64 > self.arena.start + self.arena.len - half {
             return Err(Error::SecurityLimitExceeded(
                 "allocation map bank exhausted".into(),
             ));
@@ -1001,11 +1010,15 @@ impl<S: Storage> Transaction<S> {
         };
         // A single reserved arena can split one reusable range into two; its
         // own declaration adds one record. Three extra records bound that change.
-        let capacity = self
-            .index
-            .fixed_record_node_bound(initial.len() as u64 + 3, 8, 8)?
-            * 2
-            * FAILURE_REGION;
+        let record_bound = initial.len() as u64 + 3;
+        let nodes = self.index.fixed_record_node_bound(record_bound, 8, 8)?;
+        let capacity = if nodes == 1 {
+            // The existing geometry bound includes framing/authentication and
+            // both copies. This preserves padding and mirrored failure regions.
+            FAILURE_REGION + self.index.fixed_record_size_bound(record_bound, 8, 8)? / 2
+        } else {
+            nodes * 2 * FAILURE_REGION
+        };
         let arena = self.storage.reserve_arena(capacity)?;
         next.sealed_len = self.storage.len()?;
         live.insert(

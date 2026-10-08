@@ -1,0 +1,23 @@
+Inline-only FSE trial provenance audit (read-only)
+
+Trial source:
+- Accepted FSE source snapshot: /tmp/revault-typed-read-20261002/fse-accepted-source.rs, SHA-256 135a2cc6dab9b8922e53b7d486060923586dd351a7bdb4e60f2d5835cf5fd9c2.
+- Inline trial source: /tmp/revault-typed-read-20261002/source/rust/vendor/zstd-complete/src/fse/fse_decoder.rs, SHA-256 1d10a5d01b01a839d517bead53d2e9742005f5b349fab1eac314c4b0cadf0fbb.
+- `diff -u` showed exactly one change: one added `#[inline]` on `FSEDecoder::update_state`; function operations/bounds unchanged.
+
+Candidate and adapter compiler provenance:
+- `readelf -p .comment` reports rustc 1.88.0 (6b00bc388 2025-06-23) for both resource test binaries, both candidate drivers, and the shared runner.
+- Accepted FSE resource binary SHA-256 17b9f7143f566012a82e2dd75454b63f601613384d6c71b33c096f0985578e26; driver 41a94e672015ffa3d8a27c9e2cf00f3f908a8f67133c73e3f25839e177c57ee9.
+- Inline resource binary SHA-256 612f14f5ac6cedb40fd0cb7c8335d195178f25af2737a94520770c828aee73c6; driver 960d94275f7ca02208260ada670634a998359e3ab9a99d53e2fda8f0b555f5ca.
+- Common runner SHA-256 b404f4bb15ac98eba941831a9d2e063d339eefc0e16ae0073bfca827179bf4fc in both runs. Its environment JSON records the same runner-source hash b36da6ed6e7b71ba1d468871c3756dd8928280f22604b3cdcb9fe0c73d07309d and comparison-source hash 46ba2c72b6b01d5634142e1a2fb41a7f6968dfa1f906aa307cdbbd3e1363cbe6.
+- The inline resource executable was built from /tmp/revault-typed-read-20261002/source/rust with the root rust-toolchain.toml pin (rustc 1.88.0): `cargo test -p revault_lockbox_api --release --features external-source --lib --no-run`; produced target/release/deps/revault_lockbox_api-5338344f5af7f73d, copied to tree-resource-inline88.
+- The inline driver used the current unchanged candidate_driver.rs (SHA-256 7bdcd496f8688504dadcda5a6a9395ff5ad6574bf25e1935e9d9fa998a0ac5a7) and was compiled from the pinned source root with `REVAULT_CANDIDATE_FROZEN_TEST_BINARY=/tmp/revault-typed-read-20261002/tree-resource-inline88 REVAULT_CANDIDATE_FROZEN_TREE=1 rustc --edition=2021 -O .../candidate_driver.rs -o .../tree-driver-inline88`. Its executable differs from the accepted driver because the test-binary path is embedded at compile time.
+
+Recorded ambient compiler discrepancy:
+- Accepted FSE samples.jsonl environment says `rustc 1.88.0`; inline samples.jsonl says `rustc 1.94.1`.
+- Runner code records `Command::new("rustc").arg("--version")`; this is an informational string. The inline timing runner was invoked from the default Codex task cwd, whose rustup resolution yields 1.94.1; the accepted FSE runner was invoked under the pinned source root and recorded 1.88.0. Runner binary/source are identical. Candidate resource binaries and driver binaries are all independently verified as 1.88.0. This does not indicate a candidate-build compiler mismatch, but is a batch-header/cwd metadata discrepancy and should remain disclosed.
+
+Measurement semantics:
+- Both batches use the same runner, one worker, stream access, and 30 paired samples plus 3 warmup pairs. Runner `sample()` records `ru_maxrss` via the same `Resources::now()` path before post-sample content verification. RSS is process high-water and is descriptive/noisy; do not claim it as a reliable memory improvement.
+- Each accepted-FSE vs inline archive and public key is byte-identical for all four cases. The runner verifies each source inventory and all artifact hashes before and after each case. Every sample reports verified=true.
+- No timing rerun was performed during this provenance audit.

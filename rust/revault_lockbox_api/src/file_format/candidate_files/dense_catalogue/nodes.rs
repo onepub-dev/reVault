@@ -9,11 +9,11 @@ pub(crate) struct Metadata {
     pub target: Option<LockboxPath>,
 }
 pub(crate) struct Node {
-    path: Zeroizing<Vec<u8>>,
-    permissions: u32,
-    target: Option<Zeroizing<Vec<u8>>>,
+    pub(super) path: Zeroizing<Vec<u8>>,
+    pub(super) permissions: u32,
+    pub(super) target: Option<Zeroizing<Vec<u8>>>,
 }
-fn canonical(bytes: &[u8]) -> Result<&str> {
+pub(super) fn canonical(bytes: &[u8]) -> Result<&str> {
     let path = std::str::from_utf8(bytes).map_err(|_| Error::CorruptRecord)?;
     // Keep the validator's temporary canonical copy wipeable too.
     let checked = Zeroizing::new(
@@ -66,7 +66,10 @@ pub(super) fn encode(nodes: &[Node], out: &mut Writer) -> Result<()> {
     Ok(())
 }
 pub(super) fn validate(files: &[File], nodes: &[Node]) -> Result<()> {
-    if files.len() + nodes.len() > MAX_MODEL_FILES {
+    validate_bounded(files, nodes, MAX_MODEL_FILES)
+}
+pub(super) fn validate_bounded(files: &[File], nodes: &[Node], maximum: usize) -> Result<()> {
+    if files.len() + nodes.len() > maximum {
         return Err(Error::CorruptRecord);
     }
     let mut paths = BTreeMap::new();
@@ -113,7 +116,14 @@ impl Catalogue {
         &mut self,
         entries: &[Metadata],
     ) -> Result<()> {
-        if entries.len() > MAX_MODEL_FILES {
+        self.set_metadata_bounded(entries, MAX_MODEL_FILES)
+    }
+    pub(super) fn set_metadata_bounded(
+        &mut self,
+        entries: &[Metadata],
+        maximum: usize,
+    ) -> Result<()> {
+        if entries.len() > maximum {
             return Err(Error::SecurityLimitExceeded(
                 "bounded filesystem metadata".into(),
             ));
@@ -165,7 +175,7 @@ impl Catalogue {
             return Err(Error::CorruptRecord);
         }
         nodes.sort_by(|a, b| a.path.cmp(&b.path));
-        validate(&self.files, &nodes)?;
+        validate_bounded(&self.files, &nodes, maximum)?;
         self.nodes = nodes;
         self.typed = true;
         Ok(())

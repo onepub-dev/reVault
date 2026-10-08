@@ -1,0 +1,4 @@
+{
+  "logical_fragment_unit": 65536,
+  "method": "one_authenticated_update_from_empty_typed_tree"
+}

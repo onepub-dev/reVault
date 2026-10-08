@@ -1,0 +1,137 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 627  of event 'cpu-clock:u'
+# Event count (approx.): 3150753375
+#
+# Children      Self  Command          Shared Object              Symbol                                                                                               
+# ........  ........  ...............  .........................  .....................................................................................................
+#
+    20.41%    20.41%  file_format::ca  libc.so.6                  [.] __memmove_avx_unaligned_erms
+            |          
+            |--8.77%--0xc0
+            |          zstd_complete::decoding::ringbuffer::RingBuffer::extend_from_within_unchecked
+            |          __memmove_avx_unaligned_erms
+            |          
+            |--5.90%--zstd_complete::decoding::decode_buffer::DecodeBuffer::read_all
+            |          __memmove_avx_unaligned_erms
+            |          
+             --5.42%--revault_lockbox_api::file_format::candidate_files::dense_image::Image<S>::read_range
+                       |          
+                        --5.26%--__memmove_avx_unaligned_erms
+
+    18.34%    18.34%  file_format::ca  tree-resource-single-pass  [.] zstd_complete::decoding::sequence_section_decoder::decode_sequences
+            |          
+            |--11.16%--zstd_complete::decoding::sequence_section_decoder::decode_sequences
+            |          
+             --7.18%--zstd_complete::decoding::frame_decoder::FrameDecoder::decode_all_with_window_limit_and_dictionary
+                       zstd_complete::decoding::sequence_section_decoder::decode_sequences
+
+    16.27%    16.27%  file_format::ca  tree-resource-single-pass  [.] <twox_hash::xxhash64::Hasher as core::hash::Hasher>::write
+            |          
+             --16.11%--0x1a
+                       <twox_hash::xxhash64::Hasher as core::hash::Hasher>::write
+
+    16.11%     0.00%  file_format::ca  [unknown]                  [.] 0x000000000000001a
+            |
+            ---0x1a
+               <twox_hash::xxhash64::Hasher as core::hash::Hasher>::write
+
+    15.79%     6.86%  file_format::ca  tree-resource-single-pass  [.] zstd_complete::decoding::ringbuffer::RingBuffer::extend_from_within_unchecked
+            |          
+            |--10.05%--zstd_complete::decoding::ringbuffer::RingBuffer::extend_from_within_unchecked
+            |          |          
+            |           --8.77%--__memmove_avx_unaligned_erms
+            |          
+            |--4.94%--0xc0
+            |          zstd_complete::decoding::ringbuffer::RingBuffer::extend_from_within_unchecked
+            |          
+             --0.64%--0x60000
+
+    14.35%     0.00%  file_format::ca  [unknown]                  [.] 0x00000000000000c0
+            |
+            ---0xc0
+               zstd_complete::decoding::ringbuffer::RingBuffer::extend_from_within_unchecked
+               |          
+                --8.77%--__memmove_avx_unaligned_erms
+
+    10.69%    10.53%  file_format::ca  tree-resource-single-pass  [.] zstd_complete::fse::fse_decoder::FSETable::build_decoding_table
+            |
+            ---zstd_complete::fse::fse_decoder::FSETable::build_decoding_table
+
+     7.34%     0.00%  file_format::ca  tree-resource-single-pass  [.] zstd_complete::decoding::frame_decoder::FrameDecoder::decode_all_with_window_limit_and_dictionary
+            |
+            ---zstd_complete::decoding::frame_decoder::FrameDecoder::decode_all_with_window_limit_and_dictionary
+               |          
+                --7.18%--zstd_complete::decoding::sequence_section_decoder::decode_sequences
+
+     6.22%     6.22%  file_format::ca  tree-resource-single-pass  [.] zstd_complete::fse::fse_decoder::FSEDecoder::update_state
+            |          
+             --5.74%--zstd_complete::fse::fse_decoder::FSEDecoder::update_state
+
+     5.90%     0.00%  file_format::ca  tree-resource-single-pass  [.] zstd_complete::decoding::decode_buffer::DecodeBuffer::read_all
+            |
+            ---zstd_complete::decoding::decode_buffer::DecodeBuffer::read_all
+               __memmove_avx_unaligned_erms
+
+     5.74%     0.16%  file_format::ca  tree-resource-single-pass  [.] revault_lockbox_api::file_format::candidate_files::dense_image::Image<S>::read_range
+            |
+            ---revault_lockbox_api::file_format::candidate_files::dense_image::Image<S>::read_range
+               |          
+                --5.26%--__memmove_avx_unaligned_erms
+
+     5.42%     0.00%  file_format::ca  [unknown]                  [.] 0x8000000000000010
+            |
+            ---0x8000000000000010
+               zstd_complete::decoding::sequence_execution::execute_sequences
+
+     5.42%     5.42%  file_format::ca  tree-resource-single-pass  [.] zstd_complete::decoding::decode_buffer::DecodeBuffer::repeat
+            |          
+             --4.94%--zstd_complete::decoding::decode_buffer::DecodeBuffer::repeat
+
+     5.42%     5.26%  file_format::ca  tree-resource-single-pass  [.] zstd_complete::decoding::sequence_execution::execute_sequences
+            |          
+             --5.26%--0x8000000000000010
+                       zstd_complete::decoding::sequence_execution::execute_sequences
+
+     3.35%     3.35%  file_format::ca  tree-resource-single-pass  [.] revault_lockbox_api::file_format::page_buffer::zeroize_bytes
+            |          
+             --3.03%--revault_lockbox_api::file_format::page_buffer::zeroize_bytes
+
+     2.55%     2.55%  file_format::ca  tree-resource-single-pass  [.] zstd_complete::bit_io::bit_reader_reverse::BitReaderReversed::refill
+            |          
+            |--1.12%--zstd_complete::bit_io::bit_reader_reverse::BitReaderReversed::refill
+            |          
+             --0.64%--0x8
+                       zstd_complete::bit_io::bit_reader_reverse::BitReaderReversed::refill
+
+     2.39%     2.39%  file_format::ca  libc.so.6                  [.] __memset_avx2_unaligned_erms
+            |          
+             --2.07%--<u8 as alloc::vec::spec_from_elem::SpecFromElem>::from_elem
+                       __memset_avx2_unaligned_erms
+
+     2.07%     0.00%  file_format::ca  tree-resource-single-pass  [.] <u8 as alloc::vec::spec_from_elem::SpecFromElem>::from_elem
+            |
+            ---<u8 as alloc::vec::spec_from_elem::SpecFromElem>::from_elem
+               __memset_avx2_unaligned_erms
+
+     1.44%     1.44%  file_format::ca  tree-resource-single-pass  [.] sha2::sha256::x86_sha::compress
+            |          
+             --1.28%--sha2::sha256::x86_sha::compress
+
+     0.80%     0.00%  file_format::ca  [unknown]                  [.] 0x0000000000060000
+            |
+            ---0x60000
+
+     0.64%     0.00%  file_format::ca  [unknown]                  [.] 0x0000000000000008
+            |
+            ---0x8
+               zstd_complete::bit_io::bit_reader_reverse::BitReaderReversed::refill
+
+
+
+#
+# (Cannot load tips.txt file, please install perf!)
+#

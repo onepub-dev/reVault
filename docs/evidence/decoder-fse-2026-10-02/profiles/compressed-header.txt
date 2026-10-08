@@ -1,0 +1,35 @@
+# ========
+# captured on    : Sat Oct  3 01:34:33 2026
+# header version : 1
+# data offset    : 392
+# data size      : 5070088
+# feat offset    : 5070480
+# hostname : slayer4
+# os release : 7.0.0-31-generic
+# perf version : 7.0.14
+# arch : x86_64
+# nrcpus online : 16
+# nrcpus avail : 16
+# cpudesc : AMD Ryzen 7 3700X 8-Core Processor
+# cpuid : AuthenticAMD,23,113,0
+# total memory : 65787184 kB
+# cmdline : /usr/bin/perf 
+# event : name = cpu-clock:u, , id = { 10287, 10288, 10289, 10290, 10291, 10292, 10293, 10294, 10295, 10296, 10297, 10298, 10299, 10300, 10301, 10302 }, type = 1 (PERF_TYPE_SOFTWARE), size = 144, config = 0 (PERF_COUNT_SW_CPU_CLOCK), { sample_period, sample_freq } = 199, sample_type = IP|TID|TIME|CALLCHAIN|PERIOD|REGS_USER|STACK_USER, read_format = ID|LOST, disabled = 1, inherit = 1, exclude_kernel = 1, exclude_hv = 1, mmap = 1, comm = 1, freq = 1, enable_on_exec = 1, task = 1, mmap_data = 1, sample_id_all = 1, exclude_callchain_user = 1, mmap2 = 1, comm_exec = 1, ksymbol = 1, bpf_event = 1, build_id = 1, sample_regs_user = 0xff0fff, sample_stack_user = 8192
+# CPU_TOPOLOGY info available, use -I to display
+# NUMA_TOPOLOGY info available, use -I to display
+# pmu mappings: cpu = 4, amd_iommu_0 = 12, breakpoint = 5, drm_amdgpu = 4294836224, hwmon_amdgpu = 4294901766, hwmon_hidpp_battery_0 = 4294901767, hwmon_iwlwifi_1 = 4294901765, hwmon_k10temp = 4294901764, hwmon_nct6797 = 4294901763, hwmon_nvme = 4294901762, hwmon_nvme = 4294901760, hwmon_nvme = 4294901761, ibs_fetch = 10, ibs_op = 11, kprobe = 8, msr = 13, power = 14, power_core = 15, software = 1, tool = 4294967294, tracepoint = 2, uprobe = 9
+# CACHE info available, use -I to display
+# time of first sample : 1776545.320285
+# time of last sample : 1776548.528799
+# sample duration :   3208.514 ms
+# MEM_TOPOLOGY info available, use -I to display
+# bpf_prog_info empty
+# btf info empty
+# cpu pmu capabilities: max_precise=0
+# AMD systems uses ibs_op// PMU for some precise events, e.g.: cycles:p, see the 'perf list' man page for further details.
+# CPU_DOMAIN_INFO info available, use -I to display
+# e_machine : 62
+#   e_flags : 0
+# missing features: TRACING_DATA BUILD_ID BRANCH_STACK GROUP_DESC AUXTRACE STAT CLOCKID DIR_FORMAT COMPRESSED CLOCK_DATA HYBRID_TOPOLOGY 
+# ========
+#

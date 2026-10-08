@@ -1,0 +1,14 @@
+Typed-tree single-pass bounded read trace (strace -f -yy -e read,pread64; stream, 10 passes; CPU2)
+
+raw: archive 92569600 bytes/1424 pread64 calls total; repeated visit signature 8388608 bytes/128 calls, each observed 11 times (10 timed passes plus independent post-timer full-file verification); remaining two image opens account for 294912 bytes/16 calls total (147456 bytes per open).
+raw: source verification 8388608 bytes/129 read calls; one 8,388,608-byte source file read outside timer.
+raw: each repeated archive visit was 1.000000 x the requested 8 MiB logical stream; descriptor/syscall bytes, not physical-device I/O.
+
+compressed: archive 965255 bytes/370 pread64 calls total; repeated visit signature 59919 bytes/32 calls, each observed 11 times (10 timed passes plus independent post-timer full-file verification); remaining two image opens account for 306146 bytes/18 calls total (153073 bytes per open).
+compressed: source verification 8388608 bytes/33 read calls; one 8,388,608-byte source file read outside timer.
+compressed: each repeated archive visit was 0.007143 x the requested 8 MiB logical stream; descriptor/syscall bytes, not physical-device I/O.
+
+Perf record: cpu-clock:u at 199 Hz, user-only, DWARF call stacks, 8192-byte user stack, CPU2. Lost samples: 0 in both records.
+Raw fixture: 877 samples over 5.411 s. Top self CPU: sha2::sha256::x86_sha::compress 89.62%; __memmove_avx_unaligned_erms 4.10%; page_buffer::zeroize_bytes 3.08%; __memset_avx2_unaligned_erms 1.94%.
+Compressed fixture: 627 samples over 3.365 s. Top self CPU: __memmove_avx_unaligned_erms 20.41%; zstd sequence_section_decoder::decode_sequences 18.34%; twox_hash xxhash64 Hasher::write 16.27%; zstd FSETable::build_decoding_table 10.53%; RingBuffer::extend_from_within_unchecked 6.86%; FSEDecoder::update_state 6.22%.
+Profile scope is the entire ignored probe, including setup/open and post-timer source-content verification; interpret stacks as diagnostic attribution for this bounded test, not a timed pass-only profile.

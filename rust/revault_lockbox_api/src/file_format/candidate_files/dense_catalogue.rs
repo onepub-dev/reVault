@@ -9,6 +9,7 @@ use crate::file_format::publication_anchor::REGION_LEN;
 use crate::page_buffer::ZeroizingBytes;
 use std::collections::BTreeSet;
 mod nodes;
+pub(super) mod overflow;
 pub(super) use nodes::Metadata;
 const MAX_BODY: usize = 65536;
 const MAX_MODEL_FILES: usize = 1024;
@@ -220,10 +221,23 @@ impl Catalogue {
         if !cursor.0.is_empty() {
             return Err(Error::CorruptRecord);
         }
-        let mut coverage: Vec<Vec<(usize, usize)>> = (0..packs.len()).map(|_| Vec::new()).collect();
-        for file in &files {
+        let mut catalogue = Self {
+            legacy,
+            typed,
+            nodes,
+            vacant,
+            files,
+            packs,
+        };
+        catalogue.validate_fragments(codec, sealed)?;
+        Ok(catalogue)
+    }
+    pub(super) fn validate_fragments(&mut self, codec: &Codec, sealed: u64) -> Result<()> {
+        let mut coverage: Vec<Vec<(usize, usize)>> =
+            (0..self.packs.len()).map(|_| Vec::new()).collect();
+        for file in &self.files {
             for fragment in &file.fragments {
-                let pack = packs.get(fragment.pack).ok_or(Error::CorruptRecord)?;
+                let pack = self.packs.get(fragment.pack).ok_or(Error::CorruptRecord)?;
                 let end = fragment
                     .relative
                     .checked_add(fragment.descriptor.stored_len())
@@ -247,7 +261,7 @@ impl Catalogue {
                 spans.push((fragment.relative, end));
             }
         }
-        for (pack, mut spans) in packs.iter_mut().zip(coverage) {
+        for (pack, mut spans) in self.packs.iter_mut().zip(coverage) {
             if spans.is_empty() {
                 return Err(Error::CorruptRecord);
             }
@@ -266,14 +280,7 @@ impl Catalogue {
             }
             pack.used = used;
         }
-        Ok(Self {
-            legacy,
-            typed,
-            nodes,
-            vacant,
-            files,
-            packs,
-        })
+        Ok(())
     }
     pub(super) fn graph(&self, anchor: &Anchor) -> Result<Graph> {
         let packs: Vec<_> = self.packs.iter().map(|pack| pack.extent).collect();

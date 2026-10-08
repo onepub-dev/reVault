@@ -273,3 +273,254 @@ fn compact_journal_read_errors_are_not_treated_as_missing_copies() {
         );
     }
 }
+
+fn overflow_seed(context: &Context, count: usize) -> (Vec<u8>, u64, Vec<Reservation>) {
+    let reservations = record(count).reservations;
+    let end = reservations
+        .last()
+        .map_or(REGION_LEN as u64, |r| r.start + r.len);
+    let sealed = end.div_ceil(FAILURE_REGION) * FAILURE_REGION;
+    let stub = initial_stub(
+        context.archive,
+        context.mode,
+        context.key.as_ref().map(|_| [82; 32].as_slice()),
+        [83; 32],
+    )
+    .unwrap();
+    let mut storage = StorageBackend::memory(vec![0; sealed as usize]);
+    for bank in [0, FAILURE_REGION] {
+        storage.write_at(bank + STUB_OFFSET, &stub).unwrap();
+    }
+    (storage.read_all().unwrap(), sealed, reservations)
+}
+fn open_overflow(context: &Context, storage: &impl Storage) -> session::OverflowSession {
+    session::OverflowSession::open(
+        storage,
+        context.archive,
+        context.mode,
+        context.key.as_ref().map(|_| [82; 32].as_slice()),
+    )
+    .unwrap()
+}
+// These fixtures model an authenticated old graph whose reservations are all
+// free. No public CLI writes the profile, and this helper is not an archive
+// recovery implementation: committed-graph pending cleanup remains integration work.
+fn abort_overflow(context: &Context, storage: &mut impl Storage, sealed: u64) -> Result<()> {
+    let mut session = session::OverflowSession::open(
+        storage,
+        context.archive,
+        context.mode,
+        context.key.as_ref().map(|_| [82; 32].as_slice()),
+    )?;
+    assert_eq!(session.base(), [83; 32]);
+    session.mirror(storage)?;
+    if session.active() {
+        for reservation in session.reservations() {
+            assert!(storage
+                .read_at(reservation.start, reservation.len as usize)?
+                .iter()
+                .all(|byte| *byte == 0));
+        }
+        if session.arena().is_some() {
+            session.unlink_after_cleanup(storage)?;
+        }
+        let zeros = [0; 65536];
+        let mut at = sealed;
+        while at < storage.len()? {
+            let n = (storage.len()? - at).min(zeros.len() as u64) as usize;
+            storage.write_at(at, &zeros[..n])?;
+            at += n as u64;
+        }
+        storage.sync()?;
+        storage.truncate(sealed)?;
+        storage.sync()?;
+        session.finish(storage, [83; 32])?;
+    }
+    assert_eq!(storage.len()?, sealed);
+    Ok(())
+}
+
+#[test]
+fn overflow_session_stages_full_capacity_and_unlinks_before_arena_erasure() {
+    for encrypted in [false, true] {
+        for signed in [false, true] {
+            let context = context(encrypted, signed);
+            for count in [156, MAX_RESERVATIONS] {
+                let (seed, sealed, reservations) = overflow_seed(&context, count);
+                let mut storage = StorageBackend::memory(seed);
+                let mut session = open_overflow(&context, &storage);
+                session
+                    .begin(&mut storage, [83; 32], sealed, reservations.clone())
+                    .unwrap();
+                let reference = session.arena().unwrap();
+                assert_eq!(
+                    (reference.primary, reference.mirror),
+                    (sealed, sealed + FAILURE_REGION)
+                );
+                assert_eq!(session.reservations(), reservations);
+                assert!(session.finish(&mut storage, [83; 32]).is_err());
+                assert!(session::InlineSession::open(
+                    &storage,
+                    context.archive,
+                    context.mode,
+                    encrypted.then_some([82; 32].as_slice())
+                )
+                .is_err());
+                let bytes = storage.read_all().unwrap();
+                for region in [0, FAILURE_REGION, reference.primary, reference.mirror] {
+                    let mut damaged = StorageBackend::memory(bytes.clone());
+                    damaged
+                        .write_at(region, &vec![0; FAILURE_REGION as usize])
+                        .unwrap();
+                    let selected = open_overflow(&context, &damaged);
+                    assert_eq!(selected.reservations(), reservations);
+                    abort_overflow(&context, &mut damaged, sealed).unwrap();
+                    session::InlineSession::open(
+                        &damaged,
+                        context.archive,
+                        context.mode,
+                        encrypted.then_some([82; 32].as_slice()),
+                    )
+                    .unwrap()
+                    .require_idle([83; 32])
+                    .unwrap();
+                }
+                let mut damaged = StorageBackend::memory(bytes);
+                for offset in [reference.primary, reference.mirror] {
+                    damaged
+                        .write_at(offset, &vec![0; FAILURE_REGION as usize])
+                        .unwrap();
+                }
+                assert!(session::OverflowSession::open(
+                    &damaged,
+                    context.archive,
+                    context.mode,
+                    encrypted.then_some([82; 32].as_slice())
+                )
+                .is_err());
+                let old_arena = storage
+                    .read_at(reference.primary, reference.len as usize)
+                    .unwrap();
+                session.unlink_after_cleanup(&mut storage).unwrap();
+                assert!(session.arena().is_none() && session.active());
+                assert_eq!(
+                    storage
+                        .read_at(reference.primary, reference.len as usize)
+                        .unwrap(),
+                    old_arena
+                );
+                abort_overflow(&context, &mut storage, sealed).unwrap();
+            }
+        }
+    }
+}
+
+#[test]
+fn overflow_session_refuses_wrong_base_small_records_and_excess_capacity_without_writes() {
+    let context = context(true, true);
+    let (seed, sealed, reservations) = overflow_seed(&context, 156);
+    for (base, end, values) in [
+        ([84; 32], sealed, reservations.clone()),
+        ([83; 32], sealed + 1, reservations.clone()),
+        ([83; 32], sealed, record(155).reservations),
+        ([83; 32], sealed, record(MAX_RESERVATIONS + 1).reservations),
+    ] {
+        let mut storage = StorageBackend::memory(seed.clone());
+        let mut session = open_overflow(&context, &storage);
+        assert!(session.begin(&mut storage, base, end, values).is_err());
+        assert_eq!(storage.read_all().unwrap(), seed);
+    }
+}
+
+#[test]
+fn overflow_session_survives_torn_staging_unlink_and_cleanup() {
+    use crate::file_format::preparation_journal::tests::CrashStore;
+    let mut cases = 0;
+    for encrypted in [false, true] {
+        for signed in [false, true] {
+            let context = context(encrypted, signed);
+            let (seed, sealed, reservations) = overflow_seed(&context, 156);
+            let run = |storage: &mut CrashStore| -> Result<()> {
+                let mut session = session::OverflowSession::open(
+                    storage,
+                    context.archive,
+                    context.mode,
+                    encrypted.then_some([82; 32].as_slice()),
+                )?;
+                session.begin(storage, [83; 32], sealed, reservations.clone())?;
+                abort_overflow(&context, storage, sealed)
+            };
+            let mut observed = CrashStore::new(seed.clone(), None, 0, false);
+            run(&mut observed).unwrap();
+            for at in 0..observed.operations() {
+                for prefix in [0, 97, usize::MAX] {
+                    for persist_sync in [false, true] {
+                        let mut failed =
+                            CrashStore::new(seed.clone(), Some(at), prefix, persist_sync);
+                        let _ = run(&mut failed);
+                        let mut recovered = StorageBackend::memory(failed.durable());
+                        abort_overflow(&context, &mut recovered, sealed).unwrap_or_else(|error| panic!("encrypted={encrypted} signed={signed} at={at} prefix={prefix} sync={persist_sync}: {error}"));
+                        assert!(recovered
+                            .read_at(REGION_LEN as u64, (sealed - REGION_LEN as u64) as usize)
+                            .unwrap()
+                            .iter()
+                            .all(|byte| *byte == 0));
+                        cases += 1;
+                    }
+                }
+            }
+        }
+    }
+    println!("OVERFLOW_SESSION_POWER_LOSS_CASES {cases}");
+}
+
+#[test]
+fn overflow_session_recovery_can_itself_be_interrupted() {
+    use crate::file_format::preparation_journal::tests::CrashStore;
+    let mut cases = 0;
+    for encrypted in [false, true] {
+        for signed in [false, true] {
+            let context = context(encrypted, signed);
+            let (seed, sealed, reservations) = overflow_seed(&context, 156);
+            let mut storage = StorageBackend::memory(seed);
+            let mut session = open_overflow(&context, &storage);
+            session
+                .begin(&mut storage, [83; 32], sealed, reservations)
+                .unwrap();
+            let full = storage.read_all().unwrap();
+            session.unlink_after_cleanup(&mut storage).unwrap();
+            let unlinked = storage.read_all().unwrap();
+            storage
+                .write_at(sealed, &vec![0; 2 * FAILURE_REGION as usize])
+                .unwrap();
+            storage.truncate(sealed).unwrap();
+            let truncated = storage.read_all().unwrap();
+            for checkpoint in [full, unlinked, truncated] {
+                let mut observed = CrashStore::new(checkpoint.clone(), None, 0, false);
+                abort_overflow(&context, &mut observed, sealed).unwrap();
+                for at in 0..observed.operations() {
+                    for prefix in [0, 97, usize::MAX] {
+                        for persist_sync in [false, true] {
+                            let mut failed =
+                                CrashStore::new(checkpoint.clone(), Some(at), prefix, persist_sync);
+                            let _ = abort_overflow(&context, &mut failed, sealed);
+                            let mut recovered = StorageBackend::memory(failed.durable());
+                            abort_overflow(&context, &mut recovered, sealed).unwrap_or_else(|error| panic!("encrypted={encrypted} signed={signed} at={at} prefix={prefix} sync={persist_sync}: {error}"));
+                            session::InlineSession::open(
+                                &recovered,
+                                context.archive,
+                                context.mode,
+                                encrypted.then_some([82; 32].as_slice()),
+                            )
+                            .unwrap()
+                            .require_idle([83; 32])
+                            .unwrap();
+                            cases += 1;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    println!("OVERFLOW_RECOVERY_POWER_LOSS_CASES {cases}");
+}

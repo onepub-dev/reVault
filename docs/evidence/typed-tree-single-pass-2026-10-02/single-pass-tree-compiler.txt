@@ -1,0 +1,6 @@
+
+String dump of section '.comment':
+  [     1]  Linker: LLD 21.1.8 (/checkout/src/llvm-project/llvm 00d23d10dc48c6bb9d57ba96d4a748d85d77d0c7)
+  [    5f]  GCC: (Ubuntu 15.2.0-16ubuntu1) 15.2.0
+  [    85]  rustc version 1.94.1 (e408947bf 2026-03-25)
+

@@ -41,6 +41,7 @@ impl<'t> FSEDecoder<'t> {
     }
 
     /// Advance the internal state to decode the next symbol in the bitstream.
+    #[inline]
     pub fn update_state(&mut self, bits: &mut BitReaderReversed<'_>) {
         let num_bits = self.state.num_bits;
         let add = bits.get_bits(num_bits);
@@ -379,6 +380,30 @@ fn calc_baseline_and_numbits(
     num_states_symbol: u32,
     state_number: u32,
 ) -> (u32, u8) {
+    // Valid FSE tables are powers of two, and each symbol owns exactly
+    // `num_states_symbol` successive state numbers. Keep the original behavior
+    // outside that domain, including zero-probability entries.
+    if !num_states_total.is_power_of_two()
+        || num_states_symbol == 0
+        || num_states_symbol > num_states_total
+        || state_number >= num_states_symbol
+    {
+        return calc_baseline_and_numbits_reference(
+            num_states_total,
+            num_states_symbol,
+            state_number,
+        );
+    }
+    let next_state = num_states_symbol + state_number;
+    let num_bits = next_state.leading_zeros() - num_states_total.leading_zeros();
+    ((next_state << num_bits) - num_states_total, num_bits as u8)
+}
+
+fn calc_baseline_and_numbits_reference(
+    num_states_total: u32,
+    num_states_symbol: u32,
+    state_number: u32,
+) -> (u32, u8) {
     if num_states_symbol == 0 {
         return (0, 0);
     }
@@ -399,5 +424,28 @@ fn calc_baseline_and_numbits(
     } else {
         let index_shifted = state_number - num_double_width_state_slices;
         ((index_shifted * slice_width), num_bits as u8)
+    }
+}
+
+#[test]
+fn optimized_fse_state_formula_matches_original_exhaustively() {
+    // Includes the format's supported sequence/Huffman logs and wider tables,
+    // all power-of-two boundaries, and every state for every probability.
+    for log in 1..=12 {
+        let total = 1u32 << log;
+        for probability in 1..=total {
+            for state in 0..probability {
+                assert_eq!(
+                    calc_baseline_and_numbits(total, probability, state),
+                    calc_baseline_and_numbits_reference(total, probability, state),
+                    "log={log} probability={probability} state={state}",
+                );
+            }
+        }
+        assert_eq!(calc_baseline_and_numbits(total, 0, 0), (0, 0));
+        assert_eq!(
+            calc_baseline_and_numbits(total, 1, 1),
+            calc_baseline_and_numbits_reference(total, 1, 1),
+        );
     }
 }

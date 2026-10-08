@@ -1,0 +1,40 @@
+{
+  "checksum_files": [
+    {
+      "path": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/vendor/zstd-complete/src/decoding/frame_decoder.rs",
+      "before": "b6066d490aa739c28db741a545cbb57c667ef34c06c76d5d33928acce153ed5a",
+      "after": "b6066d490aa739c28db741a545cbb57c667ef34c06c76d5d33928acce153ed5a",
+      "matches": true
+    },
+    {
+      "path": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/vendor/zstd-complete/src/decoding/errors.rs",
+      "before": "61216c7cc408d616240be0307caeb4de29d9309a0348431da2414a7f5d09e660",
+      "after": "61216c7cc408d616240be0307caeb4de29d9309a0348431da2414a7f5d09e660",
+      "matches": true
+    },
+    {
+      "path": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/vendor/zstd-complete/tests/workspaces.rs",
+      "before": "c53236613430a69c14dd129c7fd053ce7debc4687b0831f9996c17504ab46943",
+      "after": "c53236613430a69c14dd129c7fd053ce7debc4687b0831f9996c17504ab46943",
+      "matches": true
+    },
+    {
+      "path": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api/src/compression.rs",
+      "before": "f72e8ab94d5f2b0cb6b120a42ff6425fa2f76a7d9cf080583df0264708215df8",
+      "after": "f72e8ab94d5f2b0cb6b120a42ff6425fa2f76a7d9cf080583df0264708215df8",
+      "matches": true
+    },
+    {
+      "path": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api/src/compression/decode_workspace.rs",
+      "before": "41ac3b0b265090a88611ae482236cdb72a78e5e77830c27d1d610b96a94eeaa8",
+      "after": "41ac3b0b265090a88611ae482236cdb72a78e5e77830c27d1d610b96a94eeaa8",
+      "matches": true
+    }
+  ],
+  "fse_file": {
+    "path": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/vendor/zstd-complete/src/fse/fse_decoder.rs",
+    "before": "135a2cc6dab9b8922e53b7d486060923586dd351a7bdb4e60f2d5835cf5fd9c2",
+    "after": "135a2cc6dab9b8922e53b7d486060923586dd351a7bdb4e60f2d5835cf5fd9c2",
+    "matches": true
+  }
+}

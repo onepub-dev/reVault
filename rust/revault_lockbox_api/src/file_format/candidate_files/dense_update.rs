@@ -70,8 +70,9 @@ pub(super) fn recover(
     // Validate all cleanup authority before the first write. A losing transaction
     // may clean only its selected old graph's reservations, never live bytes.
     let ranges = if journal.base() == commit {
-        graph.validate_reservations(journal.reservations())?
+        graph.verify_abort_reservations(storage, journal.reservations())?
     } else {
+        graph.verify_free(storage)?;
         graph.pending()
     };
     if storage.len()? < anchor.sealed_len {
@@ -290,7 +291,7 @@ pub(super) fn return_inline(
     Ok(true)
 }
 #[allow(clippy::too_many_arguments)]
-fn publish_catalogue(
+pub(super) fn publish_catalogue(
     storage: &mut impl Storage,
     archive: LockboxId,
     mode: FormatMode,
@@ -303,7 +304,12 @@ fn publish_catalogue(
 ) -> Result<()> {
     let codec = Codec::shared_packed(archive, mode, key)?;
     let old_body = shared::snapshot(storage, archive, mode, authority, key)?.1;
-    let old_graph = Catalogue::decode(&old_body, &codec, anchor.sealed_len)?.graph(&anchor)?;
+    let tree_base = old_body.starts_with(b"RV4TRE01");
+    let old_graph = if tree_base {
+        shared::tree::Tree::open(storage, archive, mode, authority, key)?.graph
+    } else {
+        Catalogue::decode(&old_body, &codec, anchor.sealed_len)?.graph(&anchor)?
+    };
     let mut sealed = anchor.sealed_len;
     let inline =
         anchor.index.primary >= REGION_LEN as u64 && anchor.index.mirror >= REGION_LEN as u64;
@@ -359,20 +365,38 @@ fn publish_catalogue(
     let prepared = shared::prepare(&next, authority, signer)?;
     let next_graph = catalogue.graph(&next)?;
     let plan = if trim {
-        old_graph.metadata_tail_transition_to(&next_graph)?
+        if tree_base {
+            old_graph.tree_tail_transition_to(&next_graph)?
+        } else {
+            old_graph.metadata_tail_transition_to(&next_graph)?
+        }
     } else {
         old_graph.transition_to(&next_graph)?
     };
     if plan.truncate.is_some() != trim {
         return Err(Error::CorruptRecord);
     }
-    let old_catalogue = Catalogue::decode(
-        &shared::snapshot(storage, archive, mode, authority, key)?.1,
-        &codec,
-        anchor.sealed_len,
-    )?;
-    let mut old_catalogue = old_catalogue;
-    old_catalogue.upgrade(&anchor)?;
+    let mut old_catalogue = if tree_base {
+        let opened = super::tree_image::TreeImage::open(
+            allocation::compaction::View(&*storage),
+            archive,
+            mode,
+            authority,
+            key,
+        )?;
+        let mut catalogue = opened.image.catalogue;
+        catalogue.vacant = opened.tree.graph.catalogue_vacant();
+        catalogue
+    } else {
+        Catalogue::decode(
+            &shared::snapshot(storage, archive, mode, authority, key)?.1,
+            &codec,
+            anchor.sealed_len,
+        )?
+    };
+    if !tree_base {
+        old_catalogue.upgrade(&anchor)?;
+    }
     let mut reservations = Vec::new();
     for span in &plan.writes {
         if span.start >= anchor.sealed_len {

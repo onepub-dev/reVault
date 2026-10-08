@@ -1,0 +1,15 @@
+original_evidence_path	retained_evidence_path	sha256
+docs/evidence/decoder-fse-2026-10-02/fse-trial-source.rs	docs/evidence/decoder-fse-2026-10-02/fse-trial-source.rs.txt	135a2cc6dab9b8922e53b7d486060923586dd351a7bdb4e60f2d5835cf5fd9c2
+docs/evidence/decoder-inline-2026-10-02/inline-pre-lengthfix-compression.rs	docs/evidence/decoder-inline-2026-10-02/inline-pre-lengthfix-compression.rs.txt	f72e8ab94d5f2b0cb6b120a42ff6425fa2f76a7d9cf080583df0264708215df8
+docs/evidence/decoder-inline-2026-10-02/inline-pre-lengthfix-decode_workspace.rs	docs/evidence/decoder-inline-2026-10-02/inline-pre-lengthfix-decode_workspace.rs.txt	41ac3b0b265090a88611ae482236cdb72a78e5e77830c27d1d610b96a94eeaa8
+docs/evidence/decoder-overlap-trial-2026-10-02/overlap-checksum-negative-test.rs	docs/evidence/decoder-overlap-trial-2026-10-02/overlap-checksum-negative-test.rs.txt	994614ecd8fc46387b96bc1ad76156d8a823bf2b8cadff18ae8be089715a8ef9
+docs/evidence/decoder-overlap-trial-2026-10-02/overlap-decode-buffer-trial.rs	docs/evidence/decoder-overlap-trial-2026-10-02/overlap-decode-buffer-trial.rs.txt	c8a54bb34514f5489ceadc8a9ef5e6224e1e60a95e1a026fbd513dbf55ba8373
+docs/evidence/typed-tree-64m-2026-10-02/harness/candidate_driver.rs	docs/evidence/typed-tree-64m-2026-10-02/harness/candidate_driver.rs.txt	7bdcd496f8688504dadcda5a6a9395ff5ad6574bf25e1935e9d9fa998a0ac5a7
+docs/evidence/typed-tree-64m-2026-10-02/harness/resource_probe.rs	docs/evidence/typed-tree-64m-2026-10-02/harness/resource_probe.rs.txt	2d860194f477648b46e19e5cca9aaa8cb75e2357cead1e4e9e30b240af5bed84
+docs/evidence/typed-tree-64m-2026-10-02/harness/tree_probe.rs	docs/evidence/typed-tree-64m-2026-10-02/harness/tree_probe.rs.txt	ea0f2365adef96636a4ec4656e7ba5854c20a387ecdef30c0d77f894339cffc3
+docs/evidence/typed-tree-pinned88-2026-10-02/harness/candidate_driver.rs	docs/evidence/typed-tree-pinned88-2026-10-02/harness/candidate_driver.rs.txt	7bdcd496f8688504dadcda5a6a9395ff5ad6574bf25e1935e9d9fa998a0ac5a7
+docs/evidence/typed-tree-pinned88-2026-10-02/harness/resource_probe.rs	docs/evidence/typed-tree-pinned88-2026-10-02/harness/resource_probe.rs.txt	2d860194f477648b46e19e5cca9aaa8cb75e2357cead1e4e9e30b240af5bed84
+docs/evidence/typed-tree-pinned88-2026-10-02/harness/tree_probe.rs	docs/evidence/typed-tree-pinned88-2026-10-02/harness/tree_probe.rs.txt	6bbdd52d69dc4375c5a2db7d71f203fb24d4b4cffde5a4f8f211258260f853b9
+docs/evidence/typed-tree-read-2026-10-02/harness/candidate_driver.rs	docs/evidence/typed-tree-read-2026-10-02/harness/candidate_driver.rs.txt	7bdcd496f8688504dadcda5a6a9395ff5ad6574bf25e1935e9d9fa998a0ac5a7
+docs/evidence/typed-tree-read-2026-10-02/harness/resource_probe.rs	docs/evidence/typed-tree-read-2026-10-02/harness/resource_probe.rs.txt	2d860194f477648b46e19e5cca9aaa8cb75e2357cead1e4e9e30b240af5bed84
+docs/evidence/typed-tree-read-2026-10-02/harness/tree_probe.rs	docs/evidence/typed-tree-read-2026-10-02/harness/tree_probe.rs.txt	ffddaa5559165ba7a006f54eaf3b2edfd74f67e77b117afd26d46bf6ec68c711

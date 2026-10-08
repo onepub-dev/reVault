@@ -248,3 +248,16 @@ pub(crate) fn validate_initial_idle(
 }
 
 pub(crate) mod session;
+
+pub(crate) fn requires_overflow(
+    archive: LockboxId,
+    mode: FormatMode,
+    key: Option<&[u8]>,
+    count: usize,
+) -> Result<bool> {
+    let context = Context::new(archive, mode, key)?;
+    if count > MAX_RESERVATIONS {
+        return Err(Error::CorruptRecord);
+    }
+    Ok(117 + count * 25 >= STUB_CHECKSUM - HEADER - if context.key.is_some() { 16 } else { 0 })
+}

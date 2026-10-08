@@ -28,6 +28,7 @@ mod mutation;
 mod packing;
 mod paged_cost;
 mod recovery;
+pub(crate) mod tree_image;
 use packing::{Builder, Coverage, Slice};
 
 pub(crate) struct Input<R: Read> {

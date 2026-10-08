@@ -1,0 +1,3 @@
+Captured 2026-10-02 16:26:07 UTC after final-source paired batch.
+Command `uptime` output: 02:26:17 up 20 days, 14:21, 1 user, load average: 1.47, 1.44, 1.69
+Filtered process scan: lbx __agent was the only non-scan matching process; no Cargo, rustc, candidate-driver, shared runner, or HMB workload remained.

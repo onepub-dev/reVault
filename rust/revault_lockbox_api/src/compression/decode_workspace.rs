@@ -84,6 +84,9 @@ pub(super) fn decode(stored: &[u8], expected_len: usize) -> Option<Result<Vec<u8
                     .map_err(|_| Error::CorruptRecord)?;
                 match decoder.decode_into(stored, &mut decoded) {
                     Ok(len) => {
+                        if len != expected_len {
+                            return Err(Error::CorruptRecord);
+                        }
                         decoded.truncate(len);
                         Ok(Some(std::mem::take(&mut *decoded)))
                     }
@@ -155,6 +158,57 @@ mod tests {
         .join()
         .unwrap();
         assert!(passed.load(Ordering::SeqCst));
+    }
+
+    #[test]
+    fn checksum_failure_returns_no_decoded_content_and_releases_scoped_scratch() {
+        let payload = vec![37; 65536];
+        let mut encoded = vec![0x28, 0xb5, 0x2f, 0xfd, 0, 0x38];
+        let block = ((payload.len() as u32) << 3) | 1;
+        encoded.extend_from_slice(&block.to_le_bytes()[..3]);
+        encoded.extend_from_slice(&payload);
+        let mut frame = zstd_complete::decoding::FrameDecoder::new();
+        let mut output = vec![0; payload.len()];
+        frame.decode_all(&encoded, &mut output).unwrap();
+        let checksum = frame.get_calculated_checksum().unwrap();
+        encoded[4] |= 4;
+        encoded.extend_from_slice(&checksum.to_le_bytes());
+        assert_eq!(
+            super::super::zstd_decode(&encoded, payload.len() as u64).unwrap(),
+            payload
+        );
+        *encoded.last_mut().unwrap() ^= 1;
+        let mut callbacks = 0;
+        for reuse in [false, true] {
+            let mut read = || {
+                let result = super::super::zstd_decode(&encoded, payload.len() as u64);
+                if result.is_ok() {
+                    callbacks += 1;
+                }
+                assert!(result.is_err());
+            };
+            if reuse {
+                scoped(read);
+            } else {
+                read();
+            }
+            assert!(SCRATCH.with(|slot| slot.borrow().is_none()));
+        }
+        assert_eq!(callbacks, 0);
+    }
+
+    #[test]
+    fn declared_length_mismatch_fails_before_transferring_decoded_output() {
+        let payload = vec![53; 131072];
+        let encoded = super::super::zstd_encode(&payload, 1);
+        for expected in [payload.len() - 1, payload.len() + 1] {
+            assert!(super::super::zstd_decode(&encoded, expected as u64).is_err());
+            scoped(|| {
+                assert!(decode(&encoded, expected).unwrap().is_err());
+                assert_eq!(decode(&encoded, payload.len()).unwrap().unwrap(), payload);
+            });
+            assert!(SCRATCH.with(|slot| slot.borrow().is_none()));
+        }
     }
 
     #[test]

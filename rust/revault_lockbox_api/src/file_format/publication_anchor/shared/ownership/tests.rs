@@ -416,6 +416,18 @@ fn descendant_retirement_requires_pending_state_and_cannot_use_private_tail_proo
     );
     let inline = Graph::derive(&next, &packs, &vacant).unwrap();
     assert!(old.metadata_tail_transition_to(&inline).is_err());
+    let explicit = old.tree_tail_transition_to(&inline).unwrap();
+    for start in [reference.primary, reference.mirror] {
+        assert!(explicit.retire_after_publication.contains(&Span {
+            start,
+            len: reference.len
+        }));
+    }
+    let mut substituted = packs.clone();
+    substituted[0].digest[0] ^= 1;
+    assert!(old
+        .tree_tail_transition_to(&Graph::derive(&next, &substituted, &vacant).unwrap())
+        .is_err());
     let next = advance(&external, next.index, external.sealed_len);
     let mut retired = vacant.clone();
     for root in [external.index, reference] {

@@ -648,6 +648,14 @@ impl FrameDecoder {
                     return Err(FrameDecoderError::TargetTooSmall);
                 }
                 if self.is_finished() {
+                    // Full-buffer decoding can validate the completed frame
+                    // before reporting success or resetting for the next one.
+                    #[cfg(feature = "hash")]
+                    if let Some(expected) = self.get_checksum_from_data() {
+                        if self.get_calculated_checksum() != Some(expected) {
+                            return Err(FrameDecoderError::ChecksumMismatch);
+                        }
+                    }
                     break;
                 }
             }

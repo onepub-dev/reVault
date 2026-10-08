@@ -16,6 +16,7 @@ pub(crate) struct Tree {
     pub graph: Graph,
     index: Index,
     root: RootRef,
+    pages: Vec<RootRef>,
 }
 
 /// Fixed-size private manifest. The selected publication authenticates these
@@ -43,6 +44,21 @@ fn parse_manifest(body: &[u8]) -> Result<RootRef> {
 }
 
 impl Tree {
+    /// Read-only salvage authenticates selected membership independently of
+    /// payload availability and unfinished cleanup. Never search old roots.
+    /// Stage typed records during the authenticated ownership walk. The caller
+    /// must discard staged output unless this entire operation succeeds.
+    pub(crate) fn salvage_visit(
+        storage: &impl Storage,
+        archive: LockboxId,
+        mode: FormatMode,
+        authority: &Authority<'_>,
+        key: Option<&[u8]>,
+        visitor: impl FnMut(Entry) -> Result<()>,
+    ) -> Result<Self> {
+        let (anchor, body) = salvage_private(storage, archive, mode, authority, key)?;
+        Self::from_snapshot_visit(storage, archive, mode, key, anchor, &body, visitor)
+    }
     pub(crate) fn open(
         storage: &impl Storage,
         archive: LockboxId,
@@ -50,8 +66,47 @@ impl Tree {
         authority: &Authority<'_>,
         key: Option<&[u8]>,
     ) -> Result<Self> {
+        Self::open_visit(storage, archive, mode, authority, key, |_| Ok(()))
+    }
+
+    /// Same complete ownership and reclaimed-space validation as `open`; typed
+    /// decoding shares the traversal without retaining an extra record cache.
+    pub(crate) fn open_visit(
+        storage: &impl Storage,
+        archive: LockboxId,
+        mode: FormatMode,
+        authority: &Authority<'_>,
+        key: Option<&[u8]>,
+        visitor: impl FnMut(Entry) -> Result<()>,
+    ) -> Result<Self> {
         let (anchor, body) = open_private(storage, archive, mode, authority, key)?;
-        let root = parse_manifest(&body)?;
+        let tree = Self::from_snapshot_visit(storage, archive, mode, key, anchor, &body, visitor)?;
+        tree.graph.verify_reclaimed(storage)?;
+        Ok(tree)
+    }
+
+    fn from_snapshot(
+        storage: &impl Storage,
+        archive: LockboxId,
+        mode: FormatMode,
+        key: Option<&[u8]>,
+        anchor: Anchor,
+        body: &[u8],
+    ) -> Result<Self> {
+        Self::from_snapshot_visit(storage, archive, mode, key, anchor, body, |_| Ok(()))
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn from_snapshot_visit(
+        storage: &impl Storage,
+        archive: LockboxId,
+        mode: FormatMode,
+        key: Option<&[u8]>,
+        anchor: Anchor,
+        body: &[u8],
+        mut visitor: impl FnMut(Entry) -> Result<()>,
+    ) -> Result<Self> {
+        let root = parse_manifest(body)?;
         let index = Index::new(archive, mode, key)?;
         let mut pages = Vec::new();
         let mut packs = Vec::new();
@@ -131,18 +186,34 @@ impl Tree {
                         _ => return Err(Error::CorruptRecord),
                     }
                 }
-                Visit::Entry(_) => (),
+                Visit::Entry(entry) => visitor(entry)?,
             }
             Ok(())
         })?;
         let graph = Graph::derive_with_descendants(&anchor, &packs, &vacant, &pages)?;
-        graph.verify_reclaimed(storage)?;
         Ok(Self {
             anchor,
             graph,
             index,
             root,
+            pages,
         })
+    }
+
+    /// Only call after complete graph and operation-specific validation. Each
+    /// address is owned by the selected authenticated descendant traversal.
+    fn mirror_pages(&self, storage: &mut impl Storage) -> Result<()> {
+        for reference in &self.pages {
+            let bytes = crate::page_buffer::ZeroizingBytes::new(reference.read_verified(storage)?);
+            for start in [reference.primary, reference.mirror] {
+                if strong_checksum(&storage.read_at(start, reference.len as usize)?)
+                    != reference.digest
+                {
+                    storage.write_at(start, &bytes)?;
+                }
+            }
+        }
+        storage.sync()
     }
 
     /// Returns authenticated raw records. A typed adapter must still validate
@@ -179,3 +250,15 @@ impl Tree {
 
 #[cfg(test)]
 mod tests;
+
+mod abort;
+pub(crate) use abort::recover_abort;
+
+mod commit;
+pub(crate) use commit::recover_commit;
+
+mod update;
+pub(crate) use update::{
+    grow_dense_payload_records, grow_dense_records, recover_update, relocate_records,
+    rewrite_payload_records, rewrite_records, PayloadPlan,
+};

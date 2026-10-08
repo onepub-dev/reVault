@@ -1,0 +1,35 @@
+Controlled typed-tree read comparison, October 2 2026
+
+Candidate core: final-core-source.sha256, corresponding to the main-source
+240-passed / 6-ignored file_format qualification and strict Clippy pass.
+Harness-only source: harness-source.sha256. The harness is isolated from the
+worktree and uses the qualified core plus canonical filesystem path adaptation.
+The preserved validated-source.tar and validated-source.sha256 describe the
+earlier 237-test checkpoint, not the final candidate used for these timings.
+
+Four plaintext padded cases: 512 x 4 KiB mixed compressed stream; 8 MiB random
+raw stream; 8 MiB patterned compressed stream; 4 KiB midpoint range in raw 8 MiB.
+Frozen retained ZIP and packed-C inputs are compared with fresh typed-tree
+exports of exactly the same source bytes. The tree uses legacy dense.lbox and
+dense.public filenames solely for the unchanged common runner's inventory.
+
+Thirty measured pairs plus three warmups, one pass, one worker, fresh process
+and handle, warm OS cache, alternating ZIP/C/tree and tree/C/ZIP order. CPU 2
+affinity if available. The existing runner retains full source inventories and
+archive hashes before and after, and independently verifies all logical bytes
+outside each timer. Its fixed-seed bootstrap summary is retained unchanged.
+
+The frozen runner's layout label and source_revision_at_run describe its
+historical build context. This file and the candidate core/harness/binary
+manifests identify the actual fresh typed-tree candidate. Primary means packed
+C; other means typed tree. No claim of native activation, migration, signed or
+encrypted comparability, cold-cache performance, or full A3/A5 qualification.
+ZIP is unsigned and unencrypted; ZIP ranges omit full-entry CRC. Lockbox
+integrity checks are unchanged. RSS is worker lifetime high water as documented
+by the retained runner, not incremental empty-archive memory.
+
+No timing overlaps this task's builds or tests. Host load and existing HMB
+processes are recorded; external concurrent work limits timing conclusions.
+Only the current weekly allowance is authorized; reserve and paid credits are
+protected. Owned subprocesses stop by 2026-10-02T16:55:00Z and this task ends
+before 2026-10-02T17:00:00Z or earlier actual weekly reset.

@@ -288,6 +288,156 @@ impl Graph {
             .map(|claim| claim.span)
             .collect()
     }
+    pub(crate) fn payloads(&self) -> Vec<Extent> {
+        self.claims
+            .values()
+            .filter(|claim| claim.kind == Kind::Payload)
+            .map(|claim| Extent {
+                start: claim.span.start,
+                len: claim.span.len,
+                digest: claim.digest,
+            })
+            .collect()
+    }
+    /// Dense return-to-inline retains actual vacancy and retires every selected
+    /// descendant. The caller separately retires/replaces the private root.
+    pub(crate) fn catalogue_vacant(&self) -> Vec<Vacant> {
+        self.claims
+            .values()
+            .filter_map(|claim| {
+                let kind = match claim.kind {
+                    Kind::Free => VacantKind::Free,
+                    Kind::Pending | Kind::Descendant => VacantKind::Pending,
+                    _ => return None,
+                };
+                Some(Vacant {
+                    span: claim.span,
+                    kind,
+                })
+            })
+            .collect()
+    }
+    /// Build authenticated ownership records for a metadata-only rewrite. The
+    /// caller first verifies reclaimed bytes. Payload and keys stay live; old
+    /// private/descendant metadata becomes pending, never immediately reusable.
+    pub(crate) fn rewrite_metadata_records(
+        &self,
+        reused: &[Span],
+    ) -> Result<Vec<crate::file_format::authenticated_index::Entry>> {
+        use crate::file_format::authenticated_index::Entry;
+        let mut records = Vec::new();
+        for claim in self.claims.values() {
+            let kind = match claim.kind {
+                Kind::Fixed | Kind::Keys => continue,
+                Kind::Free
+                    if claim.span.start < REGION_LEN as u64
+                        && claim.span.start % FAILURE_REGION == KEYS_START =>
+                {
+                    continue
+                }
+                Kind::Free | Kind::Pending => 0,
+                Kind::Private | Kind::Descendant => 1,
+                Kind::Payload => 2,
+            };
+            let mut position = claim.span.start;
+            let end = claim.span.end()?;
+            let mut emit = |start: u64, limit: u64| -> Result<()> {
+                if start < limit {
+                    let key = [vec![kind], start.to_be_bytes().to_vec()].concat();
+                    let mut value = (limit - start).to_le_bytes().to_vec();
+                    if kind == 2 {
+                        value.extend_from_slice(&claim.digest);
+                    }
+                    records.push(Entry::new(0, &key, &value)?);
+                }
+                Ok(())
+            };
+            for span in reused {
+                let limit = span.end()?;
+                if span.start >= end || limit <= position {
+                    continue;
+                }
+                if !claim.kind.vacant() {
+                    return Err(Error::CorruptRecord);
+                }
+                emit(position, span.start.min(end))?;
+                position = limit.min(end);
+            }
+            emit(position, end)?;
+        }
+        Ok(records)
+    }
+    /// Select full failure regions whose every byte is authenticated vacant
+    /// space. Keep original claim boundaries in the preparation reservations.
+    pub(crate) fn reusable_regions(
+        &self,
+        maximum: usize,
+    ) -> Result<(
+        Vec<Span>,
+        Vec<crate::file_format::preparation_journal::Reservation>,
+    )> {
+        use crate::file_format::preparation_journal::{Reservation, FREE, PENDING};
+        let mut runs: Vec<Span> = Vec::new();
+        for claim in self.claims.values().filter(|claim| claim.kind.vacant()) {
+            if let Some(last) = runs
+                .last_mut()
+                .filter(|last| last.end().ok() == Some(claim.span.start))
+            {
+                last.len += claim.span.len;
+            } else {
+                runs.push(claim.span);
+            }
+        }
+        let mut regions = Vec::new();
+        let mut reservations = Vec::new();
+        for run in runs {
+            let Some(rounded) = run
+                .start
+                .max(REGION_LEN as u64)
+                .checked_add(FAILURE_REGION - 1)
+            else {
+                continue;
+            };
+            let mut at = rounded / FAILURE_REGION * FAILURE_REGION;
+            while at
+                .checked_add(FAILURE_REGION)
+                .is_some_and(|end| end <= run.start + run.len)
+                && regions.len() < maximum
+            {
+                let mut position = at;
+                let mut pieces = Vec::new();
+                while position < at + FAILURE_REGION {
+                    let claim = self.covering(Span {
+                        start: position,
+                        len: 1,
+                    })?;
+                    let end = claim.span.end()?.min(at + FAILURE_REGION);
+                    pieces.push(Reservation {
+                        namespace: if claim.kind == Kind::Pending {
+                            PENDING
+                        } else {
+                            FREE
+                        },
+                        base: claim.span.start,
+                        start: position,
+                        len: end - position,
+                    });
+                    position = end;
+                }
+                if reservations.len() + pieces.len() > 2048 {
+                    return Ok((regions, reservations));
+                }
+                reservations.extend(pieces);
+                regions.push(Span {
+                    start: at,
+                    len: FAILURE_REGION,
+                });
+                at += FAILURE_REGION;
+            }
+        }
+        self.validate_reservations(&reservations)?;
+        Ok((regions, reservations))
+    }
     pub(crate) fn validate_reservations(
         &self,
         reservations: &[crate::file_format::preparation_journal::Reservation],
@@ -321,11 +471,123 @@ impl Graph {
         }
         Ok(spans)
     }
+    /// Reserve bounded payload slices within individual authenticated vacant
+    /// claims. Do not merge ownership boundaries or consume metadata/arena slots.
+    /// The selected graph must have independently verified these bytes erased.
+    pub(crate) fn reserve_payloads(
+        &self,
+        lengths: &[usize],
+        excluded: &mut Vec<Span>,
+        reservations: &mut Vec<crate::file_format::preparation_journal::Reservation>,
+    ) -> Result<Vec<Option<Span>>> {
+        use crate::file_format::preparation_journal::{Reservation, FREE, PENDING};
+        let mut result = Vec::with_capacity(lengths.len());
+        excluded.sort_by_key(|span| span.start);
+        for &length in lengths {
+            if length == 0 {
+                return Err(Error::CorruptRecord);
+            }
+            let length = length as u64;
+            let mut best: Option<(u64, u64, &Claim)> = None;
+            if reservations.len() < 2046 {
+                for claim in self
+                    .claims
+                    .values()
+                    .filter(|claim| claim.kind.vacant() && claim.span.start >= REGION_LEN as u64)
+                {
+                    let end = claim.span.end()?;
+                    let mut position = claim.span.start;
+                    let mut consider = |start: u64, limit: u64| {
+                        if limit >= start && limit - start >= length {
+                            let candidate = (limit - start - length, start, claim);
+                            if best
+                                .as_ref()
+                                .is_none_or(|old| (candidate.0, candidate.1) < (old.0, old.1))
+                            {
+                                best = Some(candidate);
+                            }
+                        }
+                    };
+                    for span in excluded.iter() {
+                        let limit = span.end()?;
+                        if span.start >= end || limit <= position {
+                            continue;
+                        }
+                        consider(position, span.start.min(end));
+                        position = limit.min(end);
+                    }
+                    consider(position, end);
+                }
+            }
+            if let Some((_, start, claim)) = best {
+                let span = Span { start, len: length };
+                reservations.push(Reservation {
+                    namespace: if claim.kind == Kind::Pending {
+                        PENDING
+                    } else {
+                        FREE
+                    },
+                    base: claim.span.start,
+                    start,
+                    len: length,
+                });
+                excluded.push(span);
+                excluded.sort_by_key(|span| span.start);
+                result.push(Some(span));
+            } else {
+                result.push(None);
+            }
+        }
+        self.validate_reservations(reservations)?;
+        Ok(result)
+    }
+    /// Authenticate every exception before checking reclaimed bytes. Only these
+    /// reservations may contain abandoned writes; unrelated dirty vacancies are
+    /// corruption, not additional erase authority.
+    pub(crate) fn verify_abort_reservations(
+        &self,
+        storage: &impl Storage,
+        reservations: &[crate::file_format::preparation_journal::Reservation],
+    ) -> Result<Vec<Span>> {
+        let spans = self.validate_reservations(reservations)?;
+        for claim in self.claims.values().filter(|claim| claim.kind.vacant()) {
+            let end = claim.span.end()?;
+            let mut position = claim.span.start;
+            for span in spans
+                .iter()
+                .filter(|span| span.start >= claim.span.start && span.start < end)
+            {
+                verify_zero(storage, position, span.start)?;
+                position = span.end()?;
+            }
+            verify_zero(storage, position, end)?;
+        }
+        Ok(spans)
+    }
     pub(crate) fn transition_to(&self, next: &Self) -> Result<Transition> {
-        self.transition(next, false)
+        self.transition(next, false, false)
     }
     /// Narrow return-to-inline proof; payload and public-key claims cannot change.
     pub(crate) fn metadata_tail_transition_to(&self, next: &Self) -> Result<Transition> {
+        self.metadata_tail_transition(next, false)
+    }
+    /// Explicit complete-tree retirement. Both graphs must be derived from
+    /// authenticated membership; the replacement has no descendant tree.
+    pub(crate) fn tree_tail_transition_to(&self, next: &Self) -> Result<Transition> {
+        if next
+            .claims
+            .values()
+            .any(|claim| claim.kind == Kind::Descendant)
+        {
+            return Err(Error::CorruptRecord);
+        }
+        self.metadata_tail_transition(next, true)
+    }
+    fn metadata_tail_transition(
+        &self,
+        next: &Self,
+        retire_descendants: bool,
+    ) -> Result<Transition> {
         if next.anchor.sealed_len >= self.anchor.sealed_len
             || next.anchor.index.primary != PRIVATE_START
             || next.anchor.index.mirror != FAILURE_REGION + PRIVATE_START
@@ -339,7 +601,10 @@ impl Graph {
             graph
                 .claims
                 .values()
-                .filter(|claim| matches!(claim.kind, Kind::Payload | Kind::Keys | Kind::Descendant))
+                .filter(|claim| {
+                    matches!(claim.kind, Kind::Payload | Kind::Keys)
+                        || (!retire_descendants && claim.kind == Kind::Descendant)
+                })
                 .copied()
                 .collect::<Vec<_>>()
         };
@@ -352,13 +617,21 @@ impl Graph {
                 .end()
                 .is_ok_and(|end| end > next.anchor.sealed_len)
         }) {
-            if !old.kind.vacant() && old.kind != Kind::Private {
+            if !old.kind.vacant()
+                && old.kind != Kind::Private
+                && !(retire_descendants && old.kind == Kind::Descendant)
+            {
                 return Err(Error::CorruptRecord);
             }
         }
-        self.transition(next, true)
+        self.transition(next, true, retire_descendants)
     }
-    fn transition(&self, next: &Self, metadata_tail: bool) -> Result<Transition> {
+    fn transition(
+        &self,
+        next: &Self,
+        metadata_tail: bool,
+        retire_descendants: bool,
+    ) -> Result<Transition> {
         if next.anchor.archive != self.anchor.archive
             || next.anchor.mode != self.anchor.mode
             || self.anchor.generation.checked_add(1) != Some(next.anchor.generation)
@@ -392,12 +665,27 @@ impl Graph {
                 continue;
             }
             if claim.span.start < self.anchor.sealed_len {
-                let previous = self.covering(claim.span)?;
-                if !previous.kind.vacant() {
+                let end = claim.span.end()?;
+                if end > self.anchor.sealed_len {
                     return Err(Error::CorruptRecord);
                 }
-                if previous.kind == Kind::Pending {
-                    result.erase_before_write.push(claim.span);
+                let mut position = claim.span.start;
+                while position < end {
+                    let previous = self.covering(Span {
+                        start: position,
+                        len: 1,
+                    })?;
+                    if !previous.kind.vacant() {
+                        return Err(Error::CorruptRecord);
+                    }
+                    let limit = previous.span.end()?.min(end);
+                    if previous.kind == Kind::Pending {
+                        result.erase_before_write.push(Span {
+                            start: position,
+                            len: limit - position,
+                        });
+                    }
+                    position = limit;
                 }
             }
             result.writes.push(claim.span);
@@ -407,7 +695,8 @@ impl Graph {
                 continue;
             }
             if metadata_tail
-                && old.kind == Kind::Private
+                && (old.kind == Kind::Private
+                    || (retire_descendants && old.kind == Kind::Descendant))
                 && old.span.start >= next.anchor.sealed_len
             {
                 result.retire_after_publication.push(old.span);
@@ -447,6 +736,17 @@ impl Graph {
         }
         Ok(result)
     }
+}
+fn verify_zero(storage: &impl Storage, mut position: u64, end: u64) -> Result<()> {
+    while position < end {
+        let n = (end - position).min(65536) as usize;
+        let bytes = ZeroizingBytes::new(storage.read_at(position, n)?);
+        if bytes.len() != n || bytes.iter().any(|byte| *byte != 0) {
+            return Err(Error::CorruptRecord);
+        }
+        position += n as u64;
+    }
+    Ok(())
 }
 #[cfg(test)]
 mod tests;

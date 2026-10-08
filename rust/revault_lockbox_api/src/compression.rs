@@ -99,11 +99,15 @@ fn zstd_decode(stored: &[u8], expected_len: u64) -> Result<Vec<u8>> {
     if let Some(result) = decode_workspace::decode(stored, expected_len) {
         return result;
     }
-    let mut decoded = Vec::with_capacity(expected_len);
-    FrameDecoder::new()
-        .decode_all_to_vec(stored, &mut decoded)
+    let mut decoded = crate::page_buffer::ZeroizingBytes::new(vec![0; expected_len]);
+    let len = FrameDecoder::new()
+        .decode_all(stored, &mut decoded)
         .map_err(|_| Error::CorruptRecord)?;
-    Ok(decoded)
+    if len != expected_len {
+        return Err(Error::CorruptRecord);
+    }
+    decoded.truncate(len);
+    Ok(std::mem::take(&mut *decoded))
 }
 
 fn zstd_complete_level(level: i32) -> CompressionLevel {

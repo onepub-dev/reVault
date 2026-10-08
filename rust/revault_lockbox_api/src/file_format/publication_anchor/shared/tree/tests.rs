@@ -3,6 +3,8 @@ use super::*;
 use crate::storage::StorageBackend;
 use crate::{Compression, EncryptionMode, LockboxFormatOptions, SigningMode, SizePadding};
 
+mod abort;
+
 #[derive(Clone, Debug)]
 struct Aligned(StorageBackend);
 impl Storage for Aligned {

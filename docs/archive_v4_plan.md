@@ -7,6 +7,170 @@ The [documentation map](documentation_map.md) assigns authority and cleanup work
 
 ## Current position and next work
 
+### Resumed checkpoint — 2026-10-08
+
+The [resumed validation](evidence/resume-2026-10-08/README.md) reproduces 21
+compression tests, 241 format tests (7 ignored), strict Clippy, and 13 vendor
+workspace tests (1 ignored) with Rust 1.88.0. Missing upstream vendor test
+fixtures were restored with provenance. Historical evidence source snapshots
+retain their exact bytes under `.rs.txt` names to protect them from formatting.
+Historical `/tmp` benchmark artifacts are unavailable in this environment;
+new comparisons must rebuild matched controls and retain their own identities.
+
+The next bounded correctness tranche qualifies wiping of the ordinary decoder's
+owned plaintext history/literal buffers on release and reallocation, as specified
+by the final decoder evidence. The codec has no archive-mode context: protected
+archives also pass decrypted bytes through it. Keep caller-owned scoped scratch
+semantics and distinguish byte-buffer wiping from unqualified entropy/sequence
+metadata. This is not another attempt to close the ZIP gap by micro-tuning;
+public record semantics, native recovery, architecture selection and complete
+qualification remain separate unfinished work.
+
+### Local implementation checkpoint — 2026-10-02
+
+The [final combined decoder checkpoint](evidence/decoder-final-2026-10-02/README.md)
+passes 21 compression tests, 241 format tests (7 ignored) and strict Clippy.
+It additionally rejects declared-length mismatches before transferring output
+out of its zeroizing guard. The [isolated inline hint](evidence/decoder-inline-2026-10-02/README.md)
+shows a 4.4% compressed plaintext read benefit; other read intervals include
+parity, and unexplained RSS/open shifts are not attributed to that hint.
+Final combined source also completes four matched paired cases against the FSE
+baseline with no observed read/total regression. Raw-control movement limits
+causal attribution, and the large/range ZIP gaps remain open.
+
+Subsequent accepted decoder work: [FSE arithmetic](evidence/decoder-fse-2026-10-02/README.md)
+reduces measured compressed read time 3.9–8.7% versus the separately accepted
+[checksum/wiping correction](evidence/decoder-checksum-2026-10-02/README.md).
+Main qualification passes 20 compression tests, 241 format tests (7 ignored)
+and strict Clippy. The overlap-copy experiment was rejected. Codec format,
+authentication, checksum comparison and wiping remain intact.
+
+The preceding [compiler-matched read and aging checkpoint](evidence/typed-tree-pinned88-2026-10-02/README.md)
+passes 241 format tests, strict Clippy and 16,000 bounded mixed payload cycles
+across 16 modes. Six read cases use the exact Rust 1.88.0 pin and retained C/ZIP
+controls. Small plaintext is 0.546× ZIP; raw 8 MiB, compressed 8 MiB and range
+remain 3.567×, 2.524× and 5.896× ZIP. Public semantics, native recovery and format
+selection remain outstanding. Earlier checkpoints below retain their own scope.
+
+The [64 MiB raw extension](evidence/typed-tree-64m-2026-10-02/README.md) uses an
+existing authenticated update to build the tree after fresh export hit the dense
+intermediate limit. With unchanged caps and matched raw fragment units, stream
+has no clear difference from C (0.999× [0.967, 1.033]); range is 0.821× C.
+Both remain slower than ZIP. The scoped performance work now has bounded
+small/8 MiB/protected/64 MiB evidence; remaining payload costs are attributed to
+hardware SHA-256 and codec work, with no further safe duplicate application work
+identified. Public semantics and architecture decisions remain separate work.
+
+The subsequent [overlapping decoder-copy experiment](evidence/decoder-overlap-trial-2026-10-02/README.md)
+passed safety checks but showed no clear paired read improvement, so it was not
+promoted. It exposed a pre-existing full-buffer Zstd checksum-comparison omission
+(calculation existed); that correctness change is separate from performance
+experiments. Original authentication and rejected evidence remain preserved.
+
+The [separate checksum/wiping correction](evidence/decoder-checksum-2026-10-02/README.md)
+is now promoted and main-qualified: 20 compression tests, 241 format tests
+(7 ignored) and strict Clippy pass. Full-buffer decode compares each frame's
+already-computed checksum; fresh fallback errors wipe the entire writable output.
+Its separate paired comparison shows no material total regression. Streaming API
+semantics and all architecture decisions remain separate. The subsequent accepted
+FSE arithmetic experiment is summarized above and retains this correction.
+Ordinary vendor-owned decoder history remains outside the output/arena wipe
+correction and still deallocates without zeroization; full decoder-memory wiping
+requires separate qualification.
+
+The [authenticated transition and reuse checkpoint](evidence/shared-tree-transitions-2026-10-02/README.md)
+records uncommitted work on top of `4744b635`, with source hashes and validation.
+Raw-record overflow-tree rewriting now connects durable preparation, authenticated
+COW publication, abort/roll-forward cleanup and reuse of metadata and journal
+arenas. No-change repeats preserve bytes. This is a bounded `cfg(test)` adapter,
+not typed/public mutation, complete inline/overflow transitions or format selection.
+The September 27 statements below about an unconnected raw transition writer and
+journal overflow are superseded only within this documented adapter's scope.
+
+Final checks pass 6 focused writer tests, 220 format tests (6 manual probes
+ignored), and strict Clippy. Forty small metadata cycles stabilize at 720,896
+bytes in all 16 modes; the large raw-record case stabilizes at 26,542,080 bytes
+over eight additional cycles. These are bounded observations, not complete A5
+qualification, compaction or ZIP performance claims. Resource measurements had
+concurrent HMB test load and include fixture construction and verification.
+
+The subsequent [bounded allocation-map bank change](evidence/compact-map-bank-2026-10-02/README.md)
+passes the unchanged 4,000-operation mixed-aging stability gate. The earlier
+metadata-arena hold trial failed and was removed. The passing unpadded result
+retains more total bytes (1,507,859) than the historical control's final size;
+this is a stability result, not a space-efficiency or full A5 pass.
+Both native recovery failures reproduce. Independent
+signed-native salvage still needs authenticated membership integration; do not
+weaken whole-content authentication to manufacture a pass. Next work must connect
+typed/public records and complete transitions, evaluate mixed-layout space cost and
+native membership/recovery, and qualify the same implementation against the
+existing gates. Preserve the retained controls and rejected trial evidence.
+
+The [typed-tree and salvage checkpoint](evidence/typed-tree-2026-10-02/README.md)
+now connects files, fragments, packs and canonical filesystem metadata to the
+authenticated tree. Fresh export preserves the dense source; tree metadata
+updates preserve file payloads. All-mode lifecycle grows beyond the dense
+catalogue capacity, and read-only salvage recovers intact neighbours while
+failing closed on lost selected membership. Normal signed-plaintext eager
+verification is unchanged. Five focused tests, 225 format tests (6 ignored)
+and strict Clippy pass. This supersedes the raw-only limit for those typed
+records, not public/native activation, payload mutation, variables or forms.
+Fresh export requires an empty destination and rejects access-slot translation.
+The subsequent [in-place transition checkpoint](evidence/typed-transitions-2026-10-02/README.md)
+connects automatic dense/tree routing, growth and return-to-inline through a
+separate explicit descendant-retirement proof. It passes 228 format tests and
+strict Clippy; bounded all-mode lifecycles return to their exact initial sizes.
+Resource evidence is descriptive and includes setup/reopens, not a ZIP claim or
+transient peak. Next integrate authenticated payload mutation with pack-neighbour
+preservation, then remaining public record/access semantics and qualification;
+public native activation remains unselected.
+
+The [typed payload checkpoint](evidence/typed-payload-2026-10-02/README.md)
+connects bounded tree-only addition, replacement and removal to the same
+preparation/publication/cleanup transaction. Affected packs are retired whole;
+surviving encoded neighbours are verified and copied, with staged-byte readback
+before publication. The final format suite passes 233 tests (6 ignored) and
+strict Clippy. That checkpoint appended changed packs. The subsequent
+[vacant-payload reuse checkpoint](evidence/typed-payload-reuse-2026-10-02/README.md)
+connects single-claim authenticated placement and passes bounded 32-cycle
+all-mode stabilization, reused-write faults and sampled large overflow-journal
+faults. Final format regression passes 237 tests (6 ignored) and strict Clippy.
+Exact retained sizes differ between fresh fixture observations; no universal
+size bound or full payload-aging gate is inferred. Dense payload dispatch and
+return preflight, streaming public writes, variables/forms and access semantics
+remain subsequent work at that checkpoint.
+
+The subsequent [dense payload dispatch and recovery checkpoint](evidence/typed-dense-payload-2026-10-02/README.md)
+connects both starting layouts, safe small-result return and preflight refusal
+without relocation. It passes 240 format tests (6 ignored), strict Clippy,
+1,620 focused interruption cases and 192 sampled large overflow faults across
+both layouts. All-mode 32-cycle aging remains within each fixture's first-16
+completed-size maximum; this is not full 1,000-cycle qualification. The scoped
+mutation/recovery tranche is complete and controlled read comparisons are next.
+Public semantics, migration, native activation and full qualification remain.
+
+The [controlled typed-tree read batch](evidence/typed-tree-read-2026-10-02/README.md)
+now completes four plaintext padded cases with 30 pairs and three warmups each.
+Small files take 0.602× ZIP time; 8 MiB raw, compressed and raw-range cases remain
+3.627×, 2.596× and 7.002× ZIP respectively. Tree raw/range open is slower than
+packed C despite faster reads, and process RSS is higher. Preserve these failures
+and use the measured open cost for a bounded integrity-preserving optimization;
+do not imply whole-format eligibility or a ZIP parity pass.
+
+The [single-traversal optimization](evidence/typed-tree-single-pass-2026-10-02/README.md)
+removes duplicate authenticated index traversal without changing validation.
+It passes 241 format tests (6 ignored) and strict Clippy. A fresh paired batch
+measures 19–24% lower open time, about 20% lower total raw-range time and about
+5% lower process RSS versus the original typed reader. Large/range ZIP gaps
+remain; bounded payload attribution is next, retaining both measured baselines.
+
+The isolated batches above omitted the root toolchain pin and used Rust 1.94.1;
+retained C/ZIP binaries use 1.88.0. Only the direct original/optimized tree pair
+is compiler-matched. Preserve the exploratory ratios and repeat retained-control
+comparisons with the repository's exact 1.88.0 pin before stronger layout claims.
+
+### September 27 baseline and remaining program
+
 Updated 2026-09-27. P2 is still an architecture comparison, not a selected format.
 The production default writer has bounded staging; candidate C has authenticated
 membership, separated metadata mirrors, resumable allocation/erasure, file/range

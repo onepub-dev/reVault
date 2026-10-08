@@ -1,0 +1,55 @@
+{
+  "baseline_archive": "final-pinned88-transition-source.tar",
+  "five_changed_source_files": [
+    {
+      "path": "rust/vendor/zstd-complete/src/decoding/frame_decoder.rs",
+      "before_sha256": "e2c689b9dfd3a87a7ac6413c9b4d9fd2f498ee0c7e2c0ad05fd44b53c8451d31",
+      "after_sha256": "b6066d490aa739c28db741a545cbb57c667ef34c06c76d5d33928acce153ed5a",
+      "changed": true
+    },
+    {
+      "path": "rust/vendor/zstd-complete/src/decoding/errors.rs",
+      "before_sha256": "cc343b8bb8aa0a3f261f9e4e4be61b38c5d8a64611d8f44d6805756c5930ec6d",
+      "after_sha256": "61216c7cc408d616240be0307caeb4de29d9309a0348431da2414a7f5d09e660",
+      "changed": true
+    },
+    {
+      "path": "rust/vendor/zstd-complete/tests/workspaces.rs",
+      "before_sha256": "5f29aa51fe03ec4144298f9bf84a4b7a97c4f3a694c630a9a1c3341122faf409",
+      "after_sha256": "c53236613430a69c14dd129c7fd053ce7debc4687b0831f9996c17504ab46943",
+      "changed": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/compression.rs",
+      "before_sha256": "eeddfe101bec7d536939c36b4adb493bcfa48cb33247405e6831dd96d4311e48",
+      "after_sha256": "f72e8ab94d5f2b0cb6b120a42ff6425fa2f76a7d9cf080583df0264708215df8",
+      "changed": true
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/compression/decode_workspace.rs",
+      "before_sha256": "a8f4bd1123f78042d423c051fff2cb811d8b9d2deb2ec3757855d4a1847326a6",
+      "after_sha256": "41ac3b0b265090a88611ae482236cdb72a78e5e77830c27d1d610b96a94eeaa8",
+      "changed": true
+    }
+  ],
+  "lockfiles_and_toolchain": [
+    {
+      "path": "rust/Cargo.lock",
+      "baseline_sha256": "05c39385e697a0775480fc010e1ba050a93395118753c1bcaed2392701540380",
+      "current_sha256": "05c39385e697a0775480fc010e1ba050a93395118753c1bcaed2392701540380",
+      "matches_baseline": true
+    },
+    {
+      "path": "rust/vendor/zstd-complete/Cargo.lock",
+      "baseline_sha256": "391649361a375354853a817c648f92e6f7c087cd58f0a5eb7ce9af7b62224375",
+      "current_sha256": "391649361a375354853a817c648f92e6f7c087cd58f0a5eb7ce9af7b62224375",
+      "matches_baseline": true
+    },
+    {
+      "path": "rust-toolchain.toml",
+      "baseline_sha256": "c4a68189605799334589c648f0c0fcb1c89ceac990a8ccfe314ea668982a0b83",
+      "current_sha256": "c4a68189605799334589c648f0c0fcb1c89ceac990a8ccfe314ea668982a0b83",
+      "matches_baseline": true
+    }
+  ]
+}

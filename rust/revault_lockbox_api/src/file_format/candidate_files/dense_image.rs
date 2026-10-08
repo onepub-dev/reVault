@@ -9,9 +9,9 @@ use crate::file_format::publication_anchor::{shared, REGION_LEN};
 use crate::page_buffer::ZeroizingBytes;
 pub(super) struct Image<S: Storage> {
     pub storage: S,
-    anchor: Anchor,
-    catalogue: Catalogue,
-    codec: Codec,
+    pub(super) anchor: Anchor,
+    pub(super) catalogue: Catalogue,
+    pub(super) codec: Codec,
 }
 impl<S: Storage> Image<S> {
     pub fn open(
@@ -293,7 +293,7 @@ pub(super) fn salvage_filesystem<S: Storage>(
     salvage_catalogue(storage, &anchor, &catalogue, codec, sink)
 }
 
-fn salvage_catalogue<S: Storage>(
+pub(super) fn salvage_catalogue<S: Storage>(
     storage: &S,
     anchor: &Anchor,
     catalogue: &Catalogue,

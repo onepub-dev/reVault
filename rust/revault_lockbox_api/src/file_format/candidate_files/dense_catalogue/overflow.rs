@@ -1,0 +1,258 @@
+//! Typed filesystem records for the experimental shared tree. File fragments
+//! are separate bounded records; no file descriptor grows with its payload.
+use super::*;
+use crate::file_format::authenticated_index::Entry;
+use crate::file_format::publication_anchor::shared::tree::Tree;
+use std::collections::BTreeMap;
+const FILE_RECORD: u8 = 1;
+const FRAGMENT_RECORD: u8 = 2;
+const PACK_RECORD: u8 = 3;
+const NODE_RECORD: u8 = 4;
+const FORMAT_RECORD: u8 = 5;
+const MAX_NODES: usize = 100_000;
+
+impl Catalogue {
+    pub(in crate::file_format::candidate_files) fn dense_body_if_fits(
+        &self,
+        codec: &Codec,
+        sealed: u64,
+    ) -> Result<Option<ZeroizingBytes>> {
+        if self.files.len() + self.nodes.len() > MAX_MODEL_FILES {
+            return Ok(None);
+        }
+        match self.encode(codec, sealed) {
+            Ok(body) => Ok(Some(body)),
+            Err(Error::SecurityLimitExceeded(_)) => Ok(None),
+            Err(error) => Err(error),
+        }
+    }
+    pub(in crate::file_format::candidate_files) fn set_tree_metadata(
+        &mut self,
+        entries: &[Metadata],
+    ) -> Result<()> {
+        let mut bytes = 0usize;
+        for metadata in entries {
+            bytes = bytes
+                .checked_add(metadata.entry.path.as_str().len())
+                .ok_or(Error::CorruptRecord)?;
+            if metadata.entry.kind != crate::LockboxEntryKind::File {
+                bytes = bytes
+                    .checked_add(
+                        5 + metadata
+                            .target
+                            .as_ref()
+                            .map_or(0, |target| target.as_str().len()),
+                    )
+                    .ok_or(Error::CorruptRecord)?;
+            }
+            if bytes > super::super::MAX_PATH_BYTES {
+                return Err(Error::SecurityLimitExceeded("typed tree path bytes".into()));
+            }
+        }
+        self.set_metadata_bounded(entries, MAX_NODES)
+    }
+    pub(in crate::file_format::candidate_files) fn tree_records(&self) -> Result<Vec<Entry>> {
+        if !self.typed {
+            return Err(Error::InvalidOperation(
+                "typed filesystem metadata required".into(),
+            ));
+        }
+        nodes::validate_bounded(&self.files, &self.nodes, MAX_NODES)?;
+        let mut out = vec![Entry::new(FORMAT_RECORD, b"format", b"RV4FS001")?];
+        for file in &self.files {
+            let mut value = Zeroizing::new(file.permissions.to_le_bytes().to_vec());
+            value.extend_from_slice(&file.info.encode());
+            out.push(Entry::new(FILE_RECORD, &file.path, &value)?);
+            for fragment in &file.fragments {
+                let mut name = file.info.id.to_vec();
+                name.extend_from_slice(&fragment.descriptor.ordinal.to_be_bytes());
+                let mut value = Zeroizing::new(fragment.descriptor.encode().to_vec());
+                value.extend_from_slice(&self.packs[fragment.pack].extent.start.to_le_bytes());
+                value.extend_from_slice(&(fragment.relative as u64).to_le_bytes());
+                value.extend_from_slice(&fragment.digest);
+                out.push(Entry::new(FRAGMENT_RECORD, &name, &value)?);
+            }
+        }
+        for pack in &self.packs {
+            let mut value = pack.extent.len.to_le_bytes().to_vec();
+            value.extend_from_slice(&pack.extent.digest);
+            value.extend_from_slice(&pack.padding_digest);
+            out.push(Entry::new(
+                PACK_RECORD,
+                &pack.extent.start.to_be_bytes(),
+                &value,
+            )?);
+        }
+        for node in &self.nodes {
+            let mut value = Zeroizing::new(vec![if node.target.is_some() { 2 } else { 3 }]);
+            value.extend_from_slice(&node.permissions.to_le_bytes());
+            if let Some(target) = &node.target {
+                value.extend_from_slice(target);
+            }
+            out.push(Entry::new(NODE_RECORD, &node.path, &value)?);
+        }
+        out.sort_by(|a, b| (a.namespace, a.key.as_slice()).cmp(&(b.namespace, b.key.as_slice())));
+        Ok(out)
+    }
+    /// Decode staged records from one authenticated ownership traversal. Neither
+    /// the tree nor the catalogue escapes until both graph and typed validation
+    /// succeed; no partial records become observable on a late failure.
+    pub(in crate::file_format::candidate_files) fn with_tree(
+        codec: &Codec,
+        visit: impl FnOnce(&mut dyn FnMut(Entry) -> Result<()>) -> Result<Tree>,
+    ) -> Result<(Self, Tree)> {
+        let mut files = Vec::new();
+        let mut nodes = Vec::new();
+        let mut packs = Vec::new();
+        let mut fragments = BTreeMap::new();
+        let mut path_bytes = 0usize;
+        let mut format = false;
+        let tree = visit(&mut |entry| {
+            match entry.namespace {
+                FILE_RECORD => {
+                    if entry.value.len() != 76 || files.len() + nodes.len() >= MAX_NODES {
+                        return Err(Error::CorruptRecord);
+                    }
+                    path_bytes = path_bytes
+                        .checked_add(entry.key.len())
+                        .ok_or(Error::CorruptRecord)?;
+                    files.push(File {
+                        path: entry.key.clone(),
+                        permissions: u32::from_le_bytes(entry.value[..4].try_into().unwrap()),
+                        info: FileInfo::decode(&entry.value[4..], codec)?,
+                        fragments: Vec::new(),
+                    });
+                }
+                FRAGMENT_RECORD => {
+                    if entry.key.len() != 24
+                        || entry.value.len() != 112
+                        || fragments.len() >= MAX_FRAGMENTS
+                    {
+                        return Err(Error::CorruptRecord);
+                    }
+                    let descriptor = Descriptor::decode(&entry.value[..64])?;
+                    let id: [u8; 16] = entry.key[..16].try_into().unwrap();
+                    let ordinal = u64::from_be_bytes(entry.key[16..].try_into().unwrap());
+                    if descriptor.object != id || descriptor.ordinal != ordinal {
+                        return Err(Error::CorruptRecord);
+                    }
+                    let start = u64::from_le_bytes(entry.value[64..72].try_into().unwrap());
+                    let relative = usize::try_from(u64::from_le_bytes(
+                        entry.value[72..80].try_into().unwrap(),
+                    ))
+                    .map_err(|_| Error::CorruptRecord)?;
+                    if fragments
+                        .insert(
+                            (id, ordinal),
+                            (
+                                descriptor,
+                                start,
+                                relative,
+                                entry.value[80..].try_into().unwrap(),
+                            ),
+                        )
+                        .is_some()
+                    {
+                        return Err(Error::CorruptRecord);
+                    }
+                }
+                PACK_RECORD => {
+                    if entry.key.len() != 8
+                        || entry.value.len() != 72
+                        || packs.len() >= MAX_FRAGMENTS
+                    {
+                        return Err(Error::CorruptRecord);
+                    }
+                    packs.push(Pack {
+                        extent: Extent {
+                            start: u64::from_be_bytes(entry.key.as_slice().try_into().unwrap()),
+                            len: u64::from_le_bytes(entry.value[..8].try_into().unwrap()),
+                            digest: entry.value[8..40].try_into().unwrap(),
+                        },
+                        padding_digest: entry.value[40..].try_into().unwrap(),
+                        used: 0,
+                    });
+                }
+                NODE_RECORD => {
+                    if entry.value.len() < 5 || files.len() + nodes.len() >= MAX_NODES {
+                        return Err(Error::CorruptRecord);
+                    }
+                    path_bytes = path_bytes
+                        .checked_add(entry.key.len() + entry.value.len())
+                        .ok_or(Error::CorruptRecord)?;
+                    let target = match entry.value[0] {
+                        3 if entry.value.len() == 5 => None,
+                        2 if entry.value.len() > 5
+                            && entry.value.len() <= 5 + crate::constants::MAX_PATH_BYTES =>
+                        {
+                            Some(Zeroizing::new(entry.value[5..].to_vec()))
+                        }
+                        _ => return Err(Error::CorruptRecord),
+                    };
+                    nodes.push(nodes::Node {
+                        path: entry.key.clone(),
+                        permissions: u32::from_le_bytes(entry.value[1..5].try_into().unwrap()),
+                        target,
+                    });
+                }
+                FORMAT_RECORD
+                    if !format
+                        && entry.key.as_slice() == b"format"
+                        && entry.value.as_slice() == b"RV4FS001" =>
+                {
+                    format = true
+                }
+                _ => return Err(Error::CorruptRecord),
+            }
+            if path_bytes > super::super::MAX_PATH_BYTES {
+                return Err(Error::SecurityLimitExceeded("typed tree path bytes".into()));
+            }
+            Ok(())
+        })?;
+        if !format
+            || packs.iter().map(|pack| pack.extent).collect::<Vec<_>>() != tree.graph.payloads()
+        {
+            return Err(Error::CorruptRecord);
+        }
+        let mut ids = BTreeSet::new();
+        for file in &mut files {
+            if !ids.insert(file.info.id) || file.info.count() > MAX_FRAGMENTS as u64 {
+                return Err(Error::CorruptRecord);
+            }
+            for ordinal in 0..file.info.count() {
+                let (descriptor, start, relative, digest) = fragments
+                    .remove(&(file.info.id, ordinal))
+                    .ok_or(Error::CorruptRecord)?;
+                if descriptor.offset != ordinal * u64::from(file.info.unit)
+                    || u64::from(descriptor.logical_len)
+                        != (file.info.len - descriptor.offset).min(u64::from(file.info.unit))
+                {
+                    return Err(Error::CorruptRecord);
+                }
+                let pack = packs
+                    .binary_search_by_key(&start, |pack| pack.extent.start)
+                    .map_err(|_| Error::CorruptRecord)?;
+                file.fragments.push(Fragment {
+                    descriptor,
+                    pack,
+                    relative,
+                    digest,
+                });
+            }
+        }
+        if !fragments.is_empty() {
+            return Err(Error::CorruptRecord);
+        }
+        nodes::validate_bounded(&files, &nodes, MAX_NODES)?;
+        let mut result = Self {
+            legacy: false,
+            typed: true,
+            files,
+            nodes,
+            packs,
+            vacant: Vec::new(),
+        };
+        result.validate_fragments(codec, tree.anchor.sealed_len)?;
+        Ok((result, tree))
+    }
+}

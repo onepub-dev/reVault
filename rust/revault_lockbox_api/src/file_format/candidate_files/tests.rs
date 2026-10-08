@@ -1,4 +1,5 @@
 use super::*;
+mod tree_tests;
 use crate::storage::StorageBackend;
 use crate::{Compression, EncryptionMode, LockboxFormatOptions, SigningMode, SizePadding};
 use std::io::Cursor;
