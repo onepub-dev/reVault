@@ -41,6 +41,8 @@ plus compressed/protected cases. The format suite passes 248 tests (8 ignored)
 and strict Clippy. Source retention, full ownership/content verification and
 empty-destination cleanup remain required; experimental count caps are unchanged.
 These are private adapter results, not public activation or resource gate passes.
+Post-format format/probe/Clippy checks passed. Both preserved native recovery
+failures reproduce under `native-block-layout`; their assertions remain intact.
 
 Next establish secure segmented variable payload storage and authenticated
 membership before broad typed-record/public API integration. Preserve 1 MiB

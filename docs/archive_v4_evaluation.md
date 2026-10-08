@@ -124,6 +124,8 @@ refusals; the full format suite passes 248 tests (8 ignored) plus strict Clippy.
 The streamed 64 MiB raw/protected probe is functional capacity evidence only;
 it does not requalify earlier timing, remove experimental count bounds or pass
 public API/CPU/incremental-memory/ZIP gates.
+Post-format format/probe/Clippy checks passed. Both preserved native recovery
+failures reproduce under `native-block-layout`; their assertions remain intact.
 
 
 The [October 8 owned-byte correction](evidence/decoder-owned-storage-2026-10-08/README.md)

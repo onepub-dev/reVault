@@ -1,0 +1,9 @@
+
+running 1 test
+FRESH_TREE_STREAM mode=7 source_bytes=68419584 output_bytes=68026368 logical_bytes=67108864 fragments=1024 dense_fits=false
+FRESH_TREE_STREAM mode=25 source_bytes=68419584 output_bytes=1572864 logical_bytes=67108864 fragments=1024 dense_fits=true
+FRESH_TREE_STREAM mode=24 source_bytes=68419584 output_bytes=1572864 logical_bytes=67108864 fragments=1024 dense_fits=true
+test file_format::candidate_files::tests::tree_tests::fresh::fresh_tree_export_streams_sixty_four_mib_without_dense_intermediate ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 579 filtered out; finished in 8.81s
+

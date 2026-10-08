@@ -73,8 +73,8 @@ No 64 MiB plaintext Vec is created. Each case has exactly 1,024 fragments.
 | Mode | Source bytes | Tree bytes | Dense catalogue fits |
 | --- | ---: | ---: | --- |
 | Raw plaintext, unsigned, padded | 68,419,584 | 68,026,368 | No |
-| Compressed plaintext, signed, padded | See retained probe log | 1,572,864 | Yes |
-| Compressed protected, signed, padded | See retained probe log | 1,572,864 | Yes |
+| Compressed plaintext, signed, padded | 68,419,584 | 1,572,864 | Yes |
+| Compressed protected, signed, padded | 68,419,584 | 1,572,864 | Yes |
 
 The raw case directly reproduces the earlier capacity shape without its dense
 intermediate. Compressed fragments share fewer physical packs, so their metadata
@@ -100,8 +100,21 @@ dense capacity; the final assertions distinguish these physical pack shapes.
 Failure logs are retained alongside successful logs; none is a production
 decoder/exporter failure or hidden comparative performance trial.
 
-The source manifest records pre-format identities. Formatting and post-format
-affected verification remain separate checkpoint steps. Native recovery,
+The source manifests retain both pre-format and post-format identities. Commit
+`14d1d195` passed the tracked hook (four Rust files formatted), then the full
+release format suite again passed **248 tests, 8 ignored**, the explicit three-mode
+streaming probe passed again (8.81 s functional verification), and strict Clippy
+passed. These are affected post-format checks, not a repeated statistical trial. Native recovery,
 variables/forms and secure segmented values, public APIs, compatibility,
 dependency publication, architecture choice and full resource qualification
 remain outstanding. Earlier timing evidence is not relabeled as this exporter.
+
+
+The two preserved native failures were reproduced independently after this
+checkpoint with `external-source,native-block-layout` in release mode. Truncated
+selected publication still recovers 0 rather than the required 3 intact files
+(`api_tests.rs:3364`). The multiframe writer/recovery test still reports 2 rather
+than 1 incomplete files in signed plaintext/raw/default-padding mode
+(`block_frame_tests.rs:317`). No assertions or owner/membership checks were
+weakened; these remain separate architecture/recovery blockers, not exporter
+regressions. Exact native logs are retained here.
