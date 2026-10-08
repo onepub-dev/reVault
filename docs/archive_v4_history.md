@@ -8,6 +8,13 @@ remain the sole goals authority. No historical prototype result selects a format
 
 ## Implementation checkpoints
 
+### Public form history baseline — 2026-10-09
+
+[Public API evidence](evidence/form-history-2026-10-09/README.md) verifies mixed
+historical captures, explicit secret removal/recreation, accepted FormTypeId
+grammar, same-path file/form and direct file-parent records in all 16 modes.
+Two tests and targeted strict Clippy pass; no production semantics changed.
+
 ### Prepared guarded staging prerequisite — 2026-10-09
 
 [Prepared staging evidence](evidence/prepared-staging-2026-10-09/README.md) connects

@@ -81,9 +81,11 @@ now connects bounded two-pass pages to variable mutation. All 32 fresh aggregate
 probes (16 modes, one/twelve 1 MiB values) reopen and verify under the unchanged
 8 MiB policy; endpoint snapshots are not peak or timing qualification. Variable,
 ready-vector and affected production checks and strict Clippy pass after the
-tracked formatting hook. Next verify
-the public mixed-capture form lifecycle, then implement full-size typed forms and
-references; broader public integration is separate.
+tracked formatting hook. The [public form baseline](evidence/form-history-2026-10-09/README.md)
+passes mixed historical captures and independent form/file namespace states in
+all 16 modes. Next connect full-size typed form snapshots, references and selected
+ownership using that admission contract, then mutation/recovery; broader public
+integration is separate.
 Keep the security policy and failure evidence; no allocator weakening is implied.
 Forms/references and broader public adapters, native selected
 membership/recovery, architecture selection and complete CPU/RSS/aging/size and
