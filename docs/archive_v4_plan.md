@@ -108,6 +108,7 @@ cross-record upgrade history, context-aware reuse and checked revisions. Five
 controls, public history/segment checks, strict Clippy, 2,232 transaction cuts and
 672 interrupted recoveries pass. Exactly 16 fresh nine-value aggregate upgrades
 pass with maximum 4,140 KiB locked-memory endpoint; archive growth stays explicit.
+Post-format affected controls and strict Clippy pass at `b104513a`.
 Next establish definition/revision/resolution and empty-record creation semantics
 and connect them before broader public integration.
 Keep the security policy and failure evidence; no allocator weakening is implied.

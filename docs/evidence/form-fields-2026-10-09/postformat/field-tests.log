@@ -1,0 +1,14 @@
+   Compiling revault_lockbox_api v0.0.41 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api)
+    Finished `release` profile [optimized] target(s) in 1m 02s
+     Running unittests src/lib.rs (target/release/deps/revault_lockbox_api-e3bcc2539127e239)
+
+running 6 tests
+test file_format::candidate_files::tests::tree_tests::forms::field_aggregate::typed_form_field_upgrade_aggregate_probe ... ignored, fixed fresh-process cross-record field upgrade aggregate probe
+test file_format::candidate_files::tests::tree_tests::forms::fields::typed_form_field_checked_text_revision_all_modes ... ok
+test file_format::candidate_files::tests::tree_tests::forms::fields::typed_form_field_label_reference_only_and_kind_validation_all_modes ... ok
+test file_format::candidate_files::tests::tree_tests::forms::fields::typed_form_field_limits_refusals_and_verified_no_change_all_modes ... ok
+test file_format::candidate_files::tests::tree_tests::forms::fields::typed_form_field_move_delete_and_selected_salvage_all_modes ... ok
+test file_format::candidate_files::tests::tree_tests::forms::fields::typed_form_field_upgrade_mixed_history_and_context_all_modes ... ok
+
+test result: ok. 5 passed; 0 failed; 1 ignored; 0 measured; 616 filtered out; finished in 68.06s
+

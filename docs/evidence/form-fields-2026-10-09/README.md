@@ -109,8 +109,10 @@ or strengthen fixtures and bound the test identity scan.
 Tests use pinned Rust 1.88.0, release `external-source` with serial test execution.
 Strict Clippy uses `--features external-source --lib --tests --benches -- -D warnings`.
 The expensive 2,232/672 matrix predates only the added coexistence/aggregate fixtures;
-final affected checks cover the frozen aggregate source. Hook formatting and
-post-format checks remain to be recorded separately.
+final affected checks cover the frozen aggregate source. The tracked hook formatted three new Rust files at `b104513a`. Post-format
+checks pass: five field controls (one probe ignored), three segment tests and
+strict Clippy. Exact logs/source hashes are under `postformat/`. Aggregate,
+recovery and unchanged public-history checks were not rerun.
 
 Next: establish public definition/revision/resolution and empty-record creation
 baseline, then connect those semantics without public activation. Historical
