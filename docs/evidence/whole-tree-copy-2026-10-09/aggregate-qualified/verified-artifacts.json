@@ -1,0 +1,263 @@
+{
+  "verified_modes": 16,
+  "large_logical_bytes_each": 10485760,
+  "scope": "Independent size and digest verification of retained synthetic FileStore images; no timing or physical-disk durability claim.",
+  "artifacts": [
+    {
+      "mode": 0,
+      "role": "source",
+      "path": "/tmp/revault-whole-tree-copy-functional-189934-3746568383224254782/source-0.lbox",
+      "bytes": 13041664,
+      "sha256": "e4f3c03f35c60deb8907e8259de26eeaac5afc427f2478b477aaa4c9bd633144",
+      "length_bound_sha256": "81f4bc6588cd5ea14685e03670c0940df10621a2c9beb8ef17525a0e55d6325b"
+    },
+    {
+      "mode": 0,
+      "role": "destination",
+      "path": "/tmp/revault-whole-tree-copy-functional-189934-3746568383224254782/destination-0.lbox",
+      "bytes": 10813440,
+      "sha256": "80af107b343813a3fe20d06420077516310712e440ef56b686c5a904cc7c11c7",
+      "length_bound_sha256": "4955896686fee2a1f77adb30a058e500cb99b73c33d89e74410ef94a51898e89"
+    },
+    {
+      "mode": 1,
+      "role": "source",
+      "path": "/tmp/revault-whole-tree-copy-functional-189934-3746568383224254782/source-1.lbox",
+      "bytes": 13041664,
+      "sha256": "5464db8540057d52460025fd58e637e619af69280fe53ada035948720df3506b",
+      "length_bound_sha256": "3287fbb315fae0116980cd1a702d1e9042dd811fb12c7e9cf29b2a7333087345"
+    },
+    {
+      "mode": 1,
+      "role": "destination",
+      "path": "/tmp/revault-whole-tree-copy-functional-189934-3746568383224254782/destination-1.lbox",
+      "bytes": 10813440,
+      "sha256": "b506eaa79b04a8baf02c6d8ecb4a826fc9ae45397247e12b7d59d0a86f9f29d1",
+      "length_bound_sha256": "7d0ac5f94e6cebf4c8d51a07e2ae8947dd031d9a0e88c63bbb557994ed4fc89c"
+    },
+    {
+      "mode": 2,
+      "role": "source",
+      "path": "/tmp/revault-whole-tree-copy-functional-189934-3746568383224254782/source-2.lbox",
+      "bytes": 13041664,
+      "sha256": "953b1dcfb7c0245ff2ac37951a5aee953aedde4646874c29424987902a0c8805",
+      "length_bound_sha256": "40e34841cf11e2470bcd712ebd771450eaa1cc5a6a2567af5871a3bbc9e2a8b7"
+    },
+    {
+      "mode": 2,
+      "role": "destination",
+      "path": "/tmp/revault-whole-tree-copy-functional-189934-3746568383224254782/destination-2.lbox",
+      "bytes": 10813440,
+      "sha256": "c0a8c9bb749d941f3cd4d980361f0f78ca0989bc744a00428f7634e272a9692b",
+      "length_bound_sha256": "faaf00ee5ccebfa17b122de3046d83d6f93aa854d28a349937196fd18edc5a5c"
+    },
+    {
+      "mode": 3,
+      "role": "source",
+      "path": "/tmp/revault-whole-tree-copy-functional-189934-3746568383224254782/source-3.lbox",
+      "bytes": 13041664,
+      "sha256": "d06dee408cec4cb8e4a130b809560e01b60ab05ff03bf7a2f90da448304b226f",
+      "length_bound_sha256": "63913d83846266bade958734f301bac42a79e22a6f560e562cff4fb825d6e789"
+    },
+    {
+      "mode": 3,
+      "role": "destination",
+      "path": "/tmp/revault-whole-tree-copy-functional-189934-3746568383224254782/destination-3.lbox",
+      "bytes": 10813440,
+      "sha256": "62ff3b52a76adb45b58f72640c5f8bf289c3dcb5b64a33e636134a6655ea92b0",
+      "length_bound_sha256": "f19493f5b2a9643bbe4eff82706569aa12da7ad501ec0d61433a8a320c1bbf9e"
+    },
+    {
+      "mode": 4,
+      "role": "source",
+      "path": "/tmp/revault-whole-tree-copy-functional-189934-3746568383224254782/source-4.lbox",
+      "bytes": 13041664,
+      "sha256": "9fc34de970620b43f092701a52787612522a3696a6cb7da1233df4a757d5c3eb",
+      "length_bound_sha256": "2e1af02cdb7d59346d73de6f13f8ae38ab0070eb64811f5b504e2bd8b120b085"
+    },
+    {
+      "mode": 4,
+      "role": "destination",
+      "path": "/tmp/revault-whole-tree-copy-functional-189934-3746568383224254782/destination-4.lbox",
+      "bytes": 10813440,
+      "sha256": "c815be84b2ba427e43ab8c5d22af50fbaf7739e16357e0b9a547c8fd23882c87",
+      "length_bound_sha256": "0ad5db3aa6c58a49d72d30b5bb0d1f6c679058b5bfaf02d8e84281da7ab88aa4"
+    },
+    {
+      "mode": 5,
+      "role": "source",
+      "path": "/tmp/revault-whole-tree-copy-functional-189934-3746568383224254782/source-5.lbox",
+      "bytes": 13041664,
+      "sha256": "19ff1233c2c9c6a2568e0a8515cc20c15b5a86d4b8775d246c84153121f4da7e",
+      "length_bound_sha256": "c69501aaee0534ae0c351afcc756c216f5d38d4e0099ef8dab40965f912413b6"
+    },
+    {
+      "mode": 5,
+      "role": "destination",
+      "path": "/tmp/revault-whole-tree-copy-functional-189934-3746568383224254782/destination-5.lbox",
+      "bytes": 10813440,
+      "sha256": "7de1ab3b6937907b91b1aa47241bb2ab1cc016cfd80387143e5747388ad9b868",
+      "length_bound_sha256": "b06fd318279332e47e7a7f0ce69db3a7ec24a57aaed2d08f078a7ebc601cc909"
+    },
+    {
+      "mode": 6,
+      "role": "source",
+      "path": "/tmp/revault-whole-tree-copy-functional-189934-3746568383224254782/source-6.lbox",
+      "bytes": 13041664,
+      "sha256": "4349cecb021fc724fc5c5ed9d77c6567ac7d56dbf136c98bb5fd2aaa824432ac",
+      "length_bound_sha256": "20de6ddce156683b6b1ac3eddc9e26ba83ec610de977a3203ca870a2c51876a4"
+    },
+    {
+      "mode": 6,
+      "role": "destination",
+      "path": "/tmp/revault-whole-tree-copy-functional-189934-3746568383224254782/destination-6.lbox",
+      "bytes": 10813440,
+      "sha256": "3dadcd9f7ddaa3bc9f91872b1e515db418bbd4e19d4e05d434487bd4cca94b93",
+      "length_bound_sha256": "7846abeb71f9b9608f1861858d60163b60333ba6ba43a03250d07399cbb5de76"
+    },
+    {
+      "mode": 7,
+      "role": "source",
+      "path": "/tmp/revault-whole-tree-copy-functional-189934-3746568383224254782/source-7.lbox",
+      "bytes": 13041664,
+      "sha256": "f97713a0609840f53b830b06ff4cc7edf6c49fa6ce5575729bb1e098e96f1187",
+      "length_bound_sha256": "631a350cba7333df7c04540fe4cf33a061b1c3c10367c723054ea262fba0637b"
+    },
+    {
+      "mode": 7,
+      "role": "destination",
+      "path": "/tmp/revault-whole-tree-copy-functional-189934-3746568383224254782/destination-7.lbox",
+      "bytes": 10813440,
+      "sha256": "dca0ab9a8fde9851d9f6805be355177715ee2e2536e0c19db3e82f925a2dea03",
+      "length_bound_sha256": "179e538afba5c32f39e23aaa83607f0e4c6a72bff8273ae83e551a0e470d1db2"
+    },
+    {
+      "mode": 8,
+      "role": "source",
+      "path": "/tmp/revault-whole-tree-copy-functional-189934-3746568383224254782/source-8.lbox",
+      "bytes": 26017792,
+      "sha256": "d4138857e52ded132d0807d0a41d3804c95ac1af1250e298d2a7d4acd776ce6d",
+      "length_bound_sha256": "8f17eb4747d72528cadf2e4068ae916a38b23935674ac2d0a0242858bef461f0"
+    },
+    {
+      "mode": 8,
+      "role": "destination",
+      "path": "/tmp/revault-whole-tree-copy-functional-189934-3746568383224254782/destination-8.lbox",
+      "bytes": 23265280,
+      "sha256": "3ca59b60184d8279bafc3d60fb18176ab6a2b5b57321a47a8c543bc0e532ec58",
+      "length_bound_sha256": "20d71458c782ed65ca28f9625b2806256c8aacaa6aa1f81ed2cbd350727e8ff9"
+    },
+    {
+      "mode": 9,
+      "role": "source",
+      "path": "/tmp/revault-whole-tree-copy-functional-189934-3746568383224254782/source-9.lbox",
+      "bytes": 26017792,
+      "sha256": "adf113d146fcb69d45f5d10b873eaf8f1c583f4b1e83c85c2ecca3a94a25da63",
+      "length_bound_sha256": "e2724662c673e107ec831d5b55ef4e022f9bd045b3bc9e49152ab66973b9240a"
+    },
+    {
+      "mode": 9,
+      "role": "destination",
+      "path": "/tmp/revault-whole-tree-copy-functional-189934-3746568383224254782/destination-9.lbox",
+      "bytes": 23265280,
+      "sha256": "cae871f2a020c30b1c6a3500e9774ca2e862cc4750058852061742f427eaa78e",
+      "length_bound_sha256": "955f91e45adc1d30dd15e962b518c99a6b9bf8b2c24c708b97b94237d2129dd7"
+    },
+    {
+      "mode": 10,
+      "role": "source",
+      "path": "/tmp/revault-whole-tree-copy-functional-189934-3746568383224254782/source-10.lbox",
+      "bytes": 26017792,
+      "sha256": "5c9f1523e338f910e7516c589c90b53082e5c5143652f598fc5f2b8e6eb08680",
+      "length_bound_sha256": "06d1e83e357a73c29dd39fa3736e6ec29141c579ef716aa1de77b231636b1f03"
+    },
+    {
+      "mode": 10,
+      "role": "destination",
+      "path": "/tmp/revault-whole-tree-copy-functional-189934-3746568383224254782/destination-10.lbox",
+      "bytes": 23265280,
+      "sha256": "14604ded3ccc35cc1aa9d4cfe02dcdfdf8535957b9134db94d2557d5c03ade8c",
+      "length_bound_sha256": "d3deed590c507617ab820e93e00e063a41b1e653ed2df851e2099e85cd59c772"
+    },
+    {
+      "mode": 11,
+      "role": "source",
+      "path": "/tmp/revault-whole-tree-copy-functional-189934-3746568383224254782/source-11.lbox",
+      "bytes": 26017792,
+      "sha256": "b7888d126aba2b08fd2b579bf7cb6eb044cebf3f7a316eeeaec0abe9337b213a",
+      "length_bound_sha256": "60bf1c008b3fc8c640055c0b8b78ed75c01cced765baed896906dd1d4071c83c"
+    },
+    {
+      "mode": 11,
+      "role": "destination",
+      "path": "/tmp/revault-whole-tree-copy-functional-189934-3746568383224254782/destination-11.lbox",
+      "bytes": 23265280,
+      "sha256": "99d81a502c2a41c5e872500584d13701cb35652da43d3d1ded44e904a98dae93",
+      "length_bound_sha256": "52a58d4904d30ab47968f70404515f03ba8a1cbbf56965ab50bfd2ff6ef641f5"
+    },
+    {
+      "mode": 12,
+      "role": "source",
+      "path": "/tmp/revault-whole-tree-copy-functional-189934-3746568383224254782/source-12.lbox",
+      "bytes": 26017792,
+      "sha256": "36a2ac6eaf642d736abdd678274cb6915dd617f302f81ae1947c2f6510c230ee",
+      "length_bound_sha256": "a07af615be3eb34855a5598a9b393cb2f35fb4e95324a85bc64ee1efc61e25a0"
+    },
+    {
+      "mode": 12,
+      "role": "destination",
+      "path": "/tmp/revault-whole-tree-copy-functional-189934-3746568383224254782/destination-12.lbox",
+      "bytes": 23265280,
+      "sha256": "603d814d28df7ed0187ab56b913766e8b088e6f9b93d11b5f710540469c6dc5c",
+      "length_bound_sha256": "e677e4f9b06a1dd4ee69e73a88ab35bcc7990d8cb527e063b7a89c93661727ba"
+    },
+    {
+      "mode": 13,
+      "role": "source",
+      "path": "/tmp/revault-whole-tree-copy-functional-189934-3746568383224254782/source-13.lbox",
+      "bytes": 26017792,
+      "sha256": "660e9989d891ce7b98a0191fd1d34242c961c56d26493598d134f1adf3e82f17",
+      "length_bound_sha256": "fca267fb74c4a4a92d91397ddd81f8d090771c6f9bbef975aafc567f3b49f840"
+    },
+    {
+      "mode": 13,
+      "role": "destination",
+      "path": "/tmp/revault-whole-tree-copy-functional-189934-3746568383224254782/destination-13.lbox",
+      "bytes": 23265280,
+      "sha256": "2b17e0aeded4acb9ec97d8f75291d03b37ffe197d820a961ce9c949c1aa93c4e",
+      "length_bound_sha256": "de85693a66144c9400e92c1f7f3150cbacbea555f2a513aa9640085f9d11d19e"
+    },
+    {
+      "mode": 14,
+      "role": "source",
+      "path": "/tmp/revault-whole-tree-copy-functional-189934-3746568383224254782/source-14.lbox",
+      "bytes": 26017792,
+      "sha256": "dccd008bc76dc2c144ce432dba54fa75b193429c5b2686f962a00873c7c3ffb1",
+      "length_bound_sha256": "8aa7e61b90306260a4049695ffdd19e85575d50c8856ae4474f3908a7b7c70e3"
+    },
+    {
+      "mode": 14,
+      "role": "destination",
+      "path": "/tmp/revault-whole-tree-copy-functional-189934-3746568383224254782/destination-14.lbox",
+      "bytes": 23265280,
+      "sha256": "dd89efe904d477cd8e568730100f7399b0455373fc0a6190868100534af734df",
+      "length_bound_sha256": "f4cf23caa6175b5571c20f9aa6991f032ee96db9b4a0c8764cedf9ceb2deb035"
+    },
+    {
+      "mode": 15,
+      "role": "source",
+      "path": "/tmp/revault-whole-tree-copy-functional-189934-3746568383224254782/source-15.lbox",
+      "bytes": 26017792,
+      "sha256": "a9b6a66622ad94aaee70fdc20d75dbdbae290259b90ab67c5f9402815461f8a2",
+      "length_bound_sha256": "fe651999dd8afbeafc3f3cb7ade12fe38562572e5cadf045d72b13432bd1b31d"
+    },
+    {
+      "mode": 15,
+      "role": "destination",
+      "path": "/tmp/revault-whole-tree-copy-functional-189934-3746568383224254782/destination-15.lbox",
+      "bytes": 23265280,
+      "sha256": "0011dae77c3d82560c8c2fef7eb5fc540511df4ded4e7bc46b656427970fbff5",
+      "length_bound_sha256": "7fd75207b8884d2863489540cecc33413e1c0fa5c7f68c123191e5de6261ffa6"
+    }
+  ]
+}

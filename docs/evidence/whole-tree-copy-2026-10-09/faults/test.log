@@ -1,0 +1,18 @@
+   Compiling revault_lockbox_api v0.0.41 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api)
+    Finished `release` profile [optimized] target(s) in 1m 03s
+     Running unittests src/lib.rs (target/release/deps/revault_lockbox_api-e3bcc2539127e239)
+
+running 1 test
+test file_format::candidate_files::tests::tree_tests::forms::compaction::whole_tree_compaction_returned_failures_durably_discard_owned_destination ... WHOLE_TREE_COPY_FAULT_MODE mode=0 successful_mutations=32
+WHOLE_TREE_COPY_FAULT_MODE mode=1 successful_mutations=32
+WHOLE_TREE_COPY_FAULT_MODE mode=2 successful_mutations=32
+WHOLE_TREE_COPY_FAULT_MODE mode=3 successful_mutations=32
+WHOLE_TREE_COPY_FAULT_MODE mode=12 successful_mutations=47
+WHOLE_TREE_COPY_FAULT_MODE mode=13 successful_mutations=47
+WHOLE_TREE_COPY_FAULT_MODE mode=14 successful_mutations=47
+WHOLE_TREE_COPY_FAULT_MODE mode=15 successful_mutations=47
+WHOLE_TREE_COPY_RETURNED_FAILURES cases=1896
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 632 filtered out; finished in 87.65s
+

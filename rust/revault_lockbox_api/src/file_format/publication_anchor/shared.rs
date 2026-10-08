@@ -41,7 +41,7 @@ pub(super) fn read_root(
 }
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
 
 mod catalogue;
 pub(crate) mod ownership;
@@ -60,6 +60,87 @@ pub(crate) fn initialize(
     key: Option<&[u8]>,
     body: &[u8],
     slots: &[crate::key_slot::KeySlot],
+) -> Result<Anchor> {
+    initialize_at(
+        storage,
+        archive,
+        mode,
+        authority,
+        signer,
+        key,
+        body,
+        slots,
+        1,
+        [0; 32],
+        || Ok(()),
+    )
+}
+
+/// Relocate a stable authenticated selected image without resetting its lineage.
+/// The typed caller validates full membership/content and owns destination cleanup.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn initialize_successor(
+    source: &impl Storage,
+    predecessor: &Anchor,
+    storage: &mut impl Storage,
+    authority: &Authority<'_>,
+    signer: Option<&OwnerSigningKeyPair>,
+    key: Option<&[u8]>,
+    body: &[u8],
+) -> Result<Anchor> {
+    predecessor.validate_in(Layout::Shared)?;
+    if !predecessor.keys.absent() {
+        return Err(Error::InvalidOperation(
+            "tree compaction does not translate access roots".into(),
+        ));
+    }
+    let generation = predecessor
+        .generation
+        .checked_add(1)
+        .ok_or_else(|| Error::SecurityLimitExceeded("publication generation exhausted".into()))?;
+    let previous = commitment(predecessor)?;
+    let unchanged = || {
+        let selected = select_in(
+            source,
+            predecessor.archive,
+            predecessor.mode,
+            authority,
+            Layout::Shared,
+        )?;
+        if selected.anchor != *predecessor || selected.commitment != previous {
+            return Err(Error::CorruptRecord);
+        }
+        Ok(())
+    };
+    unchanged()?;
+    initialize_at(
+        storage,
+        predecessor.archive,
+        predecessor.mode,
+        authority,
+        signer,
+        key,
+        body,
+        &[],
+        generation,
+        previous,
+        unchanged,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn initialize_at(
+    storage: &mut impl Storage,
+    archive: LockboxId,
+    mode: FormatMode,
+    authority: &Authority<'_>,
+    signer: Option<&OwnerSigningKeyPair>,
+    key: Option<&[u8]>,
+    body: &[u8],
+    slots: &[crate::key_slot::KeySlot],
+    generation: u64,
+    previous: [u8; 32],
+    unchanged: impl Fn() -> Result<()>,
 ) -> Result<Anchor> {
     if storage.len()? < REGION_LEN as u64
         || storage
@@ -85,7 +166,7 @@ pub(crate) fn initialize(
     let public = if slots.is_empty() {
         None
     } else {
-        Some(super::bootstrap::directory(archive, 1, slots)?)
+        Some(super::bootstrap::directory(archive, generation, slots)?)
     };
     let index = RootRef {
         primary: PRIVATE_START,
@@ -101,11 +182,11 @@ pub(crate) fn initialize(
     });
     let anchor = Anchor {
         archive,
-        generation: 1,
+        generation,
         mode,
         sealed_len: storage.len()?,
         object_root: index.digest,
-        previous: [0; 32],
+        previous,
         index,
         allocation: RootRef::default(),
         keys,
@@ -137,6 +218,7 @@ pub(crate) fn initialize(
         storage, archive, mode, key, base,
     )?;
     storage.sync()?;
+    unchanged()?;
     storage.write_at(0, &encoded)?;
     storage.sync()?;
     storage.write_at(FAILURE_REGION, &encoded)?;

@@ -1,0 +1,7 @@
+ M revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms.rs
+ M revault_lockbox_api/src/file_format/candidate_files/tree_image.rs
+ M revault_lockbox_api/src/file_format/publication_anchor/shared.rs
+ M revault_lockbox_api/src/file_format/publication_anchor/shared/tree.rs
+ M revault_lockbox_api/src/keys/crypto.rs
+?? revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/compaction.rs
+?? revault_lockbox_api/src/file_format/candidate_files/tree_image/compact.rs

@@ -284,3 +284,35 @@ fn shared_control_image_bootstraps_and_decrypts_after_either_region_is_lost() {
         }
     }
 }
+
+/// Synthetic counter-exhaustion fixture: authenticate the original first, then
+/// rebuild both signed/checksummed anchors and their idle preparation commitment.
+/// No public operation can reach u64::MAX within a bounded test.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn rewrite_fixture_generation(
+    storage: &mut impl Storage,
+    archive: LockboxId,
+    mode: FormatMode,
+    authority: &Authority<'_>,
+    signer: Option<&OwnerSigningKeyPair>,
+    key: Option<&[u8]>,
+    generation: u64,
+) -> Result<Anchor> {
+    let (mut anchor, _) = open_private(storage, archive, mode, authority, key)?;
+    anchor.previous = commitment(&anchor)?;
+    anchor.generation = generation;
+    let encoded = encode_in(&anchor, authority, signer, Layout::Shared)?;
+    let base = commitment(&anchor)?;
+    let stub =
+        crate::file_format::preparation_journal::compact::initial_stub(archive, mode, key, base)?;
+    for bank in [0, FAILURE_REGION] {
+        storage.write_at(bank + 8192, &stub)?;
+        storage.write_at(bank, &encoded)?;
+    }
+    storage.sync()?;
+    let (reopened, _) = open_private(storage, archive, mode, authority, key)?;
+    if reopened != anchor {
+        return Err(Error::CorruptRecord);
+    }
+    Ok(anchor)
+}

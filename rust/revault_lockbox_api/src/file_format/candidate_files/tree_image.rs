@@ -7,6 +7,8 @@ use super::dense_image::Image;
 use super::*;
 use crate::file_format::publication_anchor::{shared, FAILURE_REGION, REGION_LEN};
 use shared::tree::{self, Tree};
+mod compact;
+pub(super) use compact::compact;
 mod fresh;
 pub(super) use fresh::from_candidate;
 pub(super) mod forms;

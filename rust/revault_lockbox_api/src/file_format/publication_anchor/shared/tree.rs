@@ -9,7 +9,7 @@ use ownership::{Graph, Span, Vacant, VacantKind};
 const MAGIC: &[u8; 8] = b"RV4TRE01";
 const OWNERSHIP: u8 = 0;
 const MAX_PAGES: usize = 4096;
-const MAX_OWNERSHIP_RECORDS: usize = 4096;
+pub(crate) const MAX_OWNERSHIP_RECORDS: usize = 4096;
 
 pub(crate) struct Tree {
     pub anchor: Anchor,

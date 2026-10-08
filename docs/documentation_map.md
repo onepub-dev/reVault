@@ -92,3 +92,8 @@ The [definition adapter evidence](evidence/form-definitions-2026-10-09/README.md
 selected-snapshot revision/resolution/empty-record semantics, normal metadata
 capacity controls, stale-base refusal and modeled recovery. It retains the invalid
 empty-name fixture failure and does not establish public activation or format gates.
+
+The [whole-tree copy evidence](evidence/whole-tree-copy-2026-10-09/README.md) owns
+extent relocation, successor publication, all-family history, guarded readback and
+owned-destination cleanup controls. It retains functional FileStore artifact hashes
+and development failures; path installation and full-format acceptance are separate.

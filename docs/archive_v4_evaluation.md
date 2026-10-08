@@ -447,6 +447,13 @@ metadata round-trips in all modes; caller/getter ordinary allocation costs are
 explicit. The corrected empty-name test failure is retained. No CPU, incremental
 peak, process-death, region-loss or complete-format gate is closed.
 
+The [whole selected-tree copy](evidence/whole-tree-copy-2026-10-09/README.md) passes
+1,896 modeled returned-failure cleanup cases and all16-mode 10MiB logical FileStore
+fixtures. Unpadded source/destination sizes are 13,041,664/10,813,440 bytes; padded
+26,017,792/23,265,280. Source lineage/history and exact extent readback are retained.
+The tmpfs functional fixture supplies no CPU, incremental peak, physical-disk
+durability, process-death or full-format gate; installation remains separate.
+
 ## Evidence index
 
 Historical conditions and raw data remain authoritative for their own revisions.

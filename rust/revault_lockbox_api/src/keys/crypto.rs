@@ -111,11 +111,18 @@ pub(crate) fn derive_page_content_key(key: &[u8]) -> [u8; 32] {
 }
 
 pub(crate) fn strong_checksum(data: &[u8]) -> [u8; 32] {
-    let mut hasher = Sha256::new();
-    hasher.update(b"lockbox-v1-public-checksum/sha256");
-    hasher.update((data.len() as u64).to_le_bytes());
+    let mut hasher = strong_checksum_hasher(data.len() as u64);
     hasher.update(data);
     hasher.finalize().into()
+}
+
+/// Incremental checksum state with the same domain and total-length binding as
+/// `strong_checksum`. The caller must hash exactly `length` bytes before finalizing.
+pub(crate) fn strong_checksum_hasher(length: u64) -> Sha256 {
+    let mut hasher = Sha256::new();
+    hasher.update(b"lockbox-v1-public-checksum/sha256");
+    hasher.update(length.to_le_bytes());
+    hasher
 }
 
 pub(crate) fn metadata_auth_tag(key: &[u8], message: &[u8]) -> [u8; 24] {

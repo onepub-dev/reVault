@@ -1,0 +1,1 @@
+Initial hash capture command used an incorrect crypto path and did not invoke Cargo; actual crypto source is src/keys/crypto.rs.
