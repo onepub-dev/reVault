@@ -1,0 +1,420 @@
+//! Atomic field capture updates, including whole-type secret upgrades.
+use super::*;
+use crate::file_format::allocation_map::Extent;
+use crate::FormFieldKind;
+use std::collections::BTreeSet;
+
+enum Input<'a> {
+    Stored(Layout),
+    Caller(Source<'a>),
+}
+struct Work<'a> {
+    input: Input<'a>,
+    destination: Layout,
+}
+struct Changes<'a> {
+    work: Vec<Work<'a>>,
+    retired: Vec<Extent>,
+}
+impl<'a> Changes<'a> {
+    fn replace(
+        &mut self,
+        prior: Option<&Layout>,
+        input: Input<'a>,
+        context: [u8; 32],
+        sensitivity: VariableSensitivity,
+        mode: FormatMode,
+    ) -> Result<Layout> {
+        let (id, revision) = if let Some(old) = prior {
+            self.retired.extend_from_slice(&old.extents);
+            (
+                old.id,
+                old.revision.checked_add(1).ok_or_else(|| {
+                    Error::SecurityLimitExceeded("form text revision exhausted".into())
+                })?,
+            )
+        } else {
+            let mut id = [0; 16];
+            getrandom::fill(&mut id).map_err(|e| Error::Io(e.to_string()))?;
+            (id, 1)
+        };
+        let destination = Layout {
+            id,
+            context,
+            revision,
+            sensitivity,
+            mode,
+            length: 0,
+            extents: Vec::new(),
+        };
+        self.work.push(Work {
+            input,
+            destination: destination.clone(),
+        });
+        Ok(destination)
+    }
+}
+fn equal_stored(
+    storage: &impl Storage,
+    archive: LockboxId,
+    key: &[u8; 32],
+    sealed: u64,
+    a: &Layout,
+    b: &Layout,
+) -> Result<bool> {
+    if a.length != b.length {
+        return Ok(false);
+    }
+    let a = a.read(storage, archive, key, sealed)?;
+    let b = b.read(storage, archive, key, sealed)?;
+    Ok(a.with_bytes(|a| b.with_bytes(|b| a == b))??)
+}
+fn equal_caller(
+    storage: &impl Storage,
+    archive: LockboxId,
+    key: &[u8; 32],
+    sealed: u64,
+    a: &Layout,
+    b: Source<'_>,
+) -> Result<bool> {
+    if a.length != b.with_bytes(|b| b.len())? {
+        return Ok(false);
+    }
+    let a = a.read(storage, archive, key, sealed)?;
+    a.with_bytes(|a| b.with_bytes(|b| a == b))?
+}
+#[allow(clippy::too_many_arguments)]
+pub(in crate::file_format::candidate_files) fn set_field(
+    storage: &mut impl Storage,
+    archive: LockboxId,
+    mode: FormatMode,
+    authority: &Authority<'_>,
+    signer: Option<&OwnerSigningKeyPair>,
+    key: Option<&[u8]>,
+    path: &LockboxPath,
+    field_id: &str,
+    value: &FormValue,
+) -> Result<bool> {
+    let path = path.file_path()?;
+    let field_id = FormFieldDefinition::validated_id(field_id)?;
+    let mut opened = TreeImage::open(
+        allocation::compaction::View(&*storage),
+        archive,
+        mode,
+        authority,
+        key,
+    )?;
+    shared::prepare(&opened.image.anchor, authority, signer)?;
+    opened.image.verify_all()?;
+    let target = opened
+        .image
+        .catalogue
+        .forms
+        .records
+        .iter()
+        .position(|r| r.path == path)
+        .ok_or_else(|| Error::NotFound(format!("form record {path}")))?;
+    let type_id = opened.image.catalogue.forms.records[target].type_id.clone();
+    let latest = opened
+        .image
+        .catalogue
+        .forms
+        .definitions
+        .iter()
+        .filter(|d| d.type_id == type_id)
+        .max_by_key(|d| d.revision)
+        .ok_or(Error::CorruptRecord)?
+        .clone();
+    let current = latest
+        .fields
+        .iter()
+        .find(|f| f.id == field_id)
+        .ok_or_else(|| Error::InvalidInput(format!("unknown form field: {field_id}")))?;
+    let upgrade = value.is_secret() && !current.kind.is_secret();
+    let kind = if upgrade {
+        FormFieldKind::Secret
+    } else {
+        current.kind
+    };
+    kind.validate_value(value)?;
+    let revision = if upgrade {
+        latest.revision.checked_add(1).ok_or_else(|| {
+            Error::SecurityLimitExceeded("form definition revision exhausted".into())
+        })?
+    } else {
+        latest.revision
+    };
+    let caller = match value {
+        FormValue::Normal(s) => Source::Text(s),
+        FormValue::Secret(s) => Source::Secret(s),
+    };
+    let sensitivity = if kind.is_secret() {
+        VariableSensitivity::Secret
+    } else {
+        VariableSensitivity::Normal
+    };
+    let content_key = opened.image.value_key.ok_or(Error::CorruptRecord)?;
+    let sealed = opened.image.anchor.sealed_len;
+    let base = shared::commitment(&opened.image.anchor)?;
+    let mut catalogue = opened.image.catalogue;
+    let mut changes = Changes {
+        work: Vec::new(),
+        retired: Vec::new(),
+    };
+    let normal = VariableSensitivity::Normal;
+    if upgrade {
+        catalogue.forms.admit(
+            latest
+                .fields
+                .len()
+                .checked_add(1)
+                .ok_or(Error::CorruptRecord)?,
+        )?;
+        let parent = forms::definition_key(&type_id, revision);
+        let mut definition = latest.clone();
+        definition.revision = revision;
+        definition.name = changes.replace(
+            None,
+            Input::Stored(latest.name.clone()),
+            form_segments::context(&parent, 1, None),
+            normal,
+            mode,
+        )?;
+        definition.description = changes.replace(
+            None,
+            Input::Stored(latest.description.clone()),
+            form_segments::context(&parent, 2, None),
+            normal,
+            mode,
+        )?;
+        for f in &mut definition.fields {
+            if f.id == field_id {
+                f.kind = kind;
+            }
+            f.label = changes.replace(
+                None,
+                Input::Stored(f.label.clone()),
+                form_segments::context(&parent, 3, Some((&f.id, f.kind))),
+                normal,
+                mode,
+            )?;
+        }
+        catalogue.forms.definitions.push(definition);
+    }
+    let mut changed = upgrade;
+    for (index, r) in catalogue.forms.records.iter_mut().enumerate() {
+        if index != target && !(upgrade && r.type_id == type_id) {
+            continue;
+        }
+        changed |= r.revision != revision || r.alias != latest.alias;
+        r.revision = revision;
+        r.alias = latest.alias.clone();
+        let position = r.fields.iter().position(|f| f.id == field_id);
+        if position.is_none() && index != target {
+            continue;
+        }
+        let prior = position.map(|i| &r.fields[i]);
+        let label_context = form_segments::context(&r.id, 5, Some((&field_id, kind)));
+        let value_context = form_segments::context(&r.id, 6, Some((&field_id, kind)));
+        let label = if let Some(p) =
+            prior.filter(|p| p.label.context == label_context && p.label.sensitivity == normal)
+        {
+            if equal_stored(
+                &*storage,
+                archive,
+                &content_key,
+                sealed,
+                &p.label,
+                &current.label,
+            )? {
+                p.label.clone()
+            } else {
+                changes.replace(
+                    Some(&p.label),
+                    Input::Stored(current.label.clone()),
+                    label_context,
+                    normal,
+                    mode,
+                )?
+            }
+        } else {
+            changes.replace(
+                prior.map(|p| &p.label),
+                Input::Stored(current.label.clone()),
+                label_context,
+                normal,
+                mode,
+            )?
+        };
+        let payload = if index == target {
+            if let Some(p) = prior
+                .filter(|p| p.value.context == value_context && p.value.sensitivity == sensitivity)
+            {
+                if equal_caller(&*storage, archive, &content_key, sealed, &p.value, caller)? {
+                    p.value.clone()
+                } else {
+                    changes.replace(
+                        Some(&p.value),
+                        Input::Caller(caller),
+                        value_context,
+                        sensitivity,
+                        mode,
+                    )?
+                }
+            } else {
+                changes.replace(
+                    prior.map(|p| &p.value),
+                    Input::Caller(caller),
+                    value_context,
+                    sensitivity,
+                    mode,
+                )?
+            }
+        } else {
+            let p = prior.ok_or(Error::CorruptRecord)?;
+            if p.value.context == value_context && p.value.sensitivity == sensitivity {
+                p.value.clone()
+            } else {
+                changes.replace(
+                    Some(&p.value),
+                    Input::Stored(p.value.clone()),
+                    value_context,
+                    sensitivity,
+                    mode,
+                )?
+            }
+        };
+        changed |= prior.is_none_or(|p| p.kind != kind || p.label != label || p.value != payload);
+        let capture = Capture {
+            id: field_id.clone(),
+            kind,
+            label,
+            value: payload,
+        };
+        if let Some(i) = position {
+            r.fields[i] = capture;
+        } else {
+            r.fields.push(capture);
+        }
+    }
+    if !changed {
+        return Ok(false);
+    }
+    catalogue.forms.admit(0)?;
+    let mut sources = Vec::new();
+    let mut seen = BTreeSet::new();
+    for w in &changes.work {
+        if let Input::Stored(l) = &w.input {
+            for e in &l.extents {
+                if seen.insert(e.start) {
+                    sources.push(*e);
+                }
+            }
+        }
+    }
+    let source =
+        tree::SelectedSource::open(&*storage, archive, mode, authority, key, base, sources)?;
+    let mut pages = PreparedSecurePages::new(4096)?;
+    let mut callbacks: Vec<(usize, tree::StoragePayloadCallback<'_>)> = Vec::new();
+    let mut ids = Vec::new();
+    let mut prepared = BTreeMap::new();
+    for work in changes.work {
+        let d = work.destination;
+        let (layout, p, callback): (
+            Layout,
+            PreparedSecurePages,
+            tree::StoragePayloadCallback<'_>,
+        ) = match work.input {
+            Input::Stored(old) => {
+                let p = form_segments::prepare_stored(
+                    &old,
+                    source.view(&*storage),
+                    archive,
+                    mode,
+                    &content_key,
+                    d.id,
+                    d.context,
+                    d.revision,
+                    d.sensitivity,
+                )?;
+                (p.layout, p.pages, p.payload)
+            }
+            Input::Caller(input) => {
+                let mut p = form_segments::prepare_source(
+                    input,
+                    archive,
+                    mode,
+                    &content_key,
+                    d.id,
+                    d.context,
+                    d.revision,
+                    d.sensitivity,
+                )?;
+                (p.layout, p.pages, Box::new(move |n, _| (p.payload)(n)))
+            }
+        };
+        let count = p.len();
+        pages.append(p)?;
+        callbacks.push((count, callback));
+        ids.push((d.id, count));
+        if prepared.insert(d.id, layout).is_some() {
+            return Err(Error::CorruptRecord);
+        }
+    }
+    for l in catalogue.forms.texts_mut() {
+        if let Some(new) = prepared.remove(&l.id) {
+            *l = new;
+        }
+    }
+    if !prepared.is_empty() {
+        return Err(Error::CorruptRecord);
+    }
+    let records = catalogue.tree_records()?;
+    changes.retired.sort_by_key(|e| e.start);
+    if changes.retired.windows(2).any(|p| p[0].start == p[1].start) {
+        return Err(Error::CorruptRecord);
+    }
+    let plan = tree::PreparedStoragePayloadPlan {
+        source,
+        retired: changes.retired,
+        pages,
+        payload: Box::new(move |mut n, view| {
+            for (count, callback) in &mut callbacks {
+                if n < *count {
+                    return callback(n, view);
+                }
+                n -= *count;
+            }
+            Err(Error::CorruptRecord)
+        }),
+        rebind: Box::new(move |extents| {
+            let mut at = 0usize;
+            let mut places = BTreeMap::new();
+            for (id, count) in ids {
+                let end = at.checked_add(count).ok_or(Error::CorruptRecord)?;
+                if places
+                    .insert(id, extents.get(at..end).ok_or(Error::CorruptRecord)?)
+                    .is_some()
+                {
+                    return Err(Error::CorruptRecord);
+                }
+                at = end;
+            }
+            if at != extents.len() {
+                return Err(Error::CorruptRecord);
+            }
+            for l in catalogue.forms.texts_mut() {
+                if let Some(e) = places.remove(&l.id) {
+                    l.rebind(e)?;
+                }
+            }
+            if !places.is_empty() {
+                return Err(Error::CorruptRecord);
+            }
+            catalogue.tree_records()
+        }),
+    };
+    tree::rewrite_prepared_storage_payload_records(
+        storage, archive, mode, authority, signer, key, records, plan,
+    )
+}

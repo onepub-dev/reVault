@@ -486,3 +486,6 @@ pub(in crate::file_format::candidate_files) use lifecycle::{
 
 mod moves;
 pub(in crate::file_format::candidate_files) use moves::move_records;
+
+mod fields;
+pub(in crate::file_format::candidate_files) use fields::set_field;

@@ -1,0 +1,53 @@
+//! Fixed Linux functional probe; source setup is outside mutation endpoint scope.
+use super::*;
+use super::super::variables::Guarded;
+use tree_image::forms::{set_field,salvage_forms,SalvageEvent,SalvageReport};
+fn memory()->serde_json::Value {let s=std::fs::read_to_string("/proc/self/status").unwrap();let n=|name:&str|s.lines().find_map(|l|l.strip_prefix(name)).unwrap().split_whitespace().next().unwrap().parse::<u64>().unwrap();serde_json::json!({"vm_lck_kib":n("VmLck:"),"vm_rss_kib":n("VmRSS:"),"vm_hwm_kib":n("VmHWM:")})}
+#[derive(Debug)]
+struct NoClone<S>(Guarded<S>);
+impl<S> Clone for NoClone<S>{fn clone(&self)->Self{panic!("field upgrade cloned underlying storage")}}
+impl<S:Storage> Storage for NoClone<S>{
+ fn len(&self)->Result<u64>{self.0.len()}
+ fn read_at(&self,at:u64,len:usize)->Result<Vec<u8>>{self.0.read_at(at,len)}
+ fn read_at_into(&self,at:u64,out:&mut[u8])->Result<()>{self.0.read_at_into(at,out)}
+ fn append(&mut self,b:&[u8])->Result<u64>{self.0.append(b)}
+ fn write_at(&mut self,at:u64,b:&[u8])->Result<()>{self.0.write_at(at,b)}
+ fn truncate(&mut self,len:u64)->Result<()>{self.0.truncate(len)}
+ fn sync(&self)->Result<()>{self.0.sync()}
+}
+#[test]
+#[ignore="fixed fresh-process cross-record field upgrade aggregate probe"]
+fn typed_form_field_upgrade_aggregate_probe(){
+ let bits:usize=std::env::var("REVAULT_FORM_MODE").unwrap().parse().unwrap();assert!(bits<16);
+ let path=std::path::PathBuf::from(std::env::var_os("REVAULT_FORM_IMAGE").unwrap());assert!(path.is_absolute()&&!path.exists());
+ let mode=mode(bits&1!=0,bits&2!=0,bits&4!=0,bits&8!=0);let owner=OwnerSigningKeyPair::generate().unwrap();let public=owner.public_key();let authority=authority(mode,&public);let signer=mode.signed().then_some(&owner);
+ let before_setup=memory();{let seed=super::super::mutation::seed(mode,&authority,&owner);std::fs::write(&path,seed.read_all().unwrap()).unwrap();}
+ let type_id=FormTypeId::new("------------------------------------").unwrap();let size=1048576;
+ let mut writer=Guarded::new(StorageBackend::file_for_write(&path).unwrap(),Vec::new());
+ {let def=FormDefinition{type_id:type_id.clone(),alias:"upgrade".into(),revision:1,name:"Aggregate upgrade".into(),description:"Nine independent values".into(),fields:vec![FormFieldDefinition{id:"value".into(),label:"Current label".into(),kind:FormFieldKind::Notes,required:false}]};
+ import_definition(&mut writer,archive(),mode,&authority,signer,key(mode),&def).unwrap();
+ for n in 0..9 {let record=FormRecord{path:LockboxPath::new(format!("/records/{n}")).unwrap(),name:format!("Record {n}"),type_id:type_id.clone(),definition_alias:"upgrade".into(),definition_revision:1,values:vec![FormFieldValue{field_id:"value".into(),captured_label:"Old label".into(),kind:FormFieldKind::Notes,value:FormValue::normal(std::iter::repeat_n((b'a'+n) as char,size).collect::<String>())}]};import_captured_record(&mut writer,archive(),mode,&authority,signer,key(mode),&record).unwrap();}}
+ let archive_before=writer.len().unwrap();let ranges=writer.spans.borrow().clone();drop(writer);let after_setup=memory();
+ let mut writer=NoClone(Guarded::new(StorageBackend::file_for_write(&path).unwrap(),ranges));
+ let (old,old_def)={let opened=TreeImage::open(crate::file_format::allocation_map::compaction::View(&writer),archive(),mode,&authority,key(mode)).unwrap();(opened.image.catalogue.forms.records.iter().flat_map(|r|r.fields.iter().flat_map(|f|f.label.extents.iter().chain(&f.value.extents))).copied().collect::<Vec<_>>(),{let d=&opened.image.catalogue.forms.definitions[0];std::iter::once(&d.name).chain(std::iter::once(&d.description)).chain(d.fields.iter().map(|f|&f.label)).cloned().collect::<Vec<_>>()})};
+ let value=FormValue::secret(SecretString::try_from_slice(&vec![b'z';size]).unwrap());let after_caller=memory();
+ assert!(set_field(&mut writer,archive(),mode,&authority,signer,key(mode),&LockboxPath::new("/records/0").unwrap(),"value",&value).unwrap());let after_upgrade=memory();let archive_after=writer.len().unwrap();
+ for extent in old {if extent.start<writer.len().unwrap(){writer.read_at_secure(extent.start,extent.len.min(writer.len().unwrap()-extent.start) as usize).unwrap().with_bytes(|b|assert!(b.iter().all(|b|*b==0))).unwrap();}}
+ let ranges=writer.0.spans.borrow().clone();drop(writer);drop(value);
+ let mut opened=TreeImage::open(NoClone(Guarded::new(StorageBackend::file(&path).unwrap(),ranges)),archive(),mode,&authority,key(mode)).unwrap();opened.image.verify_all().unwrap();
+ {let d=opened.image.catalogue.forms.definitions.iter().find(|d|d.revision==1).unwrap();assert_eq!(std::iter::once(&d.name).chain(std::iter::once(&d.description)).chain(d.fields.iter().map(|f|&f.label)).cloned().collect::<Vec<_>>(),old_def);}
+ for revision in [1,2] {let d=opened.get_form_definition(&type_id,revision).unwrap().unwrap();assert_eq!(d.name,"Aggregate upgrade");assert_eq!(d.description,"Nine independent values");assert_eq!(d.alias,"upgrade");assert_eq!(d.fields[0].kind,if revision==1{FormFieldKind::Notes}else{FormFieldKind::Secret});assert_eq!(d.fields[0].label,"Current label");}
+ for n in 0..9 {let p=LockboxPath::new(format!("/records/{n}")).unwrap();let r=opened.image.catalogue.forms.records.iter().find(|r|r.path==p).unwrap();assert_eq!(r.revision,2);assert_eq!(r.alias,"upgrade");
+ opened.with_form_field_value(&p,"value",|v|match v{FormValue::Secret(s)=>s.with_str(|s|{assert_eq!(s.len(),size);assert!(s.bytes().all(|b|b==if n==0{b'z'}else{b'a'+n}));}).unwrap(),_=>panic!("value not upgraded")}).unwrap().unwrap();}
+ let texts=opened.image.catalogue.forms.texts();let logical_bytes:usize=texts.iter().map(|t|t.length).sum();let stored_payload_bytes:u64=texts.iter().flat_map(|t|&t.extents).map(|e|e.len).sum();assert!(logical_bytes>8*size&&stored_payload_bytes>8*size as u64);let after_read=memory();
+ let mut definitions=0;let mut records=0;let mut captures=0;let mut record_ends=0;let mut current=None;let mut current_definition=None;let mut seen_records=std::collections::BTreeSet::new();let mut seen_revisions=std::collections::BTreeSet::new();
+ let report=salvage_forms(&opened.image.storage,archive(),mode,&authority,key(mode),|event|{match event{
+ SalvageEvent::DefinitionStart{type_id:actual,revision,fields,..}=>{assert_eq!(actual,type_id);assert_eq!(fields,1);assert!([1,2].contains(&revision));assert!(seen_revisions.insert(revision));assert!(current_definition.replace((revision,0usize)).is_none());definitions+=1;},
+ SalvageEvent::DefinitionField(f)=>{assert_eq!(f.id,"value");assert_eq!(f.label,"Current label");current_definition.as_mut().unwrap().1+=1;},
+ SalvageEvent::DefinitionEnd{type_id:actual,revision}=>{assert_eq!(actual,type_id);assert_eq!(current_definition.take(),Some((revision,1)));},
+ SalvageEvent::RecordStart{path,id,name,type_id:actual,definition_revision,definition_alias,fields}=>{assert_eq!(actual,type_id);assert_eq!(definition_revision,2);assert_eq!(definition_alias,"upgrade");assert_eq!(fields,1);let n=path.as_str().rsplit('/').next().unwrap().parse::<u8>().unwrap();assert!(n<9);assert_eq!(name,format!("Record {n}"));assert!(seen_records.insert(path.clone()));assert!(current.replace((n,id,path,0usize)).is_none());records+=1;},
+ SalvageEvent::CapturedField(f)=>{assert_eq!(f.field_id,"value");assert_eq!(f.captured_label,"Current label");assert_eq!(f.kind,FormFieldKind::Secret);let state=current.as_mut().unwrap();assert_eq!(state.3,0);state.3+=1;let n=state.0;match f.value{FormValue::Secret(s)=>s.with_str(|s|{assert_eq!(s.len(),size);assert!(s.bytes().all(|b|b==if n==0{b'z'}else{b'a'+n}));})?,_=>panic!("stream downgraded")};captures+=1;},
+ SalvageEvent::RecordEnd{path,id}=>{let (_,expected_id,expected_path,count)=current.take().unwrap();assert_eq!(count,1);assert_eq!((id,path),(expected_id,expected_path));record_ends+=1;},}Ok(())}).unwrap();assert_eq!(report,SalvageReport::default());assert_eq!((definitions,records,captures,record_ends),(2,9,9,9));assert_eq!(seen_records.len(),9);assert_eq!(seen_revisions.into_iter().collect::<Vec<_>>(),vec![1,2]);let after_salvage=memory();
+ for metric in [&before_setup,&after_setup,&after_caller,&after_upgrade,&after_read,&after_salvage]{assert!(metric["vm_lck_kib"].as_u64().unwrap()<=8192);}
+ println!("FORM_FIELD_AGGREGATE {}",serde_json::json!({"mode":bits,"logical_bytes":logical_bytes,"stored_payload_bytes":stored_payload_bytes,"archive_before":archive_before,"archive_bytes":archive_after,"before_setup":before_setup,"after_setup":after_setup,"after_caller":after_caller,"after_upgrade":after_upgrade,"after_read":after_read,"after_salvage":after_salvage}));
+}

@@ -83,3 +83,7 @@ that all historical documentation has already been reconciled.
 The [selected-source evidence](evidence/selected-source-2026-10-09/README.md) retains
 authenticated stored-source preparation, final frozen aggregate outcomes and
 modeled failure controls; its component scope does not replace the format gates.
+
+The [field mutation evidence](evidence/form-fields-2026-10-09/README.md) owns the
+test-only cross-record setter semantics, fixed aggregate protocol/results and
+modeled recovery evidence; public activation and format selection remain separate.

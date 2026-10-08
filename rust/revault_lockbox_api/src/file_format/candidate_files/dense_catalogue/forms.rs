@@ -19,6 +19,7 @@ pub(in crate::file_format::candidate_files) struct Forms {
     pub definitions: Vec<Definition>,
     pub records: Vec<Record>,
 }
+#[derive(Clone)]
 pub(in crate::file_format::candidate_files) struct Definition {
     pub type_id: FormTypeId,
     pub revision: u32,
@@ -27,6 +28,7 @@ pub(in crate::file_format::candidate_files) struct Definition {
     pub description: Layout,
     pub fields: Vec<Field>,
 }
+#[derive(Clone)]
 pub(in crate::file_format::candidate_files) struct Field {
     pub id: String,
     pub kind: FormFieldKind,

@@ -8,6 +8,16 @@ remain the sole goals authority. No historical prototype result selects a format
 
 ## Implementation checkpoints
 
+### Atomic form field mutation — 2026-10-09
+
+[Field evidence](evidence/form-fields-2026-10-09/README.md) connects borrowed
+caller/selected-source preparation to cross-record secret upgrades, retaining
+historical definitions, mixed captures and checked text identities. Five controls,
+three segment and three public history tests, strict Clippy, 2,232 transaction cuts
+and 672 interrupted recoveries pass. Exactly 16 fresh aggregate attempts pass,
+with archive growth and the prior whole-image test-helper allocation failure retained.
+
+
 ### Selected-source preparation — 2026-10-09
 
 [Selected-source evidence](evidence/selected-source-2026-10-09/README.md) connects

@@ -103,8 +103,13 @@ now prepares guarded replacements from authenticated old extents without cloning
 the archive: 3,288 transaction cuts, 1,020 interrupted recoveries and exactly 16
 fresh aggregate probes pass. Maximum locked-memory endpoint is 4,076 KiB under
 the unchanged 8 MiB policy; archive growth remains explicit. Post-format affected
-checks and strict Clippy pass at `8cec9211`. Next connect atomic
-field/revision mutation to this bounded path, then broader public integration.
+checks and strict Clippy pass at `8cec9211`. The [atomic field adapter](evidence/form-fields-2026-10-09/README.md) now preserves
+cross-record upgrade history, context-aware reuse and checked revisions. Five
+controls, public history/segment checks, strict Clippy, 2,232 transaction cuts and
+672 interrupted recoveries pass. Exactly 16 fresh nine-value aggregate upgrades
+pass with maximum 4,140 KiB locked-memory endpoint; archive growth stays explicit.
+Next establish definition/revision/resolution and empty-record creation semantics
+and connect them before broader public integration.
 Keep the security policy and failure evidence; no allocator weakening is implied.
 Forms/references and broader public adapters, native selected
 membership/recovery, architecture selection and complete CPU/RSS/aging/size and

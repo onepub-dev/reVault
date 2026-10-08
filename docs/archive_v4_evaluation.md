@@ -434,6 +434,12 @@ passes 3,288 modeled transaction cuts, 1,020 interrupted recoveries and 16 fresh
 endpoint. Archive sizes increase to 28,311,552/58,916,864 bytes; no performance,
 concurrency, aging or complete-format gate is closed.
 
+The [test-only atomic field adapter](evidence/form-fields-2026-10-09/README.md)
+passes 2,232 returned-failure cuts, 672 interrupted recoveries and exactly 16
+fresh 9,437,479-byte cross-record upgrade probes. Maximum locked-memory endpoint
+is 4,140 KiB under 8,192 KiB; archives grow to 20,381,696/42,795,008 bytes. No
+CPU, incremental peak, concurrency, aging or complete-format gate is closed.
+
 ## Evidence index
 
 Historical conditions and raw data remain authoritative for their own revisions.

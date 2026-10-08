@@ -247,3 +247,8 @@ fn typed_form_snapshots_large_metadata_history_and_retention_all_modes() {
 mod moves;
 
 mod selected_source;
+
+mod fields;
+
+#[cfg(target_os = "linux")]
+mod field_aggregate;
