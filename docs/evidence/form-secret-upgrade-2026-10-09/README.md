@@ -31,7 +31,7 @@ cargo clippy -p revault_lockbox_api --features external-source --test form_captu
 ```
 
 Source hashes/logs are in checks/. The exact pre-format source snapshot uses
-.rs.txt so the formatting hook cannot alter frozen evidence. Post-format checks
-will be recorded separately. Later typed mutation must preserve these cross-record
+.rs.txt so the formatting hook cannot alter frozen evidence. Post-format all3 integration tests and targeted strict Clippy pass at
+`7cee4820`; exact logs and source identities are in postformat/. Later typed mutation must preserve these cross-record
 semantics atomically with bounded selected-source staging; it is not implemented
 by this baseline.
