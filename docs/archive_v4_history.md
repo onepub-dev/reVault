@@ -8,6 +8,14 @@ remain the sole goals authority. No historical prototype result selects a format
 
 ## Implementation checkpoints
 
+### Public cross-record form upgrade baseline — 2026-10-09
+
+[Public upgrade evidence](evidence/form-secret-upgrade-2026-10-09/README.md) confirms
+all same-type records advance references during normal-to-secret upgrade, including
+absent fields; normal values convert, historical secret bytes survive with current
+labels and unrelated types remain unchanged. Three public form-history tests and
+targeted strict Clippy pass. This is baseline evidence, not typed field mutation.
+
 ### Atomic form moves checkpoint — 2026-10-09
 
 [Selected move evidence](evidence/form-moves-2026-10-09/README.md) adds test-only
