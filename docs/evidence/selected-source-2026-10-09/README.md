@@ -120,7 +120,9 @@ Earlier passing iterations remain under `initial-rerun/` and `controls/`.
 Commands use pinned Rust 1.88.0, release `external-source` library tests with
 `--test-threads=1 --nocapture`; strict Clippy uses `--features external-source
 --lib --tests --benches -- -D warnings`. Exact commands are in the logs/manifest.
-Formatting has not yet run; the tracked hook and affected post-format verification
-will be recorded separately. Existing 4,096-entry and preparation limits remain
+The tracked hook formatted six staged Rust files at `8cec9211`. Post-format
+selected-source controls pass (4 passed, 1 ignored), form segments pass (3),
+prepared-staging failure control passes (1), and strict Clippy passes. Exact
+logs/source hashes are under `postformat/`; the aggregate batch was not rerun. Existing 4,096-entry and preparation limits remain
 experimental caps. Public field mutation, architecture selection and complete
 format/resource/recovery qualification remain outstanding.

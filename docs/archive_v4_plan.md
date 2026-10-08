@@ -102,7 +102,8 @@ now passes all modes, including historical secret and absent-field records. The 
 now prepares guarded replacements from authenticated old extents without cloning
 the archive: 3,288 transaction cuts, 1,020 interrupted recoveries and exactly 16
 fresh aggregate probes pass. Maximum locked-memory endpoint is 4,076 KiB under
-the unchanged 8 MiB policy; archive growth remains explicit. Next connect atomic
+the unchanged 8 MiB policy; archive growth remains explicit. Post-format affected
+checks and strict Clippy pass at `8cec9211`. Next connect atomic
 field/revision mutation to this bounded path, then broader public integration.
 Keep the security policy and failure evidence; no allocator weakening is implied.
 Forms/references and broader public adapters, native selected
