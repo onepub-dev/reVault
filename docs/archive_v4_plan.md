@@ -111,8 +111,13 @@ pass with maximum 4,140 KiB locked-memory endpoint; archive growth stays explici
 Post-format affected controls and strict Clippy pass at `b104513a`.
 The [public definition/resolution baseline](evidence/form-definitions-public-2026-10-09/README.md)
 now passes all modes, including type-ID/alias precedence and empty required-field
-records. Next connect definition revision/resolution and empty-record creation over
-one selected snapshot before broader public integration.
+records. The [test-only definition adapter](evidence/form-definitions-2026-10-09/README.md)
+now connects revision/resolution and empty-record creation over one selected
+snapshot. Five controls, four public history tests and strict Clippy pass, along
+with 3,168 transaction cuts and 1,164 interrupted recoveries. Eleven MiB of normal
+metadata passes all modes with explicit caller/getter costs. Next design whole-tree
+source-preserving compaction for files, variables and forms, retaining publication
+lineage and refusing unsupported access roots before any writes.
 Keep the security policy and failure evidence; no allocator weakening is implied.
 Forms/references and broader public adapters, native selected
 membership/recovery, architecture selection and complete CPU/RSS/aging/size and

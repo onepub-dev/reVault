@@ -440,6 +440,13 @@ fresh 9,437,479-byte cross-record upgrade probes. Maximum locked-memory endpoint
 is 4,140 KiB under 8,192 KiB; archives grow to 20,381,696/42,795,008 bytes. No
 CPU, incremental peak, concurrency, aging or complete-format gate is closed.
 
+The [test-only definition adapter](evidence/form-definitions-2026-10-09/README.md)
+passes five controls, four public-history tests, strict Clippy, 3,168 modeled
+transaction cuts and 1,164 interrupted recoveries. Eleven MiB of normal definition
+metadata round-trips in all modes; caller/getter ordinary allocation costs are
+explicit. The corrected empty-name test failure is retained. No CPU, incremental
+peak, process-death, region-loss or complete-format gate is closed.
+
 ## Evidence index
 
 Historical conditions and raw data remain authoritative for their own revisions.

@@ -252,3 +252,5 @@ mod fields;
 
 #[cfg(target_os = "linux")]
 mod field_aggregate;
+
+mod definitions;

@@ -87,3 +87,8 @@ modeled failure controls; its component scope does not replace the format gates.
 The [field mutation evidence](evidence/form-fields-2026-10-09/README.md) owns the
 test-only cross-record setter semantics, fixed aggregate protocol/results and
 modeled recovery evidence; public activation and format selection remain separate.
+
+The [definition adapter evidence](evidence/form-definitions-2026-10-09/README.md) owns
+selected-snapshot revision/resolution/empty-record semantics, normal metadata
+capacity controls, stale-base refusal and modeled recovery. It retains the invalid
+empty-name fixture failure and does not establish public activation or format gates.

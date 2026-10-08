@@ -161,21 +161,66 @@ pub(in crate::file_format::candidate_files) fn import_definition(
             "conflicting form definition revision".into(),
         ));
     }
-    opened.image.catalogue.forms.admit(
+    stage_definition(
+        storage,
+        archive,
+        mode,
+        authority,
+        signer,
+        key,
+        opened.image.anchor.clone(),
+        opened.image.catalogue,
+        DefinitionParts::from(definition),
+    )
+}
+
+#[derive(Clone, Copy)]
+struct DefinitionParts<'a> {
+    pub type_id: &'a FormTypeId,
+    pub revision: u32,
+    pub alias: &'a str,
+    pub name: &'a str,
+    pub description: &'a str,
+    pub fields: &'a [FormFieldDefinition],
+}
+impl<'a> From<&'a FormDefinition> for DefinitionParts<'a> {
+    fn from(d: &'a FormDefinition) -> Self {
+        Self {
+            type_id: &d.type_id,
+            revision: d.revision,
+            alias: &d.alias,
+            name: &d.name,
+            description: &d.description,
+            fields: &d.fields,
+        }
+    }
+}
+#[allow(clippy::too_many_arguments)]
+fn stage_definition(
+    storage: &mut impl Storage,
+    archive: LockboxId,
+    mode: FormatMode,
+    authority: &Authority<'_>,
+    signer: Option<&OwnerSigningKeyPair>,
+    key: Option<&[u8]>,
+    anchor: Anchor,
+    mut catalogue: Catalogue,
+    definition: DefinitionParts<'_>,
+) -> Result<bool> {
+    // Callers validate borrowed parts before entering this selected-state helper.
+    catalogue.forms.admit(
         definition
             .fields
             .len()
             .checked_add(1)
             .ok_or(Error::CorruptRecord)?,
     )?;
-    let anchor = opened.image.anchor.clone();
-    let mut catalogue = opened.image.catalogue;
     let value_key = super::super::dense_image::value_key(mode, key)?;
     let mut batch = Batch::new()?;
-    let parent = forms::definition_key(&definition.type_id, definition.revision);
+    let parent = forms::definition_key(definition.type_id, definition.revision);
     let normal = VariableSensitivity::Normal;
     let name = batch.add(
-        Source::Text(&definition.name),
+        Source::Text(definition.name),
         archive,
         mode,
         &value_key,
@@ -183,7 +228,7 @@ pub(in crate::file_format::candidate_files) fn import_definition(
         normal,
     )?;
     let description = batch.add(
-        Source::Text(&definition.description),
+        Source::Text(definition.description),
         archive,
         mode,
         &value_key,
@@ -191,7 +236,7 @@ pub(in crate::file_format::candidate_files) fn import_definition(
         normal,
     )?;
     let mut fields = Vec::new();
-    for f in &definition.fields {
+    for f in definition.fields {
         let label = batch.add(
             Source::Text(&f.label),
             archive,
@@ -210,7 +255,7 @@ pub(in crate::file_format::candidate_files) fn import_definition(
     catalogue.forms.definitions.push(Definition {
         type_id: definition.type_id.clone(),
         revision: definition.revision,
-        alias: definition.alias.clone(),
+        alias: definition.alias.to_owned(),
         name,
         description,
         fields,
@@ -397,6 +442,9 @@ fn install(
     )
 }
 fn validate_definition(definition: &FormDefinition) -> Result<()> {
+    validate_definition_parts(DefinitionParts::from(definition))
+}
+fn validate_definition_parts(definition: DefinitionParts<'_>) -> Result<()> {
     if definition.revision == 0 {
         return Err(Error::CorruptRecord);
     }
@@ -412,17 +460,17 @@ fn validate_definition(definition: &FormDefinition) -> Result<()> {
             "form definition requires at least one field".into(),
         ));
     }
-    if FormDefinition::validated_alias(&definition.alias)? != definition.alias {
+    if FormDefinition::validated_alias(definition.alias)? != definition.alias {
         return Err(Error::CorruptRecord);
     }
-    if FormDefinition::validated_name(&definition.name)? != definition.name {
+    if FormDefinition::validated_name(definition.name)? != definition.name {
         return Err(Error::CorruptRecord);
     }
-    if FormDefinition::validated_description(&definition.description)? != definition.description {
+    if FormDefinition::validated_description(definition.description)? != definition.description {
         return Err(Error::CorruptRecord);
     }
     let mut seen = std::collections::BTreeSet::new();
-    for field in &definition.fields {
+    for field in definition.fields {
         if FormFieldDefinition::validated_id(&field.id)? != field.id
             || FormFieldDefinition::validated_label(&field.label)? != field.label
         {
@@ -489,3 +537,8 @@ pub(in crate::file_format::candidate_files) use moves::move_records;
 
 mod fields;
 pub(in crate::file_format::candidate_files) use fields::set_field;
+
+mod definitions;
+pub(in crate::file_format::candidate_files) use definitions::{
+    create_record, mutate_definition, AssignedDefinition, DefinitionTarget,
+};
