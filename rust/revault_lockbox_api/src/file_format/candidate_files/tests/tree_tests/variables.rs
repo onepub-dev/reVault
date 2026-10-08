@@ -953,3 +953,6 @@ fn check_erasure(
         }
     }
 }
+
+#[cfg(target_os = "linux")]
+mod resource;

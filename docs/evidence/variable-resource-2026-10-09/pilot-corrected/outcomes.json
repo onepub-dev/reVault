@@ -1,0 +1,332 @@
+{
+  "binary": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/release/deps/revault_lockbox_api-5338344f5af7f73d",
+  "memlock_kib": 8192,
+  "requested_modes": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+  ],
+  "attempted_modes": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+  ],
+  "verified_modes": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+  ],
+  "outcomes": [
+    {
+      "mode": 0,
+      "producer_exit": 0,
+      "producer_seconds": 0.7680335170007311,
+      "producer_log": "/tmp/revault-variable-resource-2026-10-09/pilot-corrected/mode-00-producer.log",
+      "image": {
+        "bytes": 2949120,
+        "sha256": "1d5905c5c283502cf7c7c9d3198747eed5b5f13112df4e7c3fb9ca21ec1bb32d"
+      },
+      "public": {
+        "bytes": 2000,
+        "sha256": "d7f1eaf86755311a628e0975614f90f0c9833d9f5fff1d26e67b312e2ca6af31"
+      },
+      "verify_exit": 0,
+      "verify_log": "/tmp/revault-variable-resource-2026-10-09/pilot-corrected/mode-00-verify.log",
+      "verify_output": null
+    },
+    {
+      "mode": 1,
+      "producer_exit": 0,
+      "producer_seconds": 0.7721900420001475,
+      "producer_log": "/tmp/revault-variable-resource-2026-10-09/pilot-corrected/mode-01-producer.log",
+      "image": {
+        "bytes": 2949120,
+        "sha256": "ff4b14ea7ec016507746cf8c191936f5ad5d73661c9d571714809837f8722073"
+      },
+      "public": {
+        "bytes": 2000,
+        "sha256": "4ed271e2ede920e0700b84aedff5f61634e56efb7556fe6769c8db5fef1a3e95"
+      },
+      "verify_exit": 0,
+      "verify_log": "/tmp/revault-variable-resource-2026-10-09/pilot-corrected/mode-01-verify.log",
+      "verify_output": null
+    },
+    {
+      "mode": 2,
+      "producer_exit": 0,
+      "producer_seconds": 1.0503433030025917,
+      "producer_log": "/tmp/revault-variable-resource-2026-10-09/pilot-corrected/mode-02-producer.log",
+      "image": {
+        "bytes": 2949120,
+        "sha256": "bf2e1b3aabe72f9c8a140764fcdb0e6e3cc2c55299a36498efb7c200fe9d51cf"
+      },
+      "public": {
+        "bytes": 2000,
+        "sha256": "16f1931411204fa272fb064f6cf747e19095e2c9ffa4823521865b1b6f733e9a"
+      },
+      "verify_exit": 0,
+      "verify_log": "/tmp/revault-variable-resource-2026-10-09/pilot-corrected/mode-02-verify.log",
+      "verify_output": null
+    },
+    {
+      "mode": 3,
+      "producer_exit": 0,
+      "producer_seconds": 0.8444344449999335,
+      "producer_log": "/tmp/revault-variable-resource-2026-10-09/pilot-corrected/mode-03-producer.log",
+      "image": {
+        "bytes": 2949120,
+        "sha256": "a6f2bf679b93bcb04adb5b72ed12f72028f0665efbfba3fecc2c6fbd0769cf18"
+      },
+      "public": {
+        "bytes": 2000,
+        "sha256": "84882c52ab3a39378f1f5bb43f49ad5cd178556b9a409e76fd407c10ff8dad0a"
+      },
+      "verify_exit": 0,
+      "verify_log": "/tmp/revault-variable-resource-2026-10-09/pilot-corrected/mode-03-verify.log",
+      "verify_output": null
+    },
+    {
+      "mode": 4,
+      "producer_exit": 0,
+      "producer_seconds": 0.7479665920000116,
+      "producer_log": "/tmp/revault-variable-resource-2026-10-09/pilot-corrected/mode-04-producer.log",
+      "image": {
+        "bytes": 2949120,
+        "sha256": "69141231fe9ab30ed3d20fac0c4cc79d311ef3cfb905423d76a9eee07fba2162"
+      },
+      "public": {
+        "bytes": 2000,
+        "sha256": "7be1510dc55e32f24cb4c4890c54c9072ba27b9ba10a79f081a6b28a0236492b"
+      },
+      "verify_exit": 0,
+      "verify_log": "/tmp/revault-variable-resource-2026-10-09/pilot-corrected/mode-04-verify.log",
+      "verify_output": null
+    },
+    {
+      "mode": 5,
+      "producer_exit": 0,
+      "producer_seconds": 0.7913769350016082,
+      "producer_log": "/tmp/revault-variable-resource-2026-10-09/pilot-corrected/mode-05-producer.log",
+      "image": {
+        "bytes": 2949120,
+        "sha256": "5cbb03390e4c755f2af8ca1f8fb606b3d23ef8c050737977b07027ce131c3453"
+      },
+      "public": {
+        "bytes": 2000,
+        "sha256": "d40036dcb7f06c8f37eca133a4e1374abfde205e6a7223f15a98f1cbae52ab6e"
+      },
+      "verify_exit": 0,
+      "verify_log": "/tmp/revault-variable-resource-2026-10-09/pilot-corrected/mode-05-verify.log",
+      "verify_output": null
+    },
+    {
+      "mode": 6,
+      "producer_exit": 0,
+      "producer_seconds": 1.0183234110008925,
+      "producer_log": "/tmp/revault-variable-resource-2026-10-09/pilot-corrected/mode-06-producer.log",
+      "image": {
+        "bytes": 2949120,
+        "sha256": "081ba603a7f9bc4c3bbc64998c86937d0685c55473554f7d1d12098111f3061f"
+      },
+      "public": {
+        "bytes": 2000,
+        "sha256": "3e42fab72e20f94098c592147da240f5400af56eced523213371149b0335fc4e"
+      },
+      "verify_exit": 0,
+      "verify_log": "/tmp/revault-variable-resource-2026-10-09/pilot-corrected/mode-06-verify.log",
+      "verify_output": null
+    },
+    {
+      "mode": 7,
+      "producer_exit": 0,
+      "producer_seconds": 0.8377868380011932,
+      "producer_log": "/tmp/revault-variable-resource-2026-10-09/pilot-corrected/mode-07-producer.log",
+      "image": {
+        "bytes": 2949120,
+        "sha256": "1b06d01666c85686cd4115e9a2ae90e260fbed41d8df942f630b89c49e263c22"
+      },
+      "public": {
+        "bytes": 2000,
+        "sha256": "95abb883cc41fd6af81399d99977543f7756098349ef94f081743ef37dbd1f14"
+      },
+      "verify_exit": 0,
+      "verify_log": "/tmp/revault-variable-resource-2026-10-09/pilot-corrected/mode-07-verify.log",
+      "verify_output": null
+    },
+    {
+      "mode": 8,
+      "producer_exit": 0,
+      "producer_seconds": 0.7816792970006645,
+      "producer_log": "/tmp/revault-variable-resource-2026-10-09/pilot-corrected/mode-08-producer.log",
+      "image": {
+        "bytes": 4915200,
+        "sha256": "63b93bf328a2abe6e877fcbb41576d52be2cf4d435c1d0a1ab34321706e9166a"
+      },
+      "public": {
+        "bytes": 2000,
+        "sha256": "3fc1a1e3edb6954c3d122ed4ed2667eec7473f13330322b171da48f572dc8511"
+      },
+      "verify_exit": 0,
+      "verify_log": "/tmp/revault-variable-resource-2026-10-09/pilot-corrected/mode-08-verify.log",
+      "verify_output": null
+    },
+    {
+      "mode": 9,
+      "producer_exit": 0,
+      "producer_seconds": 0.8254994950002583,
+      "producer_log": "/tmp/revault-variable-resource-2026-10-09/pilot-corrected/mode-09-producer.log",
+      "image": {
+        "bytes": 4915200,
+        "sha256": "4e06ab573081699a046f301f62d81692b5e4d504a5ba24f99d11af1033f0a9ea"
+      },
+      "public": {
+        "bytes": 2000,
+        "sha256": "c212b0f8301a309295cde54933b6560e3fda2e198e949ccfe33be9cb1e201c08"
+      },
+      "verify_exit": 0,
+      "verify_log": "/tmp/revault-variable-resource-2026-10-09/pilot-corrected/mode-09-verify.log",
+      "verify_output": null
+    },
+    {
+      "mode": 10,
+      "producer_exit": 0,
+      "producer_seconds": 1.0851426019980863,
+      "producer_log": "/tmp/revault-variable-resource-2026-10-09/pilot-corrected/mode-10-producer.log",
+      "image": {
+        "bytes": 4915200,
+        "sha256": "5588fa5153407df8143a34f26bd2acbffc4194935885df5d0568e0dee635674e"
+      },
+      "public": {
+        "bytes": 2000,
+        "sha256": "2dec8d39ed5b62400b6354358e1016e64002370ab264bc6b9534885b893fe3c8"
+      },
+      "verify_exit": 0,
+      "verify_log": "/tmp/revault-variable-resource-2026-10-09/pilot-corrected/mode-10-verify.log",
+      "verify_output": null
+    },
+    {
+      "mode": 11,
+      "producer_exit": 0,
+      "producer_seconds": 0.8794472879999375,
+      "producer_log": "/tmp/revault-variable-resource-2026-10-09/pilot-corrected/mode-11-producer.log",
+      "image": {
+        "bytes": 4915200,
+        "sha256": "99751ab43fce803a6b77dcdd3b1395ac3de309c0ad1ca2f4686a9caabe3d4e39"
+      },
+      "public": {
+        "bytes": 2000,
+        "sha256": "d29f1dec2a4fb7c386a96c90075e6d0ce8629f00789e1f0f5924e4ba12db5a1c"
+      },
+      "verify_exit": 0,
+      "verify_log": "/tmp/revault-variable-resource-2026-10-09/pilot-corrected/mode-11-verify.log",
+      "verify_output": null
+    },
+    {
+      "mode": 12,
+      "producer_exit": 0,
+      "producer_seconds": 0.7819038399975398,
+      "producer_log": "/tmp/revault-variable-resource-2026-10-09/pilot-corrected/mode-12-producer.log",
+      "image": {
+        "bytes": 4915200,
+        "sha256": "807b0e0f6dfb4fc36edea283b34cf341754a82903af9a35d5452a1fa630980f4"
+      },
+      "public": {
+        "bytes": 2000,
+        "sha256": "5bde6270fe6277ddfcd903d4efb2bad6ba1f6a9cc65d75a7301bbe74af83d5d4"
+      },
+      "verify_exit": 0,
+      "verify_log": "/tmp/revault-variable-resource-2026-10-09/pilot-corrected/mode-12-verify.log",
+      "verify_output": null
+    },
+    {
+      "mode": 13,
+      "producer_exit": 0,
+      "producer_seconds": 0.8158125170011772,
+      "producer_log": "/tmp/revault-variable-resource-2026-10-09/pilot-corrected/mode-13-producer.log",
+      "image": {
+        "bytes": 4915200,
+        "sha256": "1e01a89a7ed3de45bf1e69a3aada6e5e72ccec6d9f93f8ed49f14095bad189ec"
+      },
+      "public": {
+        "bytes": 2000,
+        "sha256": "38bb12960b0e2756cc2097d2bd44da3636918b991361d61a74dfd132298fcaed"
+      },
+      "verify_exit": 0,
+      "verify_log": "/tmp/revault-variable-resource-2026-10-09/pilot-corrected/mode-13-verify.log",
+      "verify_output": null
+    },
+    {
+      "mode": 14,
+      "producer_exit": 0,
+      "producer_seconds": 1.1064495329992496,
+      "producer_log": "/tmp/revault-variable-resource-2026-10-09/pilot-corrected/mode-14-producer.log",
+      "image": {
+        "bytes": 4915200,
+        "sha256": "dd7fdb212f49d3b46c5182e58676a93139d92cae4a96e1cdbb7c8e18a2c9cf39"
+      },
+      "public": {
+        "bytes": 2000,
+        "sha256": "25a5fae78cb9f6d624af085e0fe52783d25a123cf8d24a6de0265a5d857a4922"
+      },
+      "verify_exit": 0,
+      "verify_log": "/tmp/revault-variable-resource-2026-10-09/pilot-corrected/mode-14-verify.log",
+      "verify_output": null
+    },
+    {
+      "mode": 15,
+      "producer_exit": 0,
+      "producer_seconds": 0.867119754999294,
+      "producer_log": "/tmp/revault-variable-resource-2026-10-09/pilot-corrected/mode-15-producer.log",
+      "image": {
+        "bytes": 4915200,
+        "sha256": "67e26d4d13e09e9f26d2e68c6383bc6770d510853a4357498566f328f5672df1"
+      },
+      "public": {
+        "bytes": 2000,
+        "sha256": "1aaa79d636457eeb453c715196fed3ccd14dcc956e8d3194f035e99bc41f7655"
+      },
+      "verify_exit": 0,
+      "verify_log": "/tmp/revault-variable-resource-2026-10-09/pilot-corrected/mode-15-verify.log",
+      "verify_output": null
+    }
+  ]
+}
