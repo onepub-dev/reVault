@@ -1283,16 +1283,16 @@ fn form_command(verbose: bool) -> Command {
                 .about("Set one form field value.")
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox secrets.lbox form set /work/github username alice\n  printf '%s' \"$TOKEN\" | lockbox secrets.lbox form set --secret --stdin /work/github token",
+                    "Examples:\n  lockbox secrets.lbox form set /work/github@username alice\n  printf '%s' \"$TOKEN\" | lockbox secrets.lbox form set --secret --stdin /work/github@token",
                     "Context:\n  Form set updates one field. Applying --secret to a field currently defined as non-secret creates a new secret definition revision and upgrades existing values for that field across records of the same form type. Secret fields cannot be downgraded in place.",
                 ))
                 .arg(
                     Arg::new("args")
-                        .value_names(["PATH", "FIELD", "VALUE"])
-                        .num_args(2..=3)
+                        .value_names(["PATH@FIELD", "VALUE"])
+                        .num_args(1..=2)
                         .required(true)
-                        .add(ArgValueCompleter::new(completion::archive_value_candidates))
-                        .help("Form record path, field id, and optional value."),
+                        .add(ArgValueCompleter::new(completion::form_field_candidates))
+                        .help("Form selector /path@field and optional value."),
                 )
                 .arg(
                     Arg::new("secret")
@@ -1348,16 +1348,16 @@ fn form_command(verbose: bool) -> Command {
                 .about("Print one form field value.")
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox secrets.lbox form get /work/github username\n  lockbox secrets.lbox form get --secret /work/github password\n  lockbox secrets.lbox form get --secret --output password.txt /work/github password",
+                    "Examples:\n  lockbox secrets.lbox form get /work/github@username\n  lockbox secrets.lbox form get --secret /work/github@password\n  lockbox secrets.lbox form get --secret --output password.txt /work/github@password",
                     "Context:\n  Form get reads one field from a form record. Secret fields require --secret so accidental terminal output is an explicit user choice. Use --output when the exact bytes should go to a file.",
                 ))
                 .arg(
                     Arg::new("args")
-                        .value_names(["PATH", "FIELD"])
-                        .num_args(2)
+                        .value_name("PATH@FIELD")
+                        .num_args(1)
                         .required(true)
-                        .add(ArgValueCompleter::new(completion::archive_value_candidates))
-                        .help("Form record path and field id."),
+                        .add(ArgValueCompleter::new(completion::form_field_candidates))
+                        .help("Form selector /path@field."),
                 )
                 .arg(
                     Arg::new("secret")
@@ -1891,6 +1891,16 @@ fn vault_command(verbose: bool) -> Command {
         .subcommand(
             Command::new("lockbox")
                 .about("Manage lockboxes remembered by the vault.")
+                .subcommand(Command::new("alias")
+                    .about("Manage stable lockbox aliases selected with a@NAME.")
+                    .subcommand_required(true)
+                    .subcommand(Command::new("set")
+                        .about("Set or replace an alias and remember its target path.")
+                        .arg(required("name", "Alias name: ASCII letters, digits, underscore or hyphen."))
+                        .arg(required("lockbox", "Existing lockbox path or a@alias.").add(ArgValueCompleter::new(completion::lockbox_path_candidates))))
+                    .subcommand(Command::new("list").about("List aliases and stable target identities.").arg(output_format_arg()))
+                    .subcommand(Command::new("remove").about("Remove an alias without deleting its lockbox.")
+                        .arg(required("name", "Alias name.").add(ArgValueCompleter::new(completion::alias_name_candidates)))))
                 .disable_help_subcommand(true)
                 .after_help(verbose_help(
                     verbose,
@@ -2225,7 +2235,7 @@ fn dynamic_completion_arg(arg: Arg, name: &str) -> Arg {
     }
 }
 
-fn completion_command() -> Command {
+pub(crate) fn completion_command() -> Command {
     Command::new("completion")
         .about("Generate, install, or remove dynamic shell completion.")
         .disable_help_subcommand(true)
@@ -2233,7 +2243,7 @@ fn completion_command() -> Command {
         .arg_required_else_help(true)
         .subcommands([
             Command::new("generate")
-                .about("Write a completion registration script to stdout or a file.")
+                .about("Write completion for lockbox, lbx, lbxv and lbxx to stdout or a file.")
                 .arg(completion_shell_arg())
                 .arg(
                     Arg::new("output")
@@ -2244,17 +2254,17 @@ fn completion_command() -> Command {
                         .help("Write the script to this file."),
                 ),
             Command::new("install")
-                .about("Install completion in a standard per-user completion directory.")
+                .about("Install completion for lockbox, lbx, lbxv and lbxx together.")
                 .arg(completion_shell_arg())
                 .arg(
                     Arg::new("path")
                         .long("path")
                         .value_name("FILE")
                         .value_hint(ValueHint::AnyPath)
-                        .help("Override the standard per-user installation path."),
+                        .help("Write all four registrations to this file instead of standard per-user paths."),
                 ),
             Command::new("uninstall")
-                .about("Remove a completion installed by revault.")
+                .about("Remove installed completion for lockbox, lbx, lbxv and lbxx together.")
                 .arg(completion_shell_arg())
                 .arg(
                     Arg::new("path")

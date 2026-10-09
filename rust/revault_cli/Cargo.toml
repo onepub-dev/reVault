@@ -1,6 +1,6 @@
 [package]
 name = "revault_cli"
-version = "0.0.18"
+version = "0.5.0-dev.1"
 edition = "2021"
 rust-version = "1.88"
 authors = ["OnePub IP Pty Ltd <support@onepub.dev>"]
@@ -46,6 +46,16 @@ name = "lbx"
 path = "src/bin/lbx.rs"
 # `lbx` is an alias of `lockbox` and includes the same command modules. The
 # lockbox harness owns their unit tests; CLI integration still exercises lbx.
+test = false
+
+[[bin]]
+name = "lbxv"
+path = "src/bin/lbxv.rs"
+test = false
+
+[[bin]]
+name = "lbxx"
+path = "src/bin/lbxx.rs"
 test = false
 
 [features]

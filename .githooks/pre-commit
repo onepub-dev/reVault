@@ -1,0 +1,5 @@
+#!/bin/sh
+# Minimal Git launcher; formatting and staging policy live in Rust.
+set -eu
+hook_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+exec cargo run --quiet --manifest-path "$hook_dir/../rust/xtask/Cargo.toml" -- format-staged

@@ -58,8 +58,10 @@ cryptographic review.
 - The core still exposes content-key APIs for callers that deliberately manage
   their own high-entropy lockbox key. Normal bindings should guide callers
   toward password or recipient open APIs.
-- The current storage path now uses fixed-size page-cache managed pages. Format
-  review should treat [ARCHIVE_FORMAT.md](../rust/revault_lockbox_api/ARCHIVE_FORMAT.md) as the current contract. Normal writes,
+- At the time of this review, the storage path used fixed-size page-cache managed
+  pages. [ARCHIVE_FORMAT.md](../rust/revault_lockbox_api/ARCHIVE_FORMAT.md) now
+  serves as a historical reference, not the current v4 contract. The remaining
+  observations in this item describe the reviewed implementation. Normal writes,
   including compaction rewrites, pass through the page cache. Open reads of
   current key-directory pages also go through the page-cache page read/decode
   boundary because key directories are clear-text pages. Direct raw storage

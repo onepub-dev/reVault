@@ -15,6 +15,7 @@ impl<State> Lockbox<State> {
     where
         State: crate::WritableLockboxState,
     {
+        crate::lockbox::mutation::validate_new_name(path.as_str())?;
         let path = path.file_path()?;
         let name = FormRecord::validated_name(name)?;
         self.ensure_forms_loaded()?;
@@ -178,6 +179,7 @@ impl<State> Lockbox<State> {
             .map(|(source, destination)| Ok((source.file_path()?, destination.file_path()?)))
             .collect::<Result<Vec<_>>>()?;
         for (_, destination) in &moves {
+            crate::lockbox::mutation::validate_new_name(destination.as_str())?;
             self.create_parent_dirs_for(destination)?;
         }
         self.ensure_forms_loaded()?;

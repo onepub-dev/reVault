@@ -1,7 +1,12 @@
 # Lockbox Core Implementation Guide
 
-This guide records implementation rules for `revault_lockbox_api`. The normative
-on-disk format is documented in [ARCHIVE_FORMAT.md](ARCHIVE_FORMAT.md).
+This guide records implementation rules and historical design descriptions for
+`revault_lockbox_api`. Verify implementation-specific details against the revision
+being changed. [ARCHIVE_FORMAT.md](ARCHIVE_FORMAT.md) is a historical reference,
+not the normative v4 wire specification. Use the
+[v4 work entry point](../../docs/archive_v4_plan.md) to locate its branch plan and
+[Transactions and recovery](../../manual/develop-with-revault/transactions.md)
+for the maintained transaction contract.
 
 ## API Boundary
 

@@ -229,7 +229,7 @@ fn help_is_grouped_and_commands_have_specific_help() {
     let form_get_help = run_output(bin, &["form", "get", "--help"]);
     assert_success(&form_get_help);
     let form_get_help = String::from_utf8_lossy(&form_get_help.stdout);
-    assert!(form_get_help.contains("lockbox secrets.lbox form get /work/github username"));
+    assert!(form_get_help.contains("lockbox secrets.lbox form get /work/github@username"));
     assert!(form_get_help.contains("lockbox secrets.lbox form get --secret"));
     assert!(form_get_help.contains("--output <FILE>"));
     assert!(form_get_help.contains("--overwrite"));
@@ -684,8 +684,7 @@ fn form_definitions_and_records_flow() {
             "set",
             "--secret",
             "--stdin",
-            "/work/github",
-            "password",
+            "/work/github@password",
         ],
         "correct horse\n",
     );
@@ -695,7 +694,7 @@ fn form_definitions_and_records_flow() {
         "/work/github\tpassword\tupdated\n"
     );
 
-    let username = run_output(bin, &[&lockbox, "form", "get", "/work/github", "username"]);
+    let username = run_output(bin, &[&lockbox, "form", "get", "/work/github@username"]);
     assert_success(&username);
     assert_eq!(String::from_utf8_lossy(&username.stdout), "bsutton\n");
 
@@ -707,11 +706,10 @@ fn form_definitions_and_records_flow() {
             "set",
             "--value",
             "alice",
-            "/work/github",
-            "username",
+            "/work/github@username",
         ],
     );
-    let username = run_output(bin, &[&lockbox, "form", "get", "/work/github", "username"]);
+    let username = run_output(bin, &[&lockbox, "form", "get", "/work/github@username"]);
     assert_success(&username);
     assert_eq!(String::from_utf8_lossy(&username.stdout), "alice\n");
     let from_env = run_output_with_env(
@@ -722,8 +720,7 @@ fn form_definitions_and_records_flow() {
             "set",
             "--from-env",
             "E2E_FORM_VALUE",
-            "/work/github",
-            "username",
+            "/work/github@username",
         ],
         "E2E_FORM_VALUE",
         "environment-user",
@@ -736,8 +733,7 @@ fn form_definitions_and_records_flow() {
             "form",
             "set",
             "--interactive",
-            "/work/github",
-            "username",
+            "/work/github@username",
         ],
         "prompt-user\n",
     );
@@ -750,8 +746,7 @@ fn form_definitions_and_records_flow() {
             "set",
             "--value",
             "alice",
-            "/work/github",
-            "username",
+            "/work/github@username",
         ],
     );
 
@@ -765,11 +760,10 @@ fn form_definitions_and_records_flow() {
             "set",
             "--file",
             site_file.to_str().unwrap(),
-            "/work/github",
-            "site",
+            "/work/github@site",
         ],
     );
-    let site = run_output(bin, &[&lockbox, "form", "get", "/work/github", "site"]);
+    let site = run_output(bin, &[&lockbox, "form", "get", "/work/github@site"]);
     assert_success(&site);
     assert_eq!(
         String::from_utf8_lossy(&site.stdout),
@@ -787,25 +781,17 @@ fn form_definitions_and_records_flow() {
             "--secret",
             "--file",
             password_file.to_str().unwrap(),
-            "/work/github",
-            "password",
+            "/work/github@password",
         ],
     );
     let password = run_output(
         bin,
-        &[
-            &lockbox,
-            "form",
-            "get",
-            "--secret",
-            "/work/github",
-            "password",
-        ],
+        &[&lockbox, "form", "get", "--secret", "/work/github@password"],
     );
     assert_success(&password);
     assert_eq!(String::from_utf8_lossy(&password.stdout), "file horse\n");
 
-    let refused = run_output(bin, &[&lockbox, "form", "get", "/work/github", "password"]);
+    let refused = run_output(bin, &[&lockbox, "form", "get", "/work/github@password"]);
     assert!(!refused.status.success());
     let refused = String::from_utf8_lossy(&refused.stderr);
     assert!(refused.contains("pass --secret"));
@@ -813,14 +799,7 @@ fn form_definitions_and_records_flow() {
 
     let password = run_output(
         bin,
-        &[
-            &lockbox,
-            "form",
-            "get",
-            "--secret",
-            "/work/github",
-            "password",
-        ],
+        &[&lockbox, "form", "get", "--secret", "/work/github@password"],
     );
     assert_success(&password);
     assert_eq!(String::from_utf8_lossy(&password.stdout), "file horse\n");
@@ -835,8 +814,7 @@ fn form_definitions_and_records_flow() {
             "--secret",
             "--output",
             password_output.to_str().unwrap(),
-            "/work/github",
-            "password",
+            "/work/github@password",
         ],
     );
     assert_success(&password_file);
@@ -852,8 +830,7 @@ fn form_definitions_and_records_flow() {
             "--secret",
             "--output",
             password_output.to_str().unwrap(),
-            "/work/github",
-            "password",
+            "/work/github@password",
         ],
     );
     assert!(!rejected_password_file.status.success());
@@ -868,8 +845,7 @@ fn form_definitions_and_records_flow() {
             "--output",
             password_output.to_str().unwrap(),
             "--overwrite",
-            "/work/github",
-            "username",
+            "/work/github@username",
         ],
     );
     assert_eq!(fs::read(&password_output).unwrap(), b"alice");
@@ -1052,7 +1028,12 @@ fn form_set_secret_upgrades_a_normal_field() {
     let upgraded = run_output_in_with_stdin(
         bin,
         &[
-            &lockbox, "form", "set", "--secret", "--stdin", "/first", "token",
+            &lockbox,
+            "form",
+            "set",
+            "--secret",
+            "--stdin",
+            "/first@token",
         ],
         &vault_root,
         &agent_root,
@@ -1062,7 +1043,7 @@ fn form_set_secret_upgrades_a_normal_field() {
 
     let first = run_output_in(
         bin,
-        &[&lockbox, "form", "get", "--secret", "/first", "token"],
+        &[&lockbox, "form", "get", "--secret", "/first@token"],
         &vault_root,
         &agent_root,
     );
@@ -1070,7 +1051,7 @@ fn form_set_secret_upgrades_a_normal_field() {
     assert_eq!(String::from_utf8_lossy(&first.stdout), "first-secret\n");
     let second = run_output_in(
         bin,
-        &[&lockbox, "form", "get", "--secret", "/second", "token"],
+        &[&lockbox, "form", "get", "--secret", "/second@token"],
         &vault_root,
         &agent_root,
     );
@@ -1091,7 +1072,12 @@ fn form_set_secret_upgrades_a_normal_field() {
     let downgrade = run_output_in(
         bin,
         &[
-            &lockbox, "form", "set", "--value", "normal", "/second", "token",
+            &lockbox,
+            "form",
+            "set",
+            "--value",
+            "normal",
+            "/second@token",
         ],
         &vault_root,
         &agent_root,
@@ -1182,8 +1168,7 @@ fn form_interactive_edit_handles_definition_history_and_mismatched_record() {
             "form",
             "get",
             "--secret",
-            "/work/history",
-            "password",
+            "/work/history@password",
         ],
     );
     assert_success(&password);
@@ -1215,8 +1200,7 @@ fn form_interactive_edit_handles_definition_history_and_mismatched_record() {
             "form",
             "get",
             "--secret",
-            "/work/history",
-            "password",
+            "/work/history@password",
         ],
     );
     assert_success(&password);
@@ -5708,13 +5692,13 @@ fn session_default_lockbox_applies_to_lockbox_argument_variants() {
     );
     run_in(
         bin,
-        &["form", "set", "/work/github", "username", "alice"],
+        &["form", "set", "/work/github@username", "alice"],
         &vault_root,
         &agent_root,
     );
     let username = run_output_in(
         bin,
-        &["form", "get", "/work/github", "username"],
+        &["form", "get", "/work/github@username"],
         &vault_root,
         &agent_root,
     );

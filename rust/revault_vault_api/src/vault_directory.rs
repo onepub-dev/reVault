@@ -31,7 +31,9 @@ const GENERATION_COMPROMISED: u16 = 3;
 /// Current on-disk structure version for records stored inside the local vault.
 pub const CURRENT_VAULT_STRUCTURE_VERSION: u32 = 3;
 
+mod lockbox_aliases;
 mod password_profiles;
+pub use lockbox_aliases::LockboxAlias;
 
 /// Validates a profile or contact name used by the native vault.
 ///

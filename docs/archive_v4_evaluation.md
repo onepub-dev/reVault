@@ -10,6 +10,20 @@ and [delivery plan](archive_v4_plan.md) define purpose, guarantees and sequence.
 [Baseline evidence](evidence/v4-baseline-2026-09-26.md) records newly run checks.
 Historical microbenchmarks remain evidence about their own revisions.
 
+## Current goal reconciliation — 2026-10-09
+
+Main's current G1–G11 goals supersede the earlier goal numbering. G11 requires
+unencrypted **reads and writes** competitive with ZIP, encrypted reads and writes
+competitive with PGP, and **no more than 100 MB total CLI RSS** even for the largest
+archives. Earlier proposed 256 MiB incremental budgets below are retained as
+historical experiment controls, not release acceptance limits. Existing library
+endpoints, codec-only comparisons and ZIP read results do not qualify those goals.
+G3's large-file/million-entry/unlimited-form-and-variable objective likewise means
+experimental catalogue/ownership count caps cannot become product capacity limits.
+Freeze matched ZIP and PGP read/write cases, exact RSS measurement and supported
+scale qualification before any claim of whole-format acceptance. No gate is passed
+by this reconciliation; earlier failures and proposed experimental controls remain.
+
 ## Comparable candidates
 
 | Candidate | Control/prototype | Eligibility |

@@ -111,6 +111,7 @@ impl Lockbox<Writable> {
         path: &LockboxPath,
         options: OpenFileOptions,
     ) -> Result<LockboxFileMut<'_>> {
+        super::mutation::validate_new_name(path.as_str())?;
         let path = path.file_path()?;
         self.ensure_mirror_path_mutable(&path)?;
         let permissions = validate_permissions(

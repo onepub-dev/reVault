@@ -1,7 +1,7 @@
 # 003: Reservations, retained history and reclamation
 
 Status: proposed, 2026-09-26. Author: Codex. Storage/security reviewer: unassigned.
-Goals G2/G3/G4/G7; acceptance A1/A5/A7. Existing transaction ordering retained.
+Goals G5/G6/G7/G10; acceptance A1/A5/A7. Existing transaction ordering retained.
 
 ## Context
 

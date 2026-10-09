@@ -15,7 +15,7 @@ pub fn cli(args: &[String]) -> TaskResult {
     {
         println!(
             "Usage: cargo xtask build-cli [--image IMAGE] [--output DIRECTORY]\n\n\
-             Builds lockbox and lbx in Docker. IMAGE defaults to\n\
+             Builds lockbox, lbx, lbxv and lbxx in Docker. IMAGE defaults to\n\
              {DEFAULT_IMAGE}. The output directory defaults to\n\
              {DEFAULT_OUTPUT}."
         );
@@ -75,7 +75,7 @@ pub fn cli(args: &[String]) -> TaskResult {
     let built = root.join("target/release");
     let destination = output.unwrap_or_else(|| root.join(DEFAULT_OUTPUT));
     fs::create_dir_all(&destination).map_err(to_string)?;
-    for binary in ["lockbox", "lbx"] {
+    for binary in ["lockbox", "lbx", "lbxv", "lbxx"] {
         let source = built.join(binary);
         command::require_file(&source)?;
         let destination_file = destination.join(binary);

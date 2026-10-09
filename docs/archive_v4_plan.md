@@ -5,6 +5,20 @@ branch; architecture selection and release qualification are outstanding.
 This plan implements the [project goals](../manual/project-goals.md).
 The [documentation map](documentation_map.md) assigns authority and cleanup work.
 
+## Main integration — 2026-10-09
+
+Merged main through `6343b3fe`, including Vault aliases, script helpers, unified
+completion installation and the current G1–G11 project goals. This branch retains
+its advanced implementation plan, evaluation and evidence. Active goal references
+are remapped from the earlier G1–G7 numbering; historical reports retain their
+original numbering. Main's documentation cleanup does not supersede this plan.
+The current evaluation explicitly reconciles G3/G11's scale, ZIP/PGP read/write
+and 100 MB total CLI RSS requirements; earlier 256 MiB incremental proposals do
+not establish release acceptance. The user resumed work with a 25% remaining
+Codex usage stop condition, replacing the historical 70% threshold.
+The next implementation step remains whole-tree atomic path installation and
+process-death handling. This merge does not qualify the format or erase failures.
+
 ## Current position and next work
 
 ### Resumed checkpoint — 2026-10-08
@@ -455,14 +469,19 @@ gate after seeing a failing result without an explicit recorded change of scope.
 
 | Gate | Acceptance | Initial status |
 | --- | --- | --- |
-| A1 — committed state and ownership (G2, G3) | Every physical range is live, retained control/history, zero reusable space, or durably tracked pending work. Faults select a complete old/new state. Cleanup is resumable; no abandoned payload remains after completed reclamation. | Implementation exists; full matrix to revalidate |
-| A2 — damage and authorization (G2, G3) | Intact independently recoverable content retains provable authorization despite unrelated damage. Never authorize content using its own untrusted checksum or resurrect uncommitted/deleted records. Document limits where authority is lost. | Design unresolved; native failures recorded |
-| A3 — reads (G4) | Unencrypted first-read parity with ZIP on each designated primary workload; 10% faster remains the aspiration. Separate raw/compressed and small/large workloads, fresh handles, cold I/O and warm decoded caches. | Not met; exact primary workload selection in P1 |
-| A4 — open and writes (G4) | Retain the recorded native/default non-regression gate: upper 95% bound of relative duration change no greater than +5% on designated comparable cases. Include protected modes, streaming and real CLI operations. | Open; protocol and cases to freeze in P1 |
-| A5 — space and resources (G3, G4) | No content leaks or no-change allocation accumulation. Separate retained history from live/free bytes. Bound parser/cache/worker memory; establish numeric limits for growth, read/write amplification, recovery time and compaction headroom before selection. | Limits/budgets to specify in P1 |
-| A6 — migration and interoperability (G1, G6) | Supported historical formats migrate with full logical verification and source preservation. Retained fixtures and all released CLI/binding/carrier combinations pass the compatibility matrix. | Release blockers remain |
-| A7 — maintainability and specification (G7) | One reviewable layout/protection model, explicit ownership and persistence ordering, normative specification, decision records and reproducible evidence. | Documentation consolidation started |
-| A8 — installation and session independence (G1, G5, G6, G7) | Normal CLI installation and core workflows succeed on supported headless and desktop targets. Optional credential services are not mandatory build/runtime requirements; absent, locked or denied stores have bounded, actionable behaviour and secure explicit-credential alternatives. | #322 open; H1 pending |
+| A1 — committed state and ownership (G5, G6) | Every physical range is live, retained control/history, zero reusable space, or durably tracked pending work. Faults select a complete old/new state. Cleanup is resumable; no abandoned payload remains after completed reclamation. | Implementation exists; full matrix to revalidate |
+| A2 — damage and authorization (G5, G6) | Intact independently recoverable content retains provable authorization despite unrelated damage. Never authorize content using its own untrusted checksum or resurrect uncommitted/deleted records. Document limits where authority is lost. | Design unresolved; native failures recorded |
+| A3 — reads (G7, G11) | Unencrypted first-read parity with ZIP on each designated primary workload; 10% faster remains the aspiration. Separate raw/compressed and small/large workloads, fresh handles, cold I/O and warm decoded caches. | Not met; exact primary workload selection in P1 |
+| A4 — open and writes (G7, G11) | Retain the recorded native/default non-regression gate: upper 95% bound of relative duration change no greater than +5% on designated comparable cases. Include protected modes, streaming and real CLI operations. | Open; protocol and cases to freeze in P1 |
+| A5 — space and resources (G3, G6, G7, G11) | No content leaks or no-change allocation accumulation. Separate retained history from live/free bytes. Bound parser/cache/worker memory; establish numeric limits for growth, read/write amplification, recovery time and compaction headroom before selection. | Limits/budgets to specify in P1 |
+| A6 — migration and interoperability (G4, G9) | Supported historical formats migrate with full logical verification and source preservation. Retained fixtures and all released CLI/binding/carrier combinations pass the compatibility matrix. | Release blockers remain |
+| A7 — maintainability and specification (G10) | One reviewable layout/protection model, explicit ownership and persistence ordering, normative specification, decision records and reproducible evidence. | Documentation consolidation started |
+| A8 — installation and session independence (G4, G8, G9, G10) | Normal CLI installation and core workflows succeed on supported headless and desktop targets. Optional credential services are not mandatory build/runtime requirements; absent, locked or denied stores have bounded, actionable behaviour and secure explicit-credential alternatives. | #322 open; H1 pending |
+
+G11 additionally requires ZIP write and PGP protected read/write comparisons,
+plus a 100 MB total CLI RSS ceiling. The earlier A3/A4 controls below are
+necessary but not sufficient to establish those goals; the evaluation contract
+records the pending workload and scale qualification.
 
 For A3, P1 must operationally define “10% faster” and statistical parity rather
 than switching between throughput and latency measures. For A4, compare equally

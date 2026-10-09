@@ -6,6 +6,16 @@ use crate::security::validate_permissions;
 use crate::toc_entry::TocEntry;
 use crate::{Error, Result};
 
+// Only mutation destinations use this check. Historical names remain readable.
+pub(crate) fn validate_new_name(name: &str) -> Result<()> {
+    if name.contains('@') {
+        return Err(Error::InvalidInput(
+            "@ is reserved for field selectors in new entry names".into(),
+        ));
+    }
+    Ok(())
+}
+
 impl<State> Lockbox<State> {
     /// Create a directory entry.
     ///
@@ -15,6 +25,7 @@ impl<State> Lockbox<State> {
     where
         State: crate::WritableLockboxState,
     {
+        validate_new_name(path.as_str())?;
         let path = path.file_path()?;
         self.ensure_mirror_path_mutable(&path)?;
         if self.live_entry(&path).is_some() {
@@ -181,6 +192,7 @@ impl<State> Lockbox<State> {
     where
         State: crate::WritableLockboxState,
     {
+        validate_new_name(to.as_str())?;
         let from_path = from.file_path()?;
         let to_path = to.file_path()?;
         self.ensure_mirror_path_mutable(&from_path)?;

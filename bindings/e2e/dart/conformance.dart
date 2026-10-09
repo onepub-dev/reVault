@@ -185,7 +185,7 @@ void archiveLifecycle() {
   pass('lockbox_to_bytes', 2);
   pass('buffer_free');
   final formatVersion = api.lockboxFormatVersion;
-  check(formatVersion > 0, 'lockbox format version');
+  check(formatVersion == 4, '0.5.x requires lockbox format 4');
   check(
     api.probeLockboxFormatVersion(archive) == formatVersion,
     'format probe',
@@ -967,7 +967,7 @@ Future<void> main(List<String> args) async {
   );
   if (Platform.environment['REVAULT_E2E_LOADER_SMOKE'] case final mode?) {
     final version = api.lockboxFormatVersion;
-    check(version > 0, 'loader native round trip');
+    check(version == 4, '0.5.x loader requires lockbox format 4');
     final root = Directory.systemTemp.createTempSync('revault-loader-');
     final key = SecretBytes.copyOf(repeat(75, 32));
     try {

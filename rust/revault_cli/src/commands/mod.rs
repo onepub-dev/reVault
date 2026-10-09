@@ -1,3 +1,4 @@
+mod aliases;
 mod completion;
 mod context;
 mod doctor;
@@ -6,6 +7,7 @@ mod files;
 mod filters;
 mod form;
 mod help;
+mod helpers;
 mod keys;
 mod migrate;
 mod mirror;
@@ -33,9 +35,18 @@ pub(crate) use error_output::{exit_code, print_error};
 
 thread_local! {
     static COMMAND_LOCKBOX: RefCell<Option<String>> = const { RefCell::new(None) };
+    static COMMAND_LOCKBOX_ID: RefCell<Option<revault_lockbox_api::LockboxId>> = const { RefCell::new(None) };
 }
 
 pub(crate) fn run() -> CliResult<()> {
+    // Helpers may be the executable that starts the shared Session Agent.
+    match std::env::args().nth(1).as_deref() {
+        Some("__agent") => return Ok(revault_vault_api::serve_agent()?),
+        Some("__agent_security_check") => {
+            return Ok(revault_vault_api::verify_agent_transport_security()?)
+        }
+        _ => {}
+    }
     let binary_name = std::env::args_os()
         .next()
         .and_then(|value| {
@@ -44,16 +55,13 @@ pub(crate) fn run() -> CliResult<()> {
                 .map(|name| name.to_string_lossy().into_owned())
         })
         .unwrap_or_else(|| "lockbox".to_string());
+    if binary_name == "lbxv" || binary_name == "lbxx" {
+        return helpers::run(&binary_name);
+    }
     clap_complete::CompleteEnv::with_factory(|| help::command(false))
         .bin(binary_name)
         .complete();
     let args: Vec<String> = normalize_form_define_separator(std::env::args().skip(1).collect());
-    if args.first().map(String::as_str) == Some("__agent") {
-        return Ok(revault_vault_api::serve_agent()?);
-    }
-    if args.first().map(String::as_str) == Some("__agent_security_check") {
-        return Ok(revault_vault_api::verify_agent_transport_security()?);
-    }
     reject_variables_set_single_dash_secret(&args)?;
 
     let verbose_help = args.iter().any(|arg| arg == "--verbose");
@@ -82,7 +90,16 @@ pub(crate) fn run() -> CliResult<()> {
             "{command} is not a lockbox-scoped command; place the command immediately after `lockbox`"
         )));
     }
-    set_command_lockbox(command_lockbox);
+    let resolved = command_lockbox
+        .map(|path| aliases::resolve(&path))
+        .transpose()?;
+    if command == "create" && resolved.as_ref().is_some_and(|(_, id)| id.is_some()) {
+        return Err(context::cli_error(
+            "create requires a new file path, not an existing lockbox alias",
+        ));
+    }
+    COMMAND_LOCKBOX_ID.with(|id| *id.borrow_mut() = resolved.as_ref().and_then(|(_, id)| *id));
+    set_command_lockbox(resolved.map(|(path, _)| path));
     let secret_activity = if command == "doctor"
         && matches!(
             command_matches.subcommand_name(),
@@ -442,7 +459,8 @@ pub(crate) fn default_lockbox_for_command() -> CliResult<String> {
 }
 
 pub(crate) fn looks_like_lockbox_path(value: &str) -> bool {
-    value.ends_with(".lbox")
+    value.starts_with("a@")
+        || value.ends_with(".lbox")
         || Path::new(value)
             .extension()
             .is_some_and(|ext| ext == "lbox")

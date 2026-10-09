@@ -44,13 +44,13 @@ lbx secrets.lbox form add /work/github \
 Update an ordinary field directly:
 
 ```bash
-lbx secrets.lbox form set /work/github username alice
+lbx secrets.lbox form set /work/github@username alice
 ```
 
 Supply a secret field interactively or through standard input rather than placing it in the command line:
 
 ```bash
-lbx secrets.lbox form set /work/github password --secret --stdin
+lbx secrets.lbox form set /work/github@password --secret --stdin
 ```
 
 Use `form list`, `form get`, `form move` and `form remove` to manage records. Use `form definitions` to inspect definitions in a Lockbox, or `lbx vault form list` to inspect reusable Vault definitions.

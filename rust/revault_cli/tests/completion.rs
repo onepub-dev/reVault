@@ -3,6 +3,7 @@ use common::CommandTestExt;
 
 use common::TestTempDir;
 use std::fs;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 fn run(bin: &str, args: &[&str], vault_dir: &std::path::Path) -> std::process::Output {
@@ -13,6 +14,282 @@ fn run(bin: &str, args: &[&str], vault_dir: &std::path::Path) -> std::process::O
         .env_remove("COMPLETE")
         .test_output()
         .unwrap()
+}
+
+const COMPLETION_BINARIES: [&str; 4] = ["lockbox", "lbx", "lbxv", "lbxx"];
+const COMPLETION_SHELLS: [&str; 5] = ["bash", "zsh", "fish", "powershell", "elvish"];
+
+fn run_in_home(bin: &str, args: &[String], vault_dir: &Path, home: &Path) -> std::process::Output {
+    Command::new(bin)
+        .args(args)
+        .env("LOCKBOX_VAULT_DIR", vault_dir)
+        .env("HOME", home)
+        .env("USERPROFILE", home)
+        .env_remove("LOCKBOX_VAULT_PASSWORD")
+        .env_remove("COMPLETE")
+        .test_output()
+        .unwrap()
+}
+
+fn default_completion_paths(shell: &str, home: &Path) -> Vec<PathBuf> {
+    if shell == "powershell" {
+        let profile_dir = if cfg!(windows) {
+            home.join("Documents/PowerShell")
+        } else {
+            home.join(".config/powershell")
+        };
+        return vec![profile_dir.join("Microsoft.PowerShell_profile.ps1")];
+    }
+
+    COMPLETION_BINARIES
+        .iter()
+        .map(|binary| match shell {
+            "bash" => home
+                .join(".local/share/bash-completion/completions")
+                .join(binary),
+            "zsh" => home
+                .join(".local/share/zsh/site-functions")
+                .join(format!("_{binary}")),
+            "fish" => home
+                .join(".config/fish/completions")
+                .join(format!("{binary}.fish")),
+            "elvish" => home
+                .join(".config/elvish/lib")
+                .join(format!("{binary}.elv")),
+            _ => unreachable!("all supported shells are listed above"),
+        })
+        .collect()
+}
+
+fn completion_command(subcommand: &str, shell: &str, path: Option<&Path>) -> Vec<String> {
+    let mut args = vec![
+        "completion".to_string(),
+        subcommand.to_string(),
+        "--shell".to_string(),
+        shell.to_string(),
+    ];
+    if let Some(path) = path {
+        args.push("--path".to_string());
+        args.push(path.to_string_lossy().into_owned());
+    }
+    args
+}
+
+fn assert_all_binary_registrations(script: &str, shell: &str) {
+    for binary in COMPLETION_BINARIES {
+        assert_shell_registration(script, shell, binary);
+    }
+}
+
+fn assert_shell_registration(script: &str, shell: &str, binary: &str) {
+    let token = match shell {
+        "bash" => format!("-F _clap_complete_{binary} {binary}"),
+        "zsh" => format!("compdef _clap_dynamic_completer_{binary} {binary}"),
+        "fish" => format!("complete --keep-order --exclusive --command {binary} "),
+        "powershell" => format!("-CommandName {binary} -ScriptBlock"),
+        "elvish" => format!("arg-completer[{binary}]"),
+        _ => unreachable!("all supported shells are listed above"),
+    };
+    assert!(
+        script.contains(&token),
+        "{shell} completion omitted registration for {binary} ({token}): {script}"
+    );
+}
+
+#[test]
+fn completion_default_install_refreshes_and_uninstalls_all_commands() {
+    let bin = env!("CARGO_BIN_EXE_lbx");
+    let lbxv = env!("CARGO_BIN_EXE_lbxv");
+    let lbxx = env!("CARGO_BIN_EXE_lbxx");
+    let temp = TestTempDir::new("completion-all-defaults");
+    let home = temp.path().join("home");
+    fs::create_dir_all(&home).unwrap();
+    let vault_dir = temp.path().join("vault");
+
+    for shell in COMPLETION_SHELLS {
+        let paths = default_completion_paths(shell, &home);
+        let powershell_profile = paths.first().unwrap();
+        if shell == "powershell" {
+            fs::create_dir_all(powershell_profile.parent().unwrap()).unwrap();
+            fs::write(
+                powershell_profile,
+                "# user profile before\nWrite-Output user\n",
+            )
+            .unwrap();
+        }
+
+        let install_args = completion_command("install", shell, None);
+        let installed = run_in_home(bin, &install_args, &vault_dir, &home);
+        assert!(installed.status.success(), "{shell}: {installed:?}");
+
+        if shell == "powershell" {
+            let first = fs::read_to_string(powershell_profile).unwrap();
+            assert!(first.starts_with("# user profile before\nWrite-Output user\n"));
+            assert_eq!(
+                first.matches("# BEGIN revault dynamic completion").count(),
+                1
+            );
+            assert_eq!(first.matches("# END revault dynamic completion").count(), 1);
+            assert_all_binary_registrations(&first, shell);
+
+            let repeated = run_in_home(lbxv, &install_args, &vault_dir, &home);
+            assert!(repeated.status.success(), "{shell}: {repeated:?}");
+            assert_eq!(fs::read_to_string(powershell_profile).unwrap(), first);
+
+            fs::write(powershell_profile, first.replace("lbxv", "stale-lbxv")).unwrap();
+            let refreshed = run_in_home(lbxx, &install_args, &vault_dir, &home);
+            assert!(refreshed.status.success(), "{shell}: {refreshed:?}");
+            let refreshed = fs::read_to_string(powershell_profile).unwrap();
+            assert!(!refreshed.contains("stale-lbxv"));
+            assert_eq!(
+                refreshed
+                    .matches("# BEGIN revault dynamic completion")
+                    .count(),
+                1
+            );
+            assert_eq!(
+                refreshed
+                    .matches("# END revault dynamic completion")
+                    .count(),
+                1
+            );
+            assert!(refreshed.starts_with("# user profile before\nWrite-Output user\n"));
+            assert_all_binary_registrations(&refreshed, shell);
+
+            let uninstall_args = completion_command("uninstall", shell, None);
+            let uninstalled = run_in_home(bin, &uninstall_args, &vault_dir, &home);
+            assert!(uninstalled.status.success(), "{shell}: {uninstalled:?}");
+            assert_eq!(
+                fs::read_to_string(powershell_profile).unwrap(),
+                "# user profile before\nWrite-Output user\n"
+            );
+            let repeated = run_in_home(bin, &uninstall_args, &vault_dir, &home);
+            assert!(repeated.status.success(), "{shell}: {repeated:?}");
+            assert_eq!(
+                fs::read_to_string(powershell_profile).unwrap(),
+                "# user profile before\nWrite-Output user\n"
+            );
+            continue;
+        }
+
+        let first_contents: Vec<_> = paths
+            .iter()
+            .map(|path| fs::read_to_string(path).unwrap())
+            .collect();
+        for (binary, script) in COMPLETION_BINARIES.iter().zip(&first_contents) {
+            assert_shell_registration(script, shell, binary);
+        }
+
+        let repeated = run_in_home(lbxv, &install_args, &vault_dir, &home);
+        assert!(repeated.status.success(), "{shell}: {repeated:?}");
+        for (path, script) in paths.iter().zip(&first_contents) {
+            assert_eq!(
+                fs::read_to_string(path).unwrap(),
+                *script,
+                "{shell}: {path:?}"
+            );
+            fs::write(path, "outdated completion content\n").unwrap();
+        }
+
+        let refreshed = run_in_home(lbxx, &install_args, &vault_dir, &home);
+        assert!(refreshed.status.success(), "{shell}: {refreshed:?}");
+        for (path, binary) in paths.iter().zip(COMPLETION_BINARIES) {
+            let script = fs::read_to_string(path).unwrap();
+            assert!(!script.contains("outdated completion content"));
+            assert_shell_registration(&script, shell, binary);
+        }
+
+        let uninstall_args = completion_command("uninstall", shell, None);
+        let uninstalled = run_in_home(bin, &uninstall_args, &vault_dir, &home);
+        assert!(uninstalled.status.success(), "{shell}: {uninstalled:?}");
+        assert!(
+            paths.iter().all(|path| !path.exists()),
+            "{shell}: {paths:?}"
+        );
+        let repeated = run_in_home(bin, &uninstall_args, &vault_dir, &home);
+        assert!(repeated.status.success(), "{shell}: {repeated:?}");
+        assert!(
+            paths.iter().all(|path| !path.exists()),
+            "{shell}: {paths:?}"
+        );
+    }
+}
+
+#[test]
+fn completion_generate_and_explicit_path_cover_all_commands_for_every_shell() {
+    let bin = env!("CARGO_BIN_EXE_lockbox");
+    let temp = TestTempDir::new("completion-all-explicit");
+    let home = temp.path().join("home");
+    fs::create_dir_all(&home).unwrap();
+    let vault_dir = temp.path().join("vault");
+
+    for shell in COMPLETION_SHELLS {
+        let generated_path = temp
+            .path()
+            .join("generated")
+            .join(format!("{shell}.script"));
+        let generate_args = vec![
+            "completion".to_string(),
+            "generate".to_string(),
+            "--shell".to_string(),
+            shell.to_string(),
+            "--output".to_string(),
+            generated_path.to_string_lossy().into_owned(),
+        ];
+        let generated = run_in_home(bin, &generate_args, &vault_dir, &home);
+        assert!(generated.status.success(), "{shell}: {generated:?}");
+        let generated_script = fs::read_to_string(&generated_path).unwrap();
+        assert_all_binary_registrations(&generated_script, shell);
+
+        let explicit_path = temp.path().join("explicit").join(format!("{shell}.script"));
+        let install_args = completion_command("install", shell, Some(&explicit_path));
+        let installed = run_in_home(bin, &install_args, &vault_dir, &home);
+        assert!(installed.status.success(), "{shell}: {installed:?}");
+        assert_eq!(
+            fs::read_to_string(&explicit_path).unwrap(),
+            generated_script
+        );
+
+        let uninstall_args = completion_command("uninstall", shell, Some(&explicit_path));
+        let uninstalled = run_in_home(bin, &uninstall_args, &vault_dir, &home);
+        assert!(uninstalled.status.success(), "{shell}: {uninstalled:?}");
+        assert!(!explicit_path.exists(), "{shell}: {explicit_path:?}");
+        let repeated = run_in_home(bin, &uninstall_args, &vault_dir, &home);
+        assert!(repeated.status.success(), "{shell}: {repeated:?}");
+    }
+}
+
+#[test]
+fn bash_completion_sources_and_registers_all_four_commands() {
+    if Command::new("bash").arg("--version").output().is_err() {
+        return;
+    }
+
+    let bin = env!("CARGO_BIN_EXE_lockbox");
+    let temp = TestTempDir::new("completion-bash-registrations");
+    let home = temp.path().join("home");
+    fs::create_dir_all(&home).unwrap();
+    let vault_dir = temp.path().join("vault");
+    let path = temp.path().join("lockbox-completions");
+    let args = completion_command("install", "bash", Some(&path));
+    let installed = run_in_home(bin, &args, &vault_dir, &home);
+    assert!(installed.status.success(), "{installed:?}");
+
+    let path = path.to_string_lossy().into_owned();
+    let registrations = Command::new("bash")
+        .args([
+            "-c",
+            "source \"$1\" && complete -p lockbox && complete -p lbx && complete -p lbxv && complete -p lbxx",
+            "completion-test",
+            &path,
+        ])
+        .output()
+        .unwrap();
+    assert!(registrations.status.success(), "{registrations:?}");
+    let registrations = String::from_utf8_lossy(&registrations.stdout);
+    for binary in COMPLETION_BINARIES {
+        assert!(registrations.contains(binary), "{registrations}");
+    }
 }
 
 #[test]

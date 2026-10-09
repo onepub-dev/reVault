@@ -4,7 +4,7 @@ Status: proposed, 2026-09-26. Author: Codex. Product/security reviewer: unassign
 Bounded proof, mirrored-publication and authenticated keyed-index experiments
 implemented, including packed ordered pages and bulk construction; final layout
 selection and archive integration remain outstanding.
-No wire change activated. Goals G2/G3/G4; acceptance A2/A3/A7.
+No wire change activated. Goals G5/G6/G7; acceptance A2/A3/A7.
 
 ## Problem
 

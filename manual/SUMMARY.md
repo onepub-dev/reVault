@@ -19,6 +19,7 @@
 ## Protect and share
 
 * [The Vault](protect-and-share/the-vault/README.md)
+  * [Lockbox aliases and script helpers](protect-and-share/the-vault/lockbox-aliases.md)
   * [Back up and restore](protect-and-share/the-vault/backup-and-restore.md)
   * [Profiles](protect-and-share/the-vault/profiles.md)
   * [Rotate Profile keys](protect-and-share/the-vault/key-rotation.md)

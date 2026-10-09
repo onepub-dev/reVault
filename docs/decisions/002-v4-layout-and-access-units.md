@@ -1,7 +1,7 @@
 # 002: Physical layout and access units
 
 Status: proposed, 2026-09-26. Author: Codex. Storage/performance reviewer: unassigned.
-Goals G3/G4/G7; acceptance A1–A5/A7. No default-layout change.
+Goals G6/G7/G10; acceptance A1–A5/A7. No default-layout change.
 
 ## Problem and recommendation
 

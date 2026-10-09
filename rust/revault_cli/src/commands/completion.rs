@@ -13,6 +13,7 @@
 
 use clap::ArgMatches;
 use clap_complete::engine::CompletionCandidate;
+use clap_complete::env::{Bash, Elvish, EnvCompleter, Fish, Powershell, Zsh};
 use revault_lockbox_api::{ListOptions, LockboxPath, SecretString};
 use revault_vault_api::{
     default_vault_path, get_vault_unlock_key, list as list_cached_lockboxes, local_vault,
@@ -22,7 +23,6 @@ use std::env;
 use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 use super::context::CliResult;
 
@@ -76,7 +76,7 @@ pub(crate) fn run_matches(matches: &ArgMatches) -> CliResult<()> {
 
 fn generate_matches(matches: &ArgMatches) -> CliResult<()> {
     let shell = shell_from_matches(matches)?;
-    let script = registration_script(shell)?;
+    let script = all_registration_scripts(shell)?;
     if let Some(path) = matches.get_one::<String>("output") {
         write_script(Path::new(path), &script)?;
     } else {
@@ -88,19 +88,29 @@ fn generate_matches(matches: &ArgMatches) -> CliResult<()> {
 fn install_matches(matches: &ArgMatches) -> CliResult<()> {
     let shell = shell_from_matches(matches)?;
     let explicit_path = matches.get_one::<String>("path").map(PathBuf::from);
-    let path = explicit_path
-        .clone()
-        .unwrap_or(standard_install_path(shell)?);
-    let script = registration_script(shell)?;
-    if shell == CompletionShell::PowerShell && explicit_path.is_none() {
-        install_powershell_profile_block(&path, &script)?;
+    if let Some(path) = explicit_path {
+        write_script(&path, &all_registration_scripts(shell)?)?;
+    } else if shell == CompletionShell::PowerShell {
+        install_powershell_profile_block(
+            &standard_install_path(shell, "lockbox")?,
+            &all_registration_scripts(shell)?,
+        )?;
     } else {
-        write_script(&path, &script)?;
+        // Autoloading shells need a file named for each command.
+        for binary in COMPLETION_BINARIES {
+            let script = if shell == CompletionShell::Elvish {
+                // Elvish loads modules explicitly; any existing `use lbx` (or
+                // another command name) should register the entire family.
+                all_registration_scripts(shell)?
+            } else {
+                registration_script(shell, binary)?
+            };
+            write_script(&standard_install_path(shell, binary)?, &script)?;
+        }
     }
     eprintln!(
-        "Installed {} completion at {}. Source it from your shell configuration if needed.",
+        "Installed {} completion for lockbox, lbx, lbxv and lbxx. Restart your shell or source the completion files if needed.",
         shell.name(),
-        path.display()
     );
     Ok(())
 }
@@ -108,10 +118,8 @@ fn install_matches(matches: &ArgMatches) -> CliResult<()> {
 fn uninstall_matches(matches: &ArgMatches) -> CliResult<()> {
     let shell = shell_from_matches(matches)?;
     let explicit_path = matches.get_one::<String>("path").map(PathBuf::from);
-    let path = explicit_path
-        .clone()
-        .unwrap_or(standard_install_path(shell)?);
     if shell == CompletionShell::PowerShell && explicit_path.is_none() {
+        let path = standard_install_path(shell, "lockbox")?;
         uninstall_powershell_profile_block(&path)?;
         eprintln!(
             "Removed {} completion from {}.",
@@ -120,14 +128,23 @@ fn uninstall_matches(matches: &ArgMatches) -> CliResult<()> {
         );
         return Ok(());
     }
-    match fs::remove_file(&path) {
-        Ok(()) => eprintln!(
-            "Removed {} completion from {}.",
-            shell.name(),
-            path.display()
-        ),
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
-        Err(err) => return Err(err.into()),
+    let paths = match explicit_path {
+        Some(path) => vec![path],
+        None => COMPLETION_BINARIES
+            .iter()
+            .map(|binary| standard_install_path(shell, binary))
+            .collect::<CliResult<Vec<_>>>()?,
+    };
+    for path in paths {
+        match fs::remove_file(&path) {
+            Ok(()) => eprintln!(
+                "Removed {} completion from {}.",
+                shell.name(),
+                path.display()
+            ),
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
+            Err(err) => return Err(err.into()),
+        }
     }
     Ok(())
 }
@@ -173,31 +190,48 @@ fn detect_shell_from(
         .and_then(|name| CompletionShell::parse(&name.to_string_lossy()))
 }
 
-fn registration_script(shell: CompletionShell) -> CliResult<String> {
-    let executable = env::current_exe()?;
-    let output = Command::new(&executable)
-        .env("COMPLETE", shell.name())
-        .output()?;
-    if !output.status.success() {
-        return Err(super::context::cli_error(format!(
-            "completion generator exited with {}",
-            output.status
-        )));
+const COMPLETION_BINARIES: [&str; 4] = ["lockbox", "lbx", "lbxv", "lbxx"];
+
+fn all_registration_scripts(shell: CompletionShell) -> CliResult<String> {
+    let mut script = String::new();
+    for binary in COMPLETION_BINARIES {
+        script.push_str(&registration_script(shell, binary)?);
+        script.push('\n');
     }
-    String::from_utf8(output.stdout)
+    Ok(script)
+}
+
+fn registration_script(shell: CompletionShell, binary: &str) -> CliResult<String> {
+    let adapter: &dyn EnvCompleter = match shell {
+        CompletionShell::Bash => &Bash,
+        CompletionShell::Zsh => &Zsh,
+        CompletionShell::Fish => &Fish,
+        CompletionShell::PowerShell => &Powershell,
+        CompletionShell::Elvish => &Elvish,
+    };
+    let executable =
+        env::current_exe()?.with_file_name(format!("{binary}{}", env::consts::EXE_SUFFIX));
+    let mut output = Vec::new();
+    adapter.write_registration(
+        "COMPLETE",
+        binary,
+        binary,
+        &executable.to_string_lossy(),
+        &mut output,
+    )?;
+    String::from_utf8(output)
         .map_err(|_| super::context::cli_error("completion generator returned non-UTF-8 output"))
 }
 
-fn standard_install_path(shell: CompletionShell) -> CliResult<PathBuf> {
+fn standard_install_path(shell: CompletionShell, binary: &str) -> CliResult<PathBuf> {
     let home = env::var_os("HOME")
         .or_else(|| env::var_os("USERPROFILE"))
         .map(PathBuf::from)
         .ok_or_else(|| super::context::cli_error("home directory is unavailable"))?;
-    let binary = binary_name();
     Ok(match shell {
         CompletionShell::Bash => home
             .join(".local/share/bash-completion/completions")
-            .join(&binary),
+            .join(binary),
         CompletionShell::Zsh => home
             .join(".local/share/zsh/site-functions")
             .join(format!("_{binary}")),
@@ -271,15 +305,6 @@ fn remove_managed_block(profile: &str) -> String {
     output
 }
 
-fn binary_name() -> String {
-    env::args_os()
-        .next()
-        .and_then(|value| Path::new(&value).file_stem().map(|value| value.to_owned()))
-        .map(|value| value.to_string_lossy().into_owned())
-        .filter(|value| value == "lbx")
-        .unwrap_or_else(|| "lockbox".to_string())
-}
-
 fn current_prefix(current: &OsStr) -> Option<&str> {
     current.to_str()
 }
@@ -299,6 +324,10 @@ fn candidates(
 }
 
 pub(crate) fn lockbox_path_candidates(current: &OsStr) -> Vec<CompletionCandidate> {
+    let aliases = alias_selectors(current);
+    if current.to_string_lossy().starts_with("a@") {
+        return aliases;
+    }
     let value = Path::new(current);
     let (prefix, file_prefix) = match value.file_name() {
         Some(name)
@@ -349,7 +378,92 @@ pub(crate) fn lockbox_path_candidates(current: &OsStr) -> Vec<CompletionCandidat
             CompletionCandidate::new(path.into_os_string())
         })
         .collect::<Vec<_>>();
+    values.extend(aliases);
     values.sort();
+    values
+}
+
+pub(crate) fn alias_name_candidates(current: &OsStr) -> Vec<CompletionCandidate> {
+    candidates(
+        current,
+        read_only_vault()
+            .and_then(|vault| vault.list_lockbox_aliases().ok())
+            .unwrap_or_default()
+            .into_iter()
+            .map(|alias| alias.name),
+    )
+}
+
+fn alias_selectors(current: &OsStr) -> Vec<CompletionCandidate> {
+    candidates(
+        current,
+        read_only_vault()
+            .and_then(|vault| vault.list_lockbox_aliases().ok())
+            .unwrap_or_default()
+            .into_iter()
+            .map(|alias| format!("a@{}", alias.name)),
+    )
+}
+
+pub(crate) fn selector_candidates(current: &OsStr) -> Vec<CompletionCandidate> {
+    let Some(current) = current.to_str() else {
+        return Vec::new();
+    };
+    let (assignment, prefix) = current
+        .split_once('=')
+        .map(|(name, source)| (format!("{name}="), source))
+        .unwrap_or_else(|| (String::new(), current));
+    let mut values = selector_names(true);
+    values.retain(|value| value.starts_with(prefix));
+    values
+        .into_iter()
+        .map(|value| CompletionCandidate::new(format!("{assignment}{value}")))
+        .collect()
+}
+
+pub(crate) fn form_field_candidates(current: &OsStr) -> Vec<CompletionCandidate> {
+    candidates(current, selector_names(false))
+}
+
+fn selector_names(variables: bool) -> Vec<String> {
+    let mut values = Vec::new();
+    for path in completion_lockbox_paths() {
+        let Ok(lockbox) = local_vault().open_lockbox_read_only(&path) else {
+            continue;
+        };
+        if variables {
+            if let Ok(names) = lockbox.list_variables() {
+                for (name, _) in names {
+                    let name = name.to_string();
+                    if let Some(root_name) =
+                        name.strip_prefix('/').filter(|name| !name.contains('/'))
+                    {
+                        values.push(root_name.to_owned());
+                    }
+                    values.push(name);
+                }
+            }
+        }
+        if let Ok(records) = lockbox.list_form_records() {
+            for record in records {
+                if let Ok(revisions) = lockbox.list_form_definition_revisions(&record.type_id) {
+                    if let Some(definition) = revisions
+                        .into_iter()
+                        .find(|definition| definition.revision == record.definition_revision)
+                    {
+                        values.extend(
+                            definition
+                                .fields
+                                .into_iter()
+                                .map(|field| format!("{}@{}", record.path, field.id)),
+                        );
+                    }
+                }
+            }
+        }
+    }
+    values.sort();
+    values.dedup();
     values
 }
 
@@ -372,7 +486,7 @@ fn directory_contains_lockbox(path: &Path) -> bool {
         })
 }
 
-fn read_only_vault() -> Option<ReadOnlyVaultDirectory> {
+pub(crate) fn read_only_vault() -> Option<ReadOnlyVaultDirectory> {
     let vault_id = default_vault_path().ok()?.to_string_lossy().into_owned();
     let password = SecretString::try_from_env("LOCKBOX_VAULT_PASSWORD")
         .ok()
@@ -484,7 +598,11 @@ fn cached_archive_candidates(
 
 fn completion_lockbox_paths() -> Vec<String> {
     selected_lockbox_path()
-        .map(|path| vec![path])
+        .map(|path| {
+            super::aliases::resolve_noninteractive(&path)
+                .map(|(path, _)| vec![path])
+                .unwrap_or_default()
+        })
         .unwrap_or_else(|| {
             list_cached_lockboxes()
                 .unwrap_or_default()
@@ -739,7 +857,7 @@ fn completion_words() -> Vec<std::ffi::OsString> {
     if words
         .first()
         .and_then(|word| Path::new(word).file_stem())
-        .is_some_and(|word| word == "lockbox" || word == "lbx")
+        .is_some_and(|word| word == "lockbox" || word == "lbx" || word == "lbxv" || word == "lbxx")
     {
         words.remove(0);
     }
