@@ -453,3 +453,255 @@ fn whole_tree_path_install_process_death_reopens_old_or_complete_new() {
     }
     println!("WHOLE_TREE_PATH_PROCESS_DEATH_CASES {cases}");
 }
+
+fn completed_copy(
+    path: &Path,
+    candidate: &Path,
+    mode: FormatMode,
+    authority: &Authority<'_>,
+    owner: &OwnerSigningKeyPair,
+) {
+    let source = StorageBackend::file(path).unwrap();
+    let destination = StorageBackend::create_file(candidate, &[]).unwrap();
+    drop(
+        tree_image::compact(
+            &source,
+            destination,
+            archive(),
+            mode,
+            authority,
+            mode.signed().then_some(owner),
+            key(mode),
+        )
+        .unwrap(),
+    );
+}
+
+#[test]
+fn whole_tree_resume_complete_copy_reopens_all_modes() {
+    let directory = Directory::new();
+    let owner = OwnerSigningKeyPair::generate().unwrap();
+    let public = owner.public_key();
+    for bits in 0..16 {
+        let mode = protection(bits);
+        let authority = authority(mode, &public);
+        let path = directory.0.join(format!("{bits}.tree"));
+        let candidate = directory.0.join(format!("{bits}.candidate"));
+        fixture(&path, mode, &authority, &owner);
+        completed_copy(&path, &candidate, mode, &authority, &owner);
+        let expected = std::fs::read(&candidate).unwrap();
+        drop(
+            tree_image::resume_path(&path, &candidate, archive(), mode, &authority, key(mode))
+                .unwrap(),
+        );
+        assert!(!candidate.exists());
+        assert_eq!(std::fs::read(&path).unwrap(), expected);
+        verify(&StorageBackend::file(&path).unwrap(), mode, &authority);
+        assert!(
+            tree_image::resume_path(&path, &candidate, archive(), mode, &authority, key(mode))
+                .is_err()
+        );
+        assert_eq!(std::fs::read(&path).unwrap(), expected);
+    }
+}
+
+#[test]
+fn whole_tree_resume_refuses_partial_stale_edited_and_corrupt_candidates() {
+    let directory = Directory::new();
+    let owner = OwnerSigningKeyPair::generate().unwrap();
+    let public = owner.public_key();
+    for bits in [0, 3, 12, 15] {
+        let mode = protection(bits);
+        let authority = authority(mode, &public);
+        for case in ["partial", "stale", "edited", "corrupt", "trailing"] {
+            let path = directory.0.join(format!("{bits}-{case}.tree"));
+            let candidate = directory.0.join(format!("{bits}-{case}.candidate"));
+            fixture(&path, mode, &authority, &owner);
+            if case == "edited" {
+                // A real authenticated direct successor is insufficient: an
+                // ordinary variable edit must not be installed as compaction.
+                std::fs::copy(&path, &candidate).unwrap();
+                let mut storage = StorageBackend::file_for_write(&candidate).unwrap();
+                tree_image::variables::set_variable(
+                    &mut storage,
+                    archive(),
+                    mode,
+                    &authority,
+                    mode.signed().then_some(&owner),
+                    key(mode),
+                    &VariableName::new("retained").unwrap(),
+                    "different",
+                )
+                .unwrap();
+            } else {
+                completed_copy(&path, &candidate, mode, &authority, &owner);
+            }
+            if case == "stale" {
+                let mut storage = StorageBackend::file_for_write(&path).unwrap();
+                tree_image::variables::set_variable(
+                    &mut storage,
+                    archive(),
+                    mode,
+                    &authority,
+                    mode.signed().then_some(&owner),
+                    key(mode),
+                    &VariableName::new("retained").unwrap(),
+                    "new source",
+                )
+                .unwrap();
+            } else if case == "partial" {
+                std::fs::OpenOptions::new()
+                    .write(true)
+                    .open(&candidate)
+                    .unwrap()
+                    .set_len(4096)
+                    .unwrap();
+            } else if case == "corrupt" {
+                let mut bytes = std::fs::read(&candidate).unwrap();
+                bytes[crate::file_format::publication_anchor::REGION_LEN] ^= 1;
+                std::fs::write(&candidate, bytes).unwrap();
+            } else if case == "trailing" {
+                use std::io::Write;
+                std::fs::OpenOptions::new()
+                    .append(true)
+                    .open(&candidate)
+                    .unwrap()
+                    .write_all(b"unowned tail")
+                    .unwrap();
+            }
+            let source_before = std::fs::read(&path).unwrap();
+            let candidate_before = std::fs::read(&candidate).unwrap();
+            assert!(
+                tree_image::resume_path(&path, &candidate, archive(), mode, &authority, key(mode))
+                    .is_err(),
+                "{bits}/{case}"
+            );
+            assert_eq!(std::fs::read(&path).unwrap(), source_before);
+            assert_eq!(std::fs::read(&candidate).unwrap(), candidate_before);
+        }
+    }
+}
+
+#[test]
+fn whole_tree_resume_refuses_same_file_links_and_foreign_directory() {
+    let directory = Directory::new();
+    let other = Directory::new();
+    let owner = OwnerSigningKeyPair::generate().unwrap();
+    let public = owner.public_key();
+    let mode = protection(0);
+    let authority = authority(mode, &public);
+    let path = directory.0.join("source");
+    let original = fixture(&path, mode, &authority, &owner);
+    assert!(tree_image::resume_path(&path, &path, archive(), mode, &authority, key(mode)).is_err());
+    let candidate = other.0.join("candidate");
+    completed_copy(&path, &candidate, mode, &authority, &owner);
+    assert!(
+        tree_image::resume_path(&path, &candidate, archive(), mode, &authority, key(mode)).is_err()
+    );
+    #[cfg(unix)]
+    {
+        let link = directory.0.join("link");
+        std::os::unix::fs::symlink(&path, &link).unwrap();
+        assert!(
+            tree_image::resume_path(&path, &link, archive(), mode, &authority, key(mode)).is_err()
+        );
+        std::fs::remove_file(&link).unwrap();
+        std::fs::hard_link(&path, &link).unwrap();
+        assert!(
+            tree_image::resume_path(&path, &link, archive(), mode, &authority, key(mode)).is_err()
+        );
+    }
+    assert_eq!(std::fs::read(&path).unwrap(), original);
+}
+
+#[test]
+fn whole_tree_resume_process_child() {
+    let Some(path) = std::env::var_os("REVAULT_TREE_RESUME_PATH") else {
+        return;
+    };
+    let path = PathBuf::from(path);
+    let bits: usize = std::env::var("REVAULT_TREE_RESUME_MODE")
+        .unwrap()
+        .parse()
+        .unwrap();
+    let mode = protection(bits);
+    let owner = OwnerSigningKeyPair::generate().unwrap();
+    let public = owner.public_key();
+    let authority = authority(mode, &public);
+    let baseline = fixture(&path, mode, &authority, &owner);
+    std::fs::write(path.with_extension("base"), baseline).unwrap();
+    std::fs::write(path.with_extension("public"), public.to_bytes()).unwrap();
+    let candidate = path.with_extension("candidate");
+    completed_copy(&path, &candidate, mode, &authority, &owner);
+    std::fs::copy(&candidate, path.with_extension("expected")).unwrap();
+    tree_image::resume_path(&path, &candidate, archive(), mode, &authority, key(mode)).unwrap();
+    panic!("missed resume checkpoint");
+}
+
+#[test]
+fn whole_tree_resume_process_death_reopens_and_retries_before_rename() {
+    use std::process::{Command, Stdio};
+    use std::time::{Duration, Instant};
+    let directory = Directory::new();
+    let mut cases = 0;
+    for bits in 0..16 {
+        for phase in [
+            "tree-resume-verified",
+            "tree-resume-installed",
+            "tree-resume-synced",
+        ] {
+            let path = directory.0.join(format!("{bits}-{phase}.tree"));
+            let mut child = Command::new(std::env::current_exe().unwrap())
+                .args(["--exact", "file_format::candidate_files::tests::tree_tests::forms::installation::whole_tree_resume_process_child", "--nocapture"])
+                .env("REVAULT_TREE_RESUME_PATH", &path).env("REVAULT_TREE_RESUME_MODE", bits.to_string())
+                .env("REVAULT_CANDIDATE_COMPACTION_EXIT", phase)
+                .stdout(Stdio::null()).stderr(Stdio::inherit()).spawn().unwrap();
+            let deadline = Instant::now() + Duration::from_secs(60);
+            let status = loop {
+                if let Some(status) = child.try_wait().unwrap() {
+                    break status;
+                }
+                if Instant::now() >= deadline {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    panic!("resume child timeout");
+                }
+                std::thread::sleep(Duration::from_millis(10));
+            };
+            assert_eq!(status.code(), Some(71), "{bits}/{phase}");
+            let mode = protection(bits);
+            let public = crate::OwnerSigningPublicKey::from_bytes(
+                &std::fs::read(path.with_extension("public")).unwrap(),
+            )
+            .unwrap();
+            let authority = authority(mode, &public);
+            let candidate = path.with_extension("candidate");
+            if phase == "tree-resume-verified" {
+                assert_eq!(
+                    std::fs::read(&path).unwrap(),
+                    std::fs::read(path.with_extension("base")).unwrap()
+                );
+                verify(&StorageBackend::file(&path).unwrap(), mode, &authority);
+                drop(
+                    tree_image::resume_path(
+                        &path,
+                        &candidate,
+                        archive(),
+                        mode,
+                        &authority,
+                        key(mode),
+                    )
+                    .unwrap(),
+                );
+            }
+            assert!(!candidate.exists());
+            assert_eq!(
+                std::fs::read(&path).unwrap(),
+                std::fs::read(path.with_extension("expected")).unwrap()
+            );
+            verify(&StorageBackend::file(&path).unwrap(), mode, &authority);
+            cases += 1;
+        }
+    }
+    println!("WHOLE_TREE_RESUME_PROCESS_CASES {cases}");
+}

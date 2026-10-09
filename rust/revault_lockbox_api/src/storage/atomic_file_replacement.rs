@@ -62,6 +62,15 @@ impl AtomicFileReplacement {
         })
     }
 
+    // Private experimental recovery already validated both locked paths.
+    #[cfg(test)]
+    pub(crate) fn existing_for_test(destination: &Path, temporary: &Path) -> Self {
+        Self {
+            destination: destination.to_path_buf(),
+            temp_path: temporary.to_path_buf(),
+        }
+    }
+
     pub(crate) fn temp_path(&self) -> &Path {
         &self.temp_path
     }

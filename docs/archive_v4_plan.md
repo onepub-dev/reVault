@@ -22,6 +22,16 @@ or erase failures.
 
 ## Current position and next work
 
+### Complete-copy resume — 2026-10-10
+
+The [test-only complete-copy admission](evidence/tree-resume-2026-10-10/README.md)
+passes five focused tests, 48 process exits and strict Clippy. It verifies current
+source lineage, exact selected rows and guarded payload digests before installing
+an explicitly selected complete replacement. Partial/stale/edited/corrupt candidates
+are preserved and refused. This does not establish ownership of partial files or
+an automatic recovery protocol; access roots and full qualification remain open.
+The user explicitly resumed with the existing 25% remaining usage cutoff.
+
 ### Whole-tree path installation — 2026-10-09
 
 The [test-only path installer](evidence/tree-path-install-2026-10-09/README.md)

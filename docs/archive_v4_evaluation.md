@@ -474,6 +474,11 @@ plus six copy controls and strict Clippy. It does not establish physical power-l
 safety, automatic cleanup/adoption of abandoned temporaries, cross-platform
 durability, CPU/RSS or any complete-format gate.
 
+The [complete-copy resume component](evidence/tree-resume-2026-10-10/README.md)
+passes five focused tests, 48 process exits and strict Clippy. This supplies
+explicit complete-replacement admission only: partial ownership, automatic
+recovery, physical power-loss and whole-format performance gates remain open.
+
 ## Evidence index
 
 Historical conditions and raw data remain authoritative for their own revisions.

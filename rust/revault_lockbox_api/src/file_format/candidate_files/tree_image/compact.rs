@@ -207,7 +207,7 @@ fn append_exact(storage: &mut impl Storage, expected: u64, bytes: &[u8]) -> Resu
     }
     Ok(())
 }
-fn digest(storage: &impl Storage, extent: Extent) -> Result<[u8; 32]> {
+pub(super) fn digest(storage: &impl Storage, extent: Extent) -> Result<[u8; 32]> {
     let mut hash = crate::crypto::strong_checksum_hasher(extent.len);
     let mut offset = 0;
     while offset < extent.len {
