@@ -96,3 +96,15 @@ create or observe the required condition; document that exception in the test.
 State-changing command families must cover realistic lifecycles, including
 initial creation, a no-change repeat, additions, replacements, removals, and
 applicable safety thresholds or refusal paths.
+
+## Archive v4 work
+
+Archive-v4 implementation belongs on `issue-310-zip-read-performance` in its
+existing worktree. Find it with `git worktree list`; read that branch's plan
+and evidence before making implementation changes. Preserve unrelated work.
+
+The [September 27 checkpoint](docs/history/archive-v4-checkpoint-2026-09-27.md)
+records the earlier pause and usage constraint. Revalidate its state and the
+applicable constraint on an explicit resume. Documentation maintenance does
+not authorize resuming paused implementation. See the
+[v4 plan entry point](docs/archive_v4_plan.md) for document locations.
