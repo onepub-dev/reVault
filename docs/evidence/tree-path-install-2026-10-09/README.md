@@ -44,3 +44,10 @@ Both copies coexist until replacement; source-plus-destination space, CPU, peak
 RSS, mixed aging, region-loss behavior and Windows/macOS durability are unqualified.
 It assumes stable storage and cooperative exclusive locks, not protection against
 arbitrary concurrent filesystem modification. No complete-format gate is closed.
+
+Post-format validation on `f0dbd0b2` (installer `0b173f77` plus main alias fix
+`ee3cbd39`) passes six installer tests, all 96 process exits and strict core
+Clippy. The merged CLI passes 14 alias tests, eight completion tests and strict
+CLI Clippy. Raw post-format and merged-CLI logs are retained alongside this
+report. Main contains only the alias fix; experimental installer changes remain
+on the performance branch.
