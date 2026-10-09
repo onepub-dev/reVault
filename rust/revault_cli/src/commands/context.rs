@@ -97,6 +97,21 @@ pub(super) fn is_unencrypted(path: &str) -> CliResult<bool> {
 }
 
 pub(crate) fn open_existing(path: &str, access: &Access) -> CliResult<Lockbox> {
+    verify_open_identity(path, open_existing_inner(path, access)?)
+}
+
+fn verify_open_identity<State>(path: &str, lockbox: Lockbox<State>) -> CliResult<Lockbox<State>> {
+    if super::command_lockbox().as_deref() == Some(path) {
+        if let Some(expected) = super::COMMAND_LOCKBOX_ID.with(|id| *id.borrow()) {
+            if lockbox.lockbox_id() != expected {
+                return Err(cli_error("alias target identity changed"));
+            }
+        }
+    }
+    Ok(lockbox)
+}
+
+fn open_existing_inner(path: &str, access: &Access) -> CliResult<Lockbox> {
     ensure_lockbox_path_accessible(path)?;
     if let Some(options) = Lockbox::inspect_file(path)
         .map_err(|error| lockbox_open_error(path, error))?
@@ -169,6 +184,13 @@ pub(crate) fn open_existing_read_only(
     path: &str,
     access: &Access,
 ) -> CliResult<Lockbox<revault_lockbox_api::ReadOnly>> {
+    verify_open_identity(path, open_existing_read_only_inner(path, access)?)
+}
+
+fn open_existing_read_only_inner(
+    path: &str,
+    access: &Access,
+) -> CliResult<Lockbox<revault_lockbox_api::ReadOnly>> {
     ensure_lockbox_path_accessible(path)?;
     if is_unencrypted(path)? {
         return Ok(Lockbox::open(Path::new(path), LockboxOpen::Unencrypted)?);
@@ -187,6 +209,13 @@ pub(crate) fn open_existing_read_only(
 }
 
 pub(crate) fn open_for_reading(
+    path: &str,
+    access: &Access,
+) -> CliResult<Lockbox<revault_lockbox_api::ReadOnly>> {
+    verify_open_identity(path, open_for_reading_inner(path, access)?)
+}
+
+fn open_for_reading_inner(
     path: &str,
     access: &Access,
 ) -> CliResult<Lockbox<revault_lockbox_api::ReadOnly>> {
@@ -428,6 +457,11 @@ pub(crate) fn open_or_create(path: &str, access: &Access) -> CliResult<Lockbox> 
 }
 
 pub(crate) fn ensure_lockbox_path_accessible(path: &str) -> CliResult<()> {
+    if super::command_lockbox().as_deref() == Some(path) {
+        if let Some(id) = super::COMMAND_LOCKBOX_ID.with(|id| *id.borrow()) {
+            super::aliases::check_identity(path, id)?;
+        }
+    }
     match fs::metadata(path) {
         Ok(metadata) if metadata.is_dir() => {
             Err(cli_error(format!("lockbox path is a directory: {path}")))

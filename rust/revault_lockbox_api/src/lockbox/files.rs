@@ -271,6 +271,7 @@ impl<State> Lockbox<State> {
     }
 
     pub(crate) fn validate_replace_intent(&self, path: &LockboxPath, replace: bool) -> Result<()> {
+        super::mutation::validate_new_name(path.as_str())?;
         let exists = self.exists(path);
         match (replace, exists) {
             (false, true) => Err(Error::AlreadyExists(path.to_string())),

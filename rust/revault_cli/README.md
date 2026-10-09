@@ -120,7 +120,26 @@ Use secret variables for tokens, passwords, and private keys rather than files
 or command-line values. `--interactive` is the safest convenient default;
 `--stdin`, `--file`, and `--from-env` are available for automated workflows.
 To see a secret form field, make that choice explicit with `--secret`, for
-example `lbx project-secrets.lbox form get --secret /services/github password`.
+example `lbx project-secrets.lbox form get --secret /services/github@password`.
+
+Store a local Vault alias and use the small scripting helpers:
+
+```bash
+lbx vault lockbox alias set dev ./project-secrets.lbox
+lbx a@dev open
+TOKEN=$(lbxv a@dev API_TOKEN)
+lbxx a@dev API_TOKEN -- your-command
+lbxx a@dev GITHUB_TOKEN=/services/github@password -- your-command
+```
+
+`lbxv` writes the exact value without an added newline. `lbxx` puts selections
+in the child environment and preserves its exit code. Both read normal or
+secret values without prompting; open the Vault and Lockbox first. Without
+`NAME=`, the environment name is the variable basename or form field name.
+`form get` and `form set` now use one `/path@field` argument.
+Use `./a@dev` for a host file literally named `a@dev`; bare `a@dev` always
+selects a Vault alias. `lbxv completion install` and `lbxx completion install`
+register completion for the helpers.
 
 Update or remove the encrypted Lockbox description explicitly:
 

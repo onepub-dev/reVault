@@ -276,7 +276,7 @@ fn binary_name() -> String {
         .next()
         .and_then(|value| Path::new(&value).file_stem().map(|value| value.to_owned()))
         .map(|value| value.to_string_lossy().into_owned())
-        .filter(|value| value == "lbx")
+        .filter(|value| matches!(value.as_str(), "lbx" | "lbxv" | "lbxx"))
         .unwrap_or_else(|| "lockbox".to_string())
 }
 
@@ -299,6 +299,10 @@ fn candidates(
 }
 
 pub(crate) fn lockbox_path_candidates(current: &OsStr) -> Vec<CompletionCandidate> {
+    let aliases = alias_selectors(current);
+    if current.to_string_lossy().starts_with("a@") {
+        return aliases;
+    }
     let value = Path::new(current);
     let (prefix, file_prefix) = match value.file_name() {
         Some(name)
@@ -349,7 +353,92 @@ pub(crate) fn lockbox_path_candidates(current: &OsStr) -> Vec<CompletionCandidat
             CompletionCandidate::new(path.into_os_string())
         })
         .collect::<Vec<_>>();
+    values.extend(aliases);
     values.sort();
+    values
+}
+
+pub(crate) fn alias_name_candidates(current: &OsStr) -> Vec<CompletionCandidate> {
+    candidates(
+        current,
+        read_only_vault()
+            .and_then(|vault| vault.list_lockbox_aliases().ok())
+            .unwrap_or_default()
+            .into_iter()
+            .map(|alias| alias.name),
+    )
+}
+
+fn alias_selectors(current: &OsStr) -> Vec<CompletionCandidate> {
+    candidates(
+        current,
+        read_only_vault()
+            .and_then(|vault| vault.list_lockbox_aliases().ok())
+            .unwrap_or_default()
+            .into_iter()
+            .map(|alias| format!("a@{}", alias.name)),
+    )
+}
+
+pub(crate) fn selector_candidates(current: &OsStr) -> Vec<CompletionCandidate> {
+    let Some(current) = current.to_str() else {
+        return Vec::new();
+    };
+    let (assignment, prefix) = current
+        .split_once('=')
+        .map(|(name, source)| (format!("{name}="), source))
+        .unwrap_or_else(|| (String::new(), current));
+    let mut values = selector_names(true);
+    values.retain(|value| value.starts_with(prefix));
+    values
+        .into_iter()
+        .map(|value| CompletionCandidate::new(format!("{assignment}{value}")))
+        .collect()
+}
+
+pub(crate) fn form_field_candidates(current: &OsStr) -> Vec<CompletionCandidate> {
+    candidates(current, selector_names(false))
+}
+
+fn selector_names(variables: bool) -> Vec<String> {
+    let mut values = Vec::new();
+    for path in completion_lockbox_paths() {
+        let Ok(lockbox) = local_vault().open_lockbox_read_only(&path) else {
+            continue;
+        };
+        if variables {
+            if let Ok(names) = lockbox.list_variables() {
+                for (name, _) in names {
+                    let name = name.to_string();
+                    if let Some(root_name) =
+                        name.strip_prefix('/').filter(|name| !name.contains('/'))
+                    {
+                        values.push(root_name.to_owned());
+                    }
+                    values.push(name);
+                }
+            }
+        }
+        if let Ok(records) = lockbox.list_form_records() {
+            for record in records {
+                if let Ok(revisions) = lockbox.list_form_definition_revisions(&record.type_id) {
+                    if let Some(definition) = revisions
+                        .into_iter()
+                        .find(|definition| definition.revision == record.definition_revision)
+                    {
+                        values.extend(
+                            definition
+                                .fields
+                                .into_iter()
+                                .map(|field| format!("{}@{}", record.path, field.id)),
+                        );
+                    }
+                }
+            }
+        }
+    }
+    values.sort();
+    values.dedup();
     values
 }
 
@@ -372,7 +461,7 @@ fn directory_contains_lockbox(path: &Path) -> bool {
         })
 }
 
-fn read_only_vault() -> Option<ReadOnlyVaultDirectory> {
+pub(crate) fn read_only_vault() -> Option<ReadOnlyVaultDirectory> {
     let vault_id = default_vault_path().ok()?.to_string_lossy().into_owned();
     let password = SecretString::try_from_env("LOCKBOX_VAULT_PASSWORD")
         .ok()
@@ -484,7 +573,11 @@ fn cached_archive_candidates(
 
 fn completion_lockbox_paths() -> Vec<String> {
     selected_lockbox_path()
-        .map(|path| vec![path])
+        .map(|path| {
+            super::aliases::resolve_noninteractive(&path)
+                .map(|(path, _)| vec![path])
+                .unwrap_or_default()
+        })
         .unwrap_or_else(|| {
             list_cached_lockboxes()
                 .unwrap_or_default()
@@ -739,7 +832,7 @@ fn completion_words() -> Vec<std::ffi::OsString> {
     if words
         .first()
         .and_then(|word| Path::new(word).file_stem())
-        .is_some_and(|word| word == "lockbox" || word == "lbx")
+        .is_some_and(|word| word == "lockbox" || word == "lbx" || word == "lbxv" || word == "lbxx")
     {
         words.remove(0);
     }

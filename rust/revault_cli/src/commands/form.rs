@@ -373,17 +373,17 @@ fn apply_normal_field_assignments(
 }
 
 fn set_matches(matches: &ArgMatches, access: &Access) -> CliResult<()> {
-    let args = optional_lockbox_positionals(positional_values(matches, "args"), 2)?;
+    let args = optional_lockbox_positionals(positional_values(matches, "args"), 1)?;
     let lockbox_path = require_arg(&args, 0, "lockbox")?;
-    let path = form_record_path(require_arg(&args, 1, "form path")?)?;
-    let field_id = require_arg(&args, 2, "field id")?;
+    let (path, field_id) = super::helpers::form_selector(require_arg(&args, 1, "form selector")?)?;
+    let path = form_record_path(path)?;
     let source = match (
         matches.get_flag("interactive"),
         matches.get_flag("stdin"),
         optional_value(matches, "explicit-value"),
         optional_value(matches, "file"),
         optional_value(matches, "from-env"),
-        args.get(3),
+        args.get(2),
     ) {
         (true, false, None, None, None, None) => FieldValueSource::Interactive,
         (false, true, None, None, None, None) => FieldValueSource::Stdin,
@@ -431,11 +431,12 @@ fn remove(args: &[String], access: &Access) -> CliResult<()> {
 }
 
 fn get_matches(matches: &ArgMatches, access: &Access) -> CliResult<()> {
-    let args = optional_lockbox_positionals(positional_values(matches, "args"), 2)?;
+    let args = optional_lockbox_positionals(positional_values(matches, "args"), 1)?;
+    let (path, field_id) = super::helpers::form_selector(require_arg(&args, 1, "form selector")?)?;
     let request = FormGetRequest {
         lockbox_path: require_arg(&args, 0, "lockbox")?.to_string(),
-        path: require_arg(&args, 1, "form path")?.to_string(),
-        field_id: require_arg(&args, 2, "field id")?.to_string(),
+        path: path.to_string(),
+        field_id: field_id.to_string(),
         reveal_secret: matches.get_flag("secret"),
         output: optional_value(matches, "output").map(str::to_string),
         overwrite: matches.get_flag("overwrite"),
@@ -781,7 +782,7 @@ fn trim_trailing_newline(mut value: String) -> String {
     value
 }
 
-fn form_record_path(value: &str) -> CliResult<LockboxPath> {
+pub(crate) fn form_record_path(value: &str) -> CliResult<LockboxPath> {
     let value = if value.starts_with('/') {
         value.to_string()
     } else {

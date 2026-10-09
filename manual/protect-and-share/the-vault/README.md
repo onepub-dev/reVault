@@ -64,3 +64,20 @@ lbx vault lockbox forget ./old-project.lbox
 ```
 
 Forgetting a path does not delete the Lockbox.
+
+## Lockbox aliases
+
+Give a remembered Lockbox a short, case-sensitive name:
+
+```bash
+lbx vault lockbox alias set dev ./developer-secrets.lbox
+lbx vault lockbox alias list
+lbx a@dev variable list
+lbx vault lockbox alias remove dev
+```
+
+Names contain up to 128 ASCII letters, digits, underscores or hyphens. Setting an existing alias replaces its mapping. Removing it leaves the Lockbox and its remembered path intact.
+
+Aliases identify a Lockbox by its stable identity. Moving it with `vault lockbox move` keeps the alias working. After moving it outside reVault, use `vault lockbox remember ./new/path.lbox`. A missing target or a different Lockbox at the old path causes an error.
+
+`a@dev` always means an alias, with no fallback to a file. Use `./a@dev` to address an actual host file with that name. Aliases are encrypted Vault records and are included in Vault backups; restoring onto another machine may require remembering the target's new path.

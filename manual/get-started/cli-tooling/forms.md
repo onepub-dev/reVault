@@ -44,13 +44,24 @@ lbx secrets.lbox form add /work/github \
 Update an ordinary field directly:
 
 ```bash
-lbx secrets.lbox form set /work/github username alice
+lbx secrets.lbox form set /work/github@username alice
 ```
 
 Supply a secret field interactively or through standard input rather than placing it in the command line:
 
 ```bash
-lbx secrets.lbox form set /work/github password --secret --stdin
+lbx secrets.lbox form set /work/github@password --secret --stdin
 ```
 
 Use `form list`, `form get`, `form move` and `form remove` to manage records. Use `form definitions` to inspect definitions in a Lockbox, or `lbx vault form list` to inspect reusable Vault definitions.
+
+`form get` and `form set` take a single `/path@field` selector. This replaces the separate path and field arguments used by earlier alpha CLIs:
+
+```bash
+lbx secrets.lbox form get /work/github@username
+lbx secrets.lbox form get --secret /work/github@password
+lbxv a@dev /work/github@password
+lbxx a@dev PASSWORD=/work/github@password -- your-command
+```
+
+With `lbxx`, omitting `PASSWORD=` uses the field name `password` as the environment name. Form record paths and field identifiers created now cannot contain `@`.

@@ -24,7 +24,9 @@ pub fn cli() -> TaskResult {
     install_path("revault_migrate_vault_v1")?;
     install_path("revault_migrate_vault_v2")?;
     install_path("revault_migrate_archive_v1")?;
-    println!("Installed local `lockbox`, `lbx`, and Vault/Lockbox migration exporters.");
+    println!(
+        "Installed local `lockbox`, `lbx`, `lbxv`, `lbxx`, and Vault/Lockbox migration exporters."
+    );
     Ok(())
 }
 

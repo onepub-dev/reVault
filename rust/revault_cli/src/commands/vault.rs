@@ -199,7 +199,49 @@ fn vault_lockbox_matches(matches: &ArgMatches) -> CliResult<()> {
             &required_value(sub, "destination"),
         ),
         "forget" => forget_known_lockbox_path(&required_value(sub, "lockbox")),
+        "alias" => lockbox_alias_matches(sub),
         _ => Err(Error::InvalidInput(format!("unknown vault lockbox command: {command}")).into()),
+    }
+}
+
+fn lockbox_alias_matches(matches: &ArgMatches) -> CliResult<()> {
+    let (command, sub) = matches
+        .subcommand()
+        .ok_or_else(|| cli_error("missing alias command"))?;
+    match command {
+        "set" => {
+            let name = required_value(sub, "name");
+            validate_vault_record_name(&name)?;
+            if name.len() > 128 {
+                return Err(cli_error("lockbox alias exceeds 128 bytes"));
+            }
+            let (path, _) = super::aliases::resolve(&required_value(sub, "lockbox"))?;
+            let inspection = Lockbox::inspect_file(&path)?;
+            let vault = default_vault()?;
+            vault.remember_known_lockbox(inspection.lockbox_id, &path)?;
+            vault.set_lockbox_alias(&name, inspection.lockbox_id)?;
+            println!("a@{name}\t{path}");
+            Ok(())
+        }
+        "list" => {
+            let aliases = default_vault()?.list_lockbox_aliases()?;
+            let rows = aliases
+                .into_iter()
+                .map(|alias| vec![alias.name, alias.lockbox_id.to_string()])
+                .collect();
+            print_records(
+                &["alias", "lockbox_id"],
+                rows,
+                output_format_from_matches(sub)?,
+            )
+        }
+        "remove" => {
+            let name = required_value(sub, "name");
+            default_vault()?.remove_lockbox_alias(&name)?;
+            println!("Alias removed: {name}");
+            Ok(())
+        }
+        _ => Err(cli_error("unknown lockbox alias command")),
     }
 }
 
