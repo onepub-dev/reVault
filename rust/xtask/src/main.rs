@@ -3,6 +3,7 @@ mod command;
 mod compression;
 mod dependencies;
 mod e2e;
+mod format_staged;
 mod install;
 mod quality;
 mod sleep;
@@ -29,6 +30,7 @@ fn run() -> Result<(), String> {
     let args: Vec<String> = args.collect();
 
     match task.as_str() {
+        "format-staged" => format_staged::run(),
         "dev-tools" => install::dev_tools(&args),
         "internal-dev" => internal_dev(&args),
         "help" | "-h" | "--help" => {
@@ -82,6 +84,7 @@ Usage: cargo xtask <task> [options]
 
 Tasks:
   dev-tools                      Build and install revault-tool, the developer command hub
+  format-staged                  Format staged Rust files safely (pre-commit hook)
   Use `revault-tool dev --help` for repository validation, testing, build,
   dependency, performance, compression, and agent-sleep tasks."
     );

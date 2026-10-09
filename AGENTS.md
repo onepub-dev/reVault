@@ -64,6 +64,22 @@ Vault compatibility across versions within its line, and validate applicable
 migration paths from the supported older formats.
 Version declarations alone do not establish release readiness.
 
+## Rust Formatting and Commit Hook
+
+Do not run `rustfmt` or `cargo fmt` to prepare for tests. Run tests and other
+checks first; formatting belongs at the end of the work, immediately before
+committing. The pre-commit hook formats staged Rust files and re-stages only
+those files. It refuses partially staged Rust files: resolve their staging
+before retrying, rather than sweeping unfinished edits into a commit.
+
+Enable the tracked hook for a clone with
+`git config --local core.hooksPath "$(pwd)/.githooks"` from the repository root.
+This absolute path also serves linked worktrees from this checkout; keep this
+checkout available. Git does not install hooks automatically on clone. The
+hook requires Cargo and rustfmt from the repository's pinned Rust toolchain.
+If another hooks path is already configured, integrate it rather than
+overwriting it. Do not bypass the hook as part of normal agent work.
+
 ## CLI End-to-End Tests
 
 End-to-end CLI tests must exercise the public CLI as a user would. Use CLI
