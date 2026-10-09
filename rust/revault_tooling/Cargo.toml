@@ -27,3 +27,13 @@ ctrlc = "3"
 
 [dev-dependencies]
 tempfile = "3"
+
+[features]
+installed-cli-tests = []
+
+# Reuse the public CLI lifecycle without compiling historical migration test
+# dependencies, which legitimately retain libdbus-sys in their frozen readers.
+[[test]]
+name = "installed_headless"
+path = "../revault_cli/tests/headless.rs"
+required-features = ["installed-cli-tests"]

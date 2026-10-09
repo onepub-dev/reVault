@@ -14,6 +14,9 @@ use crate::vault_directory::{default_vault_dir, default_vault_path};
     any(target_os = "linux", target_os = "macos", target_os = "windows")
 ))]
 const SERVICE: &str = "dev.onepub.lockbox.vault";
+#[cfg(all(target_os = "linux", not(test)))]
+mod linux;
+
 const DISABLED_MARKER: &str = ".platform-secret-store-disabled";
 const AUTO_OPEN_SCOPE_FILE: &str = ".auto-open-scope";
 const MODE_ENV: &str = "LOCKBOX_PLATFORM_SECRET_STORE";
@@ -173,12 +176,14 @@ pub fn get_platform_vault_password_for(
     }
     let item = vault_item_name_for(path_to)?;
     #[cfg(all(target_os = "linux", not(test)))]
-    if let Some(address) = session_bus_address {
-        return linux_platform_get_vault_password(&item, address);
+    {
+        linux::get(&item, session_bus_address)
     }
     #[cfg(any(not(target_os = "linux"), test))]
-    let _ = session_bus_address;
-    platform_get_vault_password_for_item(&item)
+    {
+        let _ = session_bus_address;
+        platform_get_vault_password_for_item(&item)
+    }
 }
 
 fn platform_secret_store_disabled_for(path_to: &Path) -> Result<bool> {
@@ -328,7 +333,7 @@ fn platform_supported() -> bool {
 
 #[cfg(target_os = "linux")]
 fn platform_backend_name() -> &'static str {
-    "Secret Service/libsecret"
+    "Secret Service (Rust D-Bus client)"
 }
 
 #[cfg(target_os = "macos")]
@@ -354,10 +359,7 @@ fn platform_get_vault_password() -> Result<Option<SecretString>> {
     platform_get_vault_password_for_item(&vault_item_name()?)
 }
 
-#[cfg(all(
-    not(test),
-    any(target_os = "linux", target_os = "macos", target_os = "windows")
-))]
+#[cfg(all(not(test), any(target_os = "macos", target_os = "windows")))]
 fn platform_get_vault_password_for_item(item: &str) -> Result<Option<SecretString>> {
     let entry = keyring::Entry::new(SERVICE, item).map_err(platform_error)?;
     match entry.get_secret() {
@@ -390,51 +392,6 @@ fn platform_get_vault_password_for_item(item: &str) -> Result<Option<SecretStrin
         .map_err(|err| Error::InvalidKeyMaterial(err.to_string()))
 }
 
-#[cfg(all(not(test), target_os = "linux"))]
-fn linux_platform_get_vault_password(
-    item: &str,
-    session_bus_address: &str,
-) -> Result<Option<SecretString>> {
-    use secret_service::{blocking::SecretService, EncryptionType};
-    use std::collections::HashMap;
-
-    let connection = zbus::blocking::connection::Builder::address(session_bus_address)
-        .and_then(|builder| builder.build())
-        .map_err(|err| platform_session_error(err.to_string()))?;
-    let service = SecretService::connect_with_existing(EncryptionType::Dh, connection)
-        .map_err(|err| platform_session_error(err.to_string()))?;
-    let found = service
-        .search_items(HashMap::from([("service", SERVICE), ("username", item)]))
-        .map_err(|err| platform_session_error(err.to_string()))?;
-    let mut items = found.unlocked;
-    items.extend(found.locked);
-    match items.len() {
-        0 => Ok(None),
-        1 => {
-            let selected = items.pop().expect("one Secret Service item");
-            selected
-                .ensure_unlocked()
-                .map_err(|err| platform_session_error(err.to_string()))?;
-            let secret = selected
-                .get_secret()
-                .map_err(|err| platform_session_error(err.to_string()))?;
-            SecretString::try_from_utf8(secret)
-                .map(Some)
-                .map_err(|err| Error::InvalidKeyMaterial(err.to_string()))
-        }
-        _ => Err(Error::VaultUnavailable(format!(
-            "platform credential store has multiple credentials for {item}"
-        ))),
-    }
-}
-
-#[cfg(all(not(test), target_os = "linux"))]
-fn platform_session_error(message: String) -> Error {
-    Error::VaultUnavailable(format!(
-        "platform credential store is unavailable in this user session: {message}"
-    ))
-}
-
 #[cfg(all(
     not(test),
     not(any(target_os = "linux", target_os = "macos", target_os = "windows"))
@@ -457,10 +414,7 @@ fn platform_get_vault_password() -> Result<Option<SecretString>> {
         .map_err(|err| Error::InvalidKeyMaterial(err.to_string()))
 }
 
-#[cfg(all(
-    not(test),
-    any(target_os = "linux", target_os = "macos", target_os = "windows")
-))]
+#[cfg(all(not(test), any(target_os = "macos", target_os = "windows")))]
 fn platform_put_vault_password(password: &SecretString) -> Result<()> {
     let entry = keyring_entry()?;
     password
@@ -490,10 +444,7 @@ fn platform_put_vault_password(password: &SecretString) -> Result<()> {
     Ok(())
 }
 
-#[cfg(all(
-    not(test),
-    any(target_os = "linux", target_os = "macos", target_os = "windows")
-))]
+#[cfg(all(not(test), any(target_os = "macos", target_os = "windows")))]
 fn platform_forget_vault_password() -> Result<()> {
     let entry = keyring_entry()?;
     match entry.delete_credential() {
@@ -526,19 +477,13 @@ fn test_platform_store() -> &'static Mutex<HashMap<String, Vec<u8>>> {
     STORE.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
-#[cfg(all(
-    not(test),
-    any(target_os = "linux", target_os = "macos", target_os = "windows")
-))]
+#[cfg(all(not(test), any(target_os = "macos", target_os = "windows")))]
 fn keyring_entry() -> Result<keyring::Entry> {
     let item = vault_item_name()?;
     keyring::Entry::new(SERVICE, &item).map_err(platform_error)
 }
 
-#[cfg(all(
-    not(test),
-    any(target_os = "linux", target_os = "macos", target_os = "windows")
-))]
+#[cfg(all(not(test), any(target_os = "macos", target_os = "windows")))]
 fn platform_error(err: keyring::Error) -> Error {
     Error::VaultUnavailable(format!("platform credential store is unavailable: {err}"))
 }
@@ -657,4 +602,20 @@ mod tests {
             }
         }
     }
+}
+
+#[cfg(all(not(test), target_os = "linux"))]
+fn platform_get_vault_password_for_item(item: &str) -> Result<Option<SecretString>> {
+    linux::get(item, None)
+}
+#[cfg(all(not(test), target_os = "linux"))]
+fn platform_put_vault_password(password: &SecretString) -> Result<()> {
+    let item = vault_item_name()?;
+    password
+        .with_bytes(|bytes| linux::put(&item, bytes))
+        .map_err(|err| Error::InvalidKeyMaterial(err.to_string()))?
+}
+#[cfg(all(not(test), target_os = "linux"))]
+fn platform_forget_vault_password() -> Result<()> {
+    linux::forget(&vault_item_name()?)
 }

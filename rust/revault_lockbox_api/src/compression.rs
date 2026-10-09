@@ -83,13 +83,6 @@ fn zstd_encode(payload: &[u8], level: i32) -> Vec<u8> {
     compress_to_vec(payload, zstd_complete_level(level))
 }
 
-#[cfg(feature = "native-zstd-encoder")]
-fn zstd_encode_compression_frame(payload: &[u8], level: i32) -> Vec<u8> {
-    zstd::bulk::compress(payload, level)
-        .expect("native zstd compression should not fail for an in-memory buffer")
-}
-
-#[cfg(not(feature = "native-zstd-encoder"))]
 fn zstd_encode_compression_frame(payload: &[u8], level: i32) -> Vec<u8> {
     zstd_encode(payload, level)
 }
@@ -470,17 +463,18 @@ mod tests {
         ));
     }
 
-    #[cfg(feature = "native-zstd-encoder")]
     #[test]
-    fn native_zstd_encoder_writes_standard_zstd_algorithm_id() {
-        let payload = b"native backend compatibility ".repeat(4096);
+    fn zstd_encoder_writes_standard_zstd_algorithm_id() {
+        let payload = b"zstd backend compatibility ".repeat(4096);
         let (algorithm, stored) = encode_compression_frame_with_level(&payload, 1);
 
         assert_eq!(algorithm, COMPRESSION_ZSTD);
-        assert_eq!(
-            zstd_declared_content_size(&stored).unwrap(),
-            Some(payload.len() as u64)
-        );
+        assert_eq!(&stored[..4], ZSTD_MAGIC.as_slice());
+        // Standard Zstd frames may omit the content size. When present, it
+        // must agree with the archive's authenticated uncompressed length.
+        if let Some(declared_len) = zstd_declared_content_size(&stored).unwrap() {
+            assert_eq!(declared_len, payload.len() as u64);
+        }
         assert_eq!(
             decode_compression_frame(algorithm, &stored, payload.len() as u64).unwrap(),
             payload

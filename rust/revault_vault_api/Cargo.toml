@@ -28,8 +28,8 @@ zeroize = "1.9"
 libc = "0.2"
 
 [target.'cfg(target_os = "linux")'.dependencies]
-keyring = { version = "4.2.0", default-features = false, features = ["v1"] }
-dbus = "0.9.12"
+async-io = "2"
+futures-lite = "2"
 secret-service = { version = "=5.1.0", features = ["rt-async-io-crypto-rust"] }
 zbus = { version = "5", default-features = false, features = ["async-io", "blocking-api"] }
 
@@ -56,3 +56,9 @@ windows-sys = { version = "0.61", features = [
     "Win32_System_Threading",
     "Win32_UI_WindowsAndMessaging",
 ] }
+
+[target.'cfg(target_os = "linux")'.dev-dependencies]
+aes = "0.8"
+cbc = { version = "0.1", features = ["alloc", "block-padding"] }
+hkdf = "0.13"
+keyring = { version = "4.2.0", default-features = false, features = ["v1"] }
