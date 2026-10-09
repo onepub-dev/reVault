@@ -831,7 +831,7 @@ fn historical_v2_archive_migrates_to_current_format() {
         old_signer
             .private_key_record()
             .unwrap()
-            .with_bytes(|bytes| SecretVec::try_from_slice(bytes))
+            .with_bytes(SecretVec::try_from_slice)
             .unwrap()
             .unwrap(),
     )
