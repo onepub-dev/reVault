@@ -32,6 +32,37 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  headless-install:
+    name: Linux CLI installation without desktop development packages
+    runs-on: ubuntu-latest
+    container: rust:1.88-bookworm
+    timeout-minutes: 40
+    env:
+      RUSTUP_TOOLCHAIN: 1.88.0
+    defaults:
+      run:
+        working-directory: rust
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify minimal build environment
+        run: |
+          if dpkg-query -W -f='${Status}' libdbus-1-dev 2>/dev/null | grep -q 'install ok installed'; then
+            echo 'Unexpected D-Bus development package' >&2
+            exit 1
+          fi
+      - name: Install normal CLI from source
+        run: cargo install --locked --path revault_cli --root /tmp/revault-installed
+      - name: Check native dependencies
+        run: |
+          ldd /tmp/revault-installed/bin/lockbox > /tmp/revault-linkage.txt
+          cat /tmp/revault-linkage.txt
+          if grep -q libdbus /tmp/revault-linkage.txt; then exit 1; fi
+          /tmp/revault-installed/bin/lockbox --version
+      - name: Exercise headless CLI lifecycle
+        env:
+          REVAULT_HEADLESS_CLI: /tmp/revault-installed/bin/lockbox
+        run: cargo test --locked -p revault_tooling --features installed-cli-tests --test installed_headless -- --nocapture
+
   api-msrv:
     name: Public APIs / Rust 1.88
     runs-on: ubuntu-latest
@@ -201,7 +232,7 @@ jobs:
           key: linux-tests-${{ matrix.cache }}
 
       - name: Install Linux dependencies
-        run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config
+        run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config dbus
 
       - name: Run required package tests
         env:

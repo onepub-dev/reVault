@@ -93,39 +93,46 @@ impl SleepWatcher {
 #[cfg(target_os = "linux")]
 mod platform {
     use super::*;
-    use dbus::arg::OwnedFd;
-    use dbus::blocking::Connection;
-    use dbus::blocking::Proxy;
-    use dbus::message::MatchRule;
     use std::time::Duration;
+    #[cfg(test)]
+    use zbus::blocking::connection::Builder;
+    use zbus::blocking::{Connection, Proxy};
+    use zbus::zvariant::OwnedFd;
 
     pub(super) fn spawn_handler(handler: SleepHandler) -> io::Result<()> {
-        let connection =
-            Connection::new_system().map_err(|err| io::Error::other(err.to_string()))?;
+        let connection = system_connection().map_err(io_error)?;
+        spawn_handler_on(connection, handler)
+    }
+
+    fn spawn_handler_on(connection: Connection, handler: SleepHandler) -> io::Result<()> {
         let mut inhibitor = acquire_sleep_inhibitor(&connection).ok();
-        let rule = MatchRule::new_signal("org.freedesktop.login1.Manager", "PrepareForSleep")
-            .with_sender("org.freedesktop.login1")
-            .with_path("/org/freedesktop/login1");
-        let mut handler = handler;
-        connection
-            .add_match(rule, move |(sleeping,): (bool,), connection, _| {
-                let event = if sleeping {
-                    SleepEvent::SuspendRequested
-                } else {
-                    SleepEvent::Resumed
-                };
-                handler(event);
-                if sleeping {
-                    drop(inhibitor.take());
-                } else {
-                    inhibitor = acquire_sleep_inhibitor(connection).ok();
-                }
-                true
-            })
-            .map_err(|err| io::Error::other(err.to_string()))?;
+        // Register before returning success. The proxy filters by the service's
+        // owner, object path and interface, rather than accepting arbitrary
+        // signals from other bus participants.
+        let proxy = logind_proxy(&connection).map_err(io_error)?;
+        let signals = proxy.receive_signal("PrepareForSleep").map_err(io_error)?;
+        drop(proxy);
         thread::Builder::new()
             .name("lockbox-sleep-watcher".to_string())
-            .spawn(move || watch_logind(connection))
+            .spawn(move || {
+                let mut handler = handler;
+                for message in signals {
+                    let Ok((sleeping,)) = message.body().deserialize::<(bool,)>() else {
+                        continue;
+                    };
+                    handler(if sleeping {
+                        SleepEvent::SuspendRequested
+                    } else {
+                        SleepEvent::Resumed
+                    });
+                    // Keep the delay inhibitor until secret clearing completes.
+                    if sleeping {
+                        drop(inhibitor.take());
+                    } else {
+                        inhibitor = acquire_sleep_inhibitor(&connection).ok();
+                    }
+                }
+            })
             .map(|_| ())
     }
 
@@ -142,23 +149,54 @@ mod platform {
 
     impl SleepInhibitor {
         pub(super) fn acquire_active(reason: &str) -> io::Result<Self> {
-            let connection =
-                Connection::new_system().map_err(|err| io::Error::other(err.to_string()))?;
+            let connection = system_connection().map_err(io_error)?;
             acquire_logind_inhibitor(&connection, reason, "block")
                 .map(|fd| Self { _fd: fd })
-                .map_err(|err| io::Error::other(err.to_string()))
+                .map_err(io_error)
         }
     }
 
-    fn watch_logind(connection: Connection) {
-        loop {
-            if connection.process(Duration::from_secs(60)).is_err() {
-                return;
-            }
-        }
+    fn io_error(error: zbus::Error) -> io::Error {
+        io::Error::other(error.to_string())
     }
 
-    fn acquire_sleep_inhibitor(connection: &Connection) -> Result<OwnedFd, dbus::Error> {
+    fn system_connection() -> zbus::Result<Connection> {
+        bounded_connection(zbus::connection::Builder::system()?)
+    }
+
+    fn bounded_connection(builder: zbus::connection::Builder<'_>) -> zbus::Result<Connection> {
+        // A method timeout starts after authentication. Bound connection setup
+        // too, so an unresponsive bus cannot stall agent startup or secret use.
+        let timeout = Duration::from_secs(5);
+        async_io::block_on(futures_lite::future::or(
+            async {
+                builder
+                    .method_timeout(timeout)
+                    .build()
+                    .await
+                    .map(Connection::from)
+            },
+            async {
+                async_io::Timer::after(timeout).await;
+                Err(io::Error::new(
+                    io::ErrorKind::TimedOut,
+                    "system D-Bus connection timed out after 5 seconds",
+                )
+                .into())
+            },
+        ))
+    }
+
+    fn logind_proxy(connection: &Connection) -> zbus::Result<Proxy<'_>> {
+        Proxy::new(
+            connection,
+            "org.freedesktop.login1",
+            "/org/freedesktop/login1",
+            "org.freedesktop.login1.Manager",
+        )
+    }
+
+    fn acquire_sleep_inhibitor(connection: &Connection) -> zbus::Result<OwnedFd> {
         acquire_logind_inhibitor(
             connection,
             "Clear cached lockbox keys before system sleep",
@@ -170,19 +208,187 @@ mod platform {
         connection: &Connection,
         reason: &str,
         mode: &str,
-    ) -> Result<OwnedFd, dbus::Error> {
-        let proxy = Proxy::new(
-            "org.freedesktop.login1",
-            "/org/freedesktop/login1",
-            Duration::from_secs(5),
-            connection,
-        );
-        let (fd,): (OwnedFd,) = proxy.method_call(
-            "org.freedesktop.login1.Manager",
-            "Inhibit",
-            ("sleep", "lockbox", reason, mode),
-        )?;
-        Ok(fd)
+    ) -> zbus::Result<OwnedFd> {
+        logind_proxy(connection)?.call("Inhibit", &("sleep", "lockbox", reason, mode))
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+        use std::io::Read;
+        use std::os::unix::net::UnixStream;
+        use std::process::{Child, Command, Stdio};
+        use std::sync::{mpsc, Mutex};
+        use std::time::Instant;
+
+        struct PrivateBus {
+            child: Child,
+            directory: std::path::PathBuf,
+        }
+        impl Drop for PrivateBus {
+            fn drop(&mut self) {
+                let _ = self.child.kill();
+                let _ = self.child.wait();
+                let _ = std::fs::remove_dir_all(&self.directory);
+            }
+        }
+
+        struct Logind {
+            inhibitors: Mutex<mpsc::Sender<(String, UnixStream)>>,
+        }
+        #[zbus::interface(name = "org.freedesktop.login1.Manager")]
+        impl Logind {
+            fn inhibit(&self, what: &str, who: &str, reason: &str, mode: &str) -> OwnedFd {
+                assert_eq!(what, "sleep");
+                assert_eq!(who, "lockbox");
+                assert!(!reason.is_empty());
+                let (read, write) = UnixStream::pair().unwrap();
+                self.inhibitors
+                    .lock()
+                    .unwrap()
+                    .send((mode.to_owned(), read))
+                    .unwrap();
+                OwnedFd::from(std::os::fd::OwnedFd::from(write))
+            }
+        }
+
+        #[test]
+        fn unresponsive_system_bus_handshake_is_bounded() {
+            let directory = std::env::temp_dir().join(format!(
+                "lbx-logind-stalled-{}-{}",
+                std::process::id(),
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_nanos()
+            ));
+            std::fs::create_dir(&directory).unwrap();
+            let address = format!("unix:path={}", directory.join("bus").display());
+            let listener = std::os::unix::net::UnixListener::bind(directory.join("bus")).unwrap();
+            let started = Instant::now();
+            let result =
+                bounded_connection(zbus::connection::Builder::address(address.as_str()).unwrap());
+            drop(listener);
+            std::fs::remove_dir_all(directory).unwrap();
+            assert!(result.is_err());
+            assert!(started.elapsed() >= Duration::from_secs(4));
+            assert!(started.elapsed() < Duration::from_secs(8));
+        }
+
+        #[test]
+        fn private_logind_delivers_events_and_releases_inhibitor_after_handler() {
+            // A private synthetic service is necessary: putting the real host
+            // to sleep is neither a reliable nor an acceptable test operation.
+            let directory = std::env::temp_dir().join(format!(
+                "lbx-logind-{}-{}",
+                std::process::id(),
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_nanos()
+            ));
+            std::fs::create_dir(&directory).unwrap();
+            let address = format!("unix:path={}", directory.join("bus").display());
+            let child = Command::new("dbus-daemon")
+                .args(["--session", "--nofork", &format!("--address={address}")])
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .spawn()
+                .expect("install dbus-daemon to run the private bus integration test");
+            let _bus = PrivateBus { child, directory };
+            let started = Instant::now();
+            let client = loop {
+                match Builder::address(address.as_str())
+                    .unwrap()
+                    .method_timeout(Duration::from_secs(2))
+                    .build()
+                {
+                    Ok(connection) => break connection,
+                    Err(error) => {
+                        assert!(started.elapsed() < Duration::from_secs(5), "{error}");
+                        thread::sleep(Duration::from_millis(10));
+                    }
+                }
+            };
+            let (inhibitors, acquired) = mpsc::channel();
+            let service = Builder::address(address.as_str())
+                .unwrap()
+                .name("org.freedesktop.login1")
+                .unwrap()
+                .serve_at(
+                    "/org/freedesktop/login1",
+                    Logind {
+                        inhibitors: Mutex::new(inhibitors),
+                    },
+                )
+                .unwrap()
+                .build()
+                .unwrap();
+            let (events, received) = mpsc::channel();
+            let (release, resume_handler) = mpsc::channel();
+            spawn_handler_on(
+                client.clone(),
+                Box::new(move |event| {
+                    events.send(event).unwrap();
+                    if event == SleepEvent::SuspendRequested {
+                        resume_handler.recv_timeout(Duration::from_secs(5)).unwrap();
+                    }
+                }),
+            )
+            .unwrap();
+            let (mode, mut held) = acquired.recv_timeout(Duration::from_secs(5)).unwrap();
+            assert_eq!(mode, "delay");
+            held.set_read_timeout(Some(Duration::from_millis(100)))
+                .unwrap();
+            service
+                .emit_signal(
+                    None::<&str>,
+                    "/org/freedesktop/login1",
+                    "org.freedesktop.login1.Manager",
+                    "PrepareForSleep",
+                    &(true,),
+                )
+                .unwrap();
+            assert_eq!(
+                received.recv_timeout(Duration::from_secs(5)).unwrap(),
+                SleepEvent::SuspendRequested
+            );
+            assert!(
+                held.read(&mut [0]).is_err(),
+                "inhibitor must remain held during clearing"
+            );
+            release.send(()).unwrap();
+            held.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+            assert_eq!(
+                held.read(&mut [0]).unwrap(),
+                0,
+                "clearing releases inhibitor"
+            );
+            service
+                .emit_signal(
+                    None::<&str>,
+                    "/org/freedesktop/login1",
+                    "org.freedesktop.login1.Manager",
+                    "PrepareForSleep",
+                    &(false,),
+                )
+                .unwrap();
+            assert_eq!(
+                received.recv_timeout(Duration::from_secs(5)).unwrap(),
+                SleepEvent::Resumed
+            );
+            let (mode, _held) = acquired.recv_timeout(Duration::from_secs(5)).unwrap();
+            assert_eq!(mode, "delay");
+            let active = acquire_logind_inhibitor(&client, "test activity", "block").unwrap();
+            let (mode, mut active_peer) = acquired.recv_timeout(Duration::from_secs(5)).unwrap();
+            assert_eq!(mode, "block");
+            drop(active);
+            active_peer
+                .set_read_timeout(Some(Duration::from_secs(5)))
+                .unwrap();
+            assert_eq!(active_peer.read(&mut [0]).unwrap(), 0);
+        }
     }
 }
 
