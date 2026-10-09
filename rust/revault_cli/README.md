@@ -138,8 +138,8 @@ secret values without prompting; open the Vault and Lockbox first. Without
 `NAME=`, the environment name is the variable basename or form field name.
 `form get` and `form set` now use one `/path@field` argument.
 Use `./a@dev` for a host file literally named `a@dev`; bare `a@dev` always
-selects a Vault alias. `lbxv completion install` and `lbxx completion install`
-register completion for the helpers.
+selects a Vault alias. A single `lbx completion install` registers completion
+for `lockbox`, `lbx`, `lbxv` and `lbxx` together.
 
 Update or remove the encrypted Lockbox description explicitly:
 

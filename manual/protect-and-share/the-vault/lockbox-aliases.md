@@ -79,12 +79,10 @@ Both helpers deliberately disclose secret values to their consumer. `lbxx` avoid
 
 ## Complete aliases and selectors
 
-Register completion for each command you use. For Bash:
+Install completion for all four commands in one step. For Bash:
 
 ```bash
 lbx completion install --shell bash
-lbxv completion install --shell bash
-lbxx completion install --shell bash
 ```
 
 Restart the shell. Completion suggests aliases, variable names and `/form/path@field`, including selectors after `NAME=` in `lbxx`. It suggests names only, never stored values, and does not prompt to unlock a Vault or Lockbox.

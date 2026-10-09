@@ -2242,7 +2242,7 @@ pub(crate) fn completion_command() -> Command {
         .arg_required_else_help(true)
         .subcommands([
             Command::new("generate")
-                .about("Write a completion registration script to stdout or a file.")
+                .about("Write completion for lockbox, lbx, lbxv and lbxx to stdout or a file.")
                 .arg(completion_shell_arg())
                 .arg(
                     Arg::new("output")
@@ -2253,17 +2253,17 @@ pub(crate) fn completion_command() -> Command {
                         .help("Write the script to this file."),
                 ),
             Command::new("install")
-                .about("Install completion in a standard per-user completion directory.")
+                .about("Install completion for lockbox, lbx, lbxv and lbxx together.")
                 .arg(completion_shell_arg())
                 .arg(
                     Arg::new("path")
                         .long("path")
                         .value_name("FILE")
                         .value_hint(ValueHint::AnyPath)
-                        .help("Override the standard per-user installation path."),
+                        .help("Write all four registrations to this file instead of standard per-user paths."),
                 ),
             Command::new("uninstall")
-                .about("Remove a completion installed by revault.")
+                .about("Remove installed completion for lockbox, lbx, lbxv and lbxx together.")
                 .arg(completion_shell_arg())
                 .arg(
                     Arg::new("path")

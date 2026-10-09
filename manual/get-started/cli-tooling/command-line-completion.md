@@ -2,14 +2,13 @@
 
 reVault can install dynamic completion for Bash, Zsh, Fish, PowerShell and Elvish. It supports `lockbox`, `lbx`, `lbxv` and `lbxx`.
 
-The value helpers are installed alongside the main CLI, but have their own completion registrations. Installing completion for `lbx` does not register them:
+One installation registers all four commands:
 
 ```bash
-lbxv completion install --shell bash
-lbxx completion install --shell bash
+lbx completion install --shell bash
 ```
 
-Use the same supported shell names with either helper. Completion suggests `a@alias`, variable names and `/form/path@field` selectors, including the source after `NAME=`. Suggestions contain names only, never stored values. The Vault and target Lockbox must already be available to the session; completion does not prompt to unlock them.
+The same operation is available through any of the four command names. Re-running it refreshes all registrations. Completion suggests `a@alias`, variable names and `/form/path@field` selectors, including the source after `NAME=`. Suggestions contain names only, never stored values. The Vault and target Lockbox must already be available to the session; completion does not prompt to unlock them.
 
 See [Lockbox aliases and script helpers](../../protect-and-share/the-vault/lockbox-aliases.md) for setup and examples combining multiple selections.
 
@@ -31,18 +30,20 @@ lbx completion install --shell elvish
 
 Restart the shell after installation. PowerShell uses a managed block in the current user's profile; uninstalling removes only that block.
 
-Remove the installed completion with:
+Remove completion for all four commands with:
 
 ```bash
 lbx completion uninstall
 ```
 
-To manage the script yourself, generate it on standard output or into a file:
+To manage the script yourself, generate a combined registration script for all four commands on standard output or into a file:
 
 ```bash
 lbx completion generate --shell bash
 lbx completion generate --shell bash --output ./lbx-completion.bash
 ```
+
+`completion install --path FILE` also writes a combined script. Source that file from your shell configuration; use `completion uninstall --path FILE` to remove it. With standard installation paths, Bash, Zsh and Fish receive a separate autoload file for each command. Elvish users can add `use lbx` to their shell configuration; that module registers all four commands.
 
 ## Dynamic suggestions
 
