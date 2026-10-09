@@ -1,0 +1,10 @@
+Post-format checks after commit 86e7d60f.
+
+cargo +1.88.0 test -p revault_lockbox_api --release --features external-source --lib whole_tree_compaction_preserves_authenticated_access_root -- --nocapture --test-threads=1
+Result: 1 passed, 0 failed, 648 filtered out, 15.03s. Raw output: /tmp/revault-access-postformat-authenticated-root.log
+
+cargo +1.88.0 test -p revault_lockbox_api --release --features external-source --lib whole_tree_resume_preserves_credentials -- --nocapture --test-threads=1
+Result: 1 passed, 0 failed, 648 filtered out, 9.72s. Raw output: /tmp/revault-access-postformat-resume-credentials.log
+
+cargo +1.88.0 clippy -p revault_lockbox_api --features external-source --lib --tests --benches -- -D warnings
+Result: passed, dev profile 6.38s. Raw output: /tmp/revault-access-postformat-clippy.log

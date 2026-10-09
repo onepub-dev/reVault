@@ -58,3 +58,5 @@ contents. Missing or damaged unrelated content therefore prevents that proof.
 A safe fix needs authenticated selected membership that survives unrelated loss;
 skipping full verification alone would weaken owner guarantees. These failures
 remain architecture/recovery blockers, not passes of the shared-tree component.
+
+Post-format validation at `86e7d60f` passes both affected credential-copy/resume tests and strict Clippy. Raw logs and exact commands are retained alongside the earlier eight bootstrap controls. No full native or format suite pass is claimed.
