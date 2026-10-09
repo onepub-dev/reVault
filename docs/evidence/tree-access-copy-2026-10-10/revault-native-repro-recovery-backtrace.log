@@ -1,0 +1,27 @@
+    Finished `release` profile [optimized] target(s) in 0.13s
+     Running unittests src/lib.rs (target/release/deps/revault_lockbox_api-f07cb4fa7fa687ec)
+
+running 1 test
+test api_tests::recovery_skips_truncated_tail_and_keeps_prior_intact_files ... 
+thread 'api_tests::recovery_skips_truncated_tail_and_keeps_prior_intact_files' panicked at revault_lockbox_api/src/api_tests.rs:3364:5:
+assertion `left == right` failed
+  left: 0
+ right: 3
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+   1: core::panicking::panic_fmt
+   2: core::panicking::assert_failed_inner
+   3: core::panicking::assert_failed
+   4: revault_lockbox_api::api_tests::recovery_skips_truncated_tail_and_keeps_prior_intact_files
+   5: core::ops::function::FnOnce::call_once
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+FAILED
+
+failures:
+
+failures:
+    api_tests::recovery_skips_truncated_tail_and_keeps_prior_intact_files
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 656 filtered out; finished in 0.06s
+
+error: test failed, to rerun pass `-p revault_lockbox_api --lib`

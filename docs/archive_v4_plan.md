@@ -22,6 +22,17 @@ or erase failures.
 
 ## Current position and next work
 
+### Credential-preserving copy — 2026-10-10
+
+The [bounded credential-directory integration](evidence/tree-access-copy-2026-10-10/README.md)
+retains exact password/contact wrappers across copy and resume in all encrypted
+modes. It checks both mirrors before publication, refuses changed credentials in
+an otherwise valid successor and cleans up 16 partial key-directory write failures.
+Focused copy/resume and bootstrap controls and strict Clippy pass. The two native
+recovery failures reproduce and remain unresolved; no owner checks were relaxed.
+Access overflow/mutation, public integration, partial temporary ownership and
+complete performance/resource/aging/compatibility qualification remain outstanding.
+
 ### Complete-copy resume — 2026-10-10
 
 The [test-only complete-copy admission](evidence/tree-resume-2026-10-10/README.md)

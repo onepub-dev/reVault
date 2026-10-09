@@ -705,3 +705,148 @@ fn whole_tree_resume_process_death_reopens_and_retries_before_rename() {
     }
     println!("WHOLE_TREE_RESUME_PROCESS_CASES {cases}");
 }
+
+// No public writer creates a shared-tree access root. Compact the synthetic
+// fixture first to remove aged free claims, then initialize only its control
+// state with the real bootstrap encoder and the unchanged selected manifest.
+fn attach_access(
+    path: &Path,
+    mode: FormatMode,
+    authority: &Authority<'_>,
+    owner: &OwnerSigningKeyPair,
+    slots: &[crate::key_slot::KeySlot],
+) {
+    drop(
+        tree_image::compact_path(
+            path,
+            archive(),
+            mode,
+            authority,
+            mode.signed().then_some(owner),
+            key(mode),
+        )
+        .unwrap(),
+    );
+    let mut storage = StorageBackend::file_for_write(path).unwrap();
+    let (_, manifest) =
+        shared::open_private(&storage, archive(), mode, authority, key(mode)).unwrap();
+    storage
+        .write_at(
+            0,
+            &vec![0; crate::file_format::publication_anchor::REGION_LEN],
+        )
+        .unwrap();
+    shared::initialize(
+        &mut storage,
+        archive(),
+        mode,
+        authority,
+        mode.signed().then_some(owner),
+        key(mode),
+        &manifest,
+        slots,
+    )
+    .unwrap();
+}
+
+#[test]
+fn whole_tree_resume_preserves_credentials_and_rejects_changed_wrappers() {
+    let directory = Directory::new();
+    let owner = OwnerSigningKeyPair::generate().unwrap();
+    let public = owner.public_key();
+    let password = SecretString::try_from_slice(b"synthetic resume password").unwrap();
+    for bits in [1, 3, 5, 7, 9, 11, 13, 15] {
+        let mode = protection(bits);
+        let authority = authority(mode, &public);
+        let path = directory.0.join(format!("{bits}.tree"));
+        let candidate = directory.0.join(format!("{bits}.candidate"));
+        fixture(&path, mode, &authority, &owner);
+        let slot = crate::key_slot::KeySlot::password_bytes(
+            1,
+            b"synthetic resume password",
+            vec![93; 16],
+            key(mode).unwrap(),
+        )
+        .unwrap();
+        attach_access(&path, mode, &authority, &owner, &[slot]);
+        completed_copy(&path, &candidate, mode, &authority, &owner);
+        drop(
+            tree_image::resume_path(&path, &candidate, archive(), mode, &authority, key(mode))
+                .unwrap(),
+        );
+        let storage = StorageBackend::file(&path).unwrap();
+        let credential =
+            crate::file_format::publication_anchor::bootstrap::Credential::Password(&password);
+        let opened = shared::credential_open(
+            &storage,
+            archive(),
+            mode,
+            mode.signed().then_some(&public),
+            credential,
+            Some(1),
+        )
+        .unwrap();
+        opened
+            .key
+            .with_bytes(|k| assert_eq!(k, key(mode).unwrap()))
+            .unwrap();
+        verify(&storage, mode, &authority);
+        drop(storage);
+        // A valid successor with the same payloads but different credentials is
+        // not the same compaction. Re-sign only synthetic candidate control state.
+        completed_copy(&path, &candidate, mode, &authority, &owner);
+        let changed = crate::key_slot::KeySlot::password_bytes(
+            1,
+            b"different password",
+            vec![94; 16],
+            key(mode).unwrap(),
+        )
+        .unwrap();
+        let mut replacement = StorageBackend::file_for_write(&candidate).unwrap();
+        let old_anchor = TreeImage::open(
+            crate::file_format::allocation_map::compaction::View(&replacement),
+            archive(),
+            mode,
+            &authority,
+            key(mode),
+        )
+        .unwrap()
+        .image
+        .anchor;
+        let changed_anchor = shared::tests::replace_fixture_slots(
+            &mut replacement,
+            archive(),
+            mode,
+            &authority,
+            mode.signed().then_some(&owner),
+            key(mode),
+            &[changed],
+        )
+        .unwrap();
+        assert_eq!(changed_anchor.generation, old_anchor.generation);
+        assert_eq!(changed_anchor.previous, old_anchor.previous);
+        let different = SecretString::try_from_slice(b"different password").unwrap();
+        let opened = shared::credential_open(
+            &replacement,
+            archive(),
+            mode,
+            mode.signed().then_some(&public),
+            crate::file_format::publication_anchor::bootstrap::Credential::Password(&different),
+            Some(1),
+        )
+        .unwrap();
+        opened
+            .key
+            .with_bytes(|k| assert_eq!(k, key(mode).unwrap()))
+            .unwrap();
+        drop(replacement);
+        let before = std::fs::read(&path).unwrap();
+        let pending = std::fs::read(&candidate).unwrap();
+        assert!(
+            tree_image::resume_path(&path, &candidate, archive(), mode, &authority, key(mode))
+                .is_err()
+        );
+        assert_eq!(std::fs::read(&path).unwrap(), before);
+        assert_eq!(std::fs::read(&candidate).unwrap(), pending);
+    }
+}

@@ -31,8 +31,8 @@ fn verify_copy<S: Storage, T: Storage>(
     )?;
     let base = old.image.anchor.clone();
     let next = new.image.anchor.clone();
-    if base.keys != publication::RootRef::default()
-        || next.keys != publication::RootRef::default()
+    if shared::retained_public_directory(source, &base)?
+        != shared::retained_public_directory(candidate, &next)?
         || base.generation.checked_add(1) != Some(next.generation)
         || next.previous != shared::commitment(&base)?
         || source.len()? != base.sealed_len

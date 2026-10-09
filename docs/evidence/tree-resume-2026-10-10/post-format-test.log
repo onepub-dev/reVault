@@ -1,0 +1,14 @@
+   Compiling revault_lockbox_api v0.0.41 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api)
+    Finished `release` profile [optimized] target(s) in 1m 05s
+     Running unittests src/lib.rs (target/release/deps/revault_lockbox_api-e3bcc2539127e239)
+
+running 5 tests
+test file_format::candidate_files::tests::tree_tests::forms::installation::whole_tree_resume_complete_copy_reopens_all_modes ... ok
+test file_format::candidate_files::tests::tree_tests::forms::installation::whole_tree_resume_process_child ... ok
+test file_format::candidate_files::tests::tree_tests::forms::installation::whole_tree_resume_process_death_reopens_and_retries_before_rename ... WHOLE_TREE_RESUME_PROCESS_CASES 48
+ok
+test file_format::candidate_files::tests::tree_tests::forms::installation::whole_tree_resume_refuses_partial_stale_edited_and_corrupt_candidates ... ok
+test file_format::candidate_files::tests::tree_tests::forms::installation::whole_tree_resume_refuses_same_file_links_and_foreign_directory ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 643 filtered out; finished in 57.79s
+

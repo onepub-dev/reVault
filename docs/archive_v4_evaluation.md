@@ -479,6 +479,11 @@ passes five focused tests, 48 process exits and strict Clippy. This supplies
 explicit complete-replacement admission only: partial ownership, automatic
 recovery, physical power-loss and whole-format performance gates remain open.
 
+The [credential-preserving tree copy](evidence/tree-access-copy-2026-10-10/README.md)
+retains bounded public wrapper bytes in all encrypted modes and passes scoped
+copy/resume/bootstrap and partial-write checks. Both known native recovery failures
+reproduce. No timing, RSS, physical power-loss or whole-format gate is passed.
+
 ## Evidence index
 
 Historical conditions and raw data remain authoritative for their own revisions.

@@ -44,3 +44,5 @@ and cooperative locks remain preconditions. This is complete-copy admission, not
 a durable ownership journal: partial-copy cleanup, post-rename receipts, automatic
 recovery discovery, access roots, cross-platform durability and complete CPU/RSS/
 aging/size qualification remain outstanding. No public format/API is activated.
+
+Post-format verification at `26d4f21c` passes all five resume tests, all 48 process cases and strict Clippy; raw outputs are retained in `post-format-test.log` and `post-format-clippy.log`.

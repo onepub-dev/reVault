@@ -4,7 +4,7 @@ use allocation::Extent;
 
 /// Caller holds a stable source snapshot/read lock and owns an empty destination.
 /// Keep UUID/mode/key/owner, all selected logical state and publication lineage.
-/// This relocates extents, not pack interiors; access roots are explicitly refused.
+/// This relocates extents, not pack interiors; bounded public key wrappers are retained.
 #[allow(clippy::too_many_arguments)]
 pub(in crate::file_format::candidate_files) fn compact<S: Storage, T: Storage>(
     source: &S,
@@ -30,11 +30,7 @@ pub(in crate::file_format::candidate_files) fn compact<S: Storage, T: Storage>(
         key,
     )?;
     let predecessor = opened.image.anchor.clone();
-    if predecessor.keys != publication::RootRef::default() {
-        return Err(Error::InvalidOperation(
-            "tree compaction does not translate access roots".into(),
-        ));
-    }
+    shared::retained_public_directory(source, &predecessor)?;
     let generation = predecessor
         .generation
         .checked_add(1)

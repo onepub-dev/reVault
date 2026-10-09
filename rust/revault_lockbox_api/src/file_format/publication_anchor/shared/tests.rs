@@ -316,3 +316,41 @@ pub(crate) fn rewrite_fixture_generation(
     }
     Ok(anchor)
 }
+/// Synthetic valid-but-different successor: there is no public shared-tree slot
+/// mutation API. Preserve lineage while replacing and authenticating wrappers,
+/// so resume admission must compare access state rather than lineage alone.
+pub(crate) fn replace_fixture_slots(
+    storage: &mut impl Storage,
+    archive: LockboxId,
+    mode: FormatMode,
+    authority: &Authority<'_>,
+    signer: Option<&OwnerSigningKeyPair>,
+    key: Option<&[u8]>,
+    slots: &[crate::key_slot::KeySlot],
+) -> Result<Anchor> {
+    let (mut anchor, _) = open_private(storage, archive, mode, authority, key)?;
+    if anchor.keys.absent() {
+        return Err(Error::CorruptHeader);
+    }
+    let bytes = super::super::bootstrap::directory(archive, anchor.generation, slots)?;
+    if bytes.len() as u64 != anchor.keys.len {
+        return Err(Error::CorruptHeader);
+    }
+    anchor.keys.digest = strong_checksum(&bytes);
+    let encoded = encode_in(&anchor, authority, signer, Layout::Shared)?;
+    let base = commitment(&anchor)?;
+    let stub =
+        crate::file_format::preparation_journal::compact::initial_stub(archive, mode, key, base)?;
+    for offset in [anchor.keys.primary, anchor.keys.mirror] {
+        storage.write_at(offset, &bytes)?;
+    }
+    for bank in [0, FAILURE_REGION] {
+        storage.write_at(bank + 8192, &stub)?;
+        storage.write_at(bank, &encoded)?;
+    }
+    storage.sync()?;
+    if open_private(storage, archive, mode, authority, key)?.0 != anchor {
+        return Err(Error::CorruptRecord);
+    }
+    Ok(anchor)
+}

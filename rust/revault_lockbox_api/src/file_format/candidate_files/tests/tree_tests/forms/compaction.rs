@@ -568,11 +568,11 @@ fn whole_tree_compaction_refusals_precede_destination_mutation_all_modes() {
     }
 }
 #[test]
-fn whole_tree_compaction_refuses_real_authenticated_access_root() {
+fn whole_tree_compaction_preserves_authenticated_access_root() {
     let owner = OwnerSigningKeyPair::generate().unwrap();
     let public = owner.public_key();
     let password = SecretString::try_from_slice(b"synthetic tree copy password").unwrap();
-    for bits in [1, 3, 13, 15] {
+    for bits in [1, 3, 5, 7, 9, 11, 13, 15] {
         let mode = mode(true, bits & 2 != 0, bits & 4 != 0, bits & 8 != 0);
         let authority = authority(mode, &public);
         let signer = mode.signed().then_some(&owner);
@@ -604,6 +604,10 @@ fn whole_tree_compaction_refuses_real_authenticated_access_root() {
             shared::open_private(&source, archive(), mode, &authority, key(mode)).unwrap();
         // No public shared-tree access writer exists. Rebuild only synthetic control
         // state using the actual password-slot/bootstrap encoder, retaining typed graph.
+        let contact = crate::ContactKeyPair::generate().unwrap();
+        let contact_slot =
+            crate::key_slot::KeySlot::hybrid_contact(2, &contact.public_key(), key(mode).unwrap())
+                .unwrap();
         let slot = crate::key_slot::KeySlot::password_bytes(
             1,
             b"synthetic tree copy password",
@@ -625,7 +629,7 @@ fn whole_tree_compaction_refuses_real_authenticated_access_root() {
             signer,
             key(mode),
             &manifest,
-            &[slot],
+            &[slot, contact_slot],
         )
         .unwrap();
         let opened = shared::credential_open(
@@ -653,13 +657,167 @@ fn whole_tree_compaction_refuses_real_authenticated_access_root() {
         .verify_all()
         .unwrap();
         let before = hash(&source);
-        let (dest, output, calls) = watched_destination(Vec::new());
-        assert!(
-            matches!(tree_image::compact(&source,dest,archive(),mode,&authority,signer,key(mode)),Err(Error::InvalidOperation(ref reason)) if reason.contains("access roots"))
-        );
+        let expected_directory =
+            shared::retained_public_directory(&source, &opened.anchor).unwrap();
+        for at in [opened.anchor.keys.primary, opened.anchor.keys.mirror] {
+            let output = SharedStore::new(Vec::new());
+            let hit = Rc::new(Cell::new(false));
+            let destination = PartialKeyWrite {
+                inner: output.clone(),
+                at,
+                hit: hit.clone(),
+            };
+            assert!(tree_image::compact(
+                &source,
+                destination,
+                archive(),
+                mode,
+                &authority,
+                signer,
+                key(mode)
+            )
+            .is_err());
+            assert!(hit.get());
+            assert_eq!(output.len().unwrap(), 0);
+            assert_eq!(hash(&source), before);
+        }
+        let mut compacted = tree_image::compact(
+            &source,
+            StorageBackend::memory(Vec::new()),
+            archive(),
+            mode,
+            &authority,
+            signer,
+            key(mode),
+        )
+        .unwrap();
+        for _ in 0..2 {
+            let selected = TreeImage::open(
+                crate::file_format::allocation_map::compaction::View(&compacted),
+                archive(),
+                mode,
+                &authority,
+                key(mode),
+            )
+            .unwrap();
+            assert_eq!(
+                shared::retained_public_directory(&compacted, &selected.image.anchor).unwrap(),
+                expected_directory
+            );
+            let key_root = selected.image.anchor.keys;
+            drop(selected);
+            for (credential, slot) in [
+                (
+                    crate::file_format::publication_anchor::bootstrap::Credential::Password(
+                        &password,
+                    ),
+                    1,
+                ),
+                (
+                    crate::file_format::publication_anchor::bootstrap::Credential::Contact(
+                        &contact,
+                    ),
+                    2,
+                ),
+            ] {
+                let reopened = shared::credential_open(
+                    &compacted,
+                    archive(),
+                    mode,
+                    mode.signed().then_some(&public),
+                    credential,
+                    Some(slot),
+                )
+                .unwrap();
+                reopened
+                    .key
+                    .with_bytes(|k| assert_eq!(k, key(mode).unwrap()))
+                    .unwrap();
+                assert!(shared::credential_open(
+                    &compacted,
+                    archive(),
+                    mode,
+                    mode.signed().then_some(&public),
+                    credential,
+                    Some(999)
+                )
+                .is_err());
+                // Either single public-directory mirror may be lost independently.
+                for at in [key_root.primary, key_root.mirror] {
+                    let mut damaged = compacted.clone();
+                    damaged
+                        .write_at(at, &vec![0; key_root.len as usize])
+                        .unwrap();
+                    let reopened = shared::credential_open(
+                        &damaged,
+                        archive(),
+                        mode,
+                        mode.signed().then_some(&public),
+                        credential,
+                        Some(slot),
+                    )
+                    .unwrap();
+                    reopened
+                        .key
+                        .with_bytes(|k| assert_eq!(k, key(mode).unwrap()))
+                        .unwrap();
+                }
+            }
+            let wrong = SecretString::try_from_slice(b"wrong password").unwrap();
+            assert!(shared::credential_open(
+                &compacted,
+                archive(),
+                mode,
+                mode.signed().then_some(&public),
+                crate::file_format::publication_anchor::bootstrap::Credential::Password(&wrong),
+                Some(1)
+            )
+            .is_err());
+            let (report, definitions, records) =
+                super::lifecycle::collect(&compacted, mode, &authority).unwrap();
+            assert_eq!(report, tree_image::forms::SalvageReport::default());
+            assert_eq!(definitions.len(), 2);
+            assert_eq!(records.len(), 3);
+            compacted = tree_image::compact(
+                &compacted,
+                StorageBackend::memory(Vec::new()),
+                archive(),
+                mode,
+                &authority,
+                signer,
+                key(mode),
+            )
+            .unwrap();
+        }
+        assert_eq!(hash(&source), before);
+        let anchor = TreeImage::open(
+            crate::file_format::allocation_map::compaction::View(&compacted),
+            archive(),
+            mode,
+            &authority,
+            key(mode),
+        )
+        .unwrap()
+        .image
+        .anchor;
+        for at in [anchor.keys.primary, anchor.keys.mirror] {
+            compacted
+                .write_at(at, &vec![0; anchor.keys.len as usize])
+                .unwrap();
+        }
+        let (destination, output, calls) = watched_destination(Vec::new());
+        assert!(tree_image::compact(
+            &compacted,
+            destination,
+            archive(),
+            mode,
+            &authority,
+            signer,
+            key(mode)
+        )
+        .is_err());
         assert_eq!(calls.get(), 0);
         assert_eq!(output.len().unwrap(), 0);
-        assert_eq!(hash(&source), before);
     }
 }
 
@@ -1393,4 +1551,37 @@ fn refresh_live_guard<S: Storage>(
         }
     }
     *storage.spans.borrow_mut() = live;
+}
+#[derive(Clone, Debug)]
+struct PartialKeyWrite {
+    inner: SharedStore,
+    at: u64,
+    hit: Rc<Cell<bool>>,
+}
+impl Storage for PartialKeyWrite {
+    fn len(&self) -> Result<u64> {
+        self.inner.len()
+    }
+    fn read_at(&self, at: u64, len: usize) -> Result<Vec<u8>> {
+        self.inner.read_at(at, len)
+    }
+    fn read_at_into(&self, at: u64, out: &mut [u8]) -> Result<()> {
+        self.inner.read_at_into(at, out)
+    }
+    fn append(&mut self, bytes: &[u8]) -> Result<u64> {
+        self.inner.append(bytes)
+    }
+    fn write_at(&mut self, at: u64, bytes: &[u8]) -> Result<()> {
+        if at == self.at && !self.hit.replace(true) {
+            self.inner.write_at(at, &bytes[..bytes.len() / 2])?;
+            return Err(Error::Io("synthetic partial key-directory write".into()));
+        }
+        self.inner.write_at(at, bytes)
+    }
+    fn truncate(&mut self, len: u64) -> Result<()> {
+        self.inner.truncate(len)
+    }
+    fn sync(&self) -> Result<()> {
+        self.inner.sync()
+    }
 }

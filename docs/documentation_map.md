@@ -74,3 +74,5 @@ and development failures; path installation and full-format acceptance are separ
 - [Whole-tree path installation](evidence/tree-path-install-2026-10-09/README.md): test-only replacement, returned errors and 96 process exits; abandoned temporary ownership and full qualification remain open.
 
 - [Complete-copy resume](evidence/tree-resume-2026-10-10/README.md): explicit checked candidate admission and 48 process exits; partial ownership remains open.
+
+- [Credential-preserving tree copy](evidence/tree-access-copy-2026-10-10/README.md): bounded wrapper retention and resume admission; access mutation/overflow and full qualification remain open.

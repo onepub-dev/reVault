@@ -61,6 +61,11 @@ pub(crate) fn initialize(
     body: &[u8],
     slots: &[crate::key_slot::KeySlot],
 ) -> Result<Anchor> {
+    let public = if slots.is_empty() {
+        None
+    } else {
+        Some(super::bootstrap::directory(archive, 1, slots)?)
+    };
     initialize_at(
         storage,
         archive,
@@ -69,11 +74,28 @@ pub(crate) fn initialize(
         signer,
         key,
         body,
-        slots,
+        public.as_deref(),
         1,
         [0; 32],
         || Ok(()),
     )
+}
+
+/// Validate existing bounded bootstrap bytes before retaining them unchanged.
+/// Caller must already have selected this anchor with the required authority.
+/// The older directory generation remains valid under a newer publication.
+pub(crate) fn retained_public_directory(
+    storage: &impl Storage,
+    anchor: &Anchor,
+) -> Result<Option<Vec<u8>>> {
+    if anchor.keys.absent() {
+        return Ok(None);
+    }
+    if anchor.mode.plaintext() {
+        return Err(Error::CorruptHeader);
+    }
+    super::bootstrap::read_directory_in(storage, anchor, Layout::Shared)?;
+    read_root(storage, anchor, RootRole::PublicKeys).map(Some)
 }
 
 /// Relocate a stable authenticated selected image without resetting its lineage.
@@ -89,11 +111,7 @@ pub(crate) fn initialize_successor(
     body: &[u8],
 ) -> Result<Anchor> {
     predecessor.validate_in(Layout::Shared)?;
-    if !predecessor.keys.absent() {
-        return Err(Error::InvalidOperation(
-            "tree compaction does not translate access roots".into(),
-        ));
-    }
+    let public = retained_public_directory(source, predecessor)?;
     let generation = predecessor
         .generation
         .checked_add(1)
@@ -121,7 +139,7 @@ pub(crate) fn initialize_successor(
         signer,
         key,
         body,
-        &[],
+        public.as_deref(),
         generation,
         previous,
         unchanged,
@@ -137,7 +155,7 @@ fn initialize_at(
     signer: Option<&OwnerSigningKeyPair>,
     key: Option<&[u8]>,
     body: &[u8],
-    slots: &[crate::key_slot::KeySlot],
+    public: Option<&[u8]>,
     generation: u64,
     previous: [u8; 32],
     unchanged: impl Fn() -> Result<()>,
@@ -157,17 +175,12 @@ fn initialize_at(
             return Err(Error::InvalidKey);
         }
     }
-    if mode.plaintext() && !slots.is_empty() {
+    if mode.plaintext() && public.is_some() {
         return Err(Error::InvalidInput(
             "plaintext image cannot contain decryption slots".into(),
         ));
     }
     let private = catalogue::Codec::new(archive, mode, key)?.encode(body)?;
-    let public = if slots.is_empty() {
-        None
-    } else {
-        Some(super::bootstrap::directory(archive, generation, slots)?)
-    };
     let index = RootRef {
         primary: PRIVATE_START,
         mirror: FAILURE_REGION + PRIVATE_START,
