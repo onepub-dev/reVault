@@ -828,10 +828,23 @@ fn historical_v2_archive_migrates_to_current_format() {
     assert_eq!(source.format_version(), 2);
     let path = LockboxPath::new("/legacy.txt").unwrap();
     let signer = OwnerSigningKeyPair::from_private_key_record(
-        old_signer.private_key_record().unwrap().with_bytes(|bytes| SecretVec::try_from_slice(bytes)).unwrap().unwrap()).unwrap();
+        old_signer
+            .private_key_record()
+            .unwrap()
+            .with_bytes(|bytes| SecretVec::try_from_slice(bytes))
+            .unwrap()
+            .unwrap(),
+    )
+    .unwrap();
     let artifact = temp.path().join("legacy.migration");
     let destination = temp.path().join("upgraded.lbox");
-    revault_migrate_archive_v3::export_archive(&source, &artifact, b"artifact password".as_slice(), [8; 16]).unwrap();
+    revault_migrate_archive_v3::export_archive(
+        &source,
+        &artifact,
+        b"artifact password".as_slice(),
+        [8; 16],
+    )
+    .unwrap();
     import_archive(
         &artifact,
         b"artifact password".as_slice(),
