@@ -1026,8 +1026,8 @@ fn variables_command(verbose: bool) -> Command {
             .override_usage("lockbox [LOCKBOX] variable move [OPTIONS] <SOURCE> <DESTINATION>")
             .after_help(verbose_help(
                 verbose,
-                "Examples:\n  lockbox secrets.lbox variable move '/*' /dev\n  lockbox secrets.lbox variable mv '/production/*' /archive",
-                "Context:\n  Move treats the destination as a variable group. Every match keeps its path relative to the non-glob source prefix. Existing destination variables are never overwritten. Quote glob patterns so the shell does not expand them.",
+                "Examples:\n  lockbox secrets.lbox variable rename XERO_CLIENTID XERO_CLIENT_ID\n  lockbox secrets.lbox variable move '/*' /dev\n  lockbox secrets.lbox variable mv '/production/*' /archive",
+                "Context:\n  An exact source matching one variable renames it to the destination name or absolute path. A destination ending in /, a source group, or a glob treats the destination as a variable group; every match keeps its path relative to the non-glob source prefix. Existing destination variables are never overwritten. Quote glob patterns so the shell does not expand them.",
             ))
             .arg(
                 Arg::new("args")
@@ -1036,7 +1036,7 @@ fn variables_command(verbose: bool) -> Command {
                     .required(true)
                     .action(ArgAction::Append)
                     .add(ArgValueCompleter::new(completion::archive_value_candidates))
-                    .help("Source pattern and destination group in the selected lockbox."),
+                    .help("Source name, group, or glob and destination name or group in the selected lockbox."),
             ),
     )
     .subcommand(

@@ -221,13 +221,23 @@ fn move_variables(
 ) -> CliResult<()> {
     let pattern = VariableNamePattern::new(source_pattern)?;
     let mut lb = open_existing(lockbox_path, access)?;
-    let moves = lb
+    let matches = lb
         .list_variables()?
         .into_iter()
         .filter(|(name, _)| name.matches_pattern(&pattern))
+        .collect::<Vec<_>>();
+    let rename_exact = matches.len() == 1
+        && !destination.ends_with('/')
+        && VariableName::new(source_pattern).is_ok_and(|source| source == matches[0].0);
+    let moves = matches
+        .into_iter()
         .map(|(name, _)| {
-            let target = moved_path(source_pattern, name.as_str(), destination)?;
-            Ok((name, VariableName::new(target)?))
+            let target = if rename_exact {
+                VariableName::new(destination)?
+            } else {
+                VariableName::new(moved_path(source_pattern, name.as_str(), destination)?)?
+            };
+            Ok((name, target))
         })
         .collect::<CliResult<Vec<_>>>()?;
     if moves.is_empty() {

@@ -131,6 +131,7 @@ fn help_is_grouped_and_commands_have_specific_help() {
     assert!(variable_move_help
         .contains("Usage: lockbox [LOCKBOX] variable move [OPTIONS] <SOURCE> <DESTINATION>"));
     assert!(!variable_move_help.contains("[LOCKBOX] <SOURCE>"));
+    assert!(variable_move_help.contains("variable rename XERO_CLIENTID XERO_CLIENT_ID"));
 
     let env_verbose_help = run_output(bin, &["variable", "--help", "--verbose"]);
     assert_success(&env_verbose_help);
@@ -6581,6 +6582,151 @@ fn cli_secret_variables_require_explicit_source_and_redact_export() {
         ],
     );
     assert!(!rejected_value.status.success());
+}
+
+#[test]
+fn variable_move_renames_exact_names_and_preserves_values_and_sensitivity() {
+    let bin = env!("CARGO_BIN_EXE_lbx");
+    let dir = unique_dir_named("variable-exact-rename");
+    fs::create_dir_all(&dir).unwrap();
+    let lockbox = dir.join("variables.lbox");
+    let vault_root = dir.join("vault");
+    let agent_root = dir.join("agent");
+    let command = |args: &[&str]| {
+        let mut full_args = vec![lockbox.to_str().unwrap(), "var"];
+        full_args.extend_from_slice(args);
+        run_output_in(bin, &full_args, &vault_root, &agent_root)
+    };
+    assert_success(&command(&["set", "XERO_CLIENTID", "-v", "client-id"]));
+    assert_success(&command(&["rename", "XERO_CLIENTID", "XERO_CLIENT_ID"]));
+    let value = command(&["get", "XERO_CLIENT_ID"]);
+    assert_success(&value);
+    assert_eq!(value.stdout, b"client-id\n");
+    assert!(!command(&["get", "XERO_CLIENTID"]).status.success());
+    assert!(!command(&["rename", "XERO_CLIENTID", "XERO_CLIENT_ID"])
+        .status
+        .success());
+
+    // Moving a variable to itself is a no-change operation.
+    assert_success(&command(&["move", "XERO_CLIENT_ID", "XERO_CLIENT_ID"]));
+    assert_eq!(command(&["get", "XERO_CLIENT_ID"]).stdout, b"client-id\n");
+    assert_success(&command(&[
+        "mv",
+        "/XERO_CLIENT_ID",
+        "/production/CLIENT_ID",
+    ]));
+    assert_eq!(
+        command(&["get", "/production/CLIENT_ID"]).stdout,
+        b"client-id\n"
+    );
+    assert!(!command(&["get", "XERO_CLIENT_ID"]).status.success());
+    assert_success(&command(&["move", "/production/CLIENT_ID", "CLIENT_ID"]));
+    assert_eq!(command(&["get", "CLIENT_ID"]).stdout, b"client-id\n");
+    assert!(!command(&["get", "/production/CLIENT_ID"]).status.success());
+    assert!(!command(&["rename", "CLIENT_ID", "../INVALID"])
+        .status
+        .success());
+    assert_eq!(command(&["get", "CLIENT_ID"]).stdout, b"client-id\n");
+
+    let secret_file = dir.join("secret.txt");
+    fs::write(&secret_file, b"synthetic-secret\nwith-newline").unwrap();
+    assert_success(&command(&[
+        "set",
+        "OLD_SECRET",
+        "--secret",
+        "--file",
+        secret_file.to_str().unwrap(),
+    ]));
+    assert_success(&command(&["rename", "OLD_SECRET", "NEW_SECRET"]));
+    let secret = command(&["get", "--secret", "NEW_SECRET"]);
+    assert_success(&secret);
+    assert_eq!(secret.stdout, b"synthetic-secret\nwith-newline\n");
+    assert!(!command(&["get", "--secret", "OLD_SECRET"]).status.success());
+    let listing = command(&["list", "--format", "tsv"]);
+    assert_success(&listing);
+    let listing = String::from_utf8_lossy(&listing.stdout);
+    assert!(listing.contains("/CLIENT_ID\tnormal"));
+    assert!(listing.contains("/NEW_SECRET\tsecret"));
+    assert!(!command(&["get", "NEW_SECRET"]).status.success());
+
+    // A collision must preserve both persisted values and their sensitivity.
+    assert!(!command(&["rename", "NEW_SECRET", "CLIENT_ID"])
+        .status
+        .success());
+    assert_eq!(command(&["get", "CLIENT_ID"]).stdout, b"client-id\n");
+    assert_eq!(
+        command(&["get", "--secret", "NEW_SECRET"]).stdout,
+        b"synthetic-secret\nwith-newline\n"
+    );
+    let after_collision = command(&["list", "--format", "tsv"]);
+    assert_success(&after_collision);
+    assert_eq!(String::from_utf8_lossy(&after_collision.stdout), listing);
+}
+
+#[test]
+fn variable_move_preserves_group_glob_and_trailing_slash_destinations() {
+    let bin = env!("CARGO_BIN_EXE_lbx");
+    let dir = unique_dir_named("variable-group-move");
+    fs::create_dir_all(&dir).unwrap();
+    let lockbox = dir.join("variables.lbox");
+    let vault_root = dir.join("vault");
+    let agent_root = dir.join("agent");
+    let command = |args: &[&str]| {
+        let mut full_args = vec![lockbox.to_str().unwrap(), "var"];
+        full_args.extend_from_slice(args);
+        run_output_in(bin, &full_args, &vault_root, &agent_root)
+    };
+    for (name, value) in [
+        ("/production/API_KEY", "api"),
+        ("/production/nested/MODE", "mode"),
+    ] {
+        assert_success(&command(&["set", name, "-v", value]));
+    }
+    assert_success(&command(&["move", "/production", "/archive"]));
+    for (old, new, expected) in [
+        (
+            "/production/API_KEY",
+            "/archive/production/API_KEY",
+            "api\n",
+        ),
+        (
+            "/production/nested/MODE",
+            "/archive/production/nested/MODE",
+            "mode\n",
+        ),
+    ] {
+        let value = command(&["get", new]);
+        assert_success(&value);
+        assert_eq!(value.stdout, expected.as_bytes());
+        assert!(!command(&["get", old]).status.success());
+    }
+    assert_success(&command(&["mv", "/archive/production/**", "/restored"]));
+    for (name, expected) in [
+        ("/restored/API_KEY", "api\n"),
+        ("/restored/nested/MODE", "mode\n"),
+    ] {
+        let value = command(&["get", name]);
+        assert_success(&value);
+        assert_eq!(value.stdout, expected.as_bytes());
+    }
+    let archive = command(&["list", "/archive", "--format", "tsv"]);
+    assert_success(&archive);
+    assert!(!String::from_utf8_lossy(&archive.stdout).contains("/archive/"));
+
+    // A glob remains a group move even when only one variable matches.
+    assert_success(&command(&["rename", "/restored/API_*", "/single"]));
+    assert_eq!(command(&["get", "/single/API_KEY"]).stdout, b"api\n");
+    assert!(!command(&["get", "/restored/API_KEY"]).status.success());
+    assert_success(&command(&["move", "/single/API_KEY", "/final/"]));
+    assert_eq!(command(&["get", "/final/API_KEY"]).stdout, b"api\n");
+    assert!(!command(&["get", "/single/API_KEY"]).status.success());
+    // A group containing one descendant is still a group move.
+    assert_success(&command(&["move", "/restored", "/single_group"]));
+    assert_eq!(
+        command(&["get", "/single_group/restored/nested/MODE"]).stdout,
+        b"mode\n"
+    );
+    assert!(!command(&["get", "/restored/nested/MODE"]).status.success());
 }
 
 #[test]
