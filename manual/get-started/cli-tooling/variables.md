@@ -50,6 +50,8 @@ Use `variable move` and `variable remove` to reorganise or delete entries. Run `
 
 ## Read values in scripts
 
+See [Lockbox aliases and script helpers](../../protect-and-share/the-vault/lockbox-aliases.md) for alias management, installation and examples passing several values to one command.
+
 The `lbxv` and `lbxx` helpers accept either a Lockbox file path or a Vault alias such as `a@dev`. Open the Vault and Lockbox with `lbx` first; the helpers do not prompt for credentials.
 
 ```bash

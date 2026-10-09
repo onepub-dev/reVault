@@ -50,11 +50,13 @@ Changing the passphrase does not change the keys belonging to your Profiles or L
 
 ## Remembered Lockboxes
 
-The Vault remembers Lockbox paths. If you move a Lockbox through the shell or a file manager, tell reVault where it went:
+The Vault remembers Lockbox paths. Move a Lockbox and update its remembered location together:
 
 ```bash
 lbx vault lockbox move ./old.lbox ./archive/new.lbox
 ```
+
+If you already moved it through a shell or file manager, use `lbx vault lockbox remember ./archive/new.lbox` instead.
 
 You can inspect or remove remembered paths with:
 
@@ -66,6 +68,8 @@ lbx vault lockbox forget ./old-project.lbox
 Forgetting a path does not delete the Lockbox.
 
 ## Lockbox aliases
+
+See [Lockbox aliases and script helpers](lockbox-aliases.md) for the complete guide, including `lbxv`, `lbxx`, multiple environment values and completion setup.
 
 Give a remembered Lockbox a short, case-sensitive name:
 

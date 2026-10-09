@@ -1,8 +1,8 @@
 # Command-line completion
 
-reVault can install dynamic completion for Bash, Zsh, Fish, PowerShell and Elvish. It works with both `lockbox` and `lbx`.
+reVault can install dynamic completion for Bash, Zsh, Fish, PowerShell and Elvish. It supports `lockbox`, `lbx`, `lbxv` and `lbxx`.
 
-The value helpers have their own completion registrations:
+The value helpers are installed alongside the main CLI, but have their own completion registrations. Installing completion for `lbx` does not register them:
 
 ```bash
 lbxv completion install --shell bash
@@ -10,6 +10,8 @@ lbxx completion install --shell bash
 ```
 
 Use the same supported shell names with either helper. Completion suggests `a@alias`, variable names and `/form/path@field` selectors, including the source after `NAME=`. Suggestions contain names only, never stored values. The Vault and target Lockbox must already be available to the session; completion does not prompt to unlock them.
+
+See [Lockbox aliases and script helpers](../../protect-and-share/the-vault/lockbox-aliases.md) for setup and examples combining multiple selections.
 
 In most environments reVault detects the current shell:
 
