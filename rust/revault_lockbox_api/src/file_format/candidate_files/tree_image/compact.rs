@@ -138,6 +138,7 @@ pub(in crate::file_format::candidate_files) fn compact<S: Storage, T: Storage>(
                             bytes,
                         )
                     })??;
+                super::super::compaction::checkpoint("tree-copying");
                 offset += len as u64;
             }
             if <[u8; 32]>::from(hash.finalize()) != old.digest {
@@ -156,6 +157,7 @@ pub(in crate::file_format::candidate_files) fn compact<S: Storage, T: Storage>(
         let root = Index::new(archive, mode, key)?
             .build_sorted(&mut destination, rows.into_iter().map(Ok))?
             .root;
+        super::super::compaction::checkpoint("tree-dependencies");
         unchanged()?;
         let next = shared::initialize_successor(
             source,

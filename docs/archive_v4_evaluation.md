@@ -468,6 +468,12 @@ fixtures. Unpadded source/destination sizes are 13,041,664/10,813,440 bytes; pad
 The tmpfs functional fixture supplies no CPU, incremental peak, physical-disk
 durability, process-death or full-format gate; installation remains separate.
 
+The [test-only path installer](evidence/tree-path-install-2026-10-09/README.md)
+passes six focused tests with 96 process exits and independent all-family reopen,
+plus six copy controls and strict Clippy. It does not establish physical power-loss
+safety, automatic cleanup/adoption of abandoned temporaries, cross-platform
+durability, CPU/RSS or any complete-format gate.
+
 ## Evidence index
 
 Historical conditions and raw data remain authoritative for their own revisions.

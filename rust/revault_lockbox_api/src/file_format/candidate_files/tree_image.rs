@@ -7,6 +7,8 @@ use super::dense_image::Image;
 use super::*;
 use crate::file_format::publication_anchor::{shared, FAILURE_REGION, REGION_LEN};
 use shared::tree::{self, Tree};
+mod install;
+pub(super) use install::{compact_path, compact_path_with};
 mod compact;
 pub(super) use compact::compact;
 mod fresh;

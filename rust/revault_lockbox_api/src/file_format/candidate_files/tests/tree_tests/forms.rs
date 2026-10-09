@@ -4,6 +4,7 @@ mod admission;
 #[cfg(target_os = "linux")]
 mod aggregate;
 mod compaction;
+mod installation;
 mod lifecycle;
 use crate::{
     FormDefinition, FormFieldDefinition, FormFieldKind, FormFieldValue, FormRecord, FormTypeId,

@@ -16,10 +16,22 @@ The current evaluation explicitly reconciles G3/G11's scale, ZIP/PGP read/write
 and 100 MB total CLI RSS requirements; earlier 256 MiB incremental proposals do
 not establish release acceptance. The user resumed work with a 25% remaining
 Codex usage stop condition, replacing the historical 70% threshold.
-The next implementation step remains whole-tree atomic path installation and
-process-death handling. This merge does not qualify the format or erase failures.
+Whole-tree atomic path installation and process-death handling are now covered by
+the separate component checkpoint below. This merge does not qualify the format
+or erase failures.
 
 ## Current position and next work
+
+### Whole-tree path installation — 2026-10-09
+
+The [test-only path installer](evidence/tree-path-install-2026-10-09/README.md)
+passes six focused tests, including 96 fresh process exits across all 16 modes,
+plus six existing copy controls and strict Clippy. Independent reopen preserves
+all selected families, successor lineage, permissions and subsequent writes.
+Returned failures preserve the original before rename and the successor after it;
+stale source/temporary paths refuse safely. The initial fixture guard failure is
+retained. Authenticated ownership/adoption of abandoned temporaries, access-root
+integration and complete resource/aging/recovery qualification remain outstanding.
 
 ### Resumed checkpoint — 2026-10-08
 
@@ -137,8 +149,8 @@ cleanup/source-change controls and 10MiB FileStore functional fixtures pass.
 Post-format verification at `047a0f7a` passes six whole-tree controls, four
 shared-anchor tests, 13 page tests and strict Clippy; earlier checksum and fixture
 failures remain retained. The matrix and aggregate were not repeated for formatting. This is extent relocation, not pack repacking or filesystem
-installation. Next connect atomic path installation and process-death handling,
-with resumable temporary ownership still requiring a separate design.
+installation at that checkpoint. The later path-installation component above
+adds process-death handling; resumable temporary ownership still needs a design.
 Keep the security policy and failure evidence; no allocator weakening is implied.
 Forms/references and broader public adapters, native selected
 membership/recovery, architecture selection and complete CPU/RSS/aging/size and

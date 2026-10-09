@@ -70,3 +70,5 @@ The [whole-tree copy evidence](evidence/whole-tree-copy-2026-10-09/README.md) ow
 extent relocation, successor publication, all-family history, guarded readback and
 owned-destination cleanup controls. It retains functional FileStore artifact hashes
 and development failures; path installation and full-format acceptance are separate.
+
+- [Whole-tree path installation](evidence/tree-path-install-2026-10-09/README.md): test-only replacement, returned errors and 96 process exits; abandoned temporary ownership and full qualification remain open.
