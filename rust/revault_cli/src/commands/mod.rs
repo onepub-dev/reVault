@@ -94,9 +94,9 @@ pub(crate) fn run() -> CliResult<()> {
         .map(|path| aliases::resolve(&path))
         .transpose()?;
     if command == "create" && resolved.as_ref().is_some_and(|(_, id)| id.is_some()) {
-        return Err(context::cli_error(
-            "create requires a new file path, not an existing lockbox alias",
-        ));
+        // An alias names an existing archive, even if its filename lacks an
+        // extension. Do not append .lbox and accidentally create a second file.
+        return Err(Error::AlreadyExists(resolved.as_ref().unwrap().0.clone()).into());
     }
     COMMAND_LOCKBOX_ID.with(|id| *id.borrow_mut() = resolved.as_ref().and_then(|(_, id)| *id));
     set_command_lockbox(resolved.map(|(path, _)| path));

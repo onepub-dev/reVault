@@ -115,8 +115,29 @@ fn vault_verify(matches: &ArgMatches) -> CliResult<()> {
     Ok(())
 }
 
+fn archive_source(matches: &ArgMatches) -> CliResult<String> {
+    match (
+        super::command_lockbox(),
+        matches.get_one::<String>("lockbox"),
+    ) {
+        (Some(_), Some(_)) => Err(cli_error(
+            "pass the lockbox either before doctor or as the migration argument, not both",
+        )),
+        (Some(path), None) => Ok(path),
+        (None, Some(value)) => {
+            let (path, identity) = super::aliases::resolve(value)?;
+            super::COMMAND_LOCKBOX_ID.with(|id| *id.borrow_mut() = identity);
+            super::set_command_lockbox(Some(path.clone()));
+            Ok(path)
+        }
+        (None, None) => Err(cli_error(
+            "lockbox migration requires a lockbox path or a@alias",
+        )),
+    }
+}
+
 fn archive_export(matches: &ArgMatches, access: &Access) -> CliResult<()> {
-    let source = required_string(matches, "lockbox")?;
+    let source = archive_source(matches)?;
     let output = required_path(matches, "output")?;
     let artifact_password = if matches.get_flag("migration-password-stdin") {
         read_secret_lines_stdin(1)?.remove(0)
@@ -135,7 +156,7 @@ fn archive_export(matches: &ArgMatches, access: &Access) -> CliResult<()> {
 
 fn archive_import(matches: &ArgMatches) -> CliResult<()> {
     let input = required_path(matches, "artifact")?;
-    let output = required_path(matches, "output")?;
+    let output = PathBuf::from(super::aliases::resolve(&required_string(matches, "output")?)?.0);
     let password = migration_password()?;
     let signing = default_signing_key()?;
     let count = import_archive(&input, &password, &output, &signing)?;
@@ -331,13 +352,12 @@ fn migrate_vault_direct(matches: &ArgMatches) -> CliResult<()> {
 }
 
 fn migrate_archive_direct(matches: &ArgMatches, access: &Access) -> CliResult<()> {
-    let source = PathBuf::from(
-        matches
-            .get_one::<String>("lockbox")
-            .ok_or_else(|| cli_error("lockbox migration requires a lockbox path"))?,
-    );
+    let source = PathBuf::from(archive_source(matches)?);
     let replace = matches.get_flag("replace");
-    let requested_output = matches.get_one::<String>("output").map(PathBuf::from);
+    let requested_output = matches
+        .get_one::<String>("output")
+        .map(|value| super::aliases::resolve(value).map(|(path, _)| PathBuf::from(path)))
+        .transpose()?;
     require_destination(replace, requested_output.as_deref(), "lockbox")?;
     let vault_root = default_vault_dir()?;
     if !vault_root.join("local-vault.lbox").exists() {

@@ -147,7 +147,10 @@ struct RecoverOptions {
 
 impl RecoverOptions {
     fn from_matches(matches: &ArgMatches) -> CliResult<Self> {
-        let output = matches.get_one::<String>("output").cloned();
+        let output = matches
+            .get_one::<String>("output")
+            .map(|value| super::aliases::resolve(value).map(|(path, _)| path))
+            .transpose()?;
         let overwrite = matches.get_flag("overwrite");
         let dry_run = matches.get_flag("dry-run");
         if dry_run && output.is_some() {

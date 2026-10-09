@@ -64,7 +64,7 @@ fn default_lockbox_matches(matches: &ArgMatches) -> CliResult<()> {
     let lockbox_path = matches
         .get_one::<String>("lockbox")
         .ok_or_else(|| Error::InvalidInput("missing lockbox".to_string()))?;
-    set_default_lockbox(lockbox_path)
+    set_default_lockbox(&super::aliases::resolve(lockbox_path)?.0)
 }
 
 fn set_default_lockbox(lockbox_path: &str) -> CliResult<()> {

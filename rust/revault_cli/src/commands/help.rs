@@ -443,8 +443,9 @@ fn recovery_command(verbose: bool) -> Command {
                 .long("output")
                 .short('o')
                 .value_name("RECOVERED_LOCKBOX")
-                .value_hint(ValueHint::AnyPath)
-                .help("Write salvaged entries to this new lockbox."),
+                .value_hint(ValueHint::Other)
+                .add(ArgValueCompleter::new(completion::lockbox_destination_candidates))
+                .help("Output Lockbox path or a@alias; existing files require --overwrite."),
         )
         .arg(
             Arg::new("overwrite")
@@ -1466,7 +1467,7 @@ fn session_command(verbose: bool) -> Command {
                         .conflicts_with("lockbox")
                         .help("Clear the default lockbox."),
                 )
-                .arg(optional("lockbox", "Lockbox path.").required_unless_present("clear")),
+                .arg(optional("lockbox", "Lockbox path or a@alias.").required_unless_present("clear")),
         )
         .subcommand(
             Command::new("close-all")
@@ -1933,7 +1934,7 @@ fn vault_command(verbose: bool) -> Command {
                             "Examples:\n  lockbox vault lockbox remember ./secrets.lbox",
                             "Context:\n  Remember validates the lockbox header, stores its canonical absolute path, and replaces a stale remembered path for the same lockbox id. It does not open or modify the lockbox.",
                         ))
-                        .arg(required("lockbox", "Existing lockbox path to remember.")),
+                        .arg(required("lockbox", "Existing lockbox path or a@alias to remember.")),
                 )
                 .subcommand(
                     Command::new("move")
@@ -1944,11 +1945,11 @@ fn vault_command(verbose: bool) -> Command {
                             "Examples:\n  lockbox vault lockbox move ./secrets.lbox ./archive/\n  lockbox vault lockbox move ./secrets.lbox ./archive/renamed.lbox",
                             "Context:\n  Move closes the old cached path, moves the lockbox and manages its hidden lock sidecar, updates the remembered vault path, and updates the session default when it points at the source. Across filesystems, it copies and syncs the destination before removing the source, preserving file permissions.",
                         ))
-                        .arg(required("source", "Current lockbox path."))
+                        .arg(required("source", "Current lockbox path or a@alias.").value_hint(ValueHint::Other).add(ArgValueCompleter::new(completion::lockbox_path_candidates)))
                         .arg(required(
                             "destination",
-                            "New lockbox path, or an existing destination directory.",
-                        )),
+                            "New lockbox path, a@alias, or an existing destination directory; existing files are never overwritten.",
+                        ).value_hint(ValueHint::Other).add(ArgValueCompleter::new(completion::lockbox_destination_candidates))),
                 )
                 .subcommand(
                     Command::new("forget")
@@ -1958,7 +1959,7 @@ fn vault_command(verbose: bool) -> Command {
                             "Examples:\n  lockbox vault lockbox forget ./old-project.lbox",
                             "Context:\n  Forget removes a stale known-lockbox record from the vault. It does not delete the lockbox file.",
                         ))
-                        .arg(required("lockbox", "Lockbox path to forget.")),
+                        .arg(required("lockbox", "Remembered lockbox path or a@alias to forget, including missing files.")),
                 ),
         )
 }
@@ -2322,15 +2323,21 @@ fn migration_lockbox_command(verbose: bool) -> Command {
     Command::new("lockbox")
         .about("Migrate a lockbox to the latest format.")
         .args_conflicts_with_subcommands(true)
-        .arg(optional("lockbox", "Lockbox to migrate."))
-        .arg(migration_output_arg())
+        .arg(optional(
+            "lockbox",
+            "Lockbox path or a@alias to migrate; may precede doctor instead.",
+        ))
+        .arg(migration_lockbox_output_arg())
         .arg(migration_replace_arg())
         .arg(migration_exporter_arg())
         .subcommands([
             Command::new("export")
                 .about("Export a lockbox to a migration artifact.")
                 .hide(!verbose)
-                .arg(required("lockbox", "Lockbox to export."))
+                .arg(optional(
+                    "lockbox",
+                    "Lockbox path or a@alias to export; may precede doctor instead.",
+                ))
                 .arg(migration_output_arg().required(true))
                 .arg(hidden_secret_stdin_arg("migration-password-stdin")),
             Command::new("upgrade")
@@ -2342,12 +2349,21 @@ fn migration_lockbox_command(verbose: bool) -> Command {
                 .about("Import a lockbox migration artifact.")
                 .hide(!verbose)
                 .arg(required("artifact", "Input migration artifact."))
-                .arg(migration_output_arg().required(true)),
+                .arg(migration_lockbox_output_arg().required(true)),
             Command::new("verify")
                 .about("Verify a lockbox migration artifact.")
                 .hide(!verbose)
                 .arg(required("artifact", "Migration artifact to verify.")),
         ])
+}
+
+fn migration_lockbox_output_arg() -> Arg {
+    migration_output_arg()
+        .value_hint(ValueHint::Other)
+        .add(ArgValueCompleter::new(
+            completion::lockbox_destination_candidates,
+        ))
+        .help("Output Lockbox path or a@alias; existing destination safeguards still apply.")
 }
 
 fn migration_output_arg() -> Arg {

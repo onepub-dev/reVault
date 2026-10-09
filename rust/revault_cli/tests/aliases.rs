@@ -41,6 +41,7 @@ impl Fixture {
             )
             .env("LOCKBOX_PLATFORM_SECRET_STORE", "disabled")
             .env("LOCKBOX_VAULT_PASSWORD", "synthetic-vault-password")
+            .env("LOCKBOX_MIGRATION_PASSWORD", "synthetic-migration-password")
             .env_remove("LOCKBOX_PASSWORD")
             .env_remove("COMPLETE");
         if self.raw_key {
@@ -70,6 +71,11 @@ impl Fixture {
             String::from_utf8_lossy(&output.stderr)
         );
         output.stdout
+    }
+    fn input(&self, binary: &str, args: &[&str], input: &[u8]) -> Output {
+        self.command(binary, args)
+            .test_output_with_input(input)
+            .unwrap()
     }
     fn form(&self) {
         self.ok(&[
@@ -144,6 +150,275 @@ fn alias_lifecycle_persists_and_tracks_identity() {
             .status
             .success());
     }
+}
+
+#[test]
+fn session_default_alias_reads_follow_lockbox_move() {
+    let f = Fixture::new();
+    f.ok(&[
+        "dev.lbox",
+        "variable",
+        "set",
+        "DEFAULT_ONLY",
+        "default-value",
+    ]);
+    let default = f.ok(&["session", "default", "a@dev"]);
+    assert!(String::from_utf8_lossy(&default.stdout).contains("Default lockbox:"));
+    let before = f.ok(&["variable", "get", "DEFAULT_ONLY"]);
+    assert_eq!(before.stdout, b"default-value\n");
+
+    f.ok(&["vault", "lockbox", "move", "a@dev", "./moved.lbox"]);
+    assert_eq!(f.read("TOKEN"), b"synthetic-token");
+    let after = f.ok(&["variable", "get", "DEFAULT_ONLY"]);
+    assert_eq!(after.stdout, b"default-value\n");
+    assert!(f.root.path().join("moved.lbox").is_file());
+}
+
+#[test]
+fn alias_forget_handles_externally_removed_file_and_move_refusal_preserves_destination() {
+    let f = Fixture::new();
+    f.ok(&["vault", "lockbox", "remember", "a@dev"]);
+    let destination = f.root.path().join("occupied.lbox");
+    std::fs::write(&destination, b"keep these destination bytes").unwrap();
+    let refused = f.run(LBX, &["vault", "lockbox", "move", "a@dev", "occupied.lbox"]);
+    assert!(!refused.status.success(), "{refused:?}");
+    assert_eq!(
+        std::fs::read(&destination).unwrap(),
+        b"keep these destination bytes"
+    );
+    assert_eq!(f.read("TOKEN"), b"synthetic-token");
+
+    // The CLI has no operation that removes an archive behind a remembered
+    // path. Simulate that external filesystem change, then exercise public forget.
+    std::fs::remove_file(f.root.path().join("dev.lbox")).unwrap();
+    let forgotten = f.ok(&["vault", "lockbox", "forget", "a@dev"]);
+    assert!(String::from_utf8_lossy(&forgotten.stdout).contains("Forgot known lockbox"));
+    assert!(!f
+        .run(LBX, &["vault", "lockbox", "forget", "a@dev"])
+        .status
+        .success());
+}
+
+#[test]
+fn alias_destinations_are_refused_without_overwriting_existing_files() {
+    let f = Fixture::new();
+    let destination = f.root.path().join("existing.lbox");
+    f.ok(&["existing.lbox", "create"]);
+    f.ok(&[
+        "existing.lbox",
+        "variable",
+        "set",
+        "SENTINEL",
+        "destination sentinel",
+    ]);
+    f.ok(&[
+        "vault",
+        "lockbox",
+        "alias",
+        "set",
+        "existing",
+        "existing.lbox",
+    ]);
+    let destination_contents = std::fs::read(&destination).unwrap();
+
+    let moved = f.run(LBX, &["vault", "lockbox", "move", "a@dev", "a@existing"]);
+    assert!(!moved.status.success(), "{moved:?}");
+    assert!(String::from_utf8_lossy(&moved.stderr).contains("destination already exists"));
+    assert_eq!(std::fs::read(&destination).unwrap(), destination_contents);
+    assert_destination_sentinel(&f);
+
+    let recovered = f.run(
+        LBX,
+        &["a@dev", "doctor", "recover", "--output", "a@existing"],
+    );
+    assert!(!recovered.status.success(), "{recovered:?}");
+    assert!(
+        String::from_utf8_lossy(&recovered.stderr).contains("already exists"),
+        "{recovered:?}"
+    );
+    assert!(!f.root.path().join("a@existing").exists());
+    assert_eq!(std::fs::read(&destination).unwrap(), destination_contents);
+    assert_destination_sentinel(&f);
+    assert_eq!(f.read("TOKEN"), b"synthetic-token");
+
+    let artifact = f.root.path().join("archive.migration");
+    let exported = f.input(
+        LBX,
+        &[
+            "a@dev",
+            "doctor",
+            "migrate",
+            "lockbox",
+            "export",
+            "--output",
+            artifact.to_str().unwrap(),
+            "--migration-password-stdin",
+        ],
+        b"synthetic-migration-password\n",
+    );
+    assert!(exported.status.success(), "{exported:?}");
+    let refused = f.run(
+        LBX,
+        &[
+            "doctor",
+            "migrate",
+            "lockbox",
+            "import",
+            artifact.to_str().unwrap(),
+            "--output",
+            "a@existing",
+        ],
+    );
+    assert!(!refused.status.success(), "{refused:?}");
+    assert!(
+        String::from_utf8_lossy(&refused.stderr).contains("destination already exists"),
+        "{refused:?}"
+    );
+    assert!(!f.root.path().join("a@existing").exists());
+    assert_destination_sentinel(&f);
+
+    let direct_output = f.root.path().join("extracted-value");
+    std::fs::write(&direct_output, b"keep direct output").unwrap();
+    let refused = f.run(
+        LBX,
+        &[
+            "a@dev",
+            "variable",
+            "get",
+            "TOKEN",
+            "--output",
+            direct_output.to_str().unwrap(),
+        ],
+    );
+    assert!(!refused.status.success(), "{refused:?}");
+    assert!(
+        String::from_utf8_lossy(&refused.stderr).contains("already exists"),
+        "{refused:?}"
+    );
+    assert_eq!(std::fs::read(direct_output).unwrap(), b"keep direct output");
+}
+
+fn assert_destination_sentinel(f: &Fixture) {
+    let sentinel = f.run(VALUE, &["existing.lbox", "SENTINEL"]);
+    assert!(sentinel.status.success(), "{sentinel:?}");
+    assert_eq!(sentinel.stdout, b"destination sentinel");
+}
+
+#[test]
+fn lockbox_alias_creation_refuses_existing_target_including_extensionless_name() {
+    let f = Fixture::new();
+    let original = std::fs::read(f.root.path().join("dev.lbox")).unwrap();
+    let refused = f.run(LBX, &["dev.lbox", "create"]);
+    assert!(!refused.status.success(), "{refused:?}");
+    assert_eq!(
+        std::fs::read(f.root.path().join("dev.lbox")).unwrap(),
+        original
+    );
+
+    f.ok(&["extensionless.lbox", "create"]);
+    std::fs::rename(
+        f.root.path().join("extensionless.lbox"),
+        f.root.path().join("extensionless"),
+    )
+    .unwrap();
+    f.ok(&[
+        "vault",
+        "lockbox",
+        "alias",
+        "set",
+        "extless",
+        "extensionless",
+    ]);
+    let target = std::fs::read(f.root.path().join("extensionless")).unwrap();
+    let refused = f.run(LBX, &["a@extless", "create"]);
+    assert!(!refused.status.success(), "{refused:?}");
+    assert_eq!(
+        std::fs::read(f.root.path().join("extensionless")).unwrap(),
+        target
+    );
+    assert!(!f.root.path().join("extensionless.lbox").exists());
+}
+
+#[test]
+fn representative_archive_routes_accept_alias_selector() {
+    let f = Fixture::new();
+    f.ok(&["a@dev", "doctor"]);
+    f.ok(&["a@dev", "list"]);
+    f.ok(&["a@dev", "access", "list"]);
+    let variables = f.ok(&["a@dev", "variable", "list"]);
+    assert!(String::from_utf8_lossy(&variables.stdout).contains("TOKEN"));
+    f.ok(&["a@dev", "form", "list"]);
+}
+
+#[test]
+fn migration_alias_selector_exports_and_imports_with_independent_readback() {
+    let f = Fixture::new();
+    let artifact = f.root.path().join("archive.migration");
+    let exported = f.input(
+        LBX,
+        &[
+            "a@dev",
+            "doctor",
+            "migrate",
+            "lockbox",
+            "export",
+            "--output",
+            artifact.to_str().unwrap(),
+            "--migration-password-stdin",
+        ],
+        b"synthetic-migration-password\n",
+    );
+    assert!(exported.status.success(), "{exported:?}");
+    f.ok(&[
+        "doctor",
+        "migrate",
+        "lockbox",
+        "verify",
+        artifact.to_str().unwrap(),
+    ]);
+
+    let explicit_artifact = f.root.path().join("explicit-source.migration");
+    let exported = f.input(
+        LBX,
+        &[
+            "doctor",
+            "migrate",
+            "lockbox",
+            "export",
+            "a@dev",
+            "--output",
+            explicit_artifact.to_str().unwrap(),
+            "--migration-password-stdin",
+        ],
+        b"synthetic-migration-password\n",
+    );
+    assert!(exported.status.success(), "{exported:?}");
+    f.ok(&[
+        "doctor",
+        "migrate",
+        "lockbox",
+        "verify",
+        explicit_artifact.to_str().unwrap(),
+    ]);
+
+    let imported = f.root.path().join("imported.lbox");
+    let result = f.input(
+        LBX,
+        &[
+            "doctor",
+            "migrate",
+            "lockbox",
+            "import",
+            explicit_artifact.to_str().unwrap(),
+            "--output",
+            imported.to_str().unwrap(),
+        ],
+        b"",
+    );
+    assert!(result.status.success(), "{result:?}");
+    let reread = f.run(VALUE, &[imported.to_str().unwrap(), "TOKEN"]);
+    assert!(reread.status.success(), "{reread:?}");
+    assert_eq!(reread.stdout, b"synthetic-token");
 }
 
 #[test]
@@ -358,6 +633,41 @@ fn completion_exposes_names_only_and_retains_assignment_destination() {
             LBX,
             vec!["lockbox", "a@dev", "form", "get", "/work/github@u"],
             "/work/github@username",
+        ),
+        (
+            LBX,
+            vec!["lockbox", "vault", "lockbox", "move", "a@d"],
+            "a@dev",
+        ),
+        (
+            LBX,
+            vec!["lockbox", "vault", "lockbox", "move", "a@dev", "a@"],
+            "a@dev",
+        ),
+        (LBX, vec!["lockbox", "session", "default", "a@d"], "a@dev"),
+        (
+            LBX,
+            vec!["lockbox", "doctor", "migrate", "lockbox", "export", "a@d"],
+            "a@dev",
+        ),
+        (
+            LBX,
+            vec![
+                "lockbox",
+                "doctor",
+                "migrate",
+                "lockbox",
+                "import",
+                "archive.migration",
+                "--output",
+                "a@",
+            ],
+            "a@dev",
+        ),
+        (
+            LBX,
+            vec!["lockbox", "a@dev", "doctor", "recover", "--output", "a@"],
+            "a@dev",
         ),
     ] {
         let mut args = vec!["--"];
