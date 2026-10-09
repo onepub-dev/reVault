@@ -383,6 +383,17 @@ pub(crate) fn lockbox_path_candidates(current: &OsStr) -> Vec<CompletionCandidat
     values
 }
 
+pub(crate) fn lockbox_destination_candidates(current: &OsStr) -> Vec<CompletionCandidate> {
+    use clap_complete::engine::{PathCompleter, ValueCompleter};
+    let mut values = alias_selectors(current);
+    if !current.to_string_lossy().starts_with("a@") {
+        values.extend(PathCompleter::any().complete(current));
+    }
+    values.sort();
+    values.dedup();
+    values
+}
+
 pub(crate) fn alias_name_candidates(current: &OsStr) -> Vec<CompletionCandidate> {
     candidates(
         current,

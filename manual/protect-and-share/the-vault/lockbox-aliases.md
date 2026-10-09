@@ -37,6 +37,38 @@ A missing target or a different Lockbox at the remembered path causes an error. 
 
 `a@dev` always selects an alias. To select an actual host file named `a@dev`, use `./a@dev` (or `.\a@dev` on Windows).
 
+## Commands that accept aliases
+
+Use `a@name` wherever a command selects an existing Lockbox: files, variables,
+forms, access, mirrors, open/close, diagnostics, recovery and compaction, as well
+as the `lbxv` and `lbxx` helpers. Explicit Lockbox arguments also accept aliases:
+
+```bash
+lbx session default a@dev
+lbx vault lockbox remember a@dev
+lbx vault lockbox move a@dev ./secrets/renamed.lbox
+lbx doctor migrate lockbox a@dev --replace
+lbx a@dev doctor migrate lockbox --replace
+lbx vault lockbox alias set work a@dev
+lbx vault lockbox forget a@work
+```
+
+The two migration forms are alternatives; supply the source in one place only.
+`session default` stores the resolved path, and `vault lockbox move` updates it.
+`forget` removes the remembered record even if its file is missing. It leaves
+the alias record in place, but that alias cannot select a Lockbox until its
+target is remembered again.
+
+Recovery output, migration import output, direct migration output and Vault move
+destinations also resolve aliases. Existing-file safeguards still apply: aliases
+always name existing archives, so creating a new archive or moving onto another
+alias refuses to overwrite it. Recovery requires `--overwrite` to replace an
+existing output. To create a new destination, use a new filesystem path.
+
+Aliases do not substitute for paths *inside* an archive, ordinary input files,
+exported value files, migration artifacts, key files or Vault backup files.
+Use `./a@name` for a literal host filename beginning with `a@`.
+
 ## Read one value with lbxv
 
 Open the Vault and Lockbox with `lbx` first. The helpers never prompt for credentials.

@@ -1753,13 +1753,20 @@ fn column_width<'a>(header: &str, values: impl Iterator<Item = &'a str>) -> usiz
 }
 
 fn forget_known_lockbox_path(path: &str) -> CliResult<()> {
-    default_vault()?.forget_known_lockbox(path)?;
+    let vault = default_vault()?;
+    // Forget manages the remembered record, even when its file is missing.
+    let path = match path.strip_prefix("a@") {
+        Some(name) => vault.resolve_lockbox_alias(name)?.path,
+        None => path.to_owned(),
+    };
+    vault.forget_known_lockbox(&path)?;
     println!("Forgot known lockbox: {path}");
     Ok(())
 }
 
 fn remember_known_lockbox_path(path: &str) -> CliResult<()> {
-    let path = fs::canonicalize(path)
+    let (path, _) = super::aliases::resolve(path)?;
+    let path = fs::canonicalize(&path)
         .map_err(|err| cli_error(format!("could not resolve lockbox path {path}: {err}")))?;
     if !path.is_file() {
         return Err(cli_error(format!(
@@ -1774,6 +1781,10 @@ fn remember_known_lockbox_path(path: &str) -> CliResult<()> {
 }
 
 fn move_known_lockbox(source: &str, destination: &str) -> CliResult<()> {
+    let (source, _) = super::aliases::resolve(source)?;
+    let (destination, _) = super::aliases::resolve(destination)?;
+    let source = source.as_str();
+    let destination = destination.as_str();
     let source_path = Path::new(source);
     let requested_destination = Path::new(destination);
     if !source_path.exists() {
