@@ -1,0 +1,9 @@
+{
+  "utc": "2026-10-10T00:26:04.263450Z",
+  "loadavg": "3.37 5.92 6.48 2/3921 948796",
+  "cpu_model": "model name\t: AMD Ryzen 7 3700X 8-Core Processor",
+  "kernel": "7.0.0-38-generic",
+  "online_cpus": "16",
+  "allowed_cpus": "Cpus_allowed_list:\t0-15",
+  "measurement_cpu": 2
+}

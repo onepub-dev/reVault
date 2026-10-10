@@ -1,7 +1,7 @@
-# Matched-toolchain typed-tree read protocol
+# Matched-toolchain typed-tree read results
 
-Declared before measurement on 2026-10-10. Status: harness validation and builds
-complete; no qualifying measurements or performance claims in this checkpoint.
+Protocol declared before measurement on 2026-10-10; fixed batch completed on
+source `a47f686f` with Rust 1.88.0. All six cases fail ZIP parity.
 
 The October 2 comparisons used different Rust compiler versions for typed trees
 and retained ZIP/packed-C controls. Preserve those observations with their stated
@@ -69,5 +69,59 @@ strict Clippy, all 16 small mode/codec/padding smokes, and independent 64 MiB
 stream/range checks. Raw invocation logs, scripts and source/binary identities are
 retained. An initial build command incorrectly passed `--release` to `cargo bench`;
 Cargo refused it, and the documented optimized bench command then succeeded.
-The forthcoming measured batch uses fresh binaries built after hook formatting,
+The measured batch used fresh binaries built after hook formatting,
 with separate identities; preparation timings are excluded.
+
+## Completed results
+
+All cases completed 30 measured groups and three warmup groups on CPU 2, each
+containing ZIP, packed C and typed tree: 540 measured and 54 warmup observations.
+Every observation passed independent byte verification. Frozen executable/source
+hashes and source/archive identities remained unchanged. No owned build or test
+overlapped timing. Host load and CPU affinity are retained, not assumed idle.
+
+Ratios below are total elapsed tree/control time with paired-bootstrap 95%
+intervals. Lower is better; every tree/ZIP interval is entirely above one.
+
+| Case | Tree/ZIP [95% CI] | Tree/packed C [95% CI] | Tree open/read/total median (ms) | Worker peak RSS median (KiB) |
+| --- | --- | --- | --- | --- |
+| 512 × 4 KiB compressible stream | 1.066 [1.035, 1.091] | 0.0165 [0.0161, 0.0168] | 1.343 / 1.931 / 3.283 | 10,548 |
+| 8 MiB random raw stream | 3.883 [3.774, 3.981] | 0.989 [0.983, 0.997] | 0.747 / 5.317 / 6.076 | 9,924 |
+| 8 MiB patterned compressed stream | 2.593 [2.572, 2.614] | 0.655 [0.651, 0.660] | 0.633 / 3.366 / 3.983 | 10,772 |
+| 8 MiB random raw midpoint 4 KiB | 10.887 [10.523, 11.247] | 0.914 [0.880, 0.941] | 0.756 / 0.047 / 0.805 | 9,924 |
+| 64 MiB random raw stream | 3.707 [3.669, 3.741] | 0.976 [0.971, 0.981] | 2.050 / 42.467 / 44.498 | 10,436 |
+| 64 MiB random raw midpoint 4 KiB | 28.005 [27.266, 28.825] | 0.812 [0.799, 0.828] | 2.038 / 0.047 / 2.091 | 10,440 |
+
+Separate medians need not sum exactly. Median tree CPU times are respectively
+3.284, 6.077, 3.985, 0.806, 44.498 and 2.092 ms. Exact results are in
+[metrics-summary.json](results/metrics-summary.json); per-observation open/read,
+CPU and RSS values are in each `results/measure/<case>/samples.jsonl`.
+
+Opening dominates the two range cases, making open-path profiling the next useful
+diagnostic. This is an inference from timing, not a sampled CPU attribution.
+The 64 MiB case now runs without raising admission caps. The small-file result
+does not reproduce the earlier ZIP pass; retain both batches with their distinct
+source/host identities. This batch compares current components and does not
+isolate the effect of a particular change or compiler version. The October 2
+pinned-1.88 batch remains historical evidence alongside its earlier cross-compiler
+exploration.
+
+## Reproduction and retained evidence
+
+- [Hash and source identities before](results/hash-before.json) and
+  [after](results/hash-after.json) show the frozen Rust 1.88.0 participants.
+- [Final audit](results/final-audit.json) records every verification, inventory,
+  archive/public-key size and digest; [affinity](results/affinity-audit.json)
+  records CPU 2 for every case.
+- [Host before](results/host-before.json) and [after](results/host-after.json)
+  record the Ryzen 7 3700X, kernel and load context.
+- Executed setup, batch and audit Dart scripts are retained as `.dart.txt`,
+  alongside build/Clippy/setup/timing logs, summaries and raw observations.
+  These scripts record original absolute paths and are evidence, not installed tools.
+- Fixture payloads and binaries are excluded; inventories and hashes identify
+  them. Setup smoke observations under `results/cases/` are not measured evidence.
+
+No passing ZIP read claim, public write claim, public CLI memory qualification,
+PGP comparison, scale/aging/migration qualification or complete-format acceptance
+follows from this batch. Checksums, padding validation, owner checks, wiping and
+verification-before-exposure remain unchanged.

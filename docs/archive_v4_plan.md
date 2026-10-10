@@ -22,6 +22,17 @@ or erase failures.
 
 ## Current position and next work
 
+### Matched read baseline — 2026-10-10
+
+The [current fixed read batch](evidence/typed-tree-matched-read-2026-10-10/README.md)
+compares source `a47f686f` against rebuilt ZIP and packed C with Rust 1.88.0.
+All six 30-pair cases fail ZIP parity: 1.066× small files, 3.883×/2.593× raw/
+compressed 8 MiB streams, 3.707× raw 64 MiB stream, and 10.887×/28.005× midpoint
+range reads. All bytes and retained identities verify. Direct export admits the
+64 MiB fixture without increasing caps. Opening dominates range time; profile it
+before selecting another optimization. This is a component baseline, not public
+CLI/PGP/write/scale qualification; historical small-file passes remain historical.
+
 ### Typed credential readers and fresh conversion — 2026-10-10
 
 The [typed credential integration](evidence/tree-credential-reader-2026-10-10/README.md)

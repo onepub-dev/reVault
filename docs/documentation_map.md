@@ -78,3 +78,5 @@ and development failures; path installation and full-format acceptance are separ
 - [Credential-preserving tree copy](evidence/tree-access-copy-2026-10-10/README.md): bounded wrapper retention and resume admission; access mutation/overflow and full qualification remain open.
 
 - [Typed credential opening and dense conversion](evidence/tree-credential-reader-2026-10-10/README.md): direct typed readers, publication identity, wrapper preservation and bounded failure checks.
+
+- [Current matched read baseline](evidence/typed-tree-matched-read-2026-10-10/README.md): six fixed Rust 1.88.0 comparisons; every ZIP case fails, raw samples and identities retained.

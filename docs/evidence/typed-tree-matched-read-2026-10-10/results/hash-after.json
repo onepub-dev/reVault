@@ -1,0 +1,15 @@
+{
+  "sha256": {
+    "core_test_binary": "0fda7dd38313e0d35a58f0acc02210fe00b976c615cf6dc25efd357a73ad7012",
+    "packed_adapter": "17d21e7d847c58b4d5e485f5714f7b13632d9baef5649c00072f65d5582e10db",
+    "tree_adapter": "58dfe180cac797170680b7758c2c3f5b16e0bf2fb32b61a8bc51bf1730e3a77b",
+    "archive_evaluation_runner": "fc8c419adfc158f44512416b2bd6acf06cf374640f45d90e54a420315a2a879e",
+    "cargo_lock": "30f035feb33237411a1fe46b2f13656454e7062954223677d2ca569ba7e5a081",
+    "runner_source": "b36da6ed6e7b71ba1d468871c3756dd8928280f22604b3cdcb9fe0c73d07309d",
+    "comparison_source": "14c364e21d5205ea3dec5795bed0ad75357c8d17fc7e35507478afab6462e0d8",
+    "candidate_driver_source": "cde147eb80149ccedfdf83b14ed30b3267b09d2eeaf410be78f0a0818719136b",
+    "resource_probe_source": "b8225c37a5aeb937279248c6d757b4542e2c768b684ee66f6e0b57090923de03",
+    "tree_probe_source": "93aefe40d1fe18ce1175c82d0d7b29b5fe685f7f28d9a902d7d6de12eb0454cb"
+  },
+  "stable": true
+}

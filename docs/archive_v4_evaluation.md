@@ -130,6 +130,14 @@ including Vault containers. `0.4.x` remains format 3 and is isolated from this w
 
 ## Current scorecard
 
+The [October 10 matched-toolchain batch](evidence/typed-tree-matched-read-2026-10-10/README.md)
+is the latest typed-read baseline. Its six fixed 30-pair cases all fail ZIP parity:
+1.066× small files, 2.593–3.883× streams and 10.887×/28.005× ranges. Exact byte
+verification and stable input/executable hashes pass. This supersedes a current
+passing-small-case claim, while preserving the distinct historical measurements
+below. Range opening dominates elapsed time. Worker RSS near 10 MiB does not
+qualify the complete public CLI memory or scale requirements.
+
 The [selected typed-variable integration](evidence/typed-variables-2026-10-09/README.md)
 is a **test-only (`cfg(test)`) adapter**, following the independently checked
 [secure segmented-value component](evidence/secure-segments-2026-10-09/README.md).

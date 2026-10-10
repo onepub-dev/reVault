@@ -1,0 +1,53 @@
+#! /usr/bin/env dcli
+import 'dart:convert';
+import 'dart:io';
+import 'package:dcli/dcli.dart';
+
+String artifact(String path, String name, String kind, {bool? testProfile}) {
+  for (final line in File(path).readAsLinesSync()) {
+    try {
+      final item = jsonDecode(line);
+      if (item is! Map || item['reason'] != 'compiler-artifact') continue;
+      final target = item['target'];
+      final profile = item['profile'];
+      if (target is! Map || profile is! Map || target['name'] != name) continue;
+      if (!(target['kind'] as List).contains(kind)) continue;
+      if (testProfile != null && profile['test'] != testProfile) continue;
+      final executable = item['executable'];
+      if (executable is String && executable.isNotEmpty) return executable;
+    } on FormatException { continue; }
+  }
+  throw StateError('Missing Cargo JSON artifact $name/$kind in $path');
+}
+
+String hash(String path) {
+  final result = Process.runSync('sha256sum', [path]);
+  if (result.exitCode != 0) throw StateError('${result.stderr}');
+  return '${result.stdout}'.split(RegExp(r'\s+')).first;
+}
+
+void main() {
+  const root = '/tmp/revault-tree-read-20261010-final';
+  final output = Directory(root);
+  if (output.existsSync()) throw StateError('Refusing existing output directory $root');
+  Directory('$root/bin').createSync(recursive: true);
+  final test = artifact('/tmp/revault-tree-read-20261010-final-test-build.jsonl', 'revault_lockbox_api', 'lib', testProfile: true);
+  final bench = artifact('/tmp/revault-tree-read-20261010-final-bench-build.jsonl', 'archive_evaluation', 'bench');
+  final testOut = '$root/bin/revault_lockbox_api_tests';
+  final benchOut = '$root/bin/archive_evaluation';
+  File(test).copySync(testOut);
+  File(bench).copySync(benchOut);
+  for (final path in [testOut, benchOut]) {
+    final result = Process.runSync('chmod', ['755', path]);
+    if (result.exitCode != 0) throw StateError('chmod failed: ${result.stderr}');
+  }
+  File('$root/build-artifacts.txt').writeAsStringSync('''rust_test_source=$test
+rust_test_copy=$testOut
+rust_test_sha256=${hash(testOut)}
+bench_source=$bench
+bench_copy=$benchOut
+bench_sha256=${hash(benchOut)}
+''', flush: true);
+  print('FROZEN_TEST $testOut ${hash(testOut)}');
+  print('FROZEN_BENCH $benchOut ${hash(benchOut)}');
+}
