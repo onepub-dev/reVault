@@ -28,11 +28,71 @@ use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub(crate) fn create_matches(matches: &ArgMatches, access: &Access) -> CliResult<()> {
-    if ["encryption", "signing", "compression", "compression-level"]
+    let lockbox = command_lockbox()
+        .ok_or_else(|| cli_error("missing lockbox; use `lockbox LOCKBOX create`"))?;
+    let path = create_path(&lockbox)?;
+    let name = matches
+        .get_one::<String>("alias")
+        .map(String::as_str)
+        .or_else(|| path.file_stem().and_then(|name| name.to_str()))
+        .ok_or_else(|| cli_error("cannot derive lockbox alias from filename; use --alias"))?;
+    validate_creation_options(matches)?;
+    super::aliases::validate_name(name)?;
+    ensure_new_lockbox_path(&path)?;
+    // Preserve the existing modes that require explicit Vault initialization.
+    let requires_initialized_vault = if configured_creation(matches) {
+        configured_creation_needs_vault(matches, access)
+    } else {
+        matches.get_flag("password")
+            || matches.contains_id("for")
+            || matches!(access, Access::PromptPassword)
+    };
+    if requires_initialized_vault {
+        ensure_default_vault_initialized()?;
+    }
+    // Reuse one unlock and hold the Vault guard through alias registration.
+    let vault = default_vault()?;
+    create_without_alias(matches, access, &vault)?;
+    if vault
+        .list_lockbox_aliases()?
+        .iter()
+        .any(|alias| alias.name == name)
+    {
+        eprintln!("Warning: lockbox created, but no alias was created: alias '{name}' already exists; its mapping is unchanged.");
+        return Ok(());
+    }
+    let inspection = Lockbox::inspect_file(&path)?;
+    vault.remember_known_lockbox(inspection.lockbox_id, &path)?;
+    vault.set_lockbox_alias(name, inspection.lockbox_id)?;
+    println!("Alias created: a@{name}");
+    Ok(())
+}
+
+fn configured_creation(matches: &ArgMatches) -> bool {
+    ["encryption", "signing", "compression", "compression-level"]
         .iter()
         .any(|name| matches.contains_id(name))
-    {
-        return create_configured(matches, access);
+}
+
+fn configured_creation_needs_vault(matches: &ArgMatches, access: &Access) -> bool {
+    let signed = matches
+        .get_one::<String>("signing")
+        .is_none_or(|mode| mode == "owner");
+    let plaintext = matches
+        .get_one::<String>("encryption")
+        .is_some_and(|mode| mode == "none");
+    signed
+        || matches.contains_id("for")
+        || (!plaintext && !matches.get_flag("password") && !matches!(access, Access::ContentKey(_)))
+}
+
+fn create_without_alias(
+    matches: &ArgMatches,
+    access: &Access,
+    vault: &VaultDirectory,
+) -> CliResult<()> {
+    if configured_creation(matches) {
+        return create_configured(matches, access, vault);
     }
     let mut args = Vec::new();
     if matches.get_flag("password") {
@@ -49,10 +109,38 @@ pub(crate) fn create_matches(matches: &ArgMatches, access: &Access) -> CliResult
         &args,
         access,
         matches.get_one::<String>("description").map(String::as_str),
+        vault,
     )
 }
 
-fn create_configured(matches: &ArgMatches, access: &Access) -> CliResult<()> {
+fn validate_creation_options(matches: &ArgMatches) -> CliResult<()> {
+    if matches
+        .get_one::<String>("compression")
+        .is_some_and(|mode| mode == "none")
+        && matches.contains_id("compression-level")
+    {
+        return Err(cli_error("--compression-level requires --compression zstd"));
+    }
+    let plaintext = matches
+        .get_one::<String>("encryption")
+        .is_some_and(|mode| mode == "none");
+    if plaintext
+        && (matches.get_flag("password")
+            || matches.contains_id("for")
+            || matches.contains_id("key"))
+    {
+        return Err(cli_error(
+            "--encryption none does not accept decryption credentials",
+        ));
+    }
+    Ok(())
+}
+
+fn create_configured(
+    matches: &ArgMatches,
+    access: &Access,
+    vault: &VaultDirectory,
+) -> CliResult<()> {
     use revault_lockbox_api::{Compression, Encryption, LockboxCreateOptions, Signing, ZstdLevel};
     let plaintext = matches
         .get_one::<String>("encryption")
@@ -64,41 +152,18 @@ fn create_configured(matches: &ArgMatches, access: &Access) -> CliResult<()> {
         .get_one::<String>("compression")
         .is_some_and(|mode| mode == "none")
     {
-        if matches.contains_id("compression-level") {
-            return Err(cli_error("--compression-level requires --compression zstd"));
-        }
         Compression::None
     } else {
         Compression::Zstd {
             level: ZstdLevel::new(*matches.get_one::<u8>("compression-level").unwrap_or(&3))?,
         }
     };
-    if plaintext
-        && (matches.get_flag("password")
-            || matches.contains_id("for")
-            || matches.contains_id("key"))
-    {
-        return Err(cli_error(
-            "--encryption none does not accept decryption credentials",
-        ));
-    }
     let path = create_path(&command_lockbox().ok_or_else(|| cli_error("missing lockbox"))?)?;
     ensure_new_lockbox_path(&path)?;
-    let needs_vault = signed
-        || matches.contains_id("for")
-        || (!plaintext
-            && !matches.get_flag("password")
-            && !matches!(access, Access::ContentKey(_)));
-    let vault = if needs_vault {
-        ensure_default_vault_initialized()?;
-        Some(default_vault()?)
-    } else {
-        None
-    };
+    let vault = configured_creation_needs_vault(matches, access).then_some(vault);
     let signing_key = if signed {
         Some(
             vault
-                .as_ref()
                 .unwrap()
                 .load_owner_signing_key(VaultDirectory::DEFAULT_KEY_NAME)?,
         )
@@ -118,7 +183,7 @@ fn create_configured(matches: &ArgMatches, access: &Access) -> CliResult<()> {
             password = Some(read_new_password()?);
             LockboxProtection::Password(password.as_ref().unwrap())
         } else if let Some(contact_name) = matches.get_one::<String>("for") {
-            let vault = vault.as_ref().unwrap();
+            let vault = vault.unwrap();
             password = resolve_profile_password(contact_name, vault)?;
             if let Some(password) = password.as_ref() {
                 LockboxProtection::Password(password)
@@ -133,7 +198,7 @@ fn create_configured(matches: &ArgMatches, access: &Access) -> CliResult<()> {
             LockboxProtection::ContentKey(key.try_clone()?)
         } else {
             let contact =
-                load_contact_from_vault(VaultDirectory::DEFAULT_KEY_NAME, vault.as_ref().unwrap())?;
+                load_contact_from_vault(VaultDirectory::DEFAULT_KEY_NAME, vault.unwrap())?;
             LockboxProtection::ContactPublicKey {
                 name: contact.name.map(|name| access_entry_name(&name)),
                 contact: contact.public_key,
@@ -156,7 +221,7 @@ fn create_configured(matches: &ArgMatches, access: &Access) -> CliResult<()> {
         let backup = VaultOpen::export_key_directory_backup(&lb)?;
         let opened = VaultOpen::key_directory_backup_with_password(&backup, password)?;
         cache_key = Some(opened.try_clone_key()?);
-        if let Some(vault) = vault.as_ref() {
+        if let Some(vault) = vault {
             remember_lockbox_password_if_enabled_with_vault(&lb, password, vault)?;
         }
     }
@@ -166,7 +231,7 @@ fn create_configured(matches: &ArgMatches, access: &Access) -> CliResult<()> {
             .put_content_key_for_path(lb.lockbox_id(), key, &path)?;
     }
     if !plaintext {
-        if let Some(vault) = vault.as_ref() {
+        if let Some(vault) = vault {
             mirror_key_directory_with_vault(&lb, &path, vault)?;
         }
     }
@@ -178,12 +243,11 @@ fn create_with_description(
     args: &[String],
     access: &Access,
     description: Option<&str>,
+    vault: &VaultDirectory,
 ) -> CliResult<()> {
     if args.first().map(String::as_str) == Some("--password") {
         let lockbox_path = create_path(require_arg(args, 1, "lockbox")?)?;
         ensure_new_lockbox_path(&lockbox_path)?;
-        ensure_default_vault_initialized()?;
-        let vault = default_vault()?;
         let signing_key = vault.load_owner_signing_key(VaultDirectory::DEFAULT_KEY_NAME)?;
         println!("Creating lockbox: {}", lockbox_path.display());
         let password = read_new_password()?;
@@ -193,8 +257,8 @@ fn create_with_description(
             &signing_key,
         )?;
         set_initial_description(&mut lb, description)?;
-        remember_lockbox_password_if_enabled_with_vault(&lb, &password, &vault)?;
-        mirror_key_directory_with_vault(&lb, &lockbox_path, &vault)?;
+        remember_lockbox_password_if_enabled_with_vault(&lb, &password, vault)?;
+        mirror_key_directory_with_vault(&lb, &lockbox_path, vault)?;
         println!("Lockbox created: {}", lockbox_path.display());
         return Ok(());
     }
@@ -202,17 +266,15 @@ fn create_with_description(
         let contact_name = require_arg(args, 1, "contact")?;
         let lockbox_path = create_path(require_arg(args, 2, "lockbox")?)?;
         ensure_new_lockbox_path(&lockbox_path)?;
-        ensure_default_vault_initialized()?;
-        let vault = default_vault()?;
         let signing_key = vault.load_owner_signing_key(VaultDirectory::DEFAULT_KEY_NAME)?;
-        if let Some(password) = resolve_profile_password(contact_name, &vault)? {
+        if let Some(password) = resolve_profile_password(contact_name, vault)? {
             let mut lb = local_vault().create_lockbox_with_signing_key(
                 &lockbox_path,
                 LockboxProtection::Password(&password),
                 &signing_key,
             )?;
             set_initial_description(&mut lb, description)?;
-            mirror_key_directory_with_vault(&lb, &lockbox_path, &vault)?;
+            mirror_key_directory_with_vault(&lb, &lockbox_path, vault)?;
             let slot = lb
                 .list_key_slots()
                 .into_iter()
@@ -222,7 +284,7 @@ fn create_with_description(
             println!("Lockbox created: {}", lockbox_path.display());
             return Ok(());
         }
-        let contact = load_contact_from_vault(contact_name, &vault)?;
+        let contact = load_contact_from_vault(contact_name, vault)?;
         println!("Creating lockbox: {}", lockbox_path.display());
         let mut lb = Vault::new(NoopStore).create_lockbox_with_signing_key(
             &lockbox_path,
@@ -233,7 +295,7 @@ fn create_with_description(
             &signing_key,
         )?;
         set_initial_description(&mut lb, description)?;
-        mirror_key_directory_with_vault(&lb, &lockbox_path, &vault)?;
+        mirror_key_directory_with_vault(&lb, &lockbox_path, vault)?;
         println!("Lockbox created: {}", lockbox_path.display());
         return Ok(());
     }
@@ -242,7 +304,6 @@ fn create_with_description(
     println!("Creating lockbox: {}", lockbox_path.display());
     match access {
         Access::ContentKey(key) => {
-            let vault = default_vault()?;
             let signing_key = vault.load_owner_signing_key(VaultDirectory::DEFAULT_KEY_NAME)?;
             let mut lb = Vault::new(NoopStore).create_lockbox_with_signing_key(
                 &lockbox_path,
@@ -250,13 +311,11 @@ fn create_with_description(
                 &signing_key,
             )?;
             set_initial_description(&mut lb, description)?;
-            mirror_key_directory_with_vault(&lb, &lockbox_path, &vault)?;
+            mirror_key_directory_with_vault(&lb, &lockbox_path, vault)?;
         }
         Access::PromptPassword => {
-            ensure_default_vault_initialized()?;
-            let vault = default_vault()?;
             let signing_key = vault.load_owner_signing_key(VaultDirectory::DEFAULT_KEY_NAME)?;
-            let contact = load_contact_from_vault(VaultDirectory::DEFAULT_KEY_NAME, &vault)?;
+            let contact = load_contact_from_vault(VaultDirectory::DEFAULT_KEY_NAME, vault)?;
             let mut lb = Vault::new(NoopStore).create_lockbox_with_signing_key(
                 &lockbox_path,
                 LockboxProtection::ContactPublicKey {
@@ -266,7 +325,7 @@ fn create_with_description(
                 &signing_key,
             )?;
             set_initial_description(&mut lb, description)?;
-            mirror_key_directory_with_vault(&lb, &lockbox_path, &vault)?;
+            mirror_key_directory_with_vault(&lb, &lockbox_path, vault)?;
         }
         Access::CacheOnly => {
             return Err(Error::InvalidInput("create requires an open method".to_string()).into());

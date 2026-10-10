@@ -211,10 +211,7 @@ fn lockbox_alias_matches(matches: &ArgMatches) -> CliResult<()> {
     match command {
         "set" => {
             let name = required_value(sub, "name");
-            validate_vault_record_name(&name)?;
-            if name.len() > 128 {
-                return Err(cli_error("lockbox alias exceeds 128 bytes"));
-            }
+            super::aliases::validate_name(&name)?;
             let (path, _) = super::aliases::resolve(&required_value(sub, "lockbox"))?;
             let inspection = Lockbox::inspect_file(&path)?;
             let vault = default_vault()?;

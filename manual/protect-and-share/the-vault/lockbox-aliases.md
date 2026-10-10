@@ -10,6 +10,35 @@ These commands are available in the current development branch. The CLI package 
 
 ## Create and use an alias
 
+Creating a Lockbox registers an alias in your Vault. By default, the alias is
+the filename without its final extension:
+
+```bash
+lbx project-secrets.lbox create
+lbx a@project-secrets variable list
+```
+
+Choose a different name with `--alias`:
+
+```bash
+lbx ./developer.prod.lbox create --alias dev
+lbx a@dev variable list
+```
+
+Directory names do not contribute to the alias. Names containing multiple dots,
+spaces or other unsupported characters require an explicit valid `--alias`.
+An extensionless path such as `project-secrets` creates `project-secrets.lbox`
+and derives `project-secrets`.
+
+All creation modes open or initialize the Vault before creating the archive,
+including unsigned and unencrypted modes. Supply your Vault credentials as usual.
+Modes that already require `lbx vault init`, such as password creation, continue
+to require it. Invalid aliases fail before creation.
+If either an explicit or derived alias already exists, the new Lockbox is still
+created: a warning explains that no alias was created, and the existing mapping
+is preserved. Use the new Lockbox's path or assign it another alias afterward.
+A failed creation does not register an alias.
+
 For an existing Lockbox:
 
 ```bash

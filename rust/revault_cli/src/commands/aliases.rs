@@ -1,6 +1,14 @@
 use super::context::{cli_error, default_vault, CliResult};
 use revault_lockbox_api::{Lockbox, LockboxId};
 
+pub(crate) fn validate_name(name: &str) -> CliResult<()> {
+    revault_vault_api::validate_vault_record_name(name)?;
+    if name.len() > 128 {
+        return Err(cli_error("lockbox alias exceeds 128 bytes"));
+    }
+    Ok(())
+}
+
 pub(crate) fn resolve_noninteractive(value: &str) -> CliResult<(String, Option<LockboxId>)> {
     let Some(name) = value.strip_prefix("a@") else {
         return Ok((value.to_owned(), None));

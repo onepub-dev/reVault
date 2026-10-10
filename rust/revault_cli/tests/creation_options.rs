@@ -156,9 +156,12 @@ fn independent_creation_choices_persist_through_cli_lifecycle() {
                             success(run(dir, encrypted, &[&archive, "cat", "/second.txt"])),
                             b"replacement bytes"
                         );
-                        if !signed {
-                            assert!(!dir.join("vault").exists());
-                        }
+                        // Even unsigned modes register a usable Vault alias.
+                        let alias = format!("a@{encrypted}-{signed}-{compressed}");
+                        assert_eq!(
+                            success(run(dir, encrypted, &[&alias, "cat", "/second.txt"])),
+                            b"replacement bytes"
+                        );
                     });
                 }
             }

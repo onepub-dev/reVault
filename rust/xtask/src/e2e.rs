@@ -215,6 +215,10 @@ fn cli_shards() -> Vec<(&'static str, Vec<&'static str>)> {
             vec!["test", "-p", "revault_cli", "--test", "creation_options"],
         ),
         (
+            "aliases",
+            vec!["test", "-p", "revault_cli", "--test", "aliases"],
+        ),
+        (
             "support",
             vec![
                 "test",

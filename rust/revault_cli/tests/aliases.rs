@@ -693,3 +693,198 @@ fn completion_exposes_names_only_and_retains_assignment_destination() {
         assert!(String::from_utf8_lossy(&output.stdout).contains("_clap_complete_"));
     }
 }
+
+#[test]
+fn create_registers_derived_and_explicit_aliases_with_readback() {
+    let f = Fixture::new();
+    std::fs::create_dir(f.root.path().join("directory.with.dots")).unwrap();
+    for (path, alias, options) in [
+        (
+            "directory.with.dots/project-secrets.lbox",
+            "project-secrets",
+            vec![],
+        ),
+        (
+            "directory.with.dots/project.prod.lbox",
+            "production",
+            vec!["--alias", "production"],
+        ),
+        ("extensionless", "extensionless", vec![]),
+        (
+            "configured.lbox",
+            "configured-alias",
+            vec!["--alias", "configured-alias", "--compression", "none"],
+        ),
+    ] {
+        let mut args = vec![path, "create"];
+        args.extend(options);
+        f.ok(&args);
+        let selector = format!("a@{alias}");
+        f.ok(&[
+            &selector,
+            "variable",
+            "set",
+            "CREATED",
+            "synthetic-created-value",
+        ]);
+        let value = f.run(VALUE, &[&selector, "CREATED"]);
+        assert!(value.status.success(), "{value:?}");
+        assert_eq!(value.stdout, b"synthetic-created-value");
+        let disk_path = if path == "extensionless" {
+            "extensionless.lbox"
+        } else {
+            path
+        };
+        let direct = f.run(VALUE, &[disk_path, "CREATED"]);
+        assert!(direct.status.success(), "{direct:?}");
+        assert_eq!(direct.stdout, b"synthetic-created-value");
+    }
+}
+
+#[test]
+fn create_alias_collisions_warn_and_preserve_both_lockboxes() {
+    let f = Fixture::new();
+    std::fs::create_dir(f.root.path().join("nested")).unwrap();
+    for (path, options) in [
+        ("explicit.lbox", vec!["--alias", "dev"]),
+        ("nested/dev.lbox", vec![]),
+        (
+            "configured.lbox",
+            vec!["--alias", "dev", "--compression", "none"],
+        ),
+    ] {
+        let mut args = vec![path, "create"];
+        args.extend(options);
+        let output = f.ok(&args);
+        let warning = String::from_utf8_lossy(&output.stderr);
+        assert!(warning.contains("no alias was created"), "{output:?}");
+        assert!(warning.contains("'dev' already exists"), "{output:?}");
+        assert_eq!(f.read("TOKEN"), b"synthetic-token");
+        f.ok(&[path, "variable", "set", "TOKEN", "new-lockbox-value"]);
+        let value = f.run(VALUE, &[path, "TOKEN"]);
+        assert!(value.status.success(), "{value:?}");
+        assert_eq!(value.stdout, b"new-lockbox-value");
+        assert_eq!(f.read("TOKEN"), b"synthetic-token");
+    }
+}
+
+#[test]
+fn create_rejects_invalid_aliases_and_does_not_register_failed_creations() {
+    let f = Fixture::new();
+    let before = f
+        .ok(&["vault", "lockbox", "alias", "list", "--format", "json"])
+        .stdout;
+    for name in [
+        "",
+        "a@bad",
+        "../bad",
+        "bad.name",
+        "bad name",
+        &"a".repeat(129),
+    ] {
+        let existing = f.run(LBX, &["vault", "lockbox", "alias", "set", name, "dev.lbox"]);
+        let failed = f.run(LBX, &["invalid.lbox", "create", "--alias", name]);
+        assert!(!failed.status.success(), "{failed:?}");
+        assert_eq!(failed.stderr, existing.stderr);
+        assert!(!f.root.path().join("invalid.lbox").exists());
+    }
+    let dotted = f.run(LBX, &["project.prod.lbox", "create"]);
+    assert!(!dotted.status.success(), "{dotted:?}");
+    assert!(!f.root.path().join("project.prod.lbox").exists());
+    for args in [
+        vec!["dev.lbox", "create", "--alias", "should-not-exist"],
+        vec!["dev.lbox/new.lbox", "create", "--alias", "not-a-directory"],
+        vec![
+            "bad-options.lbox",
+            "create",
+            "--alias",
+            "bad-options",
+            "--compression",
+            "none",
+            "--compression-level",
+            "3",
+        ],
+        vec![
+            "missing-contact.lbox",
+            "create",
+            "--alias",
+            "missing-contact",
+            "--for",
+            "unknown-contact",
+        ],
+    ] {
+        let failed = f.run(LBX, &args);
+        assert!(!failed.status.success(), "{args:?}: {failed:?}");
+    }
+    let after = f
+        .ok(&["vault", "lockbox", "alias", "list", "--format", "json"])
+        .stdout;
+    assert_eq!(before, after);
+    assert_eq!(f.read("TOKEN"), b"synthetic-token");
+}
+
+#[test]
+fn create_validates_options_and_vault_before_creating_an_archive() {
+    let f = Fixture {
+        root: tempfile::tempdir().unwrap(),
+        raw_key: false,
+    };
+    for (options, diagnostic) in [
+        (
+            vec!["--compression", "none", "--compression-level", "3"],
+            "--compression-level requires --compression zstd",
+        ),
+        (
+            vec!["--encryption", "none", "--password"],
+            "--encryption none does not accept decryption credentials",
+        ),
+    ] {
+        let mut args = vec!["new.lbox", "create"];
+        args.extend(options);
+        let result = f.run(LBX, &args);
+        assert!(!result.status.success(), "{result:?}");
+        assert!(
+            String::from_utf8_lossy(&result.stderr).contains(diagnostic),
+            "{result:?}"
+        );
+        assert!(!f.root.path().join("new.lbox").exists());
+    }
+    // Preserve automatic Vault creation when credentials are supplied.
+    f.ok(&[
+        "plain.lbox",
+        "create",
+        "--encryption",
+        "none",
+        "--signing",
+        "none",
+    ]);
+    f.ok(&[
+        "a@plain",
+        "variable",
+        "set",
+        "VALUE",
+        "synthetic-plain-value",
+    ]);
+    let value = f.run(VALUE, &["a@plain", "VALUE"]);
+    assert!(value.status.success(), "{value:?}");
+    assert_eq!(value.stdout, b"synthetic-plain-value");
+    let failed = f
+        .command(
+            LBX,
+            &[
+                "new.lbox",
+                "create",
+                "--encryption",
+                "none",
+                "--signing",
+                "none",
+            ],
+        )
+        .env("LOCKBOX_VAULT_PASSWORD", "wrong-synthetic-password")
+        .test_output()
+        .unwrap();
+    assert!(!failed.status.success(), "{failed:?}");
+    assert!(!f.root.path().join("new.lbox").exists());
+    let listed = f.ok(&["vault", "lockbox", "alias", "list", "--format", "json"]);
+    assert!(!String::from_utf8_lossy(&listed.stdout).contains("new"));
+}
