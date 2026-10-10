@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Accept `ls` for `vault lockboxes aliases list`, consistently with every other
+  `list` subcommand.
+- Explain source corruption during migration with explicit recovery commands.
+  Recover format-2 Lockboxes with the current CLI into a separate format-3 copy,
+  using surviving Vault credentials and preserving usable access slots.
 - Add `doctor migrate all --replace` to migrate the local Vault and all known
   Lockboxes, retaining backups and reporting individual failures. Older-format
   diagnostics offer both targeted and bulk migration commands.

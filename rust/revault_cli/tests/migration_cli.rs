@@ -844,6 +844,183 @@ fn path(value: &Path) -> &str {
     value.to_str().unwrap()
 }
 #[test]
+fn damaged_format_two_recovers_with_current_cli_and_original_credentials() {
+    use revault_lockbox_api_structure_v2 as old;
+    for contact_only in [false, true] {
+        let fixture = Fixture::new("historical-recovery");
+        fixture.init_current_vault();
+        fixture.success(&["session", "auto-open", "disable", "--yes"]);
+        let public_path = fixture.root.join("owner.pub");
+        fixture.success(&[
+            "vault",
+            "profiles",
+            "export",
+            path(&public_path),
+            "--format",
+            "raw",
+        ]);
+        let public =
+            revault_vault_api::import_public_key(&std::fs::read(&public_path).unwrap()).unwrap();
+        // Current CLI cannot create old-format or damaged archives. Only this
+        // fixture setup uses the pinned historical writer and page inspection;
+        // migration, recovery, unlocking and byte assertions use public CLI.
+        let password = old::SecretString::try_from_slice(LOCKBOX_PASSWORD.as_bytes()).unwrap();
+        let protection = if contact_only {
+            old::LockboxProtection::ContactPublicKey {
+                name: Some("default".into()),
+                contact: old::ContactPublicKey::from_bytes(&public.to_bytes()).unwrap(),
+            }
+        } else {
+            old::LockboxProtection::Password(&password)
+        };
+        let mut archive = old::Lockbox::create_in_memory(
+            protection,
+            &old::OwnerSigningKeyPair::generate().unwrap(),
+        )
+        .unwrap();
+        archive
+            .add_file(
+                &old::LockboxPath::new("/damaged.bin").unwrap(),
+                &vec![42; 256 * 1024],
+                false,
+            )
+            .unwrap();
+        archive.commit().unwrap();
+        let payload = b"intact historical content\0\xff";
+        archive
+            .add_file(
+                &old::LockboxPath::new("/intact.bin").unwrap(),
+                payload,
+                false,
+            )
+            .unwrap();
+        archive.commit().unwrap();
+        let pages = archive.inspector().inspect_pages().unwrap();
+        let page = pages
+            .iter()
+            .filter(|page| {
+                page.objects.iter().any(|object| {
+                    if contact_only {
+                        object.kind == "toc-leaf"
+                    } else {
+                        object.kind == "file-data" || object.kind == "packed-file-data"
+                    }
+                })
+            })
+            .max_by_key(|page| {
+                if contact_only {
+                    page.sequence
+                } else {
+                    u64::MAX - page.sequence
+                }
+            })
+            .unwrap();
+        let mut damaged = archive.try_to_bytes().unwrap();
+        damaged[page.offset as usize + if contact_only { 64 } else { 96 }] ^= 0xff;
+        let source = fixture.root.join("damaged.lbox");
+        let recovered = fixture.root.join("recovered.lbox");
+        std::fs::write(&source, &damaged).unwrap();
+        let run = |args: &[&str]| {
+            fixture
+                .command(args)
+                .env_remove("LOCKBOX_KEY")
+                .test_output()
+                .unwrap()
+        };
+        let migrated = run(&["doctor", "migrate", "lockbox", path(&source), "--replace"]);
+        assert_failure_contains(&migrated, "damaged source Lockbox");
+        assert_failure_contains(&migrated, "doctor recover --dry-run");
+        assert_failure_contains(&migrated, "doctor recover --output");
+        assert_failure_contains(
+            &run(&[path(&source), "doctor", "recover"]),
+            "separate --output",
+        );
+        assert_failure_contains(
+            &run(&[
+                path(&source),
+                "doctor",
+                "recover",
+                "--output",
+                path(&source),
+                "--overwrite",
+            ]),
+            "separate output",
+        );
+        if !contact_only {
+            let wrong = fixture
+                .command(&[
+                    path(&source),
+                    "doctor",
+                    "recover",
+                    "--output",
+                    path(&recovered),
+                ])
+                .env_remove("LOCKBOX_KEY")
+                .env("LOCKBOX_PASSWORD", "incorrect-password")
+                .test_output()
+                .unwrap();
+            assert!(!wrong.status.success());
+            assert!(!recovered.exists());
+        }
+        assert_success(&run(&[path(&source), "doctor", "recover", "--dry-run"]));
+        assert!(!recovered.exists());
+        assert_eq!(std::fs::read(&source).unwrap(), damaged);
+        assert_success(&run(&[
+            path(&source),
+            "doctor",
+            "recover",
+            "--output",
+            path(&recovered),
+        ]));
+        assert_success(&run(&[path(&recovered), "open"]));
+        let content = run(&[path(&recovered), "cat", "/intact.bin"]);
+        assert_success(&content);
+        assert_eq!(content.stdout, payload);
+        let saved = std::fs::read(&recovered).unwrap();
+        assert!(!run(&[
+            path(&source),
+            "doctor",
+            "recover",
+            "--output",
+            path(&recovered)
+        ])
+        .status
+        .success());
+        assert_eq!(std::fs::read(&recovered).unwrap(), saved);
+        assert_eq!(std::fs::read(&source).unwrap(), damaged);
+        assert_success(&run(&[
+            "doctor",
+            "migrate",
+            "lockbox",
+            path(&recovered),
+            "--replace",
+        ]));
+    }
+}
+
+#[test]
+fn recovery_refuses_future_formats_without_writing_output() {
+    let fixture = Fixture::new("recovery-future");
+    let source = fixture.root.join("future.lbox");
+    let output = fixture.root.join("recovered.lbox");
+    // No current CLI writer can produce a future-format header.
+    let mut bytes = vec![0; 384];
+    bytes[..8].copy_from_slice(b"LBX4HDR\0");
+    bytes[8..10].copy_from_slice(&4_u16.to_le_bytes());
+    std::fs::write(&source, &bytes).unwrap();
+    let result = fixture.run(&[
+        path(&source),
+        "doctor",
+        "recover",
+        "--output",
+        path(&output),
+    ]);
+    assert_failure_contains(&result, "newer format");
+    assert!(!output.exists());
+    assert_eq!(std::fs::read(&source).unwrap(), bytes);
+}
+
+#[test]
 fn all_migration_reports_partial_failures_and_can_be_repeated() {
     let fixture = Fixture::new("all-migration");
     fixture.init_current_vault();
@@ -1125,7 +1302,6 @@ fn older_archive_is_refused_normally_then_explicitly_migrated() {
     for args in [
         vec![source_arg, "cat", "/payload"],
         vec![source_arg, "variable", "set", "VALUE", "must-not-write"],
-        vec![source_arg, "doctor", "recover", "--dry-run"],
     ] {
         let result = fixture.run(&args);
         assert!(!result.status.success(), "{args:?}: {result:?}");

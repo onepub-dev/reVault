@@ -564,8 +564,10 @@ fn migrate_archive(
             remove_partial(&artifact)?;
             if (2..=u32::from(LOCKBOX_FORMAT_VERSION)).contains(&source_version) {
                 let lockbox =
-                    super::context::open_existing_for_migration(&source.to_string_lossy(), access)?;
-                export_archive(&lockbox, &artifact, &migration_key, operation_id)?;
+                    super::context::open_existing_for_migration(&source.to_string_lossy(), access)
+                        .map_err(|error| archive_source_error(&source, error))?;
+                export_archive(&lockbox, &artifact, &migration_key, operation_id)
+                    .map_err(|error| archive_source_error(&source, Box::new(error)))?;
             } else {
                 let exporter = resolve_exporter(ArtifactKind::Archive, source_version, exporter)?;
                 let artifact_password = SecretString::from_secure_vec(migration_key.try_clone()?);
@@ -714,6 +716,47 @@ fn resolve_exporter(
     );
     validate_exporter_capabilities(&binary, release)?;
     Ok(binary)
+}
+
+fn archive_source_error(
+    source: &Path,
+    error: Box<dyn std::error::Error>,
+) -> Box<dyn std::error::Error> {
+    let corrupt = matches!(
+        error.downcast_ref::<revault_lockbox_api::Error>(),
+        Some(
+            revault_lockbox_api::Error::CorruptHeader
+                | revault_lockbox_api::Error::CorruptRecord
+                | revault_lockbox_api::Error::Truncated
+        )
+    ) || matches!(
+        error.downcast_ref::<revault_migration::MigrationError>(),
+        Some(revault_migration::MigrationError::SourceCorrupt(_))
+    );
+    if !corrupt {
+        return error;
+    }
+    let recovered = source.with_extension("recovered.lbox");
+    let source_arg = recovery_command_path(source);
+    let recovered_arg = recovery_command_path(&recovered);
+    super::context::cli_diagnostic(
+        super::error_output::ExitCode::CorruptData,
+        "Migration could not read damaged source Lockbox data; the source was not replaced",
+        vec![("Lockbox".into(), source.display().to_string()), ("Cause".into(), error.to_string())],
+        format!("Inspect recoverable content with this reVault build:\n  lbx {source_arg} doctor recover --dry-run\nRecover to a separate current-format copy:\n  lbx {source_arg} doctor recover --output {recovered_arg}\nRecovery may omit damaged entries. Verify the recovered files before using the copy; retain the original. If that output already exists, choose another filename."),
+    )
+}
+
+fn recovery_command_path(path: &Path) -> String {
+    let value = path.to_string_lossy();
+    #[cfg(windows)]
+    {
+        format!("'{}'", value.replace('\'', "''"))
+    }
+    #[cfg(not(windows))]
+    {
+        format!("'{}'", value.replace('\'', "'\\''"))
+    }
 }
 
 fn installed_exporter(binary_name: &str) -> Option<PathBuf> {
@@ -1348,6 +1391,27 @@ fn read_secret_lines_stdin(count: usize) -> CliResult<Vec<SecretString>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn source_corruption_guidance_is_typed_and_does_not_mislabel_io_failures() {
+        let source = Path::new("/tmp/source.lbox");
+        let corrupt = archive_source_error(
+            source,
+            Box::new(revault_migration::MigrationError::SourceCorrupt(
+                "damaged record".into(),
+            )),
+        );
+        assert!(corrupt.to_string().contains("doctor recover --dry-run"));
+        assert!(corrupt.to_string().contains("source was not replaced"));
+        for error in [
+            revault_migration::MigrationError::Io("permission denied".into()),
+            revault_migration::MigrationError::Io("corrupt lockbox page or record".into()),
+        ] {
+            assert!(!archive_source_error(source, Box::new(error))
+                .to_string()
+                .contains("recover"));
+        }
+    }
 
     #[test]
     fn direct_migration_identity_is_stable_and_destination_specific() {

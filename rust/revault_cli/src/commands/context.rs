@@ -68,7 +68,7 @@ pub(crate) fn cli_error(message: impl Into<String>) -> Box<dyn std::error::Error
     })
 }
 
-fn cli_diagnostic(
+pub(crate) fn cli_diagnostic(
     exit_code: ExitCode,
     summary: impl Into<String>,
     details: Vec<(String, String)>,
