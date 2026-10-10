@@ -60,3 +60,8 @@ Authenticated traversal remains the dominant raw 64 MiB opening stage. The lates
 [full-read comparison](../typed-tree-combined-read-2026-10-10/README.md) predates
 this change and still fails all six ZIP cases. No new full-read result is claimed.
 Public integration, scale, migration, recovery and full qualification remain open.
+
+Post-format verification on `791b632b` also passes ownership (9), single
+traversal (1), and strict core Clippy. Logs are retained under `raw/postformat/`.
+The raw-record audit confirms 66 process records per fixture, each with all 100
+observations and successful verification; no samples needed reconstruction.
