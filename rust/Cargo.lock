@@ -2570,6 +2570,7 @@ dependencies = [
  "clap",
  "ctrlc",
  "flate2",
+ "semver",
  "serde",
  "serde_json",
  "sha2 0.11.0",

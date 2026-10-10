@@ -1767,7 +1767,9 @@ fn next_version(
 }
 
 fn latest_released_version(root: &Path, prefix: &str, current: &str) -> Result<String> {
-    version_tuple(current)?;
+    // Development manifests may carry a prerelease suffix. Only published tags
+    // and requested release versions must use the stable X.Y.Z spelling.
+    let source = semver::Version::parse(current)?;
     let tags = output(root, "git", &["tag", "--list", &format!("{prefix}*")])?;
     let mut highest: Option<String> = None;
     for tag in tags.lines() {
@@ -1784,7 +1786,7 @@ fn latest_released_version(root: &Path, prefix: &str, current: &str) -> Result<S
             }
         }
     }
-    Ok(highest.unwrap_or_else(|| current.to_owned()))
+    Ok(highest.unwrap_or_else(|| format!("{}.{}.{}", source.major, source.minor, source.patch)))
 }
 
 fn version_tuple(s: &str) -> Result<(u64, u64, u64)> {
@@ -2194,5 +2196,38 @@ version = "1.0.0"
         for s in ["1.2", "1.2.3-beta", "1.2.03", "../1.2.3", "1.2.3\n"] {
             assert!(version(s).is_err(), "{s}");
         }
+    }
+
+    #[test]
+    fn prerelease_source_can_prepare_next_stable_release() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path();
+        run_command(root, "git", &["init"]).unwrap();
+        run_command(root, "git", &["config", "user.name", "Release Test"]).unwrap();
+        run_command(
+            root,
+            "git",
+            &["config", "user.email", "release@example.invalid"],
+        )
+        .unwrap();
+        run_command(root, "git", &["commit", "--allow-empty", "-m", "Baseline"]).unwrap();
+        run_command(root, "git", &["tag", "revault_cli-v0.4.0"]).unwrap();
+        assert_eq!(
+            next_version(root, "revault_cli-v", "0.4.1-dev.1", Some("0.4.1".into())).unwrap(),
+            "0.4.1"
+        );
+        assert_eq!(
+            next_version(root, "revault_cli-v", "0.4.1-dev.1", Some("patch".into())).unwrap(),
+            "0.4.1"
+        );
+        assert!(next_version(root, "revault_cli-v", "0.4.1-dev.1", Some("0.4.0".into())).is_err());
+        assert!(next_version(
+            root,
+            "revault_cli-v",
+            "0.4.1-dev.1",
+            Some("0.4.1-dev.2".into())
+        )
+        .is_err());
+        assert!(latest_released_version(root, "revault_cli-v", "0.4.1-invalid!").is_err());
     }
 }
