@@ -108,3 +108,7 @@ and development failures; path installation and full-format acceptance are separ
 - [Selective authenticated reads](selective_authenticated_reads.md): accepted ordinary-read versus audit/update boundaries; no timestamp or Vault integrity evidence.
 
 - [Selective-read implementation and evidence](evidence/selective-authenticated-reads-2026-10-10/README.md): correctness, changed verification timing, and fixed ZIP/eager/selective comparison.
+
+- [Selective reader function profile](evidence/selective-read-profile-2026-10-10/README.md): first versus repeated lookup attribution and payload checksum cost, with collection limitations retained.
+
+- [Compact authenticated index cache](evidence/compact-index-cache-2026-10-10/README.md): retained bounded representation with isolated range/small-file gains and wrong-control evidence excluded.

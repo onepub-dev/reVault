@@ -1,0 +1,29 @@
+   Compiling revault_lockbox_api v0.0.41 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api)
+    Finished `release` profile [optimized] target(s) in 1m 37s
+     Running unittests src/lib.rs (/tmp/revault-tree-open-stages-20261010/target/release/deps/revault_lockbox_api-e3bcc2539127e239)
+
+running 20 tests
+test file_format::authenticated_index::cache::compact_leaf_preserves_binary_empty_and_boundary_records_all_modes ... ok
+test file_format::authenticated_index::cache::page_cache_evicts_at_its_fixed_bound_and_preserves_exact_lookups ... ok
+test file_format::authenticated_index::tests::authenticated_index_resource_observation ... ignored, 100,000-entry file-backed index resource observation; run explicitly in release mode
+test file_format::authenticated_index::tests::borrowed_walk_matches_owned_pages_records_and_failure_boundaries ... ok
+test file_format::authenticated_index::tests::borrowed_walk_refuses_parent_mismatches_before_child_callbacks ... ok
+test file_format::authenticated_index::tests::bounded_decoding_rejects_truncation_lengths_context_and_invalid_child_graphs ... ok
+test file_format::authenticated_index::tests::bulk_builder_orders_namespaces_without_intermediate_garbage_and_bounds_range_reads ... ok
+test file_format::authenticated_index::tests::bulk_input_errors_leave_old_publication_and_generated_tail_unselected ... ok
+test file_format::authenticated_index::tests::cached_lookup_binds_snapshot_mode_archive_and_key ... ok
+test file_format::authenticated_index::tests::every_bulk_append_and_publication_failure_retains_complete_selected_membership ... ok
+test file_format::authenticated_index::tests::file_reopen_all_modes_preserves_published_lifecycle_and_hides_preparation ... ok
+test file_format::authenticated_index::tests::incremental_updates_share_subtrees_and_bound_reads_without_a_whole_index_clone ... 2048-entry replacement: nodes=3 reads=3 bytes_read=32613 bytes_appended=65228
+ok
+test file_format::authenticated_index::tests::independently_encoded_packed_vectors_match_wire_bytes_and_ordered_membership ... ok
+test file_format::authenticated_index::tests::insertion_and_publication_faults_select_only_complete_old_or_new_membership ... ok
+test file_format::authenticated_index::tests::mixed_mutations_match_an_independent_map_and_maximum_records_round_trip ... ok
+test file_format::authenticated_index::tests::padding_policy_preserves_constant_node_lengths_and_rejects_noncanonical_padding ... ok
+test file_format::authenticated_index::tests::read_key_holder_cannot_replace_owner_authorized_nodes_or_reinstate_deleted_records ... ok
+test file_format::authenticated_index::tests::root_collapse_validates_the_promoted_child_before_returning_a_new_root ... ok
+test file_format::authenticated_index::tests::signed_membership_recovers_intact_content_without_reading_damaged_neighbor ... ok
+test file_format::authenticated_index::tests::variable_sized_splits_merges_and_root_shrink_preserve_every_live_record ... ok
+
+test result: ok. 19 passed; 0 failed; 1 ignored; 0 measured; 647 filtered out; finished in 1.56s
+

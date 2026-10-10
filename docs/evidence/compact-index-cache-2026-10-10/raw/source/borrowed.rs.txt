@@ -100,24 +100,12 @@ impl Index {
     pub(super) fn decode(&self, bytes: &[u8], sealed: u64) -> Result<Node> {
         self.with_decoded(bytes, sealed, |node| node.into_owned())
     }
-    pub(super) fn decode_cached_node(
-        &self,
-        bytes: &[u8],
-        sealed: u64,
-    ) -> Result<super::cache::CachedNode> {
-        self.with_decoded(bytes, sealed, |node| {
-            Ok(match node {
-                NodeView::Leaf(entries) => {
-                    super::cache::CachedNode::Leaf(super::cache::Leaf::new(entries))
-                }
-                NodeView::Branch(Node::Branch { height, children }) => {
-                    super::cache::CachedNode::Branch { height, children }
-                }
-                NodeView::Branch(Node::Leaf(_)) => {
-                    unreachable!("branch decoder yields branch nodes")
-                }
-            })
-        })
+    pub(super) fn decode_cached_node(&self, bytes: &[u8], sealed: u64) -> Result<super::cache::CachedNode> {
+        self.with_decoded(bytes,sealed,|node| Ok(match node {
+            NodeView::Leaf(entries) => super::cache::CachedNode::Leaf(super::cache::Leaf::new(entries)),
+            NodeView::Branch(Node::Branch {height,children}) => super::cache::CachedNode::Branch {height,children},
+            NodeView::Branch(Node::Leaf(_)) => unreachable!("branch decoder yields branch nodes"),
+        }))
     }
     fn with_decoded<T>(
         &self,

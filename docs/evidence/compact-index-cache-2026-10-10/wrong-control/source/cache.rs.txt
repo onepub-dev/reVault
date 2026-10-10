@@ -137,12 +137,7 @@ impl Leaf {
             bytes.extend_from_slice(entry.key);
             let key_end = bytes.len();
             bytes.extend_from_slice(entry.value);
-            rows.push(Row {
-                namespace: entry.namespace,
-                start,
-                key_end,
-                end: bytes.len(),
-            });
+            rows.push(Row { namespace: entry.namespace, start, key_end, end: bytes.len() });
         }
         Self { bytes, rows }
     }
@@ -150,56 +145,24 @@ impl Leaf {
         (row.namespace, &self.bytes[row.start..row.key_end])
     }
     fn get(&self, identity: (u8, &[u8])) -> Result<Option<Entry>> {
-        self.rows
-            .binary_search_by(|row| self.identity(row).cmp(&identity))
-            .ok()
+        self.rows.binary_search_by(|row| self.identity(row).cmp(&identity)).ok()
             .map(|i| {
                 let row = &self.rows[i];
-                Entry::new(
-                    row.namespace,
-                    &self.bytes[row.start..row.key_end],
-                    &self.bytes[row.key_end..row.end],
-                )
-            })
-            .transpose()
+                Entry::new(row.namespace, &self.bytes[row.start..row.key_end], &self.bytes[row.key_end..row.end])
+            }).transpose()
     }
 }
 impl CachedNode {
-    fn height(&self) -> u8 {
-        match self {
-            Self::Leaf(_) => 0,
-            Self::Branch { height, .. } => *height,
-        }
-    }
-    fn count(&self) -> u64 {
-        match self {
-            Self::Leaf(leaf) => leaf.rows.len() as u64,
-            Self::Branch { children, .. } => children.iter().map(|c| c.count).sum(),
-        }
-    }
-    fn first(&self) -> Option<(u8, &[u8])> {
-        match self {
-            Self::Leaf(leaf) => leaf.rows.first().map(|row| leaf.identity(row)),
-            Self::Branch { children, .. } => children.first().map(|c| c.first.identity()),
-        }
-    }
-    fn last(&self) -> Option<(u8, &[u8])> {
-        match self {
-            Self::Leaf(leaf) => leaf.rows.last().map(|row| leaf.identity(row)),
-            Self::Branch { children, .. } => children.last().map(|c| c.first.identity()),
-        }
-    }
+    fn height(&self) -> u8 { match self { Self::Leaf(_) => 0, Self::Branch {height,..} => *height } }
+    fn count(&self) -> u64 { match self { Self::Leaf(leaf) => leaf.rows.len() as u64, Self::Branch {children,..} => children.iter().map(|c| c.count).sum() } }
+    fn first(&self) -> Option<(u8,&[u8])> { match self { Self::Leaf(leaf) => leaf.rows.first().map(|row| leaf.identity(row)), Self::Branch {children,..} => children.first().map(|c| c.first.identity()) } }
+    fn last(&self) -> Option<(u8,&[u8])> { match self { Self::Leaf(leaf) => leaf.rows.last().map(|row| leaf.identity(row)), Self::Branch {children,..} => children.last().map(|c| c.first.identity()) } }
 }
 impl Index {
-    fn read_cached_node(
-        &self,
-        storage: &impl Storage,
-        reference: RootRef,
-        sealed: u64,
-    ) -> Result<CachedNode> {
-        validate_ref(reference, sealed)?;
+    fn read_cached_node(&self, storage: &impl Storage, reference: RootRef, sealed: u64) -> Result<CachedNode> {
+        validate_ref(reference,sealed)?;
         let bytes = ZeroizingBytes::new(reference.read_verified(storage)?);
-        self.decode_cached_node(&bytes, sealed)
+        self.decode_cached_node(&bytes,sealed)
     }
 }
 
@@ -208,66 +171,34 @@ fn compact_leaf_preserves_binary_empty_and_boundary_records_all_modes() {
     // Private representation check: experimental index pages cannot be created
     // by the public CLI. Both representations use the same validating decoder.
     use crate::{Compression, EncryptionMode, LockboxFormatOptions, SigningMode, SizePadding};
-    let archive = LockboxId::from_bytes([83; 16]);
+    let archive = LockboxId::from_bytes([83;16]);
     for bits in 0..16 {
         let encrypted = bits & 1 != 0;
         let mode = crate::creation_options::FormatMode::new(LockboxFormatOptions {
-            encryption: if encrypted {
-                EncryptionMode::ChaCha20Poly1305
-            } else {
-                EncryptionMode::None
-            },
-            signing: if bits & 2 != 0 {
-                SigningMode::Owner
-            } else {
-                SigningMode::None
-            },
-            compression: if bits & 4 != 0 {
-                Compression::default()
-            } else {
-                Compression::None
-            },
-            size_padding: if bits & 8 != 0 {
-                SizePadding::None
-            } else {
-                SizePadding::Default
-            },
+            encryption: if encrypted { EncryptionMode::ChaCha20Poly1305 } else { EncryptionMode::None },
+            signing: if bits & 2 != 0 { SigningMode::Owner } else { SigningMode::None },
+            compression: if bits & 4 != 0 { Compression::default() } else { Compression::None },
+            size_padding: if bits & 8 != 0 { SizePadding::None } else { SizePadding::Default },
         });
-        let index = Index::new(archive, mode, encrypted.then_some([84; 32].as_slice())).unwrap();
+        let index = Index::new(archive,mode,encrypted.then_some([84;32].as_slice())).unwrap();
         for entries in [
             vec![],
-            vec![
-                Entry::new(0, &[], &[]).unwrap(),
-                Entry::new(1, &[], &[0, 255, 0]).unwrap(),
-                Entry::new(255, &[255; MAX_KEY], &[0; MAX_VALUE]).unwrap(),
-            ],
-            (0u32..MAX_ITEMS as u32)
-                .map(|n| Entry::new(3, &n.to_be_bytes(), &[n as u8; 8]).unwrap())
-                .collect(),
+            vec![Entry::new(0,&[],&[]).unwrap(), Entry::new(1,&[],&[0,255,0]).unwrap(), Entry::new(255,&[255;MAX_KEY],&[0;MAX_VALUE]).unwrap()],
+            (0u32..MAX_ITEMS as u32).map(|n| Entry::new(3,&n.to_be_bytes(),&[n as u8;8]).unwrap()).collect(),
         ] {
-            let bytes = index.encode(&Node::Leaf(entries.clone())).unwrap();
-            let compact = index.decode_cached_node(&bytes, u64::MAX).unwrap();
-            let CachedNode::Leaf(leaf) = compact else {
-                panic!("leaf expected")
-            };
-            assert_eq!(leaf.rows.len(), entries.len());
-            assert_eq!(
-                leaf.bytes.len(),
-                entries
-                    .iter()
-                    .map(|e| e.key.len() + e.value.len())
-                    .sum::<usize>()
-            );
-            assert!(leaf.bytes.len() <= MAX_BODY);
+            let bytes=index.encode(&Node::Leaf(entries.clone())).unwrap();
+            let compact=index.decode_cached_node(&bytes,u64::MAX).unwrap();
+            let CachedNode::Leaf(leaf)=compact else {panic!("leaf expected")};
+            assert_eq!(leaf.rows.len(),entries.len());
+            assert_eq!(leaf.bytes.len(),entries.iter().map(|e|e.key.len()+e.value.len()).sum::<usize>());
+            assert!(leaf.bytes.len()<=MAX_BODY);
             for expected in entries {
-                let actual = leaf.get(expected.identity()).unwrap().unwrap();
-                assert_eq!(actual.identity(), expected.identity());
-                assert_eq!(actual.value, expected.value);
+                let actual=leaf.get(expected.identity()).unwrap().unwrap();
+                assert_eq!(actual.identity(),expected.identity());
+                assert_eq!(actual.value,expected.value);
             }
-            assert!(leaf.get((254, b"absent")).unwrap().is_none());
-            assert!(index
-                .decode_cached_node(&bytes[..bytes.len() - 1], u64::MAX)
-                .is_err());
+            assert!(leaf.get((254,b"absent")).unwrap().is_none());
+            assert!(index.decode_cached_node(&bytes[..bytes.len()-1],u64::MAX).is_err());
         }
     }
 }

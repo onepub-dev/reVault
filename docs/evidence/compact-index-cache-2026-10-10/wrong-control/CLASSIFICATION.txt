@@ -1,0 +1,15 @@
+Classification correction (2026-10-10)
+
+The completed batch in this directory used bin/before SHA256
+2cebc6ceee449e5f111f2af2018f2330dd202376188451e2a76aac9d829aefdb. That
+binary is the eager reader, not the selective-reader baseline requested for the
+flat-cache trial. Treat the batch, its metrics-summary.json, and all samples as
+eager-vs-compact setup evidence. It does not isolate the compact-cache change
+and must not be cited as its before/after performance result.
+
+All raw logs, samples, hash records, and the source snapshot are preserved.
+The corrected trial uses the unchanged compact candidate SHA256
+68a0d28eafb4b97fd698d0703937142f354530e6d8e9a6030d34e1fac0cba80d and the
+selective-reader baseline SHA256
+318291b256dd2b319efdd8532bac8abc3ca675ba9147d2ab0f052b84eb86d216 in a new
+output directory.
