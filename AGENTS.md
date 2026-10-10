@@ -51,10 +51,10 @@ releases for compatible fixes.
 
 For the current pre-1.0 compatibility lines:
 
-- `0.4.x` is the format-3 compatibility line: released CLI `0.4.0` and
-  bindings `0.4.1`. Main continues this line with CLI `0.4.1-dev.1` and
-  bindings `0.4.2-dev.1`, excluding unfinished format-4 work. Keep compatibility
-  with the released format-3 branch in both read/write directions.
+- `0.4.x` is the format-3 compatibility line: released CLI `0.4.1` and
+  bindings `0.4.1`. Main records CLI `0.4.1` and bindings `0.4.2-dev.1`,
+  excluding unfinished format-4 work. Keep compatibility with released CLI
+  `0.4.0` and all other releases in this line in both read/write directions.
 - `0.5.x` is reserved for format 4 on `issue-310-zip-read-performance`.
   The v4 transaction-recovery implementation is deferred there alongside the
   performance work; publish a stable release only once format 4 is ready.
