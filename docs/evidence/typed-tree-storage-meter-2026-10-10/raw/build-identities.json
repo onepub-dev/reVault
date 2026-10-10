@@ -1,0 +1,18 @@
+{
+  "commit": "1bcf7b347a00adbf712c11afdea914d987698c3c",
+  "rustc": "rustc 1.88.0 (6b00bc388 2025-06-23)",
+  "target": "/tmp/revault-tree-open-stages-20261010/target",
+  "baseline_path": "/tmp/revault-tree-storage-meter-20261010/bin/frozen-ed4d6c0f",
+  "baseline_sha256": "aac92888e8c0498fa9c618c8331af2febc20972a38612eac1d0edf43539cf202",
+  "candidate_artifact_source": "/tmp/revault-tree-open-stages-20261010/target/release/deps/revault_lockbox_api-e3bcc2539127e239",
+  "candidate_path": "/tmp/revault-tree-storage-meter-20261010/bin/diagnostic",
+  "candidate_sha256": "a96351a49d8ff58170da4f74b7e85853805a7cf2c11f7991be9d06d019a70f4f",
+  "source_patch_sha256": "75565c0aa314dc6d5ac38ad070731b4da1dda8b7b50b7dfd44c97e8cf03bf25c",
+  "source_sha256": {
+    "tree_probe": "20c2280bd85878a8907ab4eba56a1c393303a6e01d184adea08b616b7ed493f0",
+    "storage_meter": "b39f23a7a3b2eb20de9e2014ff22d19dd42f57b64b3b571bb9cc1e6741fa06f3",
+    "cargo_lock": "30f035feb33237411a1fe46b2f13656454e7062954223677d2ca569ba7e5a081"
+  },
+  "cargo_lock_sha256": "30f035feb33237411a1fe46b2f13656454e7062954223677d2ca569ba7e5a081",
+  "worktree_status": "M revault_lockbox_api/src/file_format/candidate_files/resource_probe/tree_probe.rs\n?? revault_lockbox_api/src/file_format/candidate_files/resource_probe/tree_probe/"
+}

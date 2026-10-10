@@ -96,3 +96,5 @@ and development failures; path installation and full-format acceptance are separ
 - [Combined opening-stage diagnostic](evidence/typed-tree-open-combined-2026-10-10/README.md): current 400-open stage evidence and bounded ownership-construction hypothesis.
 
 - [Ownership graph coverage construction](evidence/typed-tree-graph-coverage-2026-10-10/README.md): raw opening improvements, inconclusive compressed result, and overlap refusal evidence.
+
+- [Traversal storage attribution](evidence/typed-tree-storage-meter-2026-10-10/README.md): diagnostic call/byte/time evidence rules out length-query caching as a useful target.

@@ -1,0 +1,228 @@
+{
+  "status": "passed",
+  "revision": "1bcf7b347a00adbf712c11afdea914d987698c3c",
+  "rustc": "rustc 1.88.0 (6b00bc388 2025-06-23)",
+  "binary_sha256": "a96351a49d8ff58170da4f74b7e85853805a7cf2c11f7991be9d06d019a70f4f",
+  "baseline_ed4d_binary_sha256": "aac92888e8c0498fa9c618c8331af2febc20972a38612eac1d0edf43539cf202",
+  "source_patch_sha256": "75565c0aa314dc6d5ac38ad070731b4da1dda8b7b50b7dfd44c97e8cf03bf25c",
+  "source_hashes_before_after_stable": true,
+  "fixture_hashes_stable": true,
+  "cpu_affinity": "taskset -c 2",
+  "cases": {
+    "small512-mixed-compressed": {
+      "observation_count": 100,
+      "verified": true,
+      "median_total_open_us": 1009.5790000000001,
+      "index_walk_and_decode": {
+        "stage_median_us": 483.80199999999996,
+        "length_calls_median": 3,
+        "read_calls_median": 3,
+        "read_into_calls_median": 0,
+        "requested_bytes_median": 196608,
+        "length_seconds_median_us": 2.72,
+        "read_seconds_median_us": 26.4505,
+        "residual_stage_minus_storage_median_us": 454.63149999999996,
+        "residual_semantics": "includes instrumentation, checksum, decoding, and visitor work; not pure CPU or pure decoding"
+      },
+      "other_metered_stages": [
+        {
+          "pack_padding": {
+            "stage_median_us": 25.4355,
+            "share_of_total_percent": 2.519416509257819,
+            "storage_median": {
+              "length_calls": 0,
+              "read_calls": 1,
+              "read_into_calls": 0,
+              "requested_bytes": 19456,
+              "length_seconds_median_us": 0.0,
+              "read_seconds_median_us": 3.645
+            }
+          }
+        },
+        {
+          "reclaimed_space": {
+            "stage_median_us": 57.06999999999999,
+            "share_of_total_percent": 5.65285133704247,
+            "storage_median": {
+              "length_calls": 0,
+              "read_calls": 0,
+              "read_into_calls": 2,
+              "requested_bytes": 8192,
+              "length_seconds_median_us": 0.0,
+              "read_seconds_median_us": 2.5300000000000002
+            }
+          }
+        },
+        {
+          "selected_publication": {
+            "stage_median_us": 107.1215,
+            "share_of_total_percent": 10.610511906448133,
+            "storage_median": {
+              "length_calls": 3,
+              "read_calls": 5,
+              "read_into_calls": 0,
+              "requested_bytes": 73728,
+              "length_seconds_median_us": 2.4899999999999998,
+              "read_seconds_median_us": 13.05
+            }
+          }
+        }
+      ]
+    },
+    "raw8m-random": {
+      "observation_count": 100,
+      "verified": true,
+      "median_total_open_us": 282.54850000000005,
+      "index_walk_and_decode": {
+        "stage_median_us": 120.48150000000001,
+        "length_calls_median": 1,
+        "read_calls_median": 1,
+        "read_into_calls_median": 0,
+        "requested_bytes_median": 65536,
+        "length_seconds_median_us": 0.63,
+        "read_seconds_median_us": 6.63,
+        "residual_stage_minus_storage_median_us": 113.22150000000002,
+        "residual_semantics": "includes instrumentation, checksum, decoding, and visitor work; not pure CPU or pure decoding"
+      },
+      "other_metered_stages": [
+        {
+          "reclaimed_space": {
+            "stage_median_us": 42.05,
+            "share_of_total_percent": 14.882400720584252,
+            "storage_median": {
+              "length_calls": 0,
+              "read_calls": 0,
+              "read_into_calls": 2,
+              "requested_bytes": 8192,
+              "length_seconds_median_us": 0.0,
+              "read_seconds_median_us": 1.92
+            }
+          }
+        },
+        {
+          "selected_publication": {
+            "stage_median_us": 84.436,
+            "share_of_total_percent": 29.883719078317522,
+            "storage_median": {
+              "length_calls": 3,
+              "read_calls": 5,
+              "read_into_calls": 0,
+              "requested_bytes": 73728,
+              "length_seconds_median_us": 1.85,
+              "read_seconds_median_us": 9.88
+            }
+          }
+        }
+      ]
+    },
+    "compressed8m-pattern": {
+      "observation_count": 100,
+      "verified": true,
+      "median_total_open_us": 230.393,
+      "index_walk_and_decode": {
+        "stage_median_us": 80.136,
+        "length_calls_median": 1,
+        "read_calls_median": 1,
+        "read_into_calls_median": 0,
+        "requested_bytes_median": 65536,
+        "length_seconds_median_us": 0.64,
+        "read_seconds_median_us": 6.825,
+        "residual_stage_minus_storage_median_us": 72.67099999999999,
+        "residual_semantics": "includes instrumentation, checksum, decoding, and visitor work; not pure CPU or pure decoding"
+      },
+      "other_metered_stages": [
+        {
+          "pack_padding": {
+            "stage_median_us": 6.535,
+            "share_of_total_percent": 2.8364577048781863,
+            "storage_median": {
+              "length_calls": 0,
+              "read_calls": 1,
+              "read_into_calls": 0,
+              "requested_bytes": 5617,
+              "length_seconds_median_us": 0.0,
+              "read_seconds_median_us": 1.34
+            }
+          }
+        },
+        {
+          "reclaimed_space": {
+            "stage_median_us": 43.3455,
+            "share_of_total_percent": 18.81372263914268,
+            "storage_median": {
+              "length_calls": 0,
+              "read_calls": 0,
+              "read_into_calls": 2,
+              "requested_bytes": 8192,
+              "length_seconds_median_us": 0.0,
+              "read_seconds_median_us": 1.9800000000000002
+            }
+          }
+        },
+        {
+          "selected_publication": {
+            "stage_median_us": 84.81099999999999,
+            "share_of_total_percent": 36.811448264487204,
+            "storage_median": {
+              "length_calls": 3,
+              "read_calls": 5,
+              "read_into_calls": 0,
+              "requested_bytes": 73728,
+              "length_seconds_median_us": 1.9,
+              "read_seconds_median_us": 10.030000000000001
+            }
+          }
+        }
+      ]
+    },
+    "raw64m-random": {
+      "observation_count": 100,
+      "verified": true,
+      "median_total_open_us": 1090.23,
+      "index_walk_and_decode": {
+        "stage_median_us": 751.9055,
+        "length_calls_median": 6,
+        "read_calls_median": 6,
+        "read_into_calls_median": 0,
+        "requested_bytes_median": 393216,
+        "length_seconds_median_us": 4.3100000000000005,
+        "read_seconds_median_us": 41.691,
+        "residual_stage_minus_storage_median_us": 705.9045,
+        "residual_semantics": "includes instrumentation, checksum, decoding, and visitor work; not pure CPU or pure decoding"
+      },
+      "other_metered_stages": [
+        {
+          "reclaimed_space": {
+            "stage_median_us": 48.786,
+            "share_of_total_percent": 4.474835585151758,
+            "storage_median": {
+              "length_calls": 0,
+              "read_calls": 0,
+              "read_into_calls": 2,
+              "requested_bytes": 8192,
+              "length_seconds_median_us": 0.0,
+              "read_seconds_median_us": 2.0549999999999997
+            }
+          }
+        },
+        {
+          "selected_publication": {
+            "stage_median_us": 84.761,
+            "share_of_total_percent": 7.774598020601157,
+            "storage_median": {
+              "length_calls": 3,
+              "read_calls": 5,
+              "read_into_calls": 0,
+              "requested_bytes": 73728,
+              "length_seconds_median_us": 1.8900000000000001,
+              "read_seconds_median_us": 10.370000000000001
+            }
+          }
+        }
+      ]
+    }
+  },
+  "raw_observations_path": "/tmp/revault-tree-storage-meter-20261010/<fixture>.json",
+  "runner": "/tmp/revault-tree-storage-meter-20261010/run-meter.dart",
+  "scope": "One verified process per fixture with 100 observed opens; drop and full byte verification excluded from stage timing; storage call durations exclude wrapper bookkeeping, while stage time includes instrumentation. Residual is not pure CPU or decoding."
+}

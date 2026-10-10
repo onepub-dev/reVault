@@ -22,6 +22,17 @@ or erase failures.
 
 ## Current position and next work
 
+### Traversal storage attribution — 2026-10-10
+
+The [diagnostic-only storage meter](evidence/typed-tree-storage-meter-2026-10-10/README.md)
+passes focused checks and Clippy, then verifies 400 observed opens. File-length
+queries account for under 1% of index-stage time; backend reads account for about
+6–9%. Leave length checks intact. Most time remains in checksums, decoding,
+typed visitor staging and instrumentation, not measured storage operations.
+Next separate those costs or test bounded per-record allocation reductions;
+preserve verification timing and avoid repeating the rejected body-borrow trial.
+This adds attribution, not a new speedup or ZIP qualification result.
+
 ### Ownership coverage construction — 2026-10-10
 
 The [bounded graph construction change](evidence/typed-tree-graph-coverage-2026-10-10/README.md)

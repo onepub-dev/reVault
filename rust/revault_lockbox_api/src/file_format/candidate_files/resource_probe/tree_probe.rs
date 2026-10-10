@@ -1,5 +1,6 @@
 //! Current typed-tree adapter for the shared fresh-process read protocol.
 //! Fixture construction is not a comparable public write benchmark.
+mod storage_meter;
 use super::*;
 use crate::file_format::candidate_files::dense_catalogue::Metadata;
 use crate::file_format::candidate_files::tree_image::{self, TreeImage};
@@ -139,7 +140,9 @@ pub(super) fn run(
         for _ in 0..repeats {
             let mut stages = serde_json::Map::new();
             let started = Instant::now();
-            let storage = StorageBackend::file(&target).unwrap();
+            let storage = storage_meter::Meter::new(StorageBackend::file(&target).unwrap());
+            let meter = storage.clone();
+            let mut storage_stages = serde_json::Map::new();
             stages.insert(
                 "storage_handle".into(),
                 json!(started.elapsed().as_secs_f64()),
@@ -148,6 +151,7 @@ pub(super) fn run(
             let opened =
                 TreeImage::open_observed(storage, archive(), mode, &authority, key, |name| {
                     let now = Instant::now();
+                    storage_stages.insert(name.into(), meter.take().json());
                     stages.insert(name.into(), json!(now.duration_since(last).as_secs_f64()));
                     last = now;
                 })
@@ -155,7 +159,7 @@ pub(super) fn run(
             let total = started.elapsed().as_secs_f64();
             assert_eq!(opened.image.filesystem_metadata().unwrap().len(), count);
             drop(opened);
-            observations.push(json!({"total_seconds":total,"stages_seconds":stages}));
+            observations.push(json!({"total_seconds":total,"stages_seconds":stages,"storage_by_stage":storage_stages}));
         }
         verify(&mut open(), root, count, bytes);
         assert_eq!(digest_file(&target), before);
@@ -164,7 +168,7 @@ pub(super) fn run(
             json!({
                 "repeats":repeats,"observations":observations,"verified":true,
                 "archive_sha256":before,
-                "scope":"warm repeated opens with stage observation overhead; verification and drop excluded; no ZIP gate or function-level CPU profile"
+                "scope":"warm repeated opens with stage and storage-meter overhead; verification and drop excluded; storage totals exclude wrapper bookkeeping; no ZIP gate or function-level CPU profile"
             })
         );
         return;
