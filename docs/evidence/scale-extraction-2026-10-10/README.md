@@ -80,3 +80,9 @@ further streaming work. The measured endpoints are test-only v4 components;
 they do not activate public v4, pass the 100 MB total CLI RSS gate, establish
 encrypted/PGP performance or qualify release readiness. These larger cases now
 provide practical capacity and extraction evidence for the next optimization.
+
+Post-format verification of commit `4544ec69` also passed: strict Clippy,
+metadata budgets (2 tests), fresh export (8 tests; one manual probe ignored),
+extraction (6 tests) and evaluation integration (6 tests). These used Rust 1.88.0
+with `external-source`; tests used release mode. The [post-format logs](raw/postformat/clippy.log)
+are retained alongside the original pre-format benchmark evidence.
