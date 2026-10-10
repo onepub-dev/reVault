@@ -15,9 +15,7 @@ pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()
     if let Some((command, command_matches)) = matches.subcommand() {
         match command {
             "compact" => {
-                let path = command_lockbox().ok_or_else(|| {
-                    cli_error("doctor compact requires a lockbox path before `doctor`")
-                })?;
+                let path = super::default_lockbox_for_command()?;
                 let mut opened = super::context::open_existing(&path, access)?;
                 let before = std::fs::metadata(&path)?.len();
                 opened.compact()?;
@@ -29,11 +27,7 @@ pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()
                 return Ok(());
             }
             "recover" => {
-                if command_lockbox().is_none() {
-                    return Err(cli_error(
-                        "doctor recover requires a lockbox path before `doctor`",
-                    ));
-                }
+                super::default_lockbox_for_command()?;
                 return super::recovery::run_matches(command_matches, access);
             }
             "migrate" => return super::migrate::run_matches(command_matches, access),
@@ -44,7 +38,14 @@ pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()
             }
         }
     }
-    match command_lockbox() {
+    let selected = match command_lockbox() {
+        Some(path) => Some(path),
+        None if super::session::default_lockbox_or_none()?.is_some() => {
+            Some(super::default_lockbox_for_command()?)
+        }
+        None => None,
+    };
+    match selected {
         Some(lockbox) => {
             if matches.get_flag("deep") {
                 let opened = open_existing_read_only(&lockbox, access)?;
@@ -324,7 +325,8 @@ fn print_encrypted_content(lockbox_path: &str, access: &Access, verbose: bool) {
                 println!("  recover: lbx {lockbox_path} doctor recover");
                 return;
             }
-            if matches!(err.downcast_ref::<Error>(), Some(Error::VaultUnavailable(message)) if message.contains("no cached content key"))
+            if super::error_output::exit_code(err.as_ref())
+                == super::error_output::ExitCode::LockboxClosed.as_i32()
             {
                 println!("  state: not checked (lockbox is closed)");
                 println!("  next: open the lockbox, then run doctor again to check its health:");

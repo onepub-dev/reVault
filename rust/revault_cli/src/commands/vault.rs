@@ -193,14 +193,33 @@ fn vault_lockbox_matches(matches: &ArgMatches) -> CliResult<()> {
             output_format_from_matches(sub)?,
             sub.get_flag("with-description"),
         ),
-        "remember" => remember_known_lockbox_path(&required_value(sub, "lockbox")),
+        "remember" => remember_known_lockbox_path(&lockbox_operand(
+            sub,
+            "lockbox",
+            super::aliases::TargetPolicy::Existing,
+        )?),
         "move" | "mv" | "rename" => move_known_lockbox(
-            &required_value(sub, "source"),
+            &lockbox_operand(sub, "source", super::aliases::TargetPolicy::Existing)?,
             &required_value(sub, "destination"),
         ),
-        "forget" => forget_known_lockbox_path(&required_value(sub, "lockbox")),
+        "forget" => forget_known_lockbox_path(&lockbox_operand(
+            sub,
+            "lockbox",
+            super::aliases::TargetPolicy::Remembered,
+        )?),
         "alias" => lockbox_alias_matches(sub),
         _ => Err(Error::InvalidInput(format!("unknown vault lockbox command: {command}")).into()),
+    }
+}
+
+fn lockbox_operand(
+    matches: &ArgMatches,
+    name: &str,
+    policy: super::aliases::TargetPolicy,
+) -> CliResult<String> {
+    match matches.get_one::<String>(name) {
+        Some(value) => Ok(super::aliases::resolve_with_policy(value, policy)?.0),
+        None => super::selected_lockbox(policy),
     }
 }
 
@@ -215,7 +234,7 @@ fn lockbox_alias_matches(matches: &ArgMatches) -> CliResult<()> {
             if name.len() > 128 {
                 return Err(cli_error("lockbox alias exceeds 128 bytes"));
             }
-            let (path, _) = super::aliases::resolve(&required_value(sub, "lockbox"))?;
+            let path = lockbox_operand(sub, "lockbox", super::aliases::TargetPolicy::Existing)?;
             let inspection = Lockbox::inspect_file(&path)?;
             let vault = default_vault()?;
             vault.remember_known_lockbox(inspection.lockbox_id, &path)?;
@@ -1807,7 +1826,10 @@ fn move_known_lockbox(source: &str, destination: &str) -> CliResult<()> {
             destination_path.display()
         )));
     }
-    let parent = destination_path.parent().unwrap_or_else(|| Path::new("."));
+    let parent = destination_path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
     if !parent.is_dir() {
         return Err(cli_error(format!(
             "destination directory does not exist: {}; no files or vault records were changed",

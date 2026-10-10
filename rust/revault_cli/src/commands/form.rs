@@ -9,8 +9,7 @@ use revault_lockbox_api::{
 };
 
 use super::context::{
-    cli_error, default_vault, open_existing, open_for_reading, open_or_create, require_arg, Access,
-    CliResult,
+    cli_error, default_vault, open_existing, open_for_reading, require_arg, Access, CliResult,
 };
 use super::output::{output_format_from_matches, print_records, OutputFormat};
 use super::{default_lockbox_for_command, optional_lockbox_positionals, positional_values};
@@ -166,7 +165,7 @@ fn define_options(
     fields: Vec<FormFieldDefinition>,
     access: &Access,
 ) -> CliResult<()> {
-    let mut lb = open_or_create(lockbox_path, access)?;
+    let mut lb = open_existing(lockbox_path, access)?;
     let definition = if let Some(type_id) = type_id {
         lb.define_form_with_type_id_and_description(type_id, &alias, &name, &description, fields)?
     } else {
@@ -228,7 +227,7 @@ fn use_vault_definition(args: &[String], access: &Access) -> CliResult<()> {
     let form_name = require_arg(args, 0, "form name")?;
     let lockbox_path = require_arg(args, 1, "lockbox")?;
     let definition = default_vault()?.resolve_form_definition(form_name)?;
-    let mut lb = open_or_create(lockbox_path, access)?;
+    let mut lb = open_existing(lockbox_path, access)?;
     let definition = lb.import_form_definition(definition)?;
     lb.commit()?;
     print_form_definition_saved(&definition);
@@ -308,7 +307,7 @@ fn add_matches(matches: &ArgMatches, access: &Access) -> CliResult<()> {
         .map(|assignment| parse_field_assignment(assignment))
         .collect::<CliResult<Vec<_>>>()?;
     let interactive = matches.get_flag("interactive");
-    let mut lb = open_or_create(lockbox_path, access)?;
+    let mut lb = open_existing(lockbox_path, access)?;
     lb.create_parent_dirs_for(&path)?;
     let record = lb.create_form_record(&path, &form_type, &name)?;
     let definition = lb.resolve_form_definition(record.type_id.as_str())?;

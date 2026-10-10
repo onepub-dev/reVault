@@ -130,9 +130,7 @@ fn archive_source(matches: &ArgMatches) -> CliResult<String> {
             super::set_command_lockbox(Some(path.clone()));
             Ok(path)
         }
-        (None, None) => Err(cli_error(
-            "lockbox migration requires a lockbox path or a@alias",
-        )),
+        (None, None) => super::default_lockbox_for_command(),
     }
 }
 

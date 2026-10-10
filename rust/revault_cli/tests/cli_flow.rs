@@ -181,6 +181,7 @@ fn help_is_grouped_and_commands_have_specific_help() {
     let dir = unique_dir_named("form-define-separator");
     fs::create_dir_all(&dir).unwrap();
     let lockbox = dir.join("forms.lbox");
+    run(bin, &[lockbox.to_str().unwrap(), "create"]);
     let form_define_with_separator = run_output(
         bin,
         &[
@@ -575,6 +576,7 @@ fn form_definitions_and_records_flow() {
     fs::create_dir_all(&dir).unwrap();
     let lockbox = dir.join("forms.lbox");
     let lockbox = lockbox.to_string_lossy().to_string();
+    run(bin, &[&lockbox, "create"]);
 
     let define = run_output(
         bin,
@@ -632,6 +634,7 @@ fn form_definitions_and_records_flow() {
 
     let aliasless_lockbox = dir.join("aliasless.lbox");
     let aliasless_lockbox = aliasless_lockbox.to_string_lossy().to_string();
+    run(bin, &[&aliasless_lockbox, "create"]);
     let aliasless_define = run_output(
         bin,
         &[
@@ -981,6 +984,7 @@ fn form_set_secret_upgrades_a_normal_field() {
     let lockbox = lockbox.to_string_lossy().to_string();
     let vault_root = dir.join("vault");
     let agent_root = dir.join("agent");
+    run_in(bin, &[&lockbox, "create"], &vault_root, &agent_root);
 
     run_in(
         bin,
@@ -1095,6 +1099,7 @@ fn form_interactive_edit_handles_definition_history_and_mismatched_record() {
     fs::create_dir_all(&dir).unwrap();
     let lockbox = dir.join("forms.lbox");
     let lockbox = lockbox.to_string_lossy().to_string();
+    run(bin, &[&lockbox, "create"]);
 
     run(
         bin,
@@ -1420,6 +1425,7 @@ fn file_env_and_developer_aliases_execute_real_flows() {
     let _ = fs::remove_dir_all(&dir);
     fs::create_dir_all(&dir).unwrap();
     let lockbox = dir.join("aliases.lbox");
+    run(bin, &[lockbox.to_str().unwrap(), "create"]);
     let source = dir.join("source.txt");
     fs::write(&source, "alpha").unwrap();
 
@@ -1953,6 +1959,7 @@ fn remove_requires_confirmation_and_reports_count() {
     let _ = fs::remove_dir_all(&dir);
     fs::create_dir_all(&dir).unwrap();
     let lockbox = dir.join("remove.lbox");
+    run(bin, &[lockbox.to_str().unwrap(), "create"]);
     let source = dir.join("remove.txt");
     fs::write(&source, "delete me").unwrap();
     let root_source = dir.join("perf.data");
@@ -2083,6 +2090,12 @@ fn directory_remove_requires_recursive_flag() {
     let tree = dir.join("tree");
     let vault_root = dir.join("vault");
     let agent_root = dir.join("agent");
+    run_in(
+        bin,
+        &[lockbox.to_str().unwrap(), "create"],
+        &vault_root,
+        &agent_root,
+    );
     fs::create_dir_all(&tree).unwrap();
     fs::write(tree.join("item.txt"), "nested").unwrap();
 
@@ -2182,6 +2195,12 @@ fn removing_last_lockbox_key_has_cli_guidance() {
     fs::write(&source, "alpha").unwrap();
 
     run_in(bin, &["vault", "init"], &vault_root, &agent_root);
+    run_in(
+        bin,
+        &[lockbox.to_str().unwrap(), "create"],
+        &vault_root,
+        &agent_root,
+    );
     run_in(
         bin,
         &[
@@ -2501,6 +2520,7 @@ fn cli_env_rename_and_visualize_flow() {
     let _ = fs::remove_dir_all(&dir);
     fs::create_dir_all(&dir).unwrap();
     let lockbox = dir.join("test.lbox");
+    run(bin, &[lockbox.to_str().unwrap(), "create"]);
     let source = dir.join("source.txt");
     fs::write(&source, "alpha").unwrap();
 
@@ -2661,6 +2681,7 @@ fn list_commands_support_table_tsv_and_json_formats() {
     let _ = fs::remove_dir_all(&dir);
     fs::create_dir_all(&dir).unwrap();
     let lockbox = dir.join("formats.lbox");
+    run(bin, &[lockbox.to_str().unwrap(), "create"]);
     let source = dir.join("source.txt");
     fs::write(&source, "alpha").unwrap();
 
@@ -2731,6 +2752,7 @@ fn recover_reports_and_writes_recovered_lockbox() {
     let _ = fs::remove_dir_all(&dir);
     fs::create_dir_all(&dir).unwrap();
     let damaged = dir.join("damaged.lbox");
+    run(bin, &[damaged.to_str().unwrap(), "create"]);
     let recovered = dir.join("recovered.lbox");
     let source = dir.join("source.txt");
     fs::write(&source, "alpha").unwrap();
@@ -2858,7 +2880,7 @@ fn doctor_recover_detects_and_completes_interrupted_cleanup() {
     let diagnosis = run_output(bin, &[lockbox.to_str().unwrap(), "doctor"]);
     assert_success(&diagnosis);
     let diagnosis_stdout = String::from_utf8_lossy(&diagnosis.stdout);
-    assert!(diagnosis_stdout.contains("state: cleanup required"));
+    assert!(diagnosis_stdout.contains("state: transaction recovery required"));
     assert!(diagnosis_stdout.contains(&format!(
         "preview: lbx {} doctor recover --dry-run",
         lockbox.display()
@@ -2888,7 +2910,8 @@ fn doctor_recover_detects_and_completes_interrupted_cleanup() {
 
     let still_pending = run_output(bin, &[lockbox.to_str().unwrap(), "doctor"]);
     assert_success(&still_pending);
-    assert!(String::from_utf8_lossy(&still_pending.stdout).contains("state: cleanup required"));
+    assert!(String::from_utf8_lossy(&still_pending.stdout)
+        .contains("state: transaction recovery required"));
 
     let recovered = run_output(bin, &[lockbox.to_str().unwrap(), "doctor", "recover"]);
     assert_success(&recovered);
@@ -3093,6 +3116,7 @@ fn add_can_default_destination_and_list_recursively() {
     let _ = fs::remove_dir_all(&dir);
     fs::create_dir_all(&dir).unwrap();
     let lockbox = dir.join("files.lbox");
+    run(bin, &[lockbox.to_str().unwrap(), "create"]);
     let source_file = dir.join("alpha.txt");
     fs::write(&source_file, "alpha").unwrap();
     let second_file = dir.join("beta.txt");
@@ -3297,6 +3321,7 @@ fn add_can_default_destination_and_list_recursively() {
     assert!(recursive.contains("/copy/two.txt"));
 
     let mixed_lockbox = dir.join("mixed.lbox");
+    run(bin, &[mixed_lockbox.to_str().unwrap(), "create"]);
     let mixed_add = run_output(
         bin,
         &[
@@ -3344,6 +3369,12 @@ fn add_recursive_dot_imports_the_current_directory_contents() {
     let lockbox = source_dir.join("dot.lbox");
     let vault_root = dir.join("vault");
     let agent_root = dir.join("agent");
+    run_in(
+        bin,
+        &[lockbox.to_str().unwrap(), "create"],
+        &vault_root,
+        &agent_root,
+    );
 
     let add = Command::new(bin)
         .current_dir(&source_dir)
@@ -3399,6 +3430,12 @@ fn access_subcommands_manage_lockbox_access() {
     fs::write(&source, "alpha").unwrap();
 
     run_in(bin, &["vault", "init"], &vault_root, &agent_root);
+    run_in(
+        bin,
+        &[lockbox.to_str().unwrap(), "create"],
+        &vault_root,
+        &agent_root,
+    );
     run_in(
         bin,
         &[lockbox.to_str().unwrap(), "add", source.to_str().unwrap()],
@@ -6123,6 +6160,7 @@ fn add_accepts_jobs_option_for_large_files() {
     let _ = fs::remove_dir_all(&dir);
     fs::create_dir_all(&dir).unwrap();
     let lockbox = dir.join("jobs.lbox");
+    run(bin, &[lockbox.to_str().unwrap(), "create"]);
     let source = dir.join("large.bin");
     let extracted = dir.join("extracted.bin");
     let mut data = Vec::with_capacity(3 * 1024 * 1024);
@@ -6177,6 +6215,7 @@ fn cli_secret_variables_require_explicit_source_and_redact_export() {
     let _ = fs::remove_dir_all(&dir);
     fs::create_dir_all(&dir).unwrap();
     let lockbox = dir.join("variables.lbox");
+    run(bin, &[lockbox.to_str().unwrap(), "create"]);
     let secret_file = dir.join("secret.txt");
     fs::write(&secret_file, "file-secret").unwrap();
 
@@ -6592,6 +6631,12 @@ fn variable_move_renames_exact_names_and_preserves_values_and_sensitivity() {
     let lockbox = dir.join("variables.lbox");
     let vault_root = dir.join("vault");
     let agent_root = dir.join("agent");
+    run_in(
+        bin,
+        &[lockbox.to_str().unwrap(), "create"],
+        &vault_root,
+        &agent_root,
+    );
     let command = |args: &[&str]| {
         let mut full_args = vec![lockbox.to_str().unwrap(), "var"];
         full_args.extend_from_slice(args);
@@ -6671,6 +6716,12 @@ fn variable_move_preserves_group_glob_and_trailing_slash_destinations() {
     let lockbox = dir.join("variables.lbox");
     let vault_root = dir.join("vault");
     let agent_root = dir.join("agent");
+    run_in(
+        bin,
+        &[lockbox.to_str().unwrap(), "create"],
+        &vault_root,
+        &agent_root,
+    );
     let command = |args: &[&str]| {
         let mut full_args = vec![lockbox.to_str().unwrap(), "var"];
         full_args.extend_from_slice(args);
@@ -6739,6 +6790,12 @@ fn variable_set_secret_upgrades_a_normal_variable() {
     let secret_file = dir.join("secret.txt");
     let vault_root = dir.join("vault");
     let agent_root = dir.join("agent");
+    run_in(
+        bin,
+        &[lockbox.to_str().unwrap(), "create"],
+        &vault_root,
+        &agent_root,
+    );
     fs::write(&secret_file, "file-secret").unwrap();
 
     run_in(

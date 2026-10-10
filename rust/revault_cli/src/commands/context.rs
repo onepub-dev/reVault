@@ -1,8 +1,7 @@
 use crate::secret_prompt::prompt_secret;
 use revault_lockbox_api::vault_integration::VaultOpen;
 use revault_lockbox_api::{
-    ArtifactKind, ContactKeyPair, ContactPublicKey, Error, Lockbox, LockboxOpen, LockboxProtection,
-    SecretVec,
+    ArtifactKind, ContactKeyPair, ContactPublicKey, Error, Lockbox, LockboxOpen, SecretVec,
 };
 use revault_vault_api::{
     auto_open_scope, default_vault_path, get_platform_vault_password, import_public_key,
@@ -204,7 +203,14 @@ fn open_existing_read_only_inner(
         Access::PromptPassword => Err(cli_error(
             "password prompting is only used when creating a new lockbox; pass --key or open through the local vault",
         )),
-        Access::CacheOnly => local_vault().open_lockbox_read_only(path).map_err(|err| lockbox_open_error(path, err)),
+        Access::CacheOnly => local_vault().open_lockbox_read_only(path).map_err(|err| {
+            match err {
+                Error::VaultUnavailable(message) if message.contains("no cached content key") => {
+                    closed_lockbox_error(path, None)
+                }
+                error => lockbox_open_error(path, error),
+            }
+        }),
     }
 }
 
@@ -433,29 +439,6 @@ fn auto_open_lockbox(path: &str) -> Result<Lockbox, AutoOpenLockboxError> {
     )))
 }
 
-pub(crate) fn open_or_create(path: &str, access: &Access) -> CliResult<Lockbox> {
-    if Path::new(path).exists() {
-        open_existing(path, access)
-    } else {
-        match access {
-            Access::ContentKey(key) => {
-                drop(default_vault()?);
-                let lockbox = Vault::new(NoopStore)
-                    .create_lockbox(path, LockboxProtection::ContentKey(key.try_clone()?))?;
-                mirror_key_directory(&lockbox, path)?;
-                Ok(lockbox)
-            }
-            Access::PromptPassword => {
-                let password = read_new_password().map_err(|err| Error::Io(err.to_string()))?;
-                let lockbox = local_vault().create_lockbox_with_password(path, &password)?;
-                mirror_key_directory(&lockbox, path)?;
-                Ok(lockbox)
-            }
-            Access::CacheOnly => Err(cli_error(format!("lockbox not found: {path}"))),
-        }
-    }
-}
-
 pub(crate) fn ensure_lockbox_path_accessible(path: &str) -> CliResult<()> {
     if super::command_lockbox().as_deref() == Some(path) {
         if let Some(id) = super::COMMAND_LOCKBOX_ID.with(|id| *id.borrow()) {
@@ -468,7 +451,7 @@ pub(crate) fn ensure_lockbox_path_accessible(path: &str) -> CliResult<()> {
         }
         Ok(_) => Ok(()),
         Err(err) if err.kind() == io::ErrorKind::NotFound => {
-            Err(cli_error(format!("lockbox not found: {path}")))
+            Err(super::aliases::missing_target(path))
         }
         Err(err) if err.kind() == io::ErrorKind::PermissionDenied => Err(cli_error(format!(
             "permission denied reading lockbox: {path}"

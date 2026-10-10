@@ -20,8 +20,8 @@ impl Fixture {
             raw_key,
         };
         fixture.ok(&["vault", "init"]);
+        fixture.ok(&["dev.lbox", "create"]);
         if !raw_key {
-            fixture.ok(&["dev.lbox", "create"]);
             fixture.ok(&["dev.lbox", "open"]);
         }
         fixture.ok(&["dev.lbox", "variable", "set", "TOKEN", "synthetic-token"]);
@@ -134,6 +134,7 @@ fn alias_lifecycle_persists_and_tracks_identity() {
     assert!(String::from_utf8_lossy(&listed.stdout).contains("dev"));
     f.ok(&["vault", "lockbox", "move", "dev.lbox", "./moved.lbox"]);
     assert_eq!(f.read("TOKEN"), b"synthetic-token");
+    f.ok(&["other.lbox", "create"]);
     f.ok(&["other.lbox", "variable", "set", "TOKEN", "replacement"]);
     f.ok(&["vault", "lockbox", "alias", "set", "dev", "other.lbox"]);
     assert_eq!(f.read("TOKEN"), b"replacement");
@@ -424,6 +425,7 @@ fn migration_alias_selector_exports_and_imports_with_independent_readback() {
 #[test]
 fn aliases_never_fall_back_and_reject_replaced_or_forgotten_targets() {
     let f = Fixture::new();
+    f.ok(&["unknown.lbox", "create"]);
     f.ok(&["unknown.lbox", "variable", "set", "TOKEN", "file-value"]);
     f.ok(&["vault", "lockbox", "move", "unknown.lbox", "./a@unknown"]);
     assert!(!f.run(VALUE, &["a@unknown", "TOKEN"]).status.success());
@@ -431,6 +433,7 @@ fn aliases_never_fall_back_and_reject_replaced_or_forgotten_targets() {
         f.run(VALUE, &["./a@unknown", "TOKEN"]).stdout,
         b"file-value"
     );
+    f.ok(&["other.lbox", "create"]);
     f.ok(&[
         "other.lbox",
         "variable",
@@ -535,6 +538,319 @@ fn environment_child() {
 }
 
 #[test]
+fn helper_help_is_useful_without_a_vault_or_session() {
+    let root = tempfile::tempdir().unwrap();
+    for binary in [VALUE, EXEC] {
+        for args in [vec![], vec!["--help"]] {
+            let output = Command::new(binary)
+                .args(args)
+                .env("LOCKBOX_VAULT_DIR", root.path().join("no-vault"))
+                .env("LOCKBOX_SESSION_AGENT_DIR", root.path().join("no-session"))
+                .env_remove("COMPLETE")
+                .test_output()
+                .unwrap();
+            assert!(output.status.success(), "{output:?}");
+            assert!(output.stderr.is_empty(), "{output:?}");
+            let help = String::from_utf8_lossy(&output.stdout);
+            for expected in [
+                "Usage:",
+                "session default",
+                "a@dev",
+                "/full/path/dev.lbox",
+                "never prompt",
+                "Examples:",
+            ] {
+                assert!(help.contains(expected), "missing {expected}: {help}");
+            }
+            assert!(!root.path().join("no-vault").exists());
+            assert!(!root.path().join("no-session").exists());
+        }
+    }
+}
+
+#[test]
+fn helpers_use_defaults_and_explicit_paths_or_aliases_override_them() {
+    let f = Fixture::new();
+    f.form();
+    f.ok(&["other.lbox", "create"]);
+    f.ok(&["other.lbox", "variable", "set", "TOKEN", "other-value"]);
+    f.ok(&["session", "default", "other.lbox"]);
+    let default = f.run(VALUE, &["TOKEN"]);
+    assert!(default.status.success(), "{default:?}");
+    assert_eq!(default.stdout, b"other-value");
+    let path = f.root.path().join("dev.lbox");
+    for explicit in ["a@dev", path.to_str().unwrap()] {
+        let value = f.run(VALUE, &[explicit, "TOKEN"]);
+        assert!(value.status.success(), "{value:?}");
+        assert_eq!(value.stdout, b"synthetic-token");
+        assert_helper_environment(
+            &f,
+            &[
+                explicit,
+                "TOKEN",
+                "/work/github@username",
+                "RENAMED=/work/github@token",
+            ],
+        );
+    }
+    f.ok(&["session", "default", "a@dev"]);
+    let secret = f.input(
+        LBX,
+        &["a@dev", "variable", "set", "SECRET", "--secret", "--stdin"],
+        b"synthetic variable secret\nsecond line",
+    );
+    assert!(secret.status.success(), "{secret:?}");
+    for (selector, expected) in [
+        ("TOKEN", &b"synthetic-token"[..]),
+        ("SECRET", &b"synthetic variable secret\nsecond line"[..]),
+        (
+            "/work/github@token",
+            &b"synthetic form secret\nsecond line"[..],
+        ),
+    ] {
+        let value = f.run(VALUE, &[selector]);
+        assert!(value.status.success(), "{value:?}");
+        assert_eq!(value.stdout, expected);
+        assert!(value.stderr.is_empty(), "{value:?}");
+    }
+    assert_helper_environment(
+        &f,
+        &[
+            "TOKEN",
+            "/work/github@username",
+            "RENAMED=/work/github@token",
+        ],
+    );
+    // Archive variable paths must not be confused with absolute host paths.
+    f.ok(&[
+        "a@dev",
+        "variable",
+        "set",
+        "/group/TOKEN",
+        "synthetic-token",
+    ]);
+    assert_helper_environment(
+        &f,
+        &[
+            "/group/TOKEN",
+            "/work/github@username",
+            "RENAMED=/work/github@token",
+        ],
+    );
+    // An assignment ending in .lbox is parsed as a selector, then rejected as
+    // an invalid field identifier, rather than treated as a host path.
+    let missing_field = f.run(EXEC, &["X=/work/github@missing.lbox", "--", "must-not-run"]);
+    assert!(!missing_field.status.success(), "{missing_field:?}");
+    assert!(
+        String::from_utf8_lossy(&missing_field.stderr).contains("invalid form field id"),
+        "{missing_field:?}"
+    );
+    f.ok(&["vault", "lockbox", "move", "a@dev", "./extensionless"]);
+    for prefix in [
+        vec!["./extensionless"],
+        vec!["--lockbox", "./extensionless"],
+    ] {
+        let mut args = prefix.clone();
+        args.push("TOKEN");
+        let value = f.run(VALUE, &args);
+        assert!(value.status.success(), "{value:?}");
+        assert_eq!(value.stdout, b"synthetic-token");
+        let mut selections = prefix;
+        selections.extend([
+            "TOKEN",
+            "/work/github@username",
+            "RENAMED=/work/github@token",
+        ]);
+        assert_helper_environment(&f, &selections);
+    }
+    assert_eq!(f.run(VALUE, &["TOKEN"]).stdout, b"synthetic-token");
+}
+
+fn missing_lockbox_error(output: &Output) -> bool {
+    assert!(!output.status.success(), "{output:?}");
+    assert!(output.stdout.is_empty());
+    String::from_utf8_lossy(&output.stderr).contains("missing lockbox")
+}
+
+fn assert_helper_environment(f: &Fixture, selections: &[&str]) {
+    let child = std::env::current_exe().unwrap();
+    let mut args = selections.to_vec();
+    args.extend([
+        "--",
+        child.to_str().unwrap(),
+        "--exact",
+        "environment_child",
+        "--nocapture",
+    ]);
+    let output = f
+        .command(EXEC, &args)
+        .env("REVAULT_ALIAS_TEST_CHILD", "1")
+        .test_output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(37), "{output:?}");
+    assert!(String::from_utf8_lossy(&output.stdout).contains("environment verified"));
+    assert!(!String::from_utf8_lossy(&output.stdout).contains("synthetic"));
+    assert!(output.stderr.is_empty(), "{output:?}");
+}
+
+#[test]
+fn helpers_reject_missing_defaults_and_invalid_explicit_targets_without_fallback() {
+    let f = Fixture::new();
+    for (binary, args) in [
+        (VALUE, vec!["TOKEN"]),
+        (EXEC, vec!["TOKEN", "OTHER", "--", "must-not-run"]),
+    ] {
+        let output = f.run(binary, &args);
+        assert!(missing_lockbox_error(&output), "{output:?}");
+        assert!(String::from_utf8_lossy(&output.stderr).contains("lbx session default"));
+    }
+    f.ok(&["session", "default", "a@dev"]);
+    let absent = f.root.path().join("missing.lbox");
+    for explicit in ["a@missing", absent.to_str().unwrap()] {
+        for (binary, args) in [
+            (VALUE, vec![explicit, "TOKEN"]),
+            (EXEC, vec![explicit, "TOKEN", "--", "must-not-run"]),
+        ] {
+            let failed = f.run(binary, &args);
+            assert!(!failed.status.success(), "{failed:?}");
+            assert!(failed.stdout.is_empty());
+            assert!(!String::from_utf8_lossy(&failed.stderr).contains("must-not-run"));
+            if explicit == absent.to_str().unwrap() {
+                assert_missing_target_guidance(&failed, explicit);
+            } else {
+                assert!(
+                    !String::from_utf8_lossy(&failed.stderr).contains("missing lockbox"),
+                    "{failed:?}"
+                );
+            }
+        }
+    }
+    for (binary, args) in [
+        (VALUE, vec!["a@dev"]),
+        (EXEC, vec!["a@dev", "--", "must-not-run"]),
+    ] {
+        let failed = f.run(binary, &args);
+        assert!(!failed.status.success(), "{failed:?}");
+        assert!(
+            String::from_utf8_lossy(&failed.stderr).contains("expected a selector"),
+            "{failed:?}"
+        );
+    }
+    let too_many = f.run(VALUE, &["--lockbox", "a@dev", "dev.lbox", "TOKEN"]);
+    assert!(!too_many.status.success(), "{too_many:?}");
+    assert!(
+        String::from_utf8_lossy(&too_many.stderr).contains("expected a selector"),
+        "{too_many:?}"
+    );
+}
+
+#[test]
+fn mutations_never_create_missing_explicit_alias_or_default_lockboxes() {
+    for selector in [Some("dev.lbox"), Some("a@dev"), None] {
+        let f = Fixture::new();
+        f.ok(&["session", "default", "a@dev"]);
+        std::fs::write(f.root.path().join("payload.txt"), b"preserve source bytes").unwrap();
+        // No CLI command removes the host archive while retaining its alias and
+        // session default. Simulate external deletion to test stale references.
+        std::fs::remove_file(f.root.path().join("dev.lbox")).unwrap();
+        for operation in [
+            vec!["variable", "set", "TOKEN", "must not create"],
+            vec!["add", "payload.txt", "--to", "/payload.txt"],
+            vec!["form", "define", "login", "--field", "username:text"],
+            vec![
+                "form",
+                "add",
+                "/login",
+                "--type",
+                "login",
+                "--name",
+                "Login",
+                "--set",
+                "username=alice",
+            ],
+        ] {
+            let mut args = selector.into_iter().collect::<Vec<_>>();
+            args.extend(operation);
+            let failed = f.run(LBX, &args);
+            assert!(!failed.status.success(), "{args:?}: {failed:?}");
+            assert!(
+                !String::from_utf8_lossy(&failed.stdout).contains("created"),
+                "{failed:?}"
+            );
+            assert_missing_target_guidance(&failed, "dev.lbox");
+            // A separate public CLI read must also refuse the missing archive.
+            let verify = f.run(LBX, &["dev.lbox", "list"]);
+            assert!(!verify.status.success(), "{verify:?}");
+            // The CLI cannot enumerate absent host files; check that the failed
+            // write did not leave an empty archive or a literal alias filename.
+            assert!(!f.root.path().join("dev.lbox").exists());
+            assert!(!f.root.path().join("a@dev").exists());
+            assert_eq!(
+                std::fs::read(f.root.path().join("payload.txt")).unwrap(),
+                b"preserve source bytes"
+            );
+        }
+        for (binary, operation) in [
+            (VALUE, vec!["TOKEN"]),
+            (EXEC, vec!["TOKEN", "--", "must-not-run"]),
+        ] {
+            let mut args = selector.into_iter().collect::<Vec<_>>();
+            args.extend(operation);
+            let failed = f.run(binary, &args);
+            assert!(!failed.status.success(), "{failed:?}");
+            assert_missing_target_guidance(&failed, "dev.lbox");
+            assert!(failed.stdout.is_empty());
+        }
+    }
+}
+
+fn assert_missing_target_guidance(output: &Output, path: &str) {
+    let error = String::from_utf8_lossy(&output.stderr);
+    assert!(error.contains("lockbox not found:"), "{output:?}");
+    assert!(error.contains(path), "{output:?}");
+    assert!(
+        error.contains("lbx ") && error.contains(" create"),
+        "{output:?}"
+    );
+    assert!(!error.contains("os error 2"), "{output:?}");
+}
+
+#[test]
+fn default_helpers_use_cached_access_and_never_prompt_when_closed() {
+    let f = Fixture::with_raw_key(false);
+    f.form();
+    f.ok(&["session", "default", "a@dev"]);
+    assert_eq!(f.run(VALUE, &["TOKEN"]).stdout, b"synthetic-token");
+    assert_helper_environment(
+        &f,
+        &[
+            "TOKEN",
+            "/work/github@username",
+            "RENAMED=/work/github@token",
+        ],
+    );
+    f.ok(&["a@dev", "close"]);
+    // Closing clears the default; setting it again does not unlock the archive.
+    f.ok(&["session", "default", "a@dev"]);
+    for (binary, args) in [
+        (VALUE, vec!["TOKEN"]),
+        (EXEC, vec!["TOKEN", "--", "must-not-run"]),
+    ] {
+        let output = f
+            .command(binary, &args)
+            .env_remove("LOCKBOX_VAULT_PASSWORD")
+            .test_output_with_input(b"must not be consumed as a password\n")
+            .unwrap();
+        assert!(!output.status.success(), "{output:?}");
+        assert!(output.stdout.is_empty());
+        let error = String::from_utf8_lossy(&output.stderr);
+        assert!(error.contains("closed"), "{output:?}");
+        assert!(!error.contains("passphrase:"), "{output:?}");
+        assert!(!error.contains("must-not-run"), "{output:?}");
+    }
+}
+
+#[test]
 fn aliases_survive_backup_and_restore_and_locked_helpers_do_not_prompt() {
     let f = Fixture::new();
     f.ok(&["vault", "backup", "saved.backup"]);
@@ -616,9 +932,20 @@ fn completion_exposes_names_only_and_retains_assignment_destination() {
     let f = Fixture::with_raw_key(false);
     f.form();
     f.ok(&["a@dev", "open"]);
+    f.ok(&["session", "default", "a@dev"]);
     for (binary, words, expected) in [
         (LBX, vec!["lockbox", "a@"], "a@dev"),
         (VALUE, vec!["lbxv", "a@dev", "TO"], "TOKEN"),
+        (VALUE, vec!["lbxv", "TO"], "TOKEN"),
+        (VALUE, vec!["lbxv", "a@d"], "a@dev"),
+        (VALUE, vec!["lbxv", "--lockbox", "a@dev", "TO"], "TOKEN"),
+        (VALUE, vec!["lbxv", "--lockbox=a@dev", "TO"], "TOKEN"),
+        (
+            EXEC,
+            vec!["lbxx", "TOKEN", "GH=/work/github@t"],
+            "GH=/work/github@token",
+        ),
+        (VALUE, vec!["lbxv", "/work/github@t"], "/work/github@token"),
         (
             VALUE,
             vec!["lbxv", "a@dev", "/work/github@t"],

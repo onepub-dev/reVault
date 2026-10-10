@@ -24,9 +24,14 @@ pub(crate) fn command(exec: bool) -> Command {
         .subcommand_negates_reqs(true)
         .subcommand(super::help::completion_command())
         .about(if exec { "Run a command with selected values in its environment." } else { "Write one variable or form field value, without a trailing newline." })
-        .arg(Arg::new("lockbox").required(true).add(ArgValueCompleter::new(super::completion::lockbox_path_candidates)))
-        .arg(Arg::new("selection").required(true).num_args(1..=if exec { usize::MAX } else { 1 }).add(ArgValueCompleter::new(super::completion::selector_candidates)))
-        .after_help("Selectors: NAME or /form/path@field. Lockboxes: a@alias or a file path.\nOpen the lockbox first with lbx; these helpers never prompt.\nExample: TOKEN=$(lbxv a@dev ONEPUB_TOKEN)\nExample: lbxx a@dev TOKEN=/work/github@token -- dart pub get");
+        .override_usage(if exec { "lbxx [OPTIONS] [LOCKBOX] <SELECTION>... -- <COMMAND>..." } else { "lbxv [OPTIONS] [LOCKBOX] <SELECTOR>" })
+        .arg(Arg::new("lockbox").long("lockbox").value_name("LOCKBOX").help("Explicit lockbox path or a@alias (overrides the session default)").add(ArgValueCompleter::new(super::completion::lockbox_path_candidates)))
+        .arg(Arg::new("selection").required(true).value_name(if exec { "SELECTION" } else { "SELECTOR" }).help(if exec { "Optional lockbox, then NAME, /form/path@field or ENV=selector" } else { "Optional lockbox, then NAME or /form/path@field" }).num_args(1..=if exec { usize::MAX } else { 2 }).add(ArgValueCompleter::new(super::completion::helper_candidates)))
+        .after_help(if exec {
+            "Omit LOCKBOX to use `lbx session default`. Explicit paths and a@aliases override it.\nUse --lockbox PATH for an ambiguous path without a .lbox extension.\nOpen the lockbox first with lbx; these helpers never prompt.\nSelections: NAME or /form/path@field; ENV=selector renames the environment variable.\nThe child receives the selected values, and lbxx returns its exit status.\n\nExamples:\n  lbxx TOKEN REGION -- dart pub get\n  lbxx a@dev TOKEN=/work/github@token -- dart pub get\n  lbxx /full/path/dev.lbox TOKEN -- dart pub get"
+        } else {
+            "Omit LOCKBOX to use `lbx session default`. Explicit paths and a@aliases override it.\nUse --lockbox PATH for an ambiguous path without a .lbox extension.\nOpen the lockbox first with lbx; these helpers never prompt.\nWrites the selected normal or secret value exactly, without a trailing newline.\n\nExamples:\n  lbxv TOKEN\n  lbxv a@dev /work/github@token\n  lbxv /full/path/dev.lbox TOKEN"
+        });
     if exec {
         command.arg(
             Arg::new("command")
@@ -38,6 +43,17 @@ pub(crate) fn command(exec: bool) -> Command {
     } else {
         command
     }
+}
+
+/// Recognize host paths without mistaking form selectors or assignments for them.
+pub(crate) fn is_lockbox_argument(value: &str) -> bool {
+    !value.contains('=')
+        && (value.starts_with("a@")
+            || ((!value.contains('@') || value.starts_with("./") || value.starts_with("../"))
+                && (super::looks_like_lockbox_path(value)
+                    || value.starts_with("./")
+                    || value.starts_with("../")
+                    || std::path::Path::new(value).is_file())))
 }
 
 fn value(lockbox: &Lockbox<ReadOnly>, selector: &str) -> CliResult<SecretString> {
@@ -96,14 +112,34 @@ pub(crate) fn run(binary: &str) -> CliResult<()> {
     clap_complete::CompleteEnv::with_factory(|| command(exec))
         .bin(binary.to_owned())
         .complete();
+    if std::env::args_os().len() == 1 {
+        command(exec).print_long_help()?;
+        println!();
+        return Ok(());
+    }
     let matches = command(exec).try_get_matches()?;
     if let Some(("completion", matches)) = matches.subcommand() {
         return super::completion::run_matches(matches);
     }
+    let mut selections = matches
+        .get_many::<String>("selection")
+        .expect("required")
+        .collect::<Vec<_>>();
+    let explicit = matches.get_one::<String>("lockbox").cloned().or_else(|| {
+        if is_lockbox_argument(selections[0]) || (!exec && selections.len() == 2) {
+            Some(selections.remove(0).clone())
+        } else {
+            None
+        }
+    });
+    if selections.is_empty() || (!exec && selections.len() != 1) {
+        return Err(cli_error(
+            "expected a selector after the lockbox; use --help for examples",
+        ));
+    }
     let activity =
         revault_vault_api::begin_secret_activity(revault_vault_api::SecretActivityKind::Variables)?;
-    let input = matches.get_one::<String>("lockbox").expect("required");
-    let (path, identity) = super::aliases::resolve_noninteractive(input)?;
+    let (path, identity) = super::aliases::select_noninteractive(explicit.as_deref())?;
     let access = match SecretString::try_from_env("LOCKBOX_KEY")? {
         Some(key) => {
             let mut bytes = key.with_str(|key| Zeroizing::new(key.as_bytes().to_vec()))?;
@@ -116,10 +152,6 @@ pub(crate) fn run(binary: &str) -> CliResult<()> {
     if identity.is_some_and(|id| lockbox.lockbox_id() != id) {
         return Err(cli_error("alias target identity changed"));
     }
-    let selections = matches
-        .get_many::<String>("selection")
-        .expect("required")
-        .collect::<Vec<_>>();
     if !exec {
         if selections[0].contains('=') {
             return Err(cli_error("lbxv accepts a selector, not an assignment"));

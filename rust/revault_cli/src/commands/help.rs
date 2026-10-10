@@ -32,7 +32,7 @@ pub(crate) fn command(verbose: bool) -> Command {
                 .value_name("LOCKBOX")
                 .required(false)
                 .add(ArgValueCompleter::new(completion::lockbox_path_candidates))
-                .help("Lockbox for the command. Defaults to the session default lockbox."),
+                .help("Lockbox path or a@alias. Defaults to the session lockbox. Only create creates a missing selected archive."),
         )
         .arg(
             Arg::new("verbose")
@@ -55,11 +55,11 @@ pub(crate) fn command(verbose: bool) -> Command {
                 .arg(Arg::new("signing").long("signing").value_parser(["none", "owner"]).help("Commit signing (default: owner)."))
                 .arg(Arg::new("compression").long("compression").value_parser(["none", "zstd"]).help("Content and metadata compression (default: zstd)."))
                 .arg(Arg::new("compression-level").long("compression-level").value_parser(clap::value_parser!(u8).range(1..=22)).help("Zstd compression level, 1–22 (default: 3)."))
-                .override_usage("lockbox <LOCKBOX> create [OPTIONS]")
+                .override_usage("lockbox [LOCKBOX] create [OPTIONS]")
                 .after_help(verbose_help(
                     verbose,
                     "Examples:\n  lockbox vault init\n  lockbox secrets.lbox create\n  lockbox secrets.lbox create --password\n  lockbox secrets.lbox create --for alice",
-                    "Context:\n  Use create when starting a new encrypted archive. By default it creates a lockbox for the vault's default profile. Use --password when you need a password-protected lockbox.",
+                    "Context:\n  Use create when starting a new encrypted archive. Omit LOCKBOX to use the session default path, including a previously deleted file. Existing targets are always refused. By default it creates a lockbox for the vault's default profile. Use --password when you need a password-protected lockbox.",
                 ))
                 .arg(
                     Arg::new("password")
@@ -308,13 +308,13 @@ pub(crate) fn command(verbose: bool) -> Command {
                 .after_help(verbose_help(
                     verbose,
                     "Examples:\n  lockbox doctor\n  lockbox secrets.lbox doctor\n  lockbox damaged.lbox doctor recover --dry-run\n  lockbox doctor migrate vault --replace\n  lockbox doctor migrate lockbox secrets.lbox --replace",
-                    "Context:\n  Doctor is the maintenance namespace for Vault and Lockbox health. With no Lockbox path, it reports local configuration and runtime state. With a Lockbox path, it inspects public metadata and performs deeper checks when the Lockbox can be opened. Recover repairs or salvages damaged Lockboxes; migrate upgrades valid Vaults and Lockboxes between native format versions.",
+                    "Context:\n  Doctor is the maintenance namespace for Vault and Lockbox health. It uses the session default when no Lockbox path is supplied; with neither a path nor a default, it reports local configuration and runtime state. With a Lockbox selected, it inspects public metadata and performs deeper checks when the Lockbox can be opened. Recover repairs or salvages damaged Lockboxes; migrate upgrades valid Vaults and Lockboxes between native format versions.",
                 ))
                 .subcommands([
                     recovery_command(verbose), migration_command(verbose),
                     Command::new("compact")
                         .about("Reclaim unused space with a verified atomic rewrite.")
-                        .after_help("Usage: lockbox <LOCKBOX> doctor compact\n\nPreserves live contents, owner and access settings; discards old commit history. Requires temporary disk space for the compacted archive. Interrupted writes leave the original intact."),
+                        .after_help("Usage: lockbox [LOCKBOX] doctor compact\n\nUses the session default when LOCKBOX is omitted. Preserves live contents, owner and access settings; discards old commit history. Requires temporary disk space for the compacted archive. Interrupted writes leave the original intact."),
                 ]),
             vault_command(verbose),
             developer_command("visualize", "Print internal lockbox structure.")
@@ -1897,7 +1897,7 @@ fn vault_command(verbose: bool) -> Command {
                     .subcommand(Command::new("set")
                         .about("Set or replace an alias and remember its target path.")
                         .arg(required("name", "Alias name: ASCII letters, digits, underscore or hyphen."))
-                        .arg(required("lockbox", "Existing lockbox path or a@alias.").add(ArgValueCompleter::new(completion::lockbox_path_candidates))))
+                        .arg(required("lockbox", "Existing lockbox path or a@alias; defaults to the session lockbox.").required(false).add(ArgValueCompleter::new(completion::lockbox_path_candidates))))
                     .subcommand(Command::new("list").about("List aliases and stable target identities.").arg(output_format_arg()))
                     .subcommand(Command::new("remove").about("Remove an alias without deleting its lockbox.")
                         .arg(required("name", "Alias name.").add(ArgValueCompleter::new(completion::alias_name_candidates)))))
@@ -1934,10 +1934,11 @@ fn vault_command(verbose: bool) -> Command {
                             "Examples:\n  lockbox vault lockbox remember ./secrets.lbox",
                             "Context:\n  Remember validates the lockbox header, stores its canonical absolute path, and replaces a stale remembered path for the same lockbox id. It does not open or modify the lockbox.",
                         ))
-                        .arg(required("lockbox", "Existing lockbox path or a@alias to remember.")),
+                        .arg(required("lockbox", "Existing lockbox path or a@alias to remember; defaults to the session lockbox.").required(false)),
                 )
                 .subcommand(
                     Command::new("move")
+                        .allow_missing_positional(true)
                         .visible_aliases(["mv", "rename"])
                         .about("Move a lockbox and update its session and vault paths.")
                         .after_help(verbose_help(
@@ -1945,7 +1946,7 @@ fn vault_command(verbose: bool) -> Command {
                             "Examples:\n  lockbox vault lockbox move ./secrets.lbox ./archive/\n  lockbox vault lockbox move ./secrets.lbox ./archive/renamed.lbox",
                             "Context:\n  Move closes the old cached path, moves the lockbox and manages its hidden lock sidecar, updates the remembered vault path, and updates the session default when it points at the source. Across filesystems, it copies and syncs the destination before removing the source, preserving file permissions.",
                         ))
-                        .arg(required("source", "Current lockbox path or a@alias.").value_hint(ValueHint::Other).add(ArgValueCompleter::new(completion::lockbox_path_candidates)))
+                        .arg(required("source", "Current lockbox path or a@alias; defaults to the session lockbox.").required(false).value_hint(ValueHint::Other).add(ArgValueCompleter::new(completion::lockbox_path_candidates)))
                         .arg(required(
                             "destination",
                             "New lockbox path, a@alias, or an existing destination directory; existing files are never overwritten.",
@@ -1959,7 +1960,7 @@ fn vault_command(verbose: bool) -> Command {
                             "Examples:\n  lockbox vault lockbox forget ./old-project.lbox",
                             "Context:\n  Forget removes a stale known-lockbox record from the vault. It does not delete the lockbox file.",
                         ))
-                        .arg(required("lockbox", "Remembered lockbox path or a@alias to forget, including missing files.")),
+                        .arg(required("lockbox", "Remembered lockbox path or a@alias to forget, including missing files; defaults to the session lockbox.").required(false)),
                 ),
         )
 }
@@ -2325,7 +2326,7 @@ fn migration_lockbox_command(verbose: bool) -> Command {
         .args_conflicts_with_subcommands(true)
         .arg(optional(
             "lockbox",
-            "Lockbox path or a@alias to migrate; may precede doctor instead.",
+            "Lockbox path or a@alias to migrate; may precede doctor instead. Defaults to the session lockbox.",
         ))
         .arg(migration_lockbox_output_arg())
         .arg(migration_replace_arg())
@@ -2336,7 +2337,7 @@ fn migration_lockbox_command(verbose: bool) -> Command {
                 .hide(!verbose)
                 .arg(optional(
                     "lockbox",
-                    "Lockbox path or a@alias to export; may precede doctor instead.",
+                    "Lockbox path or a@alias to export; may precede doctor instead. Defaults to the session lockbox.",
                 ))
                 .arg(migration_output_arg().required(true))
                 .arg(hidden_secret_stdin_arg("migration-password-stdin")),
@@ -2600,11 +2601,11 @@ mod migration_inventory_tests {
     }
 
     #[test]
-    fn create_usage_requires_an_explicit_lockbox_name() {
+    fn create_usage_allows_the_session_default() {
         let command = command(false);
         let mut create = command_at(&command, "create").clone();
         let help = create.render_help().to_string();
-        assert!(help.contains("Usage: lockbox <LOCKBOX> create [OPTIONS]"));
+        assert!(help.contains("Usage: lockbox [LOCKBOX] create [OPTIONS]"));
     }
 
     #[test]

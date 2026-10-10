@@ -8,9 +8,7 @@ use revault_lockbox_api::{
     Error, SecretString, VariableName, VariableNamePattern, VariableSensitivity, VariableValueRef,
 };
 
-use super::context::{
-    open_existing, open_for_reading, open_or_create, require_arg, Access, CliResult,
-};
+use super::context::{open_existing, open_for_reading, require_arg, Access, CliResult};
 use super::output::{json_string, output_format_from_matches, print_records};
 use super::{default_lockbox_for_command, optional_lockbox_positionals, positional_values};
 use crate::secret_prompt::prompt_secret;
@@ -282,7 +280,7 @@ fn set_variable_request(
     request: VariableSetRequest,
     access: &Access,
 ) -> CliResult<()> {
-    let mut lb = open_or_create(lockbox_path, access)?;
+    let mut lb = open_existing(lockbox_path, access)?;
     let existing = lb.variable_sensitivity(&request.name)?;
     let effective_sensitivity = if request.secret {
         VariableSensitivity::Secret
