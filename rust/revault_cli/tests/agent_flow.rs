@@ -346,7 +346,10 @@ fn run(bin: &str, agent_dir: &PathBuf, vault_dir: &PathBuf, args: &[&str]) {
 
 fn run_status(bin: &str, agent_dir: &PathBuf, vault_dir: &PathBuf, args: &[&str]) -> ExitStatus {
     let mut command = command(bin, agent_dir, vault_dir, args);
-    command.stdout(Stdio::inherit()).stderr(Stdio::inherit());
+    // Status-only setup includes `vault init`, which prints recovery private
+    // keys. Never inherit those streams into CI logs. Null handles also avoid
+    // pipes retained by the Windows Session Agent preventing EOF.
+    command.stdout(Stdio::null()).stderr(Stdio::null());
     let command_line = format!("{bin} {}", args.join(" "));
     let mut child = command.spawn().unwrap();
     let deadline = Instant::now() + COMMAND_TIMEOUT;
