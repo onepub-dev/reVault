@@ -1,12 +1,14 @@
 # Lockbox Core Implementation Guide
 
 This guide records implementation rules and historical design descriptions for
-`revault_lockbox_api`. Verify implementation-specific details against the revision
-being changed. [ARCHIVE_FORMAT.md](ARCHIVE_FORMAT.md) is a historical reference,
-not the normative v4 wire specification. Use the
-[v4 work entry point](../../docs/archive_v4_plan.md) to locate its branch plan and
+`revault_lockbox_api`. Main uses format 3 in the `0.4.x` compatibility line.
+Verify implementation-specific details against the revision being changed.
+[ARCHIVE_FORMAT.md](ARCHIVE_FORMAT.md) is a historical reference; exact encodings
+are defined by `src/file_format/` and checked by compatibility fixtures. See
 [Transactions and recovery](../../manual/develop-with-revault/transactions.md)
-for the maintained transaction contract.
+for the maintained transaction contract. Format-4 work remains on its development
+branch; the [v4 work entry point](../../docs/archive_v4_plan.md) locates its plan
+and evidence.
 
 ## API Boundary
 

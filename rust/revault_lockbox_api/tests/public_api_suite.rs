@@ -267,22 +267,6 @@ fn public_api_recovery_scanner_reports_and_salvages_intact_files() {
     let mut damaged = std::fs::read(&lockbox_path).unwrap();
     damaged[0] ^= 0xff;
 
-    // A v4 commit seals both header slots. One damaged slot still permits TOC
-    // recovery, including directories. Destroy both slot magics to exercise
-    // the page-scanning salvage path this test is intended to cover.
-    let redundant = RecoveryScanner::scan_bytes(damaged.clone(), KEY);
-    assert!(redundant.toc_recovered);
-    assert_eq!(
-        redundant
-            .intact_files
-            .iter()
-            .filter(|entry| entry.kind == revault_lockbox_api::LockboxEntryKind::File)
-            .count(),
-        3
-    );
-    assert_eq!(&damaged[192..200], b"LBX4HDR\0");
-    damaged[192] ^= 0xff;
-
     let report = RecoveryScanner::scan_bytes(damaged.clone(), KEY);
     assert_eq!(report.intact_file_count, 3);
     assert!(report
@@ -651,4 +635,56 @@ fn public_api_mirror_projects_enforce_exclusive_subtree_ownership() {
     lockbox
         .add_file(&p("/projects/docs/manual.md"), b"unmanaged", false)
         .unwrap();
+}
+#[test]
+fn public_inspection_refuses_future_header_instead_of_salvaging_key_directories() {
+    let root = unique_dir("future-inspection");
+    std::fs::create_dir_all(&root).unwrap();
+    let path = root.join("future.lbox");
+    let secret = password("synthetic-future-inspection-password");
+    let signer = signing_key();
+    let mut archive =
+        Lockbox::create_file(&path, LockboxProtection::Password(&secret), &signer).unwrap();
+    archive
+        .add_file(&p("/payload"), b"retained key directory", false)
+        .unwrap();
+    archive.commit().unwrap();
+    drop(archive);
+    let original = std::fs::read(&path).unwrap();
+    for slot_offset in [0, 192] {
+        // The current writer cannot create a future format. Preserve its real
+        // recoverable key-directory pages while substituting only the header,
+        // proving inspection refuses instead of salvaging these pages.
+        let mut future = original.clone();
+        future[..320].fill(0);
+        future[slot_offset..slot_offset + 8].copy_from_slice(b"LBX4HDR\0");
+        future[slot_offset + 8..slot_offset + 10].copy_from_slice(&4_u16.to_le_bytes());
+        std::fs::write(&path, &future).unwrap();
+        assert!(matches!(
+            Lockbox::inspect_file(&path),
+            Err(revault_lockbox_api::Error::UnsupportedFormatVersion {
+                found: 4,
+                supported: 3,
+                ..
+            })
+        ));
+        assert!(matches!(
+            Lockbox::open(&path, LockboxOpen::Password(&secret)),
+            Err(revault_lockbox_api::Error::UnsupportedFormatVersion {
+                found: 4,
+                supported: 3,
+                ..
+            })
+        ));
+        assert!(matches!(
+            Lockbox::open_bytes(future.clone(), LockboxOpen::Password(&secret)),
+            Err(revault_lockbox_api::Error::UnsupportedFormatVersion {
+                found: 4,
+                supported: 3,
+                ..
+            })
+        ));
+        assert_eq!(std::fs::read(&path).unwrap(), future);
+    }
+    std::fs::remove_dir_all(root).unwrap();
 }

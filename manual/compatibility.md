@@ -36,8 +36,19 @@ The repository tag belonging to a release is the permanent documentation snapsho
 
 When reporting a problem, include the exact CLI or package version rather than saying only that the manual is current. Generated class/method documentation belongs to the package release and is the signature authority when it differs from the development manual.
 
-## v4 development transition
+## Current compatibility line
 
-The v4 container changes physical allocation accounting and durable transaction recovery. Vault structure version 3 remains unchanged, but its enclosing Lockbox container must migrate to v4. Older containers are read by isolated migration executables rather than the current core.
+Main uses the format-3 `0.4.x` compatibility line. Development versions are CLI
+`0.4.1-dev.1` and bindings `0.4.2-dev.1`; released CLI `0.4.0` and bindings
+`0.4.1` remain the interoperability baseline. Vault structure version 3 remains
+unchanged, and its current container uses format 3.
 
-The C ABI and FlatBuffers operation schema have not changed for transaction maintenance. Every distributed native carrier, including the WASM build, must nevertheless be rebuilt with the v4 core and shipped with its matching facade package. Existing binaries do not gain v4 support from a documentation or facade-only update. See [API maintenance](apis/revault-api.md#transaction-maintenance-and-v4).
+Normal CLI operations require the current format. An older format is refused
+with migration instructions; a newer format is refused with instructions to use
+a build that supports it. Historical readers remain available to explicit
+migration commands. Refusal does not attempt recovery or change the file.
+
+Format-4 transaction recovery and performance work remain on the separate
+`issue-310-zip-read-performance` branch. A format-3 build cannot open or downgrade
+an archive or Vault container already written by a format-4 build. Keep those
+files and their backups and use a matching v4 build for access or recovery.

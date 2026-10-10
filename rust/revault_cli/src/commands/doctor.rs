@@ -9,23 +9,12 @@ use revault_vault_api::{
     verify_agent_transport_security, SecretString, VaultDirectory,
 };
 use std::fs::OpenOptions;
+use std::io::Read;
 use std::path::Path;
 
 pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()> {
     if let Some((command, command_matches)) = matches.subcommand() {
         match command {
-            "compact" => {
-                let path = super::default_lockbox_for_command()?;
-                let mut opened = super::context::open_existing(&path, access)?;
-                let before = std::fs::metadata(&path)?.len();
-                opened.compact()?;
-                let after = std::fs::metadata(&path)?.len();
-                println!(
-                    "Compacted and verified: {before} -> {after} bytes ({} bytes reclaimed).",
-                    before.saturating_sub(after)
-                );
-                return Ok(());
-            }
             "recover" => {
                 super::default_lockbox_for_command()?;
                 return super::recovery::run_matches(command_matches, access);
@@ -46,16 +35,7 @@ pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()
         None => None,
     };
     match selected {
-        Some(lockbox) => {
-            if matches.get_flag("deep") {
-                let opened = open_existing_read_only(&lockbox, access)?;
-                opened.inspector().verify_storage()?;
-                println!(
-                    "Deep storage check: all allocations accounted for; reusable space is zero."
-                );
-            }
-            run_lockbox(&lockbox, access, matches.get_flag("verbose"))
-        }
+        Some(lockbox) => run_lockbox(&lockbox, access, matches.get_flag("verbose")),
         None => run_global(),
     }
 }
@@ -68,6 +48,33 @@ fn run_global() -> CliResult<()> {
     println!("Local vault");
     println!("  path: {}", vault_path.display());
     println!("  exists: {}", yes_no(vault_path.exists()));
+    let container_version = (|| -> CliResult<u16> {
+        let mut header = Vec::new();
+        std::fs::File::open(&vault_path)?
+            .take(384)
+            .read_to_end(&mut header)?;
+        Ok(revault_lockbox_api::probe_lockbox_format_version(&header)?)
+    })();
+    match &container_version {
+        Ok(version) => println!("  container format version: {version}"),
+        Err(error) => println!("  container format version: not read ({error})"),
+    }
+    let vault = default_vault_noninteractive();
+    if container_version
+        .as_ref()
+        .is_ok_and(|version| *version != revault_lockbox_api::LOCKBOX_FORMAT_VERSION)
+    {
+        println!("  structure version: not read (unsupported container)");
+    } else {
+        match &vault {
+            Ok(Some(vault)) => match vault.structure_version() {
+                Ok(version) => println!("  structure version: {version}"),
+                Err(error) => println!("  structure version: not read ({error})"),
+            },
+            Ok(None) => println!("  structure version: not read (vault is closed or absent)"),
+            Err(error) => println!("  structure version: not read ({error})"),
+        }
+    }
     println!(
         "  readable: {}",
         yes_no(std::fs::File::open(&vault_path).is_ok())
@@ -121,7 +128,7 @@ fn run_global() -> CliResult<()> {
     println!("  log: {}", agent_log_destination());
     println!();
     println!("Known lockboxes");
-    match default_vault_noninteractive() {
+    match vault {
         Ok(Some(vault)) => {
             let known = vault.list_known_lockboxes()?;
             let mut present = 0usize;
@@ -174,6 +181,7 @@ fn run_lockbox(lockbox_path: &str, access: &Access, verbose: bool) -> CliResult<
         )));
     }
 
+    super::context::ensure_current_lockbox_format(lockbox_path)?;
     let inspection = Lockbox::inspect_file(path)?;
     println!("Lockbox");
     println!("  path: {lockbox_path}");
@@ -320,7 +328,7 @@ fn print_encrypted_content(lockbox_path: &str, access: &Access, verbose: bool) {
                 err.downcast_ref::<Error>(),
                 Some(Error::RecoveryRequired { .. })
             ) {
-                println!("  state: transaction recovery required");
+                println!("  state: cleanup required");
                 println!("  preview: lbx {lockbox_path} doctor recover --dry-run");
                 println!("  recover: lbx {lockbox_path} doctor recover");
                 return;
@@ -364,15 +372,22 @@ fn yes_no(value: bool) -> &'static str {
 }
 
 fn default_vault_noninteractive() -> Result<Option<VaultDirectory>, Box<dyn std::error::Error>> {
+    super::context::ensure_current_default_vault_format()?;
     if !default_vault_path()?.exists() {
         return Ok(None);
     }
     if let Some(password) = SecretString::try_from_env("LOCKBOX_VAULT_PASSWORD")? {
-        return Ok(Some(VaultDirectory::open_or_create_default(&password)?));
+        return Ok(Some(
+            VaultDirectory::open_or_create_default(&password)
+                .map_err(super::context::vault_open_error)?,
+        ));
     }
     if !platform_secret_store_disabled()? {
         if let Ok(Some(password)) = get_platform_vault_password() {
-            return Ok(Some(VaultDirectory::open_or_create_default(&password)?));
+            return Ok(Some(
+                VaultDirectory::open_or_create_default(&password)
+                    .map_err(super::context::vault_open_error)?,
+            ));
         }
     }
     Ok(None)

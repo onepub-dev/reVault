@@ -10,7 +10,7 @@ use revault_vault_api::{
 };
 use std::fmt;
 use std::fs;
-use std::io::{self, IsTerminal, Write};
+use std::io::{self, IsTerminal, Read, Write};
 use std::path::{Path, PathBuf};
 
 use super::error_output::ExitCode;
@@ -89,6 +89,7 @@ pub(crate) enum Access {
 }
 
 pub(super) fn is_unencrypted(path: &str) -> CliResult<bool> {
+    ensure_current_lockbox_format(path)?;
     Ok(Lockbox::inspect_file(path)
         .map_err(|error| lockbox_open_error(path, error))?
         .format_options
@@ -96,7 +97,13 @@ pub(super) fn is_unencrypted(path: &str) -> CliResult<bool> {
 }
 
 pub(crate) fn open_existing(path: &str, access: &Access) -> CliResult<Lockbox> {
-    verify_open_identity(path, open_existing_inner(path, access)?)
+    verify_open_identity(path, open_existing_inner(path, access, false)?)
+}
+
+/// Explicit migration may export historical formats still readable by the core.
+/// Ordinary command opens must use `open_existing` and its current-format gate.
+pub(crate) fn open_existing_for_migration(path: &str, access: &Access) -> CliResult<Lockbox> {
+    verify_open_identity(path, open_existing_inner(path, access, true)?)
 }
 
 fn verify_open_identity<State>(path: &str, lockbox: Lockbox<State>) -> CliResult<Lockbox<State>> {
@@ -110,8 +117,11 @@ fn verify_open_identity<State>(path: &str, lockbox: Lockbox<State>) -> CliResult
     Ok(lockbox)
 }
 
-fn open_existing_inner(path: &str, access: &Access) -> CliResult<Lockbox> {
-    ensure_lockbox_path_accessible(path)?;
+fn open_existing_inner(path: &str, access: &Access, migration: bool) -> CliResult<Lockbox> {
+    ensure_lockbox_path_accessible_inner(path, !migration)?;
+    if !migration {
+        super::recovery::complete_pending_cleanup_if_available(path, access)?;
+    }
     if let Some(options) = Lockbox::inspect_file(path)
         .map_err(|error| lockbox_open_error(path, error))?
         .format_options
@@ -143,7 +153,6 @@ fn open_existing_inner(path: &str, access: &Access) -> CliResult<Lockbox> {
             }
         }
     }
-    super::recovery::complete_pending_cleanup_if_available(path, access)?;
     let mut lockbox = match access {
         Access::ContentKey(key) => {
             drop(default_vault()?);
@@ -265,7 +274,11 @@ pub(crate) fn lockbox_open_error(path: &str, error: Error) -> Box<dyn std::error
                 format!("Found version {found}; this reVault build supports version {supported}."),
             ),
         ],
-        format!("Run `lbx doctor migrate lockbox {path} --replace`."),
+        if found > supported {
+            "Use a reVault build that supports this newer format. Automatic downgrade is not supported.".to_string()
+        } else {
+            format!("Run `lbx doctor migrate lockbox {path} --replace`.")
+        },
     )
 }
 
@@ -332,7 +345,7 @@ fn closed_lockbox_error(path: &str, reason: Option<Error>) -> Box<dyn std::error
                     "Your local vault uses Lockbox container format {found}; this reVault build supports container format {supported}."
                 ),
             ));
-            "Install a newer reVault release, then retry.".to_string()
+            "Use a reVault build that supports this newer format. Automatic downgrade is not supported.".to_string()
         }
         Some(reason) => {
             details.push(("Auto-open".to_string(), reason.to_string()));
@@ -352,6 +365,10 @@ fn auto_open_lockbox(path: &str) -> Result<Lockbox, AutoOpenLockboxError> {
     let scope = auto_open_scope().map_err(AutoOpenLockboxError::Unavailable)?;
     if scope != AutoOpenScope::Lockboxes {
         return Err(AutoOpenLockboxError::Disabled);
+    }
+    let vault_path = default_vault_path().map_err(AutoOpenLockboxError::Unavailable)?;
+    if vault_path.exists() {
+        check_current_container(&vault_path).map_err(AutoOpenLockboxError::Unavailable)?;
     }
     let password = match revault_lockbox_api::SecretString::try_from_env("LOCKBOX_VAULT_PASSWORD")
         .map_err(|err| AutoOpenLockboxError::Unavailable(err.into()))?
@@ -440,6 +457,10 @@ fn auto_open_lockbox(path: &str) -> Result<Lockbox, AutoOpenLockboxError> {
 }
 
 pub(crate) fn ensure_lockbox_path_accessible(path: &str) -> CliResult<()> {
+    ensure_lockbox_path_accessible_inner(path, true)
+}
+
+fn ensure_lockbox_path_accessible_inner(path: &str, require_current: bool) -> CliResult<()> {
     if super::command_lockbox().as_deref() == Some(path) {
         if let Some(id) = super::COMMAND_LOCKBOX_ID.with(|id| *id.borrow()) {
             super::aliases::check_identity(path, id)?;
@@ -449,6 +470,7 @@ pub(crate) fn ensure_lockbox_path_accessible(path: &str) -> CliResult<()> {
         Ok(metadata) if metadata.is_dir() => {
             Err(cli_error(format!("lockbox path is a directory: {path}")))
         }
+        Ok(_) if require_current => ensure_current_lockbox_format(path),
         Ok(_) => Ok(()),
         Err(err) if err.kind() == io::ErrorKind::NotFound => {
             Err(super::aliases::missing_target(path))
@@ -458,6 +480,38 @@ pub(crate) fn ensure_lockbox_path_accessible(path: &str) -> CliResult<()> {
         ))),
         Err(err) => Err(cli_error(format!("cannot access lockbox {path}: {err}"))),
     }
+}
+
+/// Refuse identifiable historical/future containers before ordinary CLI opens.
+/// A damaged current header remains eligible for the explicit recovery flow.
+fn check_current_container(path: &Path) -> Result<(), Error> {
+    let mut header = Vec::new();
+    fs::File::open(path)
+        .and_then(|file| file.take(384).read_to_end(&mut header))
+        .map_err(|error| Error::Io(error.to_string()))?;
+    match revault_lockbox_api::probe_lockbox_format_version(&header) {
+        Ok(found) if found != revault_lockbox_api::LOCKBOX_FORMAT_VERSION => {
+            Err(Error::UnsupportedFormatVersion {
+                artifact: ArtifactKind::Lockbox,
+                found: u32::from(found),
+                supported: u32::from(revault_lockbox_api::LOCKBOX_FORMAT_VERSION),
+            })
+        }
+        Ok(_) | Err(Error::CorruptHeader | Error::CorruptRecord | Error::Truncated) => Ok(()),
+        Err(error) => Err(error),
+    }
+}
+
+pub(crate) fn ensure_current_lockbox_format(path: &str) -> CliResult<()> {
+    check_current_container(Path::new(path)).map_err(|error| lockbox_open_error(path, error))
+}
+
+pub(crate) fn ensure_current_default_vault_format() -> CliResult<()> {
+    let path = default_vault_path()?;
+    if path.exists() {
+        check_current_container(&path).map_err(vault_open_error)?;
+    }
+    Ok(())
 }
 
 pub(crate) fn require_arg<'a>(args: &'a [String], index: usize, name: &str) -> CliResult<&'a str> {
@@ -625,6 +679,7 @@ pub(crate) fn remember_default_vault_password_with_warning(password: &SecretStri
 }
 
 pub(crate) fn default_vault() -> CliResult<VaultDirectory> {
+    ensure_current_default_vault_format()?;
     if auto_open_scope()? != revault_vault_api::AutoOpenScope::Off {
         // Start before opening the vault so the agent cannot inherit a vault
         // file lock. Failure is non-fatal: CI and agentless use remain valid.
@@ -681,27 +736,30 @@ pub(crate) fn vault_password_without_open() -> CliResult<SecretString> {
 pub(crate) fn open_default_vault_with_password(
     password: &SecretString,
 ) -> CliResult<VaultDirectory> {
+    ensure_current_default_vault_format()?;
     match VaultDirectory::open_or_create_default(password) {
         Ok(vault) => {
             let vault_id = default_vault_path()?.to_string_lossy().into_owned();
-            let _ = revault_vault_api::put_vault_unlock_key(
-                &vault_id,
-                password.try_clone()?,
-                None,
-            );
+            let _ = revault_vault_api::put_vault_unlock_key(&vault_id, password.try_clone()?, None);
             Ok(vault)
         }
-        Err(Error::UnsupportedFormatVersion {
+        Err(error) => Err(vault_open_error(error)),
+    }
+}
+
+pub(crate) fn vault_open_error(error: Error) -> Box<dyn std::error::Error> {
+    match error {
+        Error::UnsupportedFormatVersion {
             artifact,
             found,
             supported,
-        }) => {
+        } => {
             let next_step = if found > supported {
-                "Install a newer reVault release, then retry."
+                "Use a reVault build that supports this newer format. Automatic downgrade is not supported."
             } else {
                 "Run `lbx doctor migrate vault --output <directory>` or use `--replace`."
             };
-            Err(cli_diagnostic(
+            cli_diagnostic(
                 ExitCode::UnsupportedFormat,
                 if artifact == ArtifactKind::Lockbox {
                     "Unsupported Vault container format"
@@ -709,6 +767,11 @@ pub(crate) fn open_default_vault_with_password(
                     "Unsupported Vault format"
                 },
                 vec![(
+                    "Vault".to_string(),
+                    default_vault_path()
+                        .map(|path| path.display().to_string())
+                        .unwrap_or_else(|error| format!("path unavailable: {error}")),
+                ), (
                     "Details".to_string(),
                     if artifact == ArtifactKind::Lockbox {
                         format!("Found Lockbox container version {found}; this reVault build supports container version {supported}.")
@@ -717,13 +780,13 @@ pub(crate) fn open_default_vault_with_password(
                     },
                 )],
                 next_step,
-            ))
+            )
         }
-        Err(err) => match err {
-            Error::InvalidKey | Error::CorruptHeader => Err(cli_error(
+        err => match err {
+            Error::InvalidKey | Error::CorruptHeader => cli_error(
                 "Vault open failed: check the Vault passphrase. If the passphrase is correct, the Vault file may be damaged",
-            )),
-            err => Err(err.into()),
+            ),
+            err => err.into(),
         },
     }
 }

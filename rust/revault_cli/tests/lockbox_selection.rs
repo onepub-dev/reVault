@@ -53,13 +53,13 @@ fn maintenance_uses_default_and_explicit_selection_wins() {
     let fixture = Fixture::new();
     let diagnostic = fixture.ok(&["doctor"]);
     assert!(String::from_utf8_lossy(&diagnostic.stdout).contains("first.lbox"));
-    fixture.ok(&["doctor", "compact"]);
+    fixture.ok(&["doctor", "recover", "--dry-run"]);
     fixture.value(None, b"first-value\n");
     fixture.ok(&["doctor", "recover", "--dry-run"]);
     fixture.value(None, b"first-value\n");
     fixture.ok(&["second.lbox", "create"]);
     fixture.ok(&["second.lbox", "variable", "set", "TOKEN", "second-value"]);
-    fixture.ok(&["second.lbox", "doctor", "compact"]);
+    fixture.ok(&["second.lbox", "doctor", "recover", "--dry-run"]);
     fixture.value(Some("second.lbox"), b"second-value\n");
     fixture.value(None, b"first-value\n");
 
@@ -132,7 +132,7 @@ fn alias_identity_and_missing_default_refusals_do_not_create_files() {
     )
     .unwrap();
     let rejected = fixture
-        .command(&["a@chosen", "doctor", "compact"])
+        .command(&["a@chosen", "doctor", "recover", "--dry-run"])
         .test_output()
         .unwrap();
     assert!(!rejected.status.success());
@@ -140,7 +140,7 @@ fn alias_identity_and_missing_default_refusals_do_not_create_files() {
     // External deletion is likewise needed to exercise a stale default path.
     std::fs::remove_file(fixture.0.path().join("first.lbox")).unwrap();
     for args in [
-        vec!["doctor", "compact"],
+        vec!["doctor", "recover", "--dry-run"],
         vec!["doctor", "recover", "--dry-run"],
         vec!["variable", "set", "TOKEN", "unexpected"],
     ] {

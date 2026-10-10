@@ -2880,7 +2880,7 @@ fn doctor_recover_detects_and_completes_interrupted_cleanup() {
     let diagnosis = run_output(bin, &[lockbox.to_str().unwrap(), "doctor"]);
     assert_success(&diagnosis);
     let diagnosis_stdout = String::from_utf8_lossy(&diagnosis.stdout);
-    assert!(diagnosis_stdout.contains("state: transaction recovery required"));
+    assert!(diagnosis_stdout.contains("state: cleanup required"));
     assert!(diagnosis_stdout.contains(&format!(
         "preview: lbx {} doctor recover --dry-run",
         lockbox.display()
@@ -2910,8 +2910,7 @@ fn doctor_recover_detects_and_completes_interrupted_cleanup() {
 
     let still_pending = run_output(bin, &[lockbox.to_str().unwrap(), "doctor"]);
     assert_success(&still_pending);
-    assert!(String::from_utf8_lossy(&still_pending.stdout)
-        .contains("state: transaction recovery required"));
+    assert!(String::from_utf8_lossy(&still_pending.stdout).contains("state: cleanup required"));
 
     let recovered = run_output(bin, &[lockbox.to_str().unwrap(), "doctor", "recover"]);
     assert_success(&recovered);

@@ -1,4 +1,4 @@
-//! Native v4 header facade and historical format discriminators for migration.
+//! Native header facade for legacy v2 archives and configurable v3 archives.
 
 use crate::checked::read_u16_le;
 use crate::crypto::strong_checksum;
@@ -8,7 +8,7 @@ use crate::storage::{Storage, StorageBackend};
 use crate::{ArtifactKind, Error, Result};
 
 /// Current native lockbox format written by the crash-recoverable protocol.
-pub const LOCKBOX_FORMAT_VERSION: u16 = 4;
+pub const LOCKBOX_FORMAT_VERSION: u16 = 3;
 pub(crate) const HEADER_LEN: usize = header_v2::REGION_LEN;
 const V1_HEADER_LEN: usize = 96;
 const V1_CHECKSUM_START: usize = 64;
@@ -16,9 +16,6 @@ const V1_MAGIC: &[u8; 8] = b"LBX1HDR\0";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct LockboxHeader {
-    pub(crate) sealed_len: u64,
-    pub(crate) trim_origin_len: u64,
-    pub(crate) preparing: bool,
     pub(crate) format_mode: crate::creation_options::FormatMode,
     pub(crate) slot_index: usize,
     pub(crate) generation: u64,
@@ -49,9 +46,6 @@ pub(crate) fn write_header(
         bytes,
         0,
         Publication {
-            sealed_len: HEADER_LEN as u64,
-            preparing: false,
-            trim_origin_len: 0,
             format_mode: Default::default(),
             generation: 1,
             commit_root_offset,
@@ -71,13 +65,10 @@ pub(crate) fn write_header(
 }
 
 pub(crate) fn read_header(bytes: &[u8]) -> Result<LockboxHeader> {
-    if bytes
-        .get(..8)
-        .is_some_and(|magic| magic == b"LBX2HDR\0" || magic == b"LBX3HDR\0")
-    {
+    if let Some(found) = unsupported_format_discriminator(bytes) {
         return Err(Error::UnsupportedFormatVersion {
             artifact: ArtifactKind::Lockbox,
-            found: u32::from(probe_lockbox_format_version(bytes)?),
+            found: u32::from(found),
             supported: u32::from(LOCKBOX_FORMAT_VERSION),
         });
     }
@@ -91,9 +82,6 @@ pub(crate) fn read_header(bytes: &[u8]) -> Result<LockboxHeader> {
     }
     let header = header_v2::read_region(bytes)?;
     Ok(LockboxHeader {
-        sealed_len: header.sealed_len,
-        trim_origin_len: header.trim_origin_len,
-        preparing: header.preparing,
         format_mode: header.format_mode,
         slot_index: header.slot_index,
         generation: header.generation,
@@ -123,30 +111,41 @@ pub(crate) fn publish_header(
     Ok(next_slot)
 }
 
-/// Read an authenticated v1 or v2 native format discriminator.
+/// Read a checksummed v1/v2/v3 header or recognize an unsupported discriminator.
+///
+/// Recognizing an unsupported discriminator does not authenticate or open its archive.
 pub fn probe_lockbox_format_version(bytes: &[u8]) -> Result<u16> {
+    if let Some(found) = unsupported_format_discriminator(bytes) {
+        return Ok(found);
+    }
     if bytes.get(..8) == Some(V1_MAGIC.as_slice()) {
         return probe_v1(bytes);
     }
-    // A discriminator only: historical decoding lives in versioned exporters.
-    let mut historical = None;
-    for slot in bytes.chunks_exact(160).take(2) {
-        let version = read_u16_le(&slot[8..10])?;
-        if ((version == 2 && &slot[..8] == b"LBX2HDR\0")
-            || (version == 3 && &slot[..8] == b"LBX3HDR\0"))
-            && slot[128..160] == strong_checksum(&slot[..128])
-        {
-            let generation = crate::checked::read_u64_le(&slot[16..24])?;
-            if historical.is_none_or(|(old, _)| generation > old) {
-                historical = Some((generation, version));
+    let header = header_v2::read_region(bytes)?;
+    Ok(if header.format_mode.0 == 0 { 2 } else { 3 })
+}
+
+// Read only the family marker and version, never unsupported layout fields.
+// Native readers support historical 2 and current 3. Slots in those layouts
+// begin at 0/160; the known newer layout also has a slot at 192.
+fn unsupported_format_discriminator(bytes: &[u8]) -> Option<u16> {
+    for start in [0, 160, 192] {
+        let Some(magic) = bytes.get(start..start + 8) else {
+            continue;
+        };
+        let native_family =
+            &magic[..3] == b"LBX" && (b'2'..=b'9').contains(&magic[3]) && &magic[4..] == b"HDR\0";
+        if native_family {
+            let Some(version_bytes) = bytes.get(start + 8..start + 10) else {
+                continue;
+            };
+            let version = read_u16_le(version_bytes).ok()?;
+            if !matches!(version, 2 | 3) {
+                return Some(version);
             }
         }
     }
-    if let Some((_, version)) = historical {
-        return Ok(version);
-    }
-    header_v2::read_region(bytes)?;
-    Ok(LOCKBOX_FORMAT_VERSION)
+    None
 }
 
 fn probe_v1(bytes: &[u8]) -> Result<u16> {
@@ -170,6 +169,22 @@ mod tests {
     use super::*;
 
     #[test]
+    fn unsupported_headers_are_identified_but_never_opened() {
+        for slot in [0, 160, 192] {
+            for version in [0_u16, 1, 4, 5, 99] {
+                let mut bytes = vec![0; 384];
+                // Recognize the declared version even in a known older family.
+                bytes[slot..slot + 8].copy_from_slice(b"LBX3HDR\0");
+                bytes[slot + 8..slot + 10].copy_from_slice(&version.to_le_bytes());
+                assert_eq!(probe_lockbox_format_version(&bytes).unwrap(), version);
+                assert!(matches!(read_header(&bytes),
+                    Err(Error::UnsupportedFormatVersion { found, supported: 3, .. })
+                    if found == u32::from(version)));
+            }
+        }
+    }
+
+    #[test]
     fn initialized_header_round_trips() {
         let id = LockboxId::from_bytes([7; 16]);
         let mut bytes = Vec::new();
@@ -178,6 +193,6 @@ mod tests {
         assert_eq!(header.commit_root_offset, 100);
         assert_eq!(header.cleanup_sequence, 4);
         assert_eq!(header.lockbox_id, id);
-        assert_eq!(probe_lockbox_format_version(&bytes).unwrap(), 4);
+        assert_eq!(probe_lockbox_format_version(&bytes).unwrap(), 2);
     }
 }

@@ -20,6 +20,7 @@ pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()
 }
 
 fn run_options(options: RecoverOptions, access: &Access) -> CliResult<()> {
+    super::context::ensure_current_lockbox_format(&options.lockbox_path)?;
     match inspect_pending_cleanup(&options.lockbox_path, access) {
         Ok(Some(status)) => {
             if options.dry_run {
@@ -193,18 +194,10 @@ fn recover_pending_cleanup(
     quiet: bool,
 ) -> CliResult<()> {
     if !quiet {
-        if status.phase == revault_lockbox_api::TransactionRecoveryPhase::Rollback {
-            eprintln!("Lockbox rollback is required. Unpublished changes will be erased; the previous committed state will be restored.");
-        } else if status.phase == revault_lockbox_api::TransactionRecoveryPhase::Truncate {
-            eprintln!(
-                "Lockbox tail reclamation is pending; the verified free suffix will be truncated."
-            );
-        } else {
-            eprintln!(
+        eprintln!(
             "Lockbox cleanup is required. The changes are already committed; cleanup is safe to interrupt and resume ({} of {} complete).",
             human_size(status.completed_bytes), human_size(status.total_bytes),
         );
-        }
     }
     let mut last_percent = None;
     let recovered = Lockbox::recover_transaction(
@@ -232,6 +225,7 @@ pub(crate) fn complete_pending_cleanup_if_available(
     lockbox_path: &str,
     access: &Access,
 ) -> CliResult<()> {
+    super::context::ensure_current_lockbox_format(lockbox_path)?;
     let open = if super::context::is_unencrypted(lockbox_path)? {
         Some(LockboxOpen::Unencrypted)
     } else {
@@ -277,16 +271,7 @@ fn print_pending_cleanup(
         vec![
             vec![
                 "operation".to_string(),
-                match status.phase {
-                    revault_lockbox_api::TransactionRecoveryPhase::Rollback => {
-                        "rollback_preparation"
-                    }
-                    revault_lockbox_api::TransactionRecoveryPhase::Truncate => "truncate_free_tail",
-                    revault_lockbox_api::TransactionRecoveryPhase::Cleanup => {
-                        "complete_pending_cleanup"
-                    }
-                }
-                .to_string(),
+                "complete_pending_cleanup".to_string(),
             ],
             vec![
                 "transaction_sequence".to_string(),

@@ -1,6 +1,7 @@
-## 0.5.0-dev.1
+## 0.4.2-dev.1
 
-- Reserve the 0.5.x compatibility line for archive format 4 development.
+- Restore the format-3 engine on the main development branch; unfinished
+  format-4 transaction work remains on its development branch.
 - Retain the release tooling and package fixes from the format-3 releases.
 
 ## 0.4.1

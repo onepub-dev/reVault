@@ -304,18 +304,12 @@ pub(crate) fn command(verbose: bool) -> Command {
             completion_command(),
             access_command(verbose),
             archive_command("doctor", "Diagnose and maintain vaults and lockboxes.")
-                .arg(Arg::new("deep").long("deep").action(ArgAction::SetTrue).help("Verify physical allocation ownership and zeroed free space without modifying the lockbox."))
                 .after_help(verbose_help(
                     verbose,
                     "Examples:\n  lockbox doctor\n  lockbox secrets.lbox doctor\n  lockbox damaged.lbox doctor recover --dry-run\n  lockbox doctor migrate vault --replace\n  lockbox doctor migrate lockbox secrets.lbox --replace",
                     "Context:\n  Doctor is the maintenance namespace for Vault and Lockbox health. It uses the session default when no Lockbox path is supplied; with neither a path nor a default, it reports local configuration and runtime state. With a Lockbox selected, it inspects public metadata and performs deeper checks when the Lockbox can be opened. Recover repairs or salvages damaged Lockboxes; migrate upgrades valid Vaults and Lockboxes between native format versions.",
                 ))
-                .subcommands([
-                    recovery_command(verbose), migration_command(verbose),
-                    Command::new("compact")
-                        .about("Reclaim unused space with a verified atomic rewrite.")
-                        .after_help("Usage: lockbox [LOCKBOX] doctor compact\n\nUses the session default when LOCKBOX is omitted. Preserves live contents, owner and access settings; discards old commit history. Requires temporary disk space for the compacted archive. Interrupted writes leave the original intact."),
-                ]),
+                .subcommands([recovery_command(verbose), migration_command(verbose)]),
             vault_command(verbose),
             developer_command("visualize", "Print internal lockbox structure.")
                 .visible_alias("visualise"),

@@ -99,10 +99,12 @@ impl<State> Lockbox<State> {
     }
 
     fn write_form_redactions(&mut self, redactions: Vec<(u64, u64)>) -> Result<()> {
-        for (offset, _object_id) in redactions {
-            // Preserve the original physical extent so cleanup erases the
-            // complete retired form page, including its unused tail.
-            let page_size = crate::constants::DEFAULT_METADATA_PAGE_BYTES as u64;
+        for (offset, object_id) in redactions {
+            self.sequence += 1;
+            let payload = encode_form_leaf_secure(&[])?;
+            let object = PageObject::new_secure(PageObjectKind::FormLeaf, object_id, payload);
+            let page_size = page_size_for_objects(std::slice::from_ref(&object)) as u64;
+            self.write_decoded_page_at(offset, self.sequence, vec![object])?;
             self.record_ref_counts.remove(&offset);
             self.redacted_free_slots.push(FreeSlot {
                 offset,
@@ -460,19 +462,14 @@ impl<State> Lockbox<State> {
         kind: PageObjectKind,
         mut payload: SecureVec,
     ) -> Result<u64> {
-        let sequence = self.staged.sequence;
-        // Secure pages always occupy this full extent, independent of payload
-        // length; sizing must not materialize secret fields on the plain heap.
-        let page_size = crate::constants::DEFAULT_METADATA_PAGE_BYTES as u64;
-        let page_offset = self.allocate_page_offset(page_size)?;
-        self.begin_preparation()?;
+        self.flush_dirty_pages()?;
         let mut content_key = self.key.with_bytes(derive_page_content_key)?;
-        let result = self
+        let sequence = self.staged.sequence;
+        let page_offset = self
             .page_manager
             .borrow_mut()
-            .write_secure_single_object_page_at(
+            .append_secure_single_object_page(
                 &mut self.storage,
-                page_offset,
                 SecurePageAppend {
                     lockbox_id: self.lockbox_id,
                     content_key: &content_key,
@@ -481,10 +478,10 @@ impl<State> Lockbox<State> {
                     object_id: sequence,
                     payload: &payload,
                 },
-            );
+            )?;
         content_key.zeroize();
         payload.zeroize()?;
-        result
+        Ok(page_offset)
     }
 }
 

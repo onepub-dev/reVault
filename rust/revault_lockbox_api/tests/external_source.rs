@@ -470,6 +470,15 @@ fn signed_content_corruption_truncation_and_wrong_key_are_rejected() {
         .windows(64)
         .position(|value| value == &payload[..64])
         .unwrap();
+    // Format 3 authenticates live content, not the physical tail extent.
+    // Cut inside known live data: removing only unused tail padding is valid.
+    for end in [offset + 1, offset + payload.len() / 2] {
+        assert!(
+            reader(Arc::new(Bytes(Arc::new(bytes[..end].to_vec()))), false)
+                .try_read(|archive| archive.get_file(&path("/data.bin")))
+                .is_err()
+        );
+    }
     bytes[offset + 12] ^= 1;
     assert!(reader(Arc::new(Bytes(Arc::new(bytes))), false)
         .try_read(|archive| archive.get_file(&path("/data.bin")))
@@ -485,7 +494,7 @@ fn signed_content_corruption_truncation_and_wrong_key_are_rejected() {
     assert!(reader(Arc::new(Bytes(Arc::new(bytes.clone()))), false)
         .try_read(|_| Ok(()))
         .is_err());
-    for end in [1, bytes.len() / 2, bytes.len() - 1] {
+    for end in [1, 160, 319] {
         assert!(
             reader(Arc::new(Bytes(Arc::new(bytes[..end].to_vec()))), true)
                 .try_read(|archive| archive.get_file(&path("/data.bin")))

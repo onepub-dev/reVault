@@ -41,21 +41,22 @@ API operations within one process do not implicitly use the Session Agent unless
 
 For end-to-end examples of the common operations, see the repository's [API examples](https://github.com/onepub-dev/reVault/blob/master/bindings/API_EXAMPLES.md).
 
-## Transaction maintenance and v4
+## Transaction maintenance and format compatibility
 
-The v4 core changes storage behavior without adding C ABI operations or changing the FlatBuffers schema. All language packages need a native carrier rebuilt with that core; generated facade signatures do not need regeneration solely for this change. Migrate the Vault first and then older Lockboxes with the CLI before opening them using a v4 library.
+The current `0.4.x` line uses the format-3 core. The shared C ABI and FlatBuffers
+operation schema are unchanged. Ship each facade with its matching native or
+WASM carrier; a facade-only update does not change the native format.
 
-| Rust core API change | Shared binding status |
-| --- | --- |
-| New `Lockbox::compact()` | Rust/CLI only. Rebuilds and verifies live state, commits pending changes, replaces storage and discards history. Use `lockbox <path> doctor compact` outside foreign library calls. |
-| New `LockboxInspector::verify_storage()` | Rust/CLI only. Deep physical ownership and free-zero validation; CLI `doctor --deep`. |
-| `TransactionRecoveryPhase` gains `Rollback` and `Truncate` | Rust recovery orchestration only; Rust consumers with exhaustive matches must handle the new variants. |
-| Existing `Lockbox::abort()` gains durable physical rollback | Rust only. Not an undo of a published commit. |
-| Form record/value types gain `PartialEq` and `Eq` | Additive Rust comparison traits used by verification; serialized binding models are unchanged. |
-| `format_version()` now reports 4 | Rust inspection behavior changes with the new native format; older containers require migration. |
-| New owner fingerprint/lookup and migration comparison helpers | Rust migration orchestration only; not foreign key-management methods. |
+Format 3 retains cleanup recovery after a committed transaction. Read-only opens
+remain non-mutating and can report pending recovery. Writable opens perform the
+supported cleanup through Rust. The v4 preparation rollback, tail truncation,
+public compaction and deep physical-verification additions remain on the
+separate performance branch and are not APIs of this development line.
 
-The shared binding exclusions explicitly record these boundaries. Foreign writable file opens inherit Rust's automatic rollback, cleanup and truncation. Explicit read-only opens remain non-mutating and may report recovery required. File-backed operations and recovery stay inside Rust; do not emulate compaction by exporting bytes and overwriting the archive from a binding.
+Archives written by released CLI `0.4.0` and bindings `0.4.1` must remain
+readable and writable throughout the `0.4.x` compatibility line. Existing
+format-4 files require a matching v4 build; opening or migrating them with a
+format-3 build must not downgrade them.
 
 A commit error can occur after the new state is published. Reopen and inspect persisted contents before retrying an operation; do not assume every error means rollback. See [Transactions and recovery](../develop-with-revault/transactions.md) for the publication boundary and phase details.
 

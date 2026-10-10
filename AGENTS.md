@@ -51,11 +51,13 @@ releases for compatible fixes.
 
 For the current pre-1.0 compatibility lines:
 
-- `0.4.x` is the released format-3 compatibility line: CLI `0.4.0` and
-  bindings `0.4.1`. Maintain it on the format-3 release branch, excluding
-  unfinished format-4 work.
-- `0.5.x` is reserved for format 4. Main uses `0.5.0-dev.1` during development;
-  publish a stable release only once format 4 is ready.
+- `0.4.x` is the format-3 compatibility line: released CLI `0.4.0` and
+  bindings `0.4.1`. Main continues this line with CLI `0.4.1-dev.1` and
+  bindings `0.4.2-dev.1`, excluding unfinished format-4 work. Keep compatibility
+  with the released format-3 branch in both read/write directions.
+- `0.5.x` is reserved for format 4 on `issue-310-zip-read-performance`.
+  The v4 transaction-recovery implementation is deferred there alongside the
+  performance work; publish a stable release only once format 4 is ready.
 - Do not reuse `0.3.x` for format 3: published Dart `0.3.15` uses format 2.
 
 These release-line numbers are compatibility identifiers, not archive format
