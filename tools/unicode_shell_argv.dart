@@ -113,7 +113,8 @@ Future<void> main() async {
 
 Future<Map<String, Object?>> checkShell(String shell, String tempHome) async {
   final overrideName = 'REVAULT_UNICODE_${shell.toUpperCase()}';
-  final executable = Platform.environment[overrideName] ?? shell;
+  final executable = Platform.environment[overrideName] ??
+      (shell == 'powershell' ? 'pwsh' : shell);
   final expected = <String>[];
   for (final entry in aliases) {
     expected.addAll(
