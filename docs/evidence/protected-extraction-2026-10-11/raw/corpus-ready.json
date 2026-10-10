@@ -1,0 +1,9 @@
+{
+  "bundle_bytes": 14341790,
+  "bundle_sha256": "2b61fa08f0ddcafbc0aed21a149ea62c9134aa7a947a859d8dc2dd73e9a1f59e",
+  "expanded_bytes": 1073741824,
+  "expanded_sha256": "a90cac77289634f3369065f9037ce2d2f48490e967efaf59d78c3c51508ee77d",
+  "full_repetitions": 74,
+  "tail_bytes": 12449364,
+  "not_unique_real_world_gib": true
+}

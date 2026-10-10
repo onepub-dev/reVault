@@ -1,0 +1,89 @@
+{
+  "case": "source-expanded-1gib-compressed-encrypted",
+  "round": 11,
+  "warmup": false,
+  "backend": "typed-tree-4",
+  "worker_count": 4,
+  "input_path": "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/tree.lbox",
+  "archive_apparent_bytes": 231931904,
+  "archive_allocated_bytes": 231931904,
+  "calibrated_archive_physical_read_bytes": 231923712,
+  "read_gate_policy": "at least 50% independent cold full-archive calibrated physical read bytes; zero fincore residency required",
+  "output_path": "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/extract-output/protected-recovery/sample-11-typed-tree-4-attempt00",
+  "affinity": "0,1,2,3,4",
+  "durable": false,
+  "requested_reader_tid_parity": 1,
+  "admission_attempt": 0,
+  "command": [
+    "taskset",
+    "-c",
+    "0,1,2,3,4",
+    "/usr/bin/time",
+    "-v",
+    "timeout",
+    "900",
+    "/home/bsutton/.cache/revault-protected-20261011-bin/revault_lockbox_api_tests",
+    "--exact",
+    "file_format::candidate_files::resource_probe::candidate_file_resource_probe",
+    "--ignored",
+    "--nocapture"
+  ],
+  "environment": {
+    "REVAULT_EXTRACT_DURABLE": "0",
+    "REVAULT_EXTRACT_TID_PARITY": "1",
+    "REVAULT_EXTRACT_PID_NAMESPACE": "pid:[4026531836]",
+    "REVAULT_EXTRACT_BLOCK_DEVICES": "nvme0n1,nvme1n1",
+    "REVAULT_CANDIDATE_ROOT": "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted",
+    "REVAULT_CANDIDATE_PHASE": "tree-extract",
+    "REVAULT_CANDIDATE_UNIT": "65536",
+    "REVAULT_EXTRACT_OUTPUT": "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/extract-output/protected-recovery/sample-11-typed-tree-4-attempt00",
+    "REVAULT_READ_WORKERS": "4"
+  },
+  "executable": "/home/bsutton/.cache/revault-protected-20261011-bin/revault_lockbox_api_tests",
+  "executable_sha256_before": "d7443b92d491020df652335c995809a78afe27b15a66bf91edafdd30e893d92c",
+  "cache_gate": {
+    "sync_exit_code": 0,
+    "sync_stderr": "",
+    "fadvise_exit_code": 0,
+    "fadvise_stdout": "",
+    "fadvise_stderr": "",
+    "fincore_exit_code": 0,
+    "fincore_stdout": "{\n   \"fincore\": [\n      {\n         \"size\": 231931904,\n         \"res\": 0,\n         \"dirty\": 0,\n         \"writeback\": 0,\n         \"file\": \"/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/tree.lbox\"\n      }\n   ]\n}\n",
+    "fincore_stderr": "",
+    "resident_bytes_after_dontneed": 0,
+    "required_resident_bytes": 0,
+    "success": true
+  },
+  "sample": {
+    "archive_opened": false,
+    "backend": "typed-tree",
+    "configured_cpu_workers": 4,
+    "kind": "extraction_admission_skip",
+    "max_queued_chunks": 32,
+    "output_created": false,
+    "parallel_min_requested_bytes": 131072,
+    "reader_identity": {
+      "namespace_tids": [
+        2373998
+      ],
+      "pid_namespace": "pid:[4026531836]",
+      "process_id": 2373997,
+      "reader_tid": 2373998,
+      "reader_tid_parity": 0,
+      "scope": "IDs visible in this procfs mount; not proof of host-kernel task ID or physical mirror"
+    },
+    "reason": "reader_tid_parity_mismatch",
+    "requested_reader_tid_parity": 1,
+    "single_chunk_serial_fallback": true,
+    "verified": false,
+    "worker_threads": 4
+  },
+  "exit_code": 0,
+  "executable_sha256_after": "d7443b92d491020df652335c995809a78afe27b15a66bf91edafdd30e893d92c",
+  "excluded_from_timing": true,
+  "retry_pid_allocation": {
+    "policy": "alternate zero/one harmless child per skipped-attempt transition; identity-based only",
+    "requested_child_count": 0,
+    "children": []
+  }
+}

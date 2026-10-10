@@ -1,0 +1,1822 @@
+{
+  "/home/bsutton/.cache/revault-protected-20261011/source-bundle-raw-plain/archive.zip": {
+    "scans": [
+      {
+        "sync": {
+          "command": [
+            "sync",
+            "-d",
+            "/home/bsutton/.cache/revault-protected-20261011/source-bundle-raw-plain/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "advice": {
+          "command": [
+            "fadvise",
+            "--advice",
+            "dontneed",
+            "/home/bsutton/.cache/revault-protected-20261011/source-bundle-raw-plain/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "fincore": {
+          "command": [
+            "fincore",
+            "--json",
+            "--bytes",
+            "--output",
+            "SIZE,RES,DIRTY,WRITEBACK,FILE",
+            "/home/bsutton/.cache/revault-protected-20261011/source-bundle-raw-plain/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "{\n   \"fincore\": [\n      {\n         \"size\": 14341970,\n         \"res\": 0,\n         \"dirty\": 0,\n         \"writeback\": 0,\n         \"file\": \"/home/bsutton/.cache/revault-protected-20261011/source-bundle-raw-plain/archive.zip\"\n      }\n   ]\n}\n",
+          "stderr": ""
+        },
+        "read_bytes_before": 0,
+        "read_bytes_after": 3207168,
+        "physical_read_bytes": 3207168,
+        "logical_bytes": 14341970,
+        "buffer_bytes": 65536
+      },
+      {
+        "sync": {
+          "command": [
+            "sync",
+            "-d",
+            "/home/bsutton/.cache/revault-protected-20261011/source-bundle-raw-plain/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "advice": {
+          "command": [
+            "fadvise",
+            "--advice",
+            "dontneed",
+            "/home/bsutton/.cache/revault-protected-20261011/source-bundle-raw-plain/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "fincore": {
+          "command": [
+            "fincore",
+            "--json",
+            "--bytes",
+            "--output",
+            "SIZE,RES,DIRTY,WRITEBACK,FILE",
+            "/home/bsutton/.cache/revault-protected-20261011/source-bundle-raw-plain/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "{\n   \"fincore\": [\n      {\n         \"size\": 14341970,\n         \"res\": 0,\n         \"dirty\": 0,\n         \"writeback\": 0,\n         \"file\": \"/home/bsutton/.cache/revault-protected-20261011/source-bundle-raw-plain/archive.zip\"\n      }\n   ]\n}\n",
+          "stderr": ""
+        },
+        "read_bytes_before": 3207168,
+        "read_bytes_after": 6414336,
+        "physical_read_bytes": 3207168,
+        "logical_bytes": 14341970,
+        "buffer_bytes": 65536
+      }
+    ],
+    "minimum_physical_read_bytes": 3207168,
+    "maximum_physical_read_bytes": 3207168,
+    "required_extraction_read_bytes": 1603584,
+    "fraction": 0.5,
+    "basis": "two independently evicted whole-archive synchronous64KiB reads; own proc/self/io read_bytes delta; stat allocation not physical on compressed Btrfs"
+  },
+  "/home/bsutton/.cache/revault-protected-20261011/source-bundle-raw-plain/tree.lbox": {
+    "scans": [
+      {
+        "sync": {
+          "command": [
+            "sync",
+            "-d",
+            "/home/bsutton/.cache/revault-protected-20261011/source-bundle-raw-plain/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "advice": {
+          "command": [
+            "fadvise",
+            "--advice",
+            "dontneed",
+            "/home/bsutton/.cache/revault-protected-20261011/source-bundle-raw-plain/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "fincore": {
+          "command": [
+            "fincore",
+            "--json",
+            "--bytes",
+            "--output",
+            "SIZE,RES,DIRTY,WRITEBACK,FILE",
+            "/home/bsutton/.cache/revault-protected-20261011/source-bundle-raw-plain/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "{\n   \"fincore\": [\n      {\n         \"size\": 14614528,\n         \"res\": 0,\n         \"dirty\": 0,\n         \"writeback\": 0,\n         \"file\": \"/home/bsutton/.cache/revault-protected-20261011/source-bundle-raw-plain/tree.lbox\"\n      }\n   ]\n}\n",
+          "stderr": ""
+        },
+        "read_bytes_before": 6414336,
+        "read_bytes_after": 9662464,
+        "physical_read_bytes": 3248128,
+        "logical_bytes": 14614528,
+        "buffer_bytes": 65536
+      },
+      {
+        "sync": {
+          "command": [
+            "sync",
+            "-d",
+            "/home/bsutton/.cache/revault-protected-20261011/source-bundle-raw-plain/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "advice": {
+          "command": [
+            "fadvise",
+            "--advice",
+            "dontneed",
+            "/home/bsutton/.cache/revault-protected-20261011/source-bundle-raw-plain/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "fincore": {
+          "command": [
+            "fincore",
+            "--json",
+            "--bytes",
+            "--output",
+            "SIZE,RES,DIRTY,WRITEBACK,FILE",
+            "/home/bsutton/.cache/revault-protected-20261011/source-bundle-raw-plain/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "{\n   \"fincore\": [\n      {\n         \"size\": 14614528,\n         \"res\": 0,\n         \"dirty\": 0,\n         \"writeback\": 0,\n         \"file\": \"/home/bsutton/.cache/revault-protected-20261011/source-bundle-raw-plain/tree.lbox\"\n      }\n   ]\n}\n",
+          "stderr": ""
+        },
+        "read_bytes_before": 9662464,
+        "read_bytes_after": 12910592,
+        "physical_read_bytes": 3248128,
+        "logical_bytes": 14614528,
+        "buffer_bytes": 65536
+      }
+    ],
+    "minimum_physical_read_bytes": 3248128,
+    "maximum_physical_read_bytes": 3248128,
+    "required_extraction_read_bytes": 1624064,
+    "fraction": 0.5,
+    "basis": "two independently evicted whole-archive synchronous64KiB reads; own proc/self/io read_bytes delta; stat allocation not physical on compressed Btrfs"
+  },
+  "/home/bsutton/.cache/revault-protected-20261011/source-bundle-raw-encrypted/archive.zip": {
+    "scans": [
+      {
+        "sync": {
+          "command": [
+            "sync",
+            "-d",
+            "/home/bsutton/.cache/revault-protected-20261011/source-bundle-raw-encrypted/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "advice": {
+          "command": [
+            "fadvise",
+            "--advice",
+            "dontneed",
+            "/home/bsutton/.cache/revault-protected-20261011/source-bundle-raw-encrypted/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "fincore": {
+          "command": [
+            "fincore",
+            "--json",
+            "--bytes",
+            "--output",
+            "SIZE,RES,DIRTY,WRITEBACK,FILE",
+            "/home/bsutton/.cache/revault-protected-20261011/source-bundle-raw-encrypted/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "{\n   \"fincore\": [\n      {\n         \"size\": 14341970,\n         \"res\": 0,\n         \"dirty\": 0,\n         \"writeback\": 0,\n         \"file\": \"/home/bsutton/.cache/revault-protected-20261011/source-bundle-raw-encrypted/archive.zip\"\n      }\n   ]\n}\n",
+          "stderr": ""
+        },
+        "read_bytes_before": 12910592,
+        "read_bytes_after": 16117760,
+        "physical_read_bytes": 3207168,
+        "logical_bytes": 14341970,
+        "buffer_bytes": 65536
+      },
+      {
+        "sync": {
+          "command": [
+            "sync",
+            "-d",
+            "/home/bsutton/.cache/revault-protected-20261011/source-bundle-raw-encrypted/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "advice": {
+          "command": [
+            "fadvise",
+            "--advice",
+            "dontneed",
+            "/home/bsutton/.cache/revault-protected-20261011/source-bundle-raw-encrypted/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "fincore": {
+          "command": [
+            "fincore",
+            "--json",
+            "--bytes",
+            "--output",
+            "SIZE,RES,DIRTY,WRITEBACK,FILE",
+            "/home/bsutton/.cache/revault-protected-20261011/source-bundle-raw-encrypted/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "{\n   \"fincore\": [\n      {\n         \"size\": 14341970,\n         \"res\": 0,\n         \"dirty\": 0,\n         \"writeback\": 0,\n         \"file\": \"/home/bsutton/.cache/revault-protected-20261011/source-bundle-raw-encrypted/archive.zip\"\n      }\n   ]\n}\n",
+          "stderr": ""
+        },
+        "read_bytes_before": 16117760,
+        "read_bytes_after": 19324928,
+        "physical_read_bytes": 3207168,
+        "logical_bytes": 14341970,
+        "buffer_bytes": 65536
+      }
+    ],
+    "minimum_physical_read_bytes": 3207168,
+    "maximum_physical_read_bytes": 3207168,
+    "required_extraction_read_bytes": 1603584,
+    "fraction": 0.5,
+    "basis": "two independently evicted whole-archive synchronous64KiB reads; own proc/self/io read_bytes delta; stat allocation not physical on compressed Btrfs"
+  },
+  "/home/bsutton/.cache/revault-protected-20261011/source-bundle-raw-encrypted/tree.lbox": {
+    "scans": [
+      {
+        "sync": {
+          "command": [
+            "sync",
+            "-d",
+            "/home/bsutton/.cache/revault-protected-20261011/source-bundle-raw-encrypted/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "advice": {
+          "command": [
+            "fadvise",
+            "--advice",
+            "dontneed",
+            "/home/bsutton/.cache/revault-protected-20261011/source-bundle-raw-encrypted/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "fincore": {
+          "command": [
+            "fincore",
+            "--json",
+            "--bytes",
+            "--output",
+            "SIZE,RES,DIRTY,WRITEBACK,FILE",
+            "/home/bsutton/.cache/revault-protected-20261011/source-bundle-raw-encrypted/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "{\n   \"fincore\": [\n      {\n         \"size\": 15859712,\n         \"res\": 0,\n         \"dirty\": 0,\n         \"writeback\": 0,\n         \"file\": \"/home/bsutton/.cache/revault-protected-20261011/source-bundle-raw-encrypted/tree.lbox\"\n      }\n   ]\n}\n",
+          "stderr": ""
+        },
+        "read_bytes_before": 19324928,
+        "read_bytes_after": 35115008,
+        "physical_read_bytes": 15790080,
+        "logical_bytes": 15859712,
+        "buffer_bytes": 65536
+      },
+      {
+        "sync": {
+          "command": [
+            "sync",
+            "-d",
+            "/home/bsutton/.cache/revault-protected-20261011/source-bundle-raw-encrypted/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "advice": {
+          "command": [
+            "fadvise",
+            "--advice",
+            "dontneed",
+            "/home/bsutton/.cache/revault-protected-20261011/source-bundle-raw-encrypted/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "fincore": {
+          "command": [
+            "fincore",
+            "--json",
+            "--bytes",
+            "--output",
+            "SIZE,RES,DIRTY,WRITEBACK,FILE",
+            "/home/bsutton/.cache/revault-protected-20261011/source-bundle-raw-encrypted/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "{\n   \"fincore\": [\n      {\n         \"size\": 15859712,\n         \"res\": 0,\n         \"dirty\": 0,\n         \"writeback\": 0,\n         \"file\": \"/home/bsutton/.cache/revault-protected-20261011/source-bundle-raw-encrypted/tree.lbox\"\n      }\n   ]\n}\n",
+          "stderr": ""
+        },
+        "read_bytes_before": 35115008,
+        "read_bytes_after": 50905088,
+        "physical_read_bytes": 15790080,
+        "logical_bytes": 15859712,
+        "buffer_bytes": 65536
+      }
+    ],
+    "minimum_physical_read_bytes": 15790080,
+    "maximum_physical_read_bytes": 15790080,
+    "required_extraction_read_bytes": 7895040,
+    "fraction": 0.5,
+    "basis": "two independently evicted whole-archive synchronous64KiB reads; own proc/self/io read_bytes delta; stat allocation not physical on compressed Btrfs"
+  },
+  "/home/bsutton/.cache/revault-protected-20261011/source-bundle-compressed-plain/archive.zip": {
+    "scans": [
+      {
+        "sync": {
+          "command": [
+            "sync",
+            "-d",
+            "/home/bsutton/.cache/revault-protected-20261011/source-bundle-compressed-plain/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "advice": {
+          "command": [
+            "fadvise",
+            "--advice",
+            "dontneed",
+            "/home/bsutton/.cache/revault-protected-20261011/source-bundle-compressed-plain/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "fincore": {
+          "command": [
+            "fincore",
+            "--json",
+            "--bytes",
+            "--output",
+            "SIZE,RES,DIRTY,WRITEBACK,FILE",
+            "/home/bsutton/.cache/revault-protected-20261011/source-bundle-compressed-plain/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "{\n   \"fincore\": [\n      {\n         \"size\": 2436616,\n         \"res\": 0,\n         \"dirty\": 0,\n         \"writeback\": 0,\n         \"file\": \"/home/bsutton/.cache/revault-protected-20261011/source-bundle-compressed-plain/archive.zip\"\n      }\n   ]\n}\n",
+          "stderr": ""
+        },
+        "read_bytes_before": 50905088,
+        "read_bytes_after": 53342208,
+        "physical_read_bytes": 2437120,
+        "logical_bytes": 2436616,
+        "buffer_bytes": 65536
+      },
+      {
+        "sync": {
+          "command": [
+            "sync",
+            "-d",
+            "/home/bsutton/.cache/revault-protected-20261011/source-bundle-compressed-plain/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "advice": {
+          "command": [
+            "fadvise",
+            "--advice",
+            "dontneed",
+            "/home/bsutton/.cache/revault-protected-20261011/source-bundle-compressed-plain/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "fincore": {
+          "command": [
+            "fincore",
+            "--json",
+            "--bytes",
+            "--output",
+            "SIZE,RES,DIRTY,WRITEBACK,FILE",
+            "/home/bsutton/.cache/revault-protected-20261011/source-bundle-compressed-plain/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "{\n   \"fincore\": [\n      {\n         \"size\": 2436616,\n         \"res\": 0,\n         \"dirty\": 0,\n         \"writeback\": 0,\n         \"file\": \"/home/bsutton/.cache/revault-protected-20261011/source-bundle-compressed-plain/archive.zip\"\n      }\n   ]\n}\n",
+          "stderr": ""
+        },
+        "read_bytes_before": 53342208,
+        "read_bytes_after": 55779328,
+        "physical_read_bytes": 2437120,
+        "logical_bytes": 2436616,
+        "buffer_bytes": 65536
+      }
+    ],
+    "minimum_physical_read_bytes": 2437120,
+    "maximum_physical_read_bytes": 2437120,
+    "required_extraction_read_bytes": 1218560,
+    "fraction": 0.5,
+    "basis": "two independently evicted whole-archive synchronous64KiB reads; own proc/self/io read_bytes delta; stat allocation not physical on compressed Btrfs"
+  },
+  "/home/bsutton/.cache/revault-protected-20261011/source-bundle-compressed-plain/tree.lbox": {
+    "scans": [
+      {
+        "sync": {
+          "command": [
+            "sync",
+            "-d",
+            "/home/bsutton/.cache/revault-protected-20261011/source-bundle-compressed-plain/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "advice": {
+          "command": [
+            "fadvise",
+            "--advice",
+            "dontneed",
+            "/home/bsutton/.cache/revault-protected-20261011/source-bundle-compressed-plain/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "fincore": {
+          "command": [
+            "fincore",
+            "--json",
+            "--bytes",
+            "--output",
+            "SIZE,RES,DIRTY,WRITEBACK,FILE",
+            "/home/bsutton/.cache/revault-protected-20261011/source-bundle-compressed-plain/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "{\n   \"fincore\": [\n      {\n         \"size\": 3342336,\n         \"res\": 0,\n         \"dirty\": 0,\n         \"writeback\": 0,\n         \"file\": \"/home/bsutton/.cache/revault-protected-20261011/source-bundle-compressed-plain/tree.lbox\"\n      }\n   ]\n}\n",
+          "stderr": ""
+        },
+        "read_bytes_before": 55779328,
+        "read_bytes_after": 58863616,
+        "physical_read_bytes": 3084288,
+        "logical_bytes": 3342336,
+        "buffer_bytes": 65536
+      },
+      {
+        "sync": {
+          "command": [
+            "sync",
+            "-d",
+            "/home/bsutton/.cache/revault-protected-20261011/source-bundle-compressed-plain/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "advice": {
+          "command": [
+            "fadvise",
+            "--advice",
+            "dontneed",
+            "/home/bsutton/.cache/revault-protected-20261011/source-bundle-compressed-plain/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "fincore": {
+          "command": [
+            "fincore",
+            "--json",
+            "--bytes",
+            "--output",
+            "SIZE,RES,DIRTY,WRITEBACK,FILE",
+            "/home/bsutton/.cache/revault-protected-20261011/source-bundle-compressed-plain/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "{\n   \"fincore\": [\n      {\n         \"size\": 3342336,\n         \"res\": 0,\n         \"dirty\": 0,\n         \"writeback\": 0,\n         \"file\": \"/home/bsutton/.cache/revault-protected-20261011/source-bundle-compressed-plain/tree.lbox\"\n      }\n   ]\n}\n",
+          "stderr": ""
+        },
+        "read_bytes_before": 58863616,
+        "read_bytes_after": 61947904,
+        "physical_read_bytes": 3084288,
+        "logical_bytes": 3342336,
+        "buffer_bytes": 65536
+      }
+    ],
+    "minimum_physical_read_bytes": 3084288,
+    "maximum_physical_read_bytes": 3084288,
+    "required_extraction_read_bytes": 1542144,
+    "fraction": 0.5,
+    "basis": "two independently evicted whole-archive synchronous64KiB reads; own proc/self/io read_bytes delta; stat allocation not physical on compressed Btrfs"
+  },
+  "/home/bsutton/.cache/revault-protected-20261011/source-bundle-compressed-encrypted/archive.zip": {
+    "scans": [
+      {
+        "sync": {
+          "command": [
+            "sync",
+            "-d",
+            "/home/bsutton/.cache/revault-protected-20261011/source-bundle-compressed-encrypted/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "advice": {
+          "command": [
+            "fadvise",
+            "--advice",
+            "dontneed",
+            "/home/bsutton/.cache/revault-protected-20261011/source-bundle-compressed-encrypted/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "fincore": {
+          "command": [
+            "fincore",
+            "--json",
+            "--bytes",
+            "--output",
+            "SIZE,RES,DIRTY,WRITEBACK,FILE",
+            "/home/bsutton/.cache/revault-protected-20261011/source-bundle-compressed-encrypted/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "{\n   \"fincore\": [\n      {\n         \"size\": 2436616,\n         \"res\": 0,\n         \"dirty\": 0,\n         \"writeback\": 0,\n         \"file\": \"/home/bsutton/.cache/revault-protected-20261011/source-bundle-compressed-encrypted/archive.zip\"\n      }\n   ]\n}\n",
+          "stderr": ""
+        },
+        "read_bytes_before": 61947904,
+        "read_bytes_after": 64385024,
+        "physical_read_bytes": 2437120,
+        "logical_bytes": 2436616,
+        "buffer_bytes": 65536
+      },
+      {
+        "sync": {
+          "command": [
+            "sync",
+            "-d",
+            "/home/bsutton/.cache/revault-protected-20261011/source-bundle-compressed-encrypted/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "advice": {
+          "command": [
+            "fadvise",
+            "--advice",
+            "dontneed",
+            "/home/bsutton/.cache/revault-protected-20261011/source-bundle-compressed-encrypted/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "fincore": {
+          "command": [
+            "fincore",
+            "--json",
+            "--bytes",
+            "--output",
+            "SIZE,RES,DIRTY,WRITEBACK,FILE",
+            "/home/bsutton/.cache/revault-protected-20261011/source-bundle-compressed-encrypted/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "{\n   \"fincore\": [\n      {\n         \"size\": 2436616,\n         \"res\": 0,\n         \"dirty\": 0,\n         \"writeback\": 0,\n         \"file\": \"/home/bsutton/.cache/revault-protected-20261011/source-bundle-compressed-encrypted/archive.zip\"\n      }\n   ]\n}\n",
+          "stderr": ""
+        },
+        "read_bytes_before": 64385024,
+        "read_bytes_after": 66822144,
+        "physical_read_bytes": 2437120,
+        "logical_bytes": 2436616,
+        "buffer_bytes": 65536
+      }
+    ],
+    "minimum_physical_read_bytes": 2437120,
+    "maximum_physical_read_bytes": 2437120,
+    "required_extraction_read_bytes": 1218560,
+    "fraction": 0.5,
+    "basis": "two independently evicted whole-archive synchronous64KiB reads; own proc/self/io read_bytes delta; stat allocation not physical on compressed Btrfs"
+  },
+  "/home/bsutton/.cache/revault-protected-20261011/source-bundle-compressed-encrypted/tree.lbox": {
+    "scans": [
+      {
+        "sync": {
+          "command": [
+            "sync",
+            "-d",
+            "/home/bsutton/.cache/revault-protected-20261011/source-bundle-compressed-encrypted/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "advice": {
+          "command": [
+            "fadvise",
+            "--advice",
+            "dontneed",
+            "/home/bsutton/.cache/revault-protected-20261011/source-bundle-compressed-encrypted/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "fincore": {
+          "command": [
+            "fincore",
+            "--json",
+            "--bytes",
+            "--output",
+            "SIZE,RES,DIRTY,WRITEBACK,FILE",
+            "/home/bsutton/.cache/revault-protected-20261011/source-bundle-compressed-encrypted/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "{\n   \"fincore\": [\n      {\n         \"size\": 3342336,\n         \"res\": 0,\n         \"dirty\": 0,\n         \"writeback\": 0,\n         \"file\": \"/home/bsutton/.cache/revault-protected-20261011/source-bundle-compressed-encrypted/tree.lbox\"\n      }\n   ]\n}\n",
+          "stderr": ""
+        },
+        "read_bytes_before": 66822144,
+        "read_bytes_after": 70156288,
+        "physical_read_bytes": 3334144,
+        "logical_bytes": 3342336,
+        "buffer_bytes": 65536
+      },
+      {
+        "sync": {
+          "command": [
+            "sync",
+            "-d",
+            "/home/bsutton/.cache/revault-protected-20261011/source-bundle-compressed-encrypted/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "advice": {
+          "command": [
+            "fadvise",
+            "--advice",
+            "dontneed",
+            "/home/bsutton/.cache/revault-protected-20261011/source-bundle-compressed-encrypted/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "fincore": {
+          "command": [
+            "fincore",
+            "--json",
+            "--bytes",
+            "--output",
+            "SIZE,RES,DIRTY,WRITEBACK,FILE",
+            "/home/bsutton/.cache/revault-protected-20261011/source-bundle-compressed-encrypted/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "{\n   \"fincore\": [\n      {\n         \"size\": 3342336,\n         \"res\": 0,\n         \"dirty\": 0,\n         \"writeback\": 0,\n         \"file\": \"/home/bsutton/.cache/revault-protected-20261011/source-bundle-compressed-encrypted/tree.lbox\"\n      }\n   ]\n}\n",
+          "stderr": ""
+        },
+        "read_bytes_before": 70156288,
+        "read_bytes_after": 73490432,
+        "physical_read_bytes": 3334144,
+        "logical_bytes": 3342336,
+        "buffer_bytes": 65536
+      }
+    ],
+    "minimum_physical_read_bytes": 3334144,
+    "maximum_physical_read_bytes": 3334144,
+    "required_extraction_read_bytes": 1667072,
+    "fraction": 0.5,
+    "basis": "two independently evicted whole-archive synchronous64KiB reads; own proc/self/io read_bytes delta; stat allocation not physical on compressed Btrfs"
+  },
+  "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-raw-plain/archive.zip": {
+    "scans": [
+      {
+        "sync": {
+          "command": [
+            "sync",
+            "-d",
+            "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-raw-plain/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "advice": {
+          "command": [
+            "fadvise",
+            "--advice",
+            "dontneed",
+            "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-raw-plain/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "fincore": {
+          "command": [
+            "fincore",
+            "--json",
+            "--bytes",
+            "--output",
+            "SIZE,RES,DIRTY,WRITEBACK,FILE",
+            "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-raw-plain/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "{\n   \"fincore\": [\n      {\n         \"size\": 1073742004,\n         \"res\": 0,\n         \"dirty\": 0,\n         \"writeback\": 0,\n         \"file\": \"/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-raw-plain/archive.zip\"\n      }\n   ]\n}\n",
+          "stderr": ""
+        },
+        "read_bytes_before": 73490432,
+        "read_bytes_after": 313245696,
+        "physical_read_bytes": 239755264,
+        "logical_bytes": 1073742004,
+        "buffer_bytes": 65536
+      },
+      {
+        "sync": {
+          "command": [
+            "sync",
+            "-d",
+            "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-raw-plain/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "advice": {
+          "command": [
+            "fadvise",
+            "--advice",
+            "dontneed",
+            "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-raw-plain/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "fincore": {
+          "command": [
+            "fincore",
+            "--json",
+            "--bytes",
+            "--output",
+            "SIZE,RES,DIRTY,WRITEBACK,FILE",
+            "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-raw-plain/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "{\n   \"fincore\": [\n      {\n         \"size\": 1073742004,\n         \"res\": 0,\n         \"dirty\": 0,\n         \"writeback\": 0,\n         \"file\": \"/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-raw-plain/archive.zip\"\n      }\n   ]\n}\n",
+          "stderr": ""
+        },
+        "read_bytes_before": 313245696,
+        "read_bytes_after": 553000960,
+        "physical_read_bytes": 239755264,
+        "logical_bytes": 1073742004,
+        "buffer_bytes": 65536
+      }
+    ],
+    "minimum_physical_read_bytes": 239755264,
+    "maximum_physical_read_bytes": 239755264,
+    "required_extraction_read_bytes": 119877632,
+    "fraction": 0.5,
+    "basis": "two independently evicted whole-archive synchronous64KiB reads; own proc/self/io read_bytes delta; stat allocation not physical on compressed Btrfs"
+  },
+  "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-raw-plain/tree.lbox": {
+    "scans": [
+      {
+        "sync": {
+          "command": [
+            "sync",
+            "-d",
+            "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-raw-plain/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "advice": {
+          "command": [
+            "fadvise",
+            "--advice",
+            "dontneed",
+            "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-raw-plain/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "fincore": {
+          "command": [
+            "fincore",
+            "--json",
+            "--bytes",
+            "--output",
+            "SIZE,RES,DIRTY,WRITEBACK,FILE",
+            "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-raw-plain/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "{\n   \"fincore\": [\n      {\n         \"size\": 1083703296,\n         \"res\": 0,\n         \"dirty\": 0,\n         \"writeback\": 0,\n         \"file\": \"/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-raw-plain/tree.lbox\"\n      }\n   ]\n}\n",
+          "stderr": ""
+        },
+        "read_bytes_before": 553000960,
+        "read_bytes_after": 794722304,
+        "physical_read_bytes": 241721344,
+        "logical_bytes": 1083703296,
+        "buffer_bytes": 65536
+      },
+      {
+        "sync": {
+          "command": [
+            "sync",
+            "-d",
+            "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-raw-plain/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "advice": {
+          "command": [
+            "fadvise",
+            "--advice",
+            "dontneed",
+            "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-raw-plain/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "fincore": {
+          "command": [
+            "fincore",
+            "--json",
+            "--bytes",
+            "--output",
+            "SIZE,RES,DIRTY,WRITEBACK,FILE",
+            "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-raw-plain/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "{\n   \"fincore\": [\n      {\n         \"size\": 1083703296,\n         \"res\": 0,\n         \"dirty\": 0,\n         \"writeback\": 0,\n         \"file\": \"/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-raw-plain/tree.lbox\"\n      }\n   ]\n}\n",
+          "stderr": ""
+        },
+        "read_bytes_before": 794722304,
+        "read_bytes_after": 1036443648,
+        "physical_read_bytes": 241721344,
+        "logical_bytes": 1083703296,
+        "buffer_bytes": 65536
+      }
+    ],
+    "minimum_physical_read_bytes": 241721344,
+    "maximum_physical_read_bytes": 241721344,
+    "required_extraction_read_bytes": 120860672,
+    "fraction": 0.5,
+    "basis": "two independently evicted whole-archive synchronous64KiB reads; own proc/self/io read_bytes delta; stat allocation not physical on compressed Btrfs"
+  },
+  "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-raw-encrypted/archive.zip": {
+    "scans": [
+      {
+        "sync": {
+          "command": [
+            "sync",
+            "-d",
+            "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-raw-encrypted/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "advice": {
+          "command": [
+            "fadvise",
+            "--advice",
+            "dontneed",
+            "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-raw-encrypted/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "fincore": {
+          "command": [
+            "fincore",
+            "--json",
+            "--bytes",
+            "--output",
+            "SIZE,RES,DIRTY,WRITEBACK,FILE",
+            "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-raw-encrypted/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "{\n   \"fincore\": [\n      {\n         \"size\": 1073742004,\n         \"res\": 0,\n         \"dirty\": 0,\n         \"writeback\": 0,\n         \"file\": \"/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-raw-encrypted/archive.zip\"\n      }\n   ]\n}\n",
+          "stderr": ""
+        },
+        "read_bytes_before": 1036443648,
+        "read_bytes_after": 1276194816,
+        "physical_read_bytes": 239751168,
+        "logical_bytes": 1073742004,
+        "buffer_bytes": 65536
+      },
+      {
+        "sync": {
+          "command": [
+            "sync",
+            "-d",
+            "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-raw-encrypted/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "advice": {
+          "command": [
+            "fadvise",
+            "--advice",
+            "dontneed",
+            "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-raw-encrypted/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "fincore": {
+          "command": [
+            "fincore",
+            "--json",
+            "--bytes",
+            "--output",
+            "SIZE,RES,DIRTY,WRITEBACK,FILE",
+            "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-raw-encrypted/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "{\n   \"fincore\": [\n      {\n         \"size\": 1073742004,\n         \"res\": 0,\n         \"dirty\": 0,\n         \"writeback\": 0,\n         \"file\": \"/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-raw-encrypted/archive.zip\"\n      }\n   ]\n}\n",
+          "stderr": ""
+        },
+        "read_bytes_before": 1276194816,
+        "read_bytes_after": 1515945984,
+        "physical_read_bytes": 239751168,
+        "logical_bytes": 1073742004,
+        "buffer_bytes": 65536
+      }
+    ],
+    "minimum_physical_read_bytes": 239751168,
+    "maximum_physical_read_bytes": 239751168,
+    "required_extraction_read_bytes": 119875584,
+    "fraction": 0.5,
+    "basis": "two independently evicted whole-archive synchronous64KiB reads; own proc/self/io read_bytes delta; stat allocation not physical on compressed Btrfs"
+  },
+  "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-raw-encrypted/tree.lbox": {
+    "scans": [
+      {
+        "sync": {
+          "command": [
+            "sync",
+            "-d",
+            "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-raw-encrypted/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "advice": {
+          "command": [
+            "fadvise",
+            "--advice",
+            "dontneed",
+            "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-raw-encrypted/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "fincore": {
+          "command": [
+            "fincore",
+            "--json",
+            "--bytes",
+            "--output",
+            "SIZE,RES,DIRTY,WRITEBACK,FILE",
+            "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-raw-encrypted/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "{\n   \"fincore\": [\n      {\n         \"size\": 1155989504,\n         \"res\": 0,\n         \"dirty\": 0,\n         \"writeback\": 0,\n         \"file\": \"/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-raw-encrypted/tree.lbox\"\n      }\n   ]\n}\n",
+          "stderr": ""
+        },
+        "read_bytes_before": 1515945984,
+        "read_bytes_after": 2671927296,
+        "physical_read_bytes": 1155981312,
+        "logical_bytes": 1155989504,
+        "buffer_bytes": 65536
+      },
+      {
+        "sync": {
+          "command": [
+            "sync",
+            "-d",
+            "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-raw-encrypted/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "advice": {
+          "command": [
+            "fadvise",
+            "--advice",
+            "dontneed",
+            "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-raw-encrypted/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "fincore": {
+          "command": [
+            "fincore",
+            "--json",
+            "--bytes",
+            "--output",
+            "SIZE,RES,DIRTY,WRITEBACK,FILE",
+            "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-raw-encrypted/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "{\n   \"fincore\": [\n      {\n         \"size\": 1155989504,\n         \"res\": 0,\n         \"dirty\": 0,\n         \"writeback\": 0,\n         \"file\": \"/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-raw-encrypted/tree.lbox\"\n      }\n   ]\n}\n",
+          "stderr": ""
+        },
+        "read_bytes_before": 2671927296,
+        "read_bytes_after": 3827908608,
+        "physical_read_bytes": 1155981312,
+        "logical_bytes": 1155989504,
+        "buffer_bytes": 65536
+      }
+    ],
+    "minimum_physical_read_bytes": 1155981312,
+    "maximum_physical_read_bytes": 1155981312,
+    "required_extraction_read_bytes": 577990656,
+    "fraction": 0.5,
+    "basis": "two independently evicted whole-archive synchronous64KiB reads; own proc/self/io read_bytes delta; stat allocation not physical on compressed Btrfs"
+  },
+  "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-plain/archive.zip": {
+    "scans": [
+      {
+        "sync": {
+          "command": [
+            "sync",
+            "-d",
+            "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-plain/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "advice": {
+          "command": [
+            "fadvise",
+            "--advice",
+            "dontneed",
+            "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-plain/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "fincore": {
+          "command": [
+            "fincore",
+            "--json",
+            "--bytes",
+            "--output",
+            "SIZE,RES,DIRTY,WRITEBACK,FILE",
+            "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-plain/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "{\n   \"fincore\": [\n      {\n         \"size\": 182405087,\n         \"res\": 0,\n         \"dirty\": 0,\n         \"writeback\": 0,\n         \"file\": \"/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-plain/archive.zip\"\n      }\n   ]\n}\n",
+          "stderr": ""
+        },
+        "read_bytes_before": 3827908608,
+        "read_bytes_after": 4010315776,
+        "physical_read_bytes": 182407168,
+        "logical_bytes": 182405087,
+        "buffer_bytes": 65536
+      },
+      {
+        "sync": {
+          "command": [
+            "sync",
+            "-d",
+            "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-plain/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "advice": {
+          "command": [
+            "fadvise",
+            "--advice",
+            "dontneed",
+            "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-plain/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "fincore": {
+          "command": [
+            "fincore",
+            "--json",
+            "--bytes",
+            "--output",
+            "SIZE,RES,DIRTY,WRITEBACK,FILE",
+            "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-plain/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "{\n   \"fincore\": [\n      {\n         \"size\": 182405087,\n         \"res\": 0,\n         \"dirty\": 0,\n         \"writeback\": 0,\n         \"file\": \"/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-plain/archive.zip\"\n      }\n   ]\n}\n",
+          "stderr": ""
+        },
+        "read_bytes_before": 4010315776,
+        "read_bytes_after": 4192722944,
+        "physical_read_bytes": 182407168,
+        "logical_bytes": 182405087,
+        "buffer_bytes": 65536
+      }
+    ],
+    "minimum_physical_read_bytes": 182407168,
+    "maximum_physical_read_bytes": 182407168,
+    "required_extraction_read_bytes": 91203584,
+    "fraction": 0.5,
+    "basis": "two independently evicted whole-archive synchronous64KiB reads; own proc/self/io read_bytes delta; stat allocation not physical on compressed Btrfs"
+  },
+  "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-plain/tree.lbox": {
+    "scans": [
+      {
+        "sync": {
+          "command": [
+            "sync",
+            "-d",
+            "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-plain/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "advice": {
+          "command": [
+            "fadvise",
+            "--advice",
+            "dontneed",
+            "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-plain/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "fincore": {
+          "command": [
+            "fincore",
+            "--json",
+            "--bytes",
+            "--output",
+            "SIZE,RES,DIRTY,WRITEBACK,FILE",
+            "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-plain/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "{\n   \"fincore\": [\n      {\n         \"size\": 231211008,\n         \"res\": 0,\n         \"dirty\": 0,\n         \"writeback\": 0,\n         \"file\": \"/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-plain/tree.lbox\"\n      }\n   ]\n}\n",
+          "stderr": ""
+        },
+        "read_bytes_before": 4192722944,
+        "read_bytes_after": 4423819264,
+        "physical_read_bytes": 231096320,
+        "logical_bytes": 231211008,
+        "buffer_bytes": 65536
+      },
+      {
+        "sync": {
+          "command": [
+            "sync",
+            "-d",
+            "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-plain/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "advice": {
+          "command": [
+            "fadvise",
+            "--advice",
+            "dontneed",
+            "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-plain/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "fincore": {
+          "command": [
+            "fincore",
+            "--json",
+            "--bytes",
+            "--output",
+            "SIZE,RES,DIRTY,WRITEBACK,FILE",
+            "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-plain/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "{\n   \"fincore\": [\n      {\n         \"size\": 231211008,\n         \"res\": 0,\n         \"dirty\": 0,\n         \"writeback\": 0,\n         \"file\": \"/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-plain/tree.lbox\"\n      }\n   ]\n}\n",
+          "stderr": ""
+        },
+        "read_bytes_before": 4423819264,
+        "read_bytes_after": 4654915584,
+        "physical_read_bytes": 231096320,
+        "logical_bytes": 231211008,
+        "buffer_bytes": 65536
+      }
+    ],
+    "minimum_physical_read_bytes": 231096320,
+    "maximum_physical_read_bytes": 231096320,
+    "required_extraction_read_bytes": 115548160,
+    "fraction": 0.5,
+    "basis": "two independently evicted whole-archive synchronous64KiB reads; own proc/self/io read_bytes delta; stat allocation not physical on compressed Btrfs"
+  },
+  "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/archive.zip": {
+    "scans": [
+      {
+        "sync": {
+          "command": [
+            "sync",
+            "-d",
+            "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "advice": {
+          "command": [
+            "fadvise",
+            "--advice",
+            "dontneed",
+            "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "fincore": {
+          "command": [
+            "fincore",
+            "--json",
+            "--bytes",
+            "--output",
+            "SIZE,RES,DIRTY,WRITEBACK,FILE",
+            "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "{\n   \"fincore\": [\n      {\n         \"size\": 182405087,\n         \"res\": 0,\n         \"dirty\": 0,\n         \"writeback\": 0,\n         \"file\": \"/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/archive.zip\"\n      }\n   ]\n}\n",
+          "stderr": ""
+        },
+        "read_bytes_before": 4654915584,
+        "read_bytes_after": 4837322752,
+        "physical_read_bytes": 182407168,
+        "logical_bytes": 182405087,
+        "buffer_bytes": 65536
+      },
+      {
+        "sync": {
+          "command": [
+            "sync",
+            "-d",
+            "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "advice": {
+          "command": [
+            "fadvise",
+            "--advice",
+            "dontneed",
+            "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "fincore": {
+          "command": [
+            "fincore",
+            "--json",
+            "--bytes",
+            "--output",
+            "SIZE,RES,DIRTY,WRITEBACK,FILE",
+            "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "{\n   \"fincore\": [\n      {\n         \"size\": 182405087,\n         \"res\": 0,\n         \"dirty\": 0,\n         \"writeback\": 0,\n         \"file\": \"/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/archive.zip\"\n      }\n   ]\n}\n",
+          "stderr": ""
+        },
+        "read_bytes_before": 4837322752,
+        "read_bytes_after": 5019729920,
+        "physical_read_bytes": 182407168,
+        "logical_bytes": 182405087,
+        "buffer_bytes": 65536
+      }
+    ],
+    "minimum_physical_read_bytes": 182407168,
+    "maximum_physical_read_bytes": 182407168,
+    "required_extraction_read_bytes": 91203584,
+    "fraction": 0.5,
+    "basis": "two independently evicted whole-archive synchronous64KiB reads; own proc/self/io read_bytes delta; stat allocation not physical on compressed Btrfs"
+  },
+  "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/tree.lbox": {
+    "scans": [
+      {
+        "sync": {
+          "command": [
+            "sync",
+            "-d",
+            "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "advice": {
+          "command": [
+            "fadvise",
+            "--advice",
+            "dontneed",
+            "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "fincore": {
+          "command": [
+            "fincore",
+            "--json",
+            "--bytes",
+            "--output",
+            "SIZE,RES,DIRTY,WRITEBACK,FILE",
+            "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "{\n   \"fincore\": [\n      {\n         \"size\": 231931904,\n         \"res\": 0,\n         \"dirty\": 0,\n         \"writeback\": 0,\n         \"file\": \"/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/tree.lbox\"\n      }\n   ]\n}\n",
+          "stderr": ""
+        },
+        "read_bytes_before": 5019729920,
+        "read_bytes_after": 5251653632,
+        "physical_read_bytes": 231923712,
+        "logical_bytes": 231931904,
+        "buffer_bytes": 65536
+      },
+      {
+        "sync": {
+          "command": [
+            "sync",
+            "-d",
+            "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "advice": {
+          "command": [
+            "fadvise",
+            "--advice",
+            "dontneed",
+            "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "fincore": {
+          "command": [
+            "fincore",
+            "--json",
+            "--bytes",
+            "--output",
+            "SIZE,RES,DIRTY,WRITEBACK,FILE",
+            "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "{\n   \"fincore\": [\n      {\n         \"size\": 231931904,\n         \"res\": 0,\n         \"dirty\": 0,\n         \"writeback\": 0,\n         \"file\": \"/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/tree.lbox\"\n      }\n   ]\n}\n",
+          "stderr": ""
+        },
+        "read_bytes_before": 5251653632,
+        "read_bytes_after": 5483577344,
+        "physical_read_bytes": 231923712,
+        "logical_bytes": 231931904,
+        "buffer_bytes": 65536
+      }
+    ],
+    "minimum_physical_read_bytes": 231923712,
+    "maximum_physical_read_bytes": 231923712,
+    "required_extraction_read_bytes": 115961856,
+    "fraction": 0.5,
+    "basis": "two independently evicted whole-archive synchronous64KiB reads; own proc/self/io read_bytes delta; stat allocation not physical on compressed Btrfs"
+  },
+  "/home/bsutton/.cache/revault-protected-20261011/random-1gib-raw-encrypted/archive.zip": {
+    "scans": [
+      {
+        "sync": {
+          "command": [
+            "sync",
+            "-d",
+            "/home/bsutton/.cache/revault-protected-20261011/random-1gib-raw-encrypted/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "advice": {
+          "command": [
+            "fadvise",
+            "--advice",
+            "dontneed",
+            "/home/bsutton/.cache/revault-protected-20261011/random-1gib-raw-encrypted/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "fincore": {
+          "command": [
+            "fincore",
+            "--json",
+            "--bytes",
+            "--output",
+            "SIZE,RES,DIRTY,WRITEBACK,FILE",
+            "/home/bsutton/.cache/revault-protected-20261011/random-1gib-raw-encrypted/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "{\n   \"fincore\": [\n      {\n         \"size\": 1073742004,\n         \"res\": 0,\n         \"dirty\": 0,\n         \"writeback\": 0,\n         \"file\": \"/home/bsutton/.cache/revault-protected-20261011/random-1gib-raw-encrypted/archive.zip\"\n      }\n   ]\n}\n",
+          "stderr": ""
+        },
+        "read_bytes_before": 5483577344,
+        "read_bytes_after": 6557323264,
+        "physical_read_bytes": 1073745920,
+        "logical_bytes": 1073742004,
+        "buffer_bytes": 65536
+      },
+      {
+        "sync": {
+          "command": [
+            "sync",
+            "-d",
+            "/home/bsutton/.cache/revault-protected-20261011/random-1gib-raw-encrypted/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "advice": {
+          "command": [
+            "fadvise",
+            "--advice",
+            "dontneed",
+            "/home/bsutton/.cache/revault-protected-20261011/random-1gib-raw-encrypted/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "fincore": {
+          "command": [
+            "fincore",
+            "--json",
+            "--bytes",
+            "--output",
+            "SIZE,RES,DIRTY,WRITEBACK,FILE",
+            "/home/bsutton/.cache/revault-protected-20261011/random-1gib-raw-encrypted/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "{\n   \"fincore\": [\n      {\n         \"size\": 1073742004,\n         \"res\": 0,\n         \"dirty\": 0,\n         \"writeback\": 0,\n         \"file\": \"/home/bsutton/.cache/revault-protected-20261011/random-1gib-raw-encrypted/archive.zip\"\n      }\n   ]\n}\n",
+          "stderr": ""
+        },
+        "read_bytes_before": 6557323264,
+        "read_bytes_after": 7631069184,
+        "physical_read_bytes": 1073745920,
+        "logical_bytes": 1073742004,
+        "buffer_bytes": 65536
+      }
+    ],
+    "minimum_physical_read_bytes": 1073745920,
+    "maximum_physical_read_bytes": 1073745920,
+    "required_extraction_read_bytes": 536872960,
+    "fraction": 0.5,
+    "basis": "two independently evicted whole-archive synchronous64KiB reads; own proc/self/io read_bytes delta; stat allocation not physical on compressed Btrfs"
+  },
+  "/home/bsutton/.cache/revault-protected-20261011/random-1gib-raw-encrypted/tree.lbox": {
+    "scans": [
+      {
+        "sync": {
+          "command": [
+            "sync",
+            "-d",
+            "/home/bsutton/.cache/revault-protected-20261011/random-1gib-raw-encrypted/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "advice": {
+          "command": [
+            "fadvise",
+            "--advice",
+            "dontneed",
+            "/home/bsutton/.cache/revault-protected-20261011/random-1gib-raw-encrypted/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "fincore": {
+          "command": [
+            "fincore",
+            "--json",
+            "--bytes",
+            "--output",
+            "SIZE,RES,DIRTY,WRITEBACK,FILE",
+            "/home/bsutton/.cache/revault-protected-20261011/random-1gib-raw-encrypted/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "{\n   \"fincore\": [\n      {\n         \"size\": 1155989504,\n         \"res\": 0,\n         \"dirty\": 0,\n         \"writeback\": 0,\n         \"file\": \"/home/bsutton/.cache/revault-protected-20261011/random-1gib-raw-encrypted/tree.lbox\"\n      }\n   ]\n}\n",
+          "stderr": ""
+        },
+        "read_bytes_before": 7631069184,
+        "read_bytes_after": 8787050496,
+        "physical_read_bytes": 1155981312,
+        "logical_bytes": 1155989504,
+        "buffer_bytes": 65536
+      },
+      {
+        "sync": {
+          "command": [
+            "sync",
+            "-d",
+            "/home/bsutton/.cache/revault-protected-20261011/random-1gib-raw-encrypted/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "advice": {
+          "command": [
+            "fadvise",
+            "--advice",
+            "dontneed",
+            "/home/bsutton/.cache/revault-protected-20261011/random-1gib-raw-encrypted/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "fincore": {
+          "command": [
+            "fincore",
+            "--json",
+            "--bytes",
+            "--output",
+            "SIZE,RES,DIRTY,WRITEBACK,FILE",
+            "/home/bsutton/.cache/revault-protected-20261011/random-1gib-raw-encrypted/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "{\n   \"fincore\": [\n      {\n         \"size\": 1155989504,\n         \"res\": 0,\n         \"dirty\": 0,\n         \"writeback\": 0,\n         \"file\": \"/home/bsutton/.cache/revault-protected-20261011/random-1gib-raw-encrypted/tree.lbox\"\n      }\n   ]\n}\n",
+          "stderr": ""
+        },
+        "read_bytes_before": 8787050496,
+        "read_bytes_after": 9943031808,
+        "physical_read_bytes": 1155981312,
+        "logical_bytes": 1155989504,
+        "buffer_bytes": 65536
+      }
+    ],
+    "minimum_physical_read_bytes": 1155981312,
+    "maximum_physical_read_bytes": 1155981312,
+    "required_extraction_read_bytes": 577990656,
+    "fraction": 0.5,
+    "basis": "two independently evicted whole-archive synchronous64KiB reads; own proc/self/io read_bytes delta; stat allocation not physical on compressed Btrfs"
+  },
+  "/home/bsutton/.cache/revault-protected-20261011/random-1gib-compressed-encrypted/archive.zip": {
+    "scans": [
+      {
+        "sync": {
+          "command": [
+            "sync",
+            "-d",
+            "/home/bsutton/.cache/revault-protected-20261011/random-1gib-compressed-encrypted/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "advice": {
+          "command": [
+            "fadvise",
+            "--advice",
+            "dontneed",
+            "/home/bsutton/.cache/revault-protected-20261011/random-1gib-compressed-encrypted/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "fincore": {
+          "command": [
+            "fincore",
+            "--json",
+            "--bytes",
+            "--output",
+            "SIZE,RES,DIRTY,WRITEBACK,FILE",
+            "/home/bsutton/.cache/revault-protected-20261011/random-1gib-compressed-encrypted/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "{\n   \"fincore\": [\n      {\n         \"size\": 1073915836,\n         \"res\": 0,\n         \"dirty\": 0,\n         \"writeback\": 0,\n         \"file\": \"/home/bsutton/.cache/revault-protected-20261011/random-1gib-compressed-encrypted/archive.zip\"\n      }\n   ]\n}\n",
+          "stderr": ""
+        },
+        "read_bytes_before": 9943031808,
+        "read_bytes_after": 11016949760,
+        "physical_read_bytes": 1073917952,
+        "logical_bytes": 1073915836,
+        "buffer_bytes": 65536
+      },
+      {
+        "sync": {
+          "command": [
+            "sync",
+            "-d",
+            "/home/bsutton/.cache/revault-protected-20261011/random-1gib-compressed-encrypted/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "advice": {
+          "command": [
+            "fadvise",
+            "--advice",
+            "dontneed",
+            "/home/bsutton/.cache/revault-protected-20261011/random-1gib-compressed-encrypted/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "fincore": {
+          "command": [
+            "fincore",
+            "--json",
+            "--bytes",
+            "--output",
+            "SIZE,RES,DIRTY,WRITEBACK,FILE",
+            "/home/bsutton/.cache/revault-protected-20261011/random-1gib-compressed-encrypted/archive.zip"
+          ],
+          "exit_code": 0,
+          "stdout": "{\n   \"fincore\": [\n      {\n         \"size\": 1073915836,\n         \"res\": 0,\n         \"dirty\": 0,\n         \"writeback\": 0,\n         \"file\": \"/home/bsutton/.cache/revault-protected-20261011/random-1gib-compressed-encrypted/archive.zip\"\n      }\n   ]\n}\n",
+          "stderr": ""
+        },
+        "read_bytes_before": 11016949760,
+        "read_bytes_after": 12090867712,
+        "physical_read_bytes": 1073917952,
+        "logical_bytes": 1073915836,
+        "buffer_bytes": 65536
+      }
+    ],
+    "minimum_physical_read_bytes": 1073917952,
+    "maximum_physical_read_bytes": 1073917952,
+    "required_extraction_read_bytes": 536958976,
+    "fraction": 0.5,
+    "basis": "two independently evicted whole-archive synchronous64KiB reads; own proc/self/io read_bytes delta; stat allocation not physical on compressed Btrfs"
+  },
+  "/home/bsutton/.cache/revault-protected-20261011/random-1gib-compressed-encrypted/tree.lbox": {
+    "scans": [
+      {
+        "sync": {
+          "command": [
+            "sync",
+            "-d",
+            "/home/bsutton/.cache/revault-protected-20261011/random-1gib-compressed-encrypted/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "advice": {
+          "command": [
+            "fadvise",
+            "--advice",
+            "dontneed",
+            "/home/bsutton/.cache/revault-protected-20261011/random-1gib-compressed-encrypted/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "fincore": {
+          "command": [
+            "fincore",
+            "--json",
+            "--bytes",
+            "--output",
+            "SIZE,RES,DIRTY,WRITEBACK,FILE",
+            "/home/bsutton/.cache/revault-protected-20261011/random-1gib-compressed-encrypted/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "{\n   \"fincore\": [\n      {\n         \"size\": 1438384128,\n         \"res\": 0,\n         \"dirty\": 0,\n         \"writeback\": 0,\n         \"file\": \"/home/bsutton/.cache/revault-protected-20261011/random-1gib-compressed-encrypted/tree.lbox\"\n      }\n   ]\n}\n",
+          "stderr": ""
+        },
+        "read_bytes_before": 12090867712,
+        "read_bytes_after": 13529243648,
+        "physical_read_bytes": 1438375936,
+        "logical_bytes": 1438384128,
+        "buffer_bytes": 65536
+      },
+      {
+        "sync": {
+          "command": [
+            "sync",
+            "-d",
+            "/home/bsutton/.cache/revault-protected-20261011/random-1gib-compressed-encrypted/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "advice": {
+          "command": [
+            "fadvise",
+            "--advice",
+            "dontneed",
+            "/home/bsutton/.cache/revault-protected-20261011/random-1gib-compressed-encrypted/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "fincore": {
+          "command": [
+            "fincore",
+            "--json",
+            "--bytes",
+            "--output",
+            "SIZE,RES,DIRTY,WRITEBACK,FILE",
+            "/home/bsutton/.cache/revault-protected-20261011/random-1gib-compressed-encrypted/tree.lbox"
+          ],
+          "exit_code": 0,
+          "stdout": "{\n   \"fincore\": [\n      {\n         \"size\": 1438384128,\n         \"res\": 0,\n         \"dirty\": 0,\n         \"writeback\": 0,\n         \"file\": \"/home/bsutton/.cache/revault-protected-20261011/random-1gib-compressed-encrypted/tree.lbox\"\n      }\n   ]\n}\n",
+          "stderr": ""
+        },
+        "read_bytes_before": 13529243648,
+        "read_bytes_after": 14967619584,
+        "physical_read_bytes": 1438375936,
+        "logical_bytes": 1438384128,
+        "buffer_bytes": 65536
+      }
+    ],
+    "minimum_physical_read_bytes": 1438375936,
+    "maximum_physical_read_bytes": 1438375936,
+    "required_extraction_read_bytes": 719187968,
+    "fraction": 0.5,
+    "basis": "two independently evicted whole-archive synchronous64KiB reads; own proc/self/io read_bytes delta; stat allocation not physical on compressed Btrfs"
+  }
+}

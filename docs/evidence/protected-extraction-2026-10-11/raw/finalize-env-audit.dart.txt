@@ -1,0 +1,3 @@
+#! /usr/bin/env dcli
+import 'dart:io';import 'package:dcli/dcli.dart';
+void main(){const root='/home/bsutton/.cache/revault-protected-20261011-evidence';final f=File('$root/audit-environments.dart');f.copySync('$root/audit-environments.before-allowlist-completion.txt');f.writeAsStringSync(f.readAsStringSync().replaceFirst("final allowed={","final allowed={'REVAULT_CANDIDATE_ROOT','REVAULT_CANDIDATE_PHASE','REVAULT_CANDIDATE_UNIT','REVAULT_EXTRACT_OUTPUT','REVAULT_READ_WORKERS',"));print(green('Added reviewed benchmark-only names from runner curated map.'));}

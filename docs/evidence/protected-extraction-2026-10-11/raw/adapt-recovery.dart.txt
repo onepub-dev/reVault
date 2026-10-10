@@ -1,0 +1,21 @@
+#! /usr/bin/env dcli
+import 'dart:io';
+import 'package:dcli/dcli.dart';
+const e='/home/bsutton/.cache/revault-protected-20261011-evidence';
+void main(){
+ var s=File('$e/run.dart').readAsStringSync();
+ s=s.replaceFirst("const rustRoot = '/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust';", "const rustRoot = '$e/provenance-reconstruction/rust';");
+ s=s.replaceAll('workingDirectory: rustRoot',"workingDirectory: '/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust'");
+ s=s.replaceFirst("final cases = allCases.where((spec)=>!spec.name.startsWith('source-bundle')).toList();", "final cases = allCases.where((spec)=>spec.name == 'source-expanded-1gib-compressed-encrypted' || spec.name.startsWith('random-1gib')).toList();");
+ final a=s.indexOf(" final old=jsonDecode("),b=s.indexOf(" if(args[0]=='prepare')",a);
+ s=s.substring(0,a)+r'''
+ final frozen=jsonDecode(File('$evidenceRoot/recovery-executables.json').readAsStringSync()) as Map;
+ if(_sha(tree)!=frozen['tree_sha256']||_sha(zip)!=frozen['zip_sha256'])throw StateError('Recovery executable hash differs from frozen build');
+'''+s.substring(b);
+ s=s.replaceAll('extract-output/protected-v2','extract-output/protected-recovery');
+ s=s.replaceAll('balanced-buffered-batch','recovery-buffered-batch');
+ s=s.replaceFirst("'source_revision': '\${head.stdout}'.trim(),", "'source_revision': '\${head.stdout}'.trim(),\n    'build_source_epoch': 'exact prior balanced source reconstructed under provenance-reconstruction; separately rebuilt Rust1.88.0 release, see recovery-executables.json',\n    'recovery_executable_manifest_sha256': _sha('\$evidenceRoot/recovery-executables.json'),");
+ s=s.replaceFirst("'source_revision', 'worktree_status', 'source_hashes', 'runner_sha256',", "'source_revision', 'worktree_status', 'source_hashes', 'runner_sha256', 'recovery_executable_manifest_sha256',");
+ File('$e/recovery-run.dart').writeAsStringSync(s);
+ print(green('Prepared separate recovery runner; no measurements started.'));
+}

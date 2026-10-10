@@ -146,6 +146,18 @@ including Vault containers. `0.4.x` remains format 3 and is isolated from this w
 
 ## Current scorecard
 
+The [compressed/encrypted cold-disk milestone](evidence/protected-extraction-2026-10-11/README.md)
+adds six complete GiB comparisons: 288 measured extractions plus 96 excluded
+preparatory runs. Four workers improve elapsed time by 8.6–22.5% in the tested
+compressed/encrypted cases and regress raw/plain source by 9.5%. The user accepts
+the 45.0–70.9% CPU increase in the improving cases as a reasonable trade-off.
+Next investigate workload-aware selection and its size/fallback boundaries;
+the current default remains one until that policy is implemented and measured.
+Measured endpoint RSS peaks at 16.65 MiB, not a public CLI memory qualification.
+The report retains calibration changes, two interrupted batches, excluded partial
+cases and separate executable epochs. Cross-mode medians are descriptive, and
+unencrypted ZIP does not establish the protected PGP goal. No broader gate passes.
+
 The [cold disk extraction and bounded parallel reads](evidence/cold-parallel-extraction-2026-10-10/README.md) milestone adds separate cold-archive buffered and durable
 comparisons for random 1 GiB and 10,000 × 64 KiB workloads with serial ZIP
 and one/two/four configured tree workers, with buffered postprocess drain
@@ -160,9 +172,9 @@ The balanced buffered batch still fails ZIP parity: paired serial tree elapsed
 time is 36.3% higher for 1 GiB and 51.9% higher for 10,000 files. On the large
 file, two workers add 12.2% elapsed time and 33.7% CPU over one worker; four
 workers show no clear elapsed improvement and add 40.2% CPU. Keep one worker
-as default and parallel verification explicitly test-only. Next qualify a
-realistic compressed/encrypted large stream before choosing further pipeline
-work; correctness across all sixteen modes does not qualify their performance.
+as the raw-workload default and parallel verification explicitly test-only. The
+compressed/encrypted qualification step is recorded above; correctness across
+all sixteen modes alone does not qualify their performance.
 
 The [disk-backed scale/extraction milestone](evidence/scale-extraction-2026-10-10/README.md)
 now provides capacity and actual filesystem extraction measurements for the

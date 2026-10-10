@@ -1,0 +1,64 @@
+#! /usr/bin/env dcli
+import 'dart:io';
+import 'package:dcli/dcli.dart';
+const e='/home/bsutton/.cache/revault-protected-20261011-evidence';
+void main(){
+ var s=File('$e/summarize.dart').readAsStringSync();
+ final start=s.indexOf('void main(List<String> args) {'),end=s.indexOf('  final results = <String, dynamic>{};',start);
+ s=s.substring(0,start)+r'''
+void main(List<String> args) {
+  require(args.length==1 && ['first','recovery'].contains(args.single), 'Specify first or recovery epoch');
+  const evidence='/home/bsutton/.cache/revault-protected-20261011-evidence';
+  final interrupted=args.single=='first';
+  final expectedCases=interrupted
+      ? ['source-expanded-1gib-compressed-plain','source-expanded-1gib-raw-encrypted','source-expanded-1gib-raw-plain']
+      : ['random-1gib-compressed-encrypted','random-1gib-raw-encrypted','source-expanded-1gib-compressed-encrypted'];
+  final root='$evidence/${interrupted?'balanced-buffered-batch':'recovery-buffered-batch'}';
+  final output=File('$root/metrics-summary.json');
+  require(!output.existsSync(),'Refuse existing summary');
+  final paths=<String>['$root/identity-before.json'];
+  final before=readObject(paths.single);
+  final measured=12,warmups=4,total=16;
+  final affinity=before['shared_affinity_mask'];
+  require(affinity=='0,1,2,3,4','Unexpected shared affinity');
+  late Map<String,dynamic> after,complete;
+  late List<Map<String,dynamic>> audits;
+  if(interrupted){
+    paths.add('$evidence/interruption-audit.json');
+    after=readObject(paths.last);
+    require(after['native_sources_stable']==true && after['runner_matches_before']==true,'Unstable interrupted source/runner');
+    require(same(after['source_hashes'],before['source_hashes']),'Interrupted native source map changed');
+    for(final key in ['runner_sha256','protocol_sha256','calibration_sha256'])require(after[key]==before[key],'Interrupted $key changed');
+    require(sha('$evidence/protocol.json')==before['protocol_sha256'] && sha('$evidence/physical-read-calibration.json')==before['calibration_sha256'],'Frozen protocol or calibration changed');
+    audits=[for(final name in expectedCases)readObject('$root/$name/case-audit.json')];
+    final actualCases=after['cases'] as List;
+    for(final audit in audits){
+      final observed=object(actualCases.singleWhere((c)=>c['case']==audit['case']),'post-interruption fixture');
+      require(observed['source_matches_inventory']==true,'Post-interruption source mismatch');
+      final actual=object(observed['identities'],'post-interruption hashes');
+      final expected=object(audit['input_identity_after'],'case final hashes');
+      for(final pair in [['case.json','case_json_sha256'],['inventory.json','inventory_sha256'],['archive.zip','archive_sha256'],['tree.lbox','tree_sha256'],['tree.public','tree_public_sha256']])require(actual[pair[0]]==expected[pair[1]],'Post-interruption fixture hash changed');
+    }
+    complete={'complete':false,'interrupted':true,'eligible_complete_cases':expectedCases,'excluded_partial_case':'source-expanded-1gib-compressed-encrypted','missing_final_binary_audit':true,'eligibility':'complete16round percase audits, every sample before/after binarySHA, stable post-halt source/protocol/calibration/input audit; no claim original fullmatrix completed'};
+  }else{
+    paths.addAll(['$root/identity-after.json','$root/complete.json']);
+    after=readObject('$root/identity-after.json');complete=readObject('$root/complete.json');
+    require(complete['complete']==true && complete['durable']==false && complete['zip_is_serial']==true,'Recovery batch incomplete');
+    require(complete['measured_rounds_per_case']==measured && complete['warmup_rounds_per_case']==warmups && complete['expected_pid_namespace']=='pid:[4026531836]' && complete['admission_max_attempts']==16,'Recovery protocol changed');
+    require(same(complete['variants'],variants),'Recovery variants changed');
+    require(complete['artifact_cap_bytes']==24*1024*1024*1024 && integer(complete['apparent_bytes_after'],'artifact bytes')<=24*1024*1024*1024,'Recovery artifact cap');
+    for(final key in [...stableKeys,'recovery_executable_manifest_sha256'])require(before[key]!=null && same(before[key],after[key]),'Recovery identity changed:$key');
+    audits=(complete['cases'] as List).map((v)=>object(v,'case audit')).toList();
+  }
+  require(object(before['source_hashes'],'source hashes').isNotEmpty,'No source identities');
+  for(final key in ['runner_sha256','tree_test_executable_sha256','zip_runner_executable_sha256'])hashValue(before[key],key);
+  final caseNames=audits.map((a)=>a['case'] as String).toList()..sort();
+  require(same(caseNames,expectedCases),'Unexpected eligible case set');
+''' + s.substring(end);
+ s=s.replaceFirst("require(complete['sample_rows'] == allRows && allRows == expectedCases.length * variants.length * total,", "require((interrupted || complete['sample_rows'] == allRows) && allRows == expectedCases.length * variants.length * total,");
+ s=s.replaceFirst("'complete': true, 'generated_utc':", "'selected_case_analysis_complete': true, 'original_batch_complete': !interrupted, 'epoch': interrupted ? 'retained-original-complete-cases' : 'rebuilt-recovery', 'generated_utc':");
+ s=s.replaceFirst("'stable_input_source_and_executable_audits': true", "'stable_input_source_audits': true, 'every_sample_binary_hash_before_and_after': true, 'global_final_binary_audit_available': !interrupted");
+ s=s.replaceFirst("'metadata': {'complete_record': complete, 'identity_before': before, 'identity_after': after}", "'metadata': {'batch_status': complete, 'identity_before': before, interrupted ? 'post_interruption_audit' : 'identity_after': after}");
+ File('$e/summarize-epochs.dart').writeAsStringSync(s);
+ print(green('Prepared explicit two-epoch statistical validator; original fullbatch remains incomplete.'));
+}

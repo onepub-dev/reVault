@@ -1,0 +1,9 @@
+Unhandled exception:
+Bad state: sha256sum failed for /tmp/revault-parallel-20261010/balanced-bin/revault_lockbox_api_tests: sha256sum: /tmp/revault-parallel-20261010/balanced-bin/revault_lockbox_api_tests: No such file or directory
+
+#0      _sha (file:///home/bsutton/.cache/revault-protected-20261011-evidence/run.dart:1000:29)
+#1      _batchIdentity (file:///home/bsutton/.cache/revault-protected-20261011-evidence/run.dart:891:36)
+#2      runColdBatch (file:///home/bsutton/.cache/revault-protected-20261011-evidence/run.dart:751:19)
+<asynchronous suspension>
+#3      main (file:///home/bsutton/.cache/revault-protected-20261011-evidence/run.dart:48:25)
+<asynchronous suspension>

@@ -1,0 +1,40 @@
+{
+  "case": "source-expanded-1gib-compressed-encrypted",
+  "input_identity_before": {
+    "source": {
+      "inventory_sha256": "17a78be7f4a615f55f149388e39c96b7636a7d461838839513885d0f82cc484a",
+      "file_count": 1,
+      "unique_file_hashes": 1,
+      "aggregate_manifest_sha256": "bdb8c4ebd9f0155f4e9722539682e55c6dd0e7353f5cf430182291d8f1643ebe"
+    },
+    "case_json_sha256": "0c110d04a43d7beb39bcb106f35315428c39006822d985a5863e81fc8216eb27",
+    "inventory_sha256": "17a78be7f4a615f55f149388e39c96b7636a7d461838839513885d0f82cc484a",
+    "archive_sha256": "663430c9da1f337aeaac3a51e6f78b13b05fc9b60426634e35910c2630cb9e38",
+    "tree_sha256": "4a6e4af55b4c7604a5611bca867029207967f46c990a09b34b70d08db40bb996",
+    "tree_public_sha256": "d5d396f8ef88b1cda51a7f28aa6f6d188bdbf671c4b7d001cc6ef72af14c3649"
+  },
+  "input_identity_after": {
+    "source": {
+      "inventory_sha256": "17a78be7f4a615f55f149388e39c96b7636a7d461838839513885d0f82cc484a",
+      "file_count": 1,
+      "unique_file_hashes": 1,
+      "aggregate_manifest_sha256": "bdb8c4ebd9f0155f4e9722539682e55c6dd0e7353f5cf430182291d8f1643ebe"
+    },
+    "case_json_sha256": "0c110d04a43d7beb39bcb106f35315428c39006822d985a5863e81fc8216eb27",
+    "inventory_sha256": "17a78be7f4a615f55f149388e39c96b7636a7d461838839513885d0f82cc484a",
+    "archive_sha256": "663430c9da1f337aeaac3a51e6f78b13b05fc9b60426634e35910c2630cb9e38",
+    "tree_sha256": "4a6e4af55b4c7604a5611bca867029207967f46c990a09b34b70d08db40bb996",
+    "tree_public_sha256": "d5d396f8ef88b1cda51a7f28aa6f6d188bdbf671c4b7d001cc6ef72af14c3649"
+  },
+  "stable": true,
+  "rounds_complete": 6,
+  "warmup_rounds_planned": 4,
+  "measured_rounds_planned": 12,
+  "sample_counts": {
+    "zip": 6,
+    "typed-tree-1": 6,
+    "typed-tree-2": 6,
+    "typed-tree-4": 6
+  },
+  "failure": "Bad state: sha256sum failed for /tmp/revault-parallel-20261010/balanced-bin/revault_lockbox_api_tests: sha256sum: /tmp/revault-parallel-20261010/balanced-bin/revault_lockbox_api_tests: No such file or directory\n"
+}

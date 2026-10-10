@@ -1,0 +1,24 @@
+Recovery build manifest
+Source root: /home/bsutton/.cache/revault-protected-20261011-evidence/provenance-reconstruction/rust
+Source identity: provenance-review.json records base_revision 0cb929cde31ba76d1dbd93b6c7aaa88a05616e75, current_revision 6735f6dbf949915ed7b94f0b6b9bb5fb7895e231, and 241 verified source files. Parent confirmed these source hashes before build. Source bundle SHA256: b690a5807eaa6c5fe81fd1715c36ef346ea9573ff289011849dfbeb10ab78fcb.
+Package: revault_lockbox_api 0.0.41
+Requested feature: external-source
+Resolved features: default, external-source, issue303-protocol
+Toolchain: rustc 1.88.0 (6b00bc388 2025-06-23); cargo 1.88.0 (873a06493 2025-05-10)
+Profile from cargo JSON: opt_level=3, debuginfo=0, debug_assertions=false, overflow_checks=false.
+Target directory: /home/bsutton/.cache/revault-protected-20261011-build
+TMPDIR: /home/bsutton/.cache/revault-protected-20261011-evidence/tmp
+Environment was cleared with env -i. Allowlisted variables: PATH, HOME, CARGO_TARGET_DIR, TMPDIR, RUSTFLAGS (empty), CARGO_ENCODED_RUSTFLAGS (empty). No other environment variables passed to Cargo.
+
+Compile 1 (successful; no tests executed):
+env -i PATH="$PATH" HOME="$HOME" CARGO_TARGET_DIR=/home/bsutton/.cache/revault-protected-20261011-build TMPDIR=/home/bsutton/.cache/revault-protected-20261011-evidence/tmp RUSTFLAGS= CARGO_ENCODED_RUSTFLAGS= cargo +1.88.0 test --locked --offline --release -p revault_lockbox_api --features external-source --lib --no-run --message-format=json
+Output files: lib-test-build.jsonl, lib-test-build.stderr
+Artifact: /home/bsutton/.cache/revault-protected-20261011-build/release/deps/revault_lockbox_api-e3bcc2539127e239
+
+Compile 2 (successful; no tests executed):
+env -i PATH="$PATH" HOME="$HOME" CARGO_TARGET_DIR=/home/bsutton/.cache/revault-protected-20261011-build TMPDIR=/home/bsutton/.cache/revault-protected-20261011-evidence/tmp RUSTFLAGS= CARGO_ENCODED_RUSTFLAGS= cargo +1.88.0 bench --locked --offline -p revault_lockbox_api --features external-source --bench archive_evaluation --no-run --message-format=json
+Output files: archive-evaluation-build.jsonl, archive-evaluation-build.stderr
+Artifact: /home/bsutton/.cache/revault-protected-20261011-build/release/deps/archive_evaluation-4921effe0aae5972
+
+An earlier bench command included unsupported --release for `cargo bench`; it failed immediately before compilation. The corrected command above succeeded.
+Tests executed: none, per parent steering. No source edits, formatting, runtime --list invocations, or benchmark measurements were performed.

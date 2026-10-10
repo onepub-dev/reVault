@@ -1,0 +1,33 @@
+#! /usr/bin/env dcli
+import 'dart:convert';
+import 'dart:io';
+import 'package:dcli/dcli.dart';
+const e='/home/bsutton/.cache/revault-protected-20261011-evidence';
+Map<String,Object> run(String exe,List<String> args){final p=Process.runSync(exe,args);return {'command':[exe,...args],'exit_code':p.exitCode,'stdout':p.stdout,'stderr':p.stderr};}
+void main(){
+ final dest=File('$e/physical-read-calibration.json');if(dest.existsSync())throw StateError('Refuse existing calibration');
+ final cases=jsonDecode(File('$e/cases.json').readAsStringSync()) as List;
+ final result=<String,dynamic>{};
+ for(final c in cases)for(final archive in ['archive.zip','tree.lbox']) {
+  final path='${c['root']}/$archive';final scans=<Map<String,dynamic>>[];
+  for(var i=0;i<2;i++){
+   final sync=run('sync',['-d',path]),advise=run('fadvise',['--advice','dontneed',path]);
+   final core=run('fincore',['--json','--bytes','--output','SIZE,RES,DIRTY,WRITEBACK,FILE',path]);
+   final row=(jsonDecode(core['stdout'] as String)['fincore'] as List).single;
+   if(sync['exit_code']!=0||advise['exit_code']!=0||core['exit_code']!=0||int.parse('${row['res']}')!=0)throw StateError('Calibration cache gate failed $path');
+   final scan=run('/usr/bin/time',['-v','dd','if=$path','of=/dev/null','bs=65536','status=none']);
+   final match=RegExp(r'File system inputs: (\d+)').firstMatch(scan['stderr'] as String);
+   final physical=match==null?0:int.parse(match[1]!)*512;
+   scans.add({'sync':sync,'advice':advise,'fincore':core,'scan':scan,'physical_read_bytes':physical});
+   result[path]={'scans':scans};
+   dest.writeAsStringSync(const JsonEncoder.withIndent('  ').convert(result),flush:true);
+   if(scan['exit_code']!=0||physical<=0)throw StateError('No calibrated physical read traffic');
+  }
+  final a=scans[0]['physical_read_bytes'] as int,b=scans[1]['physical_read_bytes'] as int;
+  final min=a<b?a:b,max=a>b?a:b;
+  if(max>min*1.1)throw StateError('Calibration scans disagree >10%: $path');
+  result[path]={'scans':scans,'minimum_physical_read_bytes':min,'maximum_physical_read_bytes':max,'required_extraction_read_bytes':(min+1)~/2,'fraction':0.5,'basis':'two independent whole-archive cold dd scans; GNU time filesystem inputs in512byteunits; stat allocation not physical on compressed Btrfs'};
+  dest.writeAsStringSync(const JsonEncoder.withIndent('  ').convert(result),flush:true);
+ }
+ print(green('Calibrated physical full-archive traffic for20archives with two cold scans each.'));
+}

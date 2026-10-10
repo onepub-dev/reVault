@@ -1,0 +1,10 @@
+Pinned 920 source files; 14284673 bytes before framing.
+Unhandled exception:
+FileSystemException: writeFrom failed, path = '/tmp/revault-protected-20261011/source-expanded-1gib-compressed-plain-zip-create.json' (OS Error: Disk quota exceeded, errno = 122)
+#0      _RandomAccessFile.writeFromSync (dart:io/file_impl.dart:999:7)
+#1      _File.writeAsBytesSync (dart:io/file_impl.dart:746:14)
+#2      _File.writeAsStringSync (dart:io/file_impl.dart:772:5)
+#3      json (file:///tmp/revault-protected-20261011/prepare.dart:10:49)
+#4      main (file:///tmp/revault-protected-20261011/prepare.dart:56:7)
+#5      _delayEntrypointInvocation.<anonymous closure> (dart:isolate-patch/isolate_patch.dart:311:33)
+#6      _RawReceivePort._handleMessage (dart:isolate-patch/isolate_patch.dart:192:12)

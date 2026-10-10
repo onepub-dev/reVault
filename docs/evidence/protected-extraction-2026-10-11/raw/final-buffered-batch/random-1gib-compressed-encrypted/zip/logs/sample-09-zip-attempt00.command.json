@@ -1,0 +1,70 @@
+{
+  "case": "random-1gib-compressed-encrypted",
+  "round": 9,
+  "warmup": false,
+  "backend": "zip",
+  "worker_count": null,
+  "input_path": "/home/bsutton/.cache/revault-protected-20261011/random-1gib-compressed-encrypted/archive.zip",
+  "archive_apparent_bytes": 1073915836,
+  "archive_allocated_bytes": 1073917952,
+  "calibrated_archive_physical_read_bytes": 1073917952,
+  "read_gate_policy": "at least 50% independent cold full-archive calibrated physical read bytes; zero fincore residency required",
+  "output_path": "/home/bsutton/.cache/revault-protected-20261011/random-1gib-compressed-encrypted/extract-output/protected-final/sample-09-zip-attempt00",
+  "affinity": "0,1,2,3,4",
+  "durable": false,
+  "requested_reader_tid_parity": 1,
+  "admission_attempt": 0,
+  "command": [
+    "taskset",
+    "-c",
+    "0,1,2,3,4",
+    "/usr/bin/time",
+    "-v",
+    "timeout",
+    "900",
+    "/home/bsutton/.cache/revault-protected-20261011-bin/archive_evaluation",
+    "extract-zip",
+    "/home/bsutton/.cache/revault-protected-20261011/random-1gib-compressed-encrypted",
+    "/home/bsutton/.cache/revault-protected-20261011/random-1gib-compressed-encrypted/extract-output/protected-final/sample-09-zip-attempt00"
+  ],
+  "environment": {
+    "REVAULT_EXTRACT_DURABLE": "0",
+    "REVAULT_EXTRACT_TID_PARITY": "1",
+    "REVAULT_EXTRACT_PID_NAMESPACE": "pid:[4026531836]",
+    "REVAULT_EXTRACT_BLOCK_DEVICES": "nvme0n1,nvme1n1"
+  },
+  "executable": "/home/bsutton/.cache/revault-protected-20261011-bin/archive_evaluation",
+  "executable_sha256_before": "26d043d972865c670d4474495997a6f3b60c8ca74e1cb07087232b9f52e6e317",
+  "cache_gate": {
+    "sync_exit_code": 0,
+    "sync_stderr": "",
+    "fadvise_exit_code": 0,
+    "fadvise_stdout": "",
+    "fadvise_stderr": "",
+    "fincore_exit_code": 0,
+    "fincore_stdout": "{\n   \"fincore\": [\n      {\n         \"size\": 1073915836,\n         \"res\": 0,\n         \"dirty\": 0,\n         \"writeback\": 0,\n         \"file\": \"/home/bsutton/.cache/revault-protected-20261011/random-1gib-compressed-encrypted/archive.zip\"\n      }\n   ]\n}\n",
+    "fincore_stderr": "",
+    "resident_bytes_after_dontneed": 0,
+    "required_resident_bytes": 0,
+    "success": true,
+    "eviction_attempts": [
+      {
+        "attempt": 0,
+        "sync_exit_code": 0,
+        "sync_stderr": "",
+        "fadvise_exit_code": 0,
+        "fadvise_stdout": "",
+        "fadvise_stderr": "",
+        "fincore_exit_code": 0,
+        "fincore_stdout": "{\n   \"fincore\": [\n      {\n         \"size\": 1073915836,\n         \"res\": 0,\n         \"dirty\": 0,\n         \"writeback\": 0,\n         \"file\": \"/home/bsutton/.cache/revault-protected-20261011/random-1gib-compressed-encrypted/archive.zip\"\n      }\n   ]\n}\n",
+        "fincore_stderr": "",
+        "resident_bytes_after_dontneed": 0,
+        "required_resident_bytes": 0,
+        "success": true
+      }
+    ],
+    "maximum_eviction_attempts": 3,
+    "inter_attempt_delay_ms": 100,
+    "admission_selection": "exact zero residency only; no extraction started for failed attempts; independent of timing"
+  }
+}

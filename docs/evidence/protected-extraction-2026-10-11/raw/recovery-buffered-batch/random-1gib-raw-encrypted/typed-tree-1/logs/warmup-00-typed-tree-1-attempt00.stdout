@@ -1,0 +1,7 @@
+
+running 1 test
+CANDIDATE_SAMPLE {"archive_opened":false,"backend":"typed-tree","configured_cpu_workers":1,"kind":"extraction_admission_skip","max_queued_chunks":1,"output_created":false,"parallel_min_requested_bytes":131072,"reader_identity":{"namespace_tids":[2378241],"pid_namespace":"pid:[4026531836]","process_id":2378240,"reader_tid":2378241,"reader_tid_parity":1,"scope":"IDs visible in this procfs mount; not proof of host-kernel task ID or physical mirror"},"reason":"reader_tid_parity_mismatch","requested_reader_tid_parity":0,"single_chunk_serial_fallback":true,"verified":false,"worker_threads":0}
+test file_format::candidate_files::resource_probe::candidate_file_resource_probe ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 681 filtered out; finished in 0.00s
+

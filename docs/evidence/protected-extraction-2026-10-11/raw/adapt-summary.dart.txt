@@ -1,0 +1,12 @@
+#! /usr/bin/env dcli
+import 'dart:io';
+import 'package:dcli/dcli.dart';
+void main(){var s=File('/tmp/revault-parallel-20261010/summarize-balanced-buffered.dart').readAsStringSync();
+ s=s.replaceFirst("const expectedCases = ['raw-random-10000x64k', 'raw-random-1gib'];", "const expectedCases = ['random-1gib-compressed-encrypted','random-1gib-raw-encrypted','source-expanded-1gib-compressed-encrypted','source-expanded-1gib-compressed-plain','source-expanded-1gib-raw-encrypted','source-expanded-1gib-raw-plain'];");
+ s=s.replaceAll('20 * 1024 * 1024 * 1024','24 * 1024 * 1024 * 1024');
+ s=s.replaceFirst('final minimum = (payload * 9 + 9) ~/ 10;', "final allocated = integer(row['archive_allocated_bytes'], 'allocated archive bytes');\n  require(allocated > 0, 'No allocated archive data');\n  final minimum = (allocated + 1) ~/ 2;");
+ s=s.replaceFirst("final expectedPayload = caseName == 'raw-random-1gib' ? 1073741824 : 655360000;",'const expectedPayload = 1073741824;');
+ s=s.replaceFirst("final expectedFiles = caseName == 'raw-random-1gib' ? 1 : 10000;",'const expectedFiles = 1;');
+ s=s.replaceAll('storage_reads_at_least_90_percent_of_payload','storage_reads_at_least_50_percent_of_allocated_archive_bytes');
+ s=s.replaceAll('/tmp/revault-parallel-20261010/balanced-buffered-batch','/home/bsutton/.cache/revault-protected-20261011-evidence/balanced-buffered-batch');
+ File('/home/bsutton/.cache/revault-protected-20261011-evidence/summarize.dart').writeAsStringSync(s);print(green('Adapted statistical validator.'));}

@@ -1,0 +1,399 @@
+#! /usr/bin/env dcli
+import 'dart:convert';
+import 'dart:io';
+import 'dart:math' as math;
+import 'package:dcli/dcli.dart';
+
+const variants = ['zip', 'typed-tree-1', 'typed-tree-2', 'typed-tree-4'];
+const expectedCases = ['random-1gib-compressed-encrypted','random-1gib-raw-encrypted','source-expanded-1gib-compressed-encrypted','source-expanded-1gib-compressed-plain','source-expanded-1gib-raw-encrypted','source-expanded-1gib-raw-plain'];
+const bootstrapReplicates = 10000;
+const bootstrapBaseSeed = 0x6b2175d9;
+const stableKeys = [
+  'source_revision', 'worktree_status', 'source_hashes', 'runner_sha256', 'calibration_sha256', 'protocol_sha256',
+  'tree_test_executable', 'tree_test_executable_sha256',
+  'zip_runner_executable', 'zip_runner_executable_sha256',
+];
+
+void require(bool condition, String message) {
+  if (!condition) throw StateError(message);
+}
+Map<String, dynamic> object(Object? value, String label) {
+  require(value is Map<String, dynamic>, '$label must be an object');
+  return value as Map<String, dynamic>;
+}
+Map<String, dynamic> readObject(String path) => object(jsonDecode(File(path).readAsStringSync()), path);
+int integer(Object? value, String label) {
+  require(value is int, '$label must be an integer');
+  return value as int;
+}
+double number(Object? value, String label, {bool positive = true}) {
+  require(value is num, '$label must be numeric');
+  final result = (value as num).toDouble();
+  require(result.isFinite && (positive ? result > 0 : result >= 0), '$label is out of range');
+  return result;
+}
+Object? canonical(Object? value) {
+  if (value is Map) {
+    final keys = value.keys.cast<String>().toList()..sort();
+    return {for (final key in keys) key: canonical(value[key])};
+  }
+  if (value is List) return value.map(canonical).toList();
+  return value;
+}
+bool same(Object? left, Object? right) => jsonEncode(canonical(left)) == jsonEncode(canonical(right));
+void hashValue(Object? value, String label) => require(
+    value is String && RegExp(r'^[0-9a-f]{64}$').hasMatch(value), '$label is not a SHA-256 identity');
+String sha(String path) {
+  final result = Process.runSync('sha256sum', ['--', path]);
+  require(result.exitCode == 0, 'Cannot hash evidence file $path');
+  final digest = '${result.stdout}'.split(RegExp(r'\s+')).first;
+  hashValue(digest, path);
+  return digest;
+}
+
+class Observation {
+  Observation(this.round, this.elapsed, this.cpu, this.throughput, this.rss,
+      this.processRss, this.readBytes, this.writeBytes, this.cancelledBytes, this.payload, this.drain, this.deviceReads);
+  final int round;
+  final double elapsed, cpu, throughput, rss, processRss;
+  final int readBytes, writeBytes, cancelledBytes, payload;
+  final double drain;
+  final Map<String, int> deviceReads;
+}
+
+Observation validateSample(Map<String, dynamic> row, String caseName, String variant,
+    int totalRounds, int warmups, int files, Map<String, dynamic> identity, String affinity) {
+  final round = integer(row['round'], '$caseName/$variant round');
+  require(round >= 0 && round < totalRounds, '$caseName/$variant unexpected round $round');
+  require(row['case'] == caseName && row['backend'] == variant, 'Sample identity mismatch');
+  require(row['warmup'] == (round < warmups), 'Warmup flag does not match planned round');
+  require(row['verified'] == true && row['exit_code'] == 0 &&
+      row['source_and_output_byte_verification'] == true, 'Unverified sample $caseName/$variant/$round');
+  require(row['durable'] == false && row['cold_disk_gate_passed'] == true, 'Sample is not cold/buffered');
+  final expectedParity = round % 2;
+  require(row['requested_reader_tid_parity'] == expectedParity &&
+      integer(row['admission_attempt'], 'admission attempt') >= 0 && row['admission_attempt'] < 16,
+      'Unplanned parity/admission attempt');
+  final drain = object(row['postprocess_drain'], 'postprocess drain');
+  require(row['postprocess_drain_passed'] == true && drain['passed'] == true &&
+      drain['file_count'] == files && drain['directory_count'] == 2 && drain['failure'] == null,
+      'Owned buffered output was not drained before cleanup');
+  final drainSeconds = number(row['postprocess_drain_seconds'], 'postprocess drain seconds');
+  require(drain['seconds'] == drainSeconds, 'Inconsistent drain time');
+  final drainCommands = (drain['commands'] as List).map((value) => object(value, 'drain command')).toList();
+  require(drainCommands.length == (files + 499) ~/ 500 + 1 &&
+      drainCommands.every((command) => command['exit_code'] == 0), 'Incomplete drain commands');
+  require(row['affinity'] == affinity, 'Unexpected CPU affinity');
+  require(row['executable_stable_for_sample'] == true, 'Executable changed during sample');
+  final isTree = variant != 'zip';
+  final expectedExecutable = identity[isTree ? 'tree_test_executable' : 'zip_runner_executable'];
+  final expectedHash = identity[isTree ? 'tree_test_executable_sha256' : 'zip_runner_executable_sha256'];
+  require(row['executable'] == expectedExecutable && row['executable_sha256_before'] == expectedHash &&
+      row['executable_sha256_after'] == expectedHash, 'Executable differs from batch identity');
+  final gate = object(row['cache_gate'], 'cache gate');
+  require(gate['success'] == true && gate['resident_bytes_after_dontneed'] == 0 &&
+      gate['required_resident_bytes'] == 0 && gate['sync_exit_code'] == 0 &&
+      gate['fadvise_exit_code'] == 0 && gate['fincore_exit_code'] == 0, 'Invalid archive eviction/residency gate');
+  final sample = object(row['sample'], 'sample');
+  final reader = object(sample['reader_identity'], 'reader identity');
+  final tid = integer(reader['reader_tid'], 'reader TID');
+  require(tid > 0 && reader['reader_tid_parity'] == tid % 2 && tid % 2 == expectedParity &&
+      reader['pid_namespace'] == 'pid:[4026531836]' && same(reader['namespace_tids'], [tid]) &&
+      sample['requested_reader_tid_parity'] == expectedParity, 'Reader parity/namespace not admitted');
+  final deviceRows = object(sample['block_device_io'], 'block devices')['devices'] as List;
+  require(deviceRows.length == 2, 'Expected both mirrored block devices');
+  final deviceReads = <String, int>{};
+  for (var index = 0; index < 2; index++) {
+    final device = object(deviceRows[index], 'device');
+    final name = ['nvme0n1', 'nvme1n1'][index];
+    require(device['device'] == name, 'Unexpected block device');
+    final delta = object(device['delta'], 'device delta');
+    final reads = integer(delta['read_sectors'], 'read sectors');
+    require(reads >= 0 && integer(delta['write_sectors'], 'write sectors') >= 0 && delta['sector_bytes'] == 512,
+        'Invalid device-sector counters');
+    deviceReads[name] = reads;
+  }
+  require(deviceReads.values.reduce((a, b) => a + b) > 0, 'No observed physical device reads');
+  require(sample['kind'] == 'filesystem_extraction' && sample['verified'] == true &&
+      sample['files'] == files && sample['file_syncs'] == 0 && sample['directory_syncs'] == 0,
+      'Extraction verification/sync scope mismatch');
+  require(sample['backend'] == (isTree ? 'typed-tree' : 'zip'), 'Unexpected extraction backend');
+  require(sample['durability'] == 'write/flush/close; no fsync; directory creation included',
+      'Buffered extraction scope is not reported');
+  final environment = object(row['environment'], 'sample environment');
+  require(environment['REVAULT_EXTRACT_DURABLE'] == '0', 'Buffered completion was not explicitly requested');
+  require(environment['REVAULT_EXTRACT_TID_PARITY'] == '$expectedParity' &&
+      environment['REVAULT_EXTRACT_PID_NAMESPACE'] == 'pid:[4026531836]' &&
+      environment['REVAULT_EXTRACT_BLOCK_DEVICES'] == 'nvme0n1,nvme1n1', 'Missing strict observation configuration');
+  if (isTree) {
+    final workers = int.parse(variant.split('-').last);
+    require(row['worker_count'] == workers && sample['configured_cpu_workers'] == workers &&
+        sample['worker_threads'] == (workers == 1 ? 0 : workers) &&
+        sample['max_queued_chunks'] == (workers == 1 ? 1 : workers * 8) &&
+        sample['single_chunk_serial_fallback'] == true && sample['parallel_min_requested_bytes'] == 131072 &&
+        environment['REVAULT_READ_WORKERS'] == '$workers', 'Worker policy mismatch');
+  } else {
+    require(row['worker_count'] == null, 'ZIP baseline must remain serial');
+  }
+  final payload = integer(sample['logical_bytes_written'], 'payload bytes');
+  require(payload > 0 && row['output_total_bytes'] == payload && row['output_file_count'] == files,
+      'Output inventory mismatch');
+  final io = object(sample['storage_io'], 'storage I/O');
+  final reads = integer(io['read_bytes'], 'storage reads');
+  final writes = integer(io['write_bytes'], 'storage writes');
+  final cancelled = integer(io['cancelled_write_bytes'], 'cancelled writes');
+  final allocated = integer(row['calibrated_archive_physical_read_bytes'], 'calibrated physical archive bytes');
+  require(allocated > 0, 'No allocated archive data');
+  final minimum = (allocated + 1) ~/ 2;
+  require(reads >= minimum && writes >= 0 && cancelled >= 0, 'Insufficient storage traffic or invalid counters');
+  require(row['observed_process_storage_read_bytes'] == reads &&
+      integer(row['minimum_storage_read_bytes'], 'read gate') >= minimum,
+      'Recorded read-byte gate does not enforce 90%');
+  final resources = object(sample['resources'], 'resources');
+  final cpu = object(resources['cpu'], 'CPU resources');
+  final elapsed = number(sample['total_seconds'], 'elapsed seconds');
+  final throughput = number(sample['mib_per_second'], 'throughput');
+  final calculated = payload / 1048576 / elapsed;
+  require((throughput - calculated).abs() <= calculated * 1e-9, 'Inconsistent throughput');
+  return Observation(round, elapsed, number(cpu['cpu_seconds'], 'CPU seconds'), throughput,
+      number(resources['peak_rss_kib'], 'extraction peak RSS'),
+      number(row['process_max_rss_kib'], 'whole-process peak RSS'), reads, writes, cancelled, payload, drainSeconds, deviceReads);
+}
+
+double median(Iterable<double> values) {
+  final sorted = values.toList()..sort();
+  require(sorted.isNotEmpty, 'Empty median');
+  final n = sorted.length;
+  return n.isOdd ? sorted[n ~/ 2] : (sorted[n ~/ 2 - 1] + sorted[n ~/ 2]) / 2;
+}
+double percentile(List<double> sorted, double fraction) {
+  final position = fraction * (sorted.length - 1);
+  final lower = position.floor();
+  final upper = position.ceil();
+  return sorted[lower] + (sorted[upper] - sorted[lower]) * (position - lower);
+}
+class Seeded {
+  Seeded(this.state) { require(state != 0, 'Zero PRNG seed'); }
+  int state;
+  int nextInt(int bound) {
+    final limit = 0x100000000 - (0x100000000 % bound);
+    while (true) {
+      var x = state;
+      x ^= (x << 13) & 0xffffffff;
+      x ^= x >> 17;
+      x ^= (x << 5) & 0xffffffff;
+      state = x & 0xffffffff;
+      if (state < limit) return state % bound;
+    }
+  }
+}
+int seedFor(String identity) {
+  var value = bootstrapBaseSeed;
+  for (final byte in utf8.encode(identity)) { value = ((value ^ byte) * 16777619) & 0xffffffff; }
+  return value == 0 ? 1 : value;
+}
+Map<String, dynamic> paired(String label, Map<int, Observation> candidate,
+    Map<int, Observation> baseline, double Function(Observation) metric) {
+  final rounds = candidate.keys.toList()..sort();
+  require(same(rounds, baseline.keys.toList()..sort()), 'Unpaired comparison $label');
+  final logs = [for (final round in rounds) math.log(metric(candidate[round]!) / metric(baseline[round]!))];
+  final balanced = rounds.map((round) => round % 2).toSet().length == 2;
+  final blockMeans = <double>[];
+  if (balanced) {
+    require(rounds.length.isEven, 'Unbalanced paired rounds');
+    for (var index = 0; index < rounds.length; index += 2) {
+      require(rounds[index].isEven && rounds[index + 1] == rounds[index] + 1, 'Missing balanced adjacent round block');
+      blockMeans.add((logs[index] + logs[index + 1]) / 2);
+    }
+  } else {
+    blockMeans.addAll(logs);
+  }
+  final seed = seedFor(label);
+  final random = Seeded(seed);
+  final bootstraps = List<double>.generate(bootstrapReplicates, (_) {
+    var sum = 0.0;
+    for (var n = 0; n < blockMeans.length; n++) { sum += blockMeans[random.nextInt(blockMeans.length)]; }
+    return math.exp(sum / blockMeans.length);
+  })..sort();
+  return {
+    'pairs': rounds.length, 'paired_rounds': rounds,
+    'geometric_mean_ratio': math.exp(logs.reduce((a, b) => a + b) / logs.length),
+    'low95': percentile(bootstraps, 0.025), 'high95': percentile(bootstraps, 0.975),
+    'method': balanced ? 'paired percentile bootstrap of six balanced adjacent two-round blocks; linear percentile interpolation'
+        : 'within-parity paired percentile bootstrap of round log ratios; linear percentile interpolation',
+    'bootstrap_replicates': bootstrapReplicates, 'seed_xorshift32': seed,
+    'interpretation': 'ratio below one favors candidate; no multiplicity correction',
+  };
+}
+Map<String, dynamic> metrics(List<Observation> rows) => {
+  'measured_samples': rows.length,
+  'median_elapsed_seconds': median(rows.map((row) => row.elapsed)),
+  'median_cpu_seconds': median(rows.map((row) => row.cpu)),
+  'median_mib_per_second': median(rows.map((row) => row.throughput)),
+  'median_postprocess_drain_seconds': median(rows.map((row) => row.drain)),
+  'postprocess_drain_seconds_range': [rows.map((row) => row.drain).reduce(math.min), rows.map((row) => row.drain).reduce(math.max)],
+  'max_extraction_peak_rss_kib': rows.map((row) => row.rss).reduce((a, b) => a > b ? a : b),
+  'max_whole_process_rss_kib': rows.map((row) => row.processRss).reduce((a, b) => a > b ? a : b),
+  'storage_read_bytes_range': [rows.map((row) => row.readBytes).reduce((a, b) => a < b ? a : b), rows.map((row) => row.readBytes).reduce((a, b) => a > b ? a : b)],
+  'storage_read_bytes_per_payload_byte_range': [
+    rows.map((row) => row.readBytes / row.payload).reduce((a, b) => a < b ? a : b),
+    rows.map((row) => row.readBytes / row.payload).reduce((a, b) => a > b ? a : b)],
+  'storage_write_bytes_range': [rows.map((row) => row.writeBytes).reduce((a, b) => a < b ? a : b), rows.map((row) => row.writeBytes).reduce((a, b) => a > b ? a : b)],
+  'max_cancelled_write_bytes': rows.map((row) => row.cancelledBytes).reduce((a, b) => a > b ? a : b),
+  'global_device_read_sectors_range': {for (final name in ['nvme0n1', 'nvme1n1']) name:
+    [rows.map((row) => row.deviceReads[name]!).reduce(math.min), rows.map((row) => row.deviceReads[name]!).reduce(math.max)]},
+  'global_nvme0_read_fraction_range': [
+    rows.map((row) => row.deviceReads['nvme0n1']! / row.deviceReads.values.reduce((a, b) => a + b)).reduce(math.min),
+    rows.map((row) => row.deviceReads['nvme0n1']! / row.deviceReads.values.reduce((a, b) => a + b)).reduce(math.max)],
+};
+
+void main(List<String> args) {
+  require(args.length==1 && ['first','recovery'].contains(args.single), 'Specify first or recovery epoch');
+  const evidence='/home/bsutton/.cache/revault-protected-20261011-evidence';
+  final interrupted=args.single=='first';
+  final expectedCases=interrupted
+      ? ['source-expanded-1gib-compressed-plain','source-expanded-1gib-raw-encrypted','source-expanded-1gib-raw-plain']
+      : ['random-1gib-compressed-encrypted','random-1gib-raw-encrypted','source-expanded-1gib-compressed-encrypted'];
+  final root='$evidence/${interrupted?'balanced-buffered-batch':'recovery-buffered-batch'}';
+  final output=File('$root/metrics-summary.json');
+  require(!output.existsSync(),'Refuse existing summary');
+  final paths=<String>['$root/identity-before.json'];
+  final before=readObject(paths.single);
+  final measured=12,warmups=4,total=16;
+  final affinity=before['shared_affinity_mask'];
+  require(affinity=='0,1,2,3,4','Unexpected shared affinity');
+  late Map<String,dynamic> after,complete;
+  late List<Map<String,dynamic>> audits;
+  if(interrupted){
+    paths.add('$evidence/interruption-audit.json');
+    after=readObject(paths.last);
+    require(after['native_sources_stable']==true && after['runner_matches_before']==true,'Unstable interrupted source/runner');
+    require(same(after['source_hashes'],before['source_hashes']),'Interrupted native source map changed');
+    for(final key in ['runner_sha256','protocol_sha256','calibration_sha256'])require(after[key]==before[key],'Interrupted $key changed');
+    require(sha('$evidence/protocol.json')==before['protocol_sha256'] && sha('$evidence/physical-read-calibration.json')==before['calibration_sha256'],'Frozen protocol or calibration changed');
+    audits=[for(final name in expectedCases)readObject('$root/$name/case-audit.json')];
+    final actualCases=after['cases'] as List;
+    for(final audit in audits){
+      final observed=object(actualCases.singleWhere((c)=>c['case']==audit['case']),'post-interruption fixture');
+      require(observed['source_matches_inventory']==true,'Post-interruption source mismatch');
+      final actual=object(observed['identities'],'post-interruption hashes');
+      final expected=object(audit['input_identity_after'],'case final hashes');
+      for(final pair in [['case.json','case_json_sha256'],['inventory.json','inventory_sha256'],['archive.zip','archive_sha256'],['tree.lbox','tree_sha256'],['tree.public','tree_public_sha256']])require(actual[pair[0]]==expected[pair[1]],'Post-interruption fixture hash changed');
+    }
+    complete={'complete':false,'interrupted':true,'eligible_complete_cases':expectedCases,'excluded_partial_case':'source-expanded-1gib-compressed-encrypted','missing_final_binary_audit':true,'eligibility':'complete16round percase audits, every sample before/after binarySHA, stable post-halt source/protocol/calibration/input audit; no claim original fullmatrix completed'};
+  }else{
+    paths.addAll(['$root/identity-after.json','$root/complete.json']);
+    after=readObject('$root/identity-after.json');complete=readObject('$root/complete.json');
+    require(complete['complete']==true && complete['durable']==false && complete['zip_is_serial']==true,'Recovery batch incomplete');
+    require(complete['measured_rounds_per_case']==measured && complete['warmup_rounds_per_case']==warmups && complete['expected_pid_namespace']=='pid:[4026531836]' && complete['admission_max_attempts']==16,'Recovery protocol changed');
+    require(same(complete['variants'],variants),'Recovery variants changed');
+    require(complete['artifact_cap_bytes']==24*1024*1024*1024 && integer(complete['apparent_bytes_after'],'artifact bytes')<=24*1024*1024*1024,'Recovery artifact cap');
+    for(final key in [...stableKeys,'recovery_executable_manifest_sha256'])require(before[key]!=null && same(before[key],after[key]),'Recovery identity changed:$key');
+    audits=(complete['cases'] as List).map((v)=>object(v,'case audit')).toList();
+  }
+  require(object(before['source_hashes'],'source hashes').isNotEmpty,'No source identities');
+  for(final key in ['runner_sha256','tree_test_executable_sha256','zip_runner_executable_sha256'])hashValue(before[key],key);
+  final caseNames=audits.map((a)=>a['case'] as String).toList()..sort();
+  require(same(caseNames,expectedCases),'Unexpected eligible case set');
+  final results = <String, dynamic>{};
+  var allRows = 0;
+  for (final caseName in caseNames) {
+    final auditPath = '$root/$caseName/case-audit.json';
+    paths.add(auditPath);
+    final audit = readObject(auditPath);
+    require(same(audit, audits.singleWhere((value) => value['case'] == caseName)), 'Case audit disagrees with completion record');
+    require(audit['stable'] == true && audit['failure'] == null && audit['rounds_complete'] == total &&
+        audit['warmup_rounds_planned'] == warmups && audit['measured_rounds_planned'] == measured &&
+        same(audit['input_identity_before'], audit['input_identity_after']), 'Unstable or incomplete case audit');
+    final inputs = object(audit['input_identity_before'], 'fixture identities');
+    for (final key in ['case_json_sha256', 'inventory_sha256', 'archive_sha256', 'tree_sha256', 'tree_public_sha256']) { hashValue(inputs[key], key); }
+    final source = object(inputs['source'], 'source inventory identity');
+    final files = integer(source['file_count'], 'source count');
+    require(files > 0 && source['unique_file_hashes'] == files, 'Source files are not individually varied');
+    hashValue(source['aggregate_manifest_sha256'], 'source aggregate');
+    require(source['inventory_sha256'] == inputs['inventory_sha256'], 'Source inventory identity mismatch');
+    final counts = object(audit['sample_counts'], 'sample counts');
+    final series = <String, Map<int, Observation>>{};
+    int? payload;
+    for (final variant in variants) {
+      require(counts[variant] == total, 'Missing planned sample count');
+      final samplePath = '$root/$caseName/$variant/samples.jsonl';
+      paths.add(samplePath);
+      final lines = File(samplePath).readAsLinesSync().where((line) => line.trim().isNotEmpty).toList();
+      require(lines.length == total, 'Expected $total rows at $samplePath');
+      final byRound = <int, Observation>{};
+      for (final line in lines) {
+        final row = object(jsonDecode(line), samplePath);
+        final observation = validateSample(row, caseName, variant, total, warmups, files, before, affinity as String);
+        require(!byRound.containsKey(observation.round), 'Duplicate round in $samplePath');
+        payload ??= observation.payload;
+        require(payload == observation.payload, 'Logical payload changed between paired samples');
+        byRound[observation.round] = observation;
+      }
+      require(byRound.length == total, 'Incomplete rounds');
+      allRows += byRound.length;
+      byRound.removeWhere((round, _) => round < warmups);
+      require(byRound.length == measured, 'Wrong measured sample count after excluding warmups');
+      for (final parity in [0, 1]) {
+        require(byRound.keys.where((round) => round % 2 == parity).length == 6, 'Unbalanced measured parity strata');
+      }
+      series[variant] = byRound;
+    }
+    const expectedPayload = 1073741824;
+    const expectedFiles = 1;
+    require(payload == expectedPayload && files == expectedFiles, 'Workload was silently resized');
+    final comparisons = <String, dynamic>{};
+    for (final pair in [
+      ['typed-tree-1', 'zip'], ['typed-tree-2', 'zip'], ['typed-tree-4', 'zip'],
+      ['typed-tree-2', 'typed-tree-1'], ['typed-tree-4', 'typed-tree-1'],
+    ]) {
+      final label = '${pair[0]}_vs_${pair[1]}';
+      comparisons[label] = {
+        'elapsed_seconds': paired('$caseName/$label/elapsed', series[pair[0]]!, series[pair[1]]!, (row) => row.elapsed),
+        'cpu_seconds': paired('$caseName/$label/cpu', series[pair[0]]!, series[pair[1]]!, (row) => row.cpu),
+        'by_reader_tid_parity': {for (final parity in [0, 1]) '$parity': {
+          'elapsed_seconds': paired('$caseName/$label/parity$parity/elapsed',
+              Map.fromEntries(series[pair[0]]!.entries.where((entry) => entry.key % 2 == parity)),
+              Map.fromEntries(series[pair[1]]!.entries.where((entry) => entry.key % 2 == parity)), (row) => row.elapsed),
+          'cpu_seconds': paired('$caseName/$label/parity$parity/cpu',
+              Map.fromEntries(series[pair[0]]!.entries.where((entry) => entry.key % 2 == parity)),
+              Map.fromEntries(series[pair[1]]!.entries.where((entry) => entry.key % 2 == parity)), (row) => row.cpu),
+        }},
+      };
+    }
+    results[caseName] = {
+      'files': files, 'logical_payload_bytes': payload, 'warmup_rounds_excluded': warmups,
+      'measured_rounds': measured, 'variants': {for (final variant in variants) variant: metrics(series[variant]!.values.toList())},
+      'variants_by_reader_tid_parity': {for (final parity in [0, 1]) '$parity': {
+        for (final variant in variants) variant: metrics(series[variant]!.values.where((row) => row.round % 2 == parity).toList())}},
+      'paired_comparisons': comparisons,
+    };
+  }
+  require((interrupted || complete['sample_rows'] == allRows) && allRows == expectedCases.length * variants.length * total,
+      'Completion record/sample row total mismatch');
+  final summary = {
+    'selected_case_analysis_complete': true, 'original_batch_complete': !interrupted, 'epoch': interrupted ? 'retained-original-complete-cases' : 'rebuilt-recovery', 'generated_utc': DateTime.now().toUtc().toIso8601String(),
+    'scope': 'cold archive page cache plus observed process storage reads; buffered write/flush/close regular-file extraction without fsync; not hardware-cache-cold, persistence or public CLI qualification',
+    'gates': {'all_samples_verified': true, 'zero_archive_residency_before_each_sample': true,
+      'storage_reads_at_least_50_percent_of_calibrated_physical_archive_bytes': true, 'stable_input_source_audits': true, 'every_sample_binary_hash_before_and_after': true, 'global_final_binary_audit_available': !interrupted,
+      'file_and_both_directory_syncs_in_timer': false, 'buffered_completion_without_fsync': true,
+      'owned_outputs_drained_after_verification_before_cleanup': true,
+      'six_measured_samples_each_reader_tid_parity_per_variant': true,
+      'all_four_variants': true,
+      'measured_rounds_per_case': measured, 'excluded_warmup_rounds_per_case': warmups},
+    'rss_scope': 'max_extraction_peak_rss is process-lifetime peak observed before verification, including startup; whole-process max additionally includes post-timing verification',
+    'postprocess_drain_scope': 'separate elapsed duration after process verification, before deleting owned outputs; excludes extraction/verification; not added to inner elapsed and does not imply persistence at command exit',
+    'statistics': {'bootstrap_replicates': bootstrapReplicates, 'base_seed': bootstrapBaseSeed,
+      'pairing': 'same measured round; warmups excluded; ratios candidate/baseline',
+      'confidence_interval': '95% paired percentile bootstrap on six adjacent balanced two-round blocks; within-parity intervals resample six paired rounds; no multiplicity adjustment',
+      'median_definition': 'mean of central two order statistics for even sample counts'},
+    'metadata': {'batch_status': complete, 'identity_before': before, interrupted ? 'post_interruption_audit' : 'identity_after': after},
+    'physical_mix_caveat': 'Per-device sectors are global, include unrelated host I/O and serve as corroboration only. Matching procfs reader-TID parity does not establish matching physical devices across archive extents. Namespace checked against documented host measurement setup.',
+    'evidence_sha256': {for (final path in paths) path: sha(path)},
+    'summarizer_sha256': sha(Platform.script.toFilePath()),
+    'cases': results,
+  };
+  output.parent.createSync(recursive: true);
+  output.writeAsStringSync('${const JsonEncoder.withIndent('  ').convert(summary)}\n', flush: true);
+  print(green('Validated and summarized $allRows rows (warmups excluded from metrics): ${output.path}'));
+}

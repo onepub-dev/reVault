@@ -1,0 +1,4 @@
+#! /usr/bin/env dcli
+import 'dart:io';
+import 'package:dcli/dcli.dart';
+void main(){final f=File('/home/bsutton/.cache/revault-protected-20261011-evidence/adapt-batch-summary.dart');f.copySync('${f.path}.before-interpolation-fix.txt');f.writeAsStringSync(f.readAsStringSync().replaceAll(r'changed:$key',r'changed:\$key'));print(green('Escaped adapter interpolation; failed source preserved.'));}

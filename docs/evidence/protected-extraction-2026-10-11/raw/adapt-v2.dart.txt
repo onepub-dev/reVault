@@ -1,0 +1,35 @@
+#! /usr/bin/env dcli
+import 'dart:convert';
+import 'dart:io';
+import 'package:dcli/dcli.dart';
+const e='/home/bsutton/.cache/revault-protected-20261011-evidence';
+void main(){
+ for(final name in ['run.dart','summarize.dart','protocol.json'])File('$e/$name').copySync('$e/$name.v1.txt');
+ var s=File('$e/run.dart').readAsStringSync();
+ final a=s.indexOf('int readGate('),b=s.indexOf('\nNever usage()',a);
+ s=s.substring(0,a)+r'''
+final calibration = jsonDecode(File('$evidenceRoot/physical-read-calibration.json').readAsStringSync()) as Map;
+int calibratedBytes(String path) => (calibration[path] as Map)['minimum_physical_read_bytes'] as int;
+int readGate(CaseSpec spec, bool isTree) => (calibratedBytes('${spec.root}/${isTree?'tree.lbox':'archive.zip'}')+1)~/2;
+'''+s.substring(b);
+ s=s.replaceAll('extract-output/parallel','extract-output/protected-v2');
+ s=s.replaceAll('buffered-smoke','buffered-smoke-v2');
+ s=s.replaceFirst("'archive_allocated_bytes': allocatedBytes(inputPath),", "'archive_allocated_bytes': allocatedBytes(inputPath),\n    'calibrated_archive_physical_read_bytes': calibratedBytes(inputPath),");
+ s=s.replaceAll('50% stat allocated archive bytes','50% independent cold full-archive calibrated physical read bytes');
+ s=s.replaceAll('50% of stat allocated archive bytes','50% of independent cold full-archive calibrated physical read bytes');
+ s=s.replaceFirst("'runner_sha256': _sha(Platform.script.toFilePath()),", "'runner_sha256': _sha(Platform.script.toFilePath()),\n    'calibration_sha256': _sha('\$evidenceRoot/physical-read-calibration.json'),\n    'protocol_sha256': _sha('\$evidenceRoot/protocol.json'),");
+ s=s.replaceFirst("'source_revision', 'worktree_status', 'source_hashes', 'runner_sha256',", "'source_revision', 'worktree_status', 'source_hashes', 'runner_sha256', 'calibration_sha256', 'protocol_sha256',");
+ File('$e/run.dart').writeAsStringSync(s);
+ var summary=File('$e/summarize.dart').readAsStringSync();
+ summary=summary.replaceAll("row['archive_allocated_bytes']", "row['calibrated_archive_physical_read_bytes']");
+ summary=summary.replaceAll('allocated archive bytes','calibrated physical archive bytes');
+ summary=summary.replaceAll('storage_reads_at_least_50_percent_of_allocated_archive_bytes','storage_reads_at_least_50_percent_of_calibrated_physical_archive_bytes');
+ summary=summary.replaceFirst("'source_revision', 'worktree_status', 'source_hashes', 'runner_sha256',", "'source_revision', 'worktree_status', 'source_hashes', 'runner_sha256', 'calibration_sha256', 'protocol_sha256',");
+ File('$e/summarize.dart').writeAsStringSync(summary);
+ final protocol=jsonDecode(File('$e/protocol.json').readAsStringSync()) as Map;
+ protocol['epoch']='v2 after failed stat-based preflight; no primary v1 samples';
+ protocol['storage_gate']='process extraction read_bytes >= ceil(minimum of two independent whole-archive cold Dart read_bytes deltas /2); calibration scans within10%; positive physical traffic; zero fincore before each; frozen before primary; corroboration not exact physical-byte accounting';
+ protocol['retained_v1_failure']='first small-source stored ZIP had3,223,552 physical read bytes vs14,344,192 stat allocated; stat counts logical allocation on compressed Btrfs; native output verified; v1 sample rejected and retained';
+ File('$e/protocol.json').writeAsStringSync(const JsonEncoder.withIndent('  ').convert(protocol),flush:true);
+ print(green('Preserved v1; prepared frozen calibration-based v2 protocol.'));
+}

@@ -1,0 +1,738 @@
+{
+  "case": "source-expanded-1gib-compressed-encrypted",
+  "round": 0,
+  "warmup": true,
+  "rotated_order": [
+    "zip",
+    "typed-tree-1",
+    "typed-tree-2",
+    "typed-tree-4"
+  ],
+  "results": [
+    {
+      "case": "source-expanded-1gib-compressed-encrypted",
+      "round": 0,
+      "warmup": true,
+      "backend": "zip",
+      "worker_count": null,
+      "input_path": "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/archive.zip",
+      "archive_apparent_bytes": 182405087,
+      "archive_allocated_bytes": 182407168,
+      "calibrated_archive_physical_read_bytes": 182407168,
+      "read_gate_policy": "at least 50% independent cold full-archive calibrated physical read bytes; zero fincore residency required",
+      "output_path": "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/extract-output/protected-recovery/warmup-00-zip-attempt02",
+      "affinity": "0,1,2,3,4",
+      "durable": false,
+      "requested_reader_tid_parity": 0,
+      "admission_attempt": 2,
+      "command": [
+        "taskset",
+        "-c",
+        "0,1,2,3,4",
+        "/usr/bin/time",
+        "-v",
+        "timeout",
+        "900",
+        "/home/bsutton/.cache/revault-protected-20261011-bin/archive_evaluation",
+        "extract-zip",
+        "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted",
+        "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/extract-output/protected-recovery/warmup-00-zip-attempt02"
+      ],
+      "environment": {
+        "REVAULT_EXTRACT_DURABLE": "0",
+        "REVAULT_EXTRACT_TID_PARITY": "0",
+        "REVAULT_EXTRACT_PID_NAMESPACE": "pid:[4026531836]",
+        "REVAULT_EXTRACT_BLOCK_DEVICES": "nvme0n1,nvme1n1"
+      },
+      "executable": "/home/bsutton/.cache/revault-protected-20261011-bin/archive_evaluation",
+      "executable_sha256_before": "26d043d972865c670d4474495997a6f3b60c8ca74e1cb07087232b9f52e6e317",
+      "cache_gate": {
+        "sync_exit_code": 0,
+        "sync_stderr": "",
+        "fadvise_exit_code": 0,
+        "fadvise_stdout": "",
+        "fadvise_stderr": "",
+        "fincore_exit_code": 0,
+        "fincore_stdout": "{\n   \"fincore\": [\n      {\n         \"size\": 182405087,\n         \"res\": 0,\n         \"dirty\": 0,\n         \"writeback\": 0,\n         \"file\": \"/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/archive.zip\"\n      }\n   ]\n}\n",
+        "fincore_stderr": "",
+        "resident_bytes_after_dontneed": 0,
+        "required_resident_bytes": 0,
+        "success": true
+      },
+      "exit_code": 0,
+      "sample": {
+        "backend": "zip",
+        "block_device_io": {
+          "devices": [
+            {
+              "delta": {
+                "read_sectors": 356432,
+                "sector_bytes": 512,
+                "write_sectors": 15728
+              },
+              "device": "nvme0n1"
+            },
+            {
+              "delta": {
+                "read_sectors": 0,
+                "sector_bytes": 512,
+                "write_sectors": 15728
+              },
+              "device": "nvme1n1"
+            }
+          ],
+          "scope": "global block-device counters around extraction, before output verification; includes unrelated host I/O; sector unit 512 bytes"
+        },
+        "directory_syncs": 0,
+        "durability": "write/flush/close; no fsync; directory creation included",
+        "file_syncs": 0,
+        "files": 1,
+        "kind": "filesystem_extraction",
+        "logical_bytes_written": 1073741824,
+        "mib_per_second": 463.5212228741473,
+        "open_seconds": 0.000197313,
+        "reader_identity": {
+          "namespace_tids": [
+            2323752
+          ],
+          "pid_namespace": "pid:[4026531836]",
+          "process_id": 2323752,
+          "reader_tid": 2323752,
+          "reader_tid_parity": 0,
+          "scope": "IDs visible in this procfs mount; not proof of host-kernel task ID or physical mirror"
+        },
+        "requested_reader_tid_parity": 0,
+        "resources": {
+          "cpu": {
+            "cpu_seconds": 2.20887,
+            "major_faults": 0,
+            "system_seconds": 1.070675,
+            "user_seconds": 1.138195
+          },
+          "peak_rss_kib": 4380
+        },
+        "scope": "synthetic regular-file component; excludes CLI startup and permission restoration",
+        "storage_io": {
+          "cancelled_write_bytes": 0,
+          "read_bytes": 182407168,
+          "source": "/proc/self/io; process-accounted storage I/O, not logical bytes",
+          "write_bytes": 1073741824
+        },
+        "total_seconds": 2.209176084,
+        "verified": true
+      },
+      "time_v": {
+        "user_seconds": 1.16,
+        "system_seconds": 1.27,
+        "elapsed_seconds": 2.44,
+        "elapsed_raw": "0:02.44",
+        "maximum_resident_set_kib": 8224
+      },
+      "process_wall_seconds": 2.44,
+      "process_max_rss_kib": 8224,
+      "process_user_seconds": 1.16,
+      "process_system_seconds": 1.27,
+      "output_file_count": 1,
+      "output_total_bytes": 1073741824,
+      "source_and_output_byte_verification": true,
+      "cold_disk_gate_passed": true,
+      "observed_process_storage_read_bytes": 182407168,
+      "minimum_storage_read_bytes": 91203584,
+      "storage_read_bytes_per_payload_byte": 0.16987991333007812,
+      "durability_description": "write/flush/close; no fsync; directory creation included",
+      "executable_sha256_after": "26d043d972865c670d4474495997a6f3b60c8ca74e1cb07087232b9f52e6e317",
+      "executable_stable_for_sample": true,
+      "postprocess_drain": {
+        "passed": true,
+        "seconds": 0.904913,
+        "scope": "owned output files, output directory and parent after process verification; outside extraction timer",
+        "file_count": 1,
+        "directory_count": 2,
+        "commands": [
+          {
+            "executable": "/usr/bin/sync",
+            "flags": [
+              "--"
+            ],
+            "path_count": 1,
+            "first_owned_path": "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/extract-output/protected-recovery/warmup-00-zip-attempt02/file-000000.bin",
+            "last_owned_path": "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/extract-output/protected-recovery/warmup-00-zip-attempt02/file-000000.bin",
+            "exit_code": 0,
+            "stdout": "",
+            "stderr": "\tCommand being timed: \"timeout 930 /usr/bin/sync -- /home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/extract-output/protected-recovery/warmup-00-zip-attempt02/file-000000.bin\"\n\tUser time (seconds): 0.00\n\tSystem time (seconds): 0.09\n\tPercent of CPU this job got: 11%\n\tElapsed (wall clock) time (h:mm:ss or m:ss): 0:00.87\n\tAverage shared text size (kbytes): 0\n\tAverage unshared data size (kbytes): 0\n\tAverage stack size (kbytes): 0\n\tAverage total size (kbytes): 0\n\tMaximum resident set size (kbytes): 8060\n\tAverage resident set size (kbytes): 0\n\tMajor (requiring I/O) page faults: 0\n\tMinor (reclaiming a frame) page faults: 985\n\tVoluntary context switches: 14\n\tInvoluntary context switches: 3\n\tSwaps: 0\n\tFile system inputs: 0\n\tFile system outputs: 4160\n\tSocket messages sent: 0\n\tSocket messages received: 0\n\tSignals delivered: 0\n\tPage size (bytes): 4096\n\tExit status: 0\n"
+          },
+          {
+            "executable": "/usr/bin/sync",
+            "flags": [
+              "--"
+            ],
+            "path_count": 2,
+            "first_owned_path": "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/extract-output/protected-recovery/warmup-00-zip-attempt02",
+            "last_owned_path": "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/extract-output/protected-recovery",
+            "exit_code": 0,
+            "stdout": "",
+            "stderr": "\tCommand being timed: \"timeout 930 /usr/bin/sync -- /home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/extract-output/protected-recovery/warmup-00-zip-attempt02 /home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/extract-output/protected-recovery\"\n\tUser time (seconds): 0.00\n\tSystem time (seconds): 0.00\n\tPercent of CPU this job got: 81%\n\tElapsed (wall clock) time (h:mm:ss or m:ss): 0:00.01\n\tAverage shared text size (kbytes): 0\n\tAverage unshared data size (kbytes): 0\n\tAverage stack size (kbytes): 0\n\tAverage total size (kbytes): 0\n\tMaximum resident set size (kbytes): 8136\n\tAverage resident set size (kbytes): 0\n\tMajor (requiring I/O) page faults: 0\n\tMinor (reclaiming a frame) page faults: 992\n\tVoluntary context switches: 13\n\tInvoluntary context switches: 0\n\tSwaps: 0\n\tFile system inputs: 0\n\tFile system outputs: 1344\n\tSocket messages sent: 0\n\tSocket messages received: 0\n\tSignals delivered: 0\n\tPage size (bytes): 4096\n\tExit status: 0\n"
+          }
+        ],
+        "failure": null
+      },
+      "postprocess_drain_passed": true,
+      "postprocess_drain_seconds": 0.904913,
+      "verified": true,
+      "output_retained_on_failure": false,
+      "successful_output_removed_after_verification": true
+    },
+    {
+      "case": "source-expanded-1gib-compressed-encrypted",
+      "round": 0,
+      "warmup": true,
+      "backend": "typed-tree-1",
+      "worker_count": 1,
+      "input_path": "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/tree.lbox",
+      "archive_apparent_bytes": 231931904,
+      "archive_allocated_bytes": 231931904,
+      "calibrated_archive_physical_read_bytes": 231923712,
+      "read_gate_policy": "at least 50% independent cold full-archive calibrated physical read bytes; zero fincore residency required",
+      "output_path": "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/extract-output/protected-recovery/warmup-00-typed-tree-1-attempt00",
+      "affinity": "0,1,2,3,4",
+      "durable": false,
+      "requested_reader_tid_parity": 0,
+      "admission_attempt": 0,
+      "command": [
+        "taskset",
+        "-c",
+        "0,1,2,3,4",
+        "/usr/bin/time",
+        "-v",
+        "timeout",
+        "900",
+        "/home/bsutton/.cache/revault-protected-20261011-bin/revault_lockbox_api_tests",
+        "--exact",
+        "file_format::candidate_files::resource_probe::candidate_file_resource_probe",
+        "--ignored",
+        "--nocapture"
+      ],
+      "environment": {
+        "REVAULT_EXTRACT_DURABLE": "0",
+        "REVAULT_EXTRACT_TID_PARITY": "0",
+        "REVAULT_EXTRACT_PID_NAMESPACE": "pid:[4026531836]",
+        "REVAULT_EXTRACT_BLOCK_DEVICES": "nvme0n1,nvme1n1",
+        "REVAULT_CANDIDATE_ROOT": "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted",
+        "REVAULT_CANDIDATE_PHASE": "tree-extract",
+        "REVAULT_CANDIDATE_UNIT": "65536",
+        "REVAULT_EXTRACT_OUTPUT": "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/extract-output/protected-recovery/warmup-00-typed-tree-1-attempt00",
+        "REVAULT_READ_WORKERS": "1"
+      },
+      "executable": "/home/bsutton/.cache/revault-protected-20261011-bin/revault_lockbox_api_tests",
+      "executable_sha256_before": "d7443b92d491020df652335c995809a78afe27b15a66bf91edafdd30e893d92c",
+      "cache_gate": {
+        "sync_exit_code": 0,
+        "sync_stderr": "",
+        "fadvise_exit_code": 0,
+        "fadvise_stdout": "",
+        "fadvise_stderr": "",
+        "fincore_exit_code": 0,
+        "fincore_stdout": "{\n   \"fincore\": [\n      {\n         \"size\": 231931904,\n         \"res\": 0,\n         \"dirty\": 0,\n         \"writeback\": 0,\n         \"file\": \"/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/tree.lbox\"\n      }\n   ]\n}\n",
+        "fincore_stderr": "",
+        "resident_bytes_after_dontneed": 0,
+        "required_resident_bytes": 0,
+        "success": true
+      },
+      "exit_code": 0,
+      "sample": {
+        "backend": "typed-tree",
+        "block_device_io": {
+          "devices": [
+            {
+              "delta": {
+                "read_sectors": 457152,
+                "sector_bytes": 512,
+                "write_sectors": 11304
+              },
+              "device": "nvme0n1"
+            },
+            {
+              "delta": {
+                "read_sectors": 64,
+                "sector_bytes": 512,
+                "write_sectors": 11304
+              },
+              "device": "nvme1n1"
+            }
+          ],
+          "scope": "global block-device counters around extraction, before output verification; includes unrelated host I/O; sector unit 512 bytes"
+        },
+        "configured_cpu_workers": 1,
+        "directory_syncs": 0,
+        "durability": "write/flush/close; no fsync; directory creation included",
+        "file_syncs": 0,
+        "files": 1,
+        "kind": "filesystem_extraction",
+        "logical_bytes_written": 1073741824,
+        "max_queued_chunks": 1,
+        "mib_per_second": 223.78643007084122,
+        "open_seconds": 0.001937514,
+        "parallel_min_requested_bytes": 131072,
+        "reader_identity": {
+          "namespace_tids": [
+            2323824
+          ],
+          "pid_namespace": "pid:[4026531836]",
+          "process_id": 2323823,
+          "reader_tid": 2323824,
+          "reader_tid_parity": 0,
+          "scope": "IDs visible in this procfs mount; not proof of host-kernel task ID or physical mirror"
+        },
+        "requested_reader_tid_parity": 0,
+        "resources": {
+          "cpu": {
+            "cpu_seconds": 4.566732,
+            "major_faults": 0,
+            "system_seconds": 0.991383,
+            "user_seconds": 3.575349
+          },
+          "peak_rss_kib": 11876
+        },
+        "scope": "synthetic regular-file component; excludes CLI startup and permission restoration",
+        "single_chunk_serial_fallback": true,
+        "storage_io": {
+          "cancelled_write_bytes": 0,
+          "read_bytes": 231923712,
+          "source": "/proc/self/io; process-accounted storage I/O, not logical bytes",
+          "write_bytes": 1073741824
+        },
+        "total_seconds": 4.575791301,
+        "verified": true,
+        "worker_threads": 0
+      },
+      "time_v": {
+        "user_seconds": 3.59,
+        "system_seconds": 1.21,
+        "elapsed_seconds": 4.81,
+        "elapsed_raw": "0:04.81",
+        "maximum_resident_set_kib": 11876
+      },
+      "process_wall_seconds": 4.81,
+      "process_max_rss_kib": 11876,
+      "process_user_seconds": 3.59,
+      "process_system_seconds": 1.21,
+      "output_file_count": 1,
+      "output_total_bytes": 1073741824,
+      "source_and_output_byte_verification": true,
+      "cold_disk_gate_passed": true,
+      "observed_process_storage_read_bytes": 231923712,
+      "minimum_storage_read_bytes": 115961856,
+      "storage_read_bytes_per_payload_byte": 0.21599578857421875,
+      "durability_description": "write/flush/close; no fsync; directory creation included",
+      "executable_sha256_after": "d7443b92d491020df652335c995809a78afe27b15a66bf91edafdd30e893d92c",
+      "executable_stable_for_sample": true,
+      "postprocess_drain": {
+        "passed": true,
+        "seconds": 1.209439,
+        "scope": "owned output files, output directory and parent after process verification; outside extraction timer",
+        "file_count": 1,
+        "directory_count": 2,
+        "commands": [
+          {
+            "executable": "/usr/bin/sync",
+            "flags": [
+              "--"
+            ],
+            "path_count": 1,
+            "first_owned_path": "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/extract-output/protected-recovery/warmup-00-typed-tree-1-attempt00/file-000000.bin",
+            "last_owned_path": "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/extract-output/protected-recovery/warmup-00-typed-tree-1-attempt00/file-000000.bin",
+            "exit_code": 0,
+            "stdout": "",
+            "stderr": "\tCommand being timed: \"timeout 930 /usr/bin/sync -- /home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/extract-output/protected-recovery/warmup-00-typed-tree-1-attempt00/file-000000.bin\"\n\tUser time (seconds): 0.00\n\tSystem time (seconds): 0.39\n\tPercent of CPU this job got: 34%\n\tElapsed (wall clock) time (h:mm:ss or m:ss): 0:01.16\n\tAverage shared text size (kbytes): 0\n\tAverage unshared data size (kbytes): 0\n\tAverage stack size (kbytes): 0\n\tAverage total size (kbytes): 0\n\tMaximum resident set size (kbytes): 7992\n\tAverage resident set size (kbytes): 0\n\tMajor (requiring I/O) page faults: 0\n\tMinor (reclaiming a frame) page faults: 986\n\tVoluntary context switches: 16\n\tInvoluntary context switches: 15\n\tSwaps: 0\n\tFile system inputs: 0\n\tFile system outputs: 63040\n\tSocket messages sent: 0\n\tSocket messages received: 0\n\tSignals delivered: 0\n\tPage size (bytes): 4096\n\tExit status: 0\n"
+          },
+          {
+            "executable": "/usr/bin/sync",
+            "flags": [
+              "--"
+            ],
+            "path_count": 2,
+            "first_owned_path": "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/extract-output/protected-recovery/warmup-00-typed-tree-1-attempt00",
+            "last_owned_path": "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/extract-output/protected-recovery",
+            "exit_code": 0,
+            "stdout": "",
+            "stderr": "\tCommand being timed: \"timeout 930 /usr/bin/sync -- /home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/extract-output/protected-recovery/warmup-00-typed-tree-1-attempt00 /home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/extract-output/protected-recovery\"\n\tUser time (seconds): 0.00\n\tSystem time (seconds): 0.02\n\tPercent of CPU this job got: 80%\n\tElapsed (wall clock) time (h:mm:ss or m:ss): 0:00.02\n\tAverage shared text size (kbytes): 0\n\tAverage unshared data size (kbytes): 0\n\tAverage stack size (kbytes): 0\n\tAverage total size (kbytes): 0\n\tMaximum resident set size (kbytes): 8116\n\tAverage resident set size (kbytes): 0\n\tMajor (requiring I/O) page faults: 0\n\tMinor (reclaiming a frame) page faults: 988\n\tVoluntary context switches: 12\n\tInvoluntary context switches: 0\n\tSwaps: 0\n\tFile system inputs: 0\n\tFile system outputs: 4896\n\tSocket messages sent: 0\n\tSocket messages received: 0\n\tSignals delivered: 0\n\tPage size (bytes): 4096\n\tExit status: 0\n"
+          }
+        ],
+        "failure": null
+      },
+      "postprocess_drain_passed": true,
+      "postprocess_drain_seconds": 1.209439,
+      "verified": true,
+      "output_retained_on_failure": false,
+      "successful_output_removed_after_verification": true
+    },
+    {
+      "case": "source-expanded-1gib-compressed-encrypted",
+      "round": 0,
+      "warmup": true,
+      "backend": "typed-tree-2",
+      "worker_count": 2,
+      "input_path": "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/tree.lbox",
+      "archive_apparent_bytes": 231931904,
+      "archive_allocated_bytes": 231931904,
+      "calibrated_archive_physical_read_bytes": 231923712,
+      "read_gate_policy": "at least 50% independent cold full-archive calibrated physical read bytes; zero fincore residency required",
+      "output_path": "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/extract-output/protected-recovery/warmup-00-typed-tree-2-attempt00",
+      "affinity": "0,1,2,3,4",
+      "durable": false,
+      "requested_reader_tid_parity": 0,
+      "admission_attempt": 0,
+      "command": [
+        "taskset",
+        "-c",
+        "0,1,2,3,4",
+        "/usr/bin/time",
+        "-v",
+        "timeout",
+        "900",
+        "/home/bsutton/.cache/revault-protected-20261011-bin/revault_lockbox_api_tests",
+        "--exact",
+        "file_format::candidate_files::resource_probe::candidate_file_resource_probe",
+        "--ignored",
+        "--nocapture"
+      ],
+      "environment": {
+        "REVAULT_EXTRACT_DURABLE": "0",
+        "REVAULT_EXTRACT_TID_PARITY": "0",
+        "REVAULT_EXTRACT_PID_NAMESPACE": "pid:[4026531836]",
+        "REVAULT_EXTRACT_BLOCK_DEVICES": "nvme0n1,nvme1n1",
+        "REVAULT_CANDIDATE_ROOT": "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted",
+        "REVAULT_CANDIDATE_PHASE": "tree-extract",
+        "REVAULT_CANDIDATE_UNIT": "65536",
+        "REVAULT_EXTRACT_OUTPUT": "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/extract-output/protected-recovery/warmup-00-typed-tree-2-attempt00",
+        "REVAULT_READ_WORKERS": "2"
+      },
+      "executable": "/home/bsutton/.cache/revault-protected-20261011-bin/revault_lockbox_api_tests",
+      "executable_sha256_before": "d7443b92d491020df652335c995809a78afe27b15a66bf91edafdd30e893d92c",
+      "cache_gate": {
+        "sync_exit_code": 0,
+        "sync_stderr": "",
+        "fadvise_exit_code": 0,
+        "fadvise_stdout": "",
+        "fadvise_stderr": "",
+        "fincore_exit_code": 0,
+        "fincore_stdout": "{\n   \"fincore\": [\n      {\n         \"size\": 231931904,\n         \"res\": 0,\n         \"dirty\": 0,\n         \"writeback\": 0,\n         \"file\": \"/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/tree.lbox\"\n      }\n   ]\n}\n",
+        "fincore_stderr": "",
+        "resident_bytes_after_dontneed": 0,
+        "required_resident_bytes": 0,
+        "success": true
+      },
+      "exit_code": 0,
+      "sample": {
+        "backend": "typed-tree",
+        "block_device_io": {
+          "devices": [
+            {
+              "delta": {
+                "read_sectors": 453712,
+                "sector_bytes": 512,
+                "write_sectors": 1768
+              },
+              "device": "nvme0n1"
+            },
+            {
+              "delta": {
+                "read_sectors": 0,
+                "sector_bytes": 512,
+                "write_sectors": 1768
+              },
+              "device": "nvme1n1"
+            }
+          ],
+          "scope": "global block-device counters around extraction, before output verification; includes unrelated host I/O; sector unit 512 bytes"
+        },
+        "configured_cpu_workers": 2,
+        "directory_syncs": 0,
+        "durability": "write/flush/close; no fsync; directory creation included",
+        "file_syncs": 0,
+        "files": 1,
+        "kind": "filesystem_extraction",
+        "logical_bytes_written": 1073741824,
+        "max_queued_chunks": 16,
+        "mib_per_second": 208.8448871828516,
+        "open_seconds": 0.001677951,
+        "parallel_min_requested_bytes": 131072,
+        "reader_identity": {
+          "namespace_tids": [
+            2324094
+          ],
+          "pid_namespace": "pid:[4026531836]",
+          "process_id": 2324093,
+          "reader_tid": 2324094,
+          "reader_tid_parity": 0,
+          "scope": "IDs visible in this procfs mount; not proof of host-kernel task ID or physical mirror"
+        },
+        "requested_reader_tid_parity": 0,
+        "resources": {
+          "cpu": {
+            "cpu_seconds": 7.341825,
+            "major_faults": 0,
+            "system_seconds": 2.069262,
+            "user_seconds": 5.272563
+          },
+          "peak_rss_kib": 12764
+        },
+        "scope": "synthetic regular-file component; excludes CLI startup and permission restoration",
+        "single_chunk_serial_fallback": true,
+        "storage_io": {
+          "cancelled_write_bytes": 0,
+          "read_bytes": 231923712,
+          "source": "/proc/self/io; process-accounted storage I/O, not logical bytes",
+          "write_bytes": 1073741824
+        },
+        "total_seconds": 4.903160493,
+        "verified": true,
+        "worker_threads": 2
+      },
+      "time_v": {
+        "user_seconds": 5.29,
+        "system_seconds": 2.3,
+        "elapsed_seconds": 5.15,
+        "elapsed_raw": "0:05.15",
+        "maximum_resident_set_kib": 12764
+      },
+      "process_wall_seconds": 5.15,
+      "process_max_rss_kib": 12764,
+      "process_user_seconds": 5.29,
+      "process_system_seconds": 2.3,
+      "output_file_count": 1,
+      "output_total_bytes": 1073741824,
+      "source_and_output_byte_verification": true,
+      "cold_disk_gate_passed": true,
+      "observed_process_storage_read_bytes": 231923712,
+      "minimum_storage_read_bytes": 115961856,
+      "storage_read_bytes_per_payload_byte": 0.21599578857421875,
+      "durability_description": "write/flush/close; no fsync; directory creation included",
+      "executable_sha256_after": "d7443b92d491020df652335c995809a78afe27b15a66bf91edafdd30e893d92c",
+      "executable_stable_for_sample": true,
+      "postprocess_drain": {
+        "passed": true,
+        "seconds": 1.070544,
+        "scope": "owned output files, output directory and parent after process verification; outside extraction timer",
+        "file_count": 1,
+        "directory_count": 2,
+        "commands": [
+          {
+            "executable": "/usr/bin/sync",
+            "flags": [
+              "--"
+            ],
+            "path_count": 1,
+            "first_owned_path": "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/extract-output/protected-recovery/warmup-00-typed-tree-2-attempt00/file-000000.bin",
+            "last_owned_path": "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/extract-output/protected-recovery/warmup-00-typed-tree-2-attempt00/file-000000.bin",
+            "exit_code": 0,
+            "stdout": "",
+            "stderr": "\tCommand being timed: \"timeout 930 /usr/bin/sync -- /home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/extract-output/protected-recovery/warmup-00-typed-tree-2-attempt00/file-000000.bin\"\n\tUser time (seconds): 0.00\n\tSystem time (seconds): 0.30\n\tPercent of CPU this job got: 29%\n\tElapsed (wall clock) time (h:mm:ss or m:ss): 0:01.03\n\tAverage shared text size (kbytes): 0\n\tAverage unshared data size (kbytes): 0\n\tAverage stack size (kbytes): 0\n\tAverage total size (kbytes): 0\n\tMaximum resident set size (kbytes): 7860\n\tAverage resident set size (kbytes): 0\n\tMajor (requiring I/O) page faults: 0\n\tMinor (reclaiming a frame) page faults: 981\n\tVoluntary context switches: 12\n\tInvoluntary context switches: 15\n\tSwaps: 0\n\tFile system inputs: 32\n\tFile system outputs: 47744\n\tSocket messages sent: 0\n\tSocket messages received: 0\n\tSignals delivered: 0\n\tPage size (bytes): 4096\n\tExit status: 0\n"
+          },
+          {
+            "executable": "/usr/bin/sync",
+            "flags": [
+              "--"
+            ],
+            "path_count": 2,
+            "first_owned_path": "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/extract-output/protected-recovery/warmup-00-typed-tree-2-attempt00",
+            "last_owned_path": "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/extract-output/protected-recovery",
+            "exit_code": 0,
+            "stdout": "",
+            "stderr": "\tCommand being timed: \"timeout 930 /usr/bin/sync -- /home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/extract-output/protected-recovery/warmup-00-typed-tree-2-attempt00 /home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/extract-output/protected-recovery\"\n\tUser time (seconds): 0.00\n\tSystem time (seconds): 0.01\n\tPercent of CPU this job got: 68%\n\tElapsed (wall clock) time (h:mm:ss or m:ss): 0:00.01\n\tAverage shared text size (kbytes): 0\n\tAverage unshared data size (kbytes): 0\n\tAverage stack size (kbytes): 0\n\tAverage total size (kbytes): 0\n\tMaximum resident set size (kbytes): 8000\n\tAverage resident set size (kbytes): 0\n\tMajor (requiring I/O) page faults: 0\n\tMinor (reclaiming a frame) page faults: 988\n\tVoluntary context switches: 14\n\tInvoluntary context switches: 0\n\tSwaps: 0\n\tFile system inputs: 0\n\tFile system outputs: 2912\n\tSocket messages sent: 0\n\tSocket messages received: 0\n\tSignals delivered: 0\n\tPage size (bytes): 4096\n\tExit status: 0\n"
+          }
+        ],
+        "failure": null
+      },
+      "postprocess_drain_passed": true,
+      "postprocess_drain_seconds": 1.070544,
+      "verified": true,
+      "output_retained_on_failure": false,
+      "successful_output_removed_after_verification": true
+    },
+    {
+      "case": "source-expanded-1gib-compressed-encrypted",
+      "round": 0,
+      "warmup": true,
+      "backend": "typed-tree-4",
+      "worker_count": 4,
+      "input_path": "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/tree.lbox",
+      "archive_apparent_bytes": 231931904,
+      "archive_allocated_bytes": 231931904,
+      "calibrated_archive_physical_read_bytes": 231923712,
+      "read_gate_policy": "at least 50% independent cold full-archive calibrated physical read bytes; zero fincore residency required",
+      "output_path": "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/extract-output/protected-recovery/warmup-00-typed-tree-4-attempt00",
+      "affinity": "0,1,2,3,4",
+      "durable": false,
+      "requested_reader_tid_parity": 0,
+      "admission_attempt": 0,
+      "command": [
+        "taskset",
+        "-c",
+        "0,1,2,3,4",
+        "/usr/bin/time",
+        "-v",
+        "timeout",
+        "900",
+        "/home/bsutton/.cache/revault-protected-20261011-bin/revault_lockbox_api_tests",
+        "--exact",
+        "file_format::candidate_files::resource_probe::candidate_file_resource_probe",
+        "--ignored",
+        "--nocapture"
+      ],
+      "environment": {
+        "REVAULT_EXTRACT_DURABLE": "0",
+        "REVAULT_EXTRACT_TID_PARITY": "0",
+        "REVAULT_EXTRACT_PID_NAMESPACE": "pid:[4026531836]",
+        "REVAULT_EXTRACT_BLOCK_DEVICES": "nvme0n1,nvme1n1",
+        "REVAULT_CANDIDATE_ROOT": "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted",
+        "REVAULT_CANDIDATE_PHASE": "tree-extract",
+        "REVAULT_CANDIDATE_UNIT": "65536",
+        "REVAULT_EXTRACT_OUTPUT": "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/extract-output/protected-recovery/warmup-00-typed-tree-4-attempt00",
+        "REVAULT_READ_WORKERS": "4"
+      },
+      "executable": "/home/bsutton/.cache/revault-protected-20261011-bin/revault_lockbox_api_tests",
+      "executable_sha256_before": "d7443b92d491020df652335c995809a78afe27b15a66bf91edafdd30e893d92c",
+      "cache_gate": {
+        "sync_exit_code": 0,
+        "sync_stderr": "",
+        "fadvise_exit_code": 0,
+        "fadvise_stdout": "",
+        "fadvise_stderr": "",
+        "fincore_exit_code": 0,
+        "fincore_stdout": "{\n   \"fincore\": [\n      {\n         \"size\": 231931904,\n         \"res\": 0,\n         \"dirty\": 0,\n         \"writeback\": 0,\n         \"file\": \"/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/tree.lbox\"\n      }\n   ]\n}\n",
+        "fincore_stderr": "",
+        "resident_bytes_after_dontneed": 0,
+        "required_resident_bytes": 0,
+        "success": true
+      },
+      "exit_code": 0,
+      "sample": {
+        "backend": "typed-tree",
+        "block_device_io": {
+          "devices": [
+            {
+              "delta": {
+                "read_sectors": 452992,
+                "sector_bytes": 512,
+                "write_sectors": 1032
+              },
+              "device": "nvme0n1"
+            },
+            {
+              "delta": {
+                "read_sectors": 0,
+                "sector_bytes": 512,
+                "write_sectors": 1032
+              },
+              "device": "nvme1n1"
+            }
+          ],
+          "scope": "global block-device counters around extraction, before output verification; includes unrelated host I/O; sector unit 512 bytes"
+        },
+        "configured_cpu_workers": 4,
+        "directory_syncs": 0,
+        "durability": "write/flush/close; no fsync; directory creation included",
+        "file_syncs": 0,
+        "files": 1,
+        "kind": "filesystem_extraction",
+        "logical_bytes_written": 1073741824,
+        "max_queued_chunks": 32,
+        "mib_per_second": 265.6049153750356,
+        "open_seconds": 0.001814393,
+        "parallel_min_requested_bytes": 131072,
+        "reader_identity": {
+          "namespace_tids": [
+            2324466
+          ],
+          "pid_namespace": "pid:[4026531836]",
+          "process_id": 2324465,
+          "reader_tid": 2324466,
+          "reader_tid_parity": 0,
+          "scope": "IDs visible in this procfs mount; not proof of host-kernel task ID or physical mirror"
+        },
+        "requested_reader_tid_parity": 0,
+        "resources": {
+          "cpu": {
+            "cpu_seconds": 8.779112,
+            "major_faults": 0,
+            "system_seconds": 2.4602299999999997,
+            "user_seconds": 6.318882
+          },
+          "peak_rss_kib": 14792
+        },
+        "scope": "synthetic regular-file component; excludes CLI startup and permission restoration",
+        "single_chunk_serial_fallback": true,
+        "storage_io": {
+          "cancelled_write_bytes": 0,
+          "read_bytes": 231923712,
+          "source": "/proc/self/io; process-accounted storage I/O, not logical bytes",
+          "write_bytes": 1073758208
+        },
+        "total_seconds": 3.855350337,
+        "verified": true,
+        "worker_threads": 4
+      },
+      "time_v": {
+        "user_seconds": 6.33,
+        "system_seconds": 2.68,
+        "elapsed_seconds": 4.09,
+        "elapsed_raw": "0:04.09",
+        "maximum_resident_set_kib": 14792
+      },
+      "process_wall_seconds": 4.09,
+      "process_max_rss_kib": 14792,
+      "process_user_seconds": 6.33,
+      "process_system_seconds": 2.68,
+      "output_file_count": 1,
+      "output_total_bytes": 1073741824,
+      "source_and_output_byte_verification": true,
+      "cold_disk_gate_passed": true,
+      "observed_process_storage_read_bytes": 231923712,
+      "minimum_storage_read_bytes": 115961856,
+      "storage_read_bytes_per_payload_byte": 0.21599578857421875,
+      "durability_description": "write/flush/close; no fsync; directory creation included",
+      "executable_sha256_after": "d7443b92d491020df652335c995809a78afe27b15a66bf91edafdd30e893d92c",
+      "executable_stable_for_sample": true,
+      "postprocess_drain": {
+        "passed": true,
+        "seconds": 1.101127,
+        "scope": "owned output files, output directory and parent after process verification; outside extraction timer",
+        "file_count": 1,
+        "directory_count": 2,
+        "commands": [
+          {
+            "executable": "/usr/bin/sync",
+            "flags": [
+              "--"
+            ],
+            "path_count": 1,
+            "first_owned_path": "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/extract-output/protected-recovery/warmup-00-typed-tree-4-attempt00/file-000000.bin",
+            "last_owned_path": "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/extract-output/protected-recovery/warmup-00-typed-tree-4-attempt00/file-000000.bin",
+            "exit_code": 0,
+            "stdout": "",
+            "stderr": "\tCommand being timed: \"timeout 930 /usr/bin/sync -- /home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/extract-output/protected-recovery/warmup-00-typed-tree-4-attempt00/file-000000.bin\"\n\tUser time (seconds): 0.00\n\tSystem time (seconds): 0.31\n\tPercent of CPU this job got: 29%\n\tElapsed (wall clock) time (h:mm:ss or m:ss): 0:01.05\n\tAverage shared text size (kbytes): 0\n\tAverage unshared data size (kbytes): 0\n\tAverage stack size (kbytes): 0\n\tAverage total size (kbytes): 0\n\tMaximum resident set size (kbytes): 8308\n\tAverage resident set size (kbytes): 0\n\tMajor (requiring I/O) page faults: 0\n\tMinor (reclaiming a frame) page faults: 997\n\tVoluntary context switches: 28\n\tInvoluntary context switches: 11\n\tSwaps: 0\n\tFile system inputs: 0\n\tFile system outputs: 40512\n\tSocket messages sent: 0\n\tSocket messages received: 0\n\tSignals delivered: 0\n\tPage size (bytes): 4096\n\tExit status: 0\n"
+          },
+          {
+            "executable": "/usr/bin/sync",
+            "flags": [
+              "--"
+            ],
+            "path_count": 2,
+            "first_owned_path": "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/extract-output/protected-recovery/warmup-00-typed-tree-4-attempt00",
+            "last_owned_path": "/home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/extract-output/protected-recovery",
+            "exit_code": 0,
+            "stdout": "",
+            "stderr": "\tCommand being timed: \"timeout 930 /usr/bin/sync -- /home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/extract-output/protected-recovery/warmup-00-typed-tree-4-attempt00 /home/bsutton/.cache/revault-protected-20261011/source-expanded-1gib-compressed-encrypted/extract-output/protected-recovery\"\n\tUser time (seconds): 0.00\n\tSystem time (seconds): 0.01\n\tPercent of CPU this job got: 77%\n\tElapsed (wall clock) time (h:mm:ss or m:ss): 0:00.02\n\tAverage shared text size (kbytes): 0\n\tAverage unshared data size (kbytes): 0\n\tAverage stack size (kbytes): 0\n\tAverage total size (kbytes): 0\n\tMaximum resident set size (kbytes): 8016\n\tAverage resident set size (kbytes): 0\n\tMajor (requiring I/O) page faults: 0\n\tMinor (reclaiming a frame) page faults: 991\n\tVoluntary context switches: 12\n\tInvoluntary context switches: 0\n\tSwaps: 0\n\tFile system inputs: 0\n\tFile system outputs: 3968\n\tSocket messages sent: 0\n\tSocket messages received: 0\n\tSignals delivered: 0\n\tPage size (bytes): 4096\n\tExit status: 0\n"
+          }
+        ],
+        "failure": null
+      },
+      "postprocess_drain_passed": true,
+      "postprocess_drain_seconds": 1.101127,
+      "verified": true,
+      "output_retained_on_failure": false,
+      "successful_output_removed_after_verification": true
+    }
+  ]
+}

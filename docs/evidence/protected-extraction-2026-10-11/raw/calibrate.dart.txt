@@ -1,0 +1,35 @@
+#! /usr/bin/env dcli
+import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
+import 'package:dcli/dcli.dart';
+const e='/home/bsutton/.cache/revault-protected-20261011-evidence';
+Map<String,Object> run(String exe,List<String> args){final p=Process.runSync(exe,args);return {'command':[exe,...args],'exit_code':p.exitCode,'stdout':p.stdout,'stderr':p.stderr};}
+int reads()=>int.parse(File('/proc/self/io').readAsLinesSync().singleWhere((s)=>s.startsWith('read_bytes:')).split(':')[1].trim());
+void main(){
+ final dest=File('$e/physical-read-calibration.json');if(dest.existsSync())throw StateError('Refuse existing calibration');
+ final cases=jsonDecode(File('$e/cases.json').readAsStringSync()) as List;
+ final result=<String,dynamic>{};final buffer=Uint8List(65536);
+ reads(); // Warm procfs parsing before observation.
+ for(final c in cases)for(final archive in ['archive.zip','tree.lbox']) {
+  final path='${c['root']}/$archive';final scans=<Map<String,dynamic>>[];
+  for(var i=0;i<2;i++){
+   final sync=run('sync',['-d',path]),advise=run('fadvise',['--advice','dontneed',path]);
+   final core=run('fincore',['--json','--bytes','--output','SIZE,RES,DIRTY,WRITEBACK,FILE',path]);
+   final row=(jsonDecode(core['stdout'] as String)['fincore'] as List).single;
+   if(sync['exit_code']!=0||advise['exit_code']!=0||core['exit_code']!=0||int.parse('${row['res']}')!=0)throw StateError('Calibration cache gate failed $path');
+   final before=reads();final input=File(path).openSync();var logical=0;
+   try{while(true){final n=input.readIntoSync(buffer);if(n==0)break;logical+=n;}}finally{input.closeSync();}
+   final after=reads(),physical=after-before;
+   scans.add({'sync':sync,'advice':advise,'fincore':core,'read_bytes_before':before,'read_bytes_after':after,'physical_read_bytes':physical,'logical_bytes':logical,'buffer_bytes':buffer.length});
+   result[path]={'scans':scans};dest.writeAsStringSync(const JsonEncoder.withIndent('  ').convert(result),flush:true);
+   if(physical<=0||logical!=File(path).lengthSync())throw StateError('Calibration traffic or length failure');
+  }
+  final a=scans[0]['physical_read_bytes'] as int,b=scans[1]['physical_read_bytes'] as int;
+  final min=a<b?a:b,max=a>b?a:b;
+  if(max>min*1.1)throw StateError('Calibration scans disagree >10%: $path');
+  result[path]={'scans':scans,'minimum_physical_read_bytes':min,'maximum_physical_read_bytes':max,'required_extraction_read_bytes':(min+1)~/2,'fraction':0.5,'basis':'two independently evicted whole-archive synchronous64KiB reads; own proc/self/io read_bytes delta; stat allocation not physical on compressed Btrfs'};
+  dest.writeAsStringSync(const JsonEncoder.withIndent('  ').convert(result),flush:true);
+ }
+ print(green('Calibrated physical full-archive traffic for20archives with two cold scans each.'));
+}

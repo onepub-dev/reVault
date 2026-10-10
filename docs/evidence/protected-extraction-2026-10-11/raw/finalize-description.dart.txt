@@ -1,0 +1,4 @@
+#! /usr/bin/env dcli
+import 'dart:io';
+import 'package:dcli/dcli.dart';
+void main(){final file=File('/home/bsutton/.cache/revault-protected-20261011-evidence/run.dart');file.copySync('${file.path}.v2-smoke-epoch.txt');file.writeAsStringSync(file.readAsStringSync().replaceAll('90% of logical payload','50% of independent calibrated whole-archive physical read bytes'));print(green('Corrected descriptive string only; exact preflight source preserved.'));}

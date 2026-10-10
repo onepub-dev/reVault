@@ -126,3 +126,5 @@ and development failures; path installation and full-format acceptance are separ
 - [Bounded construction and disk-backed extraction](evidence/scale-extraction-2026-10-10/README.md): successful GiB/10,000-file gates and paired filesystem extraction evidence with CPU/RSS.
 
 - [Cold disk extraction and bounded parallel reads](evidence/cold-parallel-extraction-2026-10-10/README.md): cold archive residency/storage-read gates, balanced buffered and exploratory durable protocols, separate postprocess drain, and paired elapsed/CPU/RSS evidence; keep one worker as default.
+
+- [Compressed and encrypted cold-disk extraction](evidence/protected-extraction-2026-10-11/README.md): six GiB case comparisons, calibrated Btrfs physical reads, preserved interruptions and source epochs; four-worker gains in heavier modes support workload-aware selection under the accepted CPU trade-off.

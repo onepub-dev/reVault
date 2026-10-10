@@ -22,6 +22,29 @@ or erase failures.
 
 ## Current position and next work
 
+### Compressed and encrypted cold-disk extraction — 2026-10-11
+
+The [six-case GiB comparison](evidence/protected-extraction-2026-10-11/README.md)
+finds four workers reduce elapsed time by 8.6–22.5% in the tested compressed or
+encrypted cases, with 45.0–70.9% more CPU. Raw/plain source extraction regresses
+9.5%. The user accepts increased CPU as a reasonable trade-off for lower elapsed
+time; CPU growth alone does not reject these gains. Next evaluate workload-aware
+worker selection, including size crossover and incompressible plaintext fallback,
+while retaining serial reads where they are faster. No automatic policy or native
+reader change is included in this measurement milestone.
+
+All six complete case comparisons retain cold residency, calibrated physical-I/O,
+byte verification, CPU/RSS and paired uncertainty evidence. Two interrupted batches
+remain incomplete; their partial cases are excluded and rerun in full, with exact
+source and executable epochs recorded. The repeated source GiB is explicitly not
+a unique GiB corpus. ZIP uses unequal codecs/protection where documented; PGP,
+public CLI, scale and G11 qualification remain open. The 50%-remaining usage limit
+continues to apply; the final measurement checkpoint reports 27% used.
+
+The user also requested focused checks during experiments and batching retained
+improvements before full-suite integration validation. This policy is recorded in
+AGENTS.md. No full suite was run for this measurement-only milestone.
+
 ### Cold disk extraction and bounded parallel reads — 2026-10-10
 
 The balanced raw/plain buffered batch does not establish ZIP parity or a

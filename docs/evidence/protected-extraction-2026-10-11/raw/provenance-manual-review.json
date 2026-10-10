@@ -1,0 +1,11 @@
+{
+  "reviewed_current_revision": "6735f6dbf949915ed7b94f0b6b9bb5fb7895e231",
+  "reconstructed_source_hashes_verified": 241,
+  "recorded_executable_hashes_verified": 2,
+  "changed_recorded_files": 6,
+  "automatic_whitespace_only_check_passed": false,
+  "manual_diff_review_passed": true,
+  "assessment": "All six source differences are pre-commit Rust formatting: whitespace, optional trailing commas, and semicolons following return statements. No logic or mode-setting difference was observed. Five files exceeded the deliberately strict whitespace-only automatic check; that refusal remains in the original report. Reuse the exactly hash-pinned prior source epoch, without claiming binaries were built from the formatted commit.",
+  "diff": "provenance-formatting.diff",
+  "source_identity_report": "provenance-review.json"
+}

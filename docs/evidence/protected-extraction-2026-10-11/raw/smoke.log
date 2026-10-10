@@ -1,0 +1,8 @@
+Unhandled exception:
+Bad state: Extraction failed verification for source-bundle-raw-plain/zip; output/logs retained at /home/bsutton/.cache/revault-protected-20261011/source-bundle-raw-plain/extract-output/parallel/sample-00-zip-attempt00.
+#0      _extractSample (file:///home/bsutton/.cache/revault-protected-20261011-evidence/run.dart:538:5)
+<asynchronous suspension>
+#1      runSmoke (file:///home/bsutton/.cache/revault-protected-20261011-evidence/run.dart:288:19)
+<asynchronous suspension>
+#2      main (file:///home/bsutton/.cache/revault-protected-20261011-evidence/run.dart:47:53)
+<asynchronous suspension>

@@ -1,0 +1,7 @@
+Unhandled exception:
+Bad state: Cold cache gate failed for random-1gib-raw-encrypted/typed-tree-4; retained gate evidence.
+#0      _extractSample (file:///home/bsutton/.cache/revault-protected-20261011-evidence/recovery-run.dart:376:5)
+#1      runColdBatch (file:///home/bsutton/.cache/revault-protected-20261011-evidence/recovery-run.dart:700:31)
+<asynchronous suspension>
+#2      main (file:///home/bsutton/.cache/revault-protected-20261011-evidence/recovery-run.dart:47:25)
+<asynchronous suspension>

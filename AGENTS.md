@@ -80,6 +80,21 @@ hook requires Cargo and rustfmt from the repository's pinned Rust toolchain.
 If another hooks path is already configured, integrate it rather than
 overwriting it. Do not bypass the hook as part of normal agent work.
 
+## Performance Experiment Validation
+
+Do not run the full test suite after every performance experiment. First use
+benchmarks to establish whether a change provides a worthwhile improvement.
+Revert unsuccessful experiments rather than spending a full-suite run on them.
+
+Use focused tests for the behavior and integrity guarantees affected by a change,
+and verify benchmark outputs for correctness. Keep builds and tests out of timed
+benchmark runs. These checks do not require a full-suite run.
+
+Batch multiple retained performance improvements where practical, then run the
+full suite once at the integration checkpoint. Repeat broad validation only when
+subsequent changes, failures, or an explicit release requirement justify it.
+Do not rerun the full suite for measurement-only or documentation-only work.
+
 ## CLI End-to-End Tests
 
 End-to-end CLI tests must exercise the public CLI as a user would. Use CLI
