@@ -71,4 +71,32 @@ then uses the returned candidate unquoted in a new CLI invocation and compares
 the retrieved content bytes. Other shells return the canonical candidate.
 
 The workflow runs all five shells on Linux and native PowerShell/Elvish plus
-Git Bash on Windows. Windows results are pending completion of the CI run.
+Git Bash on Windows. The [Windows job on `ce60ab49`](https://github.com/onepub-dev/reVault/actions/runs/38035781453/job/114165784576)
+passed both the native CLI/registered-completion matrix and the actual
+format-3 reader refusal test. Its environment was Microsoft Windows
+10.0.26100, Git Bash 5.3.15(2), PowerShell 7.6.6 with `en-US` culture and UTF-8
+input/output, and native Elvish built from pinned v0.21.0. All three passed
+composed/decomposed completion checks.
+
+The first Linux CI attempt stopped in the token driver because its default
+PowerShell executable name was `powershell` rather than `pwsh`. The corrected
+default was verified locally without an executable override (100 arguments).
+The corrected Linux CI run is pending.
+
+## Broader branch checks
+
+This is not an all-green format-4 CI claim. The broader Rust workflow reports
+three failures also present on feature base `dc93b097`, confirmed against
+[baseline run 38028150229](https://github.com/onepub-dev/reVault/actions/runs/38028150229):
+
+- [Migration fixture comparison](https://github.com/onepub-dev/reVault/actions/runs/38028150229/job/114143300702):
+  `every_retained_native_version_migrates_to_current`.
+- [Recovery diagnosis](https://github.com/onepub-dev/reVault/actions/runs/38028150229/job/114143300728):
+  `doctor_recover_detects_and_completes_interrupted_cleanup` expects
+  `state: cleanup required`.
+- [Windows completion setup](https://github.com/onepub-dev/reVault/actions/runs/38028150229/job/114143300820):
+  the pre-existing Bash registration test invokes WSL without an installed
+  distribution. The new native Windows matrix explicitly selects Git Bash.
+
+These remain separate from Unicode alias validation and from eventual format-4
+release qualification.

@@ -122,13 +122,13 @@ impl ShellFixture {
         });
         match self.shell.as_str() {
             "bash" => {
-                command.args(["--noprofile", "--norc", "-c", &native]);
+                command.args(["--noprofile", "--norc", "-c", native]);
             }
             "zsh" => {
                 command.args(["-f", "-c", zsh_native.as_deref().unwrap_or(native)]);
             }
             "fish" => {
-                command.args(["--no-config", "-c", &native]);
+                command.args(["--no-config", "-c", native]);
             }
             "powershell" => {
                 command.args([
@@ -140,7 +140,7 @@ impl ShellFixture {
                 ]);
             }
             "elvish" => {
-                command.args(["-c", &native]);
+                command.args(["-c", native]);
             }
             other => panic!("undeclared shell: {other}"),
         }
@@ -326,8 +326,8 @@ impl TerminalInput {
                     &mut master,
                     &mut slave,
                     std::ptr::null_mut(),
-                    std::ptr::null(),
-                    std::ptr::null(),
+                    std::ptr::null_mut(),
+                    std::ptr::null_mut(),
                 )
             };
             assert_eq!(result, 0, "openpty: {}", std::io::Error::last_os_error());
