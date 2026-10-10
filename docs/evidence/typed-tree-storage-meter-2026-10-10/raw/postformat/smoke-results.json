@@ -1,0 +1,89 @@
+{
+  "commit": "3a4db99c4898fdc1c5c6f226b4f9372e472f2b70",
+  "binary_sha256": "2cebc6ceee449e5f111f2af2018f2330dd202376188451e2a76aac9d829aefdb",
+  "cpu": 2,
+  "diagnostic_opens_per_fixture": 1,
+  "all_verified": true,
+  "cases": {
+    "small512-mixed-compressed": {
+      "verified": true,
+      "opens": 1,
+      "storage_by_stage_present": true,
+      "stage_names": [
+        "codec",
+        "index_walk_and_decode",
+        "owner_payload_verification",
+        "ownership_graph",
+        "pack_padding",
+        "reclaimed_space",
+        "selected_publication",
+        "typed_validation",
+        "value_key"
+      ],
+      "length_calls": 6,
+      "read_calls": 9,
+      "read_into_calls": 2,
+      "archive_sha256": "3d9e2d0ce9aab8dc3e6a52b075a701fb67fb9452c24b2efffc13a87e868990c2"
+    },
+    "raw8m-random": {
+      "verified": true,
+      "opens": 1,
+      "storage_by_stage_present": true,
+      "stage_names": [
+        "codec",
+        "index_walk_and_decode",
+        "owner_payload_verification",
+        "ownership_graph",
+        "pack_padding",
+        "reclaimed_space",
+        "selected_publication",
+        "typed_validation",
+        "value_key"
+      ],
+      "length_calls": 4,
+      "read_calls": 6,
+      "read_into_calls": 2,
+      "archive_sha256": "7ee2a3befc88ff9f583f55dbaa7e5ad187f779ad06cd8f0fa7728d067ffb1694"
+    },
+    "compressed8m-pattern": {
+      "verified": true,
+      "opens": 1,
+      "storage_by_stage_present": true,
+      "stage_names": [
+        "codec",
+        "index_walk_and_decode",
+        "owner_payload_verification",
+        "ownership_graph",
+        "pack_padding",
+        "reclaimed_space",
+        "selected_publication",
+        "typed_validation",
+        "value_key"
+      ],
+      "length_calls": 4,
+      "read_calls": 7,
+      "read_into_calls": 2,
+      "archive_sha256": "6c526254bfdbf96819c355466e40ebbcf6edff708509677f46e3843d805c4c90"
+    },
+    "raw64m-random": {
+      "verified": true,
+      "opens": 1,
+      "storage_by_stage_present": true,
+      "stage_names": [
+        "codec",
+        "index_walk_and_decode",
+        "owner_payload_verification",
+        "ownership_graph",
+        "pack_padding",
+        "reclaimed_space",
+        "selected_publication",
+        "typed_validation",
+        "value_key"
+      ],
+      "length_calls": 9,
+      "read_calls": 11,
+      "read_into_calls": 2,
+      "archive_sha256": "0c098194eb7cfe027762af2a933f96a814854366773cd3bf6d67f9efeacf6775"
+    }
+  }
+}

@@ -24,15 +24,15 @@ opens succeed; all measured storage operations succeed; source, binary and
 fixture hashes remain stable. Tests and builds finish before timing. There is
 no paired version comparison, bootstrap speedup claim or adaptive resampling.
 
-| Fixture | Index stage median (µs) | Length / read calls | Requested bytes | Storage length / read median (µs) | Residual median (µs) |
+| Fixture | Index stage median (µs) | Length / read calls | Requested bytes | Storage length / read median (µs) | Residual from medians (µs) |
 | --- | --- | --- | --- | --- | --- |
 | 512 × 4 KiB compressible | 483.8 | 3 / 3 | 196608 | 2.72 / 26.45 | 454.6 |
 | 8 MiB random raw | 120.5 | 1 / 1 | 65536 | 0.63 / 6.63 | 113.2 |
 | 8 MiB compressed pattern | 80.1 | 1 / 1 | 65536 | 0.64 / 6.83 | 72.7 |
 | 64 MiB random raw | 751.9 | 6 / 6 | 393216 | 4.31 / 41.69 | 705.9 |
 
-Residual is computed per observation before taking its median, so the displayed
-medians need not subtract exactly. Index stages have no read-into calls. Each
+Residual subtracts median length-call and read-call time from median stage
+time. It is not the median of per-observation residuals; rounding may differ. Index stages have no read-into calls. Each
 fixture's publication selection makes three length and five read calls; reclaimed
 space makes two read-into calls totaling 8192 bytes. Padding reads occur for the
 small and compressed fixtures. Full per-stage counts and timings are retained.
@@ -60,3 +60,8 @@ write path never uses it. Normal and observed opens retain the same verification
 logic. The diagnostic itself is not a public storage adapter, security
 qualification, cold-I/O measurement or public CLI memory measurement. The latest
 full-read comparison still fails all six ZIP cases; full-format work remains open.
+
+Post-format strict Clippy and single-traversal checks pass on `3a4db99c`.
+One-open smoke checks for all four fixtures retain `storage_by_stage`, report no
+failed storage calls, and verify full contents. Evidence is in `raw/postformat/`;
+these smoke observations are excluded from the 100-open diagnostic above.
