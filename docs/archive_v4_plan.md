@@ -22,13 +22,56 @@ or erase failures.
 
 ## Current position and next work
 
+### Security prerequisite and performance pause — 2026-10-11
+
+Brett has paused performance tuning at checkpoint `0de2dd4a` until the
+[password-integrity handoff](evidence/password-integrity-audit-2026-10-11/handoff.txt)
+is incorporated and its acceptance gates pass. Preserve all previous benchmark
+evidence and source/executable epochs; do not start worker-selection experiments.
+The 50%-remaining usage cutoff continues to apply (last measurement checkpoint:
+27% used; this is not a fresh usage reading). No release is authorized.
+
+The format-3 audit confirms outsider header reset, partial ciphertext replay and
+public slot-ID manipulation in signed and unsigned encrypted archives. Equivalent
+v4 attacks are **untested**, not established vulnerabilities or completed fixes.
+The retained [reproduction patch](evidence/password-integrity-audit-2026-10-11/reproduction-tests.patch)
+contains tests only and has not been applied to v4. Main's unrelated edits remain
+untouched. This checkpoint records planning, not security implementation.
+
+The next work, in order, is:
+
+1. Adapt reproductions to native/current v4 and candidate paths; record vulnerable,
+   rejected, unreachable and untested cases by exact revision/features. Review
+   concrete authentication and reference bindings before changing wire layout.
+2. Authenticate every accepted state including empty archives, bind graph references
+   to expected objects/versions and bytes, and authenticate access metadata after
+   credential bootstrap. Cover selective reads, writes, recovery, cleanup,
+   compaction, migration and alternate backends without unconditional full scans.
+3. After integrity gates pass, make new password archives unsigned by default
+   consistently in CLI, Rust APIs and bindings. Password holders may read/write
+   without a signer or implicit Vault. Preserve explicit signed creation and all
+   existing signed archives' verification requirements; never silently strip signing.
+4. Validate migration and bidirectional compatibility. Incompatible commitments
+   belong to format 4 / `0.5.x`, not a supposedly compatible `0.4.x` patch.
+5. Pass the handoff's adversarial, lifecycle, recovery, resource and compatibility
+   gates on one retained implementation; checkpoint it before resuming performance
+   work with fresh comparable baselines. Use focused tests during implementation
+   and broad integration validation at the completed security checkpoint.
+
+Resolve mixed password/contact creation and protection-change policy explicitly
+before implementing those paths. Conversion of existing signed archives requires
+an explicit, separately verified replacement preserving originals. Whole-archive
+rollback needs external freshness state; that limit does not excuse partial replay.
+No profile-renaming or configurable-default feature is authorized by this handoff.
+
 ### Compressed and encrypted cold-disk extraction — 2026-10-11
 
 The [six-case GiB comparison](evidence/protected-extraction-2026-10-11/README.md)
 finds four workers reduce elapsed time by 8.6–22.5% in the tested compressed or
 encrypted cases, with 45.0–70.9% more CPU. Raw/plain source extraction regresses
 9.5%. The user accepts increased CPU as a reasonable trade-off for lower elapsed
-time; CPU growth alone does not reject these gains. Next evaluate workload-aware
+time; CPU growth alone does not reject these gains. After the security prerequisite,
+evaluate workload-aware
 worker selection, including size crossover and incompressible plaintext fallback,
 while retaining serial reads where they are faster. No automatic policy or native
 reader change is included in this measurement milestone.

@@ -10,8 +10,10 @@ is [Project goals](../manual/project-goals.md); delivery status is in the
 
 Protect file bytes and names, directory/symlink metadata, variables, form schema
 and values, access records, owner signing keys and Vault credentials. An archive
-recipient holding its content key is not automatically an authorized writer.
-Owner authorization must therefore remain meaningful even against a recipient
+recipient holding its content key is not automatically an authorized writer in
+signed modes. In unsigned password archives, password holders are authorized
+writers; no individual authorship or protection against those writers is promised.
+Owner authorization in signed modes must remain meaningful even against a recipient
 who can recompute symmetric authentication tags. Password guessing resistance,
 key wrapping and hybrid signatures retain their existing cryptographic policy;
 layout experiments may not replace them to improve a benchmark.
@@ -29,6 +31,13 @@ the owner's signing key can authorize new content. No standalone archive can
 prove it is the latest copy without external freshness state.
 
 ## Protection modes
+
+The October 11 user direction makes unsigned creation the intended default for
+new password archives, pending the [security prerequisite](archive_v4_plan.md#security-prerequisite-and-performance-pause--2026-10-11).
+Explicit signed creation and existing signed archives retain their requirements.
+Mixed password/contact creation and later protection changes require an explicit
+policy; password addition must never silently strip signing. This documents the
+required policy, not a completed implementation or security qualification.
 
 | Mode | Confidentiality | Integrity / authorization required |
 | --- | --- | --- |

@@ -10,6 +10,39 @@ and [delivery plan](archive_v4_plan.md) define purpose, guarantees and sequence.
 [Baseline evidence](evidence/v4-baseline-2026-09-26.md) records newly run checks.
 Historical microbenchmarks remain evidence about their own revisions.
 
+## Security prerequisite — 2026-10-11
+
+Performance experiments are paused at `0de2dd4a` by user direction. The
+[security-first handoff](evidence/password-integrity-audit-2026-10-11/handoff.txt)
+and [implementation sequence](archive_v4_plan.md#security-prerequisite-and-performance-pause--2026-10-11)
+take priority over further worker selection or throughput tuning. This is a
+planning checkpoint; no security fix or creation-default change is completed.
+
+| Audit finding | Format-3 evidence from main `7193946b` plus audit tests | Current/native v4 and candidate status |
+| --- | --- | --- |
+| Header reset hides committed contents | Confirmed in encrypted signed and unsigned modes | Equivalent attacks untested |
+| Old ciphertext replaces current variable state | Confirmed in encrypted signed and unsigned modes | Equivalent attacks untested |
+| Public slot IDs changed with repaired checksums | Confirmed in encrypted signed and unsigned modes | Equivalent attacks untested |
+
+Before resuming tuning, require authenticated empty/nonempty state, expected
+object/version and byte commitments throughout the graph, authenticated access
+metadata after unlock, and preserved owner authority in signed modes. Validate
+selective reads, repaired-checksum attacks, replay at reused offsets, all record
+families, alternate copies/backends, recovery/cleanup, compaction and migration.
+Run independent password-only sender/recipient CLI and binding lifecycles with
+byte verification, plus crash, compatibility and bounded-resource gates listed in
+the handoff. Existing component results do not establish this expanded coverage.
+
+New password archives are to default to unsigned after the integrity gates pass;
+password holders are authorized writers. Existing signed archives and explicit
+signed creation retain their requirements. Mixed-access and conversion policy
+must be resolved explicitly. Whole-archive rollback remains outside self-contained
+freshness guarantees; plaintext unsigned mode offers no adversarial integrity.
+Retain old benchmark guarantees and epochs, checkpoint the accepted security
+implementation, then establish new comparable baselines. The 50%-remaining usage
+limit remains applicable; no release or performance resumption is authorized by
+this documentation update.
+
 ## Current goal reconciliation — 2026-10-09
 
 Main's current G1–G11 goals supersede the earlier goal numbering. G11 requires

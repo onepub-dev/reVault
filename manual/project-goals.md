@@ -31,9 +31,17 @@ to archives rather than exporting 'rustisms' up through the stack.
 
 
 ## G2. Safety first
-The lockbox archive format is safe by default; encrypted, signed and compressed.
+The lockbox archive format is safe by default: encrypted and compressed, with
+authenticated contents and private metadata. New password archives are to be
+unsigned by default: possession of the password grants read/write access without
+the creator's signing key. Other creation modes retain their signing policy.
+This approved goal is pending implementation and security qualification in the
+v4 plan; it is not a claim about released defaults.
 
-All meta data is encrypted and signed unless the user opts out of encryption.
+Signing remains an independent choice. Existing signed archives retain their
+verification requirements; adding password access must not silently remove signing.
+Private metadata remains encrypted in encrypted modes; public credential bootstrap
+metadata must be authenticated after unlocking.
 
 The user may choose to opt out of encryption, signing and compression on a per
 lockbox basis when the lockbox is created.
