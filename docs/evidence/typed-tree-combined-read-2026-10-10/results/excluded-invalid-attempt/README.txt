@@ -1,0 +1,2 @@
+EXCLUDED SETUP FAILURE — DO NOT POOL WITH CORRECTED COMPARISON
+The prior attempt used adapter_packed compiled with REVAULT_CANDIDATE_FROZEN_DENSE=1 as primary. The fixtures contain candidate.lbox/public and other/tree.lbox/public, not dense.lbox/public. All six comparisons failed before any matched pair; logs and any ZIP-only observations are retained here. These observations are excluded. No samples are pooled into the corrected batch.

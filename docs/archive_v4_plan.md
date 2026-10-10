@@ -22,6 +22,18 @@ or erase failures.
 
 ## Current position and next work
 
+### Combined reader comparison — 2026-10-10
+
+The [post-optimization six-case batch](evidence/typed-tree-combined-read-2026-10-10/README.md)
+on `ed4d6c0f` passes every content/identity check and still fails ZIP parity:
+1.159× small files, 2.600–3.359× streams and 9.716×/23.954× ranges. Post-format
+focused tests and Clippy pass. The failed launcher setup and excluded observations
+are retained separately. Opening dominates ranges; payload work dominates large
+streams. Next investigate bounded authenticated traversal and fresh payload cost
+attribution while preserving validation. This supersedes the earlier full-read
+baseline as the current scorecard, not as an isolated before/after experiment.
+Public activation, scale, recovery, migration and full qualification remain open.
+
 ### Bounded fragment join — 2026-10-10
 
 The [vector staging and file-ID join](evidence/typed-tree-fragment-join-2026-10-10/README.md)

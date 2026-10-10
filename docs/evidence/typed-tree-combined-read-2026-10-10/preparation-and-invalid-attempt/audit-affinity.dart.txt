@@ -1,0 +1,18 @@
+#! /usr/bin/env dcli
+import 'dart:convert';
+import 'dart:io';
+import 'package:dcli/dcli.dart';
+void main() {
+  const root = '/tmp/revault-tree-read-combined-20261010/measure';
+  final report = <String, String>{};
+  for (final dir in Directory(root).listSync().whereType<Directory>()) {
+    final path = '${dir.path}/samples.jsonl';
+    final first = jsonDecode(File(path).readAsLinesSync().first) as Map<String, dynamic>;
+    final status = first['process_status'] as String;
+    final affinity = status.split('\n').firstWhere((line) => line.startsWith('Cpus_allowed_list:'), orElse: () => 'missing');
+    if (!affinity.trim().endsWith('2')) throw StateError('Not CPU 2 pinned: ${dir.path}: $affinity');
+    report[dir.path.split('/').last] = affinity.trim();
+  }
+  File('/tmp/revault-tree-read-combined-20261010/affinity-audit.json').writeAsStringSync(const JsonEncoder.withIndent('  ').convert(report), flush: true);
+  print('AFFINITY_AUDIT_OK cases=${report.length} all_cpu=2');
+}

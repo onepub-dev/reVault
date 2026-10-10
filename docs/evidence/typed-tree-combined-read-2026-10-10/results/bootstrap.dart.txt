@@ -1,0 +1,50 @@
+#! /usr/bin/env dcli
+import 'dart:convert';
+import 'dart:io';
+import 'package:dcli/dcli.dart';
+
+const root = '/tmp/revault-tree-read-combined-corrected-20261010';
+const prior = '/tmp/revault-tree-read-combined-20261010';
+const rust = '/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust';
+const fixtureRoot = '/tmp/revault-tree-read-20261010-final/cases';
+const source = '$rust/revault_lockbox_api/benches/evaluation/candidate_driver.rs';
+
+String sha(String path) {
+  final r = Process.runSync('sha256sum', [path]);
+  if (r.exitCode != 0) throw StateError('${r.stderr}');
+  return '${r.stdout}'.split(RegExp(r'\\s+')).first;
+}
+void run(String exe, List<String> args, {Map<String, String>? env}) {
+  final r = Process.runSync(exe, args, environment: env);
+  if (r.exitCode != 0) throw StateError('$exe $args failed ${r.exitCode}: ${r.stdout} ${r.stderr}');
+}
+void main() {
+  if (Directory(root).existsSync()) throw StateError('Refusing existing corrected output');
+  Directory('$root/bin').createSync(recursive: true);
+  Directory('$root/logs').createSync();
+  for (final n in ['archive_evaluation', 'revault_lockbox_api_tests']) {
+    File('$prior/bin/$n').copySync('$root/bin/$n');
+  }
+  final core = '$root/bin/revault_lockbox_api_tests';
+  final c = '$root/bin/adapter_packed';
+  final tree = '$root/bin/adapter_tree';
+  final common = <String, String>{...Platform.environment, 'REVAULT_CANDIDATE_FROZEN_TEST_BINARY': core};
+  File('$root/logs/adapter-c-build-command.txt').writeAsStringSync('env REVAULT_CANDIDATE_FROZEN_TEST_BINARY=$core rustc +1.88.0 --edition=2021 -O $source -o $c\n(no FROZEN_DENSE/TREE env vars)\n');
+  final cEnv = Map<String, String>.from(common)..remove('REVAULT_CANDIDATE_FROZEN_DENSE')..remove('REVAULT_CANDIDATE_FROZEN_TREE');
+  run('rustc', ['+1.88.0','--edition=2021','-O',source,'-o',c], env:cEnv);
+  final treeEnv = Map<String, String>.from(cEnv)..['REVAULT_CANDIDATE_FROZEN_TREE']='1';
+  File('$root/logs/adapter-tree-build-command.txt').writeAsStringSync('env REVAULT_CANDIDATE_FROZEN_TEST_BINARY=$core REVAULT_CANDIDATE_FROZEN_TREE=1 rustc +1.88.0 --edition=2021 -O $source -o $tree\n');
+  run('rustc', ['+1.88.0','--edition=2021','-O',source,'-o',tree], env:treeEnv);
+  run('chmod',['755',core,'$root/bin/archive_evaluation',c,tree]);
+  final build = {
+    'commit': '${Process.runSync('git',['rev-parse','HEAD'],workingDirectory:rust).stdout}'.trim(),
+    'rustc': '${Process.runSync('rustc',['+1.88.0','--version']).stdout}'.trim(),
+    'core_sha256': sha(core), 'runner_sha256': sha('$root/bin/archive_evaluation'),
+    'c_default_adapter_sha256': sha(c), 'tree_adapter_sha256': sha(tree),
+    'driver_sha256': sha(source),
+    'adapter_configuration': {'primary':'candidate_driver default C adapter; neither FROZEN_DENSE nor FROZEN_TREE','tree':'FROZEN_TREE=1'},
+    'fixtures_root': fixtureRoot,
+  };
+  File('$root/build-identities.json').writeAsStringSync(const JsonEncoder.withIndent('  ').convert(build));
+  print(const JsonEncoder.withIndent('  ').convert(build));
+}

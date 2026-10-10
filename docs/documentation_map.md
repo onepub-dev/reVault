@@ -90,3 +90,5 @@ and development failures; path installation and full-format acceptance are separ
 - [Guarded reclaimed-space buffer reuse](evidence/typed-tree-reclaim-reuse-2026-10-10/README.md): four paired opening improvements with unchanged byte validation and retained failure tests.
 
 - [Bounded fragment join](evidence/typed-tree-fragment-join-2026-10-10/README.md): preserved malformed-record refusals and four paired opening improvements; complete reads remain to remeasure.
+
+- [Combined typed-reader comparison](evidence/typed-tree-combined-read-2026-10-10/README.md): current six-case ZIP failures, post-format checks, and retained excluded launcher failure.

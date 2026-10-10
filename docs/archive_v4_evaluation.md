@@ -130,13 +130,15 @@ including Vault containers. `0.4.x` remains format 3 and is isolated from this w
 
 ## Current scorecard
 
-The [October 10 matched-toolchain batch](evidence/typed-tree-matched-read-2026-10-10/README.md)
-is the latest typed-read baseline. Its six fixed 30-pair cases all fail ZIP parity:
-1.066× small files, 2.593–3.883× streams and 10.887×/28.005× ranges. Exact byte
-verification and stable input/executable hashes pass. This supersedes a current
-passing-small-case claim, while preserving the distinct historical measurements
-below. Range opening dominates elapsed time. Worker RSS near 10 MiB does not
-qualify the complete public CLI memory or scale requirements.
+The [combined October 10 batch](evidence/typed-tree-combined-read-2026-10-10/README.md)
+on `ed4d6c0f` is the latest typed-read baseline. All six fixed 30-pair cases fail
+ZIP parity: 1.159× small files, 2.600–3.359× streams and 9.716×/23.954× ranges.
+Every content/identity check passes. Failed launcher setup and smoke samples are
+explicitly excluded and retained. The separate paired opening improvements do
+not establish an isolated whole-read speedup between these different batches.
+Opening dominates ranges; payload work dominates large streams. Worker RSS near
+10 MiB does not qualify public CLI memory or scale. The [earlier baseline](evidence/typed-tree-matched-read-2026-10-10/README.md)
+and distinct historical results below remain unchanged.
 
 The [selected typed-variable integration](evidence/typed-variables-2026-10-09/README.md)
 is a **test-only (`cfg(test)`) adapter**, following the independently checked

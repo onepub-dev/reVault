@@ -1,0 +1,47 @@
+#! /usr/bin/env dcli
+import 'dart:convert';
+import 'dart:io';
+import 'package:dcli/dcli.dart';
+const failed='/tmp/revault-tree-read-combined-20261010';
+const root='/tmp/revault-tree-read-combined-corrected-20261010';
+const fixture='/tmp/revault-tree-read-20261010-final/cases';
+void copyTree(Directory from, Directory to) {
+  to.createSync(recursive:true);
+  for (final e in from.listSync(followLinks:false)) {
+    final target='${to.path}/${e.uri.pathSegments.last}';
+    if (e is File) { e.copySync(target); } else if (e is Directory) { copyTree(e,Directory(target)); }
+  }
+}
+String sha(String p) => '${Process.runSync('sha256sum',[p]).stdout}'.trim().split(RegExp(r'\s+')).first;
+void main() {
+  final invalid=Directory('$root/excluded-invalid-attempt');
+  invalid.createSync();
+  for (final name in ['logs','measure']) copyTree(Directory('$failed/$name'),Directory('${invalid.path}/$name'));
+  for (final name in ['driver.log','metrics-summary.json','hash-before.json','hash-after.json','host-before.json','host-after.json','timing-small512-mixed-compressed-stream.log','timing-raw8m-random-stream.log','timing-compressed8m-pattern-stream.log','timing-raw8m-random-range.log','timing-raw64m-random-stream.log','timing-raw64m-random-range.log','freeze-builds.log','build-artifacts.txt']) {
+    final f=File('$failed/$name'); if(f.existsSync()) f.copySync('${invalid.path}/$name');
+  }
+  File('${invalid.path}/README.txt').writeAsStringSync('''EXCLUDED SETUP FAILURE — DO NOT POOL WITH CORRECTED COMPARISON
+The prior attempt used adapter_packed compiled with REVAULT_CANDIDATE_FROZEN_DENSE=1 as primary. The fixtures contain candidate.lbox/public and other/tree.lbox/public, not dense.lbox/public. All six comparisons failed before any matched pair; logs and any ZIP-only observations are retained here. These observations are excluded. No samples are pooled into the corrected batch.
+''');
+  final old=File('$failed/run-fixed-batch.dart').readAsStringSync();
+  final fixed=old.replaceFirst("const root = '$failed';", "const root = '$root';").replaceFirst("const fixtureRoot = '/tmp/revault-tree-read-20261010-final/cases';", "const fixtureRoot = '$fixture';");
+  File('$root/run-fixed-batch.dart').writeAsStringSync(fixed);
+  Process.runSync('chmod',['755','$root/run-fixed-batch.dart']);
+  final rows=File('$root/smoke/small512-c-default-tree-with-unit/samples.jsonl').readAsLinesSync().where((l)=>l.trim().isNotEmpty).map((l)=>jsonDecode(l) as Map<String,dynamic>).toList();
+  final samples=rows.where((r)=>r['kind']=='sample').toList();
+  final verified=samples.every((r)=>r['verified']==true && (r['backend']=='zip' || r['logical_bytes_read']==2097152));
+  final smoke={'sample_rows':samples.length,'backend_counts':{for(final b in ['primary','other','zip']) b:samples.where((r)=>r['backend']==b).length},'all_verified':verified,'warmup_rows':rows.where((r)=>r['warmup']==true).length,'setup_only_excluded':true};
+  File('$root/smoke/verification.json').writeAsStringSync(const JsonEncoder.withIndent('  ').convert(smoke));
+  if(samples.length!=9 || !verified) throw StateError('Smoke verification failed: $smoke');
+  final sums=<String,String>{};
+  for(final n in ['revault_lockbox_api_tests','archive_evaluation','adapter_packed','adapter_tree']) sums[n]=sha('$root/bin/$n');
+  sums['cargo_lock']=sha('/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/Cargo.lock');
+  File('$root/frozen-sha256.json').writeAsStringSync(const JsonEncoder.withIndent('  ').convert(sums));
+  File('$root/logs/protocol-setup-errors.txt').writeAsStringSync('''1. Invalid attempt: adapter_packed was built with FROZEN_DENSE=1; all six cases failed pre-pair (see excluded-invalid-attempt/).
+2. First corrected smoke omitted REVAULT_CANDIDATE_UNIT and failed NotPresent.
+3. Retry initially reused smoke evidence directory and runner rejected already-existing directory.
+4. Fresh smoke with unit=262144 succeeded; samples are setup-only, not part of fixed batch.
+''');
+  print('SMOKE_VERIFIED ${jsonEncode(smoke)}');
+  print('FROZEN ${jsonEncode(sums)}');
+}
