@@ -13,7 +13,7 @@ pub(crate) struct Node {
     pub(super) permissions: u32,
     pub(super) target: Option<Zeroizing<Vec<u8>>>,
 }
-pub(super) fn canonical(bytes: &[u8]) -> Result<&str> {
+pub(in crate::file_format::candidate_files) fn canonical(bytes: &[u8]) -> Result<&str> {
     let path = std::str::from_utf8(bytes).map_err(|_| Error::CorruptRecord)?;
     // Keep the validator's temporary canonical copy wipeable too.
     let checked = Zeroizing::new(

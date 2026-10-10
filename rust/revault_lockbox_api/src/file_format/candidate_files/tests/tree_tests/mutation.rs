@@ -69,7 +69,7 @@ pub(super) fn seed(
     .unwrap()
 }
 fn inspect(storage: &StorageBackend, mode: FormatMode, authority: &Authority<'_>) -> bool {
-    let mut opened = TreeImage::open(
+    let mut opened = AuditedTreeImage::open(
         StorageBackend::memory(storage.read_all().unwrap()),
         archive(),
         mode,
@@ -103,7 +103,7 @@ fn inspect(storage: &StorageBackend, mode: FormatMode, authority: &Authority<'_>
     }
     present
 }
-fn read_file(image: &mut TreeImage<StorageBackend>, path: &[u8]) -> Vec<u8> {
+fn read_file(image: &mut AuditedTreeImage<StorageBackend>, path: &[u8]) -> Vec<u8> {
     let len = image
         .image
         .catalogue
@@ -150,7 +150,8 @@ fn typed_tree_payload_add_replace_no_change_and_invalid_plans_all_modes() {
         let signer = mode.signed().then_some(&owner);
         let mut storage = seed(mode, &authority, &owner);
         let opened =
-            TreeImage::open(storage.clone(), archive(), mode, &authority, key(mode)).unwrap();
+            AuditedTreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
+                .unwrap();
         let initial = storage.len().unwrap();
         let old = opened.image.catalogue.packs[0].extent;
         let id = opened.image.catalogue.files[0].info.id;
@@ -209,7 +210,7 @@ fn typed_tree_payload_add_replace_no_change_and_invalid_plans_all_modes() {
             &[]
         )
         .unwrap());
-        let mut reopened = TreeImage::open(
+        let mut reopened = AuditedTreeImage::open(
             StorageBackend::memory(storage.read_all().unwrap()),
             archive(),
             mode,
@@ -246,7 +247,7 @@ fn typed_tree_payload_add_replace_no_change_and_invalid_plans_all_modes() {
                 .unwrap();
             tree_image::recover(&mut lost, archive(), mode, &authority, key(mode)).unwrap();
             let mut reopened =
-                TreeImage::open(lost, archive(), mode, &authority, key(mode)).unwrap();
+                AuditedTreeImage::open(lost, archive(), mode, &authority, key(mode)).unwrap();
             assert_eq!(read_file(&mut reopened, b"/docs/data"), bytes);
             assert_eq!(read_file(&mut reopened, b"/docs/neighbor"), b"neighbor");
         }
@@ -328,7 +329,7 @@ fn typed_tree_payload_update_interruptions_keep_atomic_file_set() {
                         .unwrap_or_else(|e| {
                             panic!("mode={bits} at={at} prefix={prefix} persist={persist}: {e}")
                         });
-                    let mut image = TreeImage::open(
+                    let mut image = AuditedTreeImage::open(
                         StorageBackend::memory(reopened.read_all().unwrap()),
                         archive(),
                         mode,
@@ -379,11 +380,12 @@ fn typed_tree_payload_reuse_stabilizes_bounded_lifecycle_all_modes() {
                 if cycle % 3 == 0 { 70000 } else { 2000 }
             ];
             let prior = storage.len().unwrap();
-            let old = TreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
-                .unwrap()
-                .tree
-                .graph
-                .payloads();
+            let old =
+                AuditedTreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
+                    .unwrap()
+                    .tree
+                    .graph
+                    .payloads();
             tree_image::update_files(
                 &mut storage,
                 archive(),
@@ -395,7 +397,7 @@ fn typed_tree_payload_reuse_stabilizes_bounded_lifecycle_all_modes() {
                 &[],
             )
             .unwrap();
-            let mut image = TreeImage::open(
+            let mut image = AuditedTreeImage::open(
                 StorageBackend::memory(storage.read_all().unwrap()),
                 archive(),
                 mode,
@@ -460,7 +462,7 @@ fn typed_tree_payload_reused_writes_recover_without_neighbor_loss() {
             )
             .unwrap();
         }
-        let old = TreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
+        let old = AuditedTreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
             .unwrap()
             .tree
             .graph
@@ -482,7 +484,8 @@ fn typed_tree_payload_reused_writes_recover_without_neighbor_loss() {
         let mut observed = CrashStore::new(seed.clone(), None, 0, false);
         run(&mut observed).unwrap();
         let complete = StorageBackend::memory(observed.durable());
-        let selected = TreeImage::open(complete, archive(), mode, &authority, key(mode)).unwrap();
+        let selected =
+            AuditedTreeImage::open(complete, archive(), mode, &authority, key(mode)).unwrap();
         assert!(selected
             .tree
             .graph
@@ -499,7 +502,7 @@ fn typed_tree_payload_reused_writes_recover_without_neighbor_loss() {
                         .unwrap_or_else(|e| {
                             panic!("mode={bits} at={at} prefix={prefix} persist={persist}: {e}")
                         });
-                    let mut image = TreeImage::open(
+                    let mut image = AuditedTreeImage::open(
                         StorageBackend::memory(reopened.read_all().unwrap()),
                         archive(),
                         mode,
@@ -529,11 +532,12 @@ fn typed_tree_payload_updates_preserve_large_typed_catalogues_all_modes() {
         let authority = authority(mode, &public);
         let signer = mode.signed().then_some(&owner);
         let mut storage = seed(mode, &authority, &owner);
-        let metadata = TreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
-            .unwrap()
-            .image
-            .filesystem_metadata()
-            .unwrap();
+        let metadata =
+            AuditedTreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
+                .unwrap()
+                .image
+                .filesystem_metadata()
+                .unwrap();
         let large = grown(&metadata);
         tree_image::replace_metadata(
             &mut storage,
@@ -556,7 +560,7 @@ fn typed_tree_payload_updates_preserve_large_typed_catalogues_all_modes() {
             &[],
         )
         .unwrap();
-        let mut image = TreeImage::open(
+        let mut image = AuditedTreeImage::open(
             StorageBackend::memory(storage.read_all().unwrap()),
             archive(),
             mode,
@@ -581,7 +585,7 @@ fn typed_tree_payload_updates_preserve_large_typed_catalogues_all_modes() {
         )
         .unwrap();
         assert_eq!(
-            TreeImage::open(storage, archive(), mode, &authority, key(mode))
+            AuditedTreeImage::open(storage, archive(), mode, &authority, key(mode))
                 .unwrap()
                 .image
                 .filesystem_metadata()
@@ -721,7 +725,8 @@ fn typed_tree_payload_removal_preserves_neighbors_and_erases_old_pack_all_modes(
             assert_eq!(storage.read_all().unwrap(), before);
         }
         let opened =
-            TreeImage::open(storage.clone(), archive(), mode, &authority, key(mode)).unwrap();
+            AuditedTreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
+                .unwrap();
         assert_eq!(opened.image.catalogue.packs.len(), 1);
         let old = opened.image.catalogue.packs[0].extent;
         assert!(tree_image::remove_files(
@@ -769,7 +774,8 @@ fn typed_tree_payload_removal_preserves_neighbors_and_erases_old_pack_all_modes(
             &[b"/docs/neighbor".to_vec()]
         )
         .unwrap());
-        let opened = TreeImage::open(storage, archive(), mode, &authority, key(mode)).unwrap();
+        let opened =
+            AuditedTreeImage::open(storage, archive(), mode, &authority, key(mode)).unwrap();
         assert!(opened.image.catalogue.files.is_empty());
         assert!(opened.tree.graph.payloads().is_empty());
     }

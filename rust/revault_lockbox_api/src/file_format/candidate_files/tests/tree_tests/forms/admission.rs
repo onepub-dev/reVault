@@ -72,7 +72,8 @@ fn typed_form_guarded_admission_and_semantic_page_substitution_all_modes() {
         )
         .unwrap();
         let opened =
-            TreeImage::open(storage.clone(), archive(), mode, &authority, key(mode)).unwrap();
+            AuditedTreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
+                .unwrap();
         assert_eq!(
             opened
                 .with_form_field_value(&record.path, "secret", |v| match v {
@@ -278,7 +279,7 @@ fn typed_form_guarded_admission_and_semantic_page_substitution_all_modes() {
             rows,
         )
         .unwrap();
-        match TreeImage::open(storage, archive(), mode, &authority, key(mode)) {
+        match AuditedTreeImage::open(storage, archive(), mode, &authority, key(mode)) {
             Err(_) => assert!(mode.plaintext() && mode.signed()),
             Ok(opened) => {
                 assert!(!(mode.plaintext() && mode.signed()));

@@ -9,7 +9,7 @@ fn name(value: &str) -> VariableName {
 }
 type Names = BTreeMap<VariableName, Layout>;
 fn names<S: Storage>(storage: S, mode: FormatMode, authority: &Authority<'_>) -> Names {
-    TreeImage::open(storage, archive(), mode, authority, key(mode))
+    AuditedTreeImage::open(storage, archive(), mode, authority, key(mode))
         .unwrap()
         .image
         .catalogue
@@ -123,7 +123,8 @@ fn guard<S: Storage>(
     mode: FormatMode,
     authority: &Authority<'_>,
 ) -> Stable<S> {
-    let opened = TreeImage::open(original.clone(), archive(), mode, authority, key(mode)).unwrap();
+    let opened =
+        AuditedTreeImage::open(original.clone(), archive(), mode, authority, key(mode)).unwrap();
     Stable {
         inner,
         variables: opened
@@ -150,7 +151,8 @@ fn check<S: Storage>(
     expected: &Names,
     original: &Names,
 ) {
-    let mut opened = TreeImage::open(storage, archive(), mode, authority, key(mode)).unwrap();
+    let mut opened =
+        AuditedTreeImage::open(storage, archive(), mode, authority, key(mode)).unwrap();
     let actual: Names = opened
         .image
         .catalogue

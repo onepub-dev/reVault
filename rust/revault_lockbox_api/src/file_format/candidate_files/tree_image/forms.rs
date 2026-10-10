@@ -12,7 +12,7 @@ use crate::{
     VariableSensitivity,
 };
 use std::collections::BTreeMap;
-impl<S: Storage> TreeImage<S> {
+impl<S: Storage> AuditedTreeImage<S> {
     /// Read one selected captured field without assembling every value in the form.
     pub fn with_form_field_value<R>(
         &self,
@@ -127,7 +127,7 @@ pub(in crate::file_format::candidate_files) fn import_definition(
     definition: &FormDefinition,
 ) -> Result<bool> {
     validate_definition(definition)?;
-    let mut opened = TreeImage::open(
+    let mut opened = AuditedTreeImage::open(
         allocation::compaction::View(&*storage),
         archive,
         mode,
@@ -294,7 +294,7 @@ pub(in crate::file_format::candidate_files) fn import_captured_record(
             return Err(Error::CorruptRecord);
         }
     }
-    let mut opened = TreeImage::open(
+    let mut opened = AuditedTreeImage::open(
         allocation::compaction::View(&*storage),
         archive,
         mode,

@@ -43,7 +43,8 @@ fn verify<S: Storage>(
     entries: &[Metadata],
     source: &Files<impl Storage>,
 ) {
-    let mut opened = TreeImage::open(storage, archive(), mode, authority, key(mode)).unwrap();
+    let mut opened =
+        AuditedTreeImage::open(storage, archive(), mode, authority, key(mode)).unwrap();
     assert_eq!(opened.image.filesystem_metadata().unwrap(), entries);
     assert!(opened
         .image
@@ -475,7 +476,7 @@ fn fresh_tree_export_streams_sixty_four_mib_without_dense_intermediate() {
         )
         .unwrap();
         drop(output);
-        let mut reopened = TreeImage::open(
+        let mut reopened = AuditedTreeImage::open(
             StorageBackend::file(&output_path).unwrap(),
             archive(),
             mode,

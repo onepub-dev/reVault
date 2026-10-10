@@ -11,7 +11,7 @@ pub(in crate::file_format::candidate_files) fn compact_path(
     authority: &Authority<'_>,
     signer: Option<&OwnerSigningKeyPair>,
     key: Option<&[u8]>,
-) -> Result<TreeImage<StorageBackend>> {
+) -> Result<AuditedTreeImage<StorageBackend>> {
     compact_path_with(path, archive, mode, authority, signer, key, |phase| {
         super::super::compaction::checkpoint(phase);
         Ok(())
@@ -26,7 +26,7 @@ pub(in crate::file_format::candidate_files) fn compact_path_with(
     signer: Option<&OwnerSigningKeyPair>,
     key: Option<&[u8]>,
     mut checkpoint: impl FnMut(&str) -> Result<()>,
-) -> Result<TreeImage<StorageBackend>> {
+) -> Result<AuditedTreeImage<StorageBackend>> {
     let metadata = std::fs::symlink_metadata(path).map_err(|e| Error::Io(e.to_string()))?;
     if !metadata.file_type().is_file() {
         return Err(Error::InvalidOperation(
@@ -44,7 +44,7 @@ pub(in crate::file_format::candidate_files) fn compact_path_with(
             .map_err(|e| Error::Io(e.to_string()))?;
         checkpoint("tree-created")?;
         let destination = compact(&source, temporary, archive, mode, authority, signer, key)?;
-        let mut checked = TreeImage::open(destination, archive, mode, authority, key)?;
+        let mut checked = AuditedTreeImage::open(destination, archive, mode, authority, key)?;
         checked.image.verify_all()?;
         checked.image.storage.sync()?;
         checkpoint("tree-verified")?;

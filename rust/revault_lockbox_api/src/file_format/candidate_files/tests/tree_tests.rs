@@ -1,6 +1,6 @@
 //! Direct candidate fixtures: public CLI does not write this experimental tree.
 use super::super::dense_catalogue::Metadata;
-use super::super::tree_image::{self, TreeImage};
+use super::super::tree_image::{self, AuditedTreeImage};
 use super::*;
 use crate::file_format::publication_anchor::{shared, FAILURE_REGION};
 mod access_export;
@@ -8,6 +8,7 @@ mod forms;
 mod fresh;
 mod mutation;
 mod open_reads;
+mod selective_reads;
 mod variables;
 
 fn exported(
@@ -47,7 +48,7 @@ fn check(
     authority: &Authority<'_>,
     entries: &[Metadata],
 ) {
-    let mut image = TreeImage::open(
+    let mut image = tree_image::TreeImage::open(
         StorageBackend::memory(storage.read_all().unwrap()),
         archive(),
         mode,
@@ -142,15 +143,16 @@ fn typed_tree_filesystem_growth_deletion_permissions_and_copy_loss_all_modes() {
         )
         .unwrap();
         check(&storage, mode, &authority, &changed);
-        let payload = TreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
-            .unwrap()
-            .tree
-            .graph
-            .payloads()[0];
+        let payload =
+            AuditedTreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
+                .unwrap()
+                .tree
+                .graph
+                .payloads()[0];
         let mut damaged = StorageBackend::memory(storage.read_all().unwrap());
         let byte = damaged.read_at(payload.start, 1).unwrap()[0] ^ 1;
         damaged.write_at(payload.start, &[byte]).unwrap();
-        let opened = TreeImage::open(damaged, archive(), mode, &authority, key(mode));
+        let opened = AuditedTreeImage::open(damaged, archive(), mode, &authority, key(mode));
         if mode.plaintext() && mode.signed() {
             assert!(opened.is_err());
         } else {
@@ -219,12 +221,17 @@ fn typed_tree_interrupted_growth_keeps_complete_selected_metadata() {
                     .unwrap_or_else(|e| {
                         panic!("mode={bits} at={at} prefix={prefix} persist={persist}: {e}")
                     });
-                    let actual =
-                        TreeImage::open(reopened.clone(), archive(), mode, &authority, key(mode))
-                            .unwrap()
-                            .image
-                            .filesystem_metadata()
-                            .unwrap();
+                    let actual = AuditedTreeImage::open(
+                        reopened.clone(),
+                        archive(),
+                        mode,
+                        &authority,
+                        key(mode),
+                    )
+                    .unwrap()
+                    .image
+                    .filesystem_metadata()
+                    .unwrap();
                     assert!(actual == entries || actual == large);
                     check(&reopened, mode, &authority, &actual);
                     cases += 1;
@@ -265,7 +272,7 @@ fn typed_tree_rejects_selected_pack_claim_mismatch() {
     )
     .unwrap();
     let before = storage.read_all().unwrap();
-    assert!(TreeImage::open(
+    assert!(AuditedTreeImage::open(
         allocation::compaction::View(&storage),
         archive(),
         mode,
@@ -345,8 +352,8 @@ fn typed_tree_salvage_preserves_intact_neighbor_and_selected_membership_all_mode
             key(mode),
         )
         .unwrap();
-        let image =
-            TreeImage::open(storage.clone(), archive(), mode, &authority, key(mode)).unwrap();
+        let image = AuditedTreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
+            .unwrap();
         let file = &image.image.catalogue.files[0];
         let fragment = &file.fragments[0];
         let at = image.image.catalogue.packs[fragment.pack].extent.start + fragment.relative as u64;
@@ -468,7 +475,7 @@ fn check_selected(
 ) -> Vec<Metadata> {
     let (_, body) = shared::open_private(storage, archive(), mode, authority, key(mode)).unwrap();
     let mut image = if body.starts_with(b"RV4TRE01") {
-        TreeImage::open(
+        AuditedTreeImage::open(
             StorageBackend::memory(storage.read_all().unwrap()),
             archive(),
             mode,

@@ -79,7 +79,7 @@ fn typed_form_definition_revision_resolver_and_empty_create_all_modes() {
             )
             .unwrap();
         }
-        let opened = TreeImage::open(
+        let opened = AuditedTreeImage::open(
             crate::file_format::allocation_map::compaction::View(&storage),
             archive(),
             mode,
@@ -162,7 +162,7 @@ fn typed_form_definition_revision_resolver_and_empty_create_all_modes() {
         )
         .unwrap();
         assert_eq!(assigned.revision, 3);
-        let opened = TreeImage::open(
+        let opened = AuditedTreeImage::open(
             crate::file_format::allocation_map::compaction::View(&storage),
             archive(),
             mode,
@@ -190,7 +190,7 @@ fn typed_form_definition_revision_resolver_and_empty_create_all_modes() {
             &secret,
         )
         .unwrap();
-        let opened = TreeImage::open(
+        let opened = AuditedTreeImage::open(
             crate::file_format::allocation_map::compaction::View(&storage),
             archive(),
             mode,
@@ -282,7 +282,7 @@ fn typed_form_definition_revision_resolver_and_empty_create_all_modes() {
             &FormValue::normal("normal again"),
         )
         .unwrap();
-        let opened = TreeImage::open(
+        let opened = AuditedTreeImage::open(
             crate::file_format::allocation_map::compaction::View(&storage),
             archive(),
             mode,
@@ -342,7 +342,7 @@ fn typed_form_definition_alias_import_and_refusal_controls_all_modes() {
             .revision,
             2
         );
-        let mut definition = TreeImage::open(
+        let mut definition = AuditedTreeImage::open(
             crate::file_format::allocation_map::compaction::View(&storage),
             archive(),
             mode,
@@ -465,7 +465,7 @@ fn typed_form_definition_alias_import_and_refusal_controls_all_modes() {
         )
         .unwrap();
         assert_ne!(one.type_id, two.type_id);
-        let opened = TreeImage::open(
+        let opened = AuditedTreeImage::open(
             crate::file_format::allocation_map::compaction::View(&storage),
             archive(),
             mode,
@@ -643,7 +643,7 @@ fn typed_form_definition_aggregate_normal_metadata_and_per_text_limits_all_modes
             &fields,
         )
         .unwrap();
-        let opened = TreeImage::open(
+        let opened = AuditedTreeImage::open(
             crate::file_format::allocation_map::compaction::View(&storage),
             archive(),
             mode,
@@ -774,7 +774,7 @@ fn typed_form_definition_shared_staging_refuses_concurrent_selected_change_all_m
         let old_bytes = original.inner.read_all().unwrap();
         let old_spans = original.spans.borrow().clone();
         let old_commit = shared::commitment(
-            &TreeImage::open(
+            &AuditedTreeImage::open(
                 crate::file_format::allocation_map::compaction::View(&original),
                 archive(),
                 mode,
@@ -821,7 +821,7 @@ fn typed_form_definition_shared_staging_refuses_concurrent_selected_change_all_m
         // Calibrate the complete reader phase; preparation from borrowed normal text
         // performs no storage reads. The next slot0 selection is writer admission.
         let calibration = make(None);
-        let mut opened = TreeImage::open(
+        let mut opened = AuditedTreeImage::open(
             crate::file_format::allocation_map::compaction::View(&calibration),
             archive(),
             mode,
@@ -900,7 +900,7 @@ fn typed_form_definition_shared_staging_refuses_concurrent_selected_change_all_m
                 "new authenticated index not traversed"
             );
             assert_eq!(identity(&storage), expected_hash);
-            let opened = TreeImage::open(
+            let opened = AuditedTreeImage::open(
                 crate::file_format::allocation_map::compaction::View(&storage),
                 archive(),
                 mode,
@@ -968,7 +968,7 @@ fn typed_form_empty_creation_preserves_file_namespace_and_name_limits_all_modes(
             Err(Error::InvalidInput(_))
         ));
         assert_eq!(identity(&storage), before_empty);
-        assert!(!TreeImage::open(
+        assert!(!AuditedTreeImage::open(
             crate::file_format::allocation_map::compaction::View(&storage),
             archive(),
             mode,
@@ -1025,7 +1025,7 @@ fn typed_form_empty_creation_preserves_file_namespace_and_name_limits_all_modes(
             &name,
         )
         .unwrap();
-        let mut opened = TreeImage::open(
+        let mut opened = AuditedTreeImage::open(
             crate::file_format::allocation_map::compaction::View(&storage),
             archive(),
             mode,
@@ -1074,7 +1074,7 @@ fn typed_form_definition_and_empty_record_atomic_recovery_faults() {
         let image = original.inner.read_all().unwrap();
         let spans = original.spans.borrow().clone();
         let type_id = old_defs[0].type_id.clone();
-        let opened = TreeImage::open(
+        let opened = AuditedTreeImage::open(
             crate::file_format::allocation_map::compaction::View(&original),
             archive(),
             mode,
@@ -1188,7 +1188,7 @@ fn typed_form_definition_and_empty_record_atomic_recovery_faults() {
                         old_records.clone()
                     }
                 );
-                let mut opened = TreeImage::open(
+                let mut opened = AuditedTreeImage::open(
                     crate::file_format::allocation_map::compaction::View(s),
                     archive(),
                     mode,

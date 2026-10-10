@@ -22,7 +22,7 @@ pub(in crate::file_format::candidate_files) fn compact<S: Storage, T: Storage>(
         ));
     }
     // All refusal/preparation below precedes even cleanup: discard(empty) mutates.
-    let mut opened = TreeImage::open(
+    let mut opened = AuditedTreeImage::open(
         allocation::compaction::View(source),
         archive,
         mode,
@@ -170,7 +170,7 @@ pub(in crate::file_format::candidate_files) fn compact<S: Storage, T: Storage>(
         {
             return Err(Error::CorruptRecord);
         }
-        let mut reopened = TreeImage::open(
+        let mut reopened = AuditedTreeImage::open(
             allocation::compaction::View(&destination),
             archive,
             mode,

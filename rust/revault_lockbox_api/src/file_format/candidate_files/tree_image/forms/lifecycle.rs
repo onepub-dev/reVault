@@ -16,7 +16,7 @@ pub(in crate::file_format::candidate_files) fn delete_record(
     path: &LockboxPath,
 ) -> Result<bool> {
     let path = path.file_path()?;
-    let mut opened = TreeImage::open(
+    let mut opened = AuditedTreeImage::open(
         allocation::compaction::View(&*storage),
         archive,
         mode,

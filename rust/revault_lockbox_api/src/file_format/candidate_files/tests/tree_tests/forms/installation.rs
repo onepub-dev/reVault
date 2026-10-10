@@ -85,7 +85,7 @@ fn verify(storage: &StorageBackend, mode: FormatMode, authority: &Authority<'_>)
             _ => panic!("secret downgraded"),
         }
     }
-    let mut image = TreeImage::open(
+    let mut image = AuditedTreeImage::open(
         crate::file_format::allocation_map::compaction::View(storage),
         archive(),
         mode,
@@ -136,7 +136,7 @@ fn whole_tree_path_install_reopens_all_families_and_remains_writable() {
         let path = directory.0.join(format!("{bits}.tree"));
         let baseline = fixture(&path, mode, &authority, &owner);
         let source = StorageBackend::memory(baseline);
-        let old = TreeImage::open(source, archive(), mode, &authority, key(mode))
+        let old = AuditedTreeImage::open(source, archive(), mode, &authority, key(mode))
             .unwrap()
             .image
             .anchor;
@@ -190,7 +190,7 @@ fn whole_tree_path_install_reopens_all_families_and_remains_writable() {
         )
         .unwrap();
         drop(storage);
-        let reopened = TreeImage::open(
+        let reopened = AuditedTreeImage::open(
             StorageBackend::file(&path).unwrap(),
             archive(),
             mode,
@@ -420,7 +420,7 @@ fn whole_tree_path_install_process_death_reopens_old_or_complete_new() {
             .unwrap();
             let authority = authority(mode, &public);
             let baseline = std::fs::read(path.with_extension("base")).unwrap();
-            let old = TreeImage::open(
+            let old = AuditedTreeImage::open(
                 StorageBackend::memory(baseline.clone()),
                 archive(),
                 mode,
@@ -432,7 +432,7 @@ fn whole_tree_path_install_process_death_reopens_old_or_complete_new() {
             .anchor;
             let storage = StorageBackend::file(&path).unwrap();
             verify(&storage, mode, &authority);
-            let actual = TreeImage::open(
+            let actual = AuditedTreeImage::open(
                 crate::file_format::allocation_map::compaction::View(&storage),
                 archive(),
                 mode,
@@ -804,7 +804,7 @@ fn whole_tree_resume_preserves_credentials_and_rejects_changed_wrappers() {
         )
         .unwrap();
         let mut replacement = StorageBackend::file_for_write(&candidate).unwrap();
-        let old_anchor = TreeImage::open(
+        let old_anchor = AuditedTreeImage::open(
             crate::file_format::allocation_map::compaction::View(&replacement),
             archive(),
             mode,
@@ -852,7 +852,7 @@ fn whole_tree_resume_preserves_credentials_and_rejects_changed_wrappers() {
     }
 }
 
-fn check_credential_reader<S: Storage>(mut opened: TreeImage<S>) {
+fn check_credential_reader<S: Storage>(mut opened: tree_image::TreeImage<S>) {
     assert_eq!(
         opened
             .get_variable(&VariableName::new("retained").unwrap())
@@ -872,6 +872,25 @@ fn check_credential_reader<S: Storage>(mut opened: TreeImage<S>) {
         .get_form_record(&LockboxPath::new("/forms/0").unwrap())
         .unwrap()
         .unwrap();
+    assert_eq!(
+        opened
+            .with_form_field_value(&record.path, &record.values[0].field_id, |value| {
+                match value {
+                    FormValue::Secret(secret) => secret
+                        .with_str(|value| assert_eq!(value, "secret 0"))
+                        .unwrap(),
+                    _ => panic!("selected field was not secret"),
+                }
+            })
+            .unwrap(),
+        Some(())
+    );
+    assert_eq!(
+        opened
+            .with_form_field_value(&record.path, "absent", |_| ())
+            .unwrap(),
+        None
+    );
     assert_eq!(record.definition_revision, 1);
     assert_eq!(record.values[0].captured_label, "Historical password");
     match &record.values[0].value {
@@ -928,7 +947,7 @@ fn typed_credential_open_reads_all_families_and_preserves_refusals() {
             (publication::bootstrap::Credential::Password(&password), 1),
             (publication::bootstrap::Credential::Contact(&contact), 2),
         ] {
-            let opened = TreeImage::open_credential(
+            let opened = tree_image::TreeImage::open_credential(
                 StorageBackend::file(&path).unwrap(),
                 archive(),
                 mode,
@@ -938,7 +957,7 @@ fn typed_credential_open_reads_all_families_and_preserves_refusals() {
             )
             .unwrap();
             check_credential_reader(opened);
-            assert!(TreeImage::open_credential(
+            assert!(tree_image::TreeImage::open_credential(
                 StorageBackend::file(&path).unwrap(),
                 archive(),
                 mode,
@@ -947,7 +966,7 @@ fn typed_credential_open_reads_all_families_and_preserves_refusals() {
                 Some(99)
             )
             .is_err());
-            assert!(TreeImage::open_credential(
+            assert!(tree_image::TreeImage::open_credential(
                 StorageBackend::file(&path).unwrap(),
                 archive(),
                 mode,
@@ -957,7 +976,7 @@ fn typed_credential_open_reads_all_families_and_preserves_refusals() {
             )
             .is_err());
         }
-        assert!(TreeImage::open_credential(
+        assert!(tree_image::TreeImage::open_credential(
             StorageBackend::file(&path).unwrap(),
             archive(),
             mode,
@@ -1050,7 +1069,7 @@ fn typed_credential_open_rejects_publication_switch_after_bootstrap() {
         // a backend changing publication inside one read-only open operation.
         for storage in [&original, &replacement] {
             check_credential_reader(
-                TreeImage::open_credential(
+                tree_image::TreeImage::open_credential(
                     allocation::compaction::View(storage),
                     archive(),
                     mode,
@@ -1068,7 +1087,7 @@ fn typed_credential_open_rejects_publication_switch_after_bootstrap() {
             selections: selections.clone(),
         };
         assert!(matches!(
-            TreeImage::open_credential(
+            tree_image::TreeImage::open_credential(
                 switching,
                 archive(),
                 mode,

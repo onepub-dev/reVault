@@ -97,7 +97,7 @@ pub(in crate::file_format::candidate_files) fn set_field(
 ) -> Result<bool> {
     let path = path.file_path()?;
     let field_id = FormFieldDefinition::validated_id(field_id)?;
-    let mut opened = TreeImage::open(
+    let mut opened = AuditedTreeImage::open(
         allocation::compaction::View(&*storage),
         archive,
         mode,

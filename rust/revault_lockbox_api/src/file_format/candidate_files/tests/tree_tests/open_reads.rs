@@ -68,7 +68,8 @@ fn typed_tree_single_traversal_preserves_complete_open_all_modes() {
         }
         let old_reads = counted.calls.replace(0);
         let mut current =
-            TreeImage::open(counted.clone(), archive(), mode, &authority, key(mode)).unwrap();
+            AuditedTreeImage::open(counted.clone(), archive(), mode, &authority, key(mode))
+                .unwrap();
         let new_reads = counted.calls.get();
         assert!(
             new_reads < old_reads,

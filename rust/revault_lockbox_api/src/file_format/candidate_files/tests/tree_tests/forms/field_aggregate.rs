@@ -127,7 +127,7 @@ fn typed_form_field_upgrade_aggregate_probe() {
         ranges,
     ));
     let (old, old_def) = {
-        let opened = TreeImage::open(
+        let opened = AuditedTreeImage::open(
             crate::file_format::allocation_map::compaction::View(&writer),
             archive(),
             mode,
@@ -190,7 +190,7 @@ fn typed_form_field_upgrade_aggregate_probe() {
     let ranges = writer.0.spans.borrow().clone();
     drop(writer);
     drop(value);
-    let mut opened = TreeImage::open(
+    let mut opened = AuditedTreeImage::open(
         NoClone(Guarded::new(StorageBackend::file(&path).unwrap(), ranges)),
         archive(),
         mode,

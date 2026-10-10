@@ -104,3 +104,5 @@ and development failures; path installation and full-format acceptance are separ
 - [Traversal function attribution](evidence/typed-tree-index-attribution-2026-10-10/README.md): verified-page/decode/visitor timing with nested checksum scope; temporary instrumentation removed.
 
 - [Rejected path-buffer move](evidence/typed-tree-path-move-rejected-2026-10-10/README.md): small-file gain outweighed by three measured regressions; two-line source experiment reverted.
+
+- [Selective authenticated reads](selective_authenticated_reads.md): accepted ordinary-read versus audit/update boundaries; no timestamp or Vault integrity evidence.

@@ -7,6 +7,8 @@ use super::dense_image::Image;
 use super::*;
 use crate::file_format::publication_anchor::{shared, FAILURE_REGION, REGION_LEN};
 use shared::tree::{self, Tree};
+mod reader;
+pub(super) use reader::TreeImage;
 mod resume;
 pub(super) use resume::resume_path;
 mod install;
@@ -20,11 +22,11 @@ mod mutation;
 pub(super) mod variables;
 pub(super) use mutation::{remove_files, update_files};
 
-pub(super) struct TreeImage<S: Storage> {
+pub(super) struct AuditedTreeImage<S: Storage> {
     pub image: Image<S>,
     pub tree: Tree,
 }
-impl<S: Storage> TreeImage<S> {
+impl<S: Storage> AuditedTreeImage<S> {
     /// Credential bootstrap and typed records must refer to the same selected
     /// publication. A bounded zeroizing key copy allows guarded record allocation.
     pub fn open_credential(
@@ -77,8 +79,10 @@ impl<S: Storage> TreeImage<S> {
     ) -> Result<Self> {
         let codec = Codec::shared_packed(archive, mode, key)?;
         stage("codec");
-        let (catalogue, tree) = Catalogue::with_tree(&codec, |visitor| {
-            Tree::open_visit_observed(&storage, archive, mode, authority, key, visitor, &mut stage)
+        let (catalogue, tree) = Catalogue::with_tree_borrowed(&codec, |visitor| {
+            Tree::open_visit_borrowed_observed(
+                &storage, archive, mode, authority, key, visitor, &mut stage,
+            )
         })?;
         stage("typed_validation");
         catalogue.verify_padding(&storage, &codec)?;
@@ -187,7 +191,7 @@ pub(super) fn return_inline(
     if !body.starts_with(b"RV4TRE01") {
         return super::dense_update::return_inline(storage, archive, mode, authority, signer, key);
     }
-    let mut opened = TreeImage::open(
+    let mut opened = AuditedTreeImage::open(
         allocation::compaction::View(&*storage),
         archive,
         mode,
@@ -226,7 +230,7 @@ pub(super) fn return_inline(
     } else {
         drop(opened);
     }
-    let opened = TreeImage::open(
+    let opened = AuditedTreeImage::open(
         allocation::compaction::View(&*storage),
         archive,
         mode,
@@ -251,7 +255,7 @@ pub(super) fn can_return_inline(
     authority: &Authority<'_>,
     key: Option<&[u8]>,
 ) -> Result<bool> {
-    let mut opened = TreeImage::open(
+    let mut opened = AuditedTreeImage::open(
         allocation::compaction::View(storage),
         archive,
         mode,
@@ -357,7 +361,7 @@ pub(super) fn replace_metadata(
             tree::grow_dense_records(storage, archive, mode, authority, signer, key, records)
         };
     }
-    let mut opened = TreeImage::open(
+    let mut opened = AuditedTreeImage::open(
         allocation::compaction::View(&*storage),
         archive,
         mode,
@@ -443,7 +447,7 @@ pub(super) fn from_dense<S: Storage, T: Storage>(
             &tree::manifest(root),
             &slots,
         )?;
-        TreeImage::open(
+        AuditedTreeImage::open(
             allocation::compaction::View(&destination),
             archive,
             mode,

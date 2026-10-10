@@ -42,7 +42,7 @@ pub(super) fn selected(
         )
         .unwrap()
     } else {
-        TreeImage::open(copy, archive(), mode, authority, key(mode))
+        AuditedTreeImage::open(copy, archive(), mode, authority, key(mode))
             .unwrap()
             .image
     };
@@ -70,11 +70,12 @@ fn typed_dense_payload_return_capacity_refusals_do_not_relocate() {
     let authority = authority(mode, &public);
     for envelope in [false, true] {
         let mut storage = seed(mode, &authority, &owner);
-        let mut metadata = TreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
-            .unwrap()
-            .image
-            .filesystem_metadata()
-            .unwrap();
+        let mut metadata =
+            AuditedTreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
+                .unwrap()
+                .image
+                .filesystem_metadata()
+                .unwrap();
         for i in 0..if envelope { 900 } else { 1100 } {
             let path = if envelope {
                 format!("/d-{i:04}-{}", "x".repeat(52))

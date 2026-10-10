@@ -1,7 +1,7 @@
 //! Typed filesystem records for the experimental shared tree. File fragments
 //! are separate bounded records; no file descriptor grows with its payload.
 use super::*;
-use crate::file_format::authenticated_index::Entry;
+use crate::file_format::authenticated_index::{Entry, EntryRef};
 use crate::file_format::publication_anchor::shared::tree::Tree;
 use std::collections::BTreeMap;
 const FILE_RECORD: u8 = 1;
@@ -141,6 +141,13 @@ impl Catalogue {
         codec: &Codec,
         visit: impl FnOnce(&mut dyn FnMut(Entry) -> Result<()>) -> Result<Tree>,
     ) -> Result<(Self, Tree)> {
+        Self::with_tree_borrowed(codec, |decode| visit(&mut |entry| decode(entry.as_ref())))
+    }
+
+    pub(in crate::file_format::candidate_files) fn with_tree_borrowed(
+        codec: &Codec,
+        visit: impl FnOnce(&mut dyn FnMut(EntryRef<'_>) -> Result<()>) -> Result<Tree>,
+    ) -> Result<(Self, Tree)> {
         let mut files = Vec::new();
         let mut nodes = Vec::new();
         let mut packs = Vec::new();
@@ -159,7 +166,7 @@ impl Catalogue {
                         .checked_add(entry.key.len())
                         .ok_or(Error::CorruptRecord)?;
                     files.push(File {
-                        path: entry.key.clone(),
+                        path: Zeroizing::new(entry.key.to_vec()),
                         permissions: u32::from_le_bytes(entry.value[..4].try_into().unwrap()),
                         info: FileInfo::decode(&entry.value[4..], codec)?,
                         fragments: Vec::new(),
@@ -199,7 +206,7 @@ impl Catalogue {
                     }
                     packs.push(Pack {
                         extent: Extent {
-                            start: u64::from_be_bytes(entry.key.as_slice().try_into().unwrap()),
+                            start: u64::from_be_bytes(entry.key.try_into().unwrap()),
                             len: u64::from_le_bytes(entry.value[..8].try_into().unwrap()),
                             digest: entry.value[8..40].try_into().unwrap(),
                         },
@@ -224,7 +231,7 @@ impl Catalogue {
                         _ => return Err(Error::CorruptRecord),
                     };
                     nodes.push(nodes::Node {
-                        path: entry.key.clone(),
+                        path: Zeroizing::new(entry.key.to_vec()),
                         permissions: u32::from_le_bytes(entry.value[1..5].try_into().unwrap()),
                         target,
                     });
@@ -236,9 +243,10 @@ impl Catalogue {
                     path_bytes = path_bytes
                         .checked_add(entry.key.len())
                         .ok_or(Error::CorruptRecord)?;
-                    variables.push(entry);
+                    variables.push(entry.to_owned()?);
                 }
                 7..=10 => {
+                    let entry = entry.to_owned()?;
                     forms::Forms::admit_row(&entry)?;
                     if form_rows.len() >= 4096 {
                         return Err(Error::CorruptRecord);
@@ -250,15 +258,12 @@ impl Catalogue {
                 }
                 FORMAT_RECORD
                     if format == 0
-                        && entry.key.as_slice() == b"format"
-                        && matches!(
-                            entry.value.as_slice(),
-                            b"RV4FS001" | b"RV4FS002" | b"RV4FS003"
-                        ) =>
+                        && entry.key == b"format"
+                        && matches!(entry.value, b"RV4FS001" | b"RV4FS002" | b"RV4FS003") =>
                 {
-                    format = if entry.value.as_slice() == b"RV4FS003" {
+                    format = if entry.value == b"RV4FS003" {
                         3
-                    } else if entry.value.as_slice() == b"RV4FS001" {
+                    } else if entry.value == b"RV4FS001" {
                         1
                     } else {
                         2

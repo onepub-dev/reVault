@@ -692,3 +692,87 @@ fn stored_form_validation_preserves_operational_errors() {
         assert_eq!(stored_value_error(error), Error::CorruptRecord);
     }
 }
+
+impl Forms {
+    /// Fetch just the selected definition and its ordered field descriptors.
+    /// The same decoder and semantic validator serve audits and selective reads.
+    pub fn selected_definition(
+        id: &FormTypeId,
+        revision: u32,
+        mode: FormatMode,
+        sealed: u64,
+        mut get: impl FnMut(u8, &[u8]) -> Result<Option<Entry>>,
+    ) -> Result<Self> {
+        let key = definition_key(id, revision);
+        let Some(row) = get(DEFINITION, &key)? else {
+            return Ok(Self::default());
+        };
+        let mut rows = Vec::new();
+        Self::definition_rows(row, mode, sealed, &mut get, &mut rows)?;
+        Self::decode(rows, mode, sealed)
+    }
+    fn definition_rows(
+        row: Entry,
+        mode: FormatMode,
+        sealed: u64,
+        get: &mut impl FnMut(u8, &[u8]) -> Result<Option<Entry>>,
+        rows: &mut Vec<Entry>,
+    ) -> Result<()> {
+        Self::admit_row(&row)?;
+        let mut c = Input(&row.value);
+        c.string()?;
+        c.layout(mode, sealed)?;
+        c.layout(mode, sealed)?;
+        let count = c.count()?;
+        c.end()?;
+        if rows
+            .len()
+            .checked_add(count + 1)
+            .is_none_or(|n| n > MAX_ROWS)
+        {
+            return Err(Error::CorruptRecord);
+        }
+        for n in 0..count {
+            let mut key = row.key.to_vec();
+            key.extend_from_slice(&(n as u32).to_be_bytes());
+            let field = get(DEFINITION_FIELD, &key)?.ok_or(Error::CorruptRecord)?;
+            Self::admit_row(&field)?;
+            rows.push(field);
+        }
+        rows.push(row);
+        Ok(())
+    }
+    pub fn selected_record(
+        path: &LockboxPath,
+        mode: FormatMode,
+        sealed: u64,
+        mut get: impl FnMut(u8, &[u8]) -> Result<Option<Entry>>,
+    ) -> Result<Self> {
+        let Some(row) = get(RECORD, path.as_str().as_bytes())? else {
+            return Ok(Self::default());
+        };
+        Self::admit_row(&row)?;
+        let mut c = Input(&row.value);
+        let record_id: [u8; 16] = c.take(16)?.try_into().unwrap();
+        let definition = c.take(40)?.to_vec();
+        c.string()?;
+        c.layout(mode, sealed)?;
+        let count = c.count()?;
+        c.end()?;
+        if count >= MAX_ROWS {
+            return Err(Error::CorruptRecord);
+        }
+        let mut rows = Vec::new();
+        for n in 0..count {
+            let mut key = record_id.to_vec();
+            key.extend_from_slice(&(n as u32).to_be_bytes());
+            let capture = get(CAPTURE, &key)?.ok_or(Error::CorruptRecord)?;
+            Self::admit_row(&capture)?;
+            rows.push(capture);
+        }
+        rows.push(row);
+        let definition = get(DEFINITION, &definition)?.ok_or(Error::CorruptRecord)?;
+        Self::definition_rows(definition, mode, sealed, &mut get, &mut rows)?;
+        Self::decode(rows, mode, sealed)
+    }
+}

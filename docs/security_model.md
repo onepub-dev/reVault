@@ -52,15 +52,18 @@ codec and physical descriptor. It must reject cross-archive substitution,
 reordered/duplicated extents, stale replacements, deleted entries and unpublished
 preparation. A self-consistent frame checksum is not a membership proof.
 
-Preserve existing detection timing during the evaluation. In particular, ordinary
-open of a signed plaintext archive currently computes a digest over all committed
-logical content. Lazy verification would change that observable contract and
-cannot be enabled as an incidental performance improvement. Recovery may have
-a different verification algorithm but must preserve authorization.
+The [accepted selective-read decision](selective_authenticated_reads.md) changes
+experimental v4 detection timing: ordinary reads authenticate the selected root,
+required index pages and requested chunks, including signed plaintext. Unrelated
+damage is detected on access or full audit. Owner-authorized membership remains
+mandatory; full audits and destructive operations retain their wider checks.
+Released format-3 behavior is unchanged. Recovery must preserve authorization.
 
-The current `CommitAuth` signs a commit-root digest; the commit root includes
-metadata offsets. For signed plaintext, an additional whole-content digest is
-checked during open. For encrypted signed data, review how key-holder edits to
+The previously evaluated native `CommitAuth` path signs a commit-root digest;
+the commit root includes metadata offsets. That eager path additionally checks
+a whole-content digest during signed-plaintext open. The selective shared-tree
+reader instead authenticates requested fragment commitments through its selected
+root, as specified in the decision above. For encrypted signed data, review how key-holder edits to
 metadata and payload are bound to owner authority: an AEAD tag alone cannot prove
 that authority. This is an explicit audit item, not an asserted exploit.
 
@@ -121,7 +124,7 @@ separate tests, not archive-format properties.
 
 1. Review owner authorization in all modes, especially malicious content-key holders.
 2. Select an independent recovery proof with explicit proof-loss and freshness limits.
-3. Retain eager ordinary verification unless a separately accepted decision changes it.
+3. Validate the accepted selective-read contract, including unchanged mutation, erasure and sharing boundaries.
 4. Review encodings, domain separation, nonces, proof substitution and resource bounds.
 5. Execute corruption, malicious mutation, rollback, crash and cross-version vectors.
 

@@ -18,7 +18,7 @@ fn typed_tree_variables_lifecycle_secure_read_and_file_coexistence_all_modes() {
         let signer = mode.signed().then_some(&owner);
         let mut storage = super::mutation::seed(mode, &authority, &owner);
         assert!(
-            TreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
+            AuditedTreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
                 .unwrap()
                 .image
                 .value_key
@@ -47,7 +47,8 @@ fn typed_tree_variables_lifecycle_secure_read_and_file_coexistence_all_modes() {
         )
         .unwrap());
         let opened =
-            TreeImage::open(storage.clone(), archive(), mode, &authority, key(mode)).unwrap();
+            AuditedTreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
+                .unwrap();
         assert_eq!(
             opened.get_variable(&name).unwrap().as_deref(),
             Some("normal")
@@ -112,7 +113,8 @@ fn typed_tree_variables_lifecycle_secure_read_and_file_coexistence_all_modes() {
         .is_err());
         assert_eq!(storage.read_all().unwrap(), stable);
         let opened =
-            TreeImage::open(storage.clone(), archive(), mode, &authority, key(mode)).unwrap();
+            AuditedTreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
+                .unwrap();
         assert!(opened.image.value_key.is_some());
         assert!(opened.get_variable(&name).is_err());
         assert_eq!(
@@ -125,6 +127,22 @@ fn typed_tree_variables_lifecycle_secure_read_and_file_coexistence_all_modes() {
             opened.get_variable(&other).unwrap().as_deref(),
             Some("neighbor")
         );
+        let selected =
+            tree_image::TreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
+                .unwrap();
+        assert_eq!(
+            selected.get_variable(&other).unwrap().as_deref(),
+            Some("neighbor")
+        );
+        assert!(selected.get_variable(&name).is_err());
+        assert_eq!(
+            selected
+                .with_secret_variable(&name, |v| v.with_str(|s| assert_eq!(s, boundary)).unwrap())
+                .unwrap(),
+            Some(())
+        );
+        assert!(selected.with_secret_variable(&other, |_| ()).is_err());
+        drop(selected);
         let mut metadata = opened.image.filesystem_metadata().unwrap();
         metadata
             .iter_mut()
@@ -169,7 +187,8 @@ fn typed_tree_variables_lifecycle_secure_read_and_file_coexistence_all_modes() {
         )
         .unwrap());
         let opened =
-            TreeImage::open(storage.clone(), archive(), mode, &authority, key(mode)).unwrap();
+            AuditedTreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
+                .unwrap();
         assert!(opened.image.info(b"/docs/data").unwrap().is_none());
         opened
             .with_secret_variable(&name, |v| v.with_str(|s| assert_eq!(s, boundary)).unwrap())
@@ -209,7 +228,8 @@ fn typed_tree_variables_lifecycle_secure_read_and_file_coexistence_all_modes() {
         )
         .unwrap());
         let opened =
-            TreeImage::open(storage.clone(), archive(), mode, &authority, key(mode)).unwrap();
+            AuditedTreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
+                .unwrap();
         assert_eq!(
             opened.get_variable(&name).unwrap().as_deref(),
             Some("recreated")
@@ -274,7 +294,8 @@ fn typed_tree_variables_maximum_empty_and_one_over_all_modes() {
         .unwrap();
         drop(value);
         let opened =
-            TreeImage::open(storage.clone(), archive(), mode, &authority, key(mode)).unwrap();
+            AuditedTreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
+                .unwrap();
         opened
             .with_secret_variable(&name, |v| {
                 v.with_str(|s| {
@@ -314,7 +335,8 @@ fn typed_tree_variables_maximum_empty_and_one_over_all_modes() {
         )
         .unwrap();
         let opened =
-            TreeImage::open(storage.clone(), archive(), mode, &authority, key(mode)).unwrap();
+            AuditedTreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
+                .unwrap();
         opened
             .with_secret_variable(&name, |v| v.with_str(|s| assert!(s.is_empty())).unwrap())
             .unwrap()
@@ -373,7 +395,7 @@ impl<S: Storage> Storage for Guarded<S> {
     }
 }
 fn extents(storage: &StorageBackend, mode: FormatMode, authority: &Authority<'_>) -> Vec<Extent> {
-    TreeImage::open(storage.clone(), archive(), mode, authority, key(mode))
+    AuditedTreeImage::open(storage.clone(), archive(), mode, authority, key(mode))
         .unwrap()
         .image
         .catalogue
@@ -388,7 +410,8 @@ fn check_value<S: Storage>(
     authority: &Authority<'_>,
     name: &VariableName,
 ) -> Option<bool> {
-    let mut opened = TreeImage::open(storage, archive(), mode, authority, key(mode)).unwrap();
+    let mut opened =
+        AuditedTreeImage::open(storage, archive(), mode, authority, key(mode)).unwrap();
     assert_eq!(
         opened
             .get_variable(&VariableName::new("retained").unwrap())
@@ -455,7 +478,8 @@ fn typed_tree_variables_guarded_transaction_and_recovery_faults() {
         )
         .unwrap();
         let opened =
-            TreeImage::open(original.clone(), archive(), mode, &authority, key(mode)).unwrap();
+            AuditedTreeImage::open(original.clone(), archive(), mode, &authority, key(mode))
+                .unwrap();
         let target_ranges: Vec<_> = opened
             .image
             .catalogue
@@ -629,7 +653,8 @@ fn typed_tree_variables_selected_ownership_corruption_and_salvage_all_modes() {
             &b,
         )
         .unwrap();
-        let opened = TreeImage::open(seed.clone(), archive(), mode, &authority, key(mode)).unwrap();
+        let opened =
+            AuditedTreeImage::open(seed.clone(), archive(), mode, &authority, key(mode)).unwrap();
         let layouts: Vec<_> = opened
             .image
             .catalogue
@@ -692,7 +717,7 @@ fn typed_tree_variables_selected_ownership_corruption_and_salvage_all_modes() {
                 changed,
             )
             .unwrap();
-            let read = TreeImage::open(bad, archive(), mode, &authority, key(mode));
+            let read = AuditedTreeImage::open(bad, archive(), mode, &authority, key(mode));
             match read {
                 Err(_) => {}
                 Ok(mut image) => assert!(image.image.verify_all().is_err()),
@@ -705,9 +730,14 @@ fn typed_tree_variables_selected_ownership_corruption_and_salvage_all_modes() {
             .write_at(extent.start + extent.len - 1, &[byte])
             .unwrap();
         if mode.plaintext() && mode.signed() {
-            assert!(
-                TreeImage::open(damaged.clone(), archive(), mode, &authority, key(mode)).is_err()
-            );
+            assert!(AuditedTreeImage::open(
+                damaged.clone(),
+                archive(),
+                mode,
+                &authority,
+                key(mode)
+            )
+            .is_err());
         }
         let mut names = Vec::new();
         let lost = salvage_variables(
@@ -796,7 +826,7 @@ fn typed_tree_variables_selected_ownership_corruption_and_salvage_all_modes() {
             assert_eq!(names, vec![second.clone()]);
         }
         let current =
-            TreeImage::open(seed.clone(), archive(), mode, &authority, key(mode)).unwrap();
+            AuditedTreeImage::open(seed.clone(), archive(), mode, &authority, key(mode)).unwrap();
         let mut damaged = StorageBackend::memory(seed.read_all().unwrap());
         for start in [
             current.tree.anchor.index.primary,
@@ -844,7 +874,8 @@ fn typed_tree_variable_max_revision_can_be_deleted_but_not_replaced() {
         &value,
     )
     .unwrap();
-    let opened = TreeImage::open(storage.clone(), archive(), mode, &authority, key(mode)).unwrap();
+    let opened =
+        AuditedTreeImage::open(storage.clone(), archive(), mode, &authority, key(mode)).unwrap();
     let bytes = crate::secret_vec::SecureVec::try_from_slice(b"last").unwrap();
     let encoded = secure_segments::encode(
         &bytes,
@@ -905,7 +936,7 @@ fn typed_tree_variable_max_revision_can_be_deleted_but_not_replaced() {
     )
     .is_err());
     assert_eq!(storage.read_all().unwrap(), before);
-    let prior = TreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
+    let prior = AuditedTreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
         .unwrap()
         .image
         .catalogue
@@ -925,7 +956,7 @@ fn typed_tree_variable_max_revision_can_be_deleted_but_not_replaced() {
         )
         .unwrap());
         assert_eq!(
-            TreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
+            AuditedTreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
                 .unwrap()
                 .image
                 .catalogue
@@ -945,7 +976,7 @@ fn typed_tree_variable_max_revision_can_be_deleted_but_not_replaced() {
     )
     .unwrap());
     assert!(
-        TreeImage::open(storage, archive(), mode, &authority, key(mode))
+        AuditedTreeImage::open(storage, archive(), mode, &authority, key(mode))
             .unwrap()
             .with_secret_variable(&name, |_| ())
             .unwrap()

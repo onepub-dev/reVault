@@ -66,7 +66,7 @@ fn typed_form_field_upgrade_mixed_history_and_context_all_modes() {
         .unwrap();
         expected.push(mixed);
         // Historical secret can be replaced normally under the selected normal schema.
-        let before = TreeImage::open(
+        let before = AuditedTreeImage::open(
             crate::file_format::allocation_map::compaction::View(&storage),
             archive(),
             mode,
@@ -102,7 +102,7 @@ fn typed_form_field_upgrade_mixed_history_and_context_all_modes() {
         expected[0].values[0].kind = FormFieldKind::Text;
         expected[0].values[0].captured_label = "Current label".into();
         expected[0].values[0].value = FormValue::normal("secret 0");
-        let reopened = TreeImage::open(
+        let reopened = AuditedTreeImage::open(
             crate::file_format::allocation_map::compaction::View(&storage),
             archive(),
             mode,
@@ -169,7 +169,7 @@ fn typed_form_field_upgrade_mixed_history_and_context_all_modes() {
                 }
             }
         }
-        let reopened = TreeImage::open(
+        let reopened = AuditedTreeImage::open(
             crate::file_format::allocation_map::compaction::View(&storage),
             archive(),
             mode,
@@ -251,7 +251,7 @@ fn typed_form_field_label_reference_only_and_kind_validation_all_modes() {
         let target = &records[0];
         let value = &target.values[0].value;
         let layouts = |storage: &_| {
-            let opened = TreeImage::open(
+            let opened = AuditedTreeImage::open(
                 crate::file_format::allocation_map::compaction::View(storage),
                 archive(),
                 mode,
@@ -268,7 +268,7 @@ fn typed_form_field_label_reference_only_and_kind_validation_all_modes() {
                 .map(|l| l.encode_metadata())
                 .collect::<Vec<_>>()
         };
-        let before = TreeImage::open(
+        let before = AuditedTreeImage::open(
             crate::file_format::allocation_map::compaction::View(&storage),
             archive(),
             mode,
@@ -296,7 +296,7 @@ fn typed_form_field_label_reference_only_and_kind_validation_all_modes() {
             value
         )
         .unwrap());
-        let after = TreeImage::open(
+        let after = AuditedTreeImage::open(
             crate::file_format::allocation_map::compaction::View(&storage),
             archive(),
             mode,
@@ -340,7 +340,7 @@ fn typed_form_field_label_reference_only_and_kind_validation_all_modes() {
         )
         .unwrap());
         assert_eq!(before, layouts(&storage));
-        let reopened = TreeImage::open(
+        let reopened = AuditedTreeImage::open(
             crate::file_format::allocation_map::compaction::View(&storage),
             archive(),
             mode,
@@ -415,7 +415,7 @@ fn typed_form_field_label_reference_only_and_kind_validation_all_modes() {
             value
         )
         .unwrap());
-        let reopened = TreeImage::open(
+        let reopened = AuditedTreeImage::open(
             crate::file_format::allocation_map::compaction::View(&storage),
             archive(),
             mode,
@@ -523,7 +523,7 @@ fn typed_form_field_limits_refusals_and_verified_no_change_all_modes() {
             &normal
         )
         .unwrap());
-        let reopened = TreeImage::open(
+        let reopened = AuditedTreeImage::open(
             crate::file_format::allocation_map::compaction::View(&storage),
             archive(),
             mode,
@@ -549,7 +549,7 @@ fn typed_form_field_limits_refusals_and_verified_no_change_all_modes() {
             &secret
         )
         .unwrap());
-        let reopened = TreeImage::open(
+        let reopened = AuditedTreeImage::open(
             crate::file_format::allocation_map::compaction::View(&storage),
             archive(),
             mode,
@@ -646,7 +646,7 @@ fn install_max_text_revision(
     path: &LockboxPath,
 ) {
     use crate::file_format::{form_segments, publication_anchor::shared::tree};
-    let opened = TreeImage::open(
+    let opened = AuditedTreeImage::open(
         crate::file_format::allocation_map::compaction::View(&*storage),
         archive(),
         mode,
@@ -779,7 +779,7 @@ fn typed_form_field_checked_text_revision_all_modes() {
             Err(Error::SecurityLimitExceeded(_))
         ));
         assert_eq!(snapshot, bytes(&storage));
-        let reopened = TreeImage::open(
+        let reopened = AuditedTreeImage::open(
             crate::file_format::allocation_map::compaction::View(&storage),
             archive(),
             mode,
@@ -866,7 +866,7 @@ fn typed_form_field_upgrade_guarded_atomic_recovery_faults() {
         )
         .unwrap();
         let (_, old_defs, old_records) = collect(&original, mode, &authority).unwrap();
-        let opened = TreeImage::open(
+        let opened = AuditedTreeImage::open(
             crate::file_format::allocation_map::compaction::View(&original),
             archive(),
             mode,
@@ -948,7 +948,7 @@ fn typed_form_field_upgrade_guarded_atomic_recovery_faults() {
                     old_records.clone()
                 }
             );
-            let mut opened = TreeImage::open(
+            let mut opened = AuditedTreeImage::open(
                 crate::file_format::allocation_map::compaction::View(s),
                 archive(),
                 mode,
@@ -1142,7 +1142,7 @@ fn typed_form_field_move_delete_and_selected_salvage_all_modes() {
             &value
         )
         .unwrap());
-        let before = TreeImage::open(
+        let before = AuditedTreeImage::open(
             crate::file_format::allocation_map::compaction::View(&storage),
             archive(),
             mode,
@@ -1181,7 +1181,7 @@ fn typed_form_field_move_delete_and_selected_salvage_all_modes() {
         )
         .unwrap());
         assert_eq!(snapshot, bytes(&storage));
-        let opened = TreeImage::open(
+        let opened = AuditedTreeImage::open(
             crate::file_format::allocation_map::compaction::View(&storage),
             archive(),
             mode,

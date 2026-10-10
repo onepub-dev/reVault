@@ -377,7 +377,7 @@ pub(super) fn publish_catalogue(
         return Err(Error::CorruptRecord);
     }
     let mut old_catalogue = if tree_base {
-        let opened = super::tree_image::TreeImage::open(
+        let opened = super::tree_image::AuditedTreeImage::open(
             allocation::compaction::View(&*storage),
             archive,
             mode,

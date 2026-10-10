@@ -51,7 +51,7 @@ fn resolve(forms: &forms::Forms, reference: &str) -> Result<usize> {
         ))),
     }
 }
-impl<S: Storage> TreeImage<S> {
+impl<S: Storage> AuditedTreeImage<S> {
     pub fn resolve_form_definition(&self, reference: &str) -> Result<FormDefinition> {
         let index = resolve(&self.image.catalogue.forms, reference)?;
         self.image.catalogue.forms.definitions[index].read(
@@ -116,7 +116,7 @@ pub(in crate::file_format::candidate_files) fn mutate_definition(
         }
         DefinitionTarget::Revise(_) => None,
     };
-    let mut opened = TreeImage::open(
+    let mut opened = AuditedTreeImage::open(
         allocation::compaction::View(&*storage),
         archive,
         mode,
@@ -203,7 +203,7 @@ pub(in crate::file_format::candidate_files) fn create_record(
 ) -> Result<()> {
     let path = path.file_path()?;
     FormRecord::validated_name(name)?;
-    let mut opened = TreeImage::open(
+    let mut opened = AuditedTreeImage::open(
         allocation::compaction::View(&*storage),
         archive,
         mode,

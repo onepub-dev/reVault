@@ -73,7 +73,7 @@ pub(in crate::file_format::candidate_files) fn update_files<R: Read + Seek>(
             key,
         )?
     } else {
-        TreeImage::open(
+        AuditedTreeImage::open(
             allocation::compaction::View(&*storage),
             archive,
             mode,

@@ -162,7 +162,8 @@ fn typed_form_snapshots_large_metadata_history_and_retention_all_modes() {
         .is_err());
         assert_eq!(storage.read_all().unwrap(), stable);
         let opened =
-            TreeImage::open(storage.clone(), archive(), mode, &authority, key(mode)).unwrap();
+            AuditedTreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
+                .unwrap();
         assert_eq!(
             opened.get_form_definition(&type_id, 3).unwrap(),
             Some(definition.clone())
@@ -179,6 +180,35 @@ fn typed_form_snapshots_large_metadata_history_and_retention_all_modes() {
             .iter()
             .any(|m| m.entry.path.as_str() == "/new/deep"
                 && m.entry.kind == crate::LockboxEntryKind::Directory));
+        let selected =
+            tree_image::TreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
+                .unwrap();
+        assert_eq!(
+            selected.get_form_definition(&type_id, 3).unwrap(),
+            Some(definition.clone())
+        );
+        assert_eq!(
+            selected.get_form_record(&record.path).unwrap(),
+            Some(record.clone())
+        );
+        for field in &record.values {
+            assert_eq!(
+                selected
+                    .with_form_field_value(&record.path, &field.field_id, |value| assert_eq!(
+                        value,
+                        &field.value
+                    ))
+                    .unwrap(),
+                Some(())
+            );
+        }
+        assert_eq!(
+            selected
+                .with_form_field_value(&record.path, "missing", |_| ())
+                .unwrap(),
+            None
+        );
+        drop(selected);
         let payloads: Vec<_> = opened
             .image
             .catalogue
@@ -214,7 +244,8 @@ fn typed_form_snapshots_large_metadata_history_and_retention_all_modes() {
         )
         .unwrap();
         let mut opened =
-            TreeImage::open(storage.clone(), archive(), mode, &authority, key(mode)).unwrap();
+            AuditedTreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
+                .unwrap();
         assert_eq!(
             opened.get_form_record(&record.path).unwrap(),
             Some(record.clone())

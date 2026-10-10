@@ -100,7 +100,7 @@ pub(in crate::file_format::candidate_files) fn from_candidate<S: Storage, T: Sto
             &tree::manifest(root),
             &[],
         )?;
-        TreeImage::open(
+        AuditedTreeImage::open(
             allocation::compaction::View(&destination),
             archive,
             mode,

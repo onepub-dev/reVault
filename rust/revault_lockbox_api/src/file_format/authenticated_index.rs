@@ -9,6 +9,11 @@ use crate::{Error, LockboxId, Result};
 use sha2::Sha256;
 use zeroize::Zeroizing;
 
+mod cache;
+pub(crate) use cache::PageCache;
+mod borrowed;
+pub(crate) use borrowed::{EntryRef, VisitRef};
+
 const MAGIC: &[u8; 8] = b"RV4IDX02";
 const HEADER: usize = 44;
 const MAX_NODE: usize = 65536;
@@ -745,74 +750,6 @@ impl Index {
             &ZeroizingBytes::new(reference.read_verified(storage)?),
             sealed,
         )
-    }
-    fn decode(&self, bytes: &[u8], sealed: u64) -> Result<Node> {
-        if bytes.len() < HEADER
-            || bytes.len() > MAX_NODE
-            || (!self.mode.unpadded() && bytes.len() != MAX_NODE)
-            || &bytes[..8] != MAGIC
-            || bytes[8..10] != 1u16.to_le_bytes()
-            || bytes[10..12] != self.mode.0.to_le_bytes()
-            || bytes[12..28] != *self.archive.as_bytes()
-            || u32::from_le_bytes(bytes[40..44].try_into().unwrap()) as usize
-                != bytes.len() - HEADER
-        {
-            return Err(Error::CorruptRecord);
-        }
-        let body = if let Some(key) = &self.key {
-            ZeroizingBytes::new(open_with_nonce(
-                &bytes[HEADER..],
-                key.as_slice(),
-                &bytes[28..40],
-                &bytes[..28],
-            )?)
-        } else {
-            if bytes[28..40] != [0; 12] {
-                return Err(Error::CorruptRecord);
-            }
-            ZeroizingBytes::new(bytes[HEADER..].to_vec())
-        };
-        let mut cursor = Cursor(&body);
-        let height = cursor.take(1)?[0];
-        let count = cursor.u64()?;
-        let items = cursor.u16()? as usize;
-        if height > MAX_HEIGHT || count > MAX_ENTRIES || items > MAX_ITEMS {
-            return Err(Error::CorruptRecord);
-        }
-        let node = if height == 0 {
-            let mut entries = Vec::with_capacity(items);
-            for _ in 0..items {
-                let namespace = cursor.take(1)?[0];
-                let key_len = cursor.u16()? as usize;
-                let value_len = cursor.u32()? as usize;
-                if key_len > MAX_KEY || value_len > MAX_VALUE {
-                    return Err(Error::CorruptRecord);
-                }
-                entries.push(Entry::new(
-                    namespace,
-                    cursor.take(key_len)?,
-                    cursor.take(value_len)?,
-                )?);
-            }
-            Node::Leaf(entries)
-        } else {
-            let mut children = Vec::with_capacity(items);
-            for _ in 0..items {
-                children.push(cursor.link(sealed)?);
-            }
-            Node::Branch { height, children }
-        };
-        validate_node(&node, sealed)?;
-        if count != node.count()
-            || if self.mode.unpadded() {
-                !cursor.0.is_empty()
-            } else {
-                cursor.0.iter().any(|b| *b != 0)
-            }
-        {
-            return Err(Error::CorruptRecord);
-        }
-        Ok(node)
     }
     fn encode(&self, node: &Node) -> Result<ZeroizingBytes> {
         validate_node(node, u64::MAX)?;

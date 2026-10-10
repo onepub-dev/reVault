@@ -191,7 +191,7 @@ fn whole_tree_compaction_preserves_selected_history_and_lineage_all_modes() {
         )
         .unwrap();
         let old_hash = hash(&original);
-        let opened = TreeImage::open(
+        let opened = AuditedTreeImage::open(
             crate::file_format::allocation_map::compaction::View(&original),
             archive(),
             mode,
@@ -265,7 +265,7 @@ fn whole_tree_compaction_preserves_selected_history_and_lineage_all_modes() {
         assert_eq!(report, tree_image::forms::SalvageReport::default());
         assert_eq!(actual_defs, defs);
         assert_eq!(actual_records, records);
-        let mut reopened = TreeImage::open(
+        let mut reopened = AuditedTreeImage::open(
             crate::file_format::allocation_map::compaction::View(&result),
             archive(),
             mode,
@@ -511,7 +511,7 @@ fn whole_tree_compaction_refusals_precede_destination_mutation_all_modes() {
             u64::MAX,
         )
         .unwrap();
-        let mut reopened = TreeImage::open(
+        let mut reopened = AuditedTreeImage::open(
             crate::file_format::allocation_map::compaction::View(&maximum),
             archive(),
             mode,
@@ -530,7 +530,7 @@ fn whole_tree_compaction_refusals_precede_destination_mutation_all_modes() {
         assert_eq!(calls.get(), 0);
         assert_eq!(output.len().unwrap(), 0);
         assert_eq!(hash(&maximum), maximum_hash);
-        let opened = TreeImage::open(
+        let opened = AuditedTreeImage::open(
             crate::file_format::allocation_map::compaction::View(&original),
             archive(),
             mode,
@@ -589,7 +589,7 @@ fn whole_tree_compaction_preserves_authenticated_access_root() {
             key(mode),
         )
         .unwrap();
-        let opened = TreeImage::open(
+        let opened = AuditedTreeImage::open(
             crate::file_format::allocation_map::compaction::View(&fresh),
             archive(),
             mode,
@@ -645,7 +645,7 @@ fn whole_tree_compaction_preserves_authenticated_access_root() {
             .key
             .with_bytes(|k| assert_eq!(k, key(mode).unwrap()))
             .unwrap();
-        TreeImage::open(
+        AuditedTreeImage::open(
             crate::file_format::allocation_map::compaction::View(&source),
             archive(),
             mode,
@@ -692,7 +692,7 @@ fn whole_tree_compaction_preserves_authenticated_access_root() {
         )
         .unwrap();
         for _ in 0..2 {
-            let selected = TreeImage::open(
+            let selected = AuditedTreeImage::open(
                 crate::file_format::allocation_map::compaction::View(&compacted),
                 archive(),
                 mode,
@@ -790,7 +790,7 @@ fn whole_tree_compaction_preserves_authenticated_access_root() {
             .unwrap();
         }
         assert_eq!(hash(&source), before);
-        let anchor = TreeImage::open(
+        let anchor = AuditedTreeImage::open(
             crate::file_format::allocation_map::compaction::View(&compacted),
             archive(),
             mode,
@@ -833,7 +833,7 @@ fn whole_tree_compaction_returned_failures_durably_discard_owned_destination() {
         let signer = mode.signed().then_some(&owner);
         let (original, defs, records) = super::lifecycle::fixture(mode, &authority, &owner);
         let original_hash = hash(&original);
-        let opened = TreeImage::open(
+        let opened = AuditedTreeImage::open(
             crate::file_format::allocation_map::compaction::View(&original),
             archive(),
             mode,
@@ -904,7 +904,7 @@ fn whole_tree_compaction_returned_failures_durably_discard_owned_destination() {
             StorageBackend::memory(baseline.durable()),
             new_secure.clone(),
         );
-        TreeImage::open(
+        AuditedTreeImage::open(
             crate::file_format::allocation_map::compaction::View(&persisted),
             archive(),
             mode,
@@ -1019,7 +1019,7 @@ fn whole_tree_compaction_checks_extent_tail_and_reports_cleanup_failures() {
         )
         .unwrap();
         drop(value);
-        let opened = TreeImage::open(
+        let opened = AuditedTreeImage::open(
             crate::file_format::allocation_map::compaction::View(&source),
             archive(),
             mode,
@@ -1182,7 +1182,7 @@ fn whole_tree_compaction_rechecks_source_before_and_after_publication() {
         let (original, _, _) = super::lifecycle::fixture(mode, &authority, &owner);
         let bytes = original.inner.read_all().unwrap();
         let spans = original.spans.borrow().clone();
-        let opened = TreeImage::open(
+        let opened = AuditedTreeImage::open(
             crate::file_format::allocation_map::compaction::View(&original),
             archive(),
             mode,
@@ -1253,7 +1253,7 @@ fn whole_tree_compaction_rechecks_source_before_and_after_publication() {
             assert!(switched.get());
             assert_eq!(output.len().unwrap(), 0);
             assert_eq!(hash(&source), next_hash);
-            let reopened = TreeImage::open(
+            let reopened = AuditedTreeImage::open(
                 crate::file_format::allocation_map::compaction::View(&source),
                 archive(),
                 mode,
@@ -1302,7 +1302,7 @@ fn whole_tree_compaction_large_selected_state_file_store_all_modes() {
         )
         .unwrap();
         drop(seed);
-        let opened = TreeImage::open(
+        let opened = AuditedTreeImage::open(
             crate::file_format::allocation_map::compaction::View(&initial),
             archive(),
             mode,
@@ -1357,7 +1357,7 @@ fn whole_tree_compaction_large_selected_state_file_store_all_modes() {
         drop(caller);
         let source_hash = hash(&writer);
         let source_size = writer.len().unwrap();
-        let opened = TreeImage::open(
+        let opened = AuditedTreeImage::open(
             crate::file_format::allocation_map::compaction::View(&writer),
             archive(),
             mode,
@@ -1436,7 +1436,7 @@ fn whole_tree_compaction_large_selected_state_file_store_all_modes() {
             Guarded::new(StorageBackend::file(&destination_path).unwrap(), new_secure);
         assert_eq!(hash(&destination), destination_hash);
         let mut reopened =
-            TreeImage::open(destination, archive(), mode, &authority, key(mode)).unwrap();
+            AuditedTreeImage::open(destination, archive(), mode, &authority, key(mode)).unwrap();
         assert_eq!(reopened.image.anchor.generation, predecessor.generation + 1);
         assert_eq!(
             reopened.image.anchor.previous,
@@ -1518,7 +1518,7 @@ fn refresh_live_guard<S: Storage>(
     mode: FormatMode,
     authority: &Authority<'_>,
 ) {
-    let mut reopened = TreeImage::open(
+    let mut reopened = AuditedTreeImage::open(
         crate::file_format::allocation_map::compaction::View(&storage.inner),
         archive(),
         mode,

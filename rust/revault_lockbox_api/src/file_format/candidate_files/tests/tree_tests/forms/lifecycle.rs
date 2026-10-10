@@ -193,7 +193,8 @@ fn typed_form_delete_and_stream_salvage_all_modes() {
         ));
         assert_eq!(storage.inner.read_all().unwrap(), stable);
         let current =
-            TreeImage::open(storage.clone(), archive(), mode, &authority, key(mode)).unwrap();
+            AuditedTreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
+                .unwrap();
         let form = &current.image.catalogue.forms.records[0];
         let mut retired = form.name.extents.clone();
         for f in &form.fields {
@@ -269,7 +270,8 @@ fn typed_form_delete_and_stream_salvage_all_modes() {
             }
         }
         let mut opened =
-            TreeImage::open(storage.clone(), archive(), mode, &authority, key(mode)).unwrap();
+            AuditedTreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
+                .unwrap();
         assert!(opened.get_form_record(&records[0].path).unwrap().is_none());
         let mut neighbor = Vec::new();
         opened
@@ -331,7 +333,8 @@ fn typed_form_deletion_guarded_atomic_recovery_faults() {
         let bytes = original.inner.read_all().unwrap();
         let spans = original.spans.borrow().clone();
         let opened =
-            TreeImage::open(original.clone(), archive(), mode, &authority, key(mode)).unwrap();
+            AuditedTreeImage::open(original.clone(), archive(), mode, &authority, key(mode))
+                .unwrap();
         let removed = &opened.image.catalogue.forms.records[0];
         let mut retired = removed.name.extents.clone();
         for field in &removed.fields {
@@ -356,7 +359,7 @@ fn typed_form_deletion_guarded_atomic_recovery_faults() {
             let committed = got == records[1..];
             assert!(committed || got == records);
             let mut opened =
-                TreeImage::open(s.clone(), archive(), mode, &authority, key(mode)).unwrap();
+                AuditedTreeImage::open(s.clone(), archive(), mode, &authority, key(mode)).unwrap();
             let mut neighbor = Vec::new();
             opened
                 .image
@@ -505,7 +508,8 @@ fn typed_form_stream_delivery_errors_are_fatal_after_partial_events() {
         let authority = authority(mode, &public);
         let (original, _, _) = fixture(mode, &authority, &owner);
         let opened =
-            TreeImage::open(original.clone(), archive(), mode, &authority, key(mode)).unwrap();
+            AuditedTreeImage::open(original.clone(), archive(), mode, &authority, key(mode))
+                .unwrap();
         let extent = opened.image.catalogue.forms.records[0].fields[0]
             .value
             .extents[0];

@@ -52,7 +52,8 @@ are recorded; signed Lockbox costs are not interchangeable with ZIP CRC costs.
 Default privacy padding is the primary case. No-padding is a separate result.
 
 For A3 the primary comparable mode is unencrypted and unsigned; report signed
-plaintext separately with its eager verification cost. Product review must accept
+plaintext separately under the [accepted selective-read policy](selective_authenticated_reads.md);
+report explicit full-audit cost separately. Product review must accept
 this mode assignment before freezing the contract: “unencrypted” in the goal
 alone does not resolve signed-open costs. Measure whole file, extraction and raw
 4 KiB/64 KiB ranges. Compressed-range amplification is a separate gate and must

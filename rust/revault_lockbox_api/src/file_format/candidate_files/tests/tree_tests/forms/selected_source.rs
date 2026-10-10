@@ -17,7 +17,7 @@ pub(super) fn prepare_texts(
     tree::PreparedStoragePayloadPlan<'static>,
 )> {
     let (mut catalogue, base, content_key) = {
-        let mut opened = TreeImage::open(
+        let mut opened = AuditedTreeImage::open(
             crate::file_format::allocation_map::compaction::View(storage),
             archive(),
             mode,
@@ -190,7 +190,8 @@ fn selected_source_capability_and_connected_replacement_all_modes() {
         let authority = authority(mode, &public);
         let (original, definitions, records) = fixture(mode, &authority, &owner);
         let opened =
-            TreeImage::open(original.clone(), archive(), mode, &authority, key(mode)).unwrap();
+            AuditedTreeImage::open(original.clone(), archive(), mode, &authority, key(mode))
+                .unwrap();
         let old: Vec<_> = opened
             .image
             .catalogue
@@ -278,7 +279,7 @@ fn selected_source_capability_and_connected_replacement_all_modes() {
         assert_eq!(report, tree_image::forms::SalvageReport::default());
         assert_eq!(defs, definitions);
         assert_eq!(got, records);
-        let reopened = TreeImage::open(
+        let reopened = AuditedTreeImage::open(
             crate::file_format::allocation_map::compaction::View(&storage),
             archive(),
             mode,
@@ -397,7 +398,7 @@ fn selected_source_stale_and_second_pass_failures_preserve_selection() {
                 writes: std::cell::Cell::new(0),
                 mutations: std::cell::Cell::new(0),
             };
-            let opened = TreeImage::open(
+            let opened = AuditedTreeImage::open(
                 crate::file_format::allocation_map::compaction::View(&storage),
                 archive(),
                 mode,
@@ -474,7 +475,7 @@ fn selected_source_stale_and_second_pass_failures_preserve_selection() {
             assert_eq!(report, tree_image::forms::SalvageReport::default());
             assert_eq!(defs, definitions);
             assert_eq!(got, records);
-            let opened = TreeImage::open(
+            let opened = AuditedTreeImage::open(
                 crate::file_format::allocation_map::compaction::View(&storage),
                 archive(),
                 mode,
@@ -558,7 +559,7 @@ fn selected_source_empty_split_utf8_and_maximum_texts_all_modes() {
             mutations: std::cell::Cell::new(0),
         };
         replace_texts(&mut storage, mode, &authority, &owner).unwrap();
-        let opened = TreeImage::open(
+        let opened = AuditedTreeImage::open(
             crate::file_format::allocation_map::compaction::View(&storage),
             archive(),
             mode,
@@ -607,7 +608,8 @@ fn selected_source_replacement_guarded_atomic_recovery_faults() {
         let bytes = original.inner.read_all().unwrap();
         let spans = original.spans.borrow().clone();
         let opened =
-            TreeImage::open(original.clone(), archive(), mode, &authority, key(mode)).unwrap();
+            AuditedTreeImage::open(original.clone(), archive(), mode, &authority, key(mode))
+                .unwrap();
         let old: Vec<_> = opened
             .image
             .catalogue
@@ -628,7 +630,7 @@ fn selected_source_replacement_guarded_atomic_recovery_faults() {
             assert_eq!(report, tree_image::forms::SalvageReport::default());
             assert_eq!(defs, definitions);
             assert_eq!(got, records);
-            let mut opened = TreeImage::open(
+            let mut opened = AuditedTreeImage::open(
                 crate::file_format::allocation_map::compaction::View(s),
                 archive(),
                 mode,
@@ -802,7 +804,7 @@ fn selected_source_rebinds_normal_name_into_secret_value_context_all_modes() {
         let authority = authority(mode, &public);
         let (mut storage, definitions, mut records) = fixture(mode, &authority, &owner);
         let (mut catalogue, base, content_key) = {
-            let mut opened = TreeImage::open(
+            let mut opened = AuditedTreeImage::open(
                 crate::file_format::allocation_map::compaction::View(&storage),
                 archive(),
                 mode,
@@ -879,7 +881,8 @@ fn selected_source_rebinds_normal_name_into_secret_value_context_all_modes() {
         assert_eq!(defs, definitions);
         assert_eq!(got, records);
         let reopened =
-            TreeImage::open(storage.clone(), archive(), mode, &authority, key(mode)).unwrap();
+            AuditedTreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
+                .unwrap();
         assert_eq!(reopened.image.catalogue.forms.records[0].name, name);
         for (e, expected) in name.extents.iter().zip(source_bytes) {
             assert_eq!(

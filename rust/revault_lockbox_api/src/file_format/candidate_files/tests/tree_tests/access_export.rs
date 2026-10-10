@@ -133,7 +133,7 @@ fn dense_tree_export_preserves_wrappers_and_resets_directory_generation() {
                 (Credential::Password(&password), 31),
                 (Credential::Contact(&contact), 47),
             ] {
-                let mut opened = TreeImage::open_credential(
+                let mut opened = AuditedTreeImage::open_credential(
                     allocation::compaction::View(&destination),
                     archive(),
                     mode,
@@ -153,7 +153,7 @@ fn dense_tree_export_preserves_wrappers_and_resets_directory_generation() {
                     .unwrap();
                 assert_eq!(bytes, b"payload");
             }
-            assert!(TreeImage::open_credential(
+            assert!(AuditedTreeImage::open_credential(
                 allocation::compaction::View(&destination),
                 archive(),
                 mode,
@@ -162,7 +162,7 @@ fn dense_tree_export_preserves_wrappers_and_resets_directory_generation() {
                 Some(31)
             )
             .is_err());
-            assert!(TreeImage::open_credential(
+            assert!(AuditedTreeImage::open_credential(
                 allocation::compaction::View(&destination),
                 archive(),
                 mode,

@@ -83,7 +83,8 @@ fn digest(storage: &impl Storage) -> String {
 }
 fn verify(path: &Path, mode: FormatMode, authority: &Authority<'_>, expected: u8) -> Value {
     let storage = StorageBackend::file(path).unwrap();
-    let mut opened = TreeImage::open(storage, archive(), mode, authority, key(mode)).unwrap();
+    let mut opened =
+        AuditedTreeImage::open(storage, archive(), mode, authority, key(mode)).unwrap();
     let name = VariableName::new("resource_probe").unwrap();
     opened
         .with_secret_variable(&name, |value| {
@@ -204,7 +205,7 @@ fn typed_variable_resource_probe() {
     // Include fresh open and signed-plaintext eager verification. Stop at the
     // fully assembled callback entry; byte verification happens after the timer.
     let mut meter = Some(Meter::start("open_and_read"));
-    let opened = TreeImage::open(
+    let opened = AuditedTreeImage::open(
         StorageBackend::file(&path).unwrap(),
         archive(),
         mode,

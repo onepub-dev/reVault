@@ -6,7 +6,7 @@ use crate::secret_vec::SecureVec;
 use crate::{SecretString, VariableName, VariableSensitivity};
 use std::sync::Arc;
 
-impl<S: Storage> TreeImage<S> {
+impl<S: Storage> AuditedTreeImage<S> {
     pub fn get_variable(&self, name: &VariableName) -> Result<Option<String>> {
         let Some(variable) = self
             .image
@@ -149,7 +149,7 @@ pub(in crate::file_format::candidate_files) fn move_variables(
     moves: &[(VariableName, VariableName)],
 ) -> Result<bool> {
     use std::collections::{BTreeMap, BTreeSet};
-    let mut opened = TreeImage::open(
+    let mut opened = AuditedTreeImage::open(
         allocation::compaction::View(&*storage),
         archive,
         mode,
@@ -228,7 +228,7 @@ fn change(
     name: &VariableName,
     value: Option<(VariableSensitivity, secure_segments::Source<'_>, usize)>,
 ) -> Result<bool> {
-    let mut opened = TreeImage::open(
+    let mut opened = AuditedTreeImage::open(
         allocation::compaction::View(&*storage),
         archive,
         mode,

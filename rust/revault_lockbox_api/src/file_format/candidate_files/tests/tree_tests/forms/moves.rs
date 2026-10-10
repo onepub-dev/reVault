@@ -14,7 +14,7 @@ struct Identity {
 }
 type Identities = BTreeMap<[u8; 16], Identity>;
 fn identities<S: Storage>(storage: S, mode: FormatMode, authority: &Authority<'_>) -> Identities {
-    let opened = TreeImage::open(storage, archive(), mode, authority, key(mode)).unwrap();
+    let opened = AuditedTreeImage::open(storage, archive(), mode, authority, key(mode)).unwrap();
     opened
         .image
         .catalogue
@@ -89,7 +89,8 @@ fn guard<S: Storage>(
     mode: FormatMode,
     authority: &Authority<'_>,
 ) -> Stable<S> {
-    let opened = TreeImage::open(original.clone(), archive(), mode, authority, key(mode)).unwrap();
+    let opened =
+        AuditedTreeImage::open(original.clone(), archive(), mode, authority, key(mode)).unwrap();
     Stable {
         inner: Guarded::new(inner, original.spans.borrow().clone()),
         payloads: opened
@@ -126,7 +127,7 @@ fn check(
     let actual = identities(storage.clone(), mode, authority);
     assert_eq!(&actual, original);
     let mut opened =
-        TreeImage::open(storage.clone(), archive(), mode, authority, key(mode)).unwrap();
+        AuditedTreeImage::open(storage.clone(), archive(), mode, authority, key(mode)).unwrap();
     assert_eq!(
         opened
             .get_variable(&VariableName::new("retained").unwrap())
@@ -308,7 +309,7 @@ fn directories<S: Storage>(
     mode: FormatMode,
     authority: &Authority<'_>,
 ) -> Vec<LockboxPath> {
-    TreeImage::open(storage, archive(), mode, authority, key(mode))
+    AuditedTreeImage::open(storage, archive(), mode, authority, key(mode))
         .unwrap()
         .image
         .filesystem_metadata()

@@ -15,14 +15,14 @@ fn verify_copy<S: Storage, T: Storage>(
     authority: &Authority<'_>,
     key: Option<&[u8]>,
 ) -> Result<()> {
-    let mut old = TreeImage::open(
+    let mut old = AuditedTreeImage::open(
         allocation::compaction::View(source),
         archive,
         mode,
         authority,
         key,
     )?;
-    let mut new = TreeImage::open(
+    let mut new = AuditedTreeImage::open(
         allocation::compaction::View(candidate),
         archive,
         mode,
@@ -119,7 +119,7 @@ pub(in crate::file_format::candidate_files) fn resume_path(
     mode: FormatMode,
     authority: &Authority<'_>,
     key: Option<&[u8]>,
-) -> Result<TreeImage<StorageBackend>> {
+) -> Result<AuditedTreeImage<StorageBackend>> {
     let metadata = std::fs::symlink_metadata(path).map_err(|e| Error::Io(e.to_string()))?;
     let replacement_metadata =
         std::fs::symlink_metadata(candidate).map_err(|e| Error::Io(e.to_string()))?;
@@ -166,5 +166,5 @@ pub(in crate::file_format::candidate_files) fn resume_path(
         "resumed compaction installed but directory durability is uncertain; reopen before continuing: {error}"
     )))?;
     super::super::compaction::checkpoint("tree-resume-synced");
-    TreeImage::open(installed, archive, mode, authority, key)
+    AuditedTreeImage::open(installed, archive, mode, authority, key)
 }

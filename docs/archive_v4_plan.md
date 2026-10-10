@@ -22,6 +22,20 @@ or erase failures.
 
 ## Current position and next work
 
+### Selective authenticated reads — 2026-10-10
+
+The user accepted [verification of selected paths and chunks](selective_authenticated_reads.md)
+and explicitly waived the 25% remaining usage cutoff for this task only. The
+experimental ordinary reader is separated from the explicit audited image used
+by updates. It authenticates lookup paths, selected file chunks, variables and
+form values, with a bounded per-snapshot decoded-page cache. Complete graph,
+padding, reclaimed-space and payload audits remain explicit. No Vault integrity
+cache or format change is introduced. Validation and fresh-process performance
+comparison are in progress; this paragraph is not a passing qualification claim.
+The earlier borrowed traversal remains in the audited path and has no isolated
+performance acceptance claim. Experimental v4 remains on this branch.
+
+
 ### Rejected path-buffer move — 2026-10-10
 
 The [two-line ownership-move trial](evidence/typed-tree-path-move-rejected-2026-10-10/README.md)

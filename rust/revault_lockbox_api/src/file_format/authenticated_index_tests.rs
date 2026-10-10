@@ -1222,3 +1222,281 @@ fn root_collapse_validates_the_promoted_child_before_returning_a_new_root() {
     let sealed = storage.len().unwrap();
     assert!(index.remove(&mut storage, root, sealed, 1, b"a").is_err());
 }
+
+#[test]
+fn borrowed_walk_matches_owned_pages_records_and_failure_boundaries() {
+    // The public CLI cannot construct this candidate tree or forged child links.
+    for encrypted in [false, true] {
+        for signed in [false, true] {
+            for padded in [false, true] {
+                let mut options = mode(encrypted, signed).options();
+                options.size_padding = if padded {
+                    SizePadding::Default
+                } else {
+                    SizePadding::None
+                };
+                let index = Index::new(
+                    LockboxId::from_bytes([45; 16]),
+                    FormatMode::new(options),
+                    encrypted.then_some(&[7u8; 32][..]),
+                )
+                .unwrap();
+                let mut storage = StorageBackend::memory(vec![0; REGION_LEN]);
+                let mut root = index.empty(&mut storage).unwrap();
+                // Enough records for multiple leaves and parent-bound checks.
+                for n in 0u32..80 {
+                    root = put(
+                        &index,
+                        &mut storage,
+                        root,
+                        1,
+                        &n.to_be_bytes(),
+                        &vec![n as u8; 1500],
+                    )
+                    .root;
+                }
+                let sealed = storage.len().unwrap();
+                let mut owned_pages = Vec::new();
+                let mut owned = Vec::new();
+                index
+                    .visit_owned(&storage, root, sealed, |event| {
+                        match event {
+                            Visit::Page(page) => owned_pages.push(page),
+                            Visit::Entry(entry) => {
+                                let entry: EntryRef<'_> = entry.as_ref();
+                                owned.push((
+                                    entry.namespace,
+                                    entry.key.to_vec(),
+                                    entry.value.to_vec(),
+                                ));
+                            }
+                        }
+                        Ok(())
+                    })
+                    .unwrap();
+                let mut pages = Vec::new();
+                let mut borrowed = Vec::new();
+                index
+                    .visit_borrowed(&storage, root, sealed, |event| {
+                        match event {
+                            VisitRef::Page(page) => pages.push(page),
+                            VisitRef::Entry(entry) => borrowed.push((
+                                entry.namespace,
+                                entry.key.to_vec(),
+                                entry.value.to_vec(),
+                            )),
+                        }
+                        Ok(())
+                    })
+                    .unwrap();
+                assert_eq!(pages, owned_pages);
+                assert_eq!(borrowed, owned);
+                assert!(pages.len() > 2);
+                for fail_at in [0usize, 1, 40, 79] {
+                    let mut seen = 0;
+                    let result = index.visit_borrowed(&storage, root, sealed, |event| {
+                        if let VisitRef::Entry(_) = event {
+                            if seen == fail_at {
+                                return Err(Error::InvalidInput("visitor refuses".into()));
+                            }
+                            seen += 1;
+                        }
+                        Ok(())
+                    });
+                    assert!(matches!(result, Err(Error::InvalidInput(_))));
+                    assert_eq!(seen, fail_at);
+                }
+                // A valid mirror still works; destroying both copies refuses.
+                let leaf = *pages.last().unwrap();
+                let primary = storage.read_at(leaf.primary, leaf.len as usize).unwrap();
+                let mirror = storage.read_at(leaf.mirror, leaf.len as usize).unwrap();
+                storage
+                    .write_at(leaf.primary, &vec![0; leaf.len as usize])
+                    .unwrap();
+                index
+                    .visit_borrowed(&storage, root, sealed, |_| Ok(()))
+                    .unwrap();
+                storage
+                    .write_at(leaf.mirror, &vec![0; leaf.len as usize])
+                    .unwrap();
+                assert!(index
+                    .visit_borrowed(&storage, root, sealed, |_| Ok(()))
+                    .is_err());
+                storage.write_at(leaf.primary, &primary).unwrap();
+                storage.write_at(leaf.mirror, &mirror).unwrap();
+                let expected: Values = (0u32..80)
+                    .map(|n| ((1, n.to_be_bytes().to_vec()), vec![n as u8; 1500]))
+                    .collect();
+                assert_eq!(values(&index, &storage, root, sealed), expected);
+            }
+        }
+    }
+}
+
+#[test]
+fn cached_lookup_binds_snapshot_mode_archive_and_key() {
+    // Private index fixture; no public CLI exposes this experimental page API.
+    for encrypted in [false, true] {
+        let index = index(encrypted, true);
+        let mut storage = StorageBackend::memory(vec![0; REGION_LEN]);
+        let root = index.empty(&mut storage).unwrap();
+        let root = put(&index, &mut storage, root, 1, b"name", b"original").root;
+        let sealed = storage.len().unwrap();
+        let mut cache = PageCache::default();
+        for _ in 0..2 {
+            assert_eq!(
+                index
+                    .get_cached(&storage, root, sealed, 1, b"name", &mut cache)
+                    .unwrap()
+                    .unwrap()
+                    .value
+                    .as_slice(),
+                b"original"
+            );
+        }
+        let wrong_mode = Index::new(
+            index.archive,
+            mode(encrypted, false),
+            encrypted.then_some(&[17u8; 32][..]),
+        )
+        .unwrap();
+        assert!(wrong_mode
+            .get_cached(&storage, root, sealed, 1, b"name", &mut cache)
+            .is_err());
+        let wrong_archive = Index::new(
+            LockboxId::from_bytes([99; 16]),
+            index.mode,
+            encrypted.then_some(&[17u8; 32][..]),
+        )
+        .unwrap();
+        assert!(wrong_archive
+            .get_cached(&storage, root, sealed, 1, b"name", &mut cache)
+            .is_err());
+        assert!(index
+            .get_cached(&storage, root, sealed, 1, b"name", &mut cache)
+            .unwrap()
+            .is_some());
+        if encrypted {
+            let wrong_key = Index::new(index.archive, index.mode, Some(&[18u8; 32])).unwrap();
+            assert!(wrong_key
+                .get_cached(&storage, root, sealed, 1, b"name", &mut cache)
+                .is_err());
+        }
+        let new_root = put(&index, &mut storage, root, 1, b"name", b"replacement").root;
+        assert_eq!(
+            index
+                .get_cached(
+                    &storage,
+                    new_root,
+                    storage.len().unwrap(),
+                    1,
+                    b"name",
+                    &mut cache
+                )
+                .unwrap()
+                .unwrap()
+                .value
+                .as_slice(),
+            b"replacement"
+        );
+        assert_eq!(
+            index
+                .get_cached(&storage, root, sealed, 1, b"name", &mut cache)
+                .unwrap()
+                .unwrap()
+                .value
+                .as_slice(),
+            b"original"
+        );
+        assert!(index
+            .get_cached(&storage, root, REGION_LEN as u64, 1, b"name", &mut cache)
+            .is_err());
+    }
+}
+
+#[test]
+fn borrowed_walk_refuses_parent_mismatches_before_child_callbacks() {
+    // Private fixture exception: no public CLI can forge candidate parent links.
+    for encrypted in [false, true] {
+        for signed in [false, true] {
+            for padded in [false, true] {
+                let mut options = mode(encrypted, signed).options();
+                options.size_padding = if padded {
+                    SizePadding::Default
+                } else {
+                    SizePadding::None
+                };
+                let index = Index::new(
+                    LockboxId::from_bytes([46; 16]),
+                    FormatMode::new(options),
+                    encrypted.then_some(&[7u8; 32][..]),
+                )
+                .unwrap();
+                for fault in 0..4 {
+                    let mut storage = StorageBackend::memory(vec![0; REGION_LEN]);
+                    let mut left = index
+                        .write(
+                            &mut storage,
+                            &Node::Leaf(vec![
+                                Entry::new(1, b"a", b"first").unwrap(),
+                                Entry::new(1, b"x", b"last").unwrap(),
+                            ]),
+                        )
+                        .unwrap();
+                    let right = index
+                        .write(
+                            &mut storage,
+                            &Node::Leaf(vec![Entry::new(
+                                1,
+                                if fault == 3 { b"m" } else { b"z" },
+                                b"right",
+                            )
+                            .unwrap()]),
+                        )
+                        .unwrap();
+                    if fault == 0 {
+                        left.count += 1;
+                    }
+                    if fault == 1 {
+                        left.first = Key::new((1, b"b"));
+                    }
+                    let root = index
+                        .write(
+                            &mut storage,
+                            &Node::Branch {
+                                height: if fault == 2 { 2 } else { 1 },
+                                children: vec![left, right],
+                            },
+                        )
+                        .unwrap()
+                        .reference;
+                    let sealed = storage.len().unwrap();
+                    let mut pages = 0;
+                    let mut entries = 0;
+                    assert!(
+                        index
+                            .visit_borrowed(&storage, root, sealed, |event| {
+                                match event {
+                                    VisitRef::Page(_) => pages += 1,
+                                    VisitRef::Entry(_) => entries += 1,
+                                }
+                                Ok(())
+                            })
+                            .is_err(),
+                        "fault={fault}"
+                    );
+                    assert_eq!(pages, 1, "only the locally valid root may be exposed");
+                    assert_eq!(entries, 0, "invalid child must expose no entries");
+                    let mut cache = PageCache::default();
+                    // Query b so the forged first-key case actually descends.
+                    assert!(index
+                        .get_cached(&storage, root, sealed, 1, b"b", &mut cache)
+                        .is_err());
+                    assert!(index
+                        .visit_owned(&storage, root, sealed, |_| Ok(()))
+                        .is_err());
+                }
+            }
+        }
+    }
+}

@@ -120,7 +120,7 @@ fn run(selected_source: bool) {
     let ranges = if selected_source {
         let writer = Guarded::new(StorageBackend::file_for_write(&path).unwrap(), ranges);
         let old = {
-            let opened = TreeImage::open(
+            let opened = AuditedTreeImage::open(
                 crate::file_format::allocation_map::compaction::View(&writer),
                 archive(),
                 mode,
@@ -156,7 +156,7 @@ fn run(selected_source: bool) {
     } else {
         ranges
     };
-    let mut opened = TreeImage::open(
+    let mut opened = AuditedTreeImage::open(
         Guarded::new(StorageBackend::file(&path).unwrap(), ranges),
         archive(),
         mode,

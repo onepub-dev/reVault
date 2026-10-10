@@ -70,7 +70,7 @@ fn credential_check(
         (publication::bootstrap::Credential::Password(password), 1),
         (publication::bootstrap::Credential::Contact(contact), 2),
     ] {
-        let opened = TreeImage::open_credential(
+        let opened = tree_image::TreeImage::open_credential(
             StorageBackend::file(path).unwrap(),
             archive(),
             mode,

@@ -3,7 +3,7 @@
 //! The caller retains a stable snapshot/read lock for open and subsequent reads.
 use super::*;
 use crate::file_format::allocation_map::Extent;
-use crate::file_format::authenticated_index::{Entry, Index, Visit};
+use crate::file_format::authenticated_index::{Entry, EntryRef, Index, VisitRef};
 use ownership::{Graph, Span, Vacant, VacantKind};
 
 const MAGIC: &[u8; 8] = b"RV4TRE01";
@@ -31,7 +31,7 @@ pub(crate) fn manifest(root: RootRef) -> [u8; 64] {
     body
 }
 
-fn parse_manifest(body: &[u8]) -> Result<RootRef> {
+pub(crate) fn parse_manifest(body: &[u8]) -> Result<RootRef> {
     if body.len() != 64 || &body[..8] != MAGIC {
         return Err(Error::CorruptRecord);
     }
@@ -54,7 +54,7 @@ impl Tree {
         mode: FormatMode,
         authority: &Authority<'_>,
         key: Option<&[u8]>,
-        visitor: impl FnMut(Entry) -> Result<()>,
+        mut visitor: impl FnMut(Entry) -> Result<()>,
     ) -> Result<Self> {
         let (anchor, body) = salvage_private(storage, archive, mode, authority, key)?;
         Self::from_snapshot_visit(
@@ -64,7 +64,7 @@ impl Tree {
             key,
             anchor,
             &body,
-            visitor,
+            |entry| visitor(entry.to_owned()?),
             &mut |_| {},
         )
     }
@@ -98,7 +98,27 @@ impl Tree {
         mode: FormatMode,
         authority: &Authority<'_>,
         key: Option<&[u8]>,
-        visitor: impl FnMut(Entry) -> Result<()>,
+        mut visitor: impl FnMut(Entry) -> Result<()>,
+        stage: impl FnMut(&'static str),
+    ) -> Result<Self> {
+        Self::open_visit_borrowed_observed(
+            storage,
+            archive,
+            mode,
+            authority,
+            key,
+            |entry| visitor(entry.to_owned()?),
+            stage,
+        )
+    }
+
+    pub(crate) fn open_visit_borrowed_observed(
+        storage: &impl Storage,
+        archive: LockboxId,
+        mode: FormatMode,
+        authority: &Authority<'_>,
+        key: Option<&[u8]>,
+        visitor: impl FnMut(EntryRef<'_>) -> Result<()>,
         mut stage: impl FnMut(&'static str),
     ) -> Result<Self> {
         let (anchor, body) = open_private(storage, archive, mode, authority, key)?;
@@ -132,14 +152,14 @@ impl Tree {
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn from_snapshot_visit(
+    pub(crate) fn from_snapshot_visit(
         storage: &impl Storage,
         archive: LockboxId,
         mode: FormatMode,
         key: Option<&[u8]>,
         anchor: Anchor,
         body: &[u8],
-        mut visitor: impl FnMut(Entry) -> Result<()>,
+        mut visitor: impl FnMut(EntryRef<'_>) -> Result<()>,
         stage: &mut impl FnMut(&'static str),
     ) -> Result<Self> {
         let root = parse_manifest(body)?;
@@ -159,9 +179,9 @@ impl Tree {
             }
         }
         let mut ownership_records = 0;
-        index.visit_owned(storage, root, anchor.sealed_len, |event| {
+        index.visit_borrowed(storage, root, anchor.sealed_len, |event| {
             match event {
-                Visit::Page(reference) => {
+                VisitRef::Page(reference) => {
                     if pages.len() == MAX_PAGES {
                         return Err(Error::SecurityLimitExceeded(
                             "overflow page ownership bound".into(),
@@ -191,7 +211,7 @@ impl Tree {
                     }
                     pages.push(reference);
                 }
-                Visit::Entry(entry) if entry.namespace == OWNERSHIP => {
+                VisitRef::Entry(entry) if entry.namespace == OWNERSHIP => {
                     ownership_records += 1;
                     if ownership_records > MAX_OWNERSHIP_RECORDS {
                         return Err(Error::SecurityLimitExceeded(
@@ -222,7 +242,7 @@ impl Tree {
                         _ => return Err(Error::CorruptRecord),
                     }
                 }
-                Visit::Entry(entry) => visitor(entry)?,
+                VisitRef::Entry(entry) => visitor(entry)?,
             }
             Ok(())
         })?;

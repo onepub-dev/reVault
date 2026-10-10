@@ -13,7 +13,8 @@ fn replacement<'a>(
     failure: &'static str,
     at: usize,
 ) -> (Vec<Entry>, shared::tree::PreparedSecurePayloadPlan<'a>) {
-    let opened = TreeImage::open(original.clone(), archive(), mode, authority, key(mode)).unwrap();
+    let opened =
+        AuditedTreeImage::open(original.clone(), archive(), mode, authority, key(mode)).unwrap();
     let base = shared::commitment(&opened.tree.anchor).unwrap();
     let old = &opened.image.catalogue.variables[0];
     let prepared = secure_segments::prepare_source(
@@ -134,7 +135,7 @@ fn prepared_staging_preflight_and_second_pass_failures_preserve_selected_values_
                 tree_image::recover(&mut storage, archive(), mode, &authority, key(mode)).unwrap();
                 tree_image::recover(&mut storage, archive(), mode, &authority, key(mode)).unwrap();
                 let mut opened =
-                    TreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
+                    AuditedTreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
                         .unwrap();
                 assert_eq!(
                     opened.image.catalogue.variables[0].layout.extents,
@@ -240,7 +241,7 @@ fn prepared_staging_aggregate_guarded_source_probe() {
     let source = SecretString::try_from_slice(&vec![b'x'; 1024 * 1024]).unwrap();
     let after_source = memory();
     let mut storage = Guarded::new(StorageBackend::file_for_write(&path).unwrap(), Vec::new());
-    let opened = TreeImage::open(
+    let opened = AuditedTreeImage::open(
         crate::file_format::allocation_map::compaction::View(&storage),
         archive(),
         mode,
@@ -316,7 +317,7 @@ fn prepared_staging_aggregate_guarded_source_probe() {
     let ranges = storage.spans.borrow().clone();
     drop(storage);
     drop(source);
-    let opened = TreeImage::open(
+    let opened = AuditedTreeImage::open(
         Guarded::new(StorageBackend::file(&path).unwrap(), ranges),
         archive(),
         mode,

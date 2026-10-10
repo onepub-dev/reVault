@@ -15,7 +15,7 @@ pub(in crate::file_format::candidate_files) fn move_records(
         .iter()
         .map(|(source, destination)| Ok((source.file_path()?, destination.file_path()?)))
         .collect::<Result<Vec<_>>>()?;
-    let mut opened = TreeImage::open(
+    let mut opened = AuditedTreeImage::open(
         allocation::compaction::View(&*storage),
         archive,
         mode,

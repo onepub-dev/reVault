@@ -9,7 +9,7 @@ use crate::file_format::publication_anchor::REGION_LEN;
 use crate::page_buffer::ZeroizingBytes;
 use std::collections::BTreeSet;
 pub(super) mod forms;
-mod nodes;
+pub(super) mod nodes;
 pub(super) mod overflow;
 pub(super) use nodes::Metadata;
 const MAX_BODY: usize = 65536;
