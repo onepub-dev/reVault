@@ -144,7 +144,7 @@ impl Catalogue {
         let mut files = Vec::new();
         let mut nodes = Vec::new();
         let mut packs = Vec::new();
-        let mut fragments = BTreeMap::new();
+        let mut fragments = Vec::new();
         let mut path_bytes = 0usize;
         let mut format = 0;
         let mut variables = Vec::new();
@@ -183,20 +183,12 @@ impl Catalogue {
                         entry.value[72..80].try_into().unwrap(),
                     ))
                     .map_err(|_| Error::CorruptRecord)?;
-                    if fragments
-                        .insert(
-                            (id, ordinal),
-                            (
-                                descriptor,
-                                start,
-                                relative,
-                                entry.value[80..].try_into().unwrap(),
-                            ),
-                        )
-                        .is_some()
-                    {
-                        return Err(Error::CorruptRecord);
-                    }
+                    fragments.push((
+                        descriptor,
+                        start,
+                        relative,
+                        <[u8; 32]>::try_from(&entry.value[80..]).unwrap(),
+                    ));
                 }
                 PACK_RECORD => {
                     if entry.key.len() != 8
@@ -323,33 +315,43 @@ impl Catalogue {
         {
             return Err(Error::CorruptRecord);
         }
-        let mut ids = BTreeSet::new();
-        for file in &mut files {
-            if !ids.insert(file.info.id) || file.info.count() > MAX_FRAGMENTS as u64 {
+        // Fragment records arrive in authenticated (object, ordinal) order.
+        // Stage them densely, then resolve each file once per record instead of
+        // allocating/removing a tree-map entry for every fragment. Nothing is
+        // exposed until counts, identities, extents and the full catalogue pass.
+        let mut ids = BTreeMap::new();
+        for (index, file) in files.iter().enumerate() {
+            if ids.insert(file.info.id, index).is_some() || file.info.count() > MAX_FRAGMENTS as u64
+            {
                 return Err(Error::CorruptRecord);
             }
-            for ordinal in 0..file.info.count() {
-                let (descriptor, start, relative, digest) = fragments
-                    .remove(&(file.info.id, ordinal))
-                    .ok_or(Error::CorruptRecord)?;
-                if descriptor.offset != ordinal * u64::from(file.info.unit)
-                    || u64::from(descriptor.logical_len)
-                        != (file.info.len - descriptor.offset).min(u64::from(file.info.unit))
-                {
-                    return Err(Error::CorruptRecord);
-                }
-                let pack = packs
-                    .binary_search_by_key(&start, |pack| pack.extent.start)
-                    .map_err(|_| Error::CorruptRecord)?;
-                file.fragments.push(Fragment {
-                    descriptor,
-                    pack,
-                    relative,
-                    digest,
-                });
-            }
         }
-        if !fragments.is_empty() {
+        for (descriptor, start, relative, digest) in fragments {
+            let index = *ids.get(&descriptor.object).ok_or(Error::CorruptRecord)?;
+            let file = &mut files[index];
+            let ordinal = file.fragments.len() as u64;
+            if descriptor.ordinal != ordinal
+                || ordinal >= file.info.count()
+                || descriptor.offset != ordinal * u64::from(file.info.unit)
+                || u64::from(descriptor.logical_len)
+                    != (file.info.len - descriptor.offset).min(u64::from(file.info.unit))
+            {
+                return Err(Error::CorruptRecord);
+            }
+            let pack = packs
+                .binary_search_by_key(&start, |pack| pack.extent.start)
+                .map_err(|_| Error::CorruptRecord)?;
+            file.fragments.push(Fragment {
+                descriptor,
+                pack,
+                relative,
+                digest,
+            });
+        }
+        if files
+            .iter()
+            .any(|file| file.fragments.len() as u64 != file.info.count())
+        {
             return Err(Error::CorruptRecord);
         }
         nodes::validate_bounded(&files, &nodes, MAX_NODES)?;

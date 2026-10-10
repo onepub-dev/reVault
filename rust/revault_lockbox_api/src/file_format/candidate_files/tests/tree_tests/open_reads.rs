@@ -92,3 +92,82 @@ fn typed_tree_single_traversal_preserves_complete_open_all_modes() {
         println!("TYPED_OPEN_READS mode={bits} previous={old_reads} single={new_reads}");
     }
 }
+
+#[test]
+fn typed_tree_fragment_join_refuses_missing_duplicate_orphan_and_misbound_records() {
+    // Decoder-level malformed records: the public CLI cannot create this
+    // experimental layout or a deliberately malformed authenticated traversal.
+    let owner = OwnerSigningKeyPair::generate().unwrap();
+    let public = owner.public_key();
+    let entries = public_filesystem_metadata(&owner);
+    for bits in 0..16 {
+        let mode = mode(bits & 1 != 0, bits & 2 != 0, bits & 4 != 0, bits & 8 != 0);
+        let authority = authority(mode, &public);
+        let storage = exported(mode, &authority, &owner, &entries);
+        let codec = Codec::shared_packed(archive(), mode, key(mode)).unwrap();
+        for fault in 0..9 {
+            let decoded =
+                super::super::super::dense_catalogue::Catalogue::with_tree(&codec, |visitor| {
+                    let tree =
+                        shared::tree::Tree::open(&storage, archive(), mode, &authority, key(mode))?;
+                    let mut records = Vec::new();
+                    tree.visit(&storage, |entry| {
+                        records.push(entry);
+                        Ok(())
+                    })?;
+                    let fragment = records
+                        .iter()
+                        .position(|entry| entry.namespace == 2)
+                        .unwrap();
+                    let file = records
+                        .iter()
+                        .position(|entry| entry.namespace == 1)
+                        .unwrap();
+                    match fault {
+                        0 => {
+                            records.remove(fragment);
+                        }
+                        1 => {
+                            records.insert(fragment, records[fragment].clone());
+                        }
+                        2 => {
+                            records[fragment].key[..16].copy_from_slice(&[99; 16]);
+                            records[fragment].value[8..24].copy_from_slice(&[99; 16]);
+                        }
+                        3 => {
+                            records[fragment].key[16..].copy_from_slice(&1u64.to_be_bytes());
+                            records[fragment].value[24..32].copy_from_slice(&1u64.to_le_bytes());
+                        }
+                        4 => {
+                            records[fragment].value[32..40].copy_from_slice(&1u64.to_le_bytes());
+                        }
+                        5 => {
+                            records[fragment].value[40..44].copy_from_slice(&6u32.to_le_bytes());
+                        }
+                        6 => {
+                            records[fragment].value[64..72].copy_from_slice(&0u64.to_le_bytes());
+                        }
+                        7 => {
+                            let mut duplicate = records[file].clone();
+                            duplicate.key = zeroize::Zeroizing::new(b"/other".to_vec());
+                            records.insert(file + 1, duplicate);
+                        }
+                        8 => {
+                            records[file].value[28..36].copy_from_slice(&65537u64.to_le_bytes());
+                        }
+                        _ => unreachable!(),
+                    }
+                    for entry in records {
+                        visitor(entry)?;
+                    }
+                    Ok(tree)
+                });
+            assert!(
+                matches!(decoded, Err(Error::CorruptRecord)),
+                "mode={bits} fault={fault}"
+            );
+            // Malformed decoder input must leave the real archive independently readable.
+            check(&storage, mode, &authority, &entries);
+        }
+    }
+}

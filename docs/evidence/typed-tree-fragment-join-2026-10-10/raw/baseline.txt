@@ -1,0 +1,13 @@
+commit d6ae8e909b9a51d4e882ec200ef8267b14ea75d7
+code_delta_from_d8cf no_rust_source_changes
+binary b6c1b4f1e45e4c73c65babf32e5b3592b9804fdf64ded0c6f70316c2368636ae  /tmp/revault-tree-fragment-20261010/bin/before
+
+7d0eea7e4806eb939152a05522a8163591554d0f58aafeb9a370d711bb781a07  revault_lockbox_api/src/file_format/candidate_files/tree_image.rs
+923388453527ae35a8c4df9998330c6a415003c4611bb0cef93c9ba0b60e3cc7  revault_lockbox_api/src/file_format/publication_anchor/shared/tree.rs
+700b4af02f591eb8a9d261c7677cf3fab07e4d95ce39646b204cb18d8178fde6  revault_lockbox_api/src/file_format/publication_anchor/shared/ownership.rs
+b8a2526593a02f7c2d619025c7fc119b0df3c509bfc80c162fca438951486ce6  revault_lockbox_api/src/file_format/publication_anchor/shared/tree/update/source.rs
+30f035feb33237411a1fe46b2f13656454e7062954223677d2ca569ba7e5a081  Cargo.lock
+
+build
+    Finished `release` profile [optimized] target(s) in 0.14s
+  Executable unittests src/lib.rs (/tmp/revault-tree-open-stages-20261010/target/release/deps/revault_lockbox_api-e3bcc2539127e239)

@@ -22,6 +22,15 @@ or erase failures.
 
 ## Current position and next work
 
+### Bounded fragment join — 2026-10-10
+
+The [vector staging and file-ID join](evidence/typed-tree-fragment-join-2026-10-10/README.md)
+preserves fragment/identity/extent checks and improves four fixed paired opening
+cases by 5.9–10.0%. A nine-fault decoder regression passes in all 16 modes, as do
+focused readers, filesystem lifecycle and Clippy. These are warm-open diagnostics,
+not ZIP parity or peak-memory qualification. Rerun the six matched full-read/range
+cases on the combined accepted reader changes before making a broader claim.
+
 ### Guarded reclaimed-space buffer reuse — 2026-10-10
 
 The [bounded reuse change](evidence/typed-tree-reclaim-reuse-2026-10-10/README.md)
