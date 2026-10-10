@@ -1,5 +1,6 @@
 //! Actual native-shell argument and CLI completion-protocol coverage.
 //! Run explicitly with REVAULT_UNICODE_SHELLS=bash,zsh,fish,powershell,elvish.
+//! Linux and macOS CI cover all five shells.
 //! Windows CI covers PowerShell, Git Bash and Elvish; Zsh/Fish are Unix-only.
 //! Both backend vectors and sourced registrations are tested. Registered
 //! providers are invoked without rendering an interactive TAB menu; Zsh's
@@ -17,6 +18,10 @@ struct ShellFixture {
 }
 
 impl ShellFixture {
+    fn locale() -> OsString {
+        std::env::var_os("REVAULT_UNICODE_LOCALE").unwrap_or_else(|| "C.UTF-8".into())
+    }
+
     fn configure(&self, command: &mut Command) {
         let mut paths = vec![PathBuf::from(env!("CARGO_BIN_EXE_lockbox"))
             .parent()
@@ -43,7 +48,7 @@ impl ShellFixture {
                 "synthetic unicode shell vault password",
             )
             .env("LOCKBOX_KEY", "synthetic-unicode-shell-content-key")
-            .env("LC_ALL", "C.UTF-8")
+            .env("LC_ALL", Self::locale())
             .env_remove("LOCKBOX_PASSWORD")
             .env_remove("LOCKBOX_KEY_FILE")
             .env_remove("COMPLETE");
@@ -83,8 +88,8 @@ impl ShellFixture {
             output.status.success(),
             "shell version {executable:?}: {output:?}"
         );
-        eprintln!("Native shell evidence: os={} arch={} shell={} executable={executable:?} LC_ALL=C.UTF-8 inherited_LANG={:?}\n{}{}",
-            std::env::consts::OS, std::env::consts::ARCH, self.shell, std::env::var_os("LANG"),
+        eprintln!("Native shell evidence: os={} arch={} shell={} executable={executable:?} LC_ALL={:?} inherited_LANG={:?}\n{}{}",
+            std::env::consts::OS, std::env::consts::ARCH, self.shell, Self::locale(), std::env::var_os("LANG"),
             String::from_utf8_lossy(&output.stdout), String::from_utf8_lossy(&output.stderr));
         if self.shell == "powershell" {
             let mut environment = Command::new(executable);
