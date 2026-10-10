@@ -25,6 +25,36 @@ pub(super) struct TreeImage<S: Storage> {
     pub tree: Tree,
 }
 impl<S: Storage> TreeImage<S> {
+    /// Credential bootstrap and typed records must refer to the same selected
+    /// publication. A bounded zeroizing key copy allows guarded record allocation.
+    pub fn open_credential(
+        storage: S,
+        archive: LockboxId,
+        mode: FormatMode,
+        owner: Option<&crate::OwnerSigningPublicKey>,
+        credential: publication::bootstrap::Credential<'_>,
+        slot: Option<u64>,
+    ) -> Result<Self> {
+        let opened = shared::credential_open(&storage, archive, mode, owner, credential, slot)?;
+        // Catalogue decoding allocates guarded secret values. End the global
+        // secure read guard first; keep only a bounded, zeroizing key copy for
+        // this open operation, including every error path.
+        let mut key = Zeroizing::new([0u8; 32]);
+        opened.key.with_bytes(|bytes| {
+            if bytes.len() != key.len() {
+                return Err(Error::CorruptRecord);
+            }
+            key.copy_from_slice(bytes);
+            Ok(())
+        })??;
+        let authority = owner.map_or(Authority::Symmetric(key.as_ref()), Authority::Owner);
+        let image = Self::open(storage, archive, mode, &authority, Some(key.as_ref()))?;
+        if image.image.anchor != opened.anchor {
+            return Err(Error::CorruptRecord);
+        }
+        Ok(image)
+    }
+
     pub fn open(
         storage: S,
         archive: LockboxId,
@@ -347,11 +377,7 @@ pub(super) fn from_dense<S: Storage, T: Storage>(
         authority,
         key,
     )?;
-    if opened.anchor.keys != publication::RootRef::default() {
-        return Err(Error::InvalidOperation(
-            "tree export does not translate access slots".into(),
-        ));
-    }
+    let slots = shared::public_slots(source, &opened.anchor)?;
     opened.catalogue.filesystem_metadata()?;
     opened.verify_all()?;
     let base = shared::commitment(&opened.anchor)?;
@@ -397,7 +423,7 @@ pub(super) fn from_dense<S: Storage, T: Storage>(
             signer,
             key,
             &tree::manifest(root),
-            &[],
+            &slots,
         )?;
         TreeImage::open(
             allocation::compaction::View(&destination),

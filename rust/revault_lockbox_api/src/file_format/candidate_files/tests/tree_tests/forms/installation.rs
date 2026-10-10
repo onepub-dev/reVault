@@ -850,3 +850,233 @@ fn whole_tree_resume_preserves_credentials_and_rejects_changed_wrappers() {
         assert_eq!(std::fs::read(&candidate).unwrap(), pending);
     }
 }
+
+fn check_credential_reader<S: Storage>(mut opened: TreeImage<S>) {
+    assert_eq!(
+        opened
+            .get_variable(&VariableName::new("retained").unwrap())
+            .unwrap()
+            .as_deref(),
+        Some("retained variable")
+    );
+    opened
+        .with_secret_variable(&VariableName::new("secret").unwrap(), |secret| {
+            secret
+                .with_str(|value| assert_eq!(value.as_bytes(), vec![b's'; 65537]))
+                .unwrap();
+        })
+        .unwrap()
+        .unwrap();
+    let record = opened
+        .get_form_record(&LockboxPath::new("/forms/0").unwrap())
+        .unwrap()
+        .unwrap();
+    assert_eq!(record.definition_revision, 1);
+    assert_eq!(record.values[0].captured_label, "Historical password");
+    match &record.values[0].value {
+        FormValue::Secret(secret) => secret
+            .with_str(|value| assert_eq!(value, "secret 0"))
+            .unwrap(),
+        _ => panic!("secret form field downgraded"),
+    }
+    let latest = opened
+        .get_form_definition(&record.type_id, 2)
+        .unwrap()
+        .unwrap();
+    assert_eq!(latest.fields[0].label, "Current label");
+    let mut bytes = Vec::new();
+    opened
+        .image
+        .read_range(b"/docs/data", 0, 7, |part| {
+            bytes.extend_from_slice(part);
+            Ok(())
+        })
+        .unwrap();
+    assert_eq!(bytes, b"payload");
+    assert!(!opened.image.filesystem_metadata().unwrap().is_empty());
+}
+
+#[test]
+fn typed_credential_open_reads_all_families_and_preserves_refusals() {
+    let directory = Directory::new();
+    let owner = OwnerSigningKeyPair::generate().unwrap();
+    let public = owner.public_key();
+    let wrong_owner = OwnerSigningKeyPair::generate().unwrap().public_key();
+    let password = SecretString::try_from_slice(b"synthetic typed-reader password").unwrap();
+    let wrong = SecretString::try_from_slice(b"wrong typed-reader password").unwrap();
+    let contact = crate::ContactKeyPair::generate().unwrap();
+    for bits in [1, 3, 5, 7, 9, 11, 13, 15] {
+        let mode = protection(bits);
+        let authority = authority(mode, &public);
+        let path = directory.0.join(format!("{bits}.tree"));
+        fixture(&path, mode, &authority, &owner);
+        let slots = [
+            crate::key_slot::KeySlot::password_bytes(
+                1,
+                b"synthetic typed-reader password",
+                vec![67; 16],
+                key(mode).unwrap(),
+            )
+            .unwrap(),
+            crate::key_slot::KeySlot::hybrid_contact(2, &contact.public_key(), key(mode).unwrap())
+                .unwrap(),
+        ];
+        attach_access(&path, mode, &authority, &owner, &slots);
+        let before = std::fs::read(&path).unwrap();
+        for (credential, slot) in [
+            (publication::bootstrap::Credential::Password(&password), 1),
+            (publication::bootstrap::Credential::Contact(&contact), 2),
+        ] {
+            let opened = TreeImage::open_credential(
+                StorageBackend::file(&path).unwrap(),
+                archive(),
+                mode,
+                mode.signed().then_some(&public),
+                credential,
+                Some(slot),
+            )
+            .unwrap();
+            check_credential_reader(opened);
+            assert!(TreeImage::open_credential(
+                StorageBackend::file(&path).unwrap(),
+                archive(),
+                mode,
+                mode.signed().then_some(&public),
+                credential,
+                Some(99)
+            )
+            .is_err());
+            assert!(TreeImage::open_credential(
+                StorageBackend::file(&path).unwrap(),
+                archive(),
+                mode,
+                Some(&wrong_owner),
+                credential,
+                Some(slot)
+            )
+            .is_err());
+        }
+        assert!(TreeImage::open_credential(
+            StorageBackend::file(&path).unwrap(),
+            archive(),
+            mode,
+            mode.signed().then_some(&public),
+            publication::bootstrap::Credential::Password(&wrong),
+            Some(1)
+        )
+        .is_err());
+        assert_eq!(std::fs::read(&path).unwrap(), before);
+    }
+}
+
+#[derive(Clone, Debug)]
+struct BootstrapSwitch {
+    original: StorageBackend,
+    replacement: StorageBackend,
+    selections: std::rc::Rc<std::cell::Cell<usize>>,
+}
+impl BootstrapSwitch {
+    fn storage(&self) -> &StorageBackend {
+        if self.selections.get() >= 3 {
+            &self.replacement
+        } else {
+            &self.original
+        }
+    }
+    fn read_storage(&self, at: u64) -> &StorageBackend {
+        if at == 0 {
+            self.selections.set(self.selections.get() + 1);
+        }
+        self.storage()
+    }
+}
+impl Storage for BootstrapSwitch {
+    fn len(&self) -> Result<u64> {
+        self.storage().len()
+    }
+    fn read_at(&self, at: u64, len: usize) -> Result<Vec<u8>> {
+        self.read_storage(at).read_at(at, len)
+    }
+    fn read_at_into(&self, at: u64, out: &mut [u8]) -> Result<()> {
+        self.read_storage(at).read_at_into(at, out)
+    }
+    fn append(&mut self, _: &[u8]) -> Result<u64> {
+        panic!("credential opening must not write")
+    }
+    fn write_at(&mut self, _: u64, _: &[u8]) -> Result<()> {
+        panic!("credential opening must not write")
+    }
+    fn truncate(&mut self, _: u64) -> Result<()> {
+        panic!("credential opening must not truncate")
+    }
+    fn sync(&self) -> Result<()> {
+        panic!("credential opening must not sync")
+    }
+}
+
+#[test]
+fn typed_credential_open_rejects_publication_switch_after_bootstrap() {
+    let directory = Directory::new();
+    let owner = OwnerSigningKeyPair::generate().unwrap();
+    let public = owner.public_key();
+    let password = SecretString::try_from_slice(b"synthetic bootstrap switch").unwrap();
+    for bits in [1, 3, 13, 15] {
+        let mode = protection(bits);
+        let authority = authority(mode, &public);
+        let path = directory.0.join(format!("{bits}.tree"));
+        fixture(&path, mode, &authority, &owner);
+        let slot = crate::key_slot::KeySlot::password_bytes(
+            1,
+            b"synthetic bootstrap switch",
+            vec![68; 16],
+            key(mode).unwrap(),
+        )
+        .unwrap();
+        attach_access(&path, mode, &authority, &owner, &[slot]);
+        let original = StorageBackend::memory(std::fs::read(&path).unwrap());
+        let replacement = tree_image::compact(
+            &original,
+            StorageBackend::memory(Vec::new()),
+            archive(),
+            mode,
+            &authority,
+            mode.signed().then_some(&owner),
+            key(mode),
+        )
+        .unwrap();
+        // Both snapshots independently open with the same credential and records.
+        // Only switching after bootstrap is rejected: no public CLI can simulate
+        // a backend changing publication inside one read-only open operation.
+        for storage in [&original, &replacement] {
+            check_credential_reader(
+                TreeImage::open_credential(
+                    allocation::compaction::View(storage),
+                    archive(),
+                    mode,
+                    mode.signed().then_some(&public),
+                    publication::bootstrap::Credential::Password(&password),
+                    Some(1),
+                )
+                .unwrap(),
+            );
+        }
+        let selections = std::rc::Rc::new(std::cell::Cell::new(0));
+        let switching = BootstrapSwitch {
+            original,
+            replacement,
+            selections: selections.clone(),
+        };
+        assert!(matches!(
+            TreeImage::open_credential(
+                switching,
+                archive(),
+                mode,
+                mode.signed().then_some(&public),
+                publication::bootstrap::Credential::Password(&password),
+                Some(1)
+            ),
+            Err(Error::CorruptRecord)
+        ));
+        assert!(selections.get() >= 3);
+    }
+}

@@ -484,6 +484,11 @@ retains bounded public wrapper bytes in all encrypted modes and passes scoped
 copy/resume/bootstrap and partial-write checks. Both known native recovery failures
 reproduce. No timing, RSS, physical power-loss or whole-format gate is passed.
 
+The [typed credential reader and dense conversion](evidence/tree-credential-reader-2026-10-10/README.md)
+connect bounded wrappers to independent typed/content reads and preserve access
+through a fresh lineage. Publication-switch refusal and partial directory writes
+are component checks; public API and complete-format gates remain outstanding.
+
 ## Evidence index
 
 Historical conditions and raw data remain authoritative for their own revisions.

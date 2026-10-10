@@ -81,6 +81,21 @@ pub(crate) fn initialize(
     )
 }
 
+/// Decode bounded wrappers from an already authenticated selected publication.
+/// Fresh exports re-encode the directory generation while retaining every slot.
+pub(crate) fn public_slots(
+    storage: &impl Storage,
+    anchor: &Anchor,
+) -> Result<Vec<crate::key_slot::KeySlot>> {
+    if anchor.keys.absent() {
+        return Ok(Vec::new());
+    }
+    if anchor.mode.plaintext() {
+        return Err(Error::CorruptHeader);
+    }
+    super::bootstrap::read_directory_in(storage, anchor, Layout::Shared)
+}
+
 /// Validate existing bounded bootstrap bytes before retaining them unchanged.
 /// Caller must already have selected this anchor with the required authority.
 /// The older directory generation remains valid under a newer publication.
