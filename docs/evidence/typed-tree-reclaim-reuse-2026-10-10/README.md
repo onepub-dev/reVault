@@ -57,3 +57,8 @@ SDK directly via per-process PATH and CI=true, without changing SDK settings.
 Index walking/decoding remains the largest 64 MiB opening stage. Scale, full public
 integration, ZIP/PGP read/write comparison, complete-format recovery/aging and the
 two known native recovery failures remain outstanding. This is still test-only.
+
+Post-format validation on committed `d8cf287e` passes all eight ownership tests,
+the focused traversal test, both credential-open tests and strict Clippy. Logs
+are in `raw/postformat/`. Timing was not repeated after whitespace-only hook edits;
+the reported experiment retains its exact pre-format source patch and identities.
