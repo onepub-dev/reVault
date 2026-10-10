@@ -474,3 +474,60 @@ fn descendant_retirement_requires_pending_state_and_cannot_use_private_tail_proo
             .unwrap();
     assert!(old.transition_to(&replaced).is_err());
 }
+
+#[test]
+fn reclaimed_checks_cover_chunk_edges_short_tails_and_release_guards_on_failure() {
+    let (mut anchor, packs, mut vacant) = initial();
+    let start = anchor.sealed_len;
+    let free_len = 2 * 65536 + 17;
+    let pending_start = start + free_len;
+    let pending_len = 65536 + 3;
+    vacant.push(Vacant {
+        span: Span {
+            start,
+            len: free_len,
+        },
+        kind: VacantKind::Free,
+    });
+    vacant.push(Vacant {
+        span: Span {
+            start: pending_start,
+            len: pending_len,
+        },
+        kind: VacantKind::Pending,
+    });
+    anchor.sealed_len += free_len + pending_len;
+    let graph = Graph::derive(&anchor, &packs, &vacant).unwrap();
+    let mut storage = StorageBackend::memory(vec![0; anchor.sealed_len as usize]);
+    graph.verify_free(&storage).unwrap();
+    graph.verify_reclaimed(&storage).unwrap();
+    for offset in [start, start + 65535, start + 65536, start + free_len - 1] {
+        storage.write_at(offset, &[1]).unwrap();
+        assert!(matches!(
+            graph.verify_free(&storage),
+            Err(Error::CorruptRecord)
+        ));
+        storage.write_at(offset, &[0]).unwrap();
+        // A failure must release the global secure-memory guard for a retry.
+        graph.verify_free(&storage).unwrap();
+    }
+    for offset in [
+        pending_start,
+        pending_start + 65535,
+        pending_start + 65536,
+        anchor.sealed_len - 1,
+    ] {
+        storage.write_at(offset, &[1]).unwrap();
+        graph.verify_free(&storage).unwrap();
+        assert!(matches!(
+            graph.verify_reclaimed(&storage),
+            Err(Error::CorruptRecord)
+        ));
+        storage.write_at(offset, &[0]).unwrap();
+        graph.verify_reclaimed(&storage).unwrap();
+    }
+    storage.truncate(anchor.sealed_len - 1).unwrap();
+    assert!(graph.verify_reclaimed(&storage).is_err());
+    storage.append(&[0]).unwrap();
+    graph.verify_reclaimed(&storage).unwrap();
+}

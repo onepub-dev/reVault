@@ -86,3 +86,5 @@ and development failures; path installation and full-format acceptance are separ
 - [Rejected plaintext index borrowing](evidence/typed-tree-borrow-rejected-2026-10-10/README.md): four measured regressions, reverted source, complete paired observations retained.
 
 - [Detailed typed-tree open stages](evidence/typed-tree-open-detail-2026-10-10/README.md): publication, index, ownership and reclaimed-space timings with shared validation.
+
+- [Guarded reclaimed-space buffer reuse](evidence/typed-tree-reclaim-reuse-2026-10-10/README.md): four paired opening improvements with unchanged byte validation and retained failure tests.

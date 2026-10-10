@@ -262,6 +262,21 @@ impl Graph {
         self.verify_vacant(storage, true)
     }
     fn verify_vacant(&self, storage: &impl Storage, pending: bool) -> Result<()> {
+        let capacity = self
+            .claims
+            .values()
+            .filter(|claim| claim.kind == Kind::Free || (pending && claim.kind == Kind::Pending))
+            .map(|claim| claim.span.len.min(65536) as usize)
+            .max()
+            .unwrap_or(0);
+        if capacity == 0 {
+            return Ok(());
+        }
+        // Keep at most one bounded guarded allocation for this verification.
+        // Successful chunks are proven zero; any partial/error contents remain
+        // guarded and are wiped by SecureVec when the operation returns.
+        let mut buffer = crate::secret_vec::SecureVec::new();
+        buffer.resize_zeroed(capacity)?;
         for claim in self
             .claims
             .values()
@@ -271,12 +286,14 @@ impl Graph {
             let end = claim.span.end()?;
             while start < end {
                 let n = (end - start).min(65536) as usize;
-                let bytes = storage.read_at_secure(start, n)?;
-                if bytes.len() != n
-                    || bytes.with_bytes(|bytes| bytes.iter().any(|byte| *byte != 0))?
-                {
-                    return Err(Error::CorruptRecord);
-                }
+                buffer.with_mut_bytes(|bytes| {
+                    let bytes = &mut bytes[..n];
+                    storage.read_at_into(start, bytes)?;
+                    if bytes.iter().any(|byte| *byte != 0) {
+                        return Err(Error::CorruptRecord);
+                    }
+                    Ok(())
+                })??;
                 start += n as u64;
             }
         }

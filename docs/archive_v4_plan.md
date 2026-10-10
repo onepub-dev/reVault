@@ -22,6 +22,17 @@ or erase failures.
 
 ## Current position and next work
 
+### Guarded reclaimed-space buffer reuse — 2026-10-10
+
+The [bounded reuse change](evidence/typed-tree-reclaim-reuse-2026-10-10/README.md)
+passes eight ownership tests, focused readers, 15 external-source controls and
+Clippy. Four fixed 30-pair diagnostics improve total warm opening by 2.3%, 8.1%,
+9.5% and 1.5%, with every interval below one and all content/hash checks passing.
+Every free/pending byte remains checked using one guarded buffer of at most
+64 KiB data. This does not establish ZIP parity or public-format qualification.
+Next investigate authenticated index traversal and remeasure full read cases
+after a coherent set of accepted changes; preserve the rejected borrow experiment.
+
 ### Detailed traversal diagnostic — 2026-10-10
 
 The [refined observer](evidence/typed-tree-open-detail-2026-10-10/README.md) passes
