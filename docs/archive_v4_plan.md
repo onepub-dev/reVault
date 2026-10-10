@@ -22,6 +22,19 @@ or erase failures.
 
 ## Current position and next work
 
+### Ownership coverage construction — 2026-10-10
+
+The [bounded graph construction change](evidence/typed-tree-graph-coverage-2026-10-10/README.md)
+retains final exact coverage and immediate duplicate/bounds/count checks while
+removing redundant insertion-time interval searches. Nine ownership tests,
+focused readers, 17 shared-tree tests and Clippy pass. Fixed paired opening times
+improve 3.5% for raw 8 MiB and 7.3% for raw 64 MiB; the compressed result is
+inconclusive, including up to a 2.4% regression. The [current stage diagnostic](evidence/typed-tree-open-combined-2026-10-10/README.md)
+still identifies authenticated traversal as the dominant raw 64 MiB cost. Next
+separate verified page reads, decoding and typed visitor staging before selecting
+a traversal change. Preserve detection timing and every validation obligation.
+The full ZIP comparison below predates this optimization and remains failed.
+
 ### Combined reader comparison — 2026-10-10
 
 The [post-optimization six-case batch](evidence/typed-tree-combined-read-2026-10-10/README.md)

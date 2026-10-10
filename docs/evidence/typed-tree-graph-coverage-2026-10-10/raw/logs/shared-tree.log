@@ -1,0 +1,77 @@
+    Finished `release` profile [optimized] target(s) in 0.09s
+     Running unittests src/lib.rs (/tmp/revault-tree-open-stages-20261010/target/release/deps/revault_lockbox_api-e3bcc2539127e239)
+
+running 18 tests
+test file_format::publication_anchor::shared::tree::tests::abort::authenticated_overflow_abort_mirrors_selected_publication_before_cleanup ... ok
+test file_format::publication_anchor::shared::tree::tests::abort::authenticated_overflow_abort_refuses_invalid_authority_ownership_and_aliases_unchanged ... ok
+test file_format::publication_anchor::shared::tree::tests::abort::authenticated_overflow_abort_rejects_malformed_committed_graph_before_writes ... ok
+test file_format::publication_anchor::shared::tree::tests::abort::authenticated_overflow_abort_reopens_all_modes_and_each_copy_loss ... ok
+test file_format::publication_anchor::shared::tree::tests::abort::authenticated_overflow_abort_survives_interrupted_staging_and_recovery_all_modes ... AUTHENTICATED_OVERFLOW_ABORT_POWER_LOSS_CASES 5280
+ok
+test file_format::publication_anchor::shared::tree::tests::abort::commit::authenticated_overflow_commit_refuses_stale_and_unowned_arena_without_writes ... ok
+test file_format::publication_anchor::shared::tree::tests::abort::commit::authenticated_overflow_commit_reopens_all_modes_and_each_copy_loss ... ok
+test file_format::publication_anchor::shared::tree::tests::abort::commit::authenticated_overflow_commit_resource_observation ... ignored, bounded serial resource observation; run separately from regression tests
+test file_format::publication_anchor::shared::tree::tests::abort::commit::authenticated_overflow_commit_survives_interruption_all_modes ... AUTHENTICATED_OVERFLOW_COMMIT_POWER_LOSS_CASES 2208
+ok
+test file_format::publication_anchor::shared::tree::tests::abort::update::authenticated_tree_update_interruptions_select_only_old_or_new_all_modes ... AUTHENTICATED_TREE_UPDATE_POWER_LOSS_CASES 3168
+ok
+test file_format::publication_anchor::shared::tree::tests::abort::update::authenticated_tree_update_lifecycle_and_no_change_all_modes ... ok
+test file_format::publication_anchor::shared::tree::tests::abort::update::authenticated_tree_update_refuses_malformed_records_without_mutation ... ok
+test file_format::publication_anchor::shared::tree::tests::abort::update::authenticated_tree_update_reuse_stabilizes_metadata_cycles_all_modes ... TREE_REUSE_AGING mode=0 initial_bytes=458752 stabilized_bytes=720896 cycles=40
+TREE_REUSE_AGING mode=1 initial_bytes=458752 stabilized_bytes=720896 cycles=40
+TREE_REUSE_AGING mode=2 initial_bytes=458752 stabilized_bytes=720896 cycles=40
+TREE_REUSE_AGING mode=3 initial_bytes=458752 stabilized_bytes=720896 cycles=40
+TREE_REUSE_AGING mode=4 initial_bytes=458752 stabilized_bytes=720896 cycles=40
+TREE_REUSE_AGING mode=5 initial_bytes=458752 stabilized_bytes=720896 cycles=40
+TREE_REUSE_AGING mode=6 initial_bytes=458752 stabilized_bytes=720896 cycles=40
+TREE_REUSE_AGING mode=7 initial_bytes=458752 stabilized_bytes=720896 cycles=40
+TREE_REUSE_AGING mode=8 initial_bytes=458752 stabilized_bytes=720896 cycles=40
+TREE_REUSE_AGING mode=9 initial_bytes=458752 stabilized_bytes=720896 cycles=40
+TREE_REUSE_AGING mode=10 initial_bytes=458752 stabilized_bytes=720896 cycles=40
+TREE_REUSE_AGING mode=11 initial_bytes=458752 stabilized_bytes=720896 cycles=40
+TREE_REUSE_AGING mode=12 initial_bytes=458752 stabilized_bytes=720896 cycles=40
+TREE_REUSE_AGING mode=13 initial_bytes=458752 stabilized_bytes=720896 cycles=40
+TREE_REUSE_AGING mode=14 initial_bytes=458752 stabilized_bytes=720896 cycles=40
+TREE_REUSE_AGING mode=15 initial_bytes=458752 stabilized_bytes=720896 cycles=40
+ok
+test file_format::publication_anchor::shared::tree::tests::abort::update::authenticated_tree_update_reused_arena_abort_interruptions_all_modes ... REUSED_ARENA_ABORT_POWER_LOSS_CASES 3360
+ok
+test file_format::publication_anchor::shared::tree::tests::abort::update::authenticated_tree_update_uses_overflow_for_large_reuse_all_modes ... TREE_OVERFLOW_REUSE mode=0 initial_bytes=10813440 completed_bytes=13565952
+TREE_OVERFLOW_AGING mode=0 stabilized_bytes=26542080 additional_cycles=8
+TREE_OVERFLOW_REUSE mode=1 initial_bytes=10813440 completed_bytes=13565952
+TREE_OVERFLOW_AGING mode=1 stabilized_bytes=26542080 additional_cycles=8
+TREE_OVERFLOW_REUSE mode=2 initial_bytes=10813440 completed_bytes=13565952
+TREE_OVERFLOW_AGING mode=2 stabilized_bytes=26542080 additional_cycles=8
+TREE_OVERFLOW_REUSE mode=3 initial_bytes=10813440 completed_bytes=13565952
+TREE_OVERFLOW_AGING mode=3 stabilized_bytes=26542080 additional_cycles=8
+TREE_OVERFLOW_REUSE mode=4 initial_bytes=10813440 completed_bytes=13565952
+TREE_OVERFLOW_AGING mode=4 stabilized_bytes=26542080 additional_cycles=8
+TREE_OVERFLOW_REUSE mode=5 initial_bytes=10813440 completed_bytes=13565952
+TREE_OVERFLOW_AGING mode=5 stabilized_bytes=26542080 additional_cycles=8
+TREE_OVERFLOW_REUSE mode=6 initial_bytes=10813440 completed_bytes=13565952
+TREE_OVERFLOW_AGING mode=6 stabilized_bytes=26542080 additional_cycles=8
+TREE_OVERFLOW_REUSE mode=7 initial_bytes=10813440 completed_bytes=13565952
+TREE_OVERFLOW_AGING mode=7 stabilized_bytes=26542080 additional_cycles=8
+TREE_OVERFLOW_REUSE mode=8 initial_bytes=10813440 completed_bytes=13565952
+TREE_OVERFLOW_AGING mode=8 stabilized_bytes=26542080 additional_cycles=8
+TREE_OVERFLOW_REUSE mode=9 initial_bytes=10813440 completed_bytes=13565952
+TREE_OVERFLOW_AGING mode=9 stabilized_bytes=26542080 additional_cycles=8
+TREE_OVERFLOW_REUSE mode=10 initial_bytes=10813440 completed_bytes=13565952
+TREE_OVERFLOW_AGING mode=10 stabilized_bytes=26542080 additional_cycles=8
+TREE_OVERFLOW_REUSE mode=11 initial_bytes=10813440 completed_bytes=13565952
+TREE_OVERFLOW_AGING mode=11 stabilized_bytes=26542080 additional_cycles=8
+TREE_OVERFLOW_REUSE mode=12 initial_bytes=10813440 completed_bytes=13565952
+TREE_OVERFLOW_AGING mode=12 stabilized_bytes=26542080 additional_cycles=8
+TREE_OVERFLOW_REUSE mode=13 initial_bytes=10813440 completed_bytes=13565952
+TREE_OVERFLOW_AGING mode=13 stabilized_bytes=26542080 additional_cycles=8
+TREE_OVERFLOW_REUSE mode=14 initial_bytes=10813440 completed_bytes=13565952
+TREE_OVERFLOW_AGING mode=14 stabilized_bytes=26542080 additional_cycles=8
+TREE_OVERFLOW_REUSE mode=15 initial_bytes=10813440 completed_bytes=13565952
+TREE_OVERFLOW_AGING mode=15 stabilized_bytes=26542080 additional_cycles=8
+ok
+test file_format::publication_anchor::shared::tree::tests::shared_tree_opens_beyond_inline_capacity_and_survives_each_metadata_copy_loss ... ok
+test file_format::publication_anchor::shared::tree::tests::shared_tree_refuses_malformed_ownership_and_unclaimed_or_aliased_bytes ... ok
+test file_format::publication_anchor::shared::tree::tests::shared_tree_validates_free_pending_and_payload_ownership_before_exposing_records ... ok
+
+test result: ok. 17 passed; 0 failed; 1 ignored; 0 measured; 640 filtered out; finished in 216.84s
+

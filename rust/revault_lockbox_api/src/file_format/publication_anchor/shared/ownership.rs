@@ -100,7 +100,7 @@ impl Graph {
             claims: BTreeMap::new(),
         };
         for bank in [0, FAILURE_REGION] {
-            graph.insert(Claim {
+            graph.stage_claim(Claim {
                 span: Span {
                     start: bank,
                     len: KEYS_START,
@@ -114,7 +114,7 @@ impl Graph {
                 continue;
             }
             for start in [root.primary, root.mirror] {
-                graph.insert(Claim {
+                graph.stage_claim(Claim {
                     span: Span {
                         start,
                         len: root.len,
@@ -140,7 +140,7 @@ impl Graph {
                 if start < REGION_LEN as u64 || regions[index] != (end - 1) / FAILURE_REGION {
                     return Err(Error::CorruptRecord);
                 }
-                graph.insert(Claim {
+                graph.stage_claim(Claim {
                     span: Span {
                         start,
                         len: reference.len,
@@ -157,7 +157,7 @@ impl Graph {
             if extent.start < REGION_LEN as u64 {
                 return Err(Error::CorruptRecord);
             }
-            graph.insert(Claim {
+            graph.stage_claim(Claim {
                 span: Span {
                     start: extent.start,
                     len: extent.len,
@@ -179,7 +179,7 @@ impl Graph {
                     return Err(Error::CorruptRecord);
                 }
             }
-            graph.insert(Claim {
+            graph.stage_claim(Claim {
                 span: entry.span,
                 digest: [0; 32],
                 kind: match entry.kind {
@@ -200,7 +200,9 @@ impl Graph {
         }
         Ok(graph)
     }
-    fn insert(&mut self, claim: Claim) -> Result<()> {
+    // Construction only: duplicate starts refuse here; overlaps and gaps refuse
+    // in derive_with_descendants' final ordered coverage pass, before exposure.
+    fn stage_claim(&mut self, claim: Claim) -> Result<()> {
         let end = claim.span.end()?;
         if claim.span.len == 0 || end > self.anchor.sealed_len {
             return Err(Error::CorruptRecord);
@@ -210,16 +212,12 @@ impl Graph {
                 "bounded shared ownership graph".into(),
             ));
         }
-        if self
-            .claims
-            .range(..=claim.span.start)
-            .next_back()
-            .is_some_and(|(_, old)| old.span.end().is_ok_and(|limit| limit > claim.span.start))
-            || self.claims.range(claim.span.start..end).next().is_some()
-        {
-            return Err(Error::CorruptRecord);
+        match self.claims.entry(claim.span.start) {
+            std::collections::btree_map::Entry::Vacant(entry) => {
+                entry.insert(claim);
+            }
+            std::collections::btree_map::Entry::Occupied(_) => return Err(Error::CorruptRecord),
         }
-        self.claims.insert(claim.span.start, claim);
         Ok(())
     }
     fn covering(&self, span: Span) -> Result<&Claim> {

@@ -1,0 +1,11 @@
+{
+  "commit": "83ab5c028e3c3f7c28b703342a3a75715806ec0d",
+  "worktree_status": "M ../docs/documentation_map.md\n M revault_lockbox_api/src/file_format/publication_anchor/shared/ownership.rs\n M revault_lockbox_api/src/file_format/publication_anchor/shared/ownership/tests.rs\n?? ../docs/evidence/typed-tree-open-combined-2026-10-10/",
+  "candidate_artifact_source": "/tmp/revault-tree-open-stages-20261010/target/release/deps/revault_lockbox_api-e3bcc2539127e239",
+  "candidate_sha256": "ce0c4d6c055f71ffd8af3a92b949f6e0ba3c9f018173657d403e201170d465a3",
+  "baseline_source": "/tmp/revault-tree-read-combined-corrected-20261010/bin/revault_lockbox_api_tests",
+  "baseline_sha256": "aac92888e8c0498fa9c618c8331af2febc20972a38612eac1d0edf43539cf202",
+  "source_patch_sha256": "8bbef1f9371c5cd51629e9a56c17873fcffe5186582f98214b8ec4d6034c43bc",
+  "rustc": "rustc 1.88.0 (6b00bc388 2025-06-23)",
+  "cargo_target": "/tmp/revault-tree-open-stages-20261010/target"
+}

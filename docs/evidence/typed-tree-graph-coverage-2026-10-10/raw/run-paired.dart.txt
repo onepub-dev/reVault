@@ -1,0 +1,284 @@
+#! /usr/bin/env dcli
+import 'dart:convert';
+import 'dart:io';
+import 'dart:math' as math;
+import 'package:dcli/dcli.dart';
+
+const base = '/tmp/revault-tree-graph-coverage-20261010';
+const fixtureBase = '/tmp/revault-tree-open-stages-20261010/fixtures';
+const rust = '/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust';
+const beforeBinary = '$base/bin/before';
+const afterBinary = '$base/bin/after';
+const patchedSource = '$rust/revault_lockbox_api/src/file_format/publication_anchor/shared/ownership.rs';
+const patchedTests = '$rust/revault_lockbox_api/src/file_format/publication_anchor/shared/ownership/tests.rs';
+const lockfile = '$rust/Cargo.lock';
+const observationCount = 100;
+const warmups = 3;
+const measured = 30;
+const resamples = 10000;
+
+class CaseSpec {
+  const CaseSpec(this.name, this.fixtureName, this.unit);
+  final String name;
+  final String fixtureName;
+  final int unit;
+}
+const cases = <CaseSpec>[
+  CaseSpec('small512-mixed-compressed', 'small512-mixed-compressed', 262144),
+  CaseSpec('raw8m-random', 'raw8m-random', 65536),
+  CaseSpec('compressed8m-pattern', 'compressed8m-pattern', 262144),
+  CaseSpec('raw64m-random', 'raw64m-random', 65536),
+];
+
+String sha(String path) {
+  final result = Process.runSync('sha256sum', [path]);
+  if (result.exitCode != 0) throw StateError('sha256sum failed for $path: ${result.stderr}');
+  return result.stdout.toString().split(RegExp(r'\s+')).first;
+}
+void writeJson(String path, Object? value) =>
+    File(path).writeAsStringSync(const JsonEncoder.withIndent('  ').convert(value), flush: true);
+
+Map<String, String> fileHashes(CaseSpec item) {
+  final caseRoot = '$fixtureBase/${item.fixtureName}';
+  final originalRoot = '/tmp/revault-tree-read-20261010-final/cases/${item.fixtureName}';
+  final paths = <String, String>{
+    'archive.zip': '$originalRoot/archive.zip',
+    'candidate.lbox': '$originalRoot/candidate.lbox',
+    'candidate.public': '$originalRoot/candidate.public',
+    'case.json': '$originalRoot/case.json',
+    'inventory.json': '$originalRoot/inventory.json',
+    'other/tree.lbox': '$originalRoot/other/tree.lbox',
+    'other/tree.public': '$originalRoot/other/tree.public',
+    'profile/tree.lbox': '$caseRoot/tree.lbox',
+    'profile/tree.public': '$caseRoot/tree.public',
+  };
+  for (final entity in Directory('$caseRoot/source').listSync(followLinks: true)) {
+    if (entity is File) paths['source/${entity.uri.pathSegments.last}'] = entity.path;
+  }
+  return {for (final entry in paths.entries) entry.key: sha(entry.value)};
+}
+Map<String, String> frozenHashes() => {
+  'before_binary': sha(beforeBinary),
+  'after_binary': sha(afterBinary),
+  'patched_source': sha(patchedSource),
+  'patched_tests': sha(patchedTests),
+  'cargo_lock': sha(lockfile),
+  'source_patch': sha('$base/source.patch'),
+  'runner_script': sha(Platform.script.toFilePath()),
+};
+Map<String, Object?> hostContext() {
+  final status = File('/proc/self/status').readAsLinesSync();
+  final cpu = File('/proc/cpuinfo').readAsLinesSync().firstWhere(
+    (line) => line.startsWith('model name'), orElse: () => 'model name: unknown');
+  final taskset = Process.runSync('taskset', ['-c', '2', 'true']);
+  if (taskset.exitCode != 0) throw StateError('CPU 2 unavailable: ${taskset.stderr}');
+  return {
+    'utc': DateTime.now().toUtc().toIso8601String(),
+    'loadavg': File('/proc/loadavg').readAsStringSync().trim(),
+    'cpu_model': cpu,
+    'kernel': File('/proc/sys/kernel/osrelease').readAsStringSync().trim(),
+    'allowed_cpus': status.firstWhere((line) => line.startsWith('Cpus_allowed_list:'), orElse: () => 'unknown'),
+    'measurement_cpu': 2,
+    'rustc': Process.runSync('rustc', ['+1.88.0', '--version']).stdout.toString().trim(),
+    'dart': Process.runSync('dart', ['--version']).stderr.toString().trim(),
+  };
+}
+double mean(List<double> values) => values.reduce((a, b) => a + b) / values.length;
+double? nullableMean(List<double> values) => values.isEmpty ? null : mean(values);
+
+Map<String, Object?> parseSample(String stdout) {
+  final matches = stdout.split('\n').where((line) => line.contains('TREE_OPEN_DIAGNOSTIC ')).toList();
+  if (matches.length != 1) throw StateError('expected one diagnostic record; got ${matches.length}');
+  const marker = 'TREE_OPEN_DIAGNOSTIC ';
+  final jsonText = matches.single.substring(matches.single.indexOf(marker) + marker.length);
+  final diagnostic = jsonDecode(jsonText) as Map<String, dynamic>;
+  if (diagnostic['verified'] != true ||
+      diagnostic['repeats'] != observationCount ||
+      (diagnostic['observations'] as List).length != observationCount) {
+    throw StateError('diagnostic verification/count mismatch');
+  }
+  return diagnostic;
+}
+Map<String, double> meansFor(Map<String, Object?> diagnostic) {
+  final rows = (diagnostic['observations'] as List).cast<Map<String, dynamic>>();
+  final totals = <double>[];
+  final stageValues = <String, List<double>>{};
+  for (final row in rows) {
+    totals.add((row['total_seconds'] as num).toDouble());
+    final stages = (row['stages_seconds'] as Map).cast<String, num>();
+    for (final entry in stages.entries) {
+      stageValues.putIfAbsent(entry.key, () => <double>[]).add(entry.value.toDouble());
+    }
+  }
+  return {
+    'total_seconds': mean(totals),
+    for (final entry in stageValues.entries) entry.key: mean(entry.value),
+  };
+}
+Map<String, Object?> bootstrap(List<double> ratios) {
+  if (ratios.length != measured || ratios.any((value) => !value.isFinite || value <= 0)) {
+    return {'status': 'inconclusive', 'reason': 'expected 30 positive paired ratios', 'complete_pairs': ratios.length};
+  }
+  final logs = ratios.map(math.log).toList();
+  final point = math.exp(mean(logs));
+  var state = BigInt.parse('7a1286436bde910f', radix: 16);
+  final mask = (BigInt.one << 64) - BigInt.one;
+  final draws = <double>[];
+  for (var sample = 0; sample < resamples; sample++) {
+    var sum = 0.0;
+    for (var i = 0; i < logs.length; i++) {
+      state = (state ^ (state << 13)) & mask;
+      state = (state ^ (state >> 7)) & mask;
+      state = (state ^ (state << 17)) & mask;
+      sum += logs[(state % BigInt.from(logs.length)).toInt()];
+    }
+    draws.add(math.exp(sum / logs.length));
+  }
+  draws.sort();
+  return {
+    'status': 'complete',
+    'estimator': 'geometric mean of paired after/before process-mean total-open ratios',
+    'ratio_after_over_before': point,
+    'low95': draws[249],
+    'high95': draws[9749],
+    'resamples': resamples,
+    'xorshift64_seed_hex': '7a1286436bde910f',
+  };
+}
+
+void main() {
+  final runRoot = '$base/paired';
+  if (Directory(runRoot).existsSync()) throw StateError('Refusing existing $runRoot');
+  Directory(runRoot).createSync(recursive: true);
+  final frozenBefore = frozenHashes();
+  final fixturesBefore = {for (final item in cases) item.name: fileHashes(item)};
+  final status = Process.runSync('git', ['status', '--short'], workingDirectory: rust).stdout.toString().trim();
+  final revision = Process.runSync('git', ['rev-parse', 'HEAD'], workingDirectory: rust).stdout.toString().trim();
+  writeJson('$runRoot/hash-before.json', {'revision': revision, 'worktree_status': status, 'sha256': frozenBefore, 'fixtures': fixturesBefore});
+  writeJson('$runRoot/host-before.json', hostContext());
+
+  final failures = <Map<String, Object?>>[];
+  final caseReports = <String, Object?>{};
+  for (final item in cases) {
+    final fixtureRoot = '$fixtureBase/${item.fixtureName}';
+    final caseDir = Directory('$runRoot/${item.name}')..createSync();
+    final processRows = <Map<String, Object?>>[];
+    final measuredPairs = <Map<String, Object?>>[];
+    for (var pair = 0; pair < warmups + measured; pair++) {
+      final order = pair.isOdd ? ['after', 'before'] : ['before', 'after'];
+      final pairRecords = <String, Map<String, Object?>>{};
+      for (final variant in order) {
+        final binary = variant == 'before' ? beforeBinary : afterBinary;
+        final phaseName = pair < warmups ? 'warmup' : 'measured';
+        final stem = 'pair-${pair.toString().padLeft(2, '0')}-$phaseName-$variant';
+        final result = Process.runSync(
+          'taskset',
+          ['-c', '2', binary, '--exact',
+           'file_format::candidate_files::resource_probe::candidate_file_resource_probe',
+           '--ignored', '--nocapture'],
+          environment: {
+            ...Platform.environment,
+            'REVAULT_CANDIDATE_ROOT': fixtureRoot,
+            'REVAULT_CANDIDATE_PHASE': 'tree-sample',
+            'REVAULT_CANDIDATE_UNIT': item.unit.toString(),
+            'REVAULT_TREE_OPEN_DIAGNOSTIC': observationCount.toString(),
+          },
+          workingDirectory: rust,
+        );
+        final stdout = result.stdout.toString();
+        final stderr = result.stderr.toString();
+        File(caseDir.path + '/' + stem + '.stdout').writeAsStringSync(stdout, flush: true);
+        File(caseDir.path + '/' + stem + '.stderr').writeAsStringSync(stderr, flush: true);
+        if (result.exitCode != 0) {
+          final failure = {'case': item.name, 'pair': pair, 'variant': variant, 'exit_code': result.exitCode, 'log_prefix': stem};
+          failures.add(failure);
+          print('PROCESS_FAILED ' + jsonEncode(failure));
+          continue;
+        }
+        try {
+          final diagnostic = parseSample(stdout);
+          final stageMeans = meansFor(diagnostic);
+          final record = <String, Object?>{
+            'case': item.name,
+            'pair': pair,
+            'warmup': pair < warmups,
+            'variant': variant,
+            'order': order,
+            'binary_sha256': frozenBefore[variant + '_binary'],
+            'archive_sha256': diagnostic['archive_sha256'],
+            'process_mean': stageMeans,
+            'observations': diagnostic['observations'],
+            'verified': diagnostic['verified'],
+          };
+          pairRecords[variant] = record;
+          processRows.add(record);
+          File(caseDir.path + '/process-samples.jsonl').writeAsStringSync(
+            jsonEncode(record) + '\n', mode: FileMode.append, flush: true);
+        } catch (error) {
+          final failure = {'case': item.name, 'pair': pair, 'variant': variant, 'error': error.toString(), 'log_prefix': stem};
+          failures.add(failure);
+          print('PROCESS_INVALID ' + jsonEncode(failure));
+        }
+      }
+      if (pair >= warmups) {
+        final before = pairRecords['before'];
+        final after = pairRecords['after'];
+        measuredPairs.add({
+          'pair': pair - warmups,
+          if (before != null) 'before_mean_total_seconds': (before['process_mean'] as Map)['total_seconds'],
+          if (after != null) 'after_mean_total_seconds': (after['process_mean'] as Map)['total_seconds'],
+          if (before != null && after != null)
+            'after_over_before': ((after['process_mean'] as Map)['total_seconds'] as num).toDouble() /
+                ((before['process_mean'] as Map)['total_seconds'] as num).toDouble(),
+          'complete': before != null && after != null,
+        });
+      }
+      print('PAIR_DONE case=' + item.name + ' pair=' + pair.toString() +
+          ' phase=' + (pair < warmups ? 'warmup' : 'measured') + ' order=' + order.join(','));
+    }
+    final ratios = measuredPairs.where((pair) => pair['complete'] == true)
+        .map((pair) => (pair['after_over_before'] as num).toDouble()).toList();
+    final beforeMeans = processRows.where((row) => row['warmup'] == false && row['variant'] == 'before')
+        .map((row) => ((row['process_mean'] as Map)['total_seconds'] as num).toDouble()).toList();
+    final afterMeans = processRows.where((row) => row['warmup'] == false && row['variant'] == 'after')
+        .map((row) => ((row['process_mean'] as Map)['total_seconds'] as num).toDouble()).toList();
+    final report = <String, Object?>{
+      'case': item.name,
+      'warmup_pairs': warmups,
+      'measured_pairs_expected': measured,
+      'measured_pairs_complete': ratios.length,
+      'process_mean_total_seconds_before': beforeMeans.isEmpty ? null : mean(beforeMeans),
+      'process_mean_total_seconds_after': afterMeans.isEmpty ? null : mean(afterMeans),
+      'bootstrap': bootstrap(ratios),
+      'pairs': measuredPairs,
+      'scope': '100 repeated opens per fresh process; arithmetic mean total_seconds is paired unit; observer overhead included; diagnostic only',
+    };
+    caseReports[item.name] = report;
+    writeJson(caseDir.path + '/summary.json', report);
+  }
+  final frozenAfter = frozenHashes();
+  final fixturesAfter = {for (final item in cases) item.name: fileHashes(item)};
+  final stable = jsonEncode(frozenBefore) == jsonEncode(frozenAfter) &&
+      jsonEncode(fixturesBefore) == jsonEncode(fixturesAfter);
+  writeJson('$runRoot/hash-after.json', {'sha256': frozenAfter, 'fixtures': fixturesAfter, 'stable': stable});
+  writeJson('$runRoot/host-after.json', hostContext());
+  writeJson('$runRoot/summary.json', {
+    'protocol': {
+      'warmup_pairs': warmups,
+      'measured_pairs': measured,
+      'opens_per_process': observationCount,
+      'cpu': 2,
+      'alternating_pair_order': true,
+      'bootstrap_resamples': resamples,
+      'bootstrap_xorshift64_seed_hex': '7a1286436bde910f',
+      'paired_metric': 'arithmetic mean total_seconds for 100 opens within each process',
+    },
+    'frozen_inputs_stable': stable,
+    'failures': failures,
+    'cases': caseReports,
+  });
+  print('BATCH_FINISHED stable=' + stable.toString() + ' failures=' + failures.length.toString() +
+      ' report=' + runRoot + '/summary.json');
+  if (!stable || failures.isNotEmpty) exitCode = 1;
+}
+

@@ -1,0 +1,8 @@
+{
+  "utc": "2026-10-10T01:38:28.330620Z",
+  "loadavg": "1.40 2.35 2.83 2/3681 1037856",
+  "cpu_model": "model name\t: AMD Ryzen 7 3700X 8-Core Processor",
+  "allowed_cpus": "Cpus_allowed_list:\t0-15",
+  "measurement_cpu": 2,
+  "rustc": "rustc 1.88.0 (6b00bc388 2025-06-23)"
+}

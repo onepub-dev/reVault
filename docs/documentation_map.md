@@ -92,3 +92,7 @@ and development failures; path installation and full-format acceptance are separ
 - [Bounded fragment join](evidence/typed-tree-fragment-join-2026-10-10/README.md): preserved malformed-record refusals and four paired opening improvements; complete reads remain to remeasure.
 
 - [Combined typed-reader comparison](evidence/typed-tree-combined-read-2026-10-10/README.md): current six-case ZIP failures, post-format checks, and retained excluded launcher failure.
+
+- [Combined opening-stage diagnostic](evidence/typed-tree-open-combined-2026-10-10/README.md): current 400-open stage evidence and bounded ownership-construction hypothesis.
+
+- [Ownership graph coverage construction](evidence/typed-tree-graph-coverage-2026-10-10/README.md): raw opening improvements, inconclusive compressed result, and overlap refusal evidence.

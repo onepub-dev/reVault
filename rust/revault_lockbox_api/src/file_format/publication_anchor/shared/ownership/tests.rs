@@ -531,3 +531,49 @@ fn reclaimed_checks_cover_chunk_edges_short_tails_and_release_guards_on_failure(
     storage.append(&[0]).unwrap();
     graph.verify_reclaimed(&storage).unwrap();
 }
+
+#[test]
+fn graph_final_coverage_refuses_overlaps_in_either_insertion_order() {
+    // Private graph fixtures are necessary: no public CLI creates this layout.
+    let (anchor, _, vacant) = initial();
+    let start = REGION_LEN as u64;
+    let half = FAILURE_REGION / 2;
+    let extent = |offset, len| Extent {
+        start: offset,
+        len,
+        digest: [1; 32],
+    };
+    let left = extent(start, half);
+    let right = extent(start + half, half);
+    for packs in [[left, right], [right, left]] {
+        let graph = Graph::derive(&anchor, &packs, &vacant).unwrap();
+        assert_eq!(graph.payloads(), vec![left, right]);
+    }
+    // Crossing, nesting, identical start, identical end, a gap, and overrun.
+    for packs in [
+        [extent(start, half + 1), right],
+        [extent(start, FAILURE_REGION), extent(start + 1, 1)],
+        [left, extent(start, FAILURE_REGION)],
+        [extent(start, FAILURE_REGION), right],
+        [extent(start, half - 1), right],
+        [left, extent(start + half, half + 1)],
+    ] {
+        for order in [packs, [packs[1], packs[0]]] {
+            assert!(matches!(
+                Graph::derive(&anchor, &order, &vacant),
+                Err(Error::CorruptRecord)
+            ));
+        }
+    }
+    // Staging never replaces an existing claim, and does not change the bound.
+    let mut graph = Graph::derive(&anchor, &[left, right], &vacant).unwrap();
+    let original = graph.claims[&start];
+    assert!(matches!(
+        graph.stage_claim(Claim {
+            digest: [9; 32],
+            ..original
+        }),
+        Err(Error::CorruptRecord)
+    ));
+    assert_eq!(graph.claims[&start], original);
+}
