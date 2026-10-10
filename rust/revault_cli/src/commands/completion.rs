@@ -58,6 +58,21 @@ impl CompletionShell {
     }
 }
 
+static ACTIVE_COMPLETION_SHELL: std::sync::OnceLock<Option<CompletionShell>> =
+    std::sync::OnceLock::new();
+
+// CompleteEnv removes COMPLETE before invoking candidate callbacks. Capture
+// its value at each executable's startup, without restoring child-process env.
+pub(crate) fn capture_completion_shell() {
+    let shell = env::var_os("COMPLETE").and_then(|value| {
+        Path::new(&value)
+            .file_stem()
+            .and_then(|name| name.to_str())
+            .and_then(CompletionShell::parse)
+    });
+    let _ = ACTIVE_COMPLETION_SHELL.set(shell);
+}
+
 pub(crate) fn run_matches(matches: &ArgMatches) -> CliResult<()> {
     let Some((subcommand, submatches)) = matches.subcommand() else {
         return Err(super::context::cli_error(
@@ -394,8 +409,37 @@ pub(crate) fn lockbox_destination_candidates(current: &OsStr) -> Vec<CompletionC
     values
 }
 
+// Fish applies its own raw-prefix filter after calling our completer. Preserve
+// the spelling the user already typed only in that shell's insertion text;
+// matching and the persisted alias remain NFC. The suffix is taken from a
+// canonical candidate only after its normalized prefix has matched.
+fn alias_candidates(
+    current: &OsStr,
+    values: impl IntoIterator<Item = String>,
+) -> Vec<CompletionCandidate> {
+    let Some(prefix) = current.to_str() else {
+        return Vec::new();
+    };
+    let normalized = revault_vault_api::normalize_lockbox_alias_prefix(prefix);
+    let preserve_prefix = ACTIVE_COMPLETION_SHELL.get().copied().flatten()
+        == Some(CompletionShell::Fish)
+        && prefix != normalized;
+    values
+        .into_iter()
+        .filter_map(|value| {
+            let suffix = value.strip_prefix(normalized.as_str())?;
+            let insertion = if preserve_prefix {
+                format!("{prefix}{suffix}")
+            } else {
+                value
+            };
+            Some(CompletionCandidate::new(insertion))
+        })
+        .collect()
+}
+
 pub(crate) fn alias_name_candidates(current: &OsStr) -> Vec<CompletionCandidate> {
-    candidates(
+    alias_candidates(
         current,
         read_only_vault()
             .and_then(|vault| vault.list_lockbox_aliases().ok())
@@ -406,7 +450,7 @@ pub(crate) fn alias_name_candidates(current: &OsStr) -> Vec<CompletionCandidate>
 }
 
 fn alias_selectors(current: &OsStr) -> Vec<CompletionCandidate> {
-    candidates(
+    alias_candidates(
         current,
         read_only_vault()
             .and_then(|vault| vault.list_lockbox_aliases().ok())

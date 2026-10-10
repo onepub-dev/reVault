@@ -22,6 +22,18 @@ or erase failures.
 
 ## Current position and next work
 
+### Unicode Vault aliases — 2026-10-10
+
+The user assigned [issue #328](https://github.com/onepub-dev/reVault/issues/328)
+to the format-4 performance branch. Unicode aliases retain the existing Vault
+alias collection and payload schema, using shared NFC normalization and a
+pinned Unicode naming policy. Automatic alias creation is included as a
+prerequisite. The format-4 container boundary prevents format-3 clients from
+decoding these records; the Vault structure version remains unchanged. This
+scoped CLI/Vault change does not resume unrelated archive optimization or
+establish format-4 release readiness. See the
+[validation evidence](evidence/unicode-aliases-2026-10-10/README.md).
+
 ### Selective authenticated reads — 2026-10-10
 
 The user accepted [verification of selected paths and chunks](selective_authenticated_reads.md)

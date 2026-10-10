@@ -2933,7 +2933,7 @@ fn ordinary_write_capable_open_completes_interrupted_cleanup_automatically() {
 }
 
 #[test]
-fn content_key_create_does_not_mirror_empty_key_directory() {
+fn content_key_create_registers_an_alias_for_the_empty_lockbox() {
     let bin = env!("CARGO_BIN_EXE_lockbox");
     let dir = unique_dir_named("raw-create");
     let _ = fs::remove_dir_all(&dir);
@@ -2962,7 +2962,21 @@ fn content_key_create_does_not_mirror_empty_key_directory() {
 
     let remembered = run_output_in(bin, &["vault", "lockbox", "list"], &vault_root, &agent_root);
     assert_success(&remembered);
-    assert_eq!(String::from_utf8_lossy(&remembered.stdout).trim(), "empty");
+    assert!(String::from_utf8_lossy(&remembered.stdout).contains("raw.lbox"));
+    run_in(
+        bin,
+        &["a@raw", "variable", "set", "VALUE", "synthetic-alias-value"],
+        &vault_root,
+        &agent_root,
+    );
+    let value = run_output_in(
+        bin,
+        &["a@raw", "variable", "get", "VALUE"],
+        &vault_root,
+        &agent_root,
+    );
+    assert_success(&value);
+    assert_eq!(value.stdout, b"synthetic-alias-value\n");
 }
 
 #[test]

@@ -93,6 +93,7 @@ fn destination(selection: &str) -> CliResult<(String, &str)> {
 
 pub(crate) fn run(binary: &str) -> CliResult<()> {
     let exec = binary == "lbxx";
+    super::completion::capture_completion_shell();
     clap_complete::CompleteEnv::with_factory(|| command(exec))
         .bin(binary.to_owned())
         .complete();

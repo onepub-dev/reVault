@@ -58,6 +58,7 @@ pub(crate) fn run() -> CliResult<()> {
     if binary_name == "lbxv" || binary_name == "lbxx" {
         return helpers::run(&binary_name);
     }
+    completion::capture_completion_shell();
     clap_complete::CompleteEnv::with_factory(|| help::command(false))
         .bin(binary_name)
         .complete();

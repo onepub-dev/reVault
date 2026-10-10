@@ -19,10 +19,14 @@ on:
     paths:
       - "rust/**"
       - ".github/workflows/rust.yml"
+      - "tools/unicode_shell_argv.dart"
+      - "tools/pubspec.*"
   pull_request:
     paths:
       - "rust/**"
       - ".github/workflows/rust.yml"
+      - "tools/unicode_shell_argv.dart"
+      - "tools/pubspec.*"
 
 permissions:
   contents: read
@@ -32,6 +36,89 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  unicode-shells:
+    name: Unicode alias native shells / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            shells: bash,zsh,fish,powershell,elvish
+            bash: bash
+            elvish: elvish
+            binary: lockbox
+          # Zsh and Fish are not native Windows shells. PowerShell and Elvish
+          # run as Windows executables; Git Bash exercises Windows argv too.
+          - os: windows-latest
+            shells: bash,powershell,elvish
+            bash: 'C:\Program Files\Git\bin\bash.exe'
+            elvish: elvish.exe
+            binary: lockbox.exe
+    defaults:
+      run:
+        working-directory: rust
+    env:
+      REVAULT_UNICODE_SHELLS: ${{ matrix.shells }}
+      REVAULT_UNICODE_BASH: ${{ matrix.bash }}
+      REVAULT_UNICODE_ELVISH: ${{ runner.temp }}/unicode-shell-bin/${{ matrix.elvish }}
+      REVAULT_ALIAS_BASELINE_BIN: ${{ github.workspace }}/.unicode-baseline/rust/target/debug/${{ matrix.binary }}
+      GOBIN: ${{ runner.temp }}/unicode-shell-bin
+    steps:
+      - uses: actions/checkout@v4
+      - name: Checkout pinned format-3 reader separately
+        uses: actions/checkout@v4
+        with:
+          ref: 77cfd919eddb0e9344b990283b2baf990108bca3
+          path: .unicode-baseline
+      - uses: dtolnay/rust-toolchain@1.88.0
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            rust
+            .unicode-baseline/rust
+          key: unicode-shells-${{ matrix.os }}
+      - name: Update Linux package index
+        if: runner.os == 'Linux'
+        run: sudo apt-get update
+      - name: Install Linux shell and build dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get install -y zsh fish libdbus-1-dev pkg-config
+      - name: Build pinned format-3 reader in its isolated target directory
+        working-directory: .unicode-baseline/rust
+        run: cargo build --locked -p revault_cli --bin lockbox
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: false
+      - name: Install pinned native Elvish
+        run: go install src.elv.sh/cmd/elvish@v0.21.0
+      - uses: dart-lang/setup-dart@v1
+        if: runner.os == 'Linux'
+      - name: Install bounded argv driver runtime
+        if: runner.os == 'Linux'
+        run: dart pub global activate dcli_sdk 10.3.0
+      - name: Resolve pinned argv driver dependencies
+        if: runner.os == 'Linux'
+        working-directory: .
+        run: dart pub get --directory tools
+      - name: Native shell Unicode argv byte contract
+        if: runner.os == 'Linux'
+        working-directory: .
+        run: ./tools/unicode_shell_argv.dart
+      - name: Public CLI Unicode aliases, registered completion and backend vectors
+        run: cargo test --locked -p revault_cli --test unicode_shell_cli -- --ignored --nocapture --test-threads=1
+      - name: Actual format-3 reader refuses the Unicode format-4 Vault unchanged
+        run: cargo test --locked -p revault_cli --test aliases format_three_reader_refuses_unicode_format_four_vault_without_mutation -- --exact --nocapture
+      - name: Retain shell argv evidence
+        if: always() && runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: unicode-shell-argv-${{ matrix.os }}
+          path: target/unicode-shell-argv-results.json
+          if-no-files-found: warn
+
   headless-install:
     name: Linux CLI installation without desktop development packages
     runs-on: ubuntu-latest

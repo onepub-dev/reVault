@@ -51,6 +51,7 @@ pub(crate) fn command(verbose: bool) -> Command {
         )
         .subcommands([
             archive_command("create", "Create a new lockbox.")
+                .arg(Arg::new("alias").long("alias").value_name("NAME").add(ArgValueCompleter::new(completion::alias_name_candidates)).help("Vault alias (default: sanitized filename stem). NFC Unicode letters/numbers, attached marks and ._-; start with a letter, number or underscore. Maximum 128 UTF-8 bytes; no invisible characters. Existing aliases are preserved with a warning."))
                 .arg(Arg::new("encryption").long("encryption").value_parser(["none", "chacha20-poly1305"]).help("Page encryption (default: chacha20-poly1305)."))
                 .arg(Arg::new("signing").long("signing").value_parser(["none", "owner"]).help("Commit signing (default: owner)."))
                 .arg(Arg::new("compression").long("compression").value_parser(["none", "zstd"]).help("Content and metadata compression (default: zstd)."))
@@ -59,8 +60,8 @@ pub(crate) fn command(verbose: bool) -> Command {
                 .override_usage("lockbox <LOCKBOX> create [OPTIONS]")
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox vault init\n  lockbox secrets.lbox create\n  lockbox secrets.lbox create --password\n  lockbox secrets.lbox create --for alice",
-                    "Context:\n  Use create when starting a new encrypted archive. By default it creates a lockbox for the vault's default profile. Use --password when you need a password-protected lockbox.",
+                    "Examples:\n  lockbox vault init\n  lockbox secrets.lbox create\n  lockbox ./project-secrets.lbox create --alias project\n  lockbox a@project list\n  lockbox secrets.lbox create --password\n  lockbox secrets.lbox create --for alice",
+                    "Context:\n  Use create when starting a new encrypted archive. By default it creates a lockbox for the vault's default profile. Use --password when you need a password-protected lockbox. All creation modes open or initialize the vault for alias registration. An alias is registered in the vault after creation, using the filename without its final extension unless --alias is supplied. For filenames containing dots or other invalid alias characters, supply a valid --alias. If the alias already exists, creation succeeds with a warning and preserves the existing mapping.",
                 ))
                 .arg(
                     Arg::new("password")
@@ -1897,7 +1898,7 @@ fn vault_command(verbose: bool) -> Command {
                     .subcommand_required(true)
                     .subcommand(Command::new("set")
                         .about("Set or replace an alias and remember its target path.")
-                        .arg(required("name", "Alias name: ASCII letters, digits, underscore or hyphen."))
+                        .arg(required("name", "NFC alias: start with a Unicode letter, number or underscore; then letters, numbers, attached marks or ._-. Maximum 128 UTF-8 bytes; no invisible characters.").add(ArgValueCompleter::new(completion::alias_name_candidates)))
                         .arg(required("lockbox", "Existing lockbox path or a@alias.").add(ArgValueCompleter::new(completion::lockbox_path_candidates))))
                     .subcommand(Command::new("list").about("List aliases and stable target identities.").arg(output_format_arg()))
                     .subcommand(Command::new("remove").about("Remove an alias without deleting its lockbox.")

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- On the format-4 development line, accept NFC-normalized Unicode Lockbox
+  aliases through one shared naming policy. Derive safe aliases from filenames,
+  preserve existing mappings on create collisions, and normalize completion
+  prefixes. Keep existing ASCII aliases accessible.
 - Restrict E2E coverage recording and its file locking to debug builds so
   release CLI builds do not include test-only coverage support.
 

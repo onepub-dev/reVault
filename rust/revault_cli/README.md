@@ -124,6 +124,16 @@ example `lbx project-secrets.lbox form get --secret /services/github@password`.
 
 Store a local Vault alias and use the small scripting helpers:
 
+Creating a Lockbox also registers an alias derived from its filename; use
+`create --alias NAME` to choose another name. On the format-4 development line,
+aliases support NFC-normalized Unicode letters, numbers and attached combining
+marks, plus `.`, `_` and `-`. New names must start with a letter, number or `_`
+and fit within 128 UTF-8 bytes. Automatic names replace disallowed characters
+with `_`; explicit names are validated. A collision preserves the existing
+alias and leaves the newly created Lockbox available by its path. See the
+[alias naming rules](../../manual/protect-and-share/the-vault/lockbox-aliases.md)
+for details.
+
 ```bash
 lbx vault lockbox alias set dev ./project-secrets.lbox
 lbx a@dev open

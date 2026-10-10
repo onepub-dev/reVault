@@ -211,10 +211,7 @@ fn lockbox_alias_matches(matches: &ArgMatches) -> CliResult<()> {
     match command {
         "set" => {
             let name = required_value(sub, "name");
-            validate_vault_record_name(&name)?;
-            if name.len() > 128 {
-                return Err(cli_error("lockbox alias exceeds 128 bytes"));
-            }
+            let name = revault_vault_api::normalize_lockbox_alias_name(&name)?;
             let (path, _) = super::aliases::resolve(&required_value(sub, "lockbox"))?;
             let inspection = Lockbox::inspect_file(&path)?;
             let vault = default_vault()?;
@@ -236,7 +233,8 @@ fn lockbox_alias_matches(matches: &ArgMatches) -> CliResult<()> {
             )
         }
         "remove" => {
-            let name = required_value(sub, "name");
+            let name =
+                revault_vault_api::normalize_lockbox_alias_prefix(&required_value(sub, "name"));
             default_vault()?.remove_lockbox_alias(&name)?;
             println!("Alias removed: {name}");
             Ok(())

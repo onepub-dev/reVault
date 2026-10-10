@@ -56,7 +56,12 @@ The Lockbox path comes before the command:
 lbx mystuff.lbox create
 ```
 
-You can keep writing the path, or make this your default Lockbox:
+This also registers the Vault alias `mystuff`, usable as `a@mystuff`. Choose
+another name with `lbx mystuff.lbox create --alias personal` when first creating
+the Lockbox. If that alias is already taken, creation succeeds with a warning
+and leaves the existing alias unchanged.
+
+You can keep writing the path, use its alias, or make this your default Lockbox:
 
 ```bash
 lbx session default mystuff.lbox

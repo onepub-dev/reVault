@@ -10,6 +10,48 @@ These commands are available in the current development branch. The CLI package 
 
 ## Create and use an alias
 
+Creating a Lockbox registers an alias in your Vault. By default, the alias is
+the filename without its final extension:
+
+```bash
+lbx project-secrets.lbox create
+lbx a@project-secrets variable list
+```
+
+Choose a different name with `--alias`:
+
+```bash
+lbx ./developer.prod.lbox create --alias dev
+lbx a@dev variable list
+```
+
+Directory names do not contribute to the alias. The filename stem is normalized
+to NFC, then each unsupported character is replaced with `_`. Repeated
+underscores are retained. Positional violations, such as a leading hyphen or
+an unattached combining mark, are repaired by the same rule:
+
+| Filename | Automatic alias |
+| --- | --- |
+| `résumé 2026.lbox` | `résumé_2026` |
+| `项目资料.lbox` | `项目资料` |
+| `dev.prod.lbox` | `dev.prod` |
+| `-work.lbox` | `_work` |
+
+An extensionless path such as `project-secrets` creates `project-secrets.lbox`
+and derives `project-secrets`.
+
+Vault-backed creation uses the Vault to register the alias. Standalone unsigned
+or raw-key creation can still succeed without an unlocked Vault; it warns when
+an alias cannot be registered. Supplying `--alias` explicitly requests Vault
+access. Explicit invalid aliases fail before creation, with an explanation and
+a suggested safe spelling. Automatic aliases are never silently truncated: if
+the name cannot be derived or exceeds the limit, the Lockbox is
+created and the warning explains why no alias was registered.
+If either an explicit or derived alias already exists, the new Lockbox is still
+created: a warning explains that no alias was created, and the existing mapping
+is preserved. Use the new Lockbox's path or assign it another alias afterward.
+A failed creation does not register an alias.
+
 For an existing Lockbox:
 
 ```bash
@@ -19,7 +61,54 @@ lbx a@dev open
 lbx a@dev variable list
 ```
 
-Use the bare name `dev` when managing the alias and `a@dev` when selecting its Lockbox. Names are case-sensitive and contain up to 128 ASCII letters, digits, underscores or hyphens. Setting an existing alias replaces its mapping.
+Use the bare name `dev` when managing the alias and `a@dev` when selecting its
+Lockbox. Unicode aliases follow the same syntax: `lbx a@项目资料 open`.
+Setting an existing alias replaces its mapping; creating a new Lockbox never
+overwrites an existing alias.
+
+## Unicode names and compatibility
+
+Unicode aliases are part of the format-4 development line on the performance
+branch. They use the existing Vault alias records. Format-3 clients reject the
+format-4 container before decoding these records; this does not change the Vault
+structure version or introduce a second alias collection.
+
+Names use Unicode 17.0.0 properties and NFC normalization. Creation, lookup,
+removal, collision checks and completion use the normalized spelling. Composed
+`café` and decomposed `café` therefore identify one alias. Case remains
+significant, and visually similar characters are not merged or transliterated.
+Fish completion preserves the spelling of the prefix already typed so Fish
+does not discard an equivalent suggestion. The completed alias is normalized
+when used; stored names remain NFC.
+
+New aliases follow these rules:
+
+- The first character is a Unicode letter (`Lu`, `Ll`, `Lt`, `Lm`, `Lo`),
+  number (`Nd`, `Nl`, `No`), or ASCII `_`.
+- Later characters may also include ASCII `.`, `-`, and combining marks. A mark
+  (`Mn`, `Mc`, `Me`) must follow a letter, number, or another mark, not
+  punctuation or `_`.
+- Unicode default-ignorable characters are rejected, including zero-width and
+  bidi controls, combining grapheme joiners, and variation selectors. Whitespace,
+  controls, separators and shell metacharacters are also rejected.
+- The normalized name must be between 1 and 128 UTF-8 bytes. The limit counts
+  bytes rather than characters and is checked after normalization and automatic
+  filename translation. Names are never truncated.
+
+Leading `-` or `.` and standalone marks are not accepted for new aliases. In
+particular, `.` and `..` are not aliases. An internal or trailing dot is allowed;
+aliases are Vault names and do not acquire host filesystem naming restrictions.
+Existing ASCII aliases remain readable, resolvable and removable, including
+legacy leading-hyphen names. Use `a@-name` to select such an alias and `-- -name`
+when removing it: `lbx vault lockbox alias remove -- -name`.
+
+The documented shells are Bash, Zsh, Fish, PowerShell and Elvish. Tests exercise
+unquoted alias arguments and completion with UTF-8 terminal/native argument
+handling. Platform and shell-version results are recorded in the
+[validation evidence](../../../docs/evidence/unicode-aliases-2026-10-10/README.md);
+Linux PowerShell results do not establish Windows behavior.
+
+## Alias records and remembered paths
 
 Aliases are encrypted Vault records and are included in [Vault backups](backup-and-restore.md). They identify a Lockbox by its stable identity. Move the file through reVault to keep its remembered location current. The destination directory must already exist:
 
