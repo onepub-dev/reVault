@@ -12,6 +12,7 @@ use revault_lockbox_api::{
 };
 use revault_vault_api::{get as get_cached_content_key, VaultDirectory};
 use std::fs;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 
 pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()> {
@@ -20,22 +21,41 @@ pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()
 }
 
 fn run_options(options: RecoverOptions, access: &Access) -> CliResult<()> {
-    super::context::ensure_current_lockbox_format(&options.lockbox_path)?;
-    match inspect_pending_cleanup(&options.lockbox_path, access) {
-        Ok(Some(status)) => {
-            if options.dry_run {
-                print_pending_cleanup(&status, options.format)?;
-                return Ok(());
-            }
-            return recover_pending_cleanup(&options.lockbox_path, access, &status, options.quiet);
+    let legacy = recovery_is_legacy(&options.lockbox_path)?;
+    if legacy && !options.dry_run {
+        let output = options.output.as_deref().ok_or_else(|| cli_error(
+            "historical recovery requires a separate --output <recovered.lbox>; the original is retained",
+        ))?;
+        if same_existing_path(Path::new(&options.lockbox_path), Path::new(output)) {
+            return Err(cli_error(
+                "historical recovery requires a separate output; the original must be retained",
+            ));
         }
-        Ok(None) => {}
-        Err(err)
-            if matches!(
-                err.downcast_ref::<Error>(),
-                Some(Error::CorruptHeader | Error::CorruptRecord | Error::Truncated)
-            ) => {}
-        Err(err) => return Err(err),
+    }
+    let recovered_access = Access::ContentKey(recovery_content_key(&options.lockbox_path, access)?);
+    let access = &recovered_access;
+    if !legacy {
+        match inspect_pending_cleanup(&options.lockbox_path, access) {
+            Ok(Some(status)) => {
+                if options.dry_run {
+                    print_pending_cleanup(&status, options.format)?;
+                    return Ok(());
+                }
+                return recover_pending_cleanup(
+                    &options.lockbox_path,
+                    access,
+                    &status,
+                    options.quiet,
+                );
+            }
+            Ok(None) => {}
+            Err(err)
+                if matches!(
+                    err.downcast_ref::<Error>(),
+                    Some(Error::CorruptHeader | Error::CorruptRecord | Error::Truncated)
+                ) => {}
+            Err(err) => return Err(err),
+        }
     }
     if options.dry_run {
         let report = scan_report(&options.lockbox_path, access, options.quiet)?;
@@ -74,6 +94,11 @@ fn run_options(options: RecoverOptions, access: &Access) -> CliResult<()> {
         bytes,
         &Access::ContentKey(recovery_key),
     )?;
+    if recovered.list_key_slots().is_empty()
+        && recovered.format_options().encryption != revault_lockbox_api::EncryptionMode::None
+    {
+        eprintln!("Recovered copy has no readable access slots. It can be opened only with the original raw content key (--key); preserve that key securely.");
+    }
     let parent = output_path
         .parent()
         .filter(|p| !p.as_os_str().is_empty())
@@ -135,6 +160,115 @@ fn run_options(options: RecoverOptions, access: &Access) -> CliResult<()> {
     let rows = report_rows(&report, Some(&output), damaged_original.as_deref());
     print_records(&["field", "value"], rows, options.format)?;
     Ok(())
+}
+
+fn recovery_is_legacy(path: &str) -> CliResult<bool> {
+    let mut header = Vec::new();
+    fs::File::open(path)?.take(384).read_to_end(&mut header)?;
+    match revault_lockbox_api::probe_lockbox_format_version(&header) {
+        Ok(2) => Ok(true),
+        Ok(version) if version == revault_lockbox_api::LOCKBOX_FORMAT_VERSION => Ok(false),
+        Err(Error::CorruptHeader | Error::CorruptRecord | Error::Truncated) => Ok(false),
+        Ok(1) => Err(cli_error("format-1 recovery is not supported by this build's recovery scanner; retain the original and restore a known-good backup. Migration can read intact format-1 archives, but cannot repair damaged ones")),
+        Ok(found) => Err(lockbox_open_error(path, Error::UnsupportedFormatVersion {
+            artifact: revault_lockbox_api::ArtifactKind::Lockbox,
+            found: u32::from(found), supported: u32::from(revault_lockbox_api::LOCKBOX_FORMAT_VERSION),
+        })),
+        Err(error) => Err(error.into()),
+    }
+}
+
+// Unlock only the access directory: opening the full archive can fail on the
+// damaged records that this explicit recovery operation is intended to salvage.
+fn recovery_content_key(path: &str, access: &Access) -> CliResult<SecretVec> {
+    if let Access::ContentKey(key) = access {
+        return Ok(key.try_clone()?);
+    }
+    if Lockbox::inspect_file(path)
+        .ok()
+        .and_then(|inspection| inspection.format_options)
+        .is_some_and(|options| options.encryption == revault_lockbox_api::EncryptionMode::None)
+    {
+        return Ok(SecretVec::try_from_slice(&[0; 32])?);
+    }
+    if let Some(key) = cached_key_if_available(path)? {
+        return Ok(key);
+    }
+    let vault = default_vault()?;
+    let source = Path::new(path);
+    for profile in vault.list_private_keys()? {
+        let mut keys = vec![vault.load_private_key(&profile)?];
+        let history = vault.list_profile_generations(&profile)?;
+        for generation in history.generations {
+            if generation.index != history.active_generation {
+                keys.push(vault.load_private_key_generation(&profile, generation.index)?);
+            }
+        }
+        for key in keys {
+            match VaultOpen::path_with_contact(source, &key) {
+                Ok(opened) => return recovery_opened_key(path, opened),
+                Err(Error::InvalidKey) => {}
+                Err(error) => return Err(recovery_credential_error(error)),
+            }
+        }
+    }
+    let mut passwords = Vec::new();
+    if let Ok(id) = VaultOpen::read_lockbox_id(source) {
+        if let Some(password) = vault.remembered_lockbox_password(id)? {
+            passwords.push(password);
+        }
+    }
+    for profile in vault.list_password_profiles()? {
+        passwords.push(vault.load_profile_password(&profile)?);
+    }
+    drop(vault);
+    for password in passwords {
+        match VaultOpen::path_with_password(source, &password) {
+            Ok(opened) => return recovery_opened_key(path, opened),
+            Err(Error::InvalidKey) => {}
+            Err(error) => return Err(recovery_credential_error(error)),
+        }
+    }
+    if Lockbox::inspect_file(path).ok().is_some_and(|inspection| {
+        !inspection
+            .key_slots
+            .iter()
+            .any(|slot| slot.protection == revault_lockbox_api::LockboxKeySlotProtection::Password)
+    }) {
+        return Err(cli_error("no local Vault profile can unlock this Lockbox for recovery and it has no password access; import an authorized profile or supply the original raw content key with --key"));
+    }
+    let password = match revault_lockbox_api::SecretString::try_from_env("LOCKBOX_PASSWORD")? {
+        Some(password) => password,
+        None => crate::secret_prompt::prompt_secret("Lockbox pass phrase: ")?,
+    };
+    recovery_opened_key(
+        path,
+        VaultOpen::path_with_password(source, &password).map_err(recovery_credential_error)?,
+    )
+}
+
+fn recovery_credential_error(error: Error) -> Box<dyn std::error::Error> {
+    if matches!(
+        error,
+        Error::CorruptHeader | Error::CorruptRecord | Error::Truncated
+    ) {
+        return cli_error("the Lockbox access directory cannot be read; retain the original. Recovery requires the original raw content key (--key), or restore an intact backup with usable access slots");
+    }
+    error.into()
+}
+
+fn recovery_opened_key(
+    path: &str,
+    opened: revault_lockbox_api::vault_integration::OpenedContentKey,
+) -> CliResult<SecretVec> {
+    if super::command_lockbox().as_deref() == Some(path) {
+        if let Some(expected) = super::COMMAND_LOCKBOX_ID.with(|id| *id.borrow()) {
+            if opened.lockbox_id != expected {
+                return Err(cli_error("alias target identity changed"));
+            }
+        }
+    }
+    Ok(opened.try_clone_key()?)
 }
 
 struct RecoverOptions {

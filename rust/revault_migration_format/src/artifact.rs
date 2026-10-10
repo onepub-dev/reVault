@@ -28,6 +28,8 @@ pub const RAW_FRAME_TYPE: u8 = FRAME_RAW;
 pub enum MigrationError {
     /// Represents the io case.
     Io(String),
+    /// The native source archive is damaged; this is not artifact or output I/O failure.
+    SourceCorrupt(String),
     /// Represents the invalid header case.
     InvalidHeader(String),
     /// Represents the unsupported envelope case.
@@ -48,6 +50,7 @@ impl fmt::Display for MigrationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Io(value) => write!(f, "migration I/O error: {value}"),
+            Self::SourceCorrupt(value) => write!(f, "migration source archive is corrupt: {value}"),
             Self::InvalidHeader(value) => write!(f, "invalid migration header: {value}"),
             Self::UnsupportedEnvelope(value) => {
                 write!(f, "unsupported migration envelope version {value}")

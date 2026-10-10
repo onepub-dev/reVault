@@ -3180,6 +3180,145 @@ fn salvage_omits_corrupt_file_records() {
 }
 
 #[test]
+fn salvage_upgrades_damaged_format_two_and_preserves_password_and_contact_access() {
+    let passphrase = password("historical recovery password");
+    let contact = ContactKeyPair::generate().unwrap();
+    let mut source = Lockbox::create(KEY);
+    // Core fixture: write the actual historical representation, not merely a
+    // modified version discriminator on a format-3 archive.
+    source.set_creation_format(crate::creation_options::FormatMode::default());
+    source.add_password(&passphrase).unwrap();
+    source.add_contact(&contact.public_key()).unwrap();
+    add_file(&mut source, &p("/keep.txt"), b"historical payload", false).unwrap();
+    source
+        .set_variable(&variable("REGION"), "historical-region")
+        .unwrap();
+    source
+        .set_secret_variable(&variable("TOKEN"), &password("historical-secret"))
+        .unwrap();
+    source
+        .define_form(
+            "login",
+            "Login",
+            vec![form_field(
+                "username",
+                "Username",
+                FormFieldKind::Text,
+                true,
+            )],
+        )
+        .unwrap();
+    create_form_record(&mut source, &p("/forms/login"), "login", "Login").unwrap();
+    source
+        .set_form_field_normal(&p("/forms/login"), "username", "historical-user")
+        .unwrap();
+    source.commit().unwrap();
+    let identity = source.lockbox_id();
+    let slots = source.list_key_slots();
+    let mut damaged = source.to_bytes();
+    assert_eq!(
+        crate::file_format::current_header::probe_lockbox_format_version(&damaged).unwrap(),
+        2
+    );
+    let scanner = crate::page_scanner::PageScanner::new(&damaged, identity, KEY);
+    let root = scanner
+        .commit_root_at(header_commit_root_offset(&damaged) as u64)
+        .unwrap();
+    // Corrupt the TOC page so ordinary opening fails while the record scanner
+    // can still recover data and the intact commit-root metadata.
+    damaged[root.toc_root_offset as usize + 23] ^= 0xaa;
+    assert!(Lockbox::open_bytes_with_key(damaged.clone(), KEY).is_err());
+    let path = temp_path("historical-salvage-source");
+    std::fs::write(&path, &damaged).unwrap();
+    let recovered =
+        RecoveryScanner::salvage_bytes(std::fs::read(&path).unwrap(), KEY, &signing_key()).unwrap();
+    assert_eq!(std::fs::read(&path).unwrap(), damaged);
+    let bytes = recovered.to_bytes();
+    assert_eq!(
+        crate::file_format::current_header::probe_lockbox_format_version(&bytes).unwrap(),
+        3
+    );
+    assert_eq!(recovered.lockbox_id(), identity);
+    assert_eq!(recovered.list_key_slots(), slots);
+    let raw = Lockbox::open_bytes_with_key(bytes.clone(), KEY).unwrap();
+    assert_eq!(
+        raw.get_file(&p("/keep.txt")).unwrap(),
+        b"historical payload"
+    );
+    assert_eq!(
+        raw.get_variable(&variable("REGION")).unwrap().as_deref(),
+        Some("historical-region")
+    );
+    raw.with_secret_variable(&variable("TOKEN"), |value| {
+        value
+            .with_str(|value| assert_eq!(value, "historical-secret"))
+            .unwrap();
+    })
+    .unwrap()
+    .unwrap();
+    assert!(
+        matches!(raw.get_form_field(&p("/forms/login"), "username").unwrap().unwrap().value,
+        FormValue::Normal(value) if value == "historical-user")
+    );
+    let by_password = Lockbox::open_with_password(bytes.clone(), &passphrase).unwrap();
+    assert_eq!(
+        by_password.get_file(&p("/keep.txt")).unwrap(),
+        b"historical payload"
+    );
+    let by_contact = Lockbox::open_with_contact(bytes, &contact).unwrap();
+    assert_eq!(
+        by_contact.get_file(&p("/keep.txt")).unwrap(),
+        b"historical payload"
+    );
+    std::fs::remove_file(path).unwrap();
+}
+
+#[test]
+fn salvage_rejects_wrong_keys_but_retains_valid_empty_archives() {
+    for historical in [false, true] {
+        let mut source = Lockbox::create(KEY);
+        if historical {
+            source.set_creation_format(crate::creation_options::FormatMode::default());
+        }
+        source
+            .add_password(&password("empty archive password"))
+            .unwrap();
+        source.commit().unwrap();
+        let bytes = source.to_bytes();
+        assert!(matches!(
+            RecoveryScanner::salvage_bytes(bytes.clone(), b"wrong key", &signing_key()),
+            Err(Error::InvalidKey)
+        ));
+        let recovered = RecoveryScanner::salvage_bytes(bytes, KEY, &signing_key()).unwrap();
+        assert_eq!(
+            crate::file_format::current_header::probe_lockbox_format_version(&recovered.to_bytes())
+                .unwrap(),
+            3
+        );
+        let opened =
+            Lockbox::open_with_password(recovered.to_bytes(), &password("empty archive password"))
+                .unwrap();
+        assert_eq!(opened.list(ListOptions::new(&p("/"))).unwrap().count(), 0);
+    }
+    let mut plaintext = Lockbox::create_in_memory_with_options(crate::LockboxCreateOptions::new(
+        crate::Encryption::None,
+        crate::Signing::None,
+    ))
+    .unwrap();
+    plaintext.commit().unwrap();
+    let recovered =
+        RecoveryScanner::salvage_bytes(plaintext.to_bytes(), b"", &signing_key()).unwrap();
+    assert_eq!(
+        recovered.format_options().encryption,
+        crate::EncryptionMode::None
+    );
+    assert_eq!(
+        recovered.list(ListOptions::new(&p("/"))).unwrap().count(),
+        0
+    );
+}
+
+#[test]
 fn wrong_key_cannot_open_or_recover_private_metadata() {
     let bytes = sample_lockbox();
     assert!(Lockbox::open_bytes_with_key(bytes.clone(), b"wrong key").is_err());

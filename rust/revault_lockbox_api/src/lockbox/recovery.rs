@@ -60,6 +60,9 @@ impl RecoveryScanner {
     }
 
     /// Salvage a damaged lockbox from storage bytes into a new opened lockbox.
+    /// The destination uses the current format and retains readable access slots
+    /// for the original identity and content key. If no key directory survives,
+    /// the recovered archive remains accessible using the supplied content key.
     ///
     /// Returns `Error::InvalidKey` if the supplied key cannot authenticate any
     /// recoverable records, or `Error::CorruptRecord`/storage errors if the
@@ -192,10 +195,21 @@ impl<'a> RecoverySession<'a> {
     }
 
     fn salvage(&self, signing_key: &OwnerSigningKeyPair) -> Result<Lockbox> {
-        let metadata = header_commit_root_for_recovery(&self.scanner, self.bytes)
-            .map(|(commit_root, _)| recover_metadata_from_commit_root(&self.scanner, &commit_root))
+        if let Err(error @ Error::UnsupportedFormatVersion { .. }) = read_header(self.bytes) {
+            return Err(error);
+        }
+        let commit_root = header_commit_root_for_recovery(&self.scanner, self.bytes);
+        let metadata = commit_root
+            .as_ref()
+            .map(|(commit_root, _)| recover_metadata_from_commit_root(&self.scanner, commit_root))
             .unwrap_or_default();
         let scan = self.scanner.scan_records();
+        // Public key-directory pages are not included in scan.records. For an
+        // encrypted source, a decoded record therefore proves the content key;
+        // a valid empty archive still has authenticated commit-root records.
+        if scan.records.is_empty() && commit_root.is_none() {
+            return Err(Error::InvalidKey);
+        }
         let scanned_segments = collect_scanned_file_segments(&scan.records);
         let mut recovered = Lockbox::create_with_secret_key_and_options(
             crate::SecretVec::try_from_slice(self.key)?,
@@ -203,7 +217,18 @@ impl<'a> RecoverySession<'a> {
             crate::LockboxOptions::default(),
         );
         recovered.set_owner_signing_key(signing_key.try_clone()?);
-        recovered.set_creation_format(self.scanner.format_mode);
+        // Re-encode the recovered logical values using today's representation,
+        // including legacy format 2's equivalent explicit format-3 options.
+        recovered.set_creation_format(crate::creation_options::FormatMode::new(
+            self.scanner.format_mode.options(),
+        ));
+        if let Some(directory) =
+            best_key_directory(scan_key_directories(self.bytes, Some(self.lockbox_id)))
+        {
+            recovered.key_slots = directory.slots;
+            recovered.key_directory.generation = directory.generation;
+            recovered.mark_key_directory_dirty();
+        }
         let mut latest_paths = BTreeMap::new();
         for record in &scan.records {
             if let Ok(entries) = decode_index_records(record) {

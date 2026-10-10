@@ -431,7 +431,7 @@ fn recovery_command(verbose: bool) -> Command {
         .after_help(verbose_help(
             verbose,
             "Examples:\n  lockbox damaged.lbox doctor recover\n  lockbox damaged.lbox doctor recover --output recovered.lbox\n  lockbox damaged.lbox doctor recover --dry-run --format table",
-            "Context:\n  Recover first detects authenticated interrupted transaction cleanup and completes it in place. If no cleanup is pending, it scans the damaged lockbox and writes a new lockbox containing readable entries. By default the recovered file is written next to the original as <name>.recovered.lbox. Use --dry-run to inspect the operation without changing files.",
+            "Context:\n  Recover supports format 2 and current-format Lockboxes without installing an older CLI. It unlocks the access directory using Vault profiles or a pass phrase, so a normal open is not required. Format-2 recovery requires a separate --output destination and writes a current-format copy. For current formats, authenticated interrupted cleanup is completed in place; otherwise readable entries are salvaged to <name>.recovered.lbox by default. Use --dry-run to inspect without changing files. Recovery can omit damaged entries: verify the recovered content and retain the original.",
         ))
         .arg(
             Arg::new("output")
@@ -1899,7 +1899,7 @@ fn vault_command(verbose: bool) -> Command {
                         .about("Set or replace an alias and remember its target path.")
                         .arg(required("name", "Alias name: ASCII letters, digits, underscore or hyphen."))
                         .arg(required("lockbox", "Existing lockbox path or a@alias; defaults to the session lockbox.").required(false).add(ArgValueCompleter::new(completion::lockbox_path_candidates))))
-                    .subcommand(Command::new("list").about("List aliases and stable target identities.").arg(output_format_arg()))
+                    .subcommand(Command::new("list").alias("ls").about("List aliases and stable target identities.").arg(output_format_arg()))
                     .subcommand(Command::new("remove").about("Remove an alias without deleting its lockbox.")
                         .arg(required("name", "Alias name.").add(ArgValueCompleter::new(completion::alias_name_candidates)))))
                 .disable_help_subcommand(true)
@@ -2491,6 +2491,42 @@ mod migration_inventory_tests {
             ),
         ]);
         assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn every_list_command_accepts_ls_and_keeps_list_canonical() {
+        fn collect(command: &Command, path: &mut Vec<String>, lists: &mut Vec<Vec<String>>) {
+            for child in command.get_subcommands() {
+                path.push(child.get_name().to_string());
+                if child.get_name() == "list" {
+                    assert!(
+                        child.get_all_aliases().any(|alias| alias == "ls"),
+                        "{}",
+                        path.join("/")
+                    );
+                    lists.push(path.clone());
+                }
+                collect(child, path, lists);
+                path.pop();
+            }
+        }
+        let mut paths = Vec::new();
+        collect(&command(false), &mut Vec::new(), &mut paths);
+        assert!(paths
+            .iter()
+            .any(|path| path.join("/") == "vault/lockboxes/aliases/list"));
+        for path in paths {
+            let mut args = vec!["lockbox".to_string()];
+            args.extend(path[..path.len() - 1].iter().cloned());
+            args.push("ls".to_string());
+            let matches = command(false).try_get_matches_from(&args).unwrap();
+            let mut matches = &matches;
+            for canonical in &path {
+                let (name, child) = matches.subcommand().unwrap();
+                assert_eq!(name, canonical, "{args:?}");
+                matches = child;
+            }
+        }
     }
 
     #[test]

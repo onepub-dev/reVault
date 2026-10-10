@@ -255,6 +255,22 @@ LOCKBOX_PASSWORD="$ARCHIVE_PASSWORD" \
   lockbox doctor migrate lockbox old-secrets.lbox --output ./old-secrets-current.lbox
 ```
 
+#### Migration reports damaged source data
+
+Migration must preserve all readable source content and stops when source
+corruption prevents export. Recovery is a separate decision because it may omit
+damaged entries. For a format-2 source, use the current CLI:
+
+```console
+lbx old-secrets.lbox doctor recover --dry-run
+lbx old-secrets.lbox doctor recover --output old-secrets.recovered.lbox
+```
+
+The recovered copy uses format 3; no old CLI or second migration is needed.
+Open the recovered copy and inspect its contents before replacing the damaged
+original. See [Recover a damaged Lockbox](recovery.md) for credential requirements
+and recovery limits.
+
 #### The exporter cannot be installed
 
 The current CLI needs the historical exporter for an old native format. Check network access to crates.io and that Cargo is installed. If installation is not possible, obtain the exact exporter binary through your deployment system and pass it with the advanced `--exporter <path>` option.

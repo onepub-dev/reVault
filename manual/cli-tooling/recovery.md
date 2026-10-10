@@ -12,6 +12,12 @@ Work from a copy whenever possible. Keep the original unchanged until the recove
 
 ## Preview recovery
 
+Recovery can unlock a closed Lockbox from its surviving key directory using
+Profile keys or passwords available through the Vault. You do not need a
+successful normal `open` before recovery. If the key directory is damaged too,
+recovery needs an already cached content key or an explicitly supplied recovery
+key; it cannot reconstruct a lost key.
+
 ```bash
 lbx damaged.lbox doctor recover --dry-run
 ```
@@ -39,6 +45,28 @@ lbx recovered.lbox extract --to ./recovery-check
 ```
 
 Recovery writes only complete entries whose metadata can still be associated with a valid Lockbox path. A surviving name with missing data is reported rather than padded with invented bytes.
+
+## Recover an older Lockbox after migration fails
+
+The current CLI can recover format-2 Lockboxes directly. You do not need to
+install an older CLI. Preview recovery, then supply a separate output path:
+
+```bash
+lbx old-secrets.lbox doctor recover --dry-run
+lbx old-secrets.lbox doctor recover --output old-secrets.recovered.lbox
+lbx old-secrets.recovered.lbox open
+lbx old-secrets.recovered.lbox list --recursive
+```
+
+The recovered copy uses format 3 and retains usable access slots from the
+surviving key directory. Check its contents before choosing whether to replace
+the original. Recovery can omit damaged entries; a successful recovery does not
+mean that every original entry survived. Format-2 recovery requires a separate
+output and never repairs the original in place.
+
+This route supports formats 2 and 3. It does not add recovery for format 1 or
+newer unsupported formats. Keep the damaged source and any backups when a
+compatible recovery reader is unavailable.
 
 ## Interrupted transactions
 
