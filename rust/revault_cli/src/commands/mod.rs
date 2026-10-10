@@ -105,6 +105,9 @@ pub(crate) fn run() -> CliResult<()> {
         .map(|path| aliases::resolve_with_policy(&path, policy))
         .transpose()?;
     COMMAND_LOCKBOX_ID.with(|id| *id.borrow_mut() = resolved.as_ref().and_then(|(_, id)| *id));
+    if resolved.as_ref().is_some_and(|(_, id)| id.is_some()) {
+        COMMAND_LOCKBOX_REFERENCE.with(|reference| *reference.borrow_mut() = true);
+    }
     set_command_lockbox(resolved.map(|(path, _)| path));
     let secret_activity = if command == "doctor"
         && matches!(

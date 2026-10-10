@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Resolve simple Lockbox names as local files or Vault aliases. Reject conflicting
+  matches with guidance to use `a@name`, `./name`, or `name.lbox` explicitly.
 - Use plural resource groups throughout the CLI: `variables`, `forms`, `mirrors`,
   `rules`, and Vault `profiles`, `contacts`, `lockboxes`, `aliases`, and `forms`.
   Help, completion, examples, and the manual use these command names.
