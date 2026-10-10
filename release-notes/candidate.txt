@@ -1,26 +1,37 @@
-Development only: restore archive format 3 (not release-qualified)
-CLI: 0.4.1-dev.1
-Bindings: 0.4.2-dev.1
+Release cli
+CLI: 0.4.1
+Bindings: 
 
-- Restore main to the 0.4.x format-3 compatibility line.
-- Retain unfinished format-4 work on its development branch; reserve 0.5.x for it.
-- Published format-3 releases remain CLI 0.4.0 and bindings 0.4.1.
-
-- Establish the 0.4.x compatibility line for archive format 3; format 4 is excluded.
-- Dart 0.4.0 has already shipped; 0.4.1 updates its build-hook dependency and package-version metadata.
-- Declare the Swift native-library dependency explicitly on Linux and locate its build products through SwiftPM.
-
-- Fix #310: share verified raw frames with seekable readers
-- Fix #310: reduce large-file read copies and redundant wiping
-- Fix #310: share decoded pages and benchmark fresh ZIP reads
-- Prepare all release: CLI 0.0.18, bindings 0.3.16
-- Retain comprehensive migration fixtures and enforce release coverage
-- Fix hosted WASM conformance native loader paths
-- Prepare all release: CLI 0.0.18, bindings 0.3.16
-- Strengthen migration assertions and update format documentation
-- Fix header corruption tests for v3 lockboxes
-- Prepare all release: CLI 0.0.18, bindings 0.3.16
-- Fix release conformance format probe and xtask workflow
-- Prepare all release: CLI 0.0.18, bindings 0.3.16
-- Hide xtask development tasks behind revault-tool
-- Consolidate development commands in revault-tool
+- Keep IPC smoke credentials private and separate build timeout
+- Refresh Rust binding locks after native D-Bus removal
+- Fix release readiness checks for the format-3 CLI
+- Allow release preparation from prerelease source versions
+- Merge recovery and alias-list fixes into #327
+- Merge main into #327 and preserve standalone creation
+- Recover historical archives with current CLI and preserve access
+- Merge alias resolution fixes into migration branch
+- Fix historical migration unlock and add bulk migration
+- Resolve bare lockbox names through local files and aliases
+- Update documentation for plural CLI command groups
+- Use plural CLI groups and fix Vault container migration
+- Restore format-3 compatibility and defer v4 recovery
+- Fix #327: register lockbox aliases during create
+- Unify lockbox selection and require explicit archive creation
+- Fix exact variable moves and renames
+- Resolve Lockbox aliases across all archive path arguments
+- Install completion for all CLI commands in one step
+- Document Lockbox aliases and scripting helpers in GitBook
+- Retire obsolete documentation narratives and preserve dated v4 history
+- Track staged Rust formatting hook and contributor guidance
+- Document project goals and add manual navigation
+- Add Vault lockbox aliases and scripting value helpers
+- Remove redundant closure from migration regression test
+- Format migration lifecycle regression test
+- Fix #322: integrate zbus headless support and remove native Zstd encoder
+- Merge format-3 releases and reserve 0.5.x for format-4 development
+- Merge #314 external backing-store support
+- Support guarded read-only external backing stores (#314)
+- Merge issue #313 transaction recovery and archive v4 into main
+- Fix #313: document v4 transactions and maintenance compatibility
+- Fix #313: recover allocations durably and add verified compaction
+- Fix #313: roll back failed allocations and retire full pages
