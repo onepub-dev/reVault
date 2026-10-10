@@ -17,6 +17,7 @@ const aliases = <({String name, String value, String policy})>[
   (name: 'hebrew', value: 'שלום', policy: 'valid'),
   (name: 'arabic_mark', value: 'مُستخدم', policy: 'valid'),
   (name: 'cjk', value: '日本語', policy: 'valid'),
+  (name: 'cyrillic', value: 'проект', policy: 'valid'),
   (name: 'ascii_numeric_start', value: '123', policy: 'valid'),
   (name: 'arabic_numeric_start', value: '١٢٣', policy: 'valid'),
   (name: 'fullwidth_numeric_start', value: '１２３', policy: 'valid'),

@@ -62,9 +62,9 @@ jobs:
     env:
       REVAULT_UNICODE_SHELLS: ${{ matrix.shells }}
       REVAULT_UNICODE_BASH: ${{ matrix.bash }}
-      REVAULT_UNICODE_ELVISH: ${{ runner.temp }}/unicode-shell-bin/${{ matrix.elvish }}
+      REVAULT_UNICODE_ELVISH: ${{ github.workspace }}/.unicode-shell-bin/${{ matrix.elvish }}
       REVAULT_ALIAS_BASELINE_BIN: ${{ github.workspace }}/.unicode-baseline/rust/target/debug/${{ matrix.binary }}
-      GOBIN: ${{ runner.temp }}/unicode-shell-bin
+      GOBIN: ${{ github.workspace }}/.unicode-shell-bin
     steps:
       - uses: actions/checkout@v4
       - name: Checkout pinned format-3 reader separately

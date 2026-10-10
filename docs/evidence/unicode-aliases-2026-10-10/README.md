@@ -33,7 +33,7 @@ test does not run its assertions.
 
 The executable Dart/DCLI driver `tools/unicode_shell_argv.dart` checks shell
 token preservation for unquoted alias names, `--alias NAME`, and `a@NAME`. Each
-required shell receives 96 arguments. Missing shells and changed argument bytes
+required shell receives 100 arguments. Missing shells and changed argument bytes
 fail the driver. The local run used Linux with `C.UTF-8`:
 
 | Shell | Version | Shell token result |
