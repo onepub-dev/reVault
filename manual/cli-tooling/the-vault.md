@@ -53,14 +53,14 @@ Changing the passphrase does not change the keys belonging to your Profiles or L
 The Vault remembers Lockbox paths. If you move a Lockbox through the shell or a file manager, tell reVault where it went:
 
 ```bash
-lbx vault lockbox move ./old.lbox ./archive/new.lbox
+lbx vault lockboxes move ./old.lbox ./archive/new.lbox
 ```
 
 You can inspect or remove remembered paths with:
 
 ```bash
-lbx vault lockbox list
-lbx vault lockbox forget ./old-project.lbox
+lbx vault lockboxes list
+lbx vault lockboxes forget ./old-project.lbox
 ```
 
 Forgetting a path does not delete the Lockbox.

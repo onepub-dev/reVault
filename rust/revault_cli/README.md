@@ -78,15 +78,15 @@ lbx project-secrets.lbox add --recursive ./deploy --to project/deploy/
 
 # Store a normal configuration value. Variables are encrypted metadata, not
 # files, so they do not appear in ordinary file listings.
-lbx project-secrets.lbox variable set APP_ENV production
+lbx project-secrets.lbox variables set APP_ENV production
 
 # Store a secret without putting its value in shell history or the process list.
 # This prompts without echoing the value.
-lbx project-secrets.lbox variable set --secret API_TOKEN --interactive
+lbx project-secrets.lbox variables set --secret API_TOKEN --interactive
 
 # Define a reusable structured record type in this lockbox. A `secret` field is
 # hidden and must be supplied interactively or via an explicit secret source.
-lbx project-secrets.lbox form define login \
+lbx project-secrets.lbox forms define login \
   --name 'Website login' \
   --description 'Credentials for an external service' \
   --field username:text:required:Username \
@@ -95,7 +95,7 @@ lbx project-secrets.lbox form define login \
 
 # Add a login record. --set supplies the non-secret fields; --interactive
 # securely prompts for the password field.
-lbx project-secrets.lbox form add /services/github \
+lbx project-secrets.lbox forms add /services/github \
   --type login \
   --name GitHub \
   --set username=octavia \
@@ -105,8 +105,8 @@ lbx project-secrets.lbox form add /services/github \
 # Inspect the non-secret structure and values.
 lbx project-secrets.lbox list /
 lbx project-secrets.lbox description get
-lbx project-secrets.lbox variable get APP_ENV
-lbx project-secrets.lbox form show /services/github
+lbx project-secrets.lbox variables get APP_ENV
+lbx project-secrets.lbox forms show /services/github
 
 # Frequent commands also have familiar aliases: ls, rm, and mv.
 lbx project-secrets.lbox ls /
@@ -120,12 +120,12 @@ Use secret variables for tokens, passwords, and private keys rather than files
 or command-line values. `--interactive` is the safest convenient default;
 `--stdin`, `--file`, and `--from-env` are available for automated workflows.
 To see a secret form field, make that choice explicit with `--secret`, for
-example `lbx project-secrets.lbox form get --secret /services/github@password`.
+example `lbx project-secrets.lbox forms get --secret /services/github@password`.
 
 Store a local Vault alias and use the small scripting helpers:
 
 ```bash
-lbx vault lockbox alias set dev ./project-secrets.lbox
+lbx vault lockboxes aliases set dev ./project-secrets.lbox
 lbx a@dev open
 TOKEN=$(lbxv a@dev API_TOKEN)
 lbxx a@dev API_TOKEN -- your-command
@@ -136,7 +136,7 @@ lbxx a@dev GITHUB_TOKEN=/services/github@password -- your-command
 in the child environment and preserves its exit code. Both read normal or
 secret values without prompting; open the Vault and Lockbox first. Without
 `NAME=`, the environment name is the variable basename or form field name.
-`form get` and `form set` now use one `/path@field` argument.
+`forms get` and `forms set` now use one `/path@field` argument.
 Use `./a@dev` for a host file literally named `a@dev`; bare `a@dev` always
 selects a Vault alias. A single `lbx completion install` registers completion
 for `lockbox`, `lbx`, `lbxv` and `lbxx` together.
@@ -149,7 +149,7 @@ lbx project-secrets.lbox description clear
 ```
 
 `lbx doctor project-secrets.lbox` shows the description when it can open that
-Lockbox. `lbx vault lockbox list --with-description` attempts to open every
+Lockbox. `lbx vault lockboxes list --with-description` attempts to open every
 remembered Lockbox and reports `(unavailable)` for descriptions it cannot
 decrypt.
 
@@ -158,9 +158,9 @@ decrypt.
 Create a named project, inspect its first update, then apply it:
 
 ```bash
-lbx backup.lbox mirror project create --from ./project --to /projects/project
-lbx backup.lbox mirror project status
-lbx backup.lbox mirror project update
+lbx backup.lbox mirrors project create --from ./project --to /projects/project
+lbx backup.lbox mirrors project status
+lbx backup.lbox mirrors project update
 ```
 
 Creation stores configuration but copies no files. The host is authoritative:
@@ -169,29 +169,29 @@ files missing from the host. Set `--missing-files retain` when that project
 should preserve archive-only files:
 
 ```bash
-lbx backup.lbox mirror project configure --missing-files retain
+lbx backup.lbox mirrors project configure --missing-files retain
 ```
 
 The archive TOC is the archive-side manifest. The encrypted project record
 stores the canonical host path, lockbox destination, filesystem identity where
 available, rules, and missing-file policy. Multiple projects may coexist, but
 their destinations cannot overlap. Ordinary file commands cannot mutate a
-managed subtree; use the corresponding `mirror NAME add`, `extract`, `cat`,
+managed subtree; use the corresponding `mirrors NAME add`, `extract`, `cat`,
 `list`, `remove`, or `move` command.
 
 Configure persistent source-relative rules explicitly:
 
 ```bash
-lbx backup.lbox mirror project rule add include 'src/**' README.md
-lbx backup.lbox mirror project rule add exclude target/** '*.tmp'
-lbx backup.lbox mirror project rule list
-lbx backup.lbox mirror project rule remove exclude '*.tmp'
+lbx backup.lbox mirrors project rules add include 'src/**' README.md
+lbx backup.lbox mirrors project rules add exclude target/** '*.tmp'
+lbx backup.lbox mirrors project rules list
+lbx backup.lbox mirrors project rules remove exclude '*.tmp'
 ```
 
 The project is a normal encrypted variable under
 `/.revault/mirrors/PROJECT`. Variable listings hide dot-prefixed variables
-unless `variable list --all` is supplied, and exports always omit them. An
-exact `variable get` can inspect one.
+unless `variables list --all` is supplied, and exports always omit them. An
+exact `variables get` can inspect one.
 
 Deletion is guarded separately: an empty selected source needs `--allow-empty`,
 and a plan deleting more than half the managed files needs

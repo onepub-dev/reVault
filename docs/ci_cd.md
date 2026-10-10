@@ -94,7 +94,7 @@ set -euo pipefail
 
 token_file="${RUNNER_TEMP:-${TMPDIR:-/tmp}}/deployment-token"
 
-lockbox variable get --secret \
+lockbox variables get --secret \
   --output "$token_file" \
   deploy.lbox DEPLOYMENT_TOKEN
 
@@ -225,7 +225,7 @@ variable path to `DATABASE_URL`.
 
 Injection is explicit: `ci open` must not export every secret variable by
 default. The values exist only in the child process and its descendants. For a
-credential that can be consumed from a file, `lockbox variable get --secret
+credential that can be consumed from a file, `lockbox variables get --secret
 --output ...` remains preferable.
 
 The initial implementation can omit `--env`; the managed child-command scope is

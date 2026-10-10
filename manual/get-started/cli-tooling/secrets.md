@@ -9,15 +9,15 @@ Files in a Lockbox are encrypted at rest. Variables and Form fields marked as `s
 * the CLI will not accept their value as a command-line argument;
 * secret buffers use locked memory where the operating system supports it;
 * buffers are cleared when no longer needed; and
-* secret variables are excluded from `variable export`.
+* secret variables are excluded from `variables export`.
 
 Enter a secret interactively or use standard input, a file, or an existing environment variable:
 
 ```bash
-lbx secrets.lbox variable set API_TOKEN --secret --interactive
-lbx secrets.lbox variable set API_TOKEN --secret --stdin
-lbx secrets.lbox variable set API_TOKEN --secret --file ./token.txt
-lbx secrets.lbox variable set API_TOKEN --secret --from-env API_TOKEN
+lbx secrets.lbox variables set API_TOKEN --secret --interactive
+lbx secrets.lbox variables set API_TOKEN --secret --stdin
+lbx secrets.lbox variables set API_TOKEN --secret --file ./token.txt
+lbx secrets.lbox variables set API_TOKEN --secret --from-env API_TOKEN
 ```
 
 Each alternative has a trade-off. A source file can remain on disk; an environment variable can be inherited by child processes; a pipeline can expose the value to another command. Interactive entry is the safest default for a person at a terminal.

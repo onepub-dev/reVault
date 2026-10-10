@@ -51,7 +51,7 @@ support, and both password and recipient-key access.
   TOCs, or records are damaged.
 - Password slots and public-key recipient slots can coexist in the same
   container.
-- The UX can be domain-specific: `lockbox variable export`,
+- The UX can be domain-specific: `lockbox variables export`,
   `lockbox add-recipient`, `lockbox remove-key`, and local open caching are
   clearer for secret bundles than raw GPG commands.
 
@@ -82,7 +82,7 @@ gpg --decrypt secrets.env.gpg
 ```
 
 ```bash
-lockbox secrets.lbox variable export
+lockbox secrets.lbox variables export
 ```
 
 The Lockbox command may be better once installed, but GPG often wins the first

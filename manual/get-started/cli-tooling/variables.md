@@ -3,17 +3,17 @@
 A Lockbox variable is a name/value pair. It is useful for configuration that needs to travel with a project without becoming another loose file.
 
 ```bash
-lbx secrets.lbox variable set DB_HOST 127.0.0.1
-lbx secrets.lbox variable set DB_PORT 5432
-lbx secrets.lbox variable get DB_HOST
-lbx secrets.lbox variable list
+lbx secrets.lbox variables set DB_HOST 127.0.0.1
+lbx secrets.lbox variables set DB_PORT 5432
+lbx secrets.lbox variables get DB_HOST
+lbx secrets.lbox variables list
 ```
 
 Variables may live under paths, which lets one Lockbox hold separate environments:
 
 ```bash
-lbx secrets.lbox variable set /accounting/production/DB_PORT 5432
-lbx secrets.lbox variable set /accounting/staging/DB_PORT 5433
+lbx secrets.lbox variables set /accounting/production/DB_PORT 5432
+lbx secrets.lbox variables set /accounting/staging/DB_PORT 5433
 ```
 
 ## Secret variables
@@ -21,16 +21,16 @@ lbx secrets.lbox variable set /accounting/staging/DB_PORT 5433
 Mark passwords, tokens and private credentials as secret:
 
 ```bash
-lbx secrets.lbox variable set API_TOKEN --secret --interactive
-lbx secrets.lbox variable get --secret API_TOKEN
+lbx secrets.lbox variables set API_TOKEN --secret --interactive
+lbx secrets.lbox variables get --secret API_TOKEN
 ```
 
 Secret values cannot be supplied as a command-line value, because arguments may be exposed through process listings and shell history. Use one of these sources instead:
 
 ```bash
-lbx secrets.lbox variable set API_TOKEN --secret --stdin
-lbx secrets.lbox variable set API_TOKEN --secret --file ./token.txt
-lbx secrets.lbox variable set API_TOKEN --secret --from-env API_TOKEN
+lbx secrets.lbox variables set API_TOKEN --secret --stdin
+lbx secrets.lbox variables set API_TOKEN --secret --file ./token.txt
+lbx secrets.lbox variables set API_TOKEN --secret --from-env API_TOKEN
 ```
 
 Normal variables may use the same sources, or a positional value as shown in the first examples.
@@ -40,13 +40,13 @@ Normal variables may use the same sources, or a positional value as shown in the
 The export command intentionally exports only non-secret variables:
 
 ```bash
-lbx secrets.lbox variable export --format posix
-lbx secrets.lbox variable export --format json
+lbx secrets.lbox variables export --format posix
+lbx secrets.lbox variables export --format json
 ```
 
 Other supported formats are `powershell` and `cmd`. Review generated shell output before evaluating it, particularly when variable names or values came from someone else.
 
-Use `variable move` and `variable remove` to reorganise or delete entries. Run `lbx secrets.lbox variable --help` for the complete command surface.
+Use `variables move` and `variables remove` to reorganise or delete entries. Run `lbx secrets.lbox variables --help` for the complete command surface.
 
 ## Read values in scripts
 
@@ -55,7 +55,7 @@ See [Lockbox aliases and script helpers](../../protect-and-share/the-vault/lockb
 The `lbxv` and `lbxx` helpers accept either a Lockbox file path or a Vault alias such as `a@dev`. Open the Vault and Lockbox with `lbx` first; the helpers do not prompt for credentials.
 
 ```bash
-lbx vault lockbox alias set dev ./secrets.lbox
+lbx vault lockboxes aliases set dev ./secrets.lbox
 lbx a@dev open
 TOKEN=$(lbxv a@dev ONEPUB_TOKEN)
 lbxx a@dev ONEPUB_TOKEN -- dart pub get

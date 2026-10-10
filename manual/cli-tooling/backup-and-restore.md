@@ -17,8 +17,8 @@ The backup remains encrypted with the Vault passphrase. Store them separately. T
 Profile recovery files provide an additional route to the keys belonging to one Profile:
 
 ```bash
-lbx vault profile backup ./default.profile-backup
-lbx vault profile backup ./production.profile-backup --name production
+lbx vault profiles backup ./default.profile-backup
+lbx vault profiles backup ./production.profile-backup --name production
 ```
 
 {% hint style="danger" %}
@@ -38,7 +38,7 @@ Profile recovery files contain private key material. Treat them as plaintext mas
 
    ```bash
    lbx vault init
-   lbx vault profile restore ./default.profile-backup
+   lbx vault profiles restore ./default.profile-backup
    ```
 
 4. Copy the Lockbox files to the machine.

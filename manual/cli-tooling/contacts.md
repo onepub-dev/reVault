@@ -11,15 +11,15 @@ Read [Sharing](sharing.md) before adding a Contact. Saving a public key is easy;
 ## Manage Contacts
 
 ```bash
-lbx vault contact list
-lbx vault contact receive <publish-code> alice
-lbx vault contact remove alice
+lbx vault contacts list
+lbx vault contacts receive <publish-code> alice
+lbx vault contacts remove alice
 ```
 
 For a public Profile exchanged as a file:
 
 ```bash
-lbx vault contact import alice ./alice.pub \
+lbx vault contacts import alice ./alice.pub \
   --fingerprint <fingerprint-code> \
   --fingerprint-channel in-person
 ```

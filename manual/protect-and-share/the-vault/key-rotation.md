@@ -9,10 +9,10 @@ Rotation creates a new active key generation while retaining the old generation 
 Back up the Profile and inspect its history first:
 
 ```bash
-lbx vault profile backup ./production-before-rotation.profile-backup --name production
-lbx vault profile history production
-lbx vault profile rotate production
-lbx vault profile history production
+lbx vault profiles backup ./production-before-rotation.profile-backup --name production
+lbx vault profiles history production
+lbx vault profiles rotate production
+lbx vault profiles history production
 ```
 
 Rotation does not rewrite every Lockbox automatically. Preview stale access entries:

@@ -25,7 +25,7 @@ Secret buffers are cleared when their owners are dropped and reVault attempts to
 Use secret variables and secret Form fields to prevent values being supplied as command-line arguments or exported with ordinary variables:
 
 ```bash
-lbx secrets.lbox variable set API_TOKEN --secret --interactive
+lbx secrets.lbox variables set API_TOKEN --secret --interactive
 ```
 
 Prefer interactive entry for a person at a terminal. Other inputs have trade-offs:

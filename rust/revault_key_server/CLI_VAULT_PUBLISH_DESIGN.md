@@ -21,16 +21,16 @@ key replacement -> verified contact plus optional pending replacement
 This design covers:
 
 ```text
-lockbox vault profile publish
-lockbox vault contact add --publish-code
-lockbox vault contact update --publish-code
-lockbox vault contact update --accept
-lockbox vault contact update --reject
-lockbox vault profile rotate
-lockbox vault profile history
+lockbox vault profiles publish
+lockbox vault contacts add --publish-code
+lockbox vault contacts update --publish-code
+lockbox vault contacts update --accept
+lockbox vault contacts update --reject
+lockbox vault profiles rotate
+lockbox vault profiles history
 lockbox access refresh
-lockbox vault lockbox list
-lockbox vault lockbox forget
+lockbox vault lockboxes list
+lockbox vault lockboxes forget
 key server URL configuration
 binary vault contact records
 signed and unsigned key replacement
@@ -44,25 +44,25 @@ The contact subcommand remains under `vault`.
 New and amended commands:
 
 ```text
-lockbox vault profile publish [profile] [--key-index N] [--server URL] [--ttl 15m] [--max-receives 1]
+lockbox vault profiles publish [profile] [--key-index N] [--server URL] [--ttl 15m] [--max-receives 1]
 
-lockbox vault contact add <profile> --publish-code CODE [--server URL]
-lockbox vault contact add <profile> <public-key-file>
+lockbox vault contacts add <profile> --publish-code CODE [--server URL]
+lockbox vault contacts add <profile> <public-key-file>
 
-lockbox vault contact update <profile> --publish-code CODE [--server URL]
-lockbox vault contact update <profile> <public-key-file>
-lockbox vault contact update <profile> --accept
-lockbox vault contact update <profile> --reject
+lockbox vault contacts update <profile> --publish-code CODE [--server URL]
+lockbox vault contacts update <profile> <public-key-file>
+lockbox vault contacts update <profile> --accept
+lockbox vault contacts update <profile> --reject
 
-lockbox vault profile rotate [profile]
-lockbox vault profile history [profile]
+lockbox vault profiles rotate [profile]
+lockbox vault profiles history [profile]
 
 lockbox access refresh <lockbox> <profile>
 lockbox access refresh --all <profile>
 lockbox access refresh --all
 
-lockbox vault lockbox list
-lockbox vault lockbox forget <lockbox>
+lockbox vault lockboxes list
+lockbox vault lockboxes forget <lockbox>
 ```
 
 `contact add` is only for creating a new contact. If a contact already exists,
@@ -74,15 +74,15 @@ existing trust relationship.
 handles both signed and unsigned replacement payloads and direct offline public
 key files.
 
-`vault profile rotate` is local-only. It does not contact the key server.
-After rotation, the user can call `lockbox vault profile publish` to publish either the
+`vault profiles rotate` is local-only. It does not contact the key server.
+After rotation, the user can call `lockbox vault profiles publish` to publish either the
 active key or a retired key generation.
 
 `access refresh` updates lockbox access entries from retired profile
 generations to active profile generations. It is the user-facing command for
 the underlying key-directory update operation.
 
-`vault lockbox forget` removes a missing or unwanted lockbox reference from the
+`vault lockboxes forget` removes a missing or unwanted lockbox reference from the
 vault's known-lockbox list. It does not modify the lockbox file itself.
 
 ## Worked Examples
@@ -92,7 +92,7 @@ vault's known-lockbox list. It does not modify the lockbox file itself.
 Alice publishes her active profile:
 
 ```bash
-lockbox vault profile publish alice@example.com
+lockbox vault profiles publish alice@example.com
 ```
 
 Alice sees:
@@ -109,7 +109,7 @@ Alice gives both codes to Bob over an independent channel.
 Bob adds Alice:
 
 ```bash
-lockbox vault contact add alice@example.com --publish-code 0123456789012
+lockbox vault contacts add alice@example.com --publish-code 0123456789012
 ```
 
 Bob is prompted:
@@ -125,13 +125,13 @@ If Bob enters `71-44-92`, the contact is stored as verified.
 Alice exports a public contact file:
 
 ```bash
-lockbox vault profile export alice@example.com alice.lockbox-contact
+lockbox vault profiles export alice@example.com alice.lockbox-contact
 ```
 
 Bob imports and verifies it:
 
 ```bash
-lockbox vault contact add alice@example.com alice.lockbox-contact
+lockbox vault contacts add alice@example.com alice.lockbox-contact
 ```
 
 The CLI computes the same verification code from the file payload and asks Bob
@@ -143,7 +143,7 @@ matches.
 Alice rotates her local profile:
 
 ```bash
-lockbox vault profile rotate alice@example.com
+lockbox vault profiles rotate alice@example.com
 ```
 
 This creates a new active key generation and keeps the old generation retired.
@@ -152,7 +152,7 @@ It does not upload anything.
 Alice publishes a replacement for Bob:
 
 ```bash
-lockbox vault profile publish alice@example.com
+lockbox vault profiles publish alice@example.com
 ```
 
 Because Alice has an old retired signing key, the CLI builds a
@@ -161,7 +161,7 @@ Because Alice has an old retired signing key, the CLI builds a
 Bob updates Alice:
 
 ```bash
-lockbox vault contact update alice@example.com --publish-code 0123456789012
+lockbox vault contacts update alice@example.com --publish-code 0123456789012
 ```
 
 If the signature verifies against Alice's current verified contact key, Bob's
@@ -173,13 +173,13 @@ Alice lost her old vault and cannot sign with the previous key. She creates a
 new profile with the same public profile string and publishes it:
 
 ```bash
-lockbox vault profile publish alice@example.com --unsigned-replacement
+lockbox vault profiles publish alice@example.com --unsigned-replacement
 ```
 
 Bob updates Alice:
 
 ```bash
-lockbox vault contact update alice@example.com --publish-code 0123456789012
+lockbox vault contacts update alice@example.com --publish-code 0123456789012
 ```
 
 The CLI detects `unsigned_key_replacement_v1`, computes the replacement
@@ -192,13 +192,13 @@ stored as pending and every use of Alice's old key warns.
 Alice lists profile generations:
 
 ```bash
-lockbox vault profile history alice@example.com
+lockbox vault profiles history alice@example.com
 ```
 
 Then publishes a retired key because a third party needs access to an old archive:
 
 ```bash
-lockbox vault profile publish alice@example.com --key-index 1
+lockbox vault profiles publish alice@example.com --key-index 1
 ```
 
 The CLI must warn that a retired key is being published.
@@ -401,7 +401,7 @@ verified key but must warn every time:
 ```text
 WARNING: alice@example.com has a pending key replacement.
 Using the currently verified old key.
-Run: lockbox vault contact update alice@example.com --accept
+Run: lockbox vault contacts update alice@example.com --accept
 ```
 
 The warning is important because a pending replacement is evidence that the
@@ -496,7 +496,7 @@ what fingerprint did I previously trust?
 ### Publish Vault Profile
 
 ```bash
-lockbox vault profile publish [profile] [--key-index N] [--server URL] [--ttl 15m] [--max-receives 1]
+lockbox vault profiles publish [profile] [--key-index N] [--server URL] [--ttl 15m] [--max-receives 1]
 ```
 
 This publishes a vault profile's public contact material. If `profile` is
@@ -512,7 +512,7 @@ publish payload. If a local profile has alias `default`, the vault profile publi
 should either use the email profile stored in that profile record or require:
 
 ```bash
-lockbox vault profile publish default --as alice@example.com
+lockbox vault profiles publish default --as alice@example.com
 ```
 
 `--key-index` selects a historical profile generation. Omitting it publishes the
@@ -553,7 +553,7 @@ the submitted payload structure.
 ### Add Contact By Publish Code
 
 ```bash
-lockbox vault contact add alice@example.com \
+lockbox vault contacts add alice@example.com \
   --publish-code 0123456789012 \
   [--server URL] \
   [--verification-code 71-44-92]
@@ -577,7 +577,7 @@ replace/update flow is used.
 ### Receive Replacement By Publish Code
 
 ```bash
-lockbox vault contact update alice@example.com \
+lockbox vault contacts update alice@example.com \
   --publish-code 0123456789012 \
   [--server URL] \
   [--verification-code 71-44-92]
@@ -622,8 +622,8 @@ If an unsigned replacement is received but verification is deferred, store it as
 ### Accept Or Reject Pending Replacement
 
 ```bash
-lockbox vault contact update alice@example.com --accept
-lockbox vault contact update alice@example.com --reject
+lockbox vault contacts update alice@example.com --accept
+lockbox vault contacts update alice@example.com --reject
 ```
 
 `--accept` promotes a pending replacement only if its continuity requirements
@@ -707,7 +707,7 @@ Profile rotation is a local vault action. It should not take `--server` and it
 should not upload anything.
 
 ```bash
-lockbox vault profile rotate [profile]
+lockbox vault profiles rotate [profile]
 ```
 
 Default behavior:
@@ -719,21 +719,21 @@ keep the old Profile key material
 mark the previous active generation as retired
 make the new generation active
 print a warning that existing lockboxes may still depend on retired keys
-suggest lockbox vault profile publish to notify contacts
+suggest lockbox vault profiles publish to notify contacts
 suggest access refresh to migrate old lockboxes
 ```
 
 The user then publishes the new active generation with one or more third parties:
 
 ```bash
-lockbox vault profile publish alice@example.com
+lockbox vault profiles publish alice@example.com
 ```
 
 The user can publish a retired generation when another party needs to access an
 old archive:
 
 ```bash
-lockbox vault profile publish alice@example.com --key-index 1
+lockbox vault profiles publish alice@example.com --key-index 1
 ```
 
 The CLI must warn whenever it uses a retired profile generation, including for
@@ -743,7 +743,7 @@ generation index and fingerprint.
 Profile history lists addressable generations:
 
 ```bash
-lockbox vault profile history [profile]
+lockbox vault profiles history [profile]
 ```
 
 Output columns:
@@ -766,7 +766,7 @@ that case they create or import a new profile and publish an unsigned
 replacement:
 
 ```bash
-lockbox vault profile publish alice@example.com --unsigned-replacement
+lockbox vault profiles publish alice@example.com --unsigned-replacement
 ```
 
 The receiver must verify by code before accepting it.
@@ -831,7 +831,7 @@ entries.
 List old key generations first:
 
 ```bash
-lockbox vault profile history <profile>
+lockbox vault profiles history <profile>
 ```
 
 The refresh flow must:
@@ -872,11 +872,11 @@ scanning the filesystem.
 Users need a way to remove stale records:
 
 ```bash
-lockbox vault lockbox list
-lockbox vault lockbox forget <lockbox>
+lockbox vault lockboxes list
+lockbox vault lockboxes forget <lockbox>
 ```
 
-`vault lockbox list` should show:
+`vault lockboxes list` should show:
 
 ```text
 path
@@ -885,7 +885,7 @@ lockbox_id
 last_seen
 ```
 
-`vault lockbox forget <lockbox>` removes the known-lockbox record only. It must
+`vault lockboxes forget <lockbox>` removes the known-lockbox record only. It must
 not delete or modify the lockbox file.
 
 ## Doctor Checks
@@ -904,7 +904,7 @@ For missing lockboxes, doctor should print the paths and suggested cleanup:
 ```text
 Missing known lockboxes:
   /home/alice/old-project.lbox
-    run: lockbox vault lockbox forget /home/alice/old-project.lbox
+    run: lockbox vault lockboxes forget /home/alice/old-project.lbox
 ```
 
 Doctor should not remove records automatically. It only reports and suggests
@@ -938,20 +938,20 @@ Do not use JSON for contact, history, profile, or replacement records.
 5. Add binary profile records with signing key material.
 6. Add verification-code helpers and canonical signing body helpers to the
    published protocol or a small contact-sharing module.
-7. Implement `lockbox vault profile publish` publish/receive/delete.
-8. Implement `lockbox vault contact add --publish-code`.
-9. Implement `lockbox vault profile rotate`.
-10. Implement signed and unsigned `lockbox vault contact update --publish-code`.
+7. Implement `lockbox vault profiles publish` publish/receive/delete.
+8. Implement `lockbox vault contacts add --publish-code`.
+9. Implement `lockbox vault profiles rotate`.
+10. Implement signed and unsigned `lockbox vault contacts update --publish-code`.
 11. Implement `--accept` and `--reject` pending replacement handling.
 12. Implement lockbox access refresh commands for retired profile generations.
 13. Track known lockboxes in the vault.
-14. Add `lockbox vault lockbox list` and `lockbox vault lockbox forget`.
+14. Add `lockbox vault lockboxes list` and `lockbox vault lockboxes forget`.
 
 Implemented in the current key-server pass:
 
-- `lockbox vault profile publish`
-- `lockbox vault contact receive`
-- `lockbox vault profile publish delete`
+- `lockbox vault profiles publish`
+- `lockbox vault contacts receive`
+- `lockbox vault profiles publish delete`
 - `publish.server` and `publish.topology_url` YAML-style config lookup
 - `--server` and `--topology-url` command overrides
 - TLS-capable HTTP transport for `https://` key servers

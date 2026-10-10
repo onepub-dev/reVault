@@ -74,7 +74,7 @@ The CLI first tries the current and historical Profile keys stored in the migrat
 
 The vault must already exist and be in the current format. If the vault exists use the above vault migration guide to migrate the vault.
 
-If the Vault does not exist, restore a Vault backup or initialise a new Vault and restore the required Profile backups with `lbx vault profile restore`. A newly initialised Vault does not contain the old Profile keys and cannot open Lockboxes that relied on them.
+If the Vault does not exist, restore a Vault backup or initialise a new Vault and restore the required Profile backups with `lbx vault profiles restore`. A newly initialised Vault does not contain the old Profile keys and cannot open Lockboxes that relied on them.
 
 You can now migrate your archives:
 
@@ -117,9 +117,9 @@ After opening the migrated Lockbox, inspect a project's configuration and planne
 changes before updating it:
 
 ```console
-lockbox secrets-migrated.lbox mirror project info
-lockbox secrets-migrated.lbox mirror project status
-lockbox secrets-migrated.lbox mirror project update
+lockbox secrets-migrated.lbox mirrors project info
+lockbox secrets-migrated.lbox mirrors project status
+lockbox secrets-migrated.lbox mirrors project update
 ```
 
 Replace `project` with the stored project name. Ownership checks and empty-source

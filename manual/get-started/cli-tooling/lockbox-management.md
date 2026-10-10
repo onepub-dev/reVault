@@ -5,7 +5,7 @@ A Lockbox is a single encrypted archive file. You can copy, rename or move it li
 The safest way to move a remembered Lockbox is:
 
 ```bash
-lbx vault lockbox move ./system_api_keys.lbox ./archive/system_api_keys.lbox
+lbx vault lockboxes move ./system_api_keys.lbox ./archive/system_api_keys.lbox
 ```
 
 This moves the file and updates the paths known to the Vault and Session Agent. The destination's parent directories are created when required.
@@ -13,13 +13,13 @@ This moves the file and updates the paths known to the Vault and Session Agent. 
 Inspect remembered paths with:
 
 ```bash
-lbx vault lockbox list
+lbx vault lockboxes list
 ```
 
 If you moved or deleted a Lockbox outside reVault, remove its stale record:
 
 ```bash
-lbx vault lockbox forget ./old-project.lbox
+lbx vault lockboxes forget ./old-project.lbox
 ```
 
 Forgetting a record does not delete a Lockbox. Likewise, copying a Lockbox does not automatically create a new key or identity: both copies contain the same encrypted material at the moment of copying.

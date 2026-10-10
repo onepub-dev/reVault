@@ -57,8 +57,8 @@ the defaults.
 Useful one-off isolation commands are:
 
 ```bash
-lbx vault profile publish --topology-url https://keyshare0.revault.onepub.dev/v1/topology
-lbx vault profile publish --topology-url https://keyshare1.revault.onepub.dev/v1/topology
+lbx vault profiles publish --topology-url https://keyshare0.revault.onepub.dev/v1/topology
+lbx vault profiles publish --topology-url https://keyshare1.revault.onepub.dev/v1/topology
 ```
 
 Use `--server` only to test a known publish endpoint. It bypasses initial

@@ -47,9 +47,9 @@ issue will not be pursued by the project.
 
 ## Mirror safety
 
-`lbx LOCKBOX mirror NAME update` is one-way. A wrong, incomplete, or
+`lbx LOCKBOX mirrors NAME update` is one-way. A wrong, incomplete, or
 compromised host source can replace or remove files in the project's managed
-lockbox directory. Inspect `mirror NAME status` before a destructive update.
+lockbox directory. Inspect `mirrors NAME status` before a destructive update.
 
 reVault stores the canonical source path and available filesystem identity in
 an encrypted mirror-project record, refuses filesystem roots, and requires
@@ -61,4 +61,4 @@ benign or uncompromised.
 
 Mirror records use dot-prefixed normal variables under `/.revault/mirrors/`.
 Ordinary variable listings hide them and exports always omit them;
-`variable list --all` and exact `variable get` provide explicit inspection.
+`variables list --all` and exact `variables get` provide explicit inspection.

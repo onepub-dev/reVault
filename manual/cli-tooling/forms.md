@@ -11,7 +11,7 @@ A Form groups related fields into a typed record. A login, for example, can keep
 Store a Form definition in the Vault when you want to reuse it across Lockboxes:
 
 ```bash
-lbx vault form define login \
+lbx vault forms define login \
   --field username:text \
   --field password:secret
 ```
@@ -19,13 +19,13 @@ lbx vault form define login \
 Copy that definition into a Lockbox:
 
 ```bash
-lbx secrets.lbox form use login
+lbx secrets.lbox forms use login
 ```
 
 For a definition needed by only one Lockbox, define it there directly:
 
 ```bash
-lbx secrets.lbox form define login \
+lbx secrets.lbox forms define login \
   --field username:text \
   --field password:secret
 ```
@@ -35,7 +35,7 @@ lbx secrets.lbox form define login \
 Create a record at a meaningful path:
 
 ```bash
-lbx secrets.lbox form add /work/github \
+lbx secrets.lbox forms add /work/github \
   --type login \
   --name GitHub \
   --interactive
@@ -44,13 +44,13 @@ lbx secrets.lbox form add /work/github \
 Update an ordinary field directly:
 
 ```bash
-lbx secrets.lbox form set /work/github@username alice
+lbx secrets.lbox forms set /work/github@username alice
 ```
 
 Supply a secret field interactively or through standard input rather than placing it in the command line:
 
 ```bash
-lbx secrets.lbox form set /work/github@password --secret --stdin
+lbx secrets.lbox forms set /work/github@password --secret --stdin
 ```
 
-Use `form list`, `form get`, `form move` and `form remove` to manage records. Use `form definitions` to inspect definitions in a Lockbox, or `lbx vault form list` to inspect reusable Vault definitions.
+Use `forms list`, `forms get`, `forms move` and `forms remove` to manage records. Use `forms definitions` to inspect definitions in a Lockbox, or `lbx vault forms list` to inspect reusable Vault definitions.

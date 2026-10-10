@@ -13,10 +13,10 @@ These commands are available in the current development branch. The CLI package 
 For an existing Lockbox:
 
 ```bash
-lbx vault lockbox alias set dev ./developer-secrets.lbox
-lbx vault lockbox alias list
+lbx vault lockboxes aliases set dev ./developer-secrets.lbox
+lbx vault lockboxes aliases list
 lbx a@dev open
-lbx a@dev variable list
+lbx a@dev variables list
 ```
 
 Use the bare name `dev` when managing the alias and `a@dev` when selecting its Lockbox. Names are case-sensitive and contain up to 128 ASCII letters, digits, underscores or hyphens. Setting an existing alias replaces its mapping.
@@ -24,13 +24,13 @@ Use the bare name `dev` when managing the alias and `a@dev` when selecting its L
 Aliases are encrypted Vault records and are included in [Vault backups](backup-and-restore.md). They identify a Lockbox by its stable identity. Move the file through reVault to keep its remembered location current. The destination directory must already exist:
 
 ```bash
-lbx vault lockbox move ./developer-secrets.lbox ./secrets/developer.lbox
+lbx vault lockboxes move ./developer-secrets.lbox ./secrets/developer.lbox
 ```
 
 If you already moved the file through a shell or file manager, record its new location instead:
 
 ```bash
-lbx vault lockbox remember ./secrets/developer.lbox
+lbx vault lockboxes remember ./secrets/developer.lbox
 ```
 
 A missing target or a different Lockbox at the remembered path causes an error. Restoring a Vault onto another machine may require remembering the target's new path.
@@ -45,16 +45,16 @@ as the `lbxv` and `lbxx` helpers. Explicit Lockbox arguments also accept aliases
 
 ```bash
 lbx session default a@dev
-lbx vault lockbox remember a@dev
-lbx vault lockbox move a@dev ./secrets/renamed.lbox
+lbx vault lockboxes remember a@dev
+lbx vault lockboxes move a@dev ./secrets/renamed.lbox
 lbx doctor migrate lockbox a@dev --replace
 lbx a@dev doctor migrate lockbox --replace
-lbx vault lockbox alias set work a@dev
-lbx vault lockbox forget a@work
+lbx vault lockboxes aliases set work a@dev
+lbx vault lockboxes forget a@work
 ```
 
 The two migration forms are alternatives; supply the source in one place only.
-`session default` stores the resolved path, and `vault lockbox move` updates it.
+`session default` stores the resolved path, and `vault lockboxes move` updates it.
 `forget` removes the remembered record even if its file is missing. It leaves
 the alias record in place, but that alias cannot select a Lockbox until its
 target is remembered again.
@@ -124,7 +124,7 @@ See [Command-line completion](../../get-started/cli-tooling/command-line-complet
 ## Remove an alias
 
 ```bash
-lbx vault lockbox alias remove dev
+lbx vault lockboxes aliases remove dev
 ```
 
 This removes the alias while retaining the Lockbox file and its remembered location.

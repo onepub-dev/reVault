@@ -53,16 +53,16 @@ Changing the passphrase does not change the keys belonging to your Profiles or L
 The Vault remembers Lockbox paths. Move a Lockbox and update its remembered location together:
 
 ```bash
-lbx vault lockbox move ./old.lbox ./archive/new.lbox
+lbx vault lockboxes move ./old.lbox ./archive/new.lbox
 ```
 
-If you already moved it through a shell or file manager, use `lbx vault lockbox remember ./archive/new.lbox` instead.
+If you already moved it through a shell or file manager, use `lbx vault lockboxes remember ./archive/new.lbox` instead.
 
 You can inspect or remove remembered paths with:
 
 ```bash
-lbx vault lockbox list
-lbx vault lockbox forget ./old-project.lbox
+lbx vault lockboxes list
+lbx vault lockboxes forget ./old-project.lbox
 ```
 
 Forgetting a path does not delete the Lockbox.
@@ -74,14 +74,14 @@ See [Lockbox aliases and script helpers](lockbox-aliases.md) for the complete gu
 Give a remembered Lockbox a short, case-sensitive name:
 
 ```bash
-lbx vault lockbox alias set dev ./developer-secrets.lbox
-lbx vault lockbox alias list
-lbx a@dev variable list
-lbx vault lockbox alias remove dev
+lbx vault lockboxes aliases set dev ./developer-secrets.lbox
+lbx vault lockboxes aliases list
+lbx a@dev variables list
+lbx vault lockboxes aliases remove dev
 ```
 
 Names contain up to 128 ASCII letters, digits, underscores or hyphens. Setting an existing alias replaces its mapping. Removing it leaves the Lockbox and its remembered path intact.
 
-Aliases identify a Lockbox by its stable identity. Moving it with `vault lockbox move` keeps the alias working. After moving it outside reVault, use `vault lockbox remember ./new/path.lbox`. A missing target or a different Lockbox at the old path causes an error.
+Aliases identify a Lockbox by its stable identity. Moving it with `vault lockboxes move` keeps the alias working. After moving it outside reVault, use `vault lockboxes remember ./new/path.lbox`. A missing target or a different Lockbox at the old path causes an error.
 
 `a@dev` always means an alias, with no fallback to a file. Use `./a@dev` to address an actual host file with that name. Aliases are encrypted Vault records and are included in Vault backups; restoring onto another machine may require remembering the target's new path.

@@ -77,7 +77,7 @@ Mirror projects store configuration and enforce ownership; this crate does not
 walk host directories or choose deletion policy overrides. Higher-level code
 calculates a plan from the host and archive TOC, presents any required safety
 confirmation, then applies it through `Lockbox::with_mirror_project_mutation`.
-The CLI provides that complete workflow through `lbx LOCKBOX mirror`.
+The CLI provides that complete workflow through `lbx LOCKBOX mirrors`.
 
 ## Encryption And Authentication
 
