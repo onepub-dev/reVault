@@ -32,8 +32,11 @@ removed. The [compact decoded-leaf cache](evidence/compact-index-cache-2026-10-1
 is retained after a corrected fixed comparison: 11.8%/18.6% lower total range-read
 time and 3.6% for small files. The compressed-stream result is inconclusive.
 All six cases still fail ZIP parity. The initial wrong-control batch is preserved
-and excluded from the isolated conclusion. Next investigate payload hashing cost
-without silently changing security or worker policy.
+and excluded from the isolated conclusion. The [isolated hash-cost experiment](evidence/stored-byte-hash-cost-2026-10-10/README.md)
+shows BLAKE3 benefits at large units but a substantial 4 KiB regression. SHA-256
+remains unchanged pending a separate archive-level and dependency/security decision.
+The [wiped read-buffer trial](evidence/wiped-read-buffer-2026-10-10/README.md)
+is retained after a fixed paired comparison. Raw full-stream total time improves 2.0% at 8 MiB and 1.5% at 64 MiB; 8 MiB range improves 2.6%. Small-file, compressed-stream and 64 MiB range intervals include no change, so no gain is claimed there. All six cases still fall short of ZIP parity.
 All broader integration, scale, recovery and performance gates remain open.
 
 ### Selective authenticated reads — 2026-10-10

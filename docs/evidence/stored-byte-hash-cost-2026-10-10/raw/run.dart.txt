@@ -1,0 +1,59 @@
+#! /usr/bin/env dcli
+import 'dart:convert';
+import 'dart:io';
+import 'dart:math';
+import 'package:dcli/dcli.dart';
+const root='/tmp/revault-hash-probe-20261010';
+const binary='$root/target/release/revault-hash-cost-probe';
+const input='/tmp/revault-selective-read-20261010/fixtures/raw64m-random/other/source/file-000000.bin';
+String sha(String path) {
+ final result=Process.runSync('sha256sum',[path]);
+ if(result.exitCode!=0) throw StateError('sha256sum $path');
+ return result.stdout.toString().split(RegExp(r'\s+')).first;
+}
+Map<String,String> hashes()=>{for(final path in [binary,input,'$root/Cargo.toml','$root/Cargo.lock','$root/src/main.rs','$root/run.dart'])path:sha(path)};
+double median(List<double> values) { final sorted=[...values]..sort(); return (sorted[(sorted.length-1)~/2]+sorted[sorted.length~/2])/2; }
+void main() {
+ final samples=File('$root/samples.jsonl');
+ if(samples.existsSync()) throw StateError('Refusing timing rerun');
+ final before=hashes();
+ File('$root/hash-before.json').writeAsStringSync(jsonEncode(before));
+ File('$root/host-before.txt').writeAsStringSync('${File('/proc/loadavg').readAsStringSync()}${Process.runSync('rustc',['+1.88.0','--version']).stdout}');
+ final all=<Map<String,dynamic>>[];
+ for(final unit in [4096,65536,262144]) {
+  for(var pair=-3;pair<30;pair++) {
+   final order=pair.isEven?['sha256','blake3']:['blake3','sha256'];
+   for(final algorithm in order) {
+    final result=Process.runSync('taskset',['-c','2',binary,algorithm,'$unit',input]);
+    if(result.exitCode!=0) {
+     File('$root/failure-$unit-$pair-$algorithm.log').writeAsStringSync('${result.stdout}${result.stderr}');
+     throw StateError('hash probe failed');
+    }
+    final row=jsonDecode(result.stdout.toString()) as Map<String,dynamic>;
+    if(row['algorithm']!=algorithm || row['unit']!=unit || row['verified']!=true || row['bytes']!=64*1024*1024) throw StateError('probe identity/bytes');
+    row['pair']=pair; row['warmup']=pair<0;
+    samples.writeAsStringSync('${jsonEncode(row)}\n',mode:FileMode.append,flush:true);
+    all.add(row);
+   }
+  }
+ }
+ final after=hashes();
+ if(jsonEncode(before)!=jsonEncode(after)) throw StateError('hash identity changed');
+ File('$root/hash-after.json').writeAsStringSync(jsonEncode(after));
+ final summary=<String,dynamic>{};
+ for(final unit in [4096,65536,262144]) {
+  final rows=all.where((r)=>r['unit']==unit && r['warmup']==false).toList();
+  final shaSeconds=<double>[]; final blakeSeconds=<double>[]; final logs=<double>[];
+  for(var pair=0;pair<30;pair++) {
+   final sha=(rows.singleWhere((r)=>r['pair']==pair && r['algorithm']=='sha256')['seconds'] as num).toDouble();
+   final blake=(rows.singleWhere((r)=>r['pair']==pair && r['algorithm']=='blake3')['seconds'] as num).toDouble();
+   shaSeconds.add(sha); blakeSeconds.add(blake); logs.add(log(blake/sha));
+  }
+  final random=Random(31020261010+unit); final boot=<double>[];
+  for(var b=0;b<10000;b++) { var sum=0.0; for(var i=0;i<logs.length;i++) {sum+=logs[random.nextInt(logs.length)];} boot.add(exp(sum/logs.length)); }
+  boot.sort();
+  summary['$unit']={'pairs':30,'sha256_median_seconds':median(shaSeconds),'blake3_median_seconds':median(blakeSeconds),'blake3_over_sha256':exp(logs.reduce((a,b)=>a+b)/logs.length),'low95':boot[249],'high95':boot[9749]};
+ }
+ File('$root/summary.json').writeAsStringSync(const JsonEncoder.withIndent('  ').convert({'scope':'isolated single-thread pure-Rust hash cost; not an archive-format result','hashes_stable':true,'warmup_pairs':3,'cases':summary}));
+ print(const JsonEncoder.withIndent('  ').convert(summary));
+}

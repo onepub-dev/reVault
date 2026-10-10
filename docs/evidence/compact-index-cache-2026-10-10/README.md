@@ -28,3 +28,5 @@ The first batch accidentally reused the older eager-reader executable (`2cebc6ce
 ## Correctness and remaining work
 
 Strict core Clippy passes. Authenticated-index tests pass 19 with one ignored manual probe, including new compact-leaf empty/binary/maximum-length records across all 16 modes, existing parent/context corruption checks and eviction. Four selective-read tests, two credential-open tests and all-mode variable/form snapshot lifecycles pass. These are focused checks, not a full repository suite result. The prior [function profile](../selective-read-profile-2026-10-10/README.md) remains useful: stored-byte SHA-256 dominates raw full streaming, while metadata-page work matters for first range reads. Further payload work needs measured evidence and unchanged security guarantees. Public activation, scale, CLI RSS, native recovery, PGP/write and release qualification remain outstanding.
+
+Post-format checks for commit `f57a12ca` also pass: strict Clippy, 19 authenticated-index tests (one manual probe ignored) and four selective-read tests. [Logs](postformat/logs/) are retained; these checks do not add a separate performance measurement.

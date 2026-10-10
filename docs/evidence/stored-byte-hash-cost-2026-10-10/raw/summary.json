@@ -1,0 +1,31 @@
+{
+  "scope": "isolated single-thread pure-Rust hash cost; not an archive-format result",
+  "hashes_stable": true,
+  "warmup_pairs": 3,
+  "cases": {
+    "4096": {
+      "pairs": 30,
+      "sha256_median_seconds": 0.032968281,
+      "blake3_median_seconds": 0.06529758,
+      "blake3_over_sha256": 1.9817175003262728,
+      "low95": 1.9744833522797487,
+      "high95": 1.9875446008904474
+    },
+    "65536": {
+      "pairs": 30,
+      "sha256_median_seconds": 0.03206628,
+      "blake3_median_seconds": 0.023573584,
+      "blake3_over_sha256": 0.7456336753151485,
+      "low95": 0.7371721905783113,
+      "high95": 0.7555782854032037
+    },
+    "262144": {
+      "pairs": 30,
+      "sha256_median_seconds": 0.0320312035,
+      "blake3_median_seconds": 0.020342674999999998,
+      "blake3_over_sha256": 0.6402583428088833,
+      "low95": 0.6313207310268332,
+      "high95": 0.6517674508199824
+    }
+  }
+}
