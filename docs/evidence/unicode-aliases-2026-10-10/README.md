@@ -24,6 +24,8 @@ After reconciling performance commit `f57a12ca` (compact decoded-leaf cache),
 the combined source passed all 21 CLI alias tests, both naming tests, and the
 persisted Unicode/legacy alias API test. The old-reader baseline was supplied
 for that run. Uncommitted work in the performance worktree was not imported.
+The subsequent committed performance checkpoint `4cf76ea7` was also reconciled;
+all 21 CLI alias tests passed again, including the supplied format-3 baseline.
 
 The old-reader check uses a separately built format-3 CLI from main commit
 `77cfd919eddb0e9344b990283b2baf990108bca3`, not a simulated reader or a released

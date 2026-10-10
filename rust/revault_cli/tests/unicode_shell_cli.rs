@@ -174,8 +174,11 @@ printf '%s\n' "${{COMPREPLY[@]}}""#),
             "fish" => format!("source ./registered.completion; complete -C 'lockbox {prefix}'"),
             "powershell" => format!(". ./registered.ps1; (TabExpansion2 'lockbox {prefix}' {}).CompletionMatches | ForEach-Object {{ $_.CompletionText }}", "lockbox ".len() + prefix.encode_utf16().count()),
             "zsh" => format!(r#"autoload -Uz compinit
-compinit -D
-source ./registered.completion
+# Ignore insecure ambient completion directories, retaining compinit's checks.
+# The product registration below is sourced explicitly from this test fixture.
+compinit -i -D || exit 1
+source ./registered.completion || exit 1
+[[ -n ${{_comps[lockbox]}} ]] || {{ print -u2 -- 'lockbox completion provider was not registered'; exit 1; }}
 _describe() {{ local array_name=$3; print -rl -- "${{(@P)array_name}}"; }}
 words=(lockbox {prefix})
 CURRENT=2
@@ -187,6 +190,13 @@ ${{_comps[lockbox]}}"#),
             other => panic!("undeclared shell: {other}"),
         };
         let output = self.shell_program(&program).test_output().unwrap();
+        if !output.stderr.is_empty() {
+            eprintln!(
+                "{} registered completion stderr: {}",
+                self.shell,
+                String::from_utf8_lossy(&output.stderr)
+            );
+        }
         assert!(
             output.status.success(),
             "{} registered completion: {output:?}",
