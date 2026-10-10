@@ -1,0 +1,95 @@
+{
+  "case": "raw-random-1gib",
+  "round": 12,
+  "warmup": false,
+  "backend": "zip",
+  "worker_count": null,
+  "input_path": "/home/bsutton/.cache/revault-performance-20261010-large/scale-v1/raw-random-1gib/archive.zip",
+  "output_path": "/home/bsutton/.cache/revault-performance-20261010-large/scale-v1/raw-random-1gib/extract-output/parallel/sample-12-zip",
+  "affinity": "0,1,2,3,4",
+  "durable": true,
+  "command": [
+    "taskset",
+    "-c",
+    "0,1,2,3,4",
+    "/usr/bin/time",
+    "-v",
+    "timeout",
+    "900",
+    "/tmp/revault-parallel-20261010/bin/archive_evaluation",
+    "extract-zip",
+    "/home/bsutton/.cache/revault-performance-20261010-large/scale-v1/raw-random-1gib",
+    "/home/bsutton/.cache/revault-performance-20261010-large/scale-v1/raw-random-1gib/extract-output/parallel/sample-12-zip"
+  ],
+  "environment": {
+    "REVAULT_EXTRACT_DURABLE": "1"
+  },
+  "executable": "/tmp/revault-parallel-20261010/bin/archive_evaluation",
+  "executable_sha256_before": "c9e0a6d4cee1510149531e17640b7577b9059b43d6572a34dfc97d8368c0a38d",
+  "cache_gate": {
+    "sync_exit_code": 0,
+    "sync_stderr": "",
+    "fadvise_exit_code": 0,
+    "fadvise_stdout": "",
+    "fadvise_stderr": "",
+    "fincore_exit_code": 0,
+    "fincore_stdout": "{\n   \"fincore\": [\n      {\n         \"size\": 1073741952,\n         \"res\": 0,\n         \"dirty\": 0,\n         \"writeback\": 0,\n         \"file\": \"/home/bsutton/.cache/revault-performance-20261010-large/scale-v1/raw-random-1gib/archive.zip\"\n      }\n   ]\n}\n",
+    "fincore_stderr": "",
+    "resident_bytes_after_dontneed": 0,
+    "required_resident_bytes": 0,
+    "success": true
+  },
+  "exit_code": 0,
+  "sample": {
+    "backend": "zip",
+    "directory_syncs": 2,
+    "durability": "sync_all each file, output directory and its parent; included in timer",
+    "file_syncs": 1,
+    "files": 1,
+    "kind": "filesystem_extraction",
+    "logical_bytes_written": 1073741824,
+    "mib_per_second": 526.6026146741373,
+    "open_seconds": 0.000202003,
+    "resources": {
+      "cpu": {
+        "cpu_seconds": 1.9249269999999998,
+        "major_faults": 0,
+        "system_seconds": 1.8439269999999999,
+        "user_seconds": 0.081
+      },
+      "peak_rss_kib": 4112
+    },
+    "scope": "synthetic regular-file component; excludes CLI startup and permission restoration",
+    "storage_io": {
+      "cancelled_write_bytes": 0,
+      "read_bytes": 1073745920,
+      "source": "/proc/self/io; process-accounted storage I/O, not logical bytes",
+      "write_bytes": 1075183616
+    },
+    "total_seconds": 1.944540288,
+    "verified": true
+  },
+  "time_v": {
+    "user_seconds": 0.1,
+    "system_seconds": 2.04,
+    "elapsed_seconds": 2.17,
+    "elapsed_raw": "0:02.17",
+    "maximum_resident_set_kib": 8260
+  },
+  "process_wall_seconds": 2.17,
+  "process_max_rss_kib": 8260,
+  "process_user_seconds": 0.1,
+  "process_system_seconds": 2.04,
+  "output_file_count": 1,
+  "output_total_bytes": 1073741824,
+  "source_and_output_byte_verification": true,
+  "cold_disk_gate_passed": true,
+  "observed_process_storage_read_bytes": 1073745920,
+  "minimum_storage_read_bytes": 966367642,
+  "storage_read_bytes_per_payload_byte": 1.0000038146972656,
+  "durability_description": "sync_all each file, output directory and its parent; included in timer",
+  "executable_sha256_after": "c9e0a6d4cee1510149531e17640b7577b9059b43d6572a34dfc97d8368c0a38d",
+  "executable_stable_for_sample": true,
+  "verified": true,
+  "output_retained_on_failure": false
+}

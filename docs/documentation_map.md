@@ -124,3 +124,5 @@ and development failures; path installation and full-format acceptance are separ
 - [Disk-backed capacity checks](evidence/large-capacity-2026-10-10/README.md): realistic workload correction, experimental construction limits and outstanding scale qualification.
 
 - [Bounded construction and disk-backed extraction](evidence/scale-extraction-2026-10-10/README.md): successful GiB/10,000-file gates and paired filesystem extraction evidence with CPU/RSS.
+
+- [Cold disk extraction and bounded parallel reads](evidence/cold-parallel-extraction-2026-10-10/README.md): cold archive residency/storage-read gates, balanced buffered and exploratory durable protocols, separate postprocess drain, and paired elapsed/CPU/RSS evidence; keep one worker as default.

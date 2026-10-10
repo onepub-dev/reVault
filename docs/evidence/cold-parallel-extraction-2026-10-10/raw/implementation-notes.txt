@@ -1,0 +1,280 @@
+Experimental bounded parallel reads and durable extraction — implementation notes
+2026-10-10; implementation base 0cb929cde31ba76d1dbd93b6c7aaa88a05616e75.
+Status: source changes remain uncommitted/unformatted at preparation of these notes.
+Cold/durable extraction results are pending. No performance improvement is claimed.
+
+DESIGN AND ACTIVATION BOUNDARY
+The implementation remains under the existing test-only candidate-files tree
+reader. No public CLI activation, archive format, wire encoding, cryptographic
+algorithm, ownership rule, or dependency was changed. Rayon was already a dev
+dependency. No new unsafe code was added.
+
+The ordinary reader still authenticates the selected publication and index paths.
+Full graph/padding/reclaimed-space/content verification remains a distinct explicit
+serial audit. Parallel payload decoding is not a replacement for that audit.
+
+set_read_workers accepts exactly 1, 2 or 4. One retains the existing serial path
+and creates no pool. Two/four create a per-reader Rayon pool with that many worker
+threads, in addition to the caller/coordinator thread. The pool and a fixed Codec
+per worker lane persist across batches and files in the same reader session.
+Configuration creates the pool even if every subsequent file takes the serial
+fallback. Requests below 128 KiB, and requests selecting only one chunk, always
+use the serial path. In particular the 10,000 x 64 KiB fixture does not gain
+parallel payload verification merely by setting worker count to two or four.
+
+The coordinator alone uses Storage and the authenticated index/cache. This
+preserves support for non-Send/non-Sync Storage such as Rc/RefCell test backends.
+It validates selected chunk descriptors, pack bounds, and physical extent bounds
+before allocating or fetching a stored buffer. It gathers at most eight chunks
+per worker: 16 with two workers and 32 with four. Every input buffer is owned,
+bounded and wipe-on-drop. The worker lanes hash/decrypt/decompress chunks using
+the same stored-buffer implementation used by serial Codec::load. A complete
+batch joins before output callbacks run on the coordinator in logical order.
+There is no overlapped archive I/O/CPU pipeline, no cross-file parallelism, and no
+per-file thread spawning. Batch prefetch can increase first-byte latency and
+reads ahead of a later callback failure, but only within the requested range and
+fixed queue bound.
+
+INTEGRITY AND ERROR BEHAVIOR
+Descriptor object identity, ordinal, logical offset and length remain checked
+against the authenticated FileInfo. Pack membership, stored length, sealed
+bounds and the fragment commitment are unchanged. The shared codec validates
+stored-byte SHA-256 before decrypting/decompressing, retains the existing AAD,
+nonce/tag validation, authenticated/zero padding checks, bounded Zstd workspace,
+window/stream restrictions, and exact decoded-length checks. The optimized serial
+raw read still reuses its wiped input buffer. Its checksum/padding checks now use
+small helpers also used by the worker path.
+
+No callback receives corrupt or unverified bytes. A later error can leave a
+verified prefix already delivered, and callers must discard partial sinks.
+Because parallel gathering precedes decoding, the exact prefix length before a
+metadata or I/O error may differ from serial delivery; there is no promise of
+identical callback timing/count for failed reads. A payload error is reported in
+logical ordinal order after any earlier valid callbacks. Later decoded chunks are
+not forwarded. All worker jobs join before returning or invoking a callback.
+Queued inputs and unused decoded results wipe when dropped on error or unwind.
+Per-Codec decoder scratch and derived keys retain the existing serial session
+lifetime and wipe on Codec drop; these notes do not claim immediate erasure of
+retained workspace on every recoverable error. Sinks can fail or unwind without
+leaving background jobs or preventing later reader/pool use.
+
+MEMORY MODEL
+For four workers the conservative queued input/output model is at most
+32 * (320 KiB maximum stored allocation + 256 KiB maximum logical output) =
+18 MiB. Add at most four transient decrypted buffers of at most 320 KiB
+(1.25 MiB), bounded decoder workspaces for four worker codecs, the existing serial
+codec's workspace if it was used, bounded index/cache/descriptor metadata, keys,
+and platform-default native thread stacks. Two workers halve the queue bound.
+Raw/plain fragments often transfer the input allocation directly to output and
+therefore use less than the conservative sum. Buffers are owned per batch; memory
+does not grow with file/archive payload length. This is not an RSS guarantee:
+allocator behavior, caller storage/input, thread stacks, process startup and
+other library memory must be measured. It does not qualify the public CLI's
+100 MB total-RSS objective or TB/million-entry construction/audit scalability.
+
+ENDPOINT CONTRACT
+REVAULT_READ_WORKERS=1|2|4 (default 1) applies to tree-sample and tree-extract.
+JSON reports configured_cpu_workers, worker_threads (0 for serial),
+max_queued_chunks (1/16/32), single_chunk_serial_fallback=true, and
+parallel_min_requested_bytes=131072. The coordinator is additional to workers.
+ZIP remains the serial reference. Existing REVAULT_EXTRACT_OUTPUT is unchanged.
+
+REVAULT_EXTRACT_DURABLE unset or 0 retains historical write/flush/close behavior.
+Exactly 1 adds File::sync_all on every output file before close, then sync_all on
+the output directory and its immediate parent. These calls, output creation,
+archive open/read, writes and reader/pool destruction are inside the timer.
+Invalid durability values are rejected rather than silently downgraded. The
+existing parent directory/ancestors are assumed to have been established by
+fixture setup; the helper does not recursively create/sync a new ancestor chain.
+Directory syncing has been exercised on this Linux host, not qualified across
+all supported platforms or by power-loss injection.
+
+Both ZIP and tree use this same helper. Synthetic fixed names and create_new
+prevent replacing an existing destination; this is not a public archive-path
+extraction API and does not restore permissions/metadata. Exact output byte
+comparison with independently reopened source/output files occurs after timing
+and resource snapshots. A failure preserves partial output for diagnostics; it
+is not an atomic-install implementation.
+
+Before timed archive open and after all output syncs, the helper safely reads
+/proc/self/io. Top-level storage_io contains read_bytes, write_bytes,
+cancelled_write_bytes and a scope description. It is null if unavailable, invalid
+or counters regress. These are process-accounted storage I/O, not logical byte
+counts or proof that hardware/controller caches are cold. CPU and peak RSS remain
+in the existing resources object. file_syncs equals file count and directory_syncs
+equals two for durable mode, otherwise both are zero. The durability string states
+the actual sync scope. /usr/bin/time whole-process results additionally include
+post-timing verification and must not be confused with extraction-only timings.
+
+CHANGED RUST FILES (relative to rust/revault_lockbox_api)
+src/file_format/data_extent.rs
+src/file_format/candidate_files/tree_image/reader.rs
+src/file_format/candidate_files/tree_image/reader/parallel.rs (new)
+src/file_format/candidate_files/resource_probe/tree_probe.rs
+src/benchmark_extraction.rs
+src/file_format/candidate_files/tests/tree_tests/selective_reads.rs
+src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs (new)
+
+KNOWN VALIDATION, REPORTED BY DELEGATED TEST AGENT
+Initial frozen source: strict core Clippy passed; release selective_reads 6/6,
+resource_probe::extraction::tests 5/5, data_extent 8/8, evaluation_checks 8/8.
+An initial benchmark_extraction::tests filter matched zero tests; its log is
+retained and it is not counted as validation. The corrected extraction filter
+ran five tests. After the explicit <128 KiB fallback adjustment, strict Clippy
+and release selective_reads 6/6 passed again.
+
+New coverage exercises all sixteen protection/compression/padding combinations
+with one/two/four configured workers, full and nonaligned multi-chunk ranges,
+logical output order, non-Send Storage, later-ordinal payload corruption, sink
+error and unwind, subsequent pool reuse, invalid worker count, exact 16/32-chunk
+input batch bounds, and a seven-byte request across a chunk boundary that must
+remain serial. Extraction tests cover strict pure configuration parsing, checked
+I/O counter parsing/deltas, real durable helper execution, independent exact-byte
+verification, wrong-byte rejection and existing-destination refusal.
+No dedicated new partial-Storage-read or worker-panic fault-injection test was
+added. Read-only review confirms partial-I/O errors drop the locally owned
+zeroizing input and queued jobs; Rayon install joins worker tasks on unwind.
+
+COLD/DURABLE RUNNER PROTOCOL AND PENDING RESULTS
+/tmp/revault-parallel-20261010/run.dart is the Dart+dcli orchestration script.
+No new shell/Python script or privileged global cache drop is used. Before each
+fresh sample it runs sync -d on the chosen archive, fadvise DONTNEED, then fincore
+with byte units. Every command must succeed and archive resident bytes must be
+zero before launching the sample. Both smokes and measured batches require the
+extraction's storage_io.read_bytes to be at least ceil(90% of logical payload),
+plus exact output verification, expected file/byte counts and expected sync
+counts. A zero-residency check alone does not prove subsequent storage reads;
+the process read-byte gate supplies separate evidence. The protocol establishes
+cold archive page cache with observed storage traffic, not cold filesystem
+metadata, device caches, or a global cold-machine state. Source files need not be
+cold because output verification is outside extraction timing.
+
+All variants use the same CPU affinity mask 0,1,2,3,4 and fresh process, output
+path, raw/plain fixture and durability policy. Output from successful samples is
+removed only after exact verification; failures are retained. A 20 GiB apparent
+artifact ceiling and free-space checks cover retained failures and projected new
+artifacts. Paired batches rotate ZIP/one/two/four-worker order, preserve raw
+stdout/stderr/commands/gates/results, and check source/archive/executable/source
+code identities before/after. Case-scoped smokes are diagnostics; their identity
+record covers source code/executables, while full batches additionally pin each
+fixture's complete input identity before/after its samples.
+
+The original one-GiB random fixture is reused. The new 10,000 x 64 KiB corpus is
+varied, deterministic SplitMix64 content matching native Case::payload. The first
+setup attempt incorrectly accessed inventory before creating it; its recovery
+then exposed that the custom xorshift generator disagreed with native fixture
+verification. Those failures, source and ZIP remain under parallel-v2 and their
+original fixture-setup logs. Corrected setup uses a distinct parallel-v3 root and
+fixture-setup-v3 logs. Dart VM 64-bit wrapping and unsigned >>> reproduce the
+native expression; four 4096-byte windows of the immutable native one-GiB source
+are checked before generation. Native ZIP creation subsequently verifies every
+byte of every new source file. There is no prepare-only native endpoint; invoking
+native run as a generator would also execute repeated creation measurements, so
+the exact Dart expression avoids that unrelated work.
+
+The repaired runner also creates inventory before hashing it, excludes not-yet-
+created tree outputs from creation's input identity comparison, records outputs
+separately, refuses all existing tree-creation artifacts, and records only the
+three relevant REVAULT variables rather than the inherited environment. A
+read-only JSON/JSONL inspection found no previously emitted full-environment
+maps (five files inspected, zero maps); no values were printed. The pre-fix script
+is retained as run.before-splitmix-fix.dart.
+
+READ-ONLY REVIEW CONCLUSION
+No material integrity defect was found in the Rust patch. The identified fixture
+algorithm, initial inventory order, and tree-creation identity orchestration
+bugs were corrected in the runner without overwriting failed fixtures or changing
+Rust/source during freeze. Remaining explicit limitations are batch-prefetch
+latency/extra bounded work after a future sink refusal, established workspace
+retention, lack of cross-file parallelism, platform-specific durable-directory
+qualification, and missing dedicated short-I/O/worker-panic fault injection.
+Cold smoke/batch results and their acceptance decision remain pending; do not
+infer a speedup, disk-throughput qualification, or release readiness from tests.
+
+MIRROR POLICY REVIEW AND SECOND SOURCE EPOCH
+Host Linux 7.0.0-38-generic exposes Btrfs read_policy [pid]. Upstream Linux v7.0
+fs/btrfs/volumes.c find_live_mirror selects first + current->pid % num_stripes.
+This uses issuing task identity; it can select different physical mirrors for
+ZIP main-thread and Rust test-reader invocations. The mirrors are different
+NVMe models (Lexar NM790 and KINGSTON SFYRDK2000G). This is a plausible confound,
+not an established explanation for noise or a demonstrated backend bias.
+https://github.com/torvalds/linux/blob/v7.0/fs/btrfs/volumes.c#L5885-L5945
+Fresh processes and rotated order alone do not prove balanced mirror choice.
+The original durable batch remains exploratory for comparative performance;
+its cold archive residency, storage read, durability and byte checks remain valid.
+
+The balanced buffered epoch adds benchmark_observation.rs and integrates it in
+the shared extraction helper, with no new dependency or unsafe code. Safe procfs
+read_link/thread status records process ID, reader TID, NSpid vector and PID
+namespace. Optional parity admission returns extraction_admission_skip before
+archive opening/output creation. Namespace mismatch/missing identity also skips;
+the balanced runner retries only parity mismatch, at most sixteen attempts.
+Optional validated block-device names select bounded sysfs stat observations;
+read/write sector deltas use 512-byte units and checked subtraction. Invalid or
+unavailable counters are explicit nulls and are rejected by this protocol.
+
+The escalated measurement environment independently showed systemd PID1,
+pid:[4026531836] and a single NSpid. The runner requires that namespace and one
+namespace TID for each admitted child, with parity alternating across rounds.
+Four preparatory rounds (two each parity) are excluded, followed by twelve
+measured rounds (six each parity). All variants in a round request the same
+parity, every attempt repeats cold eviction/residency gating, and skipped
+attempts are retained. Selection never depends on observed performance.
+
+Global nvme0n1/nvme1n1 counters bracket extraction outside its elapsed timer and
+before verification. They include unrelated host I/O and cannot attribute reads
+or prove equal physical mirrors, whose stripe ordering can vary across extents.
+Reader-parity strata and device-read fractions are reported. Aggregate paired
+intervals resample six adjacent two-round blocks to preserve parity balance;
+within-parity intervals resample six paired rounds. Ten thousand seeded draws,
+percentile intervals and no multiplicity correction remain explicit.
+
+Buffered completion writes/flushes/closes without timed fsync. After independent
+process verification the runner syncs only its owned regular output files in
+batches of at most500 paths, then output directory and parent. Successful drain
+precedes deletion/next sample; failure preserves outputs. Drain duration remains
+separate from extraction: intervening verification prevents treating their sum
+as durable completion. CPU snapshots retain existing caller-level scope and thus
+include small observation overhead outside the inner elapsed timer.
+
+Original durable source is captured at durable-source/rust with every recorded
+source hash, source.patch and identity.json. Original /bin executables stay
+untouched; balanced executables use /balanced-bin. Retention validates the old
+snapshot for durable and current measured source for balanced, checks both
+binary/runner/summarizer identities and retains their distinct raw evidence.
+No numerical result or gain assessment is supplied by these preparation notes.
+
+PARITY RETRY ALLOCATION
+A constant number of subprocesses between attempts could keep reader PID/TID
+parity unchanged in a quiet namespace. Before freeze, balanced-buffered-run.dart
+therefore alternates zero and one harmless /usr/bin/true child between skipped
+attempts (attempt index modulo two), recording the command/exit code in each
+skip record. Across two transitions this defeats a constant even or odd baseline
+PID-allocation stride. Concurrent unrelated task allocation can still affect
+parity, so admission remains explicitly checked and capped at sixteen attempts.
+This retry policy uses only the preflight identity mismatch, never timing data.
+
+LOSSLESS RETENTION REFINEMENT
+The initial retention invocation stopped at its16MiB per-file guard before any
+worktree/doc writes. Reviewed balanced evidence totals306MiB (301MiB many-file);
+largest sampleJSONL is26,419,362bytes. Although drain commands record compact
+path bounds, /usr/bin/time stderr repeats every sync argument; result/sample/
+round records preserve that text. This is evidence duplication, not benchmark
+failure. retain.before-gzip.dart preserves the original attempted script.
+Retention keeps full JSON/environment validation and a reviewed32MiB per-file
+bound, compresses raw text over128KiB with deterministic gzip -n -c, and verifies
+gzip decompression SHA256 before any worktree write. Linked metric summaries and
+named source/scripts remain plain text. Manifest stores original and compressed
+SHA256, sizes, encoding and pathmapping. Full /tmp originals are not altered.
+
+The first gzip-capable retention invocation also stopped before writing docs:
+two Cargo JSONL captures include merged stderr Compiling/Finished progress lines.
+Only those known prefixes in observation-build-test.jsonl and observation-build-
+bench-fixed.jsonl are recognized as text; every JSON record still passes full
+JSON/environment validation. Original bytes are retained unchanged. The attempted
+script is preserved as retain.before-cargo-log-fix.dart. No benchmark was rerun.
+A further preflight pass recognized observation-build-bench.jsonl as the original
+failed Cargo invocation's plain CLI error/usage text, despite its .jsonl suffix.
+Only its reviewed error/tip/usage/help lines are accepted as text; bytes remain
+unchanged. Both preflight exceptions are file-specific and do not relax any
+sample JSON, sample JSONL or environment validation.

@@ -1,0 +1,38 @@
+#! /usr/bin/env dcli
+import 'dart:convert';
+import 'dart:io';
+import 'package:dcli/dcli.dart';
+void main() {
+  var inspected = 0;
+  var environmentMaps = 0;
+  var suspicious = 0;
+  void walk(Object? value, String path) {
+    if (value is Map) {
+      for (final entry in value.entries) {
+        if (entry.key == 'environment' && entry.value is Map) {
+          environmentMaps++;
+          final keys = (entry.value as Map).keys.map((key) => key.toString()).toList()..sort();
+          if (keys.any((key) => !key.startsWith('REVAULT_'))) {
+            suspicious++;
+            print(jsonEncode({'path': path, 'environment_key_names': keys}));
+          }
+        }
+        walk(entry.value, path);
+      }
+    } else if (value is List) {
+      for (final child in value) { walk(child, path); }
+    }
+  }
+  for (final entry in Directory('/tmp/revault-parallel-20261010').listSync(recursive: true, followLinks: false)) {
+    if (entry is! File || !(entry.path.endsWith('.json') || entry.path.endsWith('.jsonl'))) continue;
+    inspected++;
+    if (entry.path.endsWith('.jsonl')) {
+      for (final line in entry.readAsLinesSync()) {
+        try { walk(jsonDecode(line), entry.path); } on FormatException { /* incomplete evidence is not echoed */ }
+      }
+    } else {
+      try { walk(jsonDecode(entry.readAsStringSync()), entry.path); } on FormatException { /* no raw contents emitted */ }
+    }
+  }
+  print(blue('Inspected $inspected JSON/JSONL files; found $environmentMaps environment maps; $suspicious full-environment candidates. No values printed.'));
+}

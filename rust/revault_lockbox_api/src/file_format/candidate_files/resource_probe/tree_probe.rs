@@ -113,6 +113,11 @@ pub(super) fn run(
         return;
     }
     assert!(matches!(phase, "tree-sample" | "tree-extract"));
+    let workers: usize = std::env::var("REVAULT_READ_WORKERS")
+        .unwrap_or_else(|_| "1".into())
+        .parse()
+        .unwrap();
+    assert!(matches!(workers, 1 | 2 | 4));
     let public = OwnerSigningPublicKey::from_bytes(&std::fs::read(&public_path).unwrap()).unwrap();
     let authority = if mode.signed() {
         Authority::Owner(&public)
@@ -122,14 +127,16 @@ pub(super) fn run(
         Authority::Symmetric(KEY)
     };
     let open = || {
-        TreeImage::open(
+        let mut image = TreeImage::open(
             StorageBackend::file(&target).unwrap(),
             archive(),
             mode,
             &authority,
             key,
         )
-        .unwrap()
+        .unwrap();
+        image.image.set_read_workers(workers).unwrap();
+        image
     };
     if phase == "tree-extract" {
         let output = std::path::PathBuf::from(std::env::var_os("REVAULT_EXTRACT_OUTPUT").unwrap());
@@ -162,6 +169,11 @@ pub(super) fn run(
             },
         );
         result["backend"] = json!("typed-tree");
+        result["configured_cpu_workers"] = json!(workers);
+        result["worker_threads"] = json!(if workers == 1 { 0 } else { workers });
+        result["max_queued_chunks"] = json!(if workers == 1 { 1 } else { workers * 8 });
+        result["single_chunk_serial_fallback"] = json!(true);
+        result["parallel_min_requested_bytes"] = json!(128 * 1024);
         println!("CANDIDATE_SAMPLE {result}");
         return;
     }
@@ -215,5 +227,10 @@ pub(super) fn run(
     result["candidate_test_executable_sha256"] =
         json!(digest_file(&std::env::current_exe().unwrap()));
     result["extent_unit"] = json!(unit);
+    result["configured_cpu_workers"] = json!(workers);
+    result["worker_threads"] = json!(if workers == 1 { 0 } else { workers });
+    result["max_queued_chunks"] = json!(if workers == 1 { 1 } else { workers * 8 });
+    result["single_chunk_serial_fallback"] = json!(true);
+    result["parallel_min_requested_bytes"] = json!(128 * 1024);
     println!("CANDIDATE_SAMPLE {result}");
 }

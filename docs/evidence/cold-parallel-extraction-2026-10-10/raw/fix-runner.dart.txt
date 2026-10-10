@@ -1,0 +1,90 @@
+#! /usr/bin/env dcli
+import 'dart:io';
+import 'package:dcli/dcli.dart';
+void main() {
+  final file = File('/tmp/revault-parallel-20261010/run.dart');
+  final backup = File('/tmp/revault-parallel-20261010/run.before-splitmix-fix.dart');
+  if (backup.existsSync()) throw StateError('Refusing to replace runner backup');
+  file.copySync(backup.path);
+  var source = file.readAsStringSync();
+  void replace(String old, String next) {
+    if (!source.contains(old)) throw StateError('Missing edit anchor: $old');
+    source = source.replaceAll(old, next);
+  }
+  replace("const parallelRoot = '\u0024oldRoot/parallel-v2';", "const parallelRoot = '\u0024oldRoot/parallel-v3';");
+  replace("    case 'finish-random-case':\n      if (args.length != 2) usage();\n      await finishRandomCase(File(args[1]).absolute.path);\n      return;", "    case 'check-generator':\n      if (args.length != 1) usage();\n      print(jsonEncode(_checkNativePayload()));\n      return;");
+  replace("      if (args.length != 3) usage();\n      await runSmoke(", "      if (args.length != 3 && args.length != 4) usage();\n      await runSmoke(");
+  replace("        durable: args[0] == 'cold-smoke',", "        durable: args[0] == 'cold-smoke',\n        selectedCase: args.length == 4 ? caseFor(args[3]) : null,");
+  replace('finish-random-case <archive-evaluation>', 'check-generator');
+  replace('cold-smoke <candidate-test> <zip-runner>', 'cold-smoke <candidate-test> <zip-runner> [CASE]');
+  replace('cold-buffered-smoke <candidate-test> <zip-runner>', 'cold-buffered-smoke <candidate-test> <zip-runner> [CASE]');
+  replace("Directory('\u0024evidenceRoot/fixture-setup')", "Directory('\u0024evidenceRoot/fixture-setup-v3')");
+  replace("'generator': 'Dart xorshift32; deterministic nonzero per-file seed; high byte emitted; one 65,536-byte write per file',", "'generator': 'Exact benches/evaluation/runner.rs Case::payload SplitMix64 expression; Dart VM signed64 wrapping and unsigned >>>; low byte; one 65,536-byte write per file',\n    'native_reference_check': _checkNativePayload(),\n    'preserved_failed_root': '\u0024oldRoot/parallel-v2/raw-random-10000x64k',");
+  final generatorStart = source.indexOf('    final stateSeed =');
+  final generatorEnd = source.indexOf('    final path =', generatorStart);
+  if (generatorStart < 0 || generatorEnd < 0) throw StateError('Missing old generator');
+  source = source.substring(0, generatorStart) + '    final bytes = Uint8List(spec.bytes);\n    _nativePayload(index, 0, bytes);\n' + source.substring(generatorEnd);
+  final oldFinishStart = source.indexOf('Future<void> finishRandomCase(');
+  final oldFinishEnd = source.indexOf('Future<void> _writeInventory(', oldFinishStart);
+  if (oldFinishStart < 0 || oldFinishEnd < 0) throw StateError('Missing old repair function');
+  source = source.substring(0, oldFinishStart) + r'''// Exact native Case::payload for corpus=random. Dart VM int arithmetic wraps
+// at 64 bits; >>> is required for Rust's unsigned shifts. Never use >> here.
+void _nativePayload(int index, int offset, Uint8List buffer) {
+  for (var n = 0; n < buffer.length; n++) {
+    var value = offset + n + (index << 32) + 0x9e3779b97f4a7c15;
+    value = (value ^ (value >>> 30)) * 0xbf58476d1ce4e5b9;
+    value = (value ^ (value >>> 27)) * 0x94d049bb133111eb;
+    buffer[n] = (value ^ (value >>> 31)) & 0xff;
+  }
+}
+
+Map<String, dynamic> _checkNativePayload() {
+  // Existing immutable native-generated 1GiB fixture is the independent oracle
+  // for unsigned wrapping/offset behavior, before creating any new fixture.
+  final path = '$scaleRoot/raw-random-1gib/source/file-000000.bin';
+  final reference = File(path).openSync();
+  final offsets = [0, 65529, 1048589, 1073737728];
+  try {
+    for (final offset in offsets) {
+      reference.setPositionSync(offset);
+      final expected = reference.readSync(4096);
+      final actual = Uint8List(4096);
+      _nativePayload(0, offset, actual);
+      if (expected.length != actual.length) throw StateError('Native reference short read');
+      for (var n = 0; n < actual.length; n++) {
+        if (actual[n] != expected[n]) {
+          throw StateError('Dart/native Case::payload mismatch at ${offset + n}');
+        }
+      }
+    }
+  } finally {
+    reference.closeSync();
+  }
+  return {'verified': true, 'reference': path, 'file_index': 0,
+    'offsets': offsets, 'bytes_per_offset': 4096,
+    'remaining_indices_validation': 'native ZIP create verifier checks every generated file byte'};
+}
+
+''' + source.substring(oldFinishEnd);
+  replace("  final tree = File('\u0024{spec.root}/tree.lbox');\n  if (tree.existsSync() && tree.lengthSync() != 0) {\n    throw StateError('Refusing to replace existing tree archive: \u0024{tree.path}');\n  }\n  final before = _inputIdentity(spec);", "  for (final name in ['tree.lbox', 'tree.public', 'tree-staging.lbox']) {\n    if (FileSystemEntity.typeSync('\u0024{spec.root}/\u0024name', followLinks: false) != FileSystemEntityType.notFound) {\n      throw StateError('Refusing existing tree creation artifact: \u0024{spec.root}/\u0024name');\n    }\n  }\n  _validateBudget(projectedNewBytes: 2 * spec.payloadBytes);\n  final before = _inputIdentity(spec, includeTree: false);");
+  // Only creation has this exact adjacent statement; batch identity keeps tree hashes.
+  replace('  final after = _inputIdentity(spec);\n  final candidateAfter', '  final after = _inputIdentity(spec, includeTree: false);\n  final candidateAfter');
+  replace("    'sample': sample,\n    'exit_code': run.exitCode,", "    'sample': sample,\n    'tree_sha256': File('\u0024{spec.root}/tree.lbox').existsSync() ? _sha('\u0024{spec.root}/tree.lbox') : null,\n    'tree_public_sha256': File('\u0024{spec.root}/tree.public').existsSync() ? _sha('\u0024{spec.root}/tree.public') : null,\n    'exit_code': run.exitCode,");
+  replace('Map<String, dynamic> _inputIdentity(CaseSpec spec) => {', 'Map<String, dynamic> _inputIdentity(CaseSpec spec, {bool includeTree = true}) => {');
+  replace("      'tree_sha256': _sha", "      if (includeTree) 'tree_sha256': _sha");
+  replace("      'tree_public_sha256': _sha", "      if (includeTree) 'tree_public_sha256': _sha");
+  final smokeStart = source.indexOf('Future<void> runSmoke(');
+  final smokeEnd = source.indexOf('Future<Map<String, dynamic>> _extractSample(', smokeStart);
+  var smoke = source.substring(smokeStart, smokeEnd);
+  smoke = smoke.replaceAll('{required bool durable})', '{required bool durable, CaseSpec? selectedCase})');
+  smoke = smoke.replaceFirst("  if (!File(treeExecutable)", "  final activeCases = selectedCase == null ? cases : [selectedCase];\n  if (!File(treeExecutable)");
+  smoke = smoke.replaceAll('in cases)', 'in activeCases)').replaceAll('cases.fold<int>', 'activeCases.fold<int>');
+  smoke = smoke.replaceAll("-smoke');", "-smoke\u0024{selectedCase == null ? '' : '-\u0024{selectedCase.name}'}');");
+  smoke = smoke.replaceAll('minimumStorageReadBytes: 1,', 'minimumStorageReadBytes: (spec.payloadBytes * 9 + 9) ~/ 10,');
+  smoke = smoke.replaceAll('read_bytes must be positive', 'read_bytes must be at least 90% of logical payload');
+  source = source.substring(0, smokeStart) + smoke + source.substring(smokeEnd);
+  replace('minimumStorageReadBytes: (spec.payloadBytes * 9 / 10).ceil(),', 'minimumStorageReadBytes: (spec.payloadBytes * 9 + 9) ~/ 10,');
+  replace('sample must report process storage_io.read_bytes > 0', 'sample must report process storage_io.read_bytes >= 90% of logical payload');
+  file.writeAsStringSync(source);
+  print(green('Runner fixes written; original and failed fixtures preserved; no fixtures/tests run.'));
+}

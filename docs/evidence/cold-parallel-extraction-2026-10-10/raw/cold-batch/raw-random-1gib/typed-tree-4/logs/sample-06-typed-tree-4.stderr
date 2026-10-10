@@ -1,0 +1,46 @@
+	Command being timed: "timeout 900 /tmp/revault-parallel-20261010/bin/revault_lockbox_api_tests --exact file_format::candidate_files::resource_probe::candidate_file_resource_probe --ignored --nocapture"
+	User time (seconds): 0.99
+	System time (seconds): 2.35
+	Percent of CPU this job got: 117%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:02.86
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 12208
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 19434
+	Voluntary context switches: 3500
+	Involuntary context switches: 18210
+	Swaps: 0
+	File system inputs: 2113376
+	File system outputs: 2100064
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0
+	Command being timed: "timeout 930 taskset -c 0,1,2,3,4 /usr/bin/time -v timeout 900 /tmp/revault-parallel-20261010/bin/revault_lockbox_api_tests --exact file_format::candidate_files::resource_probe::candidate_file_resource_probe --ignored --nocapture"
+	User time (seconds): 1.00
+	System time (seconds): 2.35
+	Percent of CPU this job got: 117%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:02.86
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 12208
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 20136
+	Voluntary context switches: 3505
+	Involuntary context switches: 18211
+	Swaps: 0
+	File system inputs: 2113376
+	File system outputs: 2100064
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

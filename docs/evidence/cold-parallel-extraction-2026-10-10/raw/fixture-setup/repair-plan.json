@@ -1,0 +1,9 @@
+{
+  "repair": "resume runner-owned source generation after missing inventory exposed by first attempt",
+  "root": "/home/bsutton/.cache/revault-performance-20261010-large/parallel-v2/raw-random-10000x64k",
+  "source_file_count": 10000,
+  "expected_source_file_count": 10000,
+  "source_file_bytes": 65536,
+  "archive_evaluation_sha256_before": "c9e0a6d4cee1510149531e17640b7577b9059b43d6572a34dfc97d8368c0a38d",
+  "failure_evidence": "initial-run-failure.json"
+}

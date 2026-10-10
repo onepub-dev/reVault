@@ -22,6 +22,24 @@ or erase failures.
 
 ## Current position and next work
 
+### Cold disk extraction and bounded parallel reads — 2026-10-10
+
+The balanced raw/plain buffered batch does not establish ZIP parity or a
+parallel-read improvement: serial tree elapsed time is 36.3% higher for
+1 GiB and 51.9% higher for 10,000 files. On 1 GiB, two workers add 12.2%
+elapsed and 33.7% CPU; four workers show no clear elapsed gain and add
+40.2% CPU. Keep one worker as default and parallelism explicitly test-only.
+Next qualify realistic compressed/encrypted large streams before choosing
+another pipeline experiment. All-mode correctness is not performance qualification.
+
+The [cold disk extraction and bounded parallel reads](evidence/cold-parallel-extraction-2026-10-10/README.md) milestone records one, two and four configured CPU workers
+against serial ZIP on random GiB and 10,000-file fixtures. It requires zero
+archive page-cache residency and substantial process storage reads. Separate
+reader-parity-balanced buffered and exploratory durable protocols report paired elapsed/CPU
+intervals and peak RSS; buffered output drain is reported outside timing.
+Earlier warm-cache/buffered extraction results remain historical diagnostics.
+The reader remains test-only; public CLI and broader G3/G11 gates remain open.
+
 ### Disk-backed scale and extraction milestone — 2026-10-10
 
 The [bounded construction and extraction evidence](evidence/scale-extraction-2026-10-10/README.md)

@@ -146,6 +146,24 @@ including Vault containers. `0.4.x` remains format 3 and is isolated from this w
 
 ## Current scorecard
 
+The [cold disk extraction and bounded parallel reads](evidence/cold-parallel-extraction-2026-10-10/README.md) milestone adds separate cold-archive buffered and durable
+comparisons for random 1 GiB and 10,000 × 64 KiB workloads with serial ZIP
+and one/two/four configured tree workers, with buffered postprocess drain
+reported separately from extraction. Buffered reader parity is balanced and
+device-global I/O counters are retained; the older durable epoch did not
+record mirror selection and remains exploratory. Measurements and paired
+elapsed/CPU confidence intervals are component evidence; public CLI and
+broader G3/G11 qualification remain open. Earlier warm-cache/no-fsync
+extraction measurements below remain historical diagnostics.
+
+The balanced buffered batch still fails ZIP parity: paired serial tree elapsed
+time is 36.3% higher for 1 GiB and 51.9% higher for 10,000 files. On the large
+file, two workers add 12.2% elapsed time and 33.7% CPU over one worker; four
+workers show no clear elapsed improvement and add 40.2% CPU. Keep one worker
+as default and parallel verification explicitly test-only. Next qualify a
+realistic compressed/encrypted large stream before choosing further pipeline
+work; correctness across all sixteen modes does not qualify their performance.
+
 The [disk-backed scale/extraction milestone](evidence/scale-extraction-2026-10-10/README.md)
 now provides capacity and actual filesystem extraction measurements for the
 1 GiB and 10,000-file/625 MiB cases. Both construction/read gates pass on the
@@ -156,7 +174,7 @@ The small-fixture results below are historical diagnostics.
 
 
 The [combined October 10 batch](evidence/typed-tree-combined-read-2026-10-10/README.md)
-on `ed4d6c0f` is the latest typed-read baseline. All six fixed 30-pair cases fail
+on `ed4d6c0f` is a historical small-fixture typed-read baseline. All six fixed 30-pair cases fail
 ZIP parity: 1.159× small files, 2.600–3.359× streams and 9.716×/23.954× ranges.
 Every content/identity check passes. Failed launcher setup and smoke samples are
 explicitly excluded and retained. The separate paired opening improvements do

@@ -1,0 +1,47 @@
+{
+  "case": "raw-random-1gib",
+  "round": 14,
+  "warmup": false,
+  "backend": "zip",
+  "worker_count": null,
+  "input_path": "/home/bsutton/.cache/revault-performance-20261010-large/scale-v1/raw-random-1gib/archive.zip",
+  "output_path": "/home/bsutton/.cache/revault-performance-20261010-large/scale-v1/raw-random-1gib/extract-output/parallel/sample-14-zip-attempt00",
+  "affinity": "0,1,2,3,4",
+  "durable": false,
+  "requested_reader_tid_parity": 0,
+  "admission_attempt": 0,
+  "command": [
+    "taskset",
+    "-c",
+    "0,1,2,3,4",
+    "/usr/bin/time",
+    "-v",
+    "timeout",
+    "900",
+    "/tmp/revault-parallel-20261010/balanced-bin/archive_evaluation",
+    "extract-zip",
+    "/home/bsutton/.cache/revault-performance-20261010-large/scale-v1/raw-random-1gib",
+    "/home/bsutton/.cache/revault-performance-20261010-large/scale-v1/raw-random-1gib/extract-output/parallel/sample-14-zip-attempt00"
+  ],
+  "environment": {
+    "REVAULT_EXTRACT_DURABLE": "0",
+    "REVAULT_EXTRACT_TID_PARITY": "0",
+    "REVAULT_EXTRACT_PID_NAMESPACE": "pid:[4026531836]",
+    "REVAULT_EXTRACT_BLOCK_DEVICES": "nvme0n1,nvme1n1"
+  },
+  "executable": "/tmp/revault-parallel-20261010/balanced-bin/archive_evaluation",
+  "executable_sha256_before": "b07e1c264501ed0f3c72bcf433d14f218593903acdd3f3abcfbd421a23631c3f",
+  "cache_gate": {
+    "sync_exit_code": 0,
+    "sync_stderr": "",
+    "fadvise_exit_code": 0,
+    "fadvise_stdout": "",
+    "fadvise_stderr": "",
+    "fincore_exit_code": 0,
+    "fincore_stdout": "{\n   \"fincore\": [\n      {\n         \"size\": 1073741952,\n         \"res\": 0,\n         \"dirty\": 0,\n         \"writeback\": 0,\n         \"file\": \"/home/bsutton/.cache/revault-performance-20261010-large/scale-v1/raw-random-1gib/archive.zip\"\n      }\n   ]\n}\n",
+    "fincore_stderr": "",
+    "resident_bytes_after_dontneed": 0,
+    "required_resident_bytes": 0,
+    "success": true
+  }
+}

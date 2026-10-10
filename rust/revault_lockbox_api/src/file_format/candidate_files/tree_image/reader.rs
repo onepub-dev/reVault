@@ -7,6 +7,14 @@ use crate::file_format::authenticated_index::{Entry, PageCache};
 use crate::file_format::publication_anchor::RootRef;
 use crate::{LockboxEntry, LockboxEntryKind, LockboxPath};
 use std::cell::RefCell;
+mod parallel;
+
+struct Selected {
+    extent: Extent,
+    descriptor: Descriptor,
+    first: usize,
+    last: usize,
+}
 
 pub(in crate::file_format::candidate_files) struct TreeImage<S: Storage> {
     pub image: ReadImage<S>,
@@ -20,6 +28,7 @@ pub(in crate::file_format::candidate_files) struct ReadImage<S: Storage> {
     version: u8,
     codec: Codec,
     key: Option<Zeroizing<Vec<u8>>>,
+    parallel: Option<parallel::Parallel>,
 }
 impl<S: Storage> TreeImage<S> {
     pub fn open(
@@ -53,6 +62,7 @@ impl<S: Storage> TreeImage<S> {
             index: Index::new(archive, mode, key)?,
             codec: Codec::shared_packed(archive, mode, key)?,
             key: key.map(|v| Zeroizing::new(v.to_vec())),
+            parallel: None,
         };
         let format = image.required(5, b"format")?;
         if !matches!(
@@ -95,6 +105,23 @@ impl<S: Storage> TreeImage<S> {
     }
 }
 impl<S: Storage> ReadImage<S> {
+    /// Test-only policy: one means the unchanged serial path and no thread pool.
+    /// Reuse this session across files; even configured parallel sessions keep
+    /// single-chunk ranges and requests below 128 KiB serial. The coordinator
+    /// is additional to N workers.
+    pub fn set_read_workers(&mut self, workers: usize) -> Result<()> {
+        self.parallel = match workers {
+            1 => None,
+            2 | 4 => Some(parallel::Parallel::new(
+                self.anchor.archive,
+                self.anchor.mode,
+                self.key.as_deref().map(Vec::as_slice),
+                workers,
+            )?),
+            _ => return Err(Error::InvalidInput("read workers must be 1, 2 or 4".into())),
+        };
+        Ok(())
+    }
     fn get(&self, namespace: u8, key: &[u8]) -> Result<Option<Entry>> {
         self.index.get_cached(
             &self.storage,
@@ -145,63 +172,120 @@ impl<S: Storage> ReadImage<S> {
         if len == 0 {
             return Ok(());
         }
-        for ordinal in offset / info.unit as u64..end.div_ceil(info.unit as u64) {
-            let row = self.required(2, &chunk_key(info.id, ordinal))?;
-            if row.value.len() != 112 {
-                return Err(Error::CorruptRecord);
+        let first_ordinal = offset / info.unit as u64;
+        let limit = end.div_ceil(info.unit as u64);
+        if self.parallel.is_some() && len >= 128 * 1024 && limit - first_ordinal > 1 {
+            let capacity = self.parallel.as_ref().unwrap().capacity();
+            let mut next = first_ordinal;
+            while next < limit {
+                let mut jobs = Vec::with_capacity(capacity);
+                while next < limit && jobs.len() < capacity {
+                    let selected = self.select_chunk(&info, next, offset, end)?;
+                    // Validate before allocation/I/O; workers revalidate and run
+                    // the identical commitment/decryption/decoding path.
+                    self.codec.validate_extent(
+                        selected.extent,
+                        self.anchor.sealed_len,
+                        &selected.descriptor,
+                    )?;
+                    let mut stored = crate::page_buffer::ZeroizingBytes::new(vec![
+                        0;
+                        selected.extent.len
+                            as usize
+                    ]);
+                    self.storage
+                        .read_at_into(selected.extent.start, &mut stored)?;
+                    jobs.push(parallel::Job {
+                        selected,
+                        stored,
+                        decoded: None,
+                    });
+                    next += 1;
+                }
+                self.parallel
+                    .as_mut()
+                    .unwrap()
+                    .decode(&mut jobs, self.anchor.sealed_len);
+                // Success exposes only authenticated bytes in logical order. A
+                // later failure may leave an already verified prefix delivered,
+                // exactly as the serial API; callers must discard partial sinks.
+                for mut job in jobs {
+                    let bytes = job.decoded.take().ok_or(Error::CorruptRecord)??;
+                    visitor(&bytes[job.selected.first..job.selected.last])?;
+                }
             }
-            let descriptor = Descriptor::decode(&row.value[..64])?;
-            let logical = ordinal
-                .checked_mul(info.unit as u64)
-                .ok_or(Error::CorruptRecord)?;
-            if descriptor.object != info.id
-                || descriptor.ordinal != ordinal
-                || descriptor.offset != logical
-                || descriptor.logical_len as u64 != (info.len - logical).min(info.unit as u64)
-            {
-                return Err(Error::CorruptRecord);
+        } else {
+            for ordinal in first_ordinal..limit {
+                let selected = self.select_chunk(&info, ordinal, offset, end)?;
+                self.codec.with_loaded(
+                    &self.storage,
+                    selected.extent,
+                    self.anchor.sealed_len,
+                    &selected.descriptor,
+                    |bytes| visitor(&bytes[selected.first..selected.last]),
+                )?;
             }
-            let start = u64::from_le_bytes(row.value[64..72].try_into().unwrap());
-            let relative = u64::from_le_bytes(row.value[72..80].try_into().unwrap());
-            let pack = self.required(3, &start.to_be_bytes())?;
-            if pack.value.len() != 72 {
-                return Err(Error::CorruptRecord);
-            }
-            let pack_len = u64::from_le_bytes(pack.value[..8].try_into().unwrap());
-            let stored = descriptor.stored_len() as u64;
-            if start < REGION_LEN as u64
-                || pack_len == 0
-                || pack_len
-                    > self
-                        .codec
-                        .pack_padded_len(self.codec.logical_unit(MAX_LOGICAL)? + 28)?
-                        as u64
-                || start
-                    .checked_add(pack_len)
-                    .is_none_or(|v| v > self.anchor.sealed_len)
-                || relative.checked_add(stored).is_none_or(|v| v > pack_len)
-            {
-                return Err(Error::CorruptRecord);
-            }
-            let extent = Extent {
-                start: start.checked_add(relative).ok_or(Error::CorruptRecord)?,
-                len: stored,
-                digest: row.value[80..].try_into().unwrap(),
-            };
-            // The fragment digest is authenticated by the index path, not merely
-            // taken from the payload itself. Codec verifies it before decoding
-            // or invoking the caller, including any internal authenticated pad.
-            let first = offset.saturating_sub(logical) as usize;
-            let last = (end - logical).min(descriptor.logical_len as u64) as usize;
-            self.codec.with_loaded(
-                &self.storage,
-                extent,
-                self.anchor.sealed_len,
-                &descriptor,
-                |bytes| visitor(&bytes[first..last]),
-            )?;
         }
         Ok(())
+    }
+
+    fn select_chunk(
+        &self,
+        info: &FileInfo,
+        ordinal: u64,
+        offset: u64,
+        end: u64,
+    ) -> Result<Selected> {
+        let row = self.required(2, &chunk_key(info.id, ordinal))?;
+        if row.value.len() != 112 {
+            return Err(Error::CorruptRecord);
+        }
+        let descriptor = Descriptor::decode(&row.value[..64])?;
+        let logical = ordinal
+            .checked_mul(info.unit as u64)
+            .ok_or(Error::CorruptRecord)?;
+        if descriptor.object != info.id
+            || descriptor.ordinal != ordinal
+            || descriptor.offset != logical
+            || descriptor.logical_len as u64 != (info.len - logical).min(info.unit as u64)
+        {
+            return Err(Error::CorruptRecord);
+        }
+        let start = u64::from_le_bytes(row.value[64..72].try_into().unwrap());
+        let relative = u64::from_le_bytes(row.value[72..80].try_into().unwrap());
+        let pack = self.required(3, &start.to_be_bytes())?;
+        if pack.value.len() != 72 {
+            return Err(Error::CorruptRecord);
+        }
+        let pack_len = u64::from_le_bytes(pack.value[..8].try_into().unwrap());
+        let stored = descriptor.stored_len() as u64;
+        if start < REGION_LEN as u64
+            || pack_len == 0
+            || pack_len
+                > self
+                    .codec
+                    .pack_padded_len(self.codec.logical_unit(MAX_LOGICAL)? + 28)?
+                    as u64
+            || start
+                .checked_add(pack_len)
+                .is_none_or(|v| v > self.anchor.sealed_len)
+            || relative.checked_add(stored).is_none_or(|v| v > pack_len)
+        {
+            return Err(Error::CorruptRecord);
+        }
+        let extent = Extent {
+            start: start.checked_add(relative).ok_or(Error::CorruptRecord)?,
+            len: stored,
+            digest: row.value[80..].try_into().unwrap(),
+        };
+        let first = offset.saturating_sub(logical) as usize;
+        let last = (end - logical).min(descriptor.logical_len as u64) as usize;
+        Ok(Selected {
+            extent,
+            descriptor,
+            first,
+            last,
+        })
     }
     /// Listing intentionally traverses filesystem metadata, not fragment,
     /// variable or form-value records and never their payloads or spare space.

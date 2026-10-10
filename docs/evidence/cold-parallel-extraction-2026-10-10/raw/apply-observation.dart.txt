@@ -1,0 +1,27 @@
+#! /usr/bin/env dcli
+// Deferred, bounded source application. Do not run during a measured batch.
+import 'dart:convert';
+import 'dart:io';
+import 'package:dcli/dcli.dart';
+const base = '/tmp/revault-parallel-20261010';
+const source = '/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api/src';
+String sha(String path) {
+  final result = Process.runSync('sha256sum', ['--', path]);
+  if (result.exitCode != 0) throw StateError('Cannot hash $path');
+  return '${result.stdout}'.split(RegExp(r'\s+')).first;
+}
+void main(List<String> args) {
+  if (args.isNotEmpty) throw ArgumentError('Usage: ./apply-observation.dart');
+  final complete = jsonDecode(File('$base/cold-batch/complete.json').readAsStringSync()) as Map;
+  if (complete['complete'] != true) throw StateError('Durable batch must complete before source application');
+  if (sha('$source/benchmark_extraction.rs') != 'fa168d08d7b7f91bf28b9e3fe2865f660f36f76463ac1c8e0aed30001f6912e6') {
+    throw StateError('Original extraction helper changed; review before applying');
+  }
+  if (File('$source/benchmark_observation.rs').existsSync()) throw StateError('New module already exists');
+  final before = '$base/deferred/before-benchmark_extraction.rs.txt';
+  if (sha(before) != sha('$source/benchmark_extraction.rs')) throw StateError('Preserved old helper identity mismatch');
+  for (final name in ['benchmark_observation.rs', 'benchmark_extraction.rs']) {
+    File('$base/deferred/$name').copySync('$source/$name');
+  }
+  print(green('Applied test-only reader observation changes. Tests and new binary freeze are required before measurement.'));
+}

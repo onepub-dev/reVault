@@ -1,5 +1,7 @@
 //! Shared test/benchmark-only extraction sink. Not a public extraction API.
 //! Synthetic names come from the fixture contract, never untrusted archive paths.
+#[path = "benchmark_observation.rs"]
+mod observation;
 use serde_json::{json, Value};
 use std::{
     fs::{self, File, OpenOptions},
@@ -15,11 +17,113 @@ pub(crate) fn measure<H>(
     count: usize,
     bytes: u64,
     open: impl FnOnce() -> H,
+    copy: impl FnMut(&mut H, usize, &mut File) -> u64,
+    resources: impl FnOnce() -> Value,
+) -> Value {
+    let setting = match std::env::var("REVAULT_EXTRACT_DURABLE") {
+        Ok(value) => Some(value),
+        Err(std::env::VarError::NotPresent) => None,
+        Err(error) => panic!("invalid extraction durability setting: {error}"),
+    };
+    let durable = parse_durable(setting.as_deref()).unwrap();
+    measure_observed(
+        root,
+        output,
+        count,
+        bytes,
+        open,
+        copy,
+        resources,
+        durable,
+        observation::Observation::environment(),
+    )
+}
+
+fn parse_durable(setting: Option<&str>) -> Result<bool, &'static str> {
+    match setting {
+        None | Some("0") => Ok(false),
+        Some("1") => Ok(true),
+        _ => Err("REVAULT_EXTRACT_DURABLE must be 0 or 1"),
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+struct DiskIo {
+    read: u64,
+    written: u64,
+    cancelled: u64,
+}
+impl DiskIo {
+    fn parse(text: &str) -> Option<Self> {
+        let field = |name| {
+            text.lines().find_map(|line| {
+                let (key, value) = line.split_once(':')?;
+                (key == name)
+                    .then(|| value.trim().parse::<u64>().ok())
+                    .flatten()
+            })
+        };
+        Some(Self {
+            read: field("read_bytes")?,
+            written: field("write_bytes")?,
+            cancelled: field("cancelled_write_bytes")?,
+        })
+    }
+    fn now() -> Option<Self> {
+        Self::parse(&fs::read_to_string("/proc/self/io").ok()?)
+    }
+    fn delta(&self, before: &Self) -> Option<Value> {
+        Some(json!({"read_bytes":self.read.checked_sub(before.read)?,
+            "write_bytes":self.written.checked_sub(before.written)?,
+            "cancelled_write_bytes":self.cancelled.checked_sub(before.cancelled)?,
+            "source":"/proc/self/io; process-accounted storage I/O, not logical bytes"}))
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+#[cfg(test)]
+#[allow(dead_code)]
+fn measure_with_durability<H>(
+    root: &Path,
+    output: &Path,
+    count: usize,
+    bytes: u64,
+    open: impl FnOnce() -> H,
+    copy: impl FnMut(&mut H, usize, &mut File) -> u64,
+    resources: impl FnOnce() -> Value,
+    durable: bool,
+) -> Value {
+    measure_observed(
+        root,
+        output,
+        count,
+        bytes,
+        open,
+        copy,
+        resources,
+        durable,
+        observation::Observation::unconfigured(),
+    )
+}
+#[allow(clippy::too_many_arguments)]
+fn measure_observed<H>(
+    root: &Path,
+    output: &Path,
+    count: usize,
+    bytes: u64,
+    open: impl FnOnce() -> H,
     mut copy: impl FnMut(&mut H, usize, &mut File) -> u64,
     resources: impl FnOnce() -> Value,
+    durable: bool,
+    observation: observation::Observation,
 ) -> Value {
     assert!((1..=100_000).contains(&count));
     assert!(!output.exists(), "extraction requires a fresh destination");
+    if let Some(skip) = observation.admission_skip() {
+        return skip;
+    }
+    let block_before = observation.snapshot();
+    let io_before = DiskIo::now();
     let started = Instant::now();
     let mut archive = open();
     let open_seconds = started.elapsed().as_secs_f64();
@@ -35,11 +139,28 @@ pub(crate) fn measure<H>(
         let copied = copy(&mut archive, index, &mut file);
         assert_eq!(copied, bytes);
         file.flush().unwrap();
+        if durable {
+            file.sync_all().unwrap();
+        }
         drop(file);
         total = total.checked_add(copied).unwrap();
     }
     drop(archive);
+    if durable {
+        File::open(output).unwrap().sync_all().unwrap();
+        let parent = output
+            .parent()
+            .filter(|path| !path.as_os_str().is_empty())
+            .unwrap_or_else(|| Path::new("."));
+        File::open(parent).unwrap().sync_all().unwrap();
+    }
     let seconds = started.elapsed().as_secs_f64();
+    let io_after = DiskIo::now();
+    let block_device_io = observation.finish(&block_before);
+    let storage_io = io_after
+        .as_ref()
+        .zip(io_before.as_ref())
+        .and_then(|(after, before)| after.delta(before));
     let resources = resources();
     // Reopen persisted filesystem outputs after the timing/resource snapshot.
     assert_eq!(fs::read_dir(output).unwrap().count(), count);
@@ -66,7 +187,14 @@ pub(crate) fn measure<H>(
         "total_seconds":seconds,"logical_bytes_written":total,
         "mib_per_second":total as f64 / 1_048_576.0 / seconds,
         "resources":resources,"files":count,"verified":true,
-        "durability":"write/flush/close; no fsync; directory creation included",
+        "storage_io":storage_io,
+        "reader_identity":observation.identity_json(),
+        "requested_reader_tid_parity":observation.desired,
+        "block_device_io":block_device_io,
+        "durability":if durable { "sync_all each file, output directory and its parent; included in timer" }
+            else { "write/flush/close; no fsync; directory creation included" },
+        "file_syncs":if durable { count } else { 0 },
+        "directory_syncs":if durable { 2 } else { 0 },
         "scope":"synthetic regular-file component; excludes CLI startup and permission restoration"})
 }
 
@@ -80,6 +208,52 @@ mod tests {
         sync::atomic::{AtomicU64, Ordering},
     };
     static NEXT: AtomicU64 = AtomicU64::new(0);
+    #[test]
+    fn wrong_parity_skips_before_archive_open_and_output_creation() {
+        let root = Scratch::new();
+        let output = root.0.join("output");
+        let mut observation = observation::Observation::unconfigured();
+        let parity = observation.identity_json()["reader_tid_parity"]
+            .as_u64()
+            .unwrap_or(0);
+        observation.desired = Some((parity as u32) ^ 1);
+        let result = measure_observed(
+            &root.0,
+            &output,
+            1,
+            1,
+            || panic!("archive must not open"),
+            |_: &mut (), _, _| panic!("must not copy"),
+            || panic!("must not measure resources"),
+            false,
+            observation,
+        );
+        assert_eq!(result["kind"], "extraction_admission_skip");
+        assert!(!output.exists());
+    }
+    #[test]
+    fn durability_setting_is_explicit_and_io_counters_are_checked() {
+        assert_eq!(parse_durable(None), Ok(false));
+        assert_eq!(parse_durable(Some("0")), Ok(false));
+        assert_eq!(parse_durable(Some("1")), Ok(true));
+        for value in ["", "true", "2", " 1"] {
+            assert!(parse_durable(Some(value)).is_err());
+        }
+        let before =
+            DiskIo::parse("rchar: 999\nread_bytes: 4\nwrite_bytes: 8\ncancelled_write_bytes: 1\n")
+                .unwrap();
+        let after = DiskIo {
+            read: 12,
+            written: 24,
+            cancelled: 3,
+        };
+        let delta = after.delta(&before).unwrap();
+        assert_eq!(delta["read_bytes"], 8);
+        assert_eq!(delta["write_bytes"], 16);
+        assert_eq!(delta["cancelled_write_bytes"], 2);
+        assert!(before.delta(&after).is_none());
+        assert!(DiskIo::parse("read_bytes: x\nwrite_bytes: 1\ncancelled_write_bytes: 0").is_none());
+    }
     struct Scratch(PathBuf);
     impl Scratch {
         fn new() -> Self {
@@ -101,6 +275,31 @@ mod tests {
         fn drop(&mut self) {
             fs::remove_dir_all(&self.0).unwrap();
         }
+    }
+    #[test]
+    fn durable_extraction_syncs_files_and_directory_chain_before_verification() {
+        let root = Scratch::new();
+        fs::write(root.0.join("source/file-000000.bin"), b"durable").unwrap();
+        let result = measure_with_durability(
+            &root.0,
+            &root.0.join("output"),
+            1,
+            7,
+            || (),
+            |_, _, file| {
+                file.write_all(b"durable").unwrap();
+                7
+            },
+            || json!({}),
+            true,
+        );
+        assert_eq!(result["verified"], true);
+        assert_eq!(result["file_syncs"], 1);
+        assert_eq!(result["directory_syncs"], 2);
+        assert!(result["durability"]
+            .as_str()
+            .unwrap()
+            .contains("included in timer"));
     }
     #[test]
     fn extraction_checks_reopened_bytes_across_buffer_boundary() {

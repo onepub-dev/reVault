@@ -1,0 +1,7 @@
+
+running 1 test
+CANDIDATE_SAMPLE {"backend":"typed-tree","configured_cpu_workers":4,"directory_syncs":2,"durability":"sync_all each file, output directory and its parent; included in timer","file_syncs":1,"files":1,"kind":"filesystem_extraction","logical_bytes_written":1073741824,"max_queued_chunks":32,"mib_per_second":406.3039889072663,"open_seconds":0.00220975,"parallel_min_requested_bytes":131072,"resources":{"cpu":{"cpu_seconds":3.1949189999999996,"major_faults":0,"system_seconds":2.111957,"user_seconds":1.082962},"peak_rss_kib":12820},"scope":"synthetic regular-file component; excludes CLI startup and permission restoration","single_chunk_serial_fallback":true,"storage_io":{"cancelled_write_bytes":0,"read_bytes":1082048512,"source":"/proc/self/io; process-accounted storage I/O, not logical bytes","write_bytes":1075183616},"total_seconds":2.52028045,"verified":true,"worker_threads":4}
+test file_format::candidate_files::resource_probe::candidate_file_resource_probe ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 678 filtered out; finished in 2.74s
+
