@@ -1,0 +1,35 @@
+//! Temporary instrumented experiment, not a production reader feature.
+use std::{cell::Cell, marker::PhantomData, rc::Rc, time::Instant};
+use crate::Result;
+#[derive(Clone, Copy, Default)]
+struct Counts { calls: [u64; 8], seconds: [f64; 8], failures: [u64; 8] }
+thread_local! { static COUNTS: Cell<Option<Counts>> = const { Cell::new(None) }; }
+pub(crate) struct Scope(PhantomData<Rc<()>>);
+pub(crate) fn begin() -> Scope {
+    COUNTS.with(|c| { assert!(c.get().is_none()); c.set(Some(Counts::default())); });
+    Scope(PhantomData)
+}
+impl Drop for Scope { fn drop(&mut self) { COUNTS.with(|c| c.set(None)); } }
+pub(crate) fn measure<T>(kind: usize, f: impl FnOnce() -> Result<T>) -> Result<T> {
+    if !COUNTS.with(|c| c.get().is_some()) { return f(); }
+    let start = Instant::now();
+    let result = f();
+    let seconds = start.elapsed().as_secs_f64();
+    COUNTS.with(|c| {
+        let mut value = c.get().unwrap();
+        value.calls[kind] += 1;
+        value.seconds[kind] += seconds;
+        value.failures[kind] += u64::from(result.is_err());
+        c.set(Some(value));
+    });
+    result
+}
+pub(crate) fn take() -> serde_json::Value {
+    let counts = COUNTS.with(|c| c.replace(Some(Counts::default())).unwrap());
+    let names = ["verified_index_page", "index_decode", "payload_load", "payload_checksum", "lookup_file", "lookup_fragment", "lookup_pack", "lookup_format"];
+    let mut out = serde_json::Map::new();
+    for (i, name) in names.iter().enumerate() {
+        out.insert((*name).into(), serde_json::json!({"calls":counts.calls[i],"seconds":counts.seconds[i],"failures":counts.failures[i]}));
+    }
+    serde_json::Value::Object(out)
+}

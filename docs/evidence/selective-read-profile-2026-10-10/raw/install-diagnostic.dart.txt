@@ -1,0 +1,82 @@
+#! /usr/bin/env dcli
+import 'dart:io';
+import 'package:dcli/dcli.dart';
+void main() {
+ const root='/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance';
+ const src='$root/rust/revault_lockbox_api/src/file_format';
+ const out='/tmp/revault-selective-profile-20261010';
+ Directory('$out/original').createSync(recursive:true);
+ void edit(String path, String before, String after) {
+  final file=File('$src/$path');
+  final original=File('$out/original/$path');
+  if(!original.existsSync()) { original.parent.createSync(recursive:true); file.copySync(original.path); }
+  final text=file.readAsStringSync();
+  if(!text.contains(before)) throw StateError('Missing match $path');
+  file.writeAsStringSync(text.replaceFirst(before,after));
+ }
+ var timing=File('$root/docs/evidence/typed-tree-index-attribution-2026-10-10/raw/diagnostic_timing.rs.txt').readAsStringSync();
+ timing=timing.replaceAll('[u64; 4]','[u64; 8]').replaceAll('[f64; 4]','[f64; 8]');
+ timing=timing.replaceFirst('["verified_index_page", "index_decode", "index_visitor", "root_checksum"]','["verified_index_page", "index_decode", "payload_load", "payload_checksum", "lookup_file", "lookup_fragment", "lookup_pack", "lookup_format"]');
+ File('$src/diagnostic_timing.rs').writeAsStringSync(timing);
+ edit('mod.rs','pub(crate) mod commit_auth;','#[cfg(test)]\npub(crate) mod diagnostic_timing;\npub(crate) mod commit_auth;');
+ edit('authenticated_index.rs','''        self.decode(
+            &ZeroizingBytes::new(reference.read_verified(storage)?),
+            sealed,
+        )''','''        let bytes = crate::file_format::diagnostic_timing::measure(0, || reference.read_verified(storage))?;
+        let bytes = ZeroizingBytes::new(bytes);
+        crate::file_format::diagnostic_timing::measure(1, || self.decode(&bytes, sealed))''');
+ edit('candidate_files/tree_image/reader.rs','''        self.index.get_cached(
+            &self.storage,
+            self.root,
+            self.anchor.sealed_len,
+            namespace,
+            key,
+            &mut self.cache.borrow_mut(),
+        )''','''        crate::file_format::diagnostic_timing::measure(match namespace {1=>4,2=>5,3=>6,_=>7}, || self.index.get_cached(
+            &self.storage, self.root, self.anchor.sealed_len, namespace, key, &mut self.cache.borrow_mut()))''');
+ edit('candidate_files/tree_image/reader.rs','''            let bytes =
+                self.codec
+                    .load(&self.storage, extent, self.anchor.sealed_len, &descriptor)?;''','''            let bytes = crate::file_format::diagnostic_timing::measure(2, || self.codec.load(&self.storage, extent, self.anchor.sealed_len, &descriptor))?;''');
+ edit('data_extent.rs','''        if stored.len() != extent.len as usize || strong_checksum(&stored) != extent.digest {''','''        if stored.len() != extent.len as usize || crate::file_format::diagnostic_timing::measure(3, || Ok(strong_checksum(&stored)))? != extent.digest {''');
+ edit('candidate_files/resource_probe/tree_probe.rs','''    if let Ok(repeats) = std::env::var("REVAULT_TREE_OPEN_DIAGNOSTIC") {''','''    if let Ok(repeats) = std::env::var("REVAULT_SELECTIVE_DIAGNOSTIC") {
+        use crate::file_format::diagnostic_timing as timing;
+        let repeats: usize = repeats.parse().unwrap();
+        assert!((1..=100).contains(&repeats));
+        let range = std::env::var("REVAULT_CANDIDATE_ACCESS").unwrap() == "range";
+        let before = digest_file(&target);
+        verify(&mut open(), root, count, bytes);
+        let mut observations = Vec::new();
+        for _ in 0..repeats {
+            let scope = timing::begin();
+            let storage = storage_meter::Meter::new(StorageBackend::file(&target).unwrap());
+            let meter = storage.clone();
+            let mut stages = serde_json::Map::new();
+            let mut last = Instant::now();
+            let mut opened = TreeImage::open_observed(storage, archive(), mode, &authority, key, |stage| {
+                let elapsed = last.elapsed().as_secs_f64();
+                stages.insert(stage.into(), json!({"seconds":elapsed,"functions":timing::take(),"storage":meter.take().json()}));
+                last=Instant::now();
+            }).unwrap();
+            for phase in ["first_read","repeat_read"] {
+                timing::take(); meter.take();
+                let started=Instant::now();
+                let mut received=0u64;
+                for n in 0..count {
+                    let (offset,len)=if range {(bytes/2,4096.min(bytes-bytes/2))}else{(0,bytes)};
+                    opened.image.read_range(format!("/{}",name(n)).as_bytes(),offset,len,|chunk| {
+                        std::hint::black_box(chunk); received+=chunk.len() as u64; Ok(())
+                    }).unwrap();
+                }
+                stages.insert(phase.into(),json!({"seconds":started.elapsed().as_secs_f64(),"functions":timing::take(),"storage":meter.take().json(),"received":received}));
+            }
+            drop(scope);
+            observations.push(stages);
+        }
+        verify(&mut open(), root, count, bytes);
+        assert_eq!(before,digest_file(&target));
+        println!("SELECTIVE_DIAGNOSTIC {}",json!({"verified":true,"archive_sha256":before,"observations":observations}));
+        return;
+    }
+    if let Ok(repeats) = std::env::var("REVAULT_TREE_OPEN_DIAGNOSTIC") {''');
+ print('Temporary selective profiling source installed; original files saved.');
+}

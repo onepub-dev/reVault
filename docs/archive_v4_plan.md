@@ -34,6 +34,20 @@ scoped CLI/Vault change does not resume unrelated archive optimization or
 establish format-4 release readiness. See the
 [validation evidence](evidence/unicode-aliases-2026-10-10/README.md).
 
+### Performance resumed without a usage cutoff — 2026-10-10
+
+The user explicitly resumed performance work and removed the earlier usage
+limit for this run. The [selective reader profile](evidence/selective-read-profile-2026-10-10/README.md)
+identifies additional index-page work on the first large-archive range read and
+SHA-256 as the dominant raw full-stream cost. Diagnostic instrumentation is
+removed. The [compact decoded-leaf cache](evidence/compact-index-cache-2026-10-10/README.md)
+is retained after a corrected fixed comparison: 11.8%/18.6% lower total range-read
+time and 3.6% for small files. The compressed-stream result is inconclusive.
+All six cases still fail ZIP parity. The initial wrong-control batch is preserved
+and excluded from the isolated conclusion. Next investigate payload hashing cost
+without silently changing security or worker policy.
+All broader integration, scale, recovery and performance gates remain open.
+
 ### Selective authenticated reads — 2026-10-10
 
 The user accepted [verification of selected paths and chunks](selective_authenticated_reads.md)

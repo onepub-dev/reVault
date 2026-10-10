@@ -1,0 +1,25 @@
+{
+  "baseline": {
+    "path": "/tmp/revault-flat-cache-corrected-20261010/bin/before",
+    "sha256": "318291b256dd2b319efdd8532bac8abc3ca675ba9147d2ab0f052b84eb86d216",
+    "expected_sha256": "318291b256dd2b319efdd8532bac8abc3ca675ba9147d2ab0f052b84eb86d216"
+  },
+  "candidate": {
+    "path": "/tmp/revault-flat-cache-corrected-20261010/bin/after",
+    "sha256": "68a0d28eafb4b97fd698d0703937142f354530e6d8e9a6030d34e1fac0cba80d",
+    "expected_sha256": "68a0d28eafb4b97fd698d0703937142f354530e6d8e9a6030d34e1fac0cba80d"
+  },
+  "adapters": {
+    "before": "0bfc3ae06bf61247ba2743dce747e65e884e18ffa6a2bf2252f172f9ef15f001",
+    "after": "b19d342361b49b0712328f9ec0aad7eb5f8d724381864f37b772adfca8a6288a"
+  },
+  "archive_evaluation": "fc8c419adfc158f44512416b2bd6acf06cf374640f45d90e54a420315a2a879e",
+  "rustc": "rustc 1.88.0 (6b00bc388 2025-06-23)",
+  "sha256": {
+    "before": "318291b256dd2b319efdd8532bac8abc3ca675ba9147d2ab0f052b84eb86d216",
+    "after": "68a0d28eafb4b97fd698d0703937142f354530e6d8e9a6030d34e1fac0cba80d",
+    "adapter_before": "0bfc3ae06bf61247ba2743dce747e65e884e18ffa6a2bf2252f172f9ef15f001",
+    "adapter_after": "b19d342361b49b0712328f9ec0aad7eb5f8d724381864f37b772adfca8a6288a",
+    "archive_evaluation": "fc8c419adfc158f44512416b2bd6acf06cf374640f45d90e54a420315a2a879e"
+  }
+}

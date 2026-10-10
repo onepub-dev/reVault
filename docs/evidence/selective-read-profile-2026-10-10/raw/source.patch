@@ -1,0 +1,123 @@
+diff --git a/rust/revault_lockbox_api/src/file_format/authenticated_index.rs b/rust/revault_lockbox_api/src/file_format/authenticated_index.rs
+index 366520ae..f4a24ab5 100644
+--- a/rust/revault_lockbox_api/src/file_format/authenticated_index.rs
++++ b/rust/revault_lockbox_api/src/file_format/authenticated_index.rs
+@@ -746,10 +746,9 @@ impl Index {
+     }
+     fn read(&self, storage: &impl Storage, reference: RootRef, sealed: u64) -> Result<Node> {
+         validate_ref(reference, sealed)?;
+-        self.decode(
+-            &ZeroizingBytes::new(reference.read_verified(storage)?),
+-            sealed,
+-        )
++        let bytes = crate::file_format::diagnostic_timing::measure(0, || reference.read_verified(storage))?;
++        let bytes = ZeroizingBytes::new(bytes);
++        crate::file_format::diagnostic_timing::measure(1, || self.decode(&bytes, sealed))
+     }
+     fn encode(&self, node: &Node) -> Result<ZeroizingBytes> {
+         validate_node(node, u64::MAX)?;
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/resource_probe/tree_probe.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/resource_probe/tree_probe.rs
+index f4ba7aeb..842e5d13 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/resource_probe/tree_probe.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/resource_probe/tree_probe.rs
+@@ -131,6 +131,45 @@ pub(super) fn run(
+         )
+         .unwrap()
+     };
++    if let Ok(repeats) = std::env::var("REVAULT_SELECTIVE_DIAGNOSTIC") {
++        use crate::file_format::diagnostic_timing as timing;
++        let repeats: usize = repeats.parse().unwrap();
++        assert!((1..=100).contains(&repeats));
++        let range = std::env::var("REVAULT_CANDIDATE_ACCESS").unwrap() == "range";
++        let before = digest_file(&target);
++        verify(&mut open(), root, count, bytes);
++        let mut observations = Vec::new();
++        for _ in 0..repeats {
++            let scope = timing::begin();
++            let storage = storage_meter::Meter::new(StorageBackend::file(&target).unwrap());
++            let meter = storage.clone();
++            let mut stages = serde_json::Map::new();
++            let mut last = Instant::now();
++            let mut opened = TreeImage::open_observed(storage, archive(), mode, &authority, key, |stage| {
++                let elapsed = last.elapsed().as_secs_f64();
++                stages.insert(stage.into(), json!({"seconds":elapsed,"functions":timing::take(),"storage":meter.take().json()}));
++                last=Instant::now();
++            }).unwrap();
++            for phase in ["first_read","repeat_read"] {
++                timing::take(); meter.take();
++                let started=Instant::now();
++                let mut received=0u64;
++                for n in 0..count {
++                    let (offset,len)=if range {(bytes/2,4096.min(bytes-bytes/2))}else{(0,bytes)};
++                    opened.image.read_range(format!("/{}",name(n)).as_bytes(),offset,len,|chunk| {
++                        std::hint::black_box(chunk); received+=chunk.len() as u64; Ok(())
++                    }).unwrap();
++                }
++                stages.insert(phase.into(),json!({"seconds":started.elapsed().as_secs_f64(),"functions":timing::take(),"storage":meter.take().json(),"received":received}));
++            }
++            drop(scope);
++            observations.push(stages);
++        }
++        verify(&mut open(), root, count, bytes);
++        assert_eq!(before,digest_file(&target));
++        println!("SELECTIVE_DIAGNOSTIC {}",json!({"verified":true,"archive_sha256":before,"observations":observations}));
++        return;
++    }
+     if let Ok(repeats) = std::env::var("REVAULT_TREE_OPEN_DIAGNOSTIC") {
+         let repeats: usize = repeats.parse().unwrap();
+         assert!((1..=1000).contains(&repeats));
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/reader.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/reader.rs
+index 2d71fb8b..9881ca00 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/reader.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/reader.rs
+@@ -96,14 +96,8 @@ impl<S: Storage> TreeImage<S> {
+ }
+ impl<S: Storage> ReadImage<S> {
+     fn get(&self, namespace: u8, key: &[u8]) -> Result<Option<Entry>> {
+-        self.index.get_cached(
+-            &self.storage,
+-            self.root,
+-            self.anchor.sealed_len,
+-            namespace,
+-            key,
+-            &mut self.cache.borrow_mut(),
+-        )
++        crate::file_format::diagnostic_timing::measure(match namespace {1=>4,2=>5,3=>6,_=>7}, || self.index.get_cached(
++            &self.storage, self.root, self.anchor.sealed_len, namespace, key, &mut self.cache.borrow_mut()))
+     }
+     fn required(&self, namespace: u8, key: &[u8]) -> Result<Entry> {
+         self.get(namespace, key)?.ok_or(Error::CorruptRecord)
+@@ -191,9 +185,7 @@ impl<S: Storage> ReadImage<S> {
+             // The fragment digest is authenticated by the index path, not merely
+             // taken from the payload itself. Codec verifies it before decoding
+             // or invoking the caller, including any internal authenticated pad.
+-            let bytes =
+-                self.codec
+-                    .load(&self.storage, extent, self.anchor.sealed_len, &descriptor)?;
++            let bytes = crate::file_format::diagnostic_timing::measure(2, || self.codec.load(&self.storage, extent, self.anchor.sealed_len, &descriptor))?;
+             let first = offset.saturating_sub(logical) as usize;
+             let last = (end - logical).min(descriptor.logical_len as u64) as usize;
+             visitor(&bytes[first..last])?;
+diff --git a/rust/revault_lockbox_api/src/file_format/data_extent.rs b/rust/revault_lockbox_api/src/file_format/data_extent.rs
+index 99f7d75e..bf88557b 100644
+--- a/rust/revault_lockbox_api/src/file_format/data_extent.rs
++++ b/rust/revault_lockbox_api/src/file_format/data_extent.rs
+@@ -331,7 +331,7 @@ impl Codec {
+     ) -> Result<ZeroizingBytes> {
+         self.validate_extent(extent, sealed, descriptor)?;
+         let stored = ZeroizingBytes::new(storage.read_at(extent.start, extent.len as usize)?);
+-        if stored.len() != extent.len as usize || strong_checksum(&stored) != extent.digest {
++        if stored.len() != extent.len as usize || crate::file_format::diagnostic_timing::measure(3, || Ok(strong_checksum(&stored)))? != extent.digest {
+             return Err(Error::CorruptRecord);
+         }
+         let decoded = if let Some(key) = &self.key {
+diff --git a/rust/revault_lockbox_api/src/file_format/mod.rs b/rust/revault_lockbox_api/src/file_format/mod.rs
+index 36a769e0..4e985895 100644
+--- a/rust/revault_lockbox_api/src/file_format/mod.rs
++++ b/rust/revault_lockbox_api/src/file_format/mod.rs
+@@ -1,3 +1,5 @@
++#[cfg(test)]
++pub(crate) mod diagnostic_timing;
+ pub(crate) mod commit_auth;
+ pub(crate) mod commit_root;
+ pub(crate) mod current_header;

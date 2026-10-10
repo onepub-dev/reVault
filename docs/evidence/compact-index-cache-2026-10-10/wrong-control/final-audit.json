@@ -1,0 +1,201 @@
+{
+  "cases": {
+    "small512-mixed-compressed-stream": {
+      "environment_records": 1,
+      "sample_records": 99,
+      "groups": {
+        "zip/false": {
+          "samples": 33,
+          "pairs": 33,
+          "warmups": 3,
+          "verified": 33,
+          "logical_bytes_read": 2097152,
+          "ok": true
+        },
+        "lockbox/false": {
+          "samples": 33,
+          "pairs": 33,
+          "warmups": 3,
+          "verified": 33,
+          "logical_bytes_read": 2097152,
+          "ok": true
+        },
+        "lockbox/true": {
+          "samples": 33,
+          "pairs": 33,
+          "warmups": 3,
+          "verified": 33,
+          "logical_bytes_read": 2097152,
+          "ok": true
+        }
+      },
+      "retained_inputs_verified": true,
+      "ok": true
+    },
+    "raw8m-random-stream": {
+      "environment_records": 1,
+      "sample_records": 99,
+      "groups": {
+        "zip/false": {
+          "samples": 33,
+          "pairs": 33,
+          "warmups": 3,
+          "verified": 33,
+          "logical_bytes_read": 8388608,
+          "ok": true
+        },
+        "lockbox/false": {
+          "samples": 33,
+          "pairs": 33,
+          "warmups": 3,
+          "verified": 33,
+          "logical_bytes_read": 8388608,
+          "ok": true
+        },
+        "lockbox/true": {
+          "samples": 33,
+          "pairs": 33,
+          "warmups": 3,
+          "verified": 33,
+          "logical_bytes_read": 8388608,
+          "ok": true
+        }
+      },
+      "retained_inputs_verified": true,
+      "ok": true
+    },
+    "compressed8m-pattern-stream": {
+      "environment_records": 1,
+      "sample_records": 99,
+      "groups": {
+        "zip/false": {
+          "samples": 33,
+          "pairs": 33,
+          "warmups": 3,
+          "verified": 33,
+          "logical_bytes_read": 8388608,
+          "ok": true
+        },
+        "lockbox/false": {
+          "samples": 33,
+          "pairs": 33,
+          "warmups": 3,
+          "verified": 33,
+          "logical_bytes_read": 8388608,
+          "ok": true
+        },
+        "lockbox/true": {
+          "samples": 33,
+          "pairs": 33,
+          "warmups": 3,
+          "verified": 33,
+          "logical_bytes_read": 8388608,
+          "ok": true
+        }
+      },
+      "retained_inputs_verified": true,
+      "ok": true
+    },
+    "raw8m-random-range": {
+      "environment_records": 1,
+      "sample_records": 99,
+      "groups": {
+        "zip/false": {
+          "samples": 33,
+          "pairs": 33,
+          "warmups": 3,
+          "verified": 33,
+          "logical_bytes_read": 4096,
+          "ok": true
+        },
+        "lockbox/false": {
+          "samples": 33,
+          "pairs": 33,
+          "warmups": 3,
+          "verified": 33,
+          "logical_bytes_read": 4096,
+          "ok": true
+        },
+        "lockbox/true": {
+          "samples": 33,
+          "pairs": 33,
+          "warmups": 3,
+          "verified": 33,
+          "logical_bytes_read": 4096,
+          "ok": true
+        }
+      },
+      "retained_inputs_verified": true,
+      "ok": true
+    },
+    "raw64m-random-stream": {
+      "environment_records": 1,
+      "sample_records": 99,
+      "groups": {
+        "zip/false": {
+          "samples": 33,
+          "pairs": 33,
+          "warmups": 3,
+          "verified": 33,
+          "logical_bytes_read": 67108864,
+          "ok": true
+        },
+        "lockbox/false": {
+          "samples": 33,
+          "pairs": 33,
+          "warmups": 3,
+          "verified": 33,
+          "logical_bytes_read": 67108864,
+          "ok": true
+        },
+        "lockbox/true": {
+          "samples": 33,
+          "pairs": 33,
+          "warmups": 3,
+          "verified": 33,
+          "logical_bytes_read": 67108864,
+          "ok": true
+        }
+      },
+      "retained_inputs_verified": true,
+      "ok": true
+    },
+    "raw64m-random-range": {
+      "environment_records": 1,
+      "sample_records": 99,
+      "groups": {
+        "zip/false": {
+          "samples": 33,
+          "pairs": 33,
+          "warmups": 3,
+          "verified": 33,
+          "logical_bytes_read": 4096,
+          "ok": true
+        },
+        "lockbox/false": {
+          "samples": 33,
+          "pairs": 33,
+          "warmups": 3,
+          "verified": 33,
+          "logical_bytes_read": 4096,
+          "ok": true
+        },
+        "lockbox/true": {
+          "samples": 33,
+          "pairs": 33,
+          "warmups": 3,
+          "verified": 33,
+          "logical_bytes_read": 4096,
+          "ok": true
+        }
+      },
+      "retained_inputs_verified": true,
+      "ok": true
+    }
+  },
+  "hashes_stable": true,
+  "pairs": 30,
+  "warmup_pairs": 3,
+  "samples_per_backend_per_case": 33,
+  "sample_rows_per_case": 99
+}
