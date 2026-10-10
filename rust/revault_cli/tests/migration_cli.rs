@@ -1113,7 +1113,7 @@ fn all_migration_recovers_interrupted_replacements_before_missing_path_checks() 
         std::fs::rename(&source, &output).unwrap();
         let work = fixture.root.join(".revault-migration-interrupted");
         std::fs::create_dir(&work).unwrap();
-        let mut journal = MigrationJournal {
+        let journal = MigrationJournal {
             operation_id: [1; 16],
             artifact_kind: kind,
             source_path: source.clone(),

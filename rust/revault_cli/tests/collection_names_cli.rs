@@ -166,7 +166,8 @@ fn canonical_collections_and_hidden_aliases_share_persisted_state() {
 #[test]
 fn help_and_completion_advertise_only_canonical_collection_names() {
     let fixture = Fixture(TestTempDir::new("collection-help"));
-    let cases: &[(&[&str], &[(&str, &str)])] = &[
+    type CanonicalNameCase<'a> = (&'a [&'a str], &'a [(&'a str, &'a str)]);
+    let cases: &[CanonicalNameCase<'_>] = &[
         (
             &[],
             &[

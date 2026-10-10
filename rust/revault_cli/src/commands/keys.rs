@@ -38,12 +38,12 @@ pub(crate) fn create_matches(matches: &ArgMatches, access: &Access) -> CliResult
     validate_creation_options(matches)?;
     super::aliases::validate_name(name)?;
     ensure_new_lockbox_path(&path)?;
-    let vault_required = !matches
+    let vault_required = matches
         .get_one::<String>("signing")
-        .is_some_and(|mode| mode == "none")
-        || (!matches
+        .is_none_or(|mode| mode != "none")
+        || (matches
             .get_one::<String>("encryption")
-            .is_some_and(|mode| mode == "none")
+            .is_none_or(|mode| mode != "none")
             && !matches.get_flag("password")
             && !matches!(access, Access::ContentKey(_)))
         || matches.contains_id("for");

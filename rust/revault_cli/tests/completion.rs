@@ -261,9 +261,39 @@ fn completion_generate_and_explicit_path_cover_all_commands_for_every_shell() {
 
 #[test]
 fn bash_completion_sources_and_registers_all_four_commands() {
-    if Command::new("bash").arg("--version").output().is_err() {
-        return;
+    let explicit_bash = std::env::var_os("REVAULT_TEST_BASH");
+    let mut candidates = explicit_bash
+        .clone()
+        .into_iter()
+        .map(PathBuf::from)
+        .collect::<Vec<_>>();
+    if explicit_bash.is_none() {
+        // Windows' System32 bash may be a WSL launcher without a distribution.
+        // Prefer Git Bash, which can source the generated Windows-host paths.
+        if cfg!(windows) {
+            for variable in ["ProgramFiles", "ProgramW6432", "LOCALAPPDATA"] {
+                if let Some(root) = std::env::var_os(variable) {
+                    candidates.push(PathBuf::from(&root).join("Git/bin/bash.exe"));
+                    candidates.push(PathBuf::from(root).join("Programs/Git/bin/bash.exe"));
+                }
+            }
+        }
+        candidates.push(PathBuf::from("bash"));
     }
+    let bash = candidates.into_iter().find(|path| {
+        Command::new(path)
+            .args(["-c", "test -n \"$BASH_VERSION\""])
+            .output()
+            .is_ok_and(|output| output.status.success())
+    });
+    let Some(bash) = bash else {
+        assert!(
+            explicit_bash.is_none() && std::env::var_os("CI").is_none(),
+            "Bash must be runnable in CI or when REVAULT_TEST_BASH is configured"
+        );
+        eprintln!("Skipping shell registration check: no runnable Bash installation");
+        return;
+    };
 
     let bin = env!("CARGO_BIN_EXE_lockbox");
     let temp = TestTempDir::new("completion-bash-registrations");
@@ -275,8 +305,8 @@ fn bash_completion_sources_and_registers_all_four_commands() {
     let installed = run_in_home(bin, &args, &vault_dir, &home);
     assert!(installed.status.success(), "{installed:?}");
 
-    let path = path.to_string_lossy().into_owned();
-    let registrations = Command::new("bash")
+    let path = path.to_string_lossy().replace('\\', "/");
+    let registrations = Command::new(bash)
         .args([
             "-c",
             "source \"$1\" && complete -p lockbox && complete -p lbx && complete -p lbxv && complete -p lbxx",

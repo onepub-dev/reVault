@@ -1,4 +1,8 @@
 rust_api	rationale
+set_lockbox_alias	CLI selector metadata for bare names and a@name; foreign APIs select Lockboxes by explicit paths or handles and preserve existing Vault alias records.
+list_lockbox_aliases	CLI selector discovery and completion metadata; foreign APIs select Lockboxes by explicit paths or handles and preserve existing Vault alias records.
+remove_lockbox_alias	CLI selector metadata lifecycle; foreign APIs select Lockboxes by explicit paths or handles and preserve existing Vault alias records.
+resolve_lockbox_alias	CLI selector lookup through host-specific remembered paths; foreign APIs select Lockboxes by explicit paths or handles and preserve existing Vault alias records.
 migration_container_signing_key	Hidden migration-only signer loader for lossless Vault container upgrades; migration executables remain Rust-only by design.
 create_file_with_options	Rust/CLI format-v3 creation controls; independent encryption, signing and compression are not yet exposed by the foreign creation contract.
 create_in_memory_with_options	Rust format-v3 creation controls; independent encryption, signing and compression are not yet exposed by the foreign creation contract.

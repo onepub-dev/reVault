@@ -1552,6 +1552,7 @@ fn prepare_versions(
         update_dependencies(doc.as_table_mut(), &versions);
         fs::write(full, doc.to_string())?;
     }
+    update_manual_versions(root, &versions)?;
     if !bindings.is_empty() {
         fs::write(
             root.join("bindings/dart/pubspec.yaml"),
@@ -1654,6 +1655,35 @@ fn prepare_versions(
     )?;
     Ok((cli, bindings))
 }
+fn update_manual_versions(root: &Path, versions: &BTreeMap<String, String>) -> Result<()> {
+    let path = root.join("manual/.gitbook/vars.yaml");
+    if !path.exists() {
+        return Ok(());
+    }
+    let mut source = fs::read_to_string(&path)?;
+    for (package, variable) in [
+        ("revault_cli", "cli_version"),
+        ("revault_key_server", "key_server_version"),
+    ] {
+        let Some(version) = versions.get(package) else {
+            continue;
+        };
+        let prefix = format!("{variable}:");
+        let lines = source
+            .lines()
+            .filter(|line| line.starts_with(&prefix))
+            .collect::<Vec<_>>();
+        if lines.len() != 1 {
+            return Err(
+                format!("Expected one {variable} declaration in {}", path.display()).into(),
+            );
+        }
+        source = source.replacen(lines[0], &format!("{variable}: {version}"), 1);
+    }
+    fs::write(path, source)?;
+    Ok(())
+}
+
 fn current_version(root: &Path, scope: Scope) -> Result<String> {
     match scope {
         Scope::Cli => {
@@ -2196,6 +2226,30 @@ version = "1.0.0"
         for s in ["1.2", "1.2.3-beta", "1.2.03", "../1.2.3", "1.2.3\n"] {
             assert!(version(s).is_err(), "{s}");
         }
+    }
+
+    #[test]
+    fn release_versions_keep_manual_variables_current() {
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join("manual/.gitbook/vars.yaml");
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        let before =
+            "manual_status: pre-release\ncli_version: 0.4.1-dev.1\nkey_server_version: 0.0.37\n";
+        fs::write(&path, before).unwrap();
+        update_manual_versions(temp.path(), &BTreeMap::new()).unwrap();
+        assert_eq!(fs::read_to_string(&path).unwrap(), before);
+        update_manual_versions(
+            temp.path(),
+            &BTreeMap::from([
+                ("revault_cli".into(), "0.4.1".into()),
+                ("revault_key_server".into(), "0.0.38".into()),
+            ]),
+        )
+        .unwrap();
+        assert_eq!(
+            fs::read_to_string(&path).unwrap(),
+            "manual_status: pre-release\ncli_version: 0.4.1\nkey_server_version: 0.0.38\n"
+        );
     }
 
     #[test]

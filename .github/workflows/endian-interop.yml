@@ -2,7 +2,6 @@ name: Endian Interop
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  LOCKBOX_INTEROP_FIXTURE_VERSION: v5
 
 on:
   push:
@@ -31,26 +30,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Restore cached x64 fixture
-        id: x64-fixture-cache
-        uses: actions/cache@v4
-        with:
-          path: interop-cache/lockbox-x64.lbx
-          key: lockbox-endian-x64-${{ env.LOCKBOX_INTEROP_FIXTURE_VERSION }}
-
       - name: Install Rust
-        if: steps.x64-fixture-cache.outputs.cache-hit != 'true'
         uses: dtolnay/rust-toolchain@1.88.0
 
       - name: Cache Cargo
-        if: steps.x64-fixture-cache.outputs.cache-hit != 'true'
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: rust
           key: endian-create-x64
 
       - name: Create x64 fixture
-        if: steps.x64-fixture-cache.outputs.cache-hit != 'true'
+        # Generate with this commit's writer; cached fixtures can belong to a
+        # different compatibility line. Retain Cargo caches, not archive bytes.
         env:
           LOCKBOX_INTEROP_CREATE_PATH: ${{ github.workspace }}/interop-cache/lockbox-x64.lbx
         run: cargo test --release -p revault_lockbox_api --test endian_interop -- --ignored --nocapture
@@ -193,13 +184,6 @@ jobs:
           name: lockbox-x64
           path: interop
 
-      - name: Restore cached s390x fixture
-        id: s390x-fixture-cache
-        uses: actions/cache@v4
-        with:
-          path: interop/lockbox-s390x.lbx
-          key: lockbox-endian-s390x-${{ env.LOCKBOX_INTEROP_FIXTURE_VERSION }}
-
       - name: Install Rust
         uses: dtolnay/rust-toolchain@1.88.0
         with:
@@ -218,18 +202,9 @@ jobs:
         run: cargo test --release -p revault_lockbox_api --test endian_interop --target s390x-unknown-linux-gnu --no-run
 
       - name: Verify x64 fixture and create s390x fixture
-        if: steps.s390x-fixture-cache.outputs.cache-hit != 'true'
         env:
           LOCKBOX_INTEROP_VERIFY_PATH: ${{ github.workspace }}/interop/lockbox-x64.lbx
           LOCKBOX_INTEROP_CREATE_PATH: ${{ github.workspace }}/interop/lockbox-s390x.lbx
-        run: |
-          test_bin="$(find target/s390x-unknown-linux-gnu/release/deps -maxdepth 1 -type f -executable -name 'endian_interop-*' | head -n 1)"
-          QEMU_LD_PREFIX=/usr/s390x-linux-gnu qemu-s390x "$test_bin" --ignored --nocapture
-
-      - name: Verify x64 fixture on s390x
-        if: steps.s390x-fixture-cache.outputs.cache-hit == 'true'
-        env:
-          LOCKBOX_INTEROP_VERIFY_PATH: ${{ github.workspace }}/interop/lockbox-x64.lbx
         run: |
           test_bin="$(find target/s390x-unknown-linux-gnu/release/deps -maxdepth 1 -type f -executable -name 'endian_interop-*' | head -n 1)"
           QEMU_LD_PREFIX=/usr/s390x-linux-gnu qemu-s390x "$test_bin" --ignored --nocapture
