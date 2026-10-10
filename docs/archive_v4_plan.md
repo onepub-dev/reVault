@@ -22,6 +22,16 @@ or erase failures.
 
 ## Current position and next work
 
+### Detailed traversal diagnostic — 2026-10-10
+
+The [refined observer](evidence/typed-tree-open-detail-2026-10-10/README.md) passes
+17 shared-tree tests, focused readers and Clippy. Four verified 100-open cases
+separate publication, index traversal, graph construction and reclaimed-space
+validation. Index walking dominates raw 64 MiB; publication plus reclaimed-space
+checks consume nearly half of raw 8 MiB opening. Investigate bounded guarded
+buffer reuse only after checking external-source and erasure semantics; no gain
+is established. Continue with the user's 25% remaining usage cutoff.
+
 ### Rejected plaintext-copy experiment — 2026-10-10
 
 The [fixed paired experiment](evidence/typed-tree-borrow-rejected-2026-10-10/README.md)

@@ -30,8 +30,16 @@ impl SelectedSource {
             return Err(Error::CorruptRecord);
         }
         let (anchor, body) = open_private(storage, archive, mode, authority, key)?;
-        let tree =
-            Tree::from_snapshot_visit(storage, archive, mode, key, anchor, &body, |_| Ok(()))?;
+        let tree = Tree::from_snapshot_visit(
+            storage,
+            archive,
+            mode,
+            key,
+            anchor,
+            &body,
+            |_| Ok(()),
+            &mut |_| {},
+        )?;
         let source = Self {
             base: expected_base,
             archive,

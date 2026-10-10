@@ -57,7 +57,16 @@ impl Tree {
         visitor: impl FnMut(Entry) -> Result<()>,
     ) -> Result<Self> {
         let (anchor, body) = salvage_private(storage, archive, mode, authority, key)?;
-        Self::from_snapshot_visit(storage, archive, mode, key, anchor, &body, visitor)
+        Self::from_snapshot_visit(
+            storage,
+            archive,
+            mode,
+            key,
+            anchor,
+            &body,
+            visitor,
+            &mut |_| {},
+        )
     }
     pub(crate) fn open(
         storage: &impl Storage,
@@ -79,9 +88,26 @@ impl Tree {
         key: Option<&[u8]>,
         visitor: impl FnMut(Entry) -> Result<()>,
     ) -> Result<Self> {
+        Self::open_visit_observed(storage, archive, mode, authority, key, visitor, |_| {})
+    }
+
+    /// Diagnostic stages preserve the ordinary complete validation path.
+    pub(crate) fn open_visit_observed(
+        storage: &impl Storage,
+        archive: LockboxId,
+        mode: FormatMode,
+        authority: &Authority<'_>,
+        key: Option<&[u8]>,
+        visitor: impl FnMut(Entry) -> Result<()>,
+        mut stage: impl FnMut(&'static str),
+    ) -> Result<Self> {
         let (anchor, body) = open_private(storage, archive, mode, authority, key)?;
-        let tree = Self::from_snapshot_visit(storage, archive, mode, key, anchor, &body, visitor)?;
+        stage("selected_publication");
+        let tree = Self::from_snapshot_visit(
+            storage, archive, mode, key, anchor, &body, visitor, &mut stage,
+        )?;
         tree.graph.verify_reclaimed(storage)?;
+        stage("reclaimed_space");
         Ok(tree)
     }
 
@@ -93,7 +119,16 @@ impl Tree {
         anchor: Anchor,
         body: &[u8],
     ) -> Result<Self> {
-        Self::from_snapshot_visit(storage, archive, mode, key, anchor, body, |_| Ok(()))
+        Self::from_snapshot_visit(
+            storage,
+            archive,
+            mode,
+            key,
+            anchor,
+            body,
+            |_| Ok(()),
+            &mut |_| {},
+        )
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -105,6 +140,7 @@ impl Tree {
         anchor: Anchor,
         body: &[u8],
         mut visitor: impl FnMut(Entry) -> Result<()>,
+        stage: &mut impl FnMut(&'static str),
     ) -> Result<Self> {
         let root = parse_manifest(body)?;
         let index = Index::new(archive, mode, key)?;
@@ -190,7 +226,9 @@ impl Tree {
             }
             Ok(())
         })?;
+        stage("index_walk_and_decode");
         let graph = Graph::derive_with_descendants(&anchor, &packs, &vacant, &pages)?;
+        stage("ownership_graph");
         Ok(Self {
             anchor,
             graph,

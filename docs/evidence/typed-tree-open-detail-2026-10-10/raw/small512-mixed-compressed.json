@@ -1,0 +1,1522 @@
+{
+  "case": "small512-mixed-compressed",
+  "status": "passed",
+  "repeats": 100,
+  "verified": true,
+  "archive_sha256": "3d9e2d0ce9aab8dc3e6a52b075a701fb67fb9452c24b2efffc13a87e868990c2",
+  "total_seconds_median": 0.0011410035,
+  "stages_seconds_median": {
+    "codec": 6e-8,
+    "index_walk_and_decode": 0.0005252685,
+    "owner_payload_verification": 1.7e-7,
+    "ownership_graph": 0.00000229,
+    "pack_padding": 0.000024686,
+    "reclaimed_space": 0.000106197,
+    "selected_publication": 0.000105392,
+    "storage_handle": 0.000011975,
+    "typed_validation": 0.000360926,
+    "value_key": 2.8e-7
+  },
+  "observations": [
+    {
+      "stages_seconds": {
+        "codec": 3.2e-7,
+        "index_walk_and_decode": 0.0005964,
+        "owner_payload_verification": 1.7e-7,
+        "ownership_graph": 0.00000328,
+        "pack_padding": 0.000024761,
+        "reclaimed_space": 0.000107561,
+        "selected_publication": 0.000120092,
+        "storage_handle": 0.00001286,
+        "typed_validation": 0.000362506,
+        "value_key": 3e-7
+      },
+      "total_seconds": 0.0012294
+    },
+    {
+      "stages_seconds": {
+        "codec": 7e-8,
+        "index_walk_and_decode": 0.000527868,
+        "owner_payload_verification": 2.3e-7,
+        "ownership_graph": 0.00000255,
+        "pack_padding": 0.000024481,
+        "reclaimed_space": 0.000103082,
+        "selected_publication": 0.000105292,
+        "storage_handle": 0.00001212,
+        "typed_validation": 0.000359275,
+        "value_key": 2.8e-7
+      },
+      "total_seconds": 0.001135698
+    },
+    {
+      "stages_seconds": {
+        "codec": 8e-8,
+        "index_walk_and_decode": 0.000517058,
+        "owner_payload_verification": 1.9e-7,
+        "ownership_graph": 0.0000024,
+        "pack_padding": 0.00002474,
+        "reclaimed_space": 0.000104442,
+        "selected_publication": 0.000105322,
+        "storage_handle": 0.00001202,
+        "typed_validation": 0.000364436,
+        "value_key": 3e-7
+      },
+      "total_seconds": 0.001131398
+    },
+    {
+      "stages_seconds": {
+        "codec": 6e-8,
+        "index_walk_and_decode": 0.000525169,
+        "owner_payload_verification": 1.8e-7,
+        "ownership_graph": 0.00000256,
+        "pack_padding": 0.00002446,
+        "reclaimed_space": 0.000103721,
+        "selected_publication": 0.000104491,
+        "storage_handle": 0.000011771,
+        "typed_validation": 0.000355596,
+        "value_key": 2.9e-7
+      },
+      "total_seconds": 0.001128708
+    },
+    {
+      "stages_seconds": {
+        "codec": 5e-8,
+        "index_walk_and_decode": 0.000522099,
+        "owner_payload_verification": 1.7e-7,
+        "ownership_graph": 0.00000242,
+        "pack_padding": 0.00002439,
+        "reclaimed_space": 0.000102461,
+        "selected_publication": 0.000104931,
+        "storage_handle": 0.000011861,
+        "typed_validation": 0.000354776,
+        "value_key": 3.1e-7
+      },
+      "total_seconds": 0.001123878
+    },
+    {
+      "stages_seconds": {
+        "codec": 5e-8,
+        "index_walk_and_decode": 0.000516379,
+        "owner_payload_verification": 1.4e-7,
+        "ownership_graph": 0.00000232,
+        "pack_padding": 0.000024681,
+        "reclaimed_space": 0.000103651,
+        "selected_publication": 0.000105141,
+        "storage_handle": 0.00001197,
+        "typed_validation": 0.000360956,
+        "value_key": 2.7e-7
+      },
+      "total_seconds": 0.001125998
+    },
+    {
+      "stages_seconds": {
+        "codec": 6e-8,
+        "index_walk_and_decode": 0.000534538,
+        "owner_payload_verification": 2e-7,
+        "ownership_graph": 0.00000231,
+        "pack_padding": 0.000024381,
+        "reclaimed_space": 0.000105022,
+        "selected_publication": 0.000104752,
+        "storage_handle": 0.00001157,
+        "typed_validation": 0.000354075,
+        "value_key": 2.9e-7
+      },
+      "total_seconds": 0.001137648
+    },
+    {
+      "stages_seconds": {
+        "codec": 6e-8,
+        "index_walk_and_decode": 0.000525748,
+        "owner_payload_verification": 1.5e-7,
+        "ownership_graph": 0.00000227,
+        "pack_padding": 0.00002464,
+        "reclaimed_space": 0.000105502,
+        "selected_publication": 0.000104962,
+        "storage_handle": 0.00001175,
+        "typed_validation": 0.000352026,
+        "value_key": 2.6e-7
+      },
+      "total_seconds": 0.001127808
+    },
+    {
+      "stages_seconds": {
+        "codec": 6e-8,
+        "index_walk_and_decode": 0.000517708,
+        "owner_payload_verification": 2e-7,
+        "ownership_graph": 0.00000222,
+        "pack_padding": 0.00002493,
+        "reclaimed_space": 0.000105762,
+        "selected_publication": 0.000104442,
+        "storage_handle": 0.0000122,
+        "typed_validation": 0.000360576,
+        "value_key": 3.1e-7
+      },
+      "total_seconds": 0.001128838
+    },
+    {
+      "stages_seconds": {
+        "codec": 7e-8,
+        "index_walk_and_decode": 0.000524479,
+        "owner_payload_verification": 1.7e-7,
+        "ownership_graph": 0.0000023,
+        "pack_padding": 0.00002444,
+        "reclaimed_space": 0.000105821,
+        "selected_publication": 0.000105821,
+        "storage_handle": 0.000011751,
+        "typed_validation": 0.000361066,
+        "value_key": 2.9e-7
+      },
+      "total_seconds": 0.001136638
+    },
+    {
+      "stages_seconds": {
+        "codec": 6e-8,
+        "index_walk_and_decode": 0.000522709,
+        "owner_payload_verification": 1.7e-7,
+        "ownership_graph": 0.00000234,
+        "pack_padding": 0.000024521,
+        "reclaimed_space": 0.000104961,
+        "selected_publication": 0.000104281,
+        "storage_handle": 0.00001171,
+        "typed_validation": 0.000355236,
+        "value_key": 2.8e-7
+      },
+      "total_seconds": 0.001126688
+    },
+    {
+      "stages_seconds": {
+        "codec": 5e-8,
+        "index_walk_and_decode": 0.000518768,
+        "owner_payload_verification": 1.6e-7,
+        "ownership_graph": 0.00000235,
+        "pack_padding": 0.000027991,
+        "reclaimed_space": 0.000105652,
+        "selected_publication": 0.000104982,
+        "storage_handle": 0.00001237,
+        "typed_validation": 0.000365415,
+        "value_key": 2.9e-7
+      },
+      "total_seconds": 0.001138438
+    },
+    {
+      "stages_seconds": {
+        "codec": 6e-8,
+        "index_walk_and_decode": 0.000525428,
+        "owner_payload_verification": 1.5e-7,
+        "ownership_graph": 0.00000247,
+        "pack_padding": 0.00002458,
+        "reclaimed_space": 0.000108002,
+        "selected_publication": 0.000104422,
+        "storage_handle": 0.00001189,
+        "typed_validation": 0.000357956,
+        "value_key": 2.6e-7
+      },
+      "total_seconds": 0.001135648
+    },
+    {
+      "stages_seconds": {
+        "codec": 5e-8,
+        "index_walk_and_decode": 0.000536099,
+        "owner_payload_verification": 1.5e-7,
+        "ownership_graph": 0.00000233,
+        "pack_padding": 0.000024441,
+        "reclaimed_space": 0.000106461,
+        "selected_publication": 0.000104891,
+        "storage_handle": 0.000012021,
+        "typed_validation": 0.000357336,
+        "value_key": 2.7e-7
+      },
+      "total_seconds": 0.001144469
+    },
+    {
+      "stages_seconds": {
+        "codec": 7e-8,
+        "index_walk_and_decode": 0.000518748,
+        "owner_payload_verification": 1.9e-7,
+        "ownership_graph": 0.00000228,
+        "pack_padding": 0.00002478,
+        "reclaimed_space": 0.000104722,
+        "selected_publication": 0.000105462,
+        "storage_handle": 0.00001212,
+        "typed_validation": 0.000368916,
+        "value_key": 2.6e-7
+      },
+      "total_seconds": 0.001137978
+    },
+    {
+      "stages_seconds": {
+        "codec": 6e-8,
+        "index_walk_and_decode": 0.000525348,
+        "owner_payload_verification": 2e-7,
+        "ownership_graph": 0.00000234,
+        "pack_padding": 0.00002456,
+        "reclaimed_space": 0.000111352,
+        "selected_publication": 0.000105382,
+        "storage_handle": 0.00001191,
+        "typed_validation": 0.000359746,
+        "value_key": 2.6e-7
+      },
+      "total_seconds": 0.001141578
+    },
+    {
+      "stages_seconds": {
+        "codec": 7e-8,
+        "index_walk_and_decode": 0.000529429,
+        "owner_payload_verification": 2.2e-7,
+        "ownership_graph": 0.00000228,
+        "pack_padding": 0.000029801,
+        "reclaimed_space": 0.000106802,
+        "selected_publication": 0.000104981,
+        "storage_handle": 0.0000118,
+        "typed_validation": 0.000362545,
+        "value_key": 3.1e-7
+      },
+      "total_seconds": 0.001148688
+    },
+    {
+      "stages_seconds": {
+        "codec": 5e-8,
+        "index_walk_and_decode": 0.000548238,
+        "owner_payload_verification": 1.8e-7,
+        "ownership_graph": 0.000002361,
+        "pack_padding": 0.00002485,
+        "reclaimed_space": 0.000115821,
+        "selected_publication": 0.000105422,
+        "storage_handle": 0.00001216,
+        "typed_validation": 0.000360276,
+        "value_key": 2.6e-7
+      },
+      "total_seconds": 0.001170019
+    },
+    {
+      "stages_seconds": {
+        "codec": 5e-8,
+        "index_walk_and_decode": 0.000524678,
+        "owner_payload_verification": 1.7e-7,
+        "ownership_graph": 0.00000233,
+        "pack_padding": 0.000024451,
+        "reclaimed_space": 0.000106612,
+        "selected_publication": 0.000105372,
+        "storage_handle": 0.00001224,
+        "typed_validation": 0.000358675,
+        "value_key": 2.6e-7
+      },
+      "total_seconds": 0.001135248
+    },
+    {
+      "stages_seconds": {
+        "codec": 6e-8,
+        "index_walk_and_decode": 0.000524408,
+        "owner_payload_verification": 1.9e-7,
+        "ownership_graph": 0.00000224,
+        "pack_padding": 0.00002482,
+        "reclaimed_space": 0.000106392,
+        "selected_publication": 0.000111442,
+        "storage_handle": 0.00001192,
+        "typed_validation": 0.000368186,
+        "value_key": 3.3e-7
+      },
+      "total_seconds": 0.001150438
+    },
+    {
+      "stages_seconds": {
+        "codec": 8e-8,
+        "index_walk_and_decode": 0.000518129,
+        "owner_payload_verification": 1.7e-7,
+        "ownership_graph": 0.00000229,
+        "pack_padding": 0.0000244,
+        "reclaimed_space": 0.000112341,
+        "selected_publication": 0.000105491,
+        "storage_handle": 0.00001214,
+        "typed_validation": 0.000357306,
+        "value_key": 2.9e-7
+      },
+      "total_seconds": 0.001133087
+    },
+    {
+      "stages_seconds": {
+        "codec": 7e-8,
+        "index_walk_and_decode": 0.000531198,
+        "owner_payload_verification": 1.9e-7,
+        "ownership_graph": 0.00000234,
+        "pack_padding": 0.00002453,
+        "reclaimed_space": 0.000105412,
+        "selected_publication": 0.000105352,
+        "storage_handle": 0.00001192,
+        "typed_validation": 0.000360536,
+        "value_key": 2.6e-7
+      },
+      "total_seconds": 0.001142218
+    },
+    {
+      "stages_seconds": {
+        "codec": 7e-8,
+        "index_walk_and_decode": 0.000529669,
+        "owner_payload_verification": 1.7e-7,
+        "ownership_graph": 0.00000227,
+        "pack_padding": 0.00002479,
+        "reclaimed_space": 0.000105291,
+        "selected_publication": 0.000110932,
+        "storage_handle": 0.00001198,
+        "typed_validation": 0.000363826,
+        "value_key": 2.7e-7
+      },
+      "total_seconds": 0.001149698
+    },
+    {
+      "stages_seconds": {
+        "codec": 8e-8,
+        "index_walk_and_decode": 0.000517369,
+        "owner_payload_verification": 1.7e-7,
+        "ownership_graph": 0.00000222,
+        "pack_padding": 0.00002504,
+        "reclaimed_space": 0.000111541,
+        "selected_publication": 0.000105371,
+        "storage_handle": 0.00001212,
+        "typed_validation": 0.000357186,
+        "value_key": 2.71e-7
+      },
+      "total_seconds": 0.001131748
+    },
+    {
+      "stages_seconds": {
+        "codec": 5e-8,
+        "index_walk_and_decode": 0.000527678,
+        "owner_payload_verification": 1.5e-7,
+        "ownership_graph": 0.00000229,
+        "pack_padding": 0.000024651,
+        "reclaimed_space": 0.000105532,
+        "selected_publication": 0.000105222,
+        "storage_handle": 0.00001188,
+        "typed_validation": 0.000357765,
+        "value_key": 2.5e-7
+      },
+      "total_seconds": 0.001135888
+    },
+    {
+      "stages_seconds": {
+        "codec": 8e-8,
+        "index_walk_and_decode": 0.000518508,
+        "owner_payload_verification": 2e-7,
+        "ownership_graph": 0.00000218,
+        "pack_padding": 0.00002499,
+        "reclaimed_space": 0.000105282,
+        "selected_publication": 0.000105862,
+        "storage_handle": 0.00001226,
+        "typed_validation": 0.000364536,
+        "value_key": 3.1e-7
+      },
+      "total_seconds": 0.001134638
+    },
+    {
+      "stages_seconds": {
+        "codec": 6e-8,
+        "index_walk_and_decode": 0.000518359,
+        "owner_payload_verification": 1.7e-7,
+        "ownership_graph": 0.00000224,
+        "pack_padding": 0.00002454,
+        "reclaimed_space": 0.000110811,
+        "selected_publication": 0.000105121,
+        "storage_handle": 0.000011921,
+        "typed_validation": 0.000359706,
+        "value_key": 2.7e-7
+      },
+      "total_seconds": 0.001133628
+    },
+    {
+      "stages_seconds": {
+        "codec": 6e-8,
+        "index_walk_and_decode": 0.000525208,
+        "owner_payload_verification": 2.2e-7,
+        "ownership_graph": 0.00000231,
+        "pack_padding": 0.000024451,
+        "reclaimed_space": 0.000104882,
+        "selected_publication": 0.000105752,
+        "storage_handle": 0.00001194,
+        "typed_validation": 0.000362225,
+        "value_key": 3.3e-7
+      },
+      "total_seconds": 0.001137798
+    },
+    {
+      "stages_seconds": {
+        "codec": 9e-8,
+        "index_walk_and_decode": 0.000519768,
+        "owner_payload_verification": 1.9e-7,
+        "ownership_graph": 0.00000212,
+        "pack_padding": 0.00002493,
+        "reclaimed_space": 0.000105092,
+        "selected_publication": 0.000105392,
+        "storage_handle": 0.00001217,
+        "typed_validation": 0.000366146,
+        "value_key": 2.7e-7
+      },
+      "total_seconds": 0.001136638
+    },
+    {
+      "stages_seconds": {
+        "codec": 6e-8,
+        "index_walk_and_decode": 0.000519948,
+        "owner_payload_verification": 1.7e-7,
+        "ownership_graph": 0.00000235,
+        "pack_padding": 0.000031561,
+        "reclaimed_space": 0.000104822,
+        "selected_publication": 0.000104561,
+        "storage_handle": 0.000011781,
+        "typed_validation": 0.000367956,
+        "value_key": 3e-7
+      },
+      "total_seconds": 0.001143939
+    },
+    {
+      "stages_seconds": {
+        "codec": 5e-8,
+        "index_walk_and_decode": 0.000562039,
+        "owner_payload_verification": 1.7e-7,
+        "ownership_graph": 0.00000242,
+        "pack_padding": 0.000041751,
+        "reclaimed_space": 0.000106671,
+        "selected_publication": 0.000105562,
+        "storage_handle": 0.00001191,
+        "typed_validation": 0.000363196,
+        "value_key": 2.9e-7
+      },
+      "total_seconds": 0.001194509
+    },
+    {
+      "stages_seconds": {
+        "codec": 9e-8,
+        "index_walk_and_decode": 0.000525108,
+        "owner_payload_verification": 1.9e-7,
+        "ownership_graph": 0.00000236,
+        "pack_padding": 0.00002473,
+        "reclaimed_space": 0.000105702,
+        "selected_publication": 0.000105952,
+        "storage_handle": 0.0000124,
+        "typed_validation": 0.000371066,
+        "value_key": 2.7e-7
+      },
+      "total_seconds": 0.001148298
+    },
+    {
+      "stages_seconds": {
+        "codec": 8e-8,
+        "index_walk_and_decode": 0.000521039,
+        "owner_payload_verification": 1.8e-7,
+        "ownership_graph": 0.00000232,
+        "pack_padding": 0.000024531,
+        "reclaimed_space": 0.000105261,
+        "selected_publication": 0.000104811,
+        "storage_handle": 0.00001185,
+        "typed_validation": 0.000367606,
+        "value_key": 2.6e-7
+      },
+      "total_seconds": 0.001138348
+    },
+    {
+      "stages_seconds": {
+        "codec": 6e-8,
+        "index_walk_and_decode": 0.000523678,
+        "owner_payload_verification": 1.8e-7,
+        "ownership_graph": 0.00000234,
+        "pack_padding": 0.000024571,
+        "reclaimed_space": 0.000104902,
+        "selected_publication": 0.000106562,
+        "storage_handle": 0.000012,
+        "typed_validation": 0.000358015,
+        "value_key": 2.6e-7
+      },
+      "total_seconds": 0.001132998
+    },
+    {
+      "stages_seconds": {
+        "codec": 6e-8,
+        "index_walk_and_decode": 0.000517828,
+        "owner_payload_verification": 1.6e-7,
+        "ownership_graph": 0.00000226,
+        "pack_padding": 0.00002502,
+        "reclaimed_space": 0.000105072,
+        "selected_publication": 0.000105722,
+        "storage_handle": 0.00001204,
+        "typed_validation": 0.000364426,
+        "value_key": 2.6e-7
+      },
+      "total_seconds": 0.001133278
+    },
+    {
+      "stages_seconds": {
+        "codec": 7e-8,
+        "index_walk_and_decode": 0.000524479,
+        "owner_payload_verification": 1.9e-7,
+        "ownership_graph": 0.00000223,
+        "pack_padding": 0.000024631,
+        "reclaimed_space": 0.000111191,
+        "selected_publication": 0.000105061,
+        "storage_handle": 0.000012021,
+        "typed_validation": 0.000360346,
+        "value_key": 3e-7
+      },
+      "total_seconds": 0.001140959
+    },
+    {
+      "stages_seconds": {
+        "codec": 5e-8,
+        "index_walk_and_decode": 0.000525748,
+        "owner_payload_verification": 1.8e-7,
+        "ownership_graph": 0.00000226,
+        "pack_padding": 0.000024901,
+        "reclaimed_space": 0.000105292,
+        "selected_publication": 0.000105022,
+        "storage_handle": 0.00001198,
+        "typed_validation": 0.000361135,
+        "value_key": 2.5e-7
+      },
+      "total_seconds": 0.001137248
+    },
+    {
+      "stages_seconds": {
+        "codec": 6e-8,
+        "index_walk_and_decode": 0.000521278,
+        "owner_payload_verification": 1.8e-7,
+        "ownership_graph": 0.00000225,
+        "pack_padding": 0.00002482,
+        "reclaimed_space": 0.000105432,
+        "selected_publication": 0.000105542,
+        "storage_handle": 0.00001211,
+        "typed_validation": 0.000375266,
+        "value_key": 3.1e-7
+      },
+      "total_seconds": 0.001147688
+    },
+    {
+      "stages_seconds": {
+        "codec": 7e-8,
+        "index_walk_and_decode": 0.000527479,
+        "owner_payload_verification": 2e-7,
+        "ownership_graph": 0.00000232,
+        "pack_padding": 0.000024331,
+        "reclaimed_space": 0.000108402,
+        "selected_publication": 0.000105531,
+        "storage_handle": 0.00001205,
+        "typed_validation": 0.000356835,
+        "value_key": 2.7e-7
+      },
+      "total_seconds": 0.001137898
+    },
+    {
+      "stages_seconds": {
+        "codec": 6e-8,
+        "index_walk_and_decode": 0.000527398,
+        "owner_payload_verification": 1.9e-7,
+        "ownership_graph": 0.00000231,
+        "pack_padding": 0.00002519,
+        "reclaimed_space": 0.000106562,
+        "selected_publication": 0.000110712,
+        "storage_handle": 0.00001179,
+        "typed_validation": 0.000365646,
+        "value_key": 2.8e-7
+      },
+      "total_seconds": 0.001150568
+    },
+    {
+      "stages_seconds": {
+        "codec": 6e-8,
+        "index_walk_and_decode": 0.000520498,
+        "owner_payload_verification": 2.1e-7,
+        "ownership_graph": 0.000002221,
+        "pack_padding": 0.00002472,
+        "reclaimed_space": 0.000111141,
+        "selected_publication": 0.000105932,
+        "storage_handle": 0.00001205,
+        "typed_validation": 0.000361856,
+        "value_key": 2.5e-7
+      },
+      "total_seconds": 0.001139358
+    },
+    {
+      "stages_seconds": {
+        "codec": 5e-8,
+        "index_walk_and_decode": 0.000525628,
+        "owner_payload_verification": 1.7e-7,
+        "ownership_graph": 0.00000227,
+        "pack_padding": 0.000024521,
+        "reclaimed_space": 0.000108052,
+        "selected_publication": 0.000104802,
+        "storage_handle": 0.00001187,
+        "typed_validation": 0.000357865,
+        "value_key": 2.8e-7
+      },
+      "total_seconds": 0.001135938
+    },
+    {
+      "stages_seconds": {
+        "codec": 8e-8,
+        "index_walk_and_decode": 0.000517908,
+        "owner_payload_verification": 1.7e-7,
+        "ownership_graph": 0.00000233,
+        "pack_padding": 0.00002554,
+        "reclaimed_space": 0.000105632,
+        "selected_publication": 0.000120302,
+        "storage_handle": 0.0000119,
+        "typed_validation": 0.000381506,
+        "value_key": 2.8e-7
+      },
+      "total_seconds": 0.001166078
+    },
+    {
+      "stages_seconds": {
+        "codec": 1e-7,
+        "index_walk_and_decode": 0.000518259,
+        "owner_payload_verification": 1.5e-7,
+        "ownership_graph": 0.0000022,
+        "pack_padding": 0.000024561,
+        "reclaimed_space": 0.000111982,
+        "selected_publication": 0.000104851,
+        "storage_handle": 0.0000119,
+        "typed_validation": 0.000365625,
+        "value_key": 2.5e-7
+      },
+      "total_seconds": 0.001140338
+    },
+    {
+      "stages_seconds": {
+        "codec": 6e-8,
+        "index_walk_and_decode": 0.000527378,
+        "owner_payload_verification": 1.8e-7,
+        "ownership_graph": 0.00000227,
+        "pack_padding": 0.00002451,
+        "reclaimed_space": 0.000105962,
+        "selected_publication": 0.000105392,
+        "storage_handle": 0.00001196,
+        "typed_validation": 0.000362956,
+        "value_key": 2.8e-7
+      },
+      "total_seconds": 0.001141358
+    },
+    {
+      "stages_seconds": {
+        "codec": 8e-8,
+        "index_walk_and_decode": 0.000525329,
+        "owner_payload_verification": 1.9e-7,
+        "ownership_graph": 0.00000225,
+        "pack_padding": 0.000024911,
+        "reclaimed_space": 0.000106051,
+        "selected_publication": 0.000105641,
+        "storage_handle": 0.000019021,
+        "typed_validation": 0.000365076,
+        "value_key": 3.1e-7
+      },
+      "total_seconds": 0.001149299
+    },
+    {
+      "stages_seconds": {
+        "codec": 5e-8,
+        "index_walk_and_decode": 0.000543758,
+        "owner_payload_verification": 1.7e-7,
+        "ownership_graph": 0.00000232,
+        "pack_padding": 0.0000246,
+        "reclaimed_space": 0.000106812,
+        "selected_publication": 0.000104712,
+        "storage_handle": 0.00001177,
+        "typed_validation": 0.000362086,
+        "value_key": 2.5e-7
+      },
+      "total_seconds": 0.001156948
+    },
+    {
+      "stages_seconds": {
+        "codec": 9e-8,
+        "index_walk_and_decode": 0.000532599,
+        "owner_payload_verification": 1.7e-7,
+        "ownership_graph": 0.00000237,
+        "pack_padding": 0.00002459,
+        "reclaimed_space": 0.000106311,
+        "selected_publication": 0.000105102,
+        "storage_handle": 0.00001205,
+        "typed_validation": 0.000359486,
+        "value_key": 2.7e-7
+      },
+      "total_seconds": 0.001143498
+    },
+    {
+      "stages_seconds": {
+        "codec": 9e-8,
+        "index_walk_and_decode": 0.000521868,
+        "owner_payload_verification": 1.9e-7,
+        "ownership_graph": 0.00000225,
+        "pack_padding": 0.00002525,
+        "reclaimed_space": 0.000106962,
+        "selected_publication": 0.000105342,
+        "storage_handle": 0.00001233,
+        "typed_validation": 0.000365526,
+        "value_key": 2.9e-7
+      },
+      "total_seconds": 0.001140518
+    },
+    {
+      "stages_seconds": {
+        "codec": 6e-8,
+        "index_walk_and_decode": 0.000525938,
+        "owner_payload_verification": 1.7e-7,
+        "ownership_graph": 0.000002311,
+        "pack_padding": 0.00002435,
+        "reclaimed_space": 0.000107111,
+        "selected_publication": 0.000105152,
+        "storage_handle": 0.00001191,
+        "typed_validation": 0.000363626,
+        "value_key": 3.3e-7
+      },
+      "total_seconds": 0.001141408
+    },
+    {
+      "stages_seconds": {
+        "codec": 7e-8,
+        "index_walk_and_decode": 0.000526979,
+        "owner_payload_verification": 1.9e-7,
+        "ownership_graph": 0.00000221,
+        "pack_padding": 0.000024701,
+        "reclaimed_space": 0.000106031,
+        "selected_publication": 0.000105651,
+        "storage_handle": 0.00001195,
+        "typed_validation": 0.000359496,
+        "value_key": 2.8e-7
+      },
+      "total_seconds": 0.001137988
+    },
+    {
+      "stages_seconds": {
+        "codec": 7e-8,
+        "index_walk_and_decode": 0.000521728,
+        "owner_payload_verification": 1.6e-7,
+        "ownership_graph": 0.00000222,
+        "pack_padding": 0.00002777,
+        "reclaimed_space": 0.000106172,
+        "selected_publication": 0.000105712,
+        "storage_handle": 0.00001196,
+        "typed_validation": 0.000364716,
+        "value_key": 2.7e-7
+      },
+      "total_seconds": 0.001141208
+    },
+    {
+      "stages_seconds": {
+        "codec": 6e-8,
+        "index_walk_and_decode": 0.000531389,
+        "owner_payload_verification": 1.7e-7,
+        "ownership_graph": 0.00000282,
+        "pack_padding": 0.000024691,
+        "reclaimed_space": 0.000110391,
+        "selected_publication": 0.000106941,
+        "storage_handle": 0.000012851,
+        "typed_validation": 0.000367936,
+        "value_key": 3.4e-7
+      },
+      "total_seconds": 0.001158019
+    },
+    {
+      "stages_seconds": {
+        "codec": 6e-8,
+        "index_walk_and_decode": 0.000534278,
+        "owner_payload_verification": 1.7e-7,
+        "ownership_graph": 0.00000272,
+        "pack_padding": 0.00002445,
+        "reclaimed_space": 0.000107792,
+        "selected_publication": 0.000106552,
+        "storage_handle": 0.00001318,
+        "typed_validation": 0.000359806,
+        "value_key": 2.8e-7
+      },
+      "total_seconds": 0.001149708
+    },
+    {
+      "stages_seconds": {
+        "codec": 7e-8,
+        "index_walk_and_decode": 0.000532668,
+        "owner_payload_verification": 1.6e-7,
+        "ownership_graph": 0.00000253,
+        "pack_padding": 0.00002578,
+        "reclaimed_space": 0.000109622,
+        "selected_publication": 0.000107612,
+        "storage_handle": 0.00001313,
+        "typed_validation": 0.000365586,
+        "value_key": 4.3e-7
+      },
+      "total_seconds": 0.001158038
+    },
+    {
+      "stages_seconds": {
+        "codec": 6e-8,
+        "index_walk_and_decode": 0.000532859,
+        "owner_payload_verification": 1.7e-7,
+        "ownership_graph": 0.00000297,
+        "pack_padding": 0.000030881,
+        "reclaimed_space": 0.000115611,
+        "selected_publication": 0.000106812,
+        "storage_handle": 0.00001351,
+        "typed_validation": 0.000364946,
+        "value_key": 5.3e-7
+      },
+      "total_seconds": 0.001168879
+    },
+    {
+      "stages_seconds": {
+        "codec": 2.2e-7,
+        "index_walk_and_decode": 0.000533699,
+        "owner_payload_verification": 1.9e-7,
+        "ownership_graph": 0.00000228,
+        "pack_padding": 0.00002499,
+        "reclaimed_space": 0.000107191,
+        "selected_publication": 0.000113402,
+        "storage_handle": 0.00001518,
+        "typed_validation": 0.000362246,
+        "value_key": 2.9e-7
+      },
+      "total_seconds": 0.001160118
+    },
+    {
+      "stages_seconds": {
+        "codec": 7e-8,
+        "index_walk_and_decode": 0.000523678,
+        "owner_payload_verification": 1.9e-7,
+        "ownership_graph": 0.0000023,
+        "pack_padding": 0.000024411,
+        "reclaimed_space": 0.000113362,
+        "selected_publication": 0.000105262,
+        "storage_handle": 0.00001202,
+        "typed_validation": 0.000359545,
+        "value_key": 2.7e-7
+      },
+      "total_seconds": 0.001141538
+    },
+    {
+      "stages_seconds": {
+        "codec": 8e-8,
+        "index_walk_and_decode": 0.000560219,
+        "owner_payload_verification": 1.7e-7,
+        "ownership_graph": 0.00000241,
+        "pack_padding": 0.000024691,
+        "reclaimed_space": 0.000109441,
+        "selected_publication": 0.000105392,
+        "storage_handle": 0.00001185,
+        "typed_validation": 0.000357496,
+        "value_key": 2.5e-7
+      },
+      "total_seconds": 0.001172409
+    },
+    {
+      "stages_seconds": {
+        "codec": 1e-7,
+        "index_walk_and_decode": 0.000523868,
+        "owner_payload_verification": 1.5e-7,
+        "ownership_graph": 0.00000229,
+        "pack_padding": 0.0000248,
+        "reclaimed_space": 0.000107332,
+        "selected_publication": 0.000153033,
+        "storage_handle": 0.00001261,
+        "typed_validation": 0.000374876,
+        "value_key": 2.8e-7
+      },
+      "total_seconds": 0.001199759
+    },
+    {
+      "stages_seconds": {
+        "codec": 1e-7,
+        "index_walk_and_decode": 0.000528598,
+        "owner_payload_verification": 1.6e-7,
+        "ownership_graph": 0.00000234,
+        "pack_padding": 0.00003702,
+        "reclaimed_space": 0.000107542,
+        "selected_publication": 0.000106222,
+        "storage_handle": 0.00001243,
+        "typed_validation": 0.000362246,
+        "value_key": 2.6e-7
+      },
+      "total_seconds": 0.001157338
+    },
+    {
+      "stages_seconds": {
+        "codec": 6e-8,
+        "index_walk_and_decode": 0.000538148,
+        "owner_payload_verification": 2.1e-7,
+        "ownership_graph": 0.00000234,
+        "pack_padding": 0.00002442,
+        "reclaimed_space": 0.000107072,
+        "selected_publication": 0.000106012,
+        "storage_handle": 0.0000122,
+        "typed_validation": 0.000360136,
+        "value_key": 2.7e-7
+      },
+      "total_seconds": 0.001151288
+    },
+    {
+      "stages_seconds": {
+        "codec": 6e-8,
+        "index_walk_and_decode": 0.000530499,
+        "owner_payload_verification": 1.5e-7,
+        "ownership_graph": 0.0000023,
+        "pack_padding": 0.000024981,
+        "reclaimed_space": 0.000106311,
+        "selected_publication": 0.000106261,
+        "storage_handle": 0.000012241,
+        "typed_validation": 0.000364396,
+        "value_key": 2.8e-7
+      },
+      "total_seconds": 0.001147959
+    },
+    {
+      "stages_seconds": {
+        "codec": 7e-8,
+        "index_walk_and_decode": 0.000527228,
+        "owner_payload_verification": 1.6e-7,
+        "ownership_graph": 0.00000235,
+        "pack_padding": 0.000024661,
+        "reclaimed_space": 0.000106752,
+        "selected_publication": 0.000105332,
+        "storage_handle": 0.00001223,
+        "typed_validation": 0.000359825,
+        "value_key": 2.5e-7
+      },
+      "total_seconds": 0.001139278
+    },
+    {
+      "stages_seconds": {
+        "codec": 9e-8,
+        "index_walk_and_decode": 0.000529618,
+        "owner_payload_verification": 1.7e-7,
+        "ownership_graph": 0.00000229,
+        "pack_padding": 0.00002446,
+        "reclaimed_space": 0.000105302,
+        "selected_publication": 0.000105012,
+        "storage_handle": 0.00001188,
+        "typed_validation": 0.000358356,
+        "value_key": 2.8e-7
+      },
+      "total_seconds": 0.001137898
+    },
+    {
+      "stages_seconds": {
+        "codec": 8e-8,
+        "index_walk_and_decode": 0.000517998,
+        "owner_payload_verification": 1.6e-7,
+        "ownership_graph": 0.00000225,
+        "pack_padding": 0.000025291,
+        "reclaimed_space": 0.000107122,
+        "selected_publication": 0.000117692,
+        "storage_handle": 0.000012071,
+        "typed_validation": 0.000372975,
+        "value_key": 2.9e-7
+      },
+      "total_seconds": 0.001156379
+    },
+    {
+      "stages_seconds": {
+        "codec": 7e-8,
+        "index_walk_and_decode": 0.000544338,
+        "owner_payload_verification": 1.8e-7,
+        "ownership_graph": 0.000003161,
+        "pack_padding": 0.000043611,
+        "reclaimed_space": 0.000114601,
+        "selected_publication": 0.000106792,
+        "storage_handle": 0.0000122,
+        "typed_validation": 0.000363626,
+        "value_key": 4.6e-7
+      },
+      "total_seconds": 0.001189469
+    },
+    {
+      "stages_seconds": {
+        "codec": 2e-7,
+        "index_walk_and_decode": 0.000536449,
+        "owner_payload_verification": 1.7e-7,
+        "ownership_graph": 0.00000338,
+        "pack_padding": 0.00004281,
+        "reclaimed_space": 0.000115332,
+        "selected_publication": 0.000120962,
+        "storage_handle": 0.00001854,
+        "typed_validation": 0.000367616,
+        "value_key": 2.7e-7
+      },
+      "total_seconds": 0.001206129
+    },
+    {
+      "stages_seconds": {
+        "codec": 6e-8,
+        "index_walk_and_decode": 0.000523119,
+        "owner_payload_verification": 1.5e-7,
+        "ownership_graph": 0.00000221,
+        "pack_padding": 0.000042351,
+        "reclaimed_space": 0.000112372,
+        "selected_publication": 0.000105801,
+        "storage_handle": 0.0000124,
+        "typed_validation": 0.000364145,
+        "value_key": 2.7e-7
+      },
+      "total_seconds": 0.001163298
+    },
+    {
+      "stages_seconds": {
+        "codec": 6e-8,
+        "index_walk_and_decode": 0.000530969,
+        "owner_payload_verification": 1.7e-7,
+        "ownership_graph": 0.00000229,
+        "pack_padding": 0.00002431,
+        "reclaimed_space": 0.000106481,
+        "selected_publication": 0.000105102,
+        "storage_handle": 0.0000121,
+        "typed_validation": 0.000358706,
+        "value_key": 2.6e-7
+      },
+      "total_seconds": 0.001140868
+    },
+    {
+      "stages_seconds": {
+        "codec": 6e-8,
+        "index_walk_and_decode": 0.000519378,
+        "owner_payload_verification": 2e-7,
+        "ownership_graph": 0.00000217,
+        "pack_padding": 0.000024841,
+        "reclaimed_space": 0.000105952,
+        "selected_publication": 0.000104542,
+        "storage_handle": 0.00001184,
+        "typed_validation": 0.000361955,
+        "value_key": 2.6e-7
+      },
+      "total_seconds": 0.001131628
+    },
+    {
+      "stages_seconds": {
+        "codec": 5e-8,
+        "index_walk_and_decode": 0.000549658,
+        "owner_payload_verification": 1.7e-7,
+        "ownership_graph": 0.00000237,
+        "pack_padding": 0.00002426,
+        "reclaimed_space": 0.000109112,
+        "selected_publication": 0.000104252,
+        "storage_handle": 0.00001183,
+        "typed_validation": 0.000360236,
+        "value_key": 2.9e-7
+      },
+      "total_seconds": 0.001162618
+    },
+    {
+      "stages_seconds": {
+        "codec": 8e-8,
+        "index_walk_and_decode": 0.000533919,
+        "owner_payload_verification": 1.8e-7,
+        "ownership_graph": 0.00000237,
+        "pack_padding": 0.000024801,
+        "reclaimed_space": 0.000106762,
+        "selected_publication": 0.000104821,
+        "storage_handle": 0.000012331,
+        "typed_validation": 0.000361625,
+        "value_key": 2.8e-7
+      },
+      "total_seconds": 0.001147589
+    },
+    {
+      "stages_seconds": {
+        "codec": 7e-8,
+        "index_walk_and_decode": 0.000522238,
+        "owner_payload_verification": 1.8e-7,
+        "ownership_graph": 0.00000227,
+        "pack_padding": 0.00002502,
+        "reclaimed_space": 0.000105842,
+        "selected_publication": 0.000105752,
+        "storage_handle": 0.0000123,
+        "typed_validation": 0.000366606,
+        "value_key": 3e-7
+      },
+      "total_seconds": 0.001141048
+    },
+    {
+      "stages_seconds": {
+        "codec": 7e-8,
+        "index_walk_and_decode": 0.000527299,
+        "owner_payload_verification": 1.6e-7,
+        "ownership_graph": 0.00000232,
+        "pack_padding": 0.00002454,
+        "reclaimed_space": 0.000106981,
+        "selected_publication": 0.000105702,
+        "storage_handle": 0.00001196,
+        "typed_validation": 0.000360196,
+        "value_key": 2.9e-7
+      },
+      "total_seconds": 0.001139958
+    },
+    {
+      "stages_seconds": {
+        "codec": 5e-8,
+        "index_walk_and_decode": 0.000532938,
+        "owner_payload_verification": 1.7e-7,
+        "ownership_graph": 0.00000235,
+        "pack_padding": 0.000037631,
+        "reclaimed_space": 0.000107172,
+        "selected_publication": 0.000105042,
+        "storage_handle": 0.00001196,
+        "typed_validation": 0.000358375,
+        "value_key": 2.8e-7
+      },
+      "total_seconds": 0.001156388
+    },
+    {
+      "stages_seconds": {
+        "codec": 8e-8,
+        "index_walk_and_decode": 0.000522609,
+        "owner_payload_verification": 1.7e-7,
+        "ownership_graph": 0.00000222,
+        "pack_padding": 0.00002537,
+        "reclaimed_space": 0.000106171,
+        "selected_publication": 0.000110651,
+        "storage_handle": 0.000012341,
+        "typed_validation": 0.000364976,
+        "value_key": 2.7e-7
+      },
+      "total_seconds": 0.001145288
+    },
+    {
+      "stages_seconds": {
+        "codec": 7e-8,
+        "index_walk_and_decode": 0.000529448,
+        "owner_payload_verification": 1.8e-7,
+        "ownership_graph": 0.0000023,
+        "pack_padding": 0.000024451,
+        "reclaimed_space": 0.000110032,
+        "selected_publication": 0.000105942,
+        "storage_handle": 0.0000119,
+        "typed_validation": 0.000357275,
+        "value_key": 3e-7
+      },
+      "total_seconds": 0.001142308
+    },
+    {
+      "stages_seconds": {
+        "codec": 6e-8,
+        "index_walk_and_decode": 0.000540319,
+        "owner_payload_verification": 1.7e-7,
+        "ownership_graph": 0.00000224,
+        "pack_padding": 0.00003009,
+        "reclaimed_space": 0.000106131,
+        "selected_publication": 0.000104582,
+        "storage_handle": 0.00001178,
+        "typed_validation": 0.000357076,
+        "value_key": 3.3e-7
+      },
+      "total_seconds": 0.001153208
+    },
+    {
+      "stages_seconds": {
+        "codec": 5e-8,
+        "index_walk_and_decode": 0.000520058,
+        "owner_payload_verification": 1.5e-7,
+        "ownership_graph": 0.0000022,
+        "pack_padding": 0.000027461,
+        "reclaimed_space": 0.000105931,
+        "selected_publication": 0.000107242,
+        "storage_handle": 0.00001222,
+        "typed_validation": 0.000367726,
+        "value_key": 3e-7
+      },
+      "total_seconds": 0.001143808
+    },
+    {
+      "stages_seconds": {
+        "codec": 7e-8,
+        "index_walk_and_decode": 0.000540488,
+        "owner_payload_verification": 1.6e-7,
+        "ownership_graph": 0.00000234,
+        "pack_padding": 0.00002445,
+        "reclaimed_space": 0.000109662,
+        "selected_publication": 0.000105392,
+        "storage_handle": 0.00001191,
+        "typed_validation": 0.000357586,
+        "value_key": 2.7e-7
+      },
+      "total_seconds": 0.001152758
+    },
+    {
+      "stages_seconds": {
+        "codec": 7e-8,
+        "index_walk_and_decode": 0.000530129,
+        "owner_payload_verification": 1.6e-7,
+        "ownership_graph": 0.00000219,
+        "pack_padding": 0.000024841,
+        "reclaimed_space": 0.000105841,
+        "selected_publication": 0.000110001,
+        "storage_handle": 0.000012091,
+        "typed_validation": 0.000367706,
+        "value_key": 3.2e-7
+      },
+      "total_seconds": 0.001153789
+    },
+    {
+      "stages_seconds": {
+        "codec": 7e-8,
+        "index_walk_and_decode": 0.000522238,
+        "owner_payload_verification": 1.7e-7,
+        "ownership_graph": 0.00000222,
+        "pack_padding": 0.00002485,
+        "reclaimed_space": 0.000111322,
+        "selected_publication": 0.000105332,
+        "storage_handle": 0.00001197,
+        "typed_validation": 0.000360896,
+        "value_key": 2.6e-7
+      },
+      "total_seconds": 0.001139778
+    },
+    {
+      "stages_seconds": {
+        "codec": 8e-8,
+        "index_walk_and_decode": 0.000528749,
+        "owner_payload_verification": 1.7e-7,
+        "ownership_graph": 0.00000229,
+        "pack_padding": 0.00002445,
+        "reclaimed_space": 0.000107351,
+        "selected_publication": 0.000105292,
+        "storage_handle": 0.00001188,
+        "typed_validation": 0.000357606,
+        "value_key": 2.7e-7
+      },
+      "total_seconds": 0.001138568
+    },
+    {
+      "stages_seconds": {
+        "codec": 5e-8,
+        "index_walk_and_decode": 0.000534258,
+        "owner_payload_verification": 1.8e-7,
+        "ownership_graph": 0.00000233,
+        "pack_padding": 0.000024881,
+        "reclaimed_space": 0.000106262,
+        "selected_publication": 0.000113532,
+        "storage_handle": 0.00001177,
+        "typed_validation": 0.000365585,
+        "value_key": 3.1e-7
+      },
+      "total_seconds": 0.001159618
+    },
+    {
+      "stages_seconds": {
+        "codec": 7e-8,
+        "index_walk_and_decode": 0.000522718,
+        "owner_payload_verification": 1.6e-7,
+        "ownership_graph": 0.00000223,
+        "pack_padding": 0.000039201,
+        "reclaimed_space": 0.000110702,
+        "selected_publication": 0.000104912,
+        "storage_handle": 0.00001213,
+        "typed_validation": 0.000360186,
+        "value_key": 2.8e-7
+      },
+      "total_seconds": 0.001153009
+    },
+    {
+      "stages_seconds": {
+        "codec": 7e-8,
+        "index_walk_and_decode": 0.000539548,
+        "owner_payload_verification": 1.6e-7,
+        "ownership_graph": 0.00000287,
+        "pack_padding": 0.00002459,
+        "reclaimed_space": 0.000106222,
+        "selected_publication": 0.000105562,
+        "storage_handle": 0.00001196,
+        "typed_validation": 0.000358296,
+        "value_key": 2.9e-7
+      },
+      "total_seconds": 0.001149968
+    },
+    {
+      "stages_seconds": {
+        "codec": 8e-8,
+        "index_walk_and_decode": 0.000523288,
+        "owner_payload_verification": 1.8e-7,
+        "ownership_graph": 0.00000225,
+        "pack_padding": 0.00002479,
+        "reclaimed_space": 0.000105252,
+        "selected_publication": 0.000105552,
+        "storage_handle": 0.00001218,
+        "typed_validation": 0.000364226,
+        "value_key": 2.5e-7
+      },
+      "total_seconds": 0.001138498
+    },
+    {
+      "stages_seconds": {
+        "codec": 9e-8,
+        "index_walk_and_decode": 0.000531609,
+        "owner_payload_verification": 1.9e-7,
+        "ownership_graph": 0.00000228,
+        "pack_padding": 0.000024731,
+        "reclaimed_space": 0.000105372,
+        "selected_publication": 0.000104631,
+        "storage_handle": 0.0000119,
+        "typed_validation": 0.000367275,
+        "value_key": 2.8e-7
+      },
+      "total_seconds": 0.001148758
+    },
+    {
+      "stages_seconds": {
+        "codec": 6e-8,
+        "index_walk_and_decode": 0.000532188,
+        "owner_payload_verification": 1.7e-7,
+        "ownership_graph": 0.00000232,
+        "pack_padding": 0.00002464,
+        "reclaimed_space": 0.000105462,
+        "selected_publication": 0.000105612,
+        "storage_handle": 0.00001206,
+        "typed_validation": 0.000359606,
+        "value_key": 3.2e-7
+      },
+      "total_seconds": 0.001142858
+    },
+    {
+      "stages_seconds": {
+        "codec": 7e-8,
+        "index_walk_and_decode": 0.000524409,
+        "owner_payload_verification": 1.4e-7,
+        "ownership_graph": 0.00000227,
+        "pack_padding": 0.00002296,
+        "reclaimed_space": 0.000105121,
+        "selected_publication": 0.000105591,
+        "storage_handle": 0.000012121,
+        "typed_validation": 0.000364356,
+        "value_key": 2.8e-7
+      },
+      "total_seconds": 0.001137668
+    },
+    {
+      "stages_seconds": {
+        "codec": 6e-8,
+        "index_walk_and_decode": 0.000376686,
+        "owner_payload_verification": 1.5e-7,
+        "ownership_graph": 0.00000213,
+        "pack_padding": 0.00002165,
+        "reclaimed_space": 0.000083351,
+        "selected_publication": 0.000116842,
+        "storage_handle": 0.00001098,
+        "typed_validation": 0.000241904,
+        "value_key": 2.3e-7
+      },
+      "total_seconds": 0.000854383
+    },
+    {
+      "stages_seconds": {
+        "codec": 7e-8,
+        "index_walk_and_decode": 0.000371556,
+        "owner_payload_verification": 1.5e-7,
+        "ownership_graph": 0.00000147,
+        "pack_padding": 0.000020831,
+        "reclaimed_space": 0.000079482,
+        "selected_publication": 0.000106591,
+        "storage_handle": 0.00000981,
+        "typed_validation": 0.000236653,
+        "value_key": 1.8e-7
+      },
+      "total_seconds": 0.000827063
+    },
+    {
+      "stages_seconds": {
+        "codec": 5e-8,
+        "index_walk_and_decode": 0.000371736,
+        "owner_payload_verification": 1.5e-7,
+        "ownership_graph": 0.00000139,
+        "pack_padding": 0.00002086,
+        "reclaimed_space": 0.000079621,
+        "selected_publication": 0.000086831,
+        "storage_handle": 0.0000095,
+        "typed_validation": 0.000236324,
+        "value_key": 1.9e-7
+      },
+      "total_seconds": 0.000806932
+    },
+    {
+      "stages_seconds": {
+        "codec": 5e-8,
+        "index_walk_and_decode": 0.000369266,
+        "owner_payload_verification": 1.4e-7,
+        "ownership_graph": 0.00000139,
+        "pack_padding": 0.00002084,
+        "reclaimed_space": 0.000078801,
+        "selected_publication": 0.000087351,
+        "storage_handle": 0.00000893,
+        "typed_validation": 0.000235424,
+        "value_key": 1.7e-7
+      },
+      "total_seconds": 0.000802632
+    },
+    {
+      "stages_seconds": {
+        "codec": 5e-8,
+        "index_walk_and_decode": 0.000379436,
+        "owner_payload_verification": 1e-7,
+        "ownership_graph": 0.00000142,
+        "pack_padding": 0.00002077,
+        "reclaimed_space": 0.000079321,
+        "selected_publication": 0.000084382,
+        "storage_handle": 0.00000868,
+        "typed_validation": 0.000231024,
+        "value_key": 1.8e-7
+      },
+      "total_seconds": 0.000805633
+    },
+    {
+      "stages_seconds": {
+        "codec": 4e-8,
+        "index_walk_and_decode": 0.000372686,
+        "owner_payload_verification": 1.1e-7,
+        "ownership_graph": 0.00000143,
+        "pack_padding": 0.000021021,
+        "reclaimed_space": 0.000079041,
+        "selected_publication": 0.000084882,
+        "storage_handle": 0.00000884,
+        "typed_validation": 0.000228013,
+        "value_key": 1.7e-7
+      },
+      "total_seconds": 0.000796523
+    },
+    {
+      "stages_seconds": {
+        "codec": 4e-8,
+        "index_walk_and_decode": 0.000374626,
+        "owner_payload_verification": 1.1e-7,
+        "ownership_graph": 0.00000149,
+        "pack_padding": 0.000020561,
+        "reclaimed_space": 0.000079362,
+        "selected_publication": 0.000084461,
+        "storage_handle": 0.00000876,
+        "typed_validation": 0.000230563,
+        "value_key": 1.5e-7
+      },
+      "total_seconds": 0.000800403
+    },
+    {
+      "stages_seconds": {
+        "codec": 5e-8,
+        "index_walk_and_decode": 0.000374756,
+        "owner_payload_verification": 1.2e-7,
+        "ownership_graph": 0.00000143,
+        "pack_padding": 0.00002062,
+        "reclaimed_space": 0.000079221,
+        "selected_publication": 0.000091721,
+        "storage_handle": 0.00000733,
+        "typed_validation": 0.000227864,
+        "value_key": 1.7e-7
+      },
+      "total_seconds": 0.000803552
+    },
+    {
+      "stages_seconds": {
+        "codec": 4e-8,
+        "index_walk_and_decode": 0.000380766,
+        "owner_payload_verification": 1.2e-7,
+        "ownership_graph": 0.00000152,
+        "pack_padding": 0.00002061,
+        "reclaimed_space": 0.000078871,
+        "selected_publication": 0.000084231,
+        "storage_handle": 0.000008871,
+        "typed_validation": 0.000229944,
+        "value_key": 1.7e-7
+      },
+      "total_seconds": 0.000805413
+    }
+  ]
+}

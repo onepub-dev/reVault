@@ -78,9 +78,7 @@ impl<S: Storage> TreeImage<S> {
         let codec = Codec::shared_packed(archive, mode, key)?;
         stage("codec");
         let (catalogue, tree) = Catalogue::with_tree(&codec, |visitor| {
-            let tree = Tree::open_visit(&storage, archive, mode, authority, key, visitor)?;
-            stage("authenticated_traversal_and_reclaimed");
-            Ok(tree)
+            Tree::open_visit_observed(&storage, archive, mode, authority, key, visitor, &mut stage)
         })?;
         stage("typed_validation");
         catalogue.verify_padding(&storage, &codec)?;
