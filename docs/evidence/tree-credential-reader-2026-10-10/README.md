@@ -45,3 +45,23 @@ temporary ownership, full API integration, two native recovery failures and the
 complete CPU/RSS/aging/migration/interoperability gates remain open. The older
 packed-C fresh exporter has a different access-root representation and still refuses
 it; this conversion change applies only to authenticated shared dense sources.
+
+Post-format checks at `5cd2064f` pass both typed credential tests, both dense
+conversion tests (including 16 partial writes), and strict core Clippy. Earlier
+controls also pass the single-traversal reader and all-mode filesystem lifecycle.
+
+## Credential access after process death
+
+The subsequent two-test process suite passes 72 child exits: eight encrypted
+modes at six installation checkpoints and three complete-copy resume checkpoints.
+The parent independently opens the surviving archive by both password and contact,
+then checks every logical fixture family. Before rename the exact original survives;
+after rename the direct successor survives with exact retained wrapper bytes.
+Resume interrupted before rename can be retried and then matches the completed
+candidate byte for byte. Strict Clippy passes.
+
+Only synthetic public keys are handed to the child through files; the contact
+private key remains in the parent process. The child arms its requested exit only
+after fixture preparation, so preparatory compaction cannot consume the checkpoint.
+This models abrupt process exit, not physical power loss, automatic temporary
+ownership/cleanup, or platform-independent durability.

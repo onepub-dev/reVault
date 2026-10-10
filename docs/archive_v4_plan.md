@@ -29,7 +29,8 @@ connects password/contact bootstrap to all typed record families and refuses a
 publication change during opening. It fixes a secure-memory read-guard lifetime
 failure without changing secret storage. Dense-to-tree conversion now retains
 wrappers while rebasing the directory generation for fresh output. Mode/mirror
-and partial-write tests cover this bounded path. This does not resolve credential
+and partial-write tests cover this bounded path. An additional 72 process exits
+verify password/contact access through installation and resume. This does not resolve credential
 overflow/mutation, public activation or the complete-format qualification gates.
 
 ### Credential-preserving copy — 2026-10-10

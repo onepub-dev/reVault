@@ -1,6 +1,7 @@
 //! No public CLI writes the experimental tree. Use private fixtures and real
 //! files, then independently reopen every family through authenticated readers.
 use super::*;
+mod credential_process;
 use std::path::{Path, PathBuf};
 
 struct Directory(PathBuf);
