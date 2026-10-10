@@ -72,18 +72,38 @@ The test checks both NFC-equivalent identity and the exact preserved prefix,
 then uses the returned candidate unquoted in a new CLI invocation and compares
 the retrieved content bytes. Other shells return the canonical candidate.
 
-The workflow runs all five shells on Linux and native PowerShell/Elvish plus
-Git Bash on Windows. The [Windows job on `ce60ab49`](https://github.com/onepub-dev/reVault/actions/runs/38035781453/job/114165784576)
+The workflow runs all five shells on Linux and macOS, and native
+PowerShell/Elvish plus Git Bash on Windows. The [Windows job on `e5142d07`](https://github.com/onepub-dev/reVault/actions/runs/38038388985/job/114173534422)
 passed both the native CLI/registered-completion matrix and the actual
 format-3 reader refusal test. Its environment was Microsoft Windows
 10.0.26100, Git Bash 5.3.15(2), PowerShell 7.6.6 with `en-US` culture and UTF-8
 input/output, and native Elvish built from pinned v0.21.0. All three passed
 composed/decomposed completion checks.
 
+The [macOS job on `e5142d07`](https://github.com/onepub-dev/reVault/actions/runs/38038388985/job/114173534316)
+passed all five native CLI/registered-completion probes and the format-3 reader
+refusal check. It used macOS 26.6.2 on arm64, `en_US.UTF-8`, Bash 3.2.57(1),
+Zsh 5.9, Fish 4.9.2, PowerShell 7.6.5 (en-US culture, UTF-8 input/output),
+and native Elvish built from pinned v0.21.0.
+
 The first Linux CI attempt stopped in the token driver because its default
 PowerShell executable name was `powershell` rather than `pwsh`. The corrected
 default was verified locally without an executable override (100 arguments).
-The corrected Linux CI run is pending.
+The next Linux run passed token preservation but exposed an insecure ambient
+Zsh completion directory: `compinit -D` aborted without an interactive terminal,
+leaving no registered provider. The harness now uses `compinit -i -D` to ignore
+insecure ambient directories, checks initialization and registration explicitly,
+and reports stderr. A local reproduction with world-writable `/tmp` in `FPATH`
+passed both strict NFC/NFD completion assertions after this fix; focused Clippy
+also passed.
+
+The final [Linux job on `e5142d07`](https://github.com/onepub-dev/reVault/actions/runs/38038388985/job/114173534217)
+passed the token driver, all five native CLI/registered-completion probes
+(including NFC/NFD Zsh completion), and the actual format-3 reader refusal
+check. It used Ubuntu 24.04.5 with `C.UTF-8`, Bash 5.2.21, Zsh 5.9,
+Fish 3.7.0, PowerShell 7.6.6 (UTF-8 input/output), and Elvish 0.21.0.
+The complete [three-platform Unicode workflow](https://github.com/onepub-dev/reVault/actions/runs/38038388985)
+passed on `e5142d07`, which includes performance checkpoint `4cf76ea7`.
 
 ## Broader branch checks
 
