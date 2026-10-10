@@ -286,7 +286,7 @@ pub(crate) fn command(verbose: bool) -> Command {
                 .visible_aliases(["mv", "rename"])
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox secrets.lbox move draft.txt final.txt\n  lockbox secrets.lbox mv old-dir archive/old-dir\n  lockbox secrets.lbox rename old.txt new.txt\n\nTo move the lockbox file itself:\n  lockbox vault lockbox move SOURCE DESTINATION",
+                    "Examples:\n  lockbox secrets.lbox move draft.txt final.txt\n  lockbox secrets.lbox mv old-dir archive/old-dir\n  lockbox secrets.lbox rename old.txt new.txt\n\nTo move the lockbox file itself:\n  lockbox vault lockboxes move SOURCE DESTINATION",
                     "Context:\n  Move changes the path stored inside the lockbox. It does not touch host filesystem paths; both arguments are lockbox paths. Use the short mv alias or the equally descriptive rename synonym.",
                 ))
                 .arg(
@@ -354,7 +354,7 @@ Archives
 
 Files
   add             Add a file or directory to a lockbox.
-  mirror          Manage persistent host-directory mirror projects.
+  mirrors         Manage persistent host-directory mirror projects.
   extract         Extract files from a lockbox.
   cat             Write a stored file to stdout.
   list            List stored entries.
@@ -363,8 +363,8 @@ Files
 
 Data
   description     Get, set, or clear the encrypted lockbox description.
-  variable        Store, retrieve, list, export, or remove variable values.
-  form            Manage typed multi-field form records.
+  variables       Store, retrieve, list, export, or remove variable values.
+  forms           Manage typed multi-field form records.
 
 Session
   session         Manage the default Lockbox and keys cached by the Session Agent.
@@ -470,11 +470,12 @@ fn file_command(name: &'static str, about: &'static str) -> Command {
 
 fn mirror_command(verbose: bool) -> Command {
     file_command(
-        "mirror",
+        "mirrors",
         "Manage named host-to-lockbox directory mirrors.",
     )
+    .alias("mirror")
     .override_usage(
-        "lockbox [LOCKBOX] mirror <NAME> create --from <HOST_DIRECTORY> --to <LOCKBOX_DIRECTORY>\n       lockbox [LOCKBOX] mirror [NAME] <COMMAND>",
+        "lockbox [LOCKBOX] mirrors <NAME> create --from <HOST_DIRECTORY> --to <LOCKBOX_DIRECTORY>\n       lockbox [LOCKBOX] mirrors [NAME] <COMMAND>",
     )
     .subcommand_required(true)
     .arg_required_else_help(true)
@@ -490,7 +491,7 @@ fn mirror_command(verbose: bool) -> Command {
         Command::new("create")
             .about("Create a mirror project without importing files.")
             .override_usage(
-                "lockbox [LOCKBOX] mirror <NAME> create --from <HOST_DIRECTORY> --to <LOCKBOX_DIRECTORY>",
+                "lockbox [LOCKBOX] mirrors <NAME> create --from <HOST_DIRECTORY> --to <LOCKBOX_DIRECTORY>",
             )
             .arg(
                 Arg::new("misplaced-project")
@@ -686,14 +687,14 @@ fn mirror_command(verbose: bool) -> Command {
     ])
     .after_help(verbose_help(
         verbose,
-        "Examples:\n  lockbox store.lbox mirror project create --from ./project --to /projects/project\n  lockbox store.lbox mirror project status\n  lockbox store.lbox mirror project update\n  lockbox store.lbox mirror project rule add exclude '*.tmp'",
+        "Examples:\n  lockbox store.lbox mirrors project create --from ./project --to /projects/project\n  lockbox store.lbox mirrors project status\n  lockbox store.lbox mirrors project update\n  lockbox store.lbox mirrors project rules add exclude '*.tmp'",
         "Context:\n  A mirror project exclusively owns one lockbox directory. Status is the only preview operation; update applies the freshly calculated plan.",
     ))
 }
 
 fn mirror_rule_command() -> Command {
-    Command::new("rule")
-        .visible_alias("rules")
+    Command::new("rules")
+        .alias("rule")
         .about("List or change persistent mirror selection rules.")
         .subcommand_required(true)
         .arg_required_else_help(true)
@@ -789,7 +790,7 @@ fn mirror_extract_command() -> Command {
     Command::new("extract")
         .about("Extract a project file, directory, or the complete project.")
         .after_help(
-            "Examples:\n  lbx house.lbox mirror home extract notes.txt ./notes.txt\n  lbx house.lbox mirror home extract docs ./docs\n  lbx house.lbox mirror home extract docs --to ./docs\n  lbx house.lbox mirror home extract --to ./restore",
+            "Examples:\n  lbx house.lbox mirrors home extract notes.txt ./notes.txt\n  lbx house.lbox mirrors home extract docs ./docs\n  lbx house.lbox mirrors home extract docs --to ./docs\n  lbx house.lbox mirrors home extract --to ./restore",
         )
         .arg(
             Arg::new("to")
@@ -853,13 +854,13 @@ fn base_command(name: &'static str, about: &'static str) -> Command {
 
 fn variables_command(verbose: bool) -> Command {
     base_command(
-        "variable",
+        "variables",
         "Store, retrieve, list, export, or remove variable values.",
     )
-    .visible_aliases(["var", "variables"])
+    .aliases(["var", "variable"])
     .after_help(verbose_help(
         verbose,
-        "Examples:\n  lockbox secrets.lbox variable set APP_MODE production\n  lockbox secrets.lbox variable set APP_MODE=production\n  lockbox secrets.lbox variable get APP_MODE\n  lockbox secrets.lbox variable export",
+        "Examples:\n  lockbox secrets.lbox variables set APP_MODE production\n  lockbox secrets.lbox variables set APP_MODE=production\n  lockbox secrets.lbox variables get APP_MODE\n  lockbox secrets.lbox variables export",
         "Context:\n  Variables let you store name/value pairs securely in your lockbox. Names and matching are case-sensitive on every platform. For secrets, such as an API key, set the variable using the --secret flag to ensure an additional level of security is applied to those values.",
     ))
     .subcommand_required(true)
@@ -869,7 +870,7 @@ fn variables_command(verbose: bool) -> Command {
             .about("Store a variable value.")
             .after_help(verbose_help(
                 verbose,
-                "Examples:\n  lockbox secrets.lbox variable set APP_MODE production\n  lockbox secrets.lbox variable set APP_MODE=production\n  lockbox secrets.lbox variable set --secret API_TOKEN --interactive\n  printf '%s' \"$TOKEN\" | lockbox secrets.lbox variable set --secret --stdin API_TOKEN",
+                "Examples:\n  lockbox secrets.lbox variables set APP_MODE production\n  lockbox secrets.lbox variables set APP_MODE=production\n  lockbox secrets.lbox variables set --secret API_TOKEN --interactive\n  printf '%s' \"$TOKEN\" | lockbox secrets.lbox variables set --secret --stdin API_TOKEN",
                 "Context:\n  Variables set writes one named value into a lockbox. Use --secret for values that should not be exported in bulk, such as tokens and passwords. Applying --secret to an existing normal variable upgrades it; making a secret variable normal still requires delete and recreate. Choose one value source: argument, prompt, stdin, file, or process environment. Secret values cannot use --value; use --stdin, --file, --interactive, or --from-env.",
             ))
             .arg(
@@ -930,7 +931,7 @@ fn variables_command(verbose: bool) -> Command {
             .about("Print one stored variable value by name.")
             .after_help(verbose_help(
                 verbose,
-                "Examples:\n  lockbox secrets.lbox variable get APP_MODE\n  lockbox secrets.lbox variable get --secret API_TOKEN\n  lockbox secrets.lbox variable get --secret --output api-token.txt API_TOKEN",
+                "Examples:\n  lockbox secrets.lbox variables get APP_MODE\n  lockbox secrets.lbox variables get --secret API_TOKEN\n  lockbox secrets.lbox variables get --secret --output api-token.txt API_TOKEN",
                 "Context:\n  Variables get reads one named value from a lockbox. Names are case-sensitive, independently of host environment-variable behavior. Secret values require --secret so accidental terminal output is an explicit user choice. Use --output when the exact bytes should go to a file.",
             ))
             .arg(
@@ -969,7 +970,7 @@ fn variables_command(verbose: bool) -> Command {
             .visible_alias("ls")
             .after_help(verbose_help(
                 verbose,
-                "Examples:\n  lockbox secrets.lbox variable list\n  lockbox secrets.lbox variable list /production\n  lockbox secrets.lbox variable list '**/API_KEY'\n  lockbox secrets.lbox variable list --format json",
+                "Examples:\n  lockbox secrets.lbox variables list\n  lockbox secrets.lbox variables list /production\n  lockbox secrets.lbox variables list '**/API_KEY'\n  lockbox secrets.lbox variables list --format json",
                 "Context:\n  Variables list shows value names and whether each value is normal or secret. It does not print stored values. Paths and glob patterns are case-sensitive. Dot-prefixed variables are hidden unless --all is supplied. Pass a path such as /production to list that group, or a glob such as **/API_KEY to match names across groups.",
             ))
             .arg(output_format_arg())
@@ -994,8 +995,8 @@ fn variables_command(verbose: bool) -> Command {
             .about("Print all non-secret variable values in an importable format.")
             .after_help(verbose_help(
                 verbose,
-                "Examples:\n  eval \"$(lockbox secrets.lbox variable export)\"\n  lockbox secrets.lbox variable export /production\n  lockbox secrets.lbox variable export '**/API_KEY'\n  lockbox secrets.lbox variable export --format posix > variables.sh\n  lockbox secrets.lbox variable export --format powershell | Invoke-Expression\n\nFormats:\n  posix       NAME='value' lines for sh, bash, and zsh. Default.\n  powershell  $env:NAME = 'value' lines for PowerShell.\n  cmd         set \"NAME=value\" lines for cmd.exe.\n  json        One JSON object per line with name and value fields.\n\n`variable export` writes to stdout. Use shell redirection to write it to a file.",
-                "Context:\n  Variables export is intended for shell startup, CI setup, or scripting. It excludes secret and dot-prefixed hidden values. Use explicit variable get for hidden values or variable get --secret for secrets. The optional filter follows the same path or glob pattern rules as variable list. Grouped names are flattened with underscores for shell-safe output.",
+                "Examples:\n  eval \"$(lockbox secrets.lbox variables export)\"\n  lockbox secrets.lbox variables export /production\n  lockbox secrets.lbox variables export '**/API_KEY'\n  lockbox secrets.lbox variables export --format posix > variables.sh\n  lockbox secrets.lbox variables export --format powershell | Invoke-Expression\n\nFormats:\n  posix       NAME='value' lines for sh, bash, and zsh. Default.\n  powershell  $env:NAME = 'value' lines for PowerShell.\n  cmd         set \"NAME=value\" lines for cmd.exe.\n  json        One JSON object per line with name and value fields.\n\n`variables export` writes to stdout. Use shell redirection to write it to a file.",
+                "Context:\n  Variables export is intended for shell startup, CI setup, or scripting. It excludes secret and dot-prefixed hidden values. Use explicit variables get for hidden values or variables get --secret for secrets. The optional filter follows the same path or glob pattern rules as variables list. Grouped names are flattened with underscores for shell-safe output.",
             ))
             .arg(
                 Arg::new("format")
@@ -1017,10 +1018,10 @@ fn variables_command(verbose: bool) -> Command {
         Command::new("move")
             .visible_aliases(["mv", "rename"])
             .about("Move matching variables into another path.")
-            .override_usage("lockbox [LOCKBOX] variable move [OPTIONS] <SOURCE> <DESTINATION>")
+            .override_usage("lockbox [LOCKBOX] variables move [OPTIONS] <SOURCE> <DESTINATION>")
             .after_help(verbose_help(
                 verbose,
-                "Examples:\n  lockbox secrets.lbox variable rename XERO_CLIENTID XERO_CLIENT_ID\n  lockbox secrets.lbox variable move '/*' /dev\n  lockbox secrets.lbox variable mv '/production/*' /archive",
+                "Examples:\n  lockbox secrets.lbox variables rename XERO_CLIENTID XERO_CLIENT_ID\n  lockbox secrets.lbox variables move '/*' /dev\n  lockbox secrets.lbox variables mv '/production/*' /archive",
                 "Context:\n  An exact source matching one variable renames it to the destination name or absolute path. A destination ending in /, a source group, or a glob treats the destination as a variable group; every match keeps its path relative to the non-glob source prefix. Existing destination variables are never overwritten. Quote glob patterns so the shell does not expand them.",
             ))
             .arg(
@@ -1039,7 +1040,7 @@ fn variables_command(verbose: bool) -> Command {
             .about("Remove variable values.")
             .after_help(verbose_help(
                 verbose,
-                "Examples:\n  lockbox secrets.lbox variable remove APP_MODE\n  lockbox secrets.lbox variable remove API_TOKEN",
+                "Examples:\n  lockbox secrets.lbox variables remove APP_MODE\n  lockbox secrets.lbox variables remove API_TOKEN",
                 "Context:\n  Variables remove deletes one or more named values from a lockbox. It affects only lockbox records, not the current process environment.",
             ))
             .arg(
@@ -1110,11 +1111,12 @@ fn description_command(verbose: bool) -> Command {
 }
 
 fn form_command(verbose: bool) -> Command {
-    base_command("form", "Manage typed multi-field form records.")
+    base_command("forms", "Manage typed multi-field form records.")
+        .alias("form")
         .after_help(verbose_help(
             verbose,
-            "Examples:\n  lockbox vault form define login --field username:text --field password:secret\n  lockbox secrets.lbox form use login\n  lockbox secrets.lbox form add /work/github --type login --name GitHub --set username=bsutton\n  lockbox secrets.lbox form show /work/github",
-            "Context:\n  Forms store structured records inside a lockbox. Reusable definitions normally live in the vault and can be copied into a lockbox with form use. Definitions remain embedded in each lockbox so published lockboxes are self-describing.",
+            "Examples:\n  lockbox vault forms define login --field username:text --field password:secret\n  lockbox secrets.lbox forms use login\n  lockbox secrets.lbox forms add /work/github --type login --name GitHub --set username=bsutton\n  lockbox secrets.lbox forms show /work/github",
+            "Context:\n  Forms store structured records inside a lockbox. Reusable definitions normally live in the vault and can be copied into a lockbox with forms use. Definitions remain embedded in each lockbox so published lockboxes are self-describing.",
         ))
         .subcommand_required(true)
         .arg_required_else_help(true)
@@ -1122,11 +1124,11 @@ fn form_command(verbose: bool) -> Command {
             Command::new("define")
                 .about("Create or revise a form definition.")
                 .override_usage(
-                    "lockbox [LOCKBOX] form define [alias] --field <NAME[:KIND[:required[:LABEL]]]>...\n\nExample:\n  lockbox secrets.lbox form define login --field username:text --field password:secret",
+                    "lockbox [LOCKBOX] forms define [alias] --field <NAME[:KIND[:required[:LABEL]]]>...\n\nExample:\n  lockbox secrets.lbox forms define login --field username:text --field password:secret",
                 )
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox secrets.lbox form define login --field username:text --field password:secret\n  lockbox secrets.lbox form define --name Login --description \"Website sign-in\" --field username:text:required:User --field password:secret:required:Password\n  lockbox secrets.lbox form define login --name Login --description \"Website sign-in\" --field username:text:required:User --field password:secret:required:Password\n\nField form:\n  NAME[:KIND[:required[:LABEL]]]\n\nKinds:\n  text, secret, password, url, email, date, month, notes, number\n\nFormats:\n  date uses YYYY-MM-DD; month uses YYYY-MM",
+                    "Examples:\n  lockbox secrets.lbox forms define login --field username:text --field password:secret\n  lockbox secrets.lbox forms define --name Login --description \"Website sign-in\" --field username:text:required:User --field password:secret:required:Password\n  lockbox secrets.lbox forms define login --name Login --description \"Website sign-in\" --field username:text:required:User --field password:secret:required:Password\n\nField form:\n  NAME[:KIND[:required[:LABEL]]]\n\nKinds:\n  text, secret, password, url, email, date, month, notes, number\n\nFormats:\n  date uses YYYY-MM-DD; month uses YYYY-MM",
                     "Context:\n  Define creates or revises a form definition. The alias is optional; when omitted, --name is required and an alias slug is derived from the display name. If the alias already resolves to exactly one definition, define appends a new revision. If an imported published lockbox has conflicting aliases, pass --definition-id to revise the intended definition explicitly.",
                 ))
                 .arg(
@@ -1174,7 +1176,7 @@ fn form_command(verbose: bool) -> Command {
                 .about("Copy a vault form definition into a lockbox.")
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox secrets.lbox form use login\n  lockbox form use login",
+                    "Examples:\n  lockbox secrets.lbox forms use login\n  lockbox forms use login",
                     "Context:\n  Use copies a reusable definition from the vault into the lockbox. With a session default lockbox, the lockbox path can be omitted.",
                 ))
                 .arg(required("form", "Vault form alias or definition id.")),
@@ -1184,7 +1186,7 @@ fn form_command(verbose: bool) -> Command {
                 .about("Copy a lockbox form definition into the vault.")
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox secrets.lbox form capture login\n  lockbox secrets.lbox form capture login published-login\n  lockbox form capture login",
+                    "Examples:\n  lockbox secrets.lbox forms capture login\n  lockbox secrets.lbox forms capture login published-login\n  lockbox forms capture login",
                     "Context:\n  Capture stores a lockbox definition in the vault so it can be reused. Pass a new form name when the vault already uses the same alias for a different definition.",
                 ))
                 .arg(
@@ -1201,7 +1203,7 @@ fn form_command(verbose: bool) -> Command {
                 .about("Add a form record.")
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox secrets.lbox form add /work/github --type login --name GitHub\n  lockbox secrets.lbox form add /work/github --type login --set username=bsutton --set site=https://github.com\n  lockbox secrets.lbox form add /work/github --type login --interactive",
+                    "Examples:\n  lockbox secrets.lbox forms add /work/github --type login --name GitHub\n  lockbox secrets.lbox forms add /work/github --type login --set username=bsutton --set site=https://github.com\n  lockbox secrets.lbox forms add /work/github --type login --interactive",
                     "Context:\n  Add creates one form record in the lockbox. Use --set for non-secret values known up front. Use --interactive to prompt for remaining fields, including secret fields without echoing them.",
                 ))
                 .arg(
@@ -1246,7 +1248,7 @@ fn form_command(verbose: bool) -> Command {
                 .about("Edit a form record.")
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox secrets.lbox form edit /work/github --set username=bsutton\n  lockbox secrets.lbox form edit /work/github --interactive",
+                    "Examples:\n  lockbox secrets.lbox forms edit /work/github --set username=bsutton\n  lockbox secrets.lbox forms edit /work/github --interactive",
                     "Context:\n  Edit updates an existing form record. Use --interactive after a form definition revision to fill fields that exist in the latest definition but are missing from the stored record.",
                 ))
                 .arg(
@@ -1277,8 +1279,8 @@ fn form_command(verbose: bool) -> Command {
                 .about("Set one form field value.")
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox secrets.lbox form set /work/github@username alice\n  printf '%s' \"$TOKEN\" | lockbox secrets.lbox form set --secret --stdin /work/github@token",
-                    "Context:\n  Form set updates one field. Applying --secret to a field currently defined as non-secret creates a new secret definition revision and upgrades existing values for that field across records of the same form type. Secret fields cannot be downgraded in place.",
+                    "Examples:\n  lockbox secrets.lbox forms set /work/github@username alice\n  printf '%s' \"$TOKEN\" | lockbox secrets.lbox forms set --secret --stdin /work/github@token",
+                    "Context:\n  Forms set updates one field. Applying --secret to a field currently defined as non-secret creates a new secret definition revision and upgrades existing values for that field across records of the same form type. Secret fields cannot be downgraded in place.",
                 ))
                 .arg(
                     Arg::new("args")
@@ -1342,8 +1344,8 @@ fn form_command(verbose: bool) -> Command {
                 .about("Print one form field value.")
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox secrets.lbox form get /work/github@username\n  lockbox secrets.lbox form get --secret /work/github@password\n  lockbox secrets.lbox form get --secret --output password.txt /work/github@password",
-                    "Context:\n  Form get reads one field from a form record. Secret fields require --secret so accidental terminal output is an explicit user choice. Use --output when the exact bytes should go to a file.",
+                    "Examples:\n  lockbox secrets.lbox forms get /work/github@username\n  lockbox secrets.lbox forms get --secret /work/github@password\n  lockbox secrets.lbox forms get --secret --output password.txt /work/github@password",
+                    "Context:\n  Forms get reads one field from a form record. Secret fields require --secret so accidental terminal output is an explicit user choice. Use --output when the exact bytes should go to a file.",
                 ))
                 .arg(
                     Arg::new("args")
@@ -1407,7 +1409,7 @@ fn form_command(verbose: bool) -> Command {
                 .about("Move matching form records into another path.")
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox secrets.lbox form move '/work/*' /archive\n  lockbox secrets.lbox form mv '/dev/*' /production",
+                    "Examples:\n  lockbox secrets.lbox forms move '/work/*' /archive\n  lockbox secrets.lbox forms mv '/dev/*' /production",
                     "Context:\n  Move treats the destination as a form-record directory. Every match keeps its path relative to the non-glob source prefix. Existing destination records are never overwritten. Quote glob patterns so the shell does not expand them.",
                 ))
                 .arg(
@@ -1719,13 +1721,14 @@ fn vault_command(verbose: bool) -> Command {
         )
         .subcommand(vault_profile_command(verbose))
         .subcommand(
-            Command::new("form")
+            Command::new("forms")
+                .alias("form")
                 .about("Manage reusable form definitions.")
                 .disable_help_subcommand(true)
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox vault form define login --field username:text --field password:secret\n  lockbox vault form list\n  lockbox secrets.lbox form use login",
-                    "Context:\n  Vault form definitions are reusable templates stored in the local vault. Use form use to copy one into a lockbox before creating records that use it.",
+                    "Examples:\n  lockbox vault forms define login --field username:text --field password:secret\n  lockbox vault forms list\n  lockbox secrets.lbox forms use login",
+                    "Context:\n  Vault form definitions are reusable templates stored in the local vault. Use forms use to copy one into a lockbox before creating records that use it.",
                 ))
                 .subcommand_required(true)
                 .arg_required_else_help(true)
@@ -1733,11 +1736,11 @@ fn vault_command(verbose: bool) -> Command {
                     Command::new("define")
                         .about("Create or revise a reusable form definition.")
                 .override_usage(
-                    "lockbox vault form define [alias] --field <NAME[:KIND[:required[:LABEL]]]>...",
+                    "lockbox vault forms define [alias] --field <NAME[:KIND[:required[:LABEL]]]>...",
                 )
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox vault form define login --field username:text --field password:secret\n  lockbox vault form define --name Login --description \"Website sign-in\" --field username:text:required:User --field password:secret:required:Password\n  lockbox vault form define login --name Login --description \"Website sign-in\" --field username:text:required:User --field password:secret:required:Password\n\nField form:\n  NAME[:KIND[:required[:LABEL]]]\n\nKinds:\n  text, secret, password, url, email, date, month, notes, number\n\nFormats:\n  date uses YYYY-MM-DD; month uses YYYY-MM",
+                    "Examples:\n  lockbox vault forms define login --field username:text --field password:secret\n  lockbox vault forms define --name Login --description \"Website sign-in\" --field username:text:required:User --field password:secret:required:Password\n  lockbox vault forms define login --name Login --description \"Website sign-in\" --field username:text:required:User --field password:secret:required:Password\n\nField form:\n  NAME[:KIND[:required[:LABEL]]]\n\nKinds:\n  text, secret, password, url, email, date, month, notes, number\n\nFormats:\n  date uses YYYY-MM-DD; month uses YYYY-MM",
                     "Context:\n  Define stores the reusable form definition in the vault. The alias is optional; when omitted, --name is required and an alias slug is derived from the display name. If the alias already resolves to one definition, define appends a new revision.",
                 ))
                         .arg(optional("alias", "Form alias."))
@@ -1777,12 +1780,13 @@ fn vault_command(verbose: bool) -> Command {
                 ),
         )
         .subcommand(
-            Command::new("contact")
+            Command::new("contacts")
+                .alias("contact")
                 .about("Manage contacts that can be given access to a lockbox.")
                 .disable_help_subcommand(true)
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox vault contact list\n  lockbox vault contact receive <publish-code> alice\n  lockbox vault contact import alice ./alice.pub --fingerprint <fingerprint-code> --fingerprint-channel phone-call-to-owner\n  lockbox vault contact remove alice",
+                    "Examples:\n  lockbox vault contacts list\n  lockbox vault contacts receive <publish-code> alice\n  lockbox vault contacts import alice ./alice.pub --fingerprint <fingerprint-code> --fingerprint-channel phone-call-to-owner\n  lockbox vault contacts remove alice",
                     "Context:\n  Contacts are saved public keys for other people or systems. A contact can be added to a lockbox access list, but cannot open a lockbox by itself; opening requires the matching private profile.",
                 ))
                 .subcommand_required(true)
@@ -1793,8 +1797,8 @@ fn vault_command(verbose: bool) -> Command {
                         .visible_alias("ls")
                         .after_help(verbose_help(
                             verbose,
-                            "Examples:\n  lockbox vault contact list\n  lockbox vault contact list --format json",
-                            "Context:\n  Contact list shows public keys you have saved for other profiles. Saved contacts have already passed fingerprint verification during import or receive; there is no separate trust-state that changes over time. Use these names with access grant when granting lockbox access.",
+                            "Examples:\n  lockbox vault contacts list\n  lockbox vault contacts list --format json",
+                            "Context:\n  Contacts list shows public keys you have saved for other profiles. Saved contacts have already passed fingerprint verification during import or receive; there is no separate trust-state that changes over time. Use these names with access grant when granting lockbox access.",
                         ))
                         .arg(output_format_arg()),
                 )
@@ -1803,8 +1807,8 @@ fn vault_command(verbose: bool) -> Command {
                         .about("Import a contact public key after fingerprint verification.")
                         .after_help(verbose_help(
                             verbose,
-                            "Examples:\n  lockbox vault contact import alice ./alice.pub --fingerprint <fingerprint-code> --fingerprint-channel phone-call-to-owner\n  lockbox vault contact import --overwrite alice ./alice-new.pub --fingerprint <fingerprint-code> --fingerprint-channel sms-to-owner",
-                            "Context:\n  Contact import saves someone else's public key only after the 96-bit Crockford public-key fingerprint code matches. Ask the key owner for the code over a receiver-initiated second channel before importing the key. Email and owner-initiated messages are rejected.",
+                            "Examples:\n  lockbox vault contacts import alice ./alice.pub --fingerprint <fingerprint-code> --fingerprint-channel phone-call-to-owner\n  lockbox vault contacts import --overwrite alice ./alice-new.pub --fingerprint <fingerprint-code> --fingerprint-channel sms-to-owner",
+                            "Context:\n  Contacts import saves someone else's public key only after the 96-bit Crockford public-key fingerprint code matches. Ask the key owner for the code over a receiver-initiated second channel before importing the key. Email and owner-initiated messages are rejected.",
                         ))
                         .arg(
                             Arg::new("overwrite")
@@ -1833,7 +1837,7 @@ fn vault_command(verbose: bool) -> Command {
                         .about("Receive a published profile and save it as a contact.")
                         .after_help(verbose_help(
                             verbose,
-                            "Examples:\n  lockbox vault contact receive <publish-code>\n  lockbox vault contact receive <publish-code> alice",
+                            "Examples:\n  lockbox vault contacts receive <publish-code>\n  lockbox vault contacts receive <publish-code> alice",
                             concat!(
                                 "Context:\n  Receive saves the published public key and signing key as a local contact. ",
                                 "The key server must have verified the publisher email first. Enter the ",
@@ -1873,8 +1877,8 @@ fn vault_command(verbose: bool) -> Command {
                         .about("Remove a contact.")
                         .after_help(verbose_help(
                             verbose,
-                            "Examples:\n  lockbox vault contact remove alice",
-                            "Context:\n  Contact remove deletes the saved public key from your vault. It does not remove access already written into any lockbox; use access revoke for that.",
+                            "Examples:\n  lockbox vault contacts remove alice",
+                            "Context:\n  Contacts remove deletes the saved public key from your vault. It does not remove access already written into any lockbox; use access revoke for that.",
                         ))
                         .arg(
                             required("name", "Contact name.")
@@ -1883,9 +1887,11 @@ fn vault_command(verbose: bool) -> Command {
                 ),
         )
         .subcommand(
-            Command::new("lockbox")
+            Command::new("lockboxes")
+                .alias("lockbox")
                 .about("Manage lockboxes remembered by the vault.")
-                .subcommand(Command::new("alias")
+                .subcommand(Command::new("aliases")
+                    .alias("alias")
                     .about("Manage stable lockbox aliases selected with a@NAME.")
                     .subcommand_required(true)
                     .subcommand(Command::new("set")
@@ -1898,7 +1904,7 @@ fn vault_command(verbose: bool) -> Command {
                 .disable_help_subcommand(true)
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox vault lockbox list\n  lockbox vault lockbox remember ./existing.lbox\n  lockbox vault lockbox move ./old.lbox ./archive/new.lbox\n  lockbox vault lockbox forget ./old-project.lbox",
+                    "Examples:\n  lockbox vault lockboxes list\n  lockbox vault lockboxes remember ./existing.lbox\n  lockbox vault lockboxes move ./old.lbox ./archive/new.lbox\n  lockbox vault lockboxes forget ./old-project.lbox",
                     "Context:\n  The vault remembers lockboxes it has created, opened, or modified so bulk maintenance commands can find them later. Move coordinates the file, session cache, default path, lock sidecar, and vault record. Forget removes only the vault reference; it does not delete the lockbox file.",
                 ))
                 .subcommand_required(true)
@@ -1909,8 +1915,8 @@ fn vault_command(verbose: bool) -> Command {
                         .visible_alias("ls")
                         .after_help(verbose_help(
                             verbose,
-                            "Examples:\n  lockbox vault lockbox list\n  lockbox vault lockbox list --with-description\n  lockbox vault lockbox list --format json",
-                            "Context:\n  The lockbox list command reports remembered lockboxes, including file state, signed-owner status, compact file size, lockbox id, and path. --with-description attempts to open each lockbox and includes its encrypted description when available.",
+                            "Examples:\n  lockbox vault lockboxes list\n  lockbox vault lockboxes list --with-description\n  lockbox vault lockboxes list --format json",
+                            "Context:\n  The vault lockboxes list command reports remembered lockboxes, including file state, signed-owner status, compact file size, lockbox id, and path. --with-description attempts to open each lockbox and includes its encrypted description when available.",
                         ))
                         .arg(output_format_arg())
                         .arg(
@@ -1925,7 +1931,7 @@ fn vault_command(verbose: bool) -> Command {
                         .about("Remember an existing lockbox by its absolute path.")
                         .after_help(verbose_help(
                             verbose,
-                            "Examples:\n  lockbox vault lockbox remember ./secrets.lbox",
+                            "Examples:\n  lockbox vault lockboxes remember ./secrets.lbox",
                             "Context:\n  Remember validates the lockbox header, stores its canonical absolute path, and replaces a stale remembered path for the same lockbox id. It does not open or modify the lockbox.",
                         ))
                         .arg(required("lockbox", "Existing lockbox path or a@alias to remember; defaults to the session lockbox.").required(false)),
@@ -1937,7 +1943,7 @@ fn vault_command(verbose: bool) -> Command {
                         .about("Move a lockbox and update its session and vault paths.")
                         .after_help(verbose_help(
                             verbose,
-                            "Examples:\n  lockbox vault lockbox move ./secrets.lbox ./archive/\n  lockbox vault lockbox move ./secrets.lbox ./archive/renamed.lbox",
+                            "Examples:\n  lockbox vault lockboxes move ./secrets.lbox ./archive/\n  lockbox vault lockboxes move ./secrets.lbox ./archive/renamed.lbox",
                             "Context:\n  Move closes the old cached path, moves the lockbox and manages its hidden lock sidecar, updates the remembered vault path, and updates the session default when it points at the source. Across filesystems, it copies and syncs the destination before removing the source, preserving file permissions.",
                         ))
                         .arg(required("source", "Current lockbox path or a@alias; defaults to the session lockbox.").required(false).value_hint(ValueHint::Other).add(ArgValueCompleter::new(completion::lockbox_path_candidates)))
@@ -1951,7 +1957,7 @@ fn vault_command(verbose: bool) -> Command {
                         .about("Forget one remembered lockbox path.")
                         .after_help(verbose_help(
                             verbose,
-                            "Examples:\n  lockbox vault lockbox forget ./old-project.lbox",
+                            "Examples:\n  lockbox vault lockboxes forget ./old-project.lbox",
                             "Context:\n  Forget removes a stale known-lockbox record from the vault. It does not delete the lockbox file.",
                         ))
                         .arg(required("lockbox", "Remembered lockbox path or a@alias to forget, including missing files; defaults to the session lockbox.").required(false)),
@@ -1974,13 +1980,14 @@ fn publish_topology_arg() -> Arg {
 }
 
 fn vault_profile_command(verbose: bool) -> Command {
-    Command::new("profile")
+    Command::new("profiles")
+        .alias("profile")
         .about("Manage your lockbox open profiles.")
         .disable_help_subcommand(true)
         .after_help(verbose_help(
             verbose,
-            "Examples:\n  lockbox vault profile list\n  lockbox vault profile create laptop\n  lockbox vault profile publish laptop\n  lockbox vault profile fingerprint laptop\n  lockbox vault profile backup ./default.profile-backup",
-            "Context:\n  A key-pair profile has a public key, private open key and owner signing keys. A password profile stores a generated secret; create one with --password and retrieve it with profile password <name>. Publish or export the public key so someone else can grant you access to a lockbox. Use profile backup and restore for emergency recovery of one profile.",
+            "Examples:\n  lockbox vault profiles list\n  lockbox vault profiles create laptop\n  lockbox vault profiles publish laptop\n  lockbox vault profiles fingerprint laptop\n  lockbox vault profiles backup ./default.profile-backup",
+            "Context:\n  A key-pair profile has a public key, private open key and owner signing keys. A password profile stores a generated secret; create one with --password and retrieve it with profiles password <name>. Publish or export the public key so someone else can grant you access to a lockbox. Use profiles backup and restore for emergency recovery of one profile.",
         ))
         .subcommand_required(true)
         .arg_required_else_help(true)
@@ -1990,8 +1997,8 @@ fn vault_profile_command(verbose: bool) -> Command {
                 .visible_alias("ls")
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox vault profile list\n  lockbox vault profile list --format json",
-                    "Context:\n  Profile list shows key-pair and password profiles and their types, without revealing secrets. These are the profiles reVault can use when opening lockboxes granted to you.",
+                    "Examples:\n  lockbox vault profiles list\n  lockbox vault profiles list --format json",
+                    "Context:\n  Profiles list shows key-pair and password profiles and their types, without revealing secrets. These are the profiles reVault can use when opening lockboxes granted to you.",
                 ))
                 .arg(output_format_arg()),
         )
@@ -2000,8 +2007,8 @@ fn vault_profile_command(verbose: bool) -> Command {
                 .about("Create one of your profiles.")
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox vault profile create\n  lockbox vault profile create laptop\n  lockbox vault profile export ./laptop.pub --name laptop",
-                    "Context:\n  Profile create generates a new profile in your vault. Use --password with an explicit name to store a generated 256-bit password. With no name, reVault creates the `default` profile. To publish the profile, create it first and then run `lockbox vault profile publish` or `lockbox vault profile export <path>`.",
+                    "Examples:\n  lockbox vault profiles create\n  lockbox vault profiles create laptop\n  lockbox vault profiles export ./laptop.pub --name laptop",
+                    "Context:\n  Profiles create generates a new profile in your vault. Use --password with an explicit name to store a generated 256-bit password. With no name, reVault creates the `default` profile. To publish the profile, create it first and then run `lockbox vault profiles publish` or `lockbox vault profiles export <path>`.",
                 ))
                 .arg(
                     Arg::new("overwrite")
@@ -2027,8 +2034,8 @@ fn vault_profile_command(verbose: bool) -> Command {
                 .about("Show Profile key generations.")
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox vault profile history\n  lockbox vault profile history laptop --format json",
-                    "Context:\n  Profile history shows the active and retired key generations for one vault profile. Retired generations are retained so older lockboxes can still be opened until their access entries are refreshed.",
+                    "Examples:\n  lockbox vault profiles history\n  lockbox vault profiles history laptop --format json",
+                    "Context:\n  Profiles history shows the active and retired key generations for one vault profile. Retired generations are retained so older lockboxes can still be opened until their access entries are refreshed.",
                 ))
                 .arg(output_format_arg())
                 .arg(
@@ -2041,7 +2048,7 @@ fn vault_profile_command(verbose: bool) -> Command {
                 .about("Set the email address associated with a profile.")
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox vault profile email alice@example.com\n  lockbox vault profile email laptop alice@example.com",
+                    "Examples:\n  lockbox vault profiles email alice@example.com\n  lockbox vault profiles email laptop alice@example.com",
                     "Context:\n  Publish requires a profile email address. The key server sends a verification link to this address before receivers can receive the public key by email.",
                 ))
                 .arg(
@@ -2057,7 +2064,7 @@ fn vault_profile_command(verbose: bool) -> Command {
                 .about("Show the publish fingerprint for one profile.")
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox vault profile fingerprint\n  lockbox vault profile fingerprint laptop",
+                    "Examples:\n  lockbox vault profiles fingerprint\n  lockbox vault profiles fingerprint laptop",
                     "Context:\n  Fingerprint prints the same 96-bit Crockford contact fingerprint code shown by publish. The receiver must ask you for this code through a trusted second channel before saving the contact.",
                 ))
                 .arg(
@@ -2070,7 +2077,7 @@ fn vault_profile_command(verbose: bool) -> Command {
                 .about("Publish one profile public key by verified email.")
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox vault profile publish\n  lockbox vault profile publish laptop",
+                    "Examples:\n  lockbox vault profiles publish\n  lockbox vault profiles publish laptop",
                     "Context:\n  Publish sends one profile public key to the key server and prints a 96-bit Crockford fingerprint code. The receiver must ask you for that code through a trusted second channel before saving the contact.",
                 ))
                 .arg(key_server_arg())
@@ -2097,7 +2104,7 @@ fn vault_profile_command(verbose: bool) -> Command {
                 .about("Back up one profile to a text recovery file.")
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox vault profile backup ./default.profile-backup\n  lockbox vault profile backup ./laptop.profile-backup --name laptop",
+                    "Examples:\n  lockbox vault profiles backup ./default.profile-backup\n  lockbox vault profiles backup ./laptop.profile-backup --name laptop",
                     "Context:\n  For a key-pair profile, backup writes the text recovery block printed by vault init. Password profiles use a JSON recovery file containing their plaintext password. It contains the profile name, fingerprint, profile private key, and owner signing private key.",
                 ))
                 .arg(
@@ -2120,8 +2127,8 @@ fn vault_profile_command(verbose: bool) -> Command {
                 .about("Restore one profile from a text recovery file.")
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox vault profile restore ./default.profile-backup\n  lockbox vault profile restore ./default.profile-backup --name laptop --overwrite",
-                    "Context:\n  Profile restore reads a key-pair or password profile backup. Key-pair restores derive the public key and restore the owner signing key. Password restores preserve the stored secret but do not change existing lockbox slots. If the profile already exists, use --overwrite; reVault backs up the current vault before replacing it.",
+                    "Examples:\n  lockbox vault profiles restore ./default.profile-backup\n  lockbox vault profiles restore ./default.profile-backup --name laptop --overwrite",
+                    "Context:\n  Profiles restore reads a key-pair or password profile backup. Key-pair restores derive the public key and restore the owner signing key. Password restores preserve the stored secret but do not change existing lockbox slots. If the profile already exists, use --overwrite; reVault backs up the current vault before replacing it.",
                 ))
                 .arg(
                     Arg::new("overwrite")
@@ -2142,8 +2149,8 @@ fn vault_profile_command(verbose: bool) -> Command {
                 .about("Export one profile public key.")
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox vault profile export ./default.pub\n  lockbox vault profile export ./laptop.pub --name laptop",
-                    "Context:\n  Profile export writes the public key for sharing with someone who needs to grant you access to a lockbox. Use profile backup, not export, for private recovery material.",
+                    "Examples:\n  lockbox vault profiles export ./default.pub\n  lockbox vault profiles export ./laptop.pub --name laptop",
+                    "Context:\n  Profiles export writes the public key for sharing with someone who needs to grant you access to a lockbox. Use profiles backup, not export, for private recovery material.",
                 ))
                 .arg(format_arg(verbose))
                 .arg(
@@ -2161,8 +2168,8 @@ fn vault_profile_command(verbose: bool) -> Command {
                 .about("Remove a profile.")
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox vault profile remove laptop\n  lockbox vault profile remove --force laptop",
-                    "Context:\n  Profile remove deletes a profile from your vault. Lockboxes that only grant access to that profile may become inaccessible from this vault.",
+                    "Examples:\n  lockbox vault profiles remove laptop\n  lockbox vault profiles remove --force laptop",
+                    "Context:\n  Profiles remove deletes a profile from your vault. Lockboxes that only grant access to that profile may become inaccessible from this vault.",
                 ))
                 .arg(
                     Arg::new("force")
@@ -2180,8 +2187,8 @@ fn vault_profile_command(verbose: bool) -> Command {
                 .about("Rotate a profile to a new key generation.")
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox vault profile rotate\n  lockbox vault profile rotate laptop",
-                    "Context:\n  Profile rotate creates a new active private key generation and retires the previous active generation. Refresh remembered lockboxes afterward so they grant access to the new key.",
+                    "Examples:\n  lockbox vault profiles rotate\n  lockbox vault profiles rotate laptop",
+                    "Context:\n  Profiles rotate creates a new active private key generation and retires the previous active generation. Refresh remembered lockboxes afterward so they grant access to the new key.",
                 ))
                 .arg(
                     optional("name", "Profile name.")
@@ -2487,26 +2494,26 @@ mod migration_inventory_tests {
             ("list", &["ls"][..]),
             ("remove", &["delete", "rm"][..]),
             ("move", &["mv", "rename"][..]),
-            ("mirror/list", &["ls"][..]),
-            ("mirror/remove", &["delete", "rm"][..]),
-            ("mirror/move", &["mv", "rename"][..]),
-            ("mirror/destroy", &["delete-project"][..]),
-            ("mirror/rule/list", &["ls"][..]),
-            ("mirror/rule/remove", &["delete", "rm"][..]),
-            ("variable/list", &["ls"][..]),
-            ("variable/remove", &["delete", "rm"][..]),
-            ("variable/move", &["mv", "rename"][..]),
-            ("form/list", &["ls"][..]),
-            ("form/remove", &["delete", "rm"][..]),
-            ("form/move", &["mv", "rename"][..]),
+            ("mirrors/list", &["ls"][..]),
+            ("mirrors/remove", &["delete", "rm"][..]),
+            ("mirrors/move", &["mv", "rename"][..]),
+            ("mirrors/destroy", &["delete-project"][..]),
+            ("mirrors/rules/list", &["ls"][..]),
+            ("mirrors/rules/remove", &["delete", "rm"][..]),
+            ("variables/list", &["ls"][..]),
+            ("variables/remove", &["delete", "rm"][..]),
+            ("variables/move", &["mv", "rename"][..]),
+            ("forms/list", &["ls"][..]),
+            ("forms/remove", &["delete", "rm"][..]),
+            ("forms/move", &["mv", "rename"][..]),
             ("access/list", &["ls"][..]),
-            ("vault/form/list", &["ls"][..]),
-            ("vault/profile/list", &["ls"][..]),
-            ("vault/profile/remove", &["delete", "rm"][..]),
-            ("vault/contact/list", &["ls"][..]),
-            ("vault/contact/remove", &["delete", "rm"][..]),
-            ("vault/lockbox/list", &["ls"][..]),
-            ("vault/lockbox/move", &["mv", "rename"][..]),
+            ("vault/forms/list", &["ls"][..]),
+            ("vault/profiles/list", &["ls"][..]),
+            ("vault/profiles/remove", &["delete", "rm"][..]),
+            ("vault/contacts/list", &["ls"][..]),
+            ("vault/contacts/remove", &["delete", "rm"][..]),
+            ("vault/lockboxes/list", &["ls"][..]),
+            ("vault/lockboxes/move", &["mv", "rename"][..]),
         ];
         for (path, aliases) in expected {
             let command = command_at(&command, path);
@@ -2564,12 +2571,12 @@ mod migration_inventory_tests {
                     "one",
                     "two",
                 ],
-                "variable/remove",
+                "variables/remove",
                 vec!["one", "two"],
             ),
             (
                 vec!["lockbox", "secrets.lbox", "form", "remove", "/one", "/two"],
-                "form/remove",
+                "forms/remove",
                 vec!["/one", "/two"],
             ),
         ] {
@@ -2605,7 +2612,7 @@ mod migration_inventory_tests {
     #[test]
     fn secret_options_consistently_support_short_s() {
         let command = command(false);
-        for path in ["variable/set", "variable/get", "form/set", "form/get"] {
+        for path in ["variables/set", "variables/get", "forms/set", "forms/get"] {
             let secret = command_at(&command, path)
                 .get_arguments()
                 .find(|argument| argument.get_id() == "secret")

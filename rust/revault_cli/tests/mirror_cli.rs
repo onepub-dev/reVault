@@ -75,7 +75,7 @@ fn mirror_create_rules_status_update_and_ownership() {
         let misplaced = run(bin, temp.path(), &args);
         assert!(!misplaced.status.success());
         assert!(String::from_utf8_lossy(&misplaced.stderr)
-            .contains("lbx mirror home create --from <HOST_DIRECTORY>"));
+            .contains("lbx mirrors home create --from <HOST_DIRECTORY>"));
     }
     let created = run(
         bin,
@@ -95,7 +95,7 @@ fn mirror_create_rules_status_update_and_ownership() {
     success(&created);
     assert!(String::from_utf8_lossy(&created.stdout).contains("No files were copied"));
     assert!(String::from_utf8_lossy(&created.stdout).contains(&format!(
-        "lbx {} mirror project update",
+        "lbx {} mirrors project update",
         lockbox.to_string_lossy()
     )));
 

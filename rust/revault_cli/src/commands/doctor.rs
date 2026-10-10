@@ -45,36 +45,7 @@ fn run_global() -> CliResult<()> {
     println!("reVault");
     println!("  version: {}", env!("CARGO_PKG_VERSION"));
     println!();
-    println!("Local vault");
-    println!("  path: {}", vault_path.display());
-    println!("  exists: {}", yes_no(vault_path.exists()));
-    let container_version = (|| -> CliResult<u16> {
-        let mut header = Vec::new();
-        std::fs::File::open(&vault_path)?
-            .take(384)
-            .read_to_end(&mut header)?;
-        Ok(revault_lockbox_api::probe_lockbox_format_version(&header)?)
-    })();
-    match &container_version {
-        Ok(version) => println!("  container format version: {version}"),
-        Err(error) => println!("  container format version: not read ({error})"),
-    }
-    let vault = default_vault_noninteractive();
-    if container_version
-        .as_ref()
-        .is_ok_and(|version| *version != revault_lockbox_api::LOCKBOX_FORMAT_VERSION)
-    {
-        println!("  structure version: not read (unsupported container)");
-    } else {
-        match &vault {
-            Ok(Some(vault)) => match vault.structure_version() {
-                Ok(version) => println!("  structure version: {version}"),
-                Err(error) => println!("  structure version: not read ({error})"),
-            },
-            Ok(None) => println!("  structure version: not read (vault is closed or absent)"),
-            Err(error) => println!("  structure version: not read ({error})"),
-        }
-    }
+    let vault = print_local_vault(&vault_path);
     println!(
         "  readable: {}",
         yes_no(std::fs::File::open(&vault_path).is_ok())
@@ -150,15 +121,15 @@ fn run_global() -> CliResult<()> {
                 println!("  missing paths:");
                 for path in missing {
                     println!("    {path}");
-                    println!("      run: lockbox vault lockbox forget {path}");
+                    println!("      run: lockbox vault lockboxes forget {path}");
                 }
             }
         }
         Ok(None) => {
             println!("  not checked: vault is closed");
         }
-        Err(err) => {
-            println!("  not checked: {err}");
+        Err(_) => {
+            println!("  not checked: vault is unavailable (see Local vault status)");
         }
     }
     Ok(())
@@ -184,6 +155,7 @@ fn run_lockbox(lockbox_path: &str, access: &Access, verbose: bool) -> CliResult<
     super::context::ensure_current_lockbox_format(lockbox_path)?;
     let inspection = Lockbox::inspect_file(path)?;
     println!("Lockbox");
+    println!("  format version: {}", container_format_version(path)?);
     println!("  path: {lockbox_path}");
     println!("  size: {}", human_size(metadata.len()));
     if let Some(options) = inspection.format_options {
@@ -227,9 +199,9 @@ fn run_lockbox(lockbox_path: &str, access: &Access, verbose: bool) -> CliResult<
     println!();
     print_lockbox_session(&inspection);
     println!();
-    print_revault_vault_api(&inspection);
+    let vault = print_revault_vault_api(&inspection);
     println!();
-    print_encrypted_content(lockbox_path, access, verbose);
+    print_encrypted_content(lockbox_path, access, verbose, vault.as_ref(), &inspection);
     Ok(())
 }
 
@@ -244,15 +216,9 @@ fn print_access_methods(inspection: &LockboxFileInspection) {
         .iter()
         .filter(|slot| slot.protection == LockboxKeySlotProtection::Contact)
         .count();
-    println!("Configured access (public header)");
+    println!("Configured access");
     println!("  pass phrase slots: {password_count}");
     println!("  contact-key slots: {contact_count}");
-    if !inspection.key_slots.is_empty() {
-        println!("  slots:");
-        for slot in &inspection.key_slots {
-            println!("    {}: {}", slot.id, slot_protection(slot.protection));
-        }
-    }
 }
 
 fn print_lockbox_session(inspection: &LockboxFileInspection) {
@@ -274,11 +240,88 @@ fn print_lockbox_session(inspection: &LockboxFileInspection) {
     }
 }
 
-fn print_revault_vault_api(inspection: &LockboxFileInspection) {
+fn container_format_version(path: &Path) -> CliResult<u16> {
+    let mut header = Vec::new();
+    std::fs::File::open(path)?
+        .take(384)
+        .read_to_end(&mut header)?;
+    Ok(revault_lockbox_api::probe_lockbox_format_version(&header)?)
+}
+
+fn print_local_vault(path: &Path) -> CliResult<Option<VaultDirectory>> {
     println!("Local vault");
-    match default_vault_noninteractive() {
-        Ok(Some(vault)) => {
+    let version = container_format_version(path);
+    match &version {
+        Ok(version) => println!("  container format version: {version}"),
+        Err(error) => println!("  container format version: not read ({error})"),
+    }
+    // Probe only the stable discriminator through the read-only core reader.
+    // This does not open historical Vault records for normal CLI operations.
+    match &version {
+        Ok(2 | 3) => {
+            let structure = (|| -> CliResult<Option<u32>> {
+                let Some(password) = vault_password_noninteractive()? else {
+                    return Ok(None);
+                };
+                let root = path
+                    .parent()
+                    .ok_or_else(|| cli_error("vault path has no parent"))?;
+                Ok(Some(VaultDirectory::probe_structure_version(
+                    root, &password,
+                )?))
+            })();
+            match structure {
+                Ok(Some(version)) => println!("  structure version: {version}"),
+                Ok(None) => println!("  structure version: not read (vault is closed or absent)"),
+                Err(error) => println!(
+                    "  structure version: not read ({})",
+                    error.to_string().lines().collect::<Vec<_>>().join(" ")
+                ),
+            }
+        }
+        Ok(_) => println!("  structure version: not read (unsupported container)"),
+        Err(_) => println!("  structure version: not read (container unavailable)"),
+    }
+    println!("  path: {}", path.display());
+    println!("  exists: {}", yes_no(path.exists()));
+    if let Ok(version) = version {
+        if version != revault_lockbox_api::LOCKBOX_FORMAT_VERSION {
+            if version < revault_lockbox_api::LOCKBOX_FORMAT_VERSION {
+                println!("  status: upgrade required; run: lbx doctor migrate vault --replace");
+            } else {
+                println!("  status: unsupported container; upgrade reVault. Automatic downgrade is not supported");
+            }
+            return Err(cli_error("vault container is unsupported"));
+        }
+    }
+    let vault = default_vault_noninteractive();
+    match &vault {
+        Ok(Some(_)) => {
             println!("  open: yes");
+        }
+        Ok(None) => {
+            println!("  open: no");
+        }
+        Err(error) => println!(
+            "  status: {}",
+            error.to_string().lines().collect::<Vec<_>>().join(" ")
+        ),
+    }
+    vault
+}
+
+fn print_revault_vault_api(inspection: &LockboxFileInspection) -> Option<VaultDirectory> {
+    let vault = match default_vault_path() {
+        Ok(path) => print_local_vault(&path),
+        Err(error) => {
+            println!("Local vault");
+            println!("  container format version: not read");
+            println!("  status: {error}");
+            return None;
+        }
+    };
+    match vault {
+        Ok(Some(vault)) => {
             println!(
                 "  key-directory backup: {}",
                 yes_no(
@@ -291,23 +334,49 @@ fn print_revault_vault_api(inspection: &LockboxFileInspection) {
                 Ok(keys) => println!("  profiles: {}", keys.len()),
                 Err(err) => println!("  profiles: not checked: {err}"),
             }
+            Some(vault)
         }
         Ok(None) => {
-            println!("  open: no");
             println!("  key-directory backup: not checked");
+            None
         }
-        Err(err) => {
-            println!("  open: no");
-            println!("  key-directory backup: not checked: {err}");
-        }
+        Err(_) => None,
     }
 }
 
-fn print_encrypted_content(lockbox_path: &str, access: &Access, verbose: bool) {
+fn print_encrypted_content(
+    lockbox_path: &str,
+    access: &Access,
+    verbose: bool,
+    vault: Option<&VaultDirectory>,
+    inspection: &LockboxFileInspection,
+) {
     println!("Encrypted content");
     match open_existing_read_only(lockbox_path, access) {
         Ok(lockbox) => {
             println!("  state: healthy");
+            // Credential names are local Vault labels, not archive metadata.
+            // Reuse the credential-list API without prompting to open a Vault.
+            if let Some(labels) =
+                vault.and_then(|vault| vault.list_access_slot_labels(lockbox.lockbox_id()).ok())
+            {
+                let names: Vec<_> = labels
+                    .iter()
+                    .filter(|label| {
+                        !label.name.is_empty()
+                            && inspection
+                                .key_slots
+                                .iter()
+                                .any(|slot| slot.id == label.slot_id)
+                    })
+                    .collect();
+                if !names.is_empty() {
+                    println!("  credential names (local vault):");
+                    for label in names {
+                        println!("    {}", label.name);
+                    }
+                }
+            }
             match lockbox.description() {
                 Ok(Some(description)) => {
                     let mut lines = description.lines();
@@ -355,14 +424,6 @@ fn header_status(inspection: &LockboxFileInspection) -> &'static str {
     }
 }
 
-fn slot_protection(protection: LockboxKeySlotProtection) -> &'static str {
-    match protection {
-        LockboxKeySlotProtection::Password => "pass phrase",
-        LockboxKeySlotProtection::Contact => "contact key",
-        _ => "unknown",
-    }
-}
-
 fn yes_no(value: bool) -> &'static str {
     if value {
         "yes"
@@ -376,18 +437,22 @@ fn default_vault_noninteractive() -> Result<Option<VaultDirectory>, Box<dyn std:
     if !default_vault_path()?.exists() {
         return Ok(None);
     }
-    if let Some(password) = SecretString::try_from_env("LOCKBOX_VAULT_PASSWORD")? {
+    if let Some(password) = vault_password_noninteractive()? {
         return Ok(Some(
             VaultDirectory::open_or_create_default(&password)
                 .map_err(super::context::vault_open_error)?,
         ));
     }
+    Ok(None)
+}
+
+fn vault_password_noninteractive() -> CliResult<Option<SecretString>> {
+    if let Some(password) = SecretString::try_from_env("LOCKBOX_VAULT_PASSWORD")? {
+        return Ok(Some(password));
+    }
     if !platform_secret_store_disabled()? {
         if let Ok(Some(password)) = get_platform_vault_password() {
-            return Ok(Some(
-                VaultDirectory::open_or_create_default(&password)
-                    .map_err(super::context::vault_open_error)?,
-            ));
+            return Ok(Some(password));
         }
     }
     Ok(None)

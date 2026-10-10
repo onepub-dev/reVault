@@ -136,15 +136,15 @@ pub(crate) fn run() -> CliResult<()> {
             &access,
             read_worker_policy(command_matches)?,
         ),
-        "mirror" => mirror::run_matches(command_matches, &access),
+        "mirrors" => mirror::run_matches(command_matches, &access),
         "extract" => files::extract_matches(command_matches, &access),
         "cat" => files::cat_matches(command_matches, &access),
         "list" => files::list_matches(command_matches, &access),
         "remove" => files::remove_matches(command_matches, &access),
         "move" => files::rename_matches(command_matches, &access),
-        "variable" => variables::run_matches(command_matches, &access),
+        "variables" => variables::run_matches(command_matches, &access),
         "description" => variables::description_matches(command_matches, &access),
-        "form" => form::run_matches(command_matches, &access),
+        "forms" => form::run_matches(command_matches, &access),
         "visualize" => visualize::run_matches(command_matches, &access),
         _ => Err(Error::InvalidInput(format!("unknown command: {command}")).into()),
     };
@@ -231,6 +231,7 @@ fn command_accepts_lockbox(command: &str) -> bool {
             | "close"
             | "add"
             | "mirror"
+            | "mirrors"
             | "extract"
             | "cat"
             | "list"
@@ -246,6 +247,7 @@ fn command_accepts_lockbox(command: &str) -> bool {
             | "variables"
             | "description"
             | "form"
+            | "forms"
             | "access"
             | "doctor"
             | "visualize"
@@ -302,8 +304,10 @@ fn normalize_form_define_separator(mut args: Vec<String>) -> Vec<String> {
         args.first()
             .is_some_and(|arg| command_accepts_lockbox_at_position(arg, &args)),
     );
-    if args.get(command_index).map(String::as_str) != Some("form")
-        || args.get(command_index + 1).map(String::as_str) != Some("define")
+    if !matches!(
+        args.get(command_index).map(String::as_str),
+        Some("form" | "forms")
+    ) || args.get(command_index + 1).map(String::as_str) != Some("define")
     {
         return args;
     }
@@ -318,7 +322,7 @@ fn reject_variables_set_single_dash_secret(args: &[String]) -> CliResult<()> {
     );
     if matches!(
         args.get(command_index).map(String::as_str),
-        Some("variable" | "var")
+        Some("variable" | "variables" | "var")
     ) && args.get(command_index + 1).map(String::as_str) == Some("set")
         && args
             .iter()
@@ -385,10 +389,10 @@ fn command_secret_activity(command: &str) -> Option<SecretActivityKind> {
     match command {
         "open" => Some(SecretActivityKind::Open),
         "close" => Some(SecretActivityKind::Close),
-        "add" | "mirror" | "extract" | "cat" | "list" | "remove" | "delete" | "move"
+        "add" | "mirrors" | "extract" | "cat" | "list" | "remove" | "delete" | "move"
         | "visualize" => Some(SecretActivityKind::Open),
-        "variable" | "description" => Some(SecretActivityKind::Variables),
-        "form" => Some(SecretActivityKind::Form),
+        "variables" | "description" => Some(SecretActivityKind::Variables),
+        "forms" => Some(SecretActivityKind::Form),
         "access" | "open-key" | "session" => Some(SecretActivityKind::Vault),
         _ => None,
     }

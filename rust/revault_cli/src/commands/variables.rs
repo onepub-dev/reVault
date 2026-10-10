@@ -16,7 +16,7 @@ use crate::secret_prompt::prompt_secret;
 pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()> {
     let (subcommand, sub) = matches
         .subcommand()
-        .ok_or_else(|| Error::InvalidInput("missing variable command".to_string()))?;
+        .ok_or_else(|| Error::InvalidInput("missing variables command".to_string()))?;
     match subcommand {
         "set" => {
             let args = optional_lockbox_positionals(positional_values(sub, "args"), 1)?;
@@ -35,7 +35,7 @@ pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()
                 [pattern] => Some(VariableNamePattern::new(pattern)?),
                 _ => {
                     return Err(Error::InvalidInput(
-                        "variable list accepts at most one path or glob pattern".to_string(),
+                        "variables list accepts at most one path or glob pattern".to_string(),
                     )
                     .into());
                 }
@@ -107,7 +107,7 @@ pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()
         }
         _ => {
             return Err(
-                Error::InvalidInput(format!("unknown variable command: {subcommand}")).into(),
+                Error::InvalidInput(format!("unknown variables command: {subcommand}")).into(),
             )
         }
     }
@@ -358,7 +358,7 @@ impl VariableGetRequest {
             [] => return Err(Error::InvalidInput("missing variable name".to_string()).into()),
             _ => {
                 return Err(Error::InvalidInput(
-                    "variable get accepts exactly one variable name".to_string(),
+                    "variables get accepts exactly one variable name".to_string(),
                 )
                 .into())
             }
@@ -463,7 +463,7 @@ impl VariableSetRequest {
             [] => return Err(Error::InvalidInput("missing variable name".to_string()).into()),
             _ => {
                 return Err(Error::InvalidInput(
-                    "variable set accepts at most one positional value".to_string(),
+                    "variables set accepts at most one positional value".to_string(),
                 )
                 .into())
             }
@@ -486,7 +486,7 @@ impl VariableSetRequest {
         }
         if source.is_some() == positional.is_some() {
             return Err(Error::InvalidInput(
-                "variable set requires exactly one value source".to_string(),
+                "variables set requires exactly one value source".to_string(),
             )
             .into());
         }
@@ -596,7 +596,7 @@ impl VariableExportRequest {
             [pattern] => Some(VariableNamePattern::new(pattern)?),
             _ => {
                 return Err(Error::InvalidInput(
-                    "variable export accepts at most one path or glob pattern".to_string(),
+                    "variables export accepts at most one path or glob pattern".to_string(),
                 )
                 .into())
             }
@@ -636,7 +636,7 @@ impl VariableExportFormat {
             Some("cmd") => Ok(Self::Cmd),
             Some("json") => Ok(Self::Json),
             Some(value) => Err(Error::InvalidInput(format!(
-                "unsupported variable export format: {value}"
+                "unsupported variables export format: {value}"
             ))
             .into()),
             None => Err(Error::InvalidInput("missing --format argument".to_string()).into()),
@@ -658,7 +658,7 @@ impl VariableExportFormat {
 }
 
 fn set_source(target: &mut Option<ValueSource>, source: ValueSource) -> CliResult<()> {
-    set_source_for(target, source, "variable set")
+    set_source_for(target, source, "variables set")
 }
 
 fn set_source_for(

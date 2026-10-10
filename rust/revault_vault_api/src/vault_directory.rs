@@ -284,6 +284,19 @@ impl VaultDirectory {
         decode_structure_version(&record)
     }
 
+    /// Loads the established container signer from a migration reader without
+    /// writing to the source or substituting a rotated profile signing key.
+    #[doc(hidden)]
+    pub fn migration_container_signing_key<State>(
+        lockbox: &Lockbox<State>,
+    ) -> Result<OwnerSigningKeyPair> {
+        match load_vault_container_signing_key_from_lockbox(lockbox) {
+            Ok(key) => Ok(key),
+            Err(Error::NotFound(_)) => find_established_default_profile_signing_key(lockbox),
+            Err(error) => Err(error),
+        }
+    }
+
     /// Opens or creates the default vault directory using `password`.
     ///
     /// The directory is chosen by `default_vault_dir`.

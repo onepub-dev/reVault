@@ -327,7 +327,8 @@ fn vault_v1_replace_uses_the_explicit_historical_exporter() {
     ]);
     assert_success(&output);
     assert!(String::from_utf8_lossy(&output.stdout).contains(&format!(
-        "format version {}",
+        "container format {} and structure version {}",
+        revault_lockbox_api::LOCKBOX_FORMAT_VERSION,
         revault_vault_api::CURRENT_VAULT_STRUCTURE_VERSION
     )));
     assert_current_vault(&fixture.vault);
@@ -366,8 +367,9 @@ fn vault_v2_replace_preserves_profile_keys_and_supports_password_profiles() {
     assert_success(&doctor);
     let report = String::from_utf8_lossy(&doctor.stdout);
     assert!(report.contains("container format version: 2"), "{report}");
+    assert!(report.contains("structure version: 2"), "{report}");
     assert!(
-        report.contains("structure version: not read (unsupported container)"),
+        report.contains("status: upgrade required; run: lbx doctor migrate vault --replace"),
         "{report}"
     );
     assert!(
@@ -886,16 +888,67 @@ fn older_archive_is_refused_normally_then_explicitly_migrated() {
 }
 
 #[test]
+fn doctor_shows_local_credential_names_only_after_unlocking() {
+    let fixture = Fixture::new("doctor-credential-names");
+    fixture.init_current_vault();
+    fixture.success(&["vault", "profile", "create", "doctor-owner"]);
+    let archive = fixture.create_archive("named.lbox");
+    fixture.success(&[path(&archive), "access", "grant", "doctor-owner"]);
+    let listed = fixture.success(&[path(&archive), "access", "list"]);
+    assert!(String::from_utf8_lossy(&listed.stdout).contains("doctor-owner"));
+    let before = std::fs::read(&archive).unwrap();
+    let doctor = fixture.success(&[path(&archive), "doctor"]);
+    let report = String::from_utf8_lossy(&doctor.stdout);
+    let (public, encrypted) = report.split_once("Encrypted content\n").unwrap();
+    assert!(!public.contains("doctor-owner"), "{report}");
+    assert!(!public.contains("  slots:\n"), "{report}");
+    assert!(
+        encrypted.contains("credential names (local vault):\n    doctor-owner\n"),
+        "{report}"
+    );
+    assert!(!report.contains(LOCKBOX_PASSWORD), "{report}");
+    assert!(!report.contains(VAULT_PASSWORD), "{report}");
+    assert_eq!(std::fs::read(&archive).unwrap(), before);
+}
+
+#[test]
 fn doctor_reports_vault_versions_and_future_vault_errors_identify_the_path() {
     let fixture = Fixture::new("doctor-vault-format-diagnostics");
     fixture.init_current_vault();
+    let archive = fixture.create_archive("doctor.lbox");
     let container = fixture.vault.join("local-vault.lbox");
     let original = std::fs::read(&container).unwrap();
     let doctor = fixture.run(&["doctor"]);
     assert_success(&doctor);
     let report = String::from_utf8_lossy(&doctor.stdout);
-    assert!(report.contains("container format version: 3"), "{report}");
+    assert!(
+        report.contains("Local vault\n  container format version: 3\n"),
+        "{report}"
+    );
     assert!(report.contains("structure version: 3"), "{report}");
+    assert_eq!(std::fs::read(&container).unwrap(), original);
+
+    let closed = fixture
+        .command(&[path(&archive), "doctor"])
+        .env_remove("LOCKBOX_VAULT_PASSWORD")
+        .test_output()
+        .unwrap();
+    assert_success(&closed);
+    let report = String::from_utf8_lossy(&closed.stdout);
+    assert!(
+        report.starts_with("Lockbox\n  format version: 3\n"),
+        "{report}"
+    );
+    assert!(
+        report.contains("Local vault\n  container format version: 3\n"),
+        "{report}"
+    );
+    assert!(
+        report.contains("structure version: not read (vault is closed or absent)"),
+        "{report}"
+    );
+    assert!(report.contains(path(&container)), "{report}");
+    assert!(!report.contains("credential names"), "{report}");
     assert_eq!(std::fs::read(&container).unwrap(), original);
 
     // The current CLI cannot create a future container. Change only opaque
@@ -921,6 +974,10 @@ fn doctor_reports_vault_versions_and_future_vault_errors_identify_the_path() {
             "{report}"
         );
         assert!(
+            report.contains("status: unsupported container; upgrade reVault"),
+            "{report}"
+        );
+        assert!(
             report.contains("structure version: not read (unsupported container)"),
             "{report}"
         );
@@ -930,6 +987,26 @@ fn doctor_reports_vault_versions_and_future_vault_errors_identify_the_path() {
             "{report}"
         );
         assert!(!report.contains("migrate lockbox"), "{report}");
+        let selected = fixture.success(&[path(&archive), "doctor"]);
+        let selected = String::from_utf8_lossy(&selected.stdout);
+        assert!(
+            selected.starts_with("Lockbox\n  format version: 3\n"),
+            "{selected}"
+        );
+        assert!(
+            selected.contains(&format!(
+                "Local vault\n  container format version: {version}\n"
+            )),
+            "{selected}"
+        );
+        assert_eq!(
+            selected.matches("status: unsupported container").count(),
+            1,
+            "{selected}"
+        );
+        assert!(selected.contains(path(&container)), "{selected}");
+        assert!(!selected.contains("key-directory backup:"), "{selected}");
+        assert!(!selected.contains("credential names"), "{selected}");
         assert_eq!(std::fs::read(&container).unwrap(), future);
     }
 }

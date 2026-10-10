@@ -64,7 +64,7 @@ pub(crate) fn rename_matches(matches: &ArgMatches, access: &Access) -> CliResult
             .is_some_and(|value| super::looks_like_lockbox_path(value))
     {
         return Err(cli_error(
-            "move renames entries inside a lockbox; use `lockbox LOCKBOX move FROM TO`. To move the lockbox file itself, use `lockbox vault lockbox move SOURCE DESTINATION`",
+            "move renames entries inside a lockbox; use `lockbox LOCKBOX move FROM TO`. To move the lockbox file itself, use `lockbox vault lockboxes move SOURCE DESTINATION`",
         ));
     }
     rename(&optional_lockbox_positionals(values, 2)?, access)

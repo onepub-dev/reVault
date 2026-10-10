@@ -679,6 +679,7 @@ fn is_command_name(value: &OsStr) -> bool {
                 | "close"
                 | "add"
                 | "mirror"
+                | "mirrors"
                 | "extract"
                 | "cat"
                 | "list"
@@ -692,6 +693,7 @@ fn is_command_name(value: &OsStr) -> bool {
                 | "var"
                 | "variables"
                 | "form"
+                | "forms"
                 | "session"
                 | "completion"
                 | "doctor"
@@ -745,7 +747,10 @@ pub(crate) fn archive_value_candidates(current: &OsStr) -> Vec<CompletionCandida
     {
         return variable_candidates(current);
     }
-    if words.iter().any(|word| word.to_str() == Some("form")) {
+    if words
+        .iter()
+        .any(|word| matches!(word.to_str(), Some("form" | "forms")))
+    {
         return lockbox_form_candidates(current);
     }
     archive_entry_candidates(current)
@@ -783,7 +788,7 @@ pub(crate) fn mirror_rule_candidates(current: &OsStr) -> Vec<CompletionCandidate
         .and_then(|word| word.to_str());
     let explicit_name = words
         .iter()
-        .position(|word| word == "mirror")
+        .position(|word| word == "mirror" || word == "mirrors")
         .and_then(|index| words.get(index + 1))
         .filter(|word| !is_mirror_action(word))
         .and_then(|word| word.to_str());
@@ -821,7 +826,7 @@ fn mirror_path_candidates(current: &OsStr, directories_only: bool) -> Vec<Comple
     let words = completion_words();
     let explicit_name = words
         .iter()
-        .position(|word| word == "mirror")
+        .position(|word| word == "mirror" || word == "mirrors")
         .and_then(|index| words.get(index + 1))
         .filter(|word| !is_mirror_action(word))
         .and_then(|word| word.to_str());

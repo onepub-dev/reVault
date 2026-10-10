@@ -1,4 +1,5 @@
 rust_api	rationale
+migration_container_signing_key	Hidden migration-only signer loader for lossless Vault container upgrades; migration executables remain Rust-only by design.
 create_file_with_options	Rust/CLI format-v3 creation controls; independent encryption, signing and compression are not yet exposed by the foreign creation contract.
 create_in_memory_with_options	Rust format-v3 creation controls; independent encryption, signing and compression are not yet exposed by the foreign creation contract.
 export_migration_format_mode	Hidden migration-only persisted-format export; migration executables remain Rust-only by design.

@@ -5,8 +5,8 @@ use super::context::{
 use crate::secret_prompt::prompt_secret;
 use clap::ArgMatches;
 use revault_lockbox_api::{
-    probe_lockbox_format_version, Lockbox, OwnerSigningKeyPair, SecretString, SecretVec,
-    LOCKBOX_FORMAT_VERSION,
+    probe_lockbox_format_version, Lockbox, LockboxOpen, OwnerSigningKeyPair, SecretString,
+    SecretVec, LOCKBOX_FORMAT_VERSION,
 };
 use revault_migration::{
     export_archive, export_vault, import_archive, import_vault, upgrade_archive_artifact,
@@ -201,23 +201,30 @@ fn migrate_vault_direct(matches: &ArgMatches) -> CliResult<()> {
         println!("Completed the interrupted vault replacement.");
         return Ok(());
     }
-    probe_archive_path(&source.join("local-vault.lbox"))?;
+    let source_container_version = probe_archive_path(&source.join("local-vault.lbox"))?;
     let source_version = probe_vault_source_version(&source, &source_password)?;
     if source_version > CURRENT_VAULT_STRUCTURE_VERSION {
         return Err(cli_error(
             "this build cannot migrate a newer Vault structure; use the release that created it",
         ));
     }
-    if replace && source_version == CURRENT_VAULT_STRUCTURE_VERSION {
+    if replace
+        && source_version == CURRENT_VAULT_STRUCTURE_VERSION
+        && source_container_version == u32::from(LOCKBOX_FORMAT_VERSION)
+    {
         remember_default_vault_password_with_warning(
             &source_password,
             "the vault passphrase was verified successfully",
         );
         println!(
-            "Vault already uses format version {CURRENT_VAULT_STRUCTURE_VERSION}. No migration needed."
+            "Vault already uses container format {LOCKBOX_FORMAT_VERSION} and structure version {CURRENT_VAULT_STRUCTURE_VERSION}. No migration needed."
         );
         return Ok(());
     }
+    // A current structure needs only a container rewrite. Preserve every raw
+    // record through the archive workflow, including aliases and credentials
+    // that are not represented by historical Vault migration schemas.
+    let preserve_records = source_version == CURRENT_VAULT_STRUCTURE_VERSION;
     let fingerprint = fingerprint_path(&source.join("local-vault.lbox"))?;
     let operation_id = deterministic_operation_id(
         ArtifactKind::Vault,
@@ -255,13 +262,20 @@ fn migrate_vault_direct(matches: &ArgMatches) -> CliResult<()> {
     let migration_key = journal.artifact_key.try_clone()?;
 
     if journal.current_stage == MigrationStage::Export {
-        let complete =
-            artifact.exists() && verify_vault_artifact(&artifact, &migration_key).is_ok();
+        let complete = artifact.exists()
+            && if preserve_records {
+                verify_archive_artifact(&artifact, &migration_key).is_ok()
+            } else {
+                verify_vault_artifact(&artifact, &migration_key).is_ok()
+            };
         if !complete {
             remove_partial(&artifact)?;
-            if source_version == CURRENT_VAULT_STRUCTURE_VERSION {
-                let vault = VaultDirectory::open_or_create(&source, &source_password)?;
-                export_vault(&vault, &artifact, &migration_key, operation_id)?;
+            if preserve_records {
+                let lockbox = Lockbox::open(
+                    &source.join("local-vault.lbox"),
+                    LockboxOpen::Password(&source_password),
+                )?;
+                export_archive(&lockbox, &artifact, &migration_key, operation_id)?;
             } else {
                 let exporter = resolve_exporter(
                     ArtifactKind::Vault,
@@ -283,28 +297,63 @@ fn migrate_vault_direct(matches: &ArgMatches) -> CliResult<()> {
         save_journal(&mut journal, &journal_path, &source_password)?;
     }
     if journal.current_stage == MigrationStage::Upgrade {
-        let complete =
-            upgraded.exists() && verify_vault_artifact(&upgraded, &migration_key).is_ok();
+        let complete = upgraded.exists()
+            && if preserve_records {
+                verify_archive_artifact(&upgraded, &migration_key).is_ok()
+            } else {
+                verify_vault_artifact(&upgraded, &migration_key).is_ok()
+            };
         if !complete {
             remove_partial(&upgraded)?;
-            upgrade_vault_artifact(&artifact, &upgraded, &migration_key)?;
+            if preserve_records {
+                upgrade_archive_artifact(&artifact, &upgraded, &migration_key)?;
+            } else {
+                upgrade_vault_artifact(&artifact, &upgraded, &migration_key)?;
+            }
         }
         journal.current_stage = MigrationStage::Import;
         save_journal(&mut journal, &journal_path, &source_password)?;
     }
     if journal.current_stage == MigrationStage::Import {
         let complete = output.exists()
+            && probe_archive_path(&output.join("local-vault.lbox"))
+                .is_ok_and(|version| version == u32::from(LOCKBOX_FORMAT_VERSION))
             && VaultDirectory::open_or_create(&output, &source_password)
                 .and_then(|vault| vault.structure_version())
                 .is_ok_and(|version| version == CURRENT_VAULT_STRUCTURE_VERSION);
         if !complete {
             remove_partial(&output)?;
-            import_vault(&upgraded, &migration_key, &output, &source_password)?;
+            if preserve_records {
+                let lockbox = Lockbox::open(
+                    &source.join("local-vault.lbox"),
+                    LockboxOpen::Password(&source_password),
+                )?;
+                let signer = VaultDirectory::migration_container_signing_key(&lockbox)?;
+                fs::create_dir_all(&output)?;
+                fs::set_permissions(&output, fs::metadata(&source)?.permissions())?;
+                import_archive(
+                    &upgraded,
+                    &migration_key,
+                    &output.join("local-vault.lbox"),
+                    &signer,
+                )?;
+                fs::set_permissions(
+                    output.join("local-vault.lbox"),
+                    fs::metadata(source.join("local-vault.lbox"))?.permissions(),
+                )?;
+            } else {
+                import_vault(&upgraded, &migration_key, &output, &source_password)?;
+            }
         }
         journal.current_stage = MigrationStage::Validate;
         save_journal(&mut journal, &journal_path, &source_password)?;
     }
     if journal.current_stage == MigrationStage::Validate {
+        if probe_archive_path(&output.join("local-vault.lbox"))?
+            != u32::from(LOCKBOX_FORMAT_VERSION)
+        {
+            return Err(cli_error("migrated vault container validation failed"));
+        }
         let imported = VaultDirectory::open_or_create(&output, &source_password)?;
         if imported.structure_version()? != CURRENT_VAULT_STRUCTURE_VERSION {
             return Err(cli_error("migrated vault validation failed"));
@@ -336,7 +385,7 @@ fn migrate_vault_direct(matches: &ArgMatches) -> CliResult<()> {
             let _ = fs::rename(&backup, &source);
             return Err(err.into());
         }
-        println!("Vault migrated to format version {CURRENT_VAULT_STRUCTURE_VERSION}.");
+        println!("Vault migrated to container format {LOCKBOX_FORMAT_VERSION} and structure version {CURRENT_VAULT_STRUCTURE_VERSION}.");
         println!("Previous vault retained at {}", backup.display());
         remember_default_vault_password_with_warning(
             &source_password,

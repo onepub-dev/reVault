@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- Use plural resource groups throughout the CLI: `variables`, `forms`, `mirrors`,
+  `rules`, and Vault `profiles`, `contacts`, `lockboxes`, `aliases`, and `forms`.
+  Help, completion, examples, and the manual use these command names.
+- Show the Lockbox format version and both Vault container and structure versions
+  first in doctor reports. Report required Vault upgrades on one status line,
+  summarize access-slot counts, and show available credential names only with
+  readable encrypted content.
+- Migrate an older Vault container even when its internal structure is already
+  current, preserving aliases, credentials, profile history, and the original
+  backup. Migration status messages identify both versions.
 - Restrict E2E coverage recording and its file locking to debug builds so
   release CLI builds do not include test-only coverage support.
 
