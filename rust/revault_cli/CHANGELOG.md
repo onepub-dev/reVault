@@ -8,6 +8,8 @@
 - Unlock closed historical Lockboxes during explicit migration using Vault
   credentials or their pass phrase, even when Auto Open is disabled. Ordinary
   opens still require the current archive format.
+- Resolve simple Lockbox names as local files or Vault aliases. Reject conflicting
+  matches with guidance to use `a@name`, `./name`, or `name.lbox` explicitly.
 - Use plural resource groups throughout the CLI: `variables`, `forms`, `mirrors`,
   `rules`, and Vault `profiles`, `contacts`, `lockboxes`, `aliases`, and `forms`.
   Help, completion, examples, and the manual use these command names.

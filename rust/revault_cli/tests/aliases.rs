@@ -6,6 +6,185 @@ const LBX: &str = env!("CARGO_BIN_EXE_lockbox");
 const VALUE: &str = env!("CARGO_BIN_EXE_lbxv");
 const EXEC: &str = env!("CARGO_BIN_EXE_lbxx");
 
+#[test]
+fn bare_names_select_aliases_local_files_and_reject_conflicts() {
+    let f = Fixture::new();
+    // dev and its local .lbox file have the same identity.
+    f.ok(&["dev", "variables", "set", "TOKEN", "same-identity"]);
+    assert_eq!(f.read("TOKEN"), b"same-identity");
+    f.ok(&[
+        "vault",
+        "lockboxes",
+        "aliases",
+        "set",
+        "remote",
+        "./dev.lbox",
+    ]);
+    f.ok(&["remote", "variables", "set", "TOKEN", "alias-only"]);
+    assert_eq!(f.read("TOKEN"), b"alias-only");
+    f.ok(&["session", "default", "remote"]);
+    let default = f.run(VALUE, &["TOKEN"]);
+    assert!(default.status.success(), "{default:?}");
+    assert_eq!(default.stdout, b"alias-only");
+    let bare_helper = f.run(VALUE, &["remote", "TOKEN"]);
+    assert!(bare_helper.status.success(), "{bare_helper:?}");
+    assert_eq!(bare_helper.stdout, b"alias-only");
+
+    f.ok(&["./remote.lbox", "create"]);
+    f.ok(&["./remote.lbox", "variables", "set", "TOKEN", "local-only"]);
+    for args in [
+        vec!["remote", "variables", "set", "TOKEN", "wrong"],
+        vec!["remote", "create"],
+        vec!["session", "default", "remote"],
+    ] {
+        let refused = f.run(LBX, &args);
+        assert!(!refused.status.success(), "{refused:?}");
+        let error = String::from_utf8_lossy(&refused.stderr);
+        for guidance in ["ambiguous", "a@remote", "./", ".lbox"] {
+            assert!(error.contains(guidance), "{refused:?}");
+        }
+    }
+    for (binary, args) in [
+        (VALUE, vec!["remote", "TOKEN"]),
+        (
+            EXEC,
+            vec!["--lockbox", "remote", "TOKEN", "--", "must-not-run"],
+        ),
+        (EXEC, vec!["remote", "TOKEN", "--", "must-not-run"]),
+    ] {
+        let refused = f.run(binary, &args);
+        assert!(!refused.status.success(), "{refused:?}");
+        assert!(
+            String::from_utf8_lossy(&refused.stderr).contains("ambiguous"),
+            "{refused:?}"
+        );
+    }
+    assert_eq!(f.read("TOKEN"), b"alias-only");
+    for selector in ["./remote.lbox", "remote.lbox"] {
+        let local = f.run(VALUE, &[selector, "TOKEN"]);
+        assert!(local.status.success(), "{local:?}");
+        assert_eq!(local.stdout, b"local-only");
+    }
+    f.ok(&["vault", "lockboxes", "aliases", "remove", "remote"]);
+    f.ok(&["remote", "variables", "set", "TOKEN", "local-updated"]);
+    let local = f.run(VALUE, &["remote.lbox", "TOKEN"]);
+    assert!(local.status.success(), "{local:?}");
+    assert_eq!(local.stdout, b"local-updated");
+}
+
+#[test]
+fn bare_creation_refuses_existing_targets_and_explicit_filenames_bypass_aliases() {
+    let f = Fixture::new();
+    f.ok(&["fresh", "create"]);
+    f.ok(&["fresh", "variables", "set", "TOKEN", "created-value"]);
+    let refused = f.run(LBX, &["fresh", "create"]);
+    assert!(!refused.status.success(), "{refused:?}");
+    let fresh = f.run(VALUE, &["fresh.lbox", "TOKEN"]);
+    assert!(fresh.status.success(), "{fresh:?}");
+    assert_eq!(fresh.stdout, b"created-value");
+    let unknown = f.run(LBX, &["unknown", "variables", "set", "TOKEN", "wrong"]);
+    assert!(!unknown.status.success(), "{unknown:?}");
+    assert!(String::from_utf8_lossy(&unknown.stderr).contains("unknown lockbox alias"));
+    assert!(!f.root.path().join("unknown.lbox").exists());
+    f.ok(&["./with.dot", "create"]);
+    f.ok(&["with.dot", "variables", "set", "TOKEN", "dot-file"]);
+    let dotted = f.run(VALUE, &["with.dot", "TOKEN"]);
+    assert!(dotted.status.success(), "{dotted:?}");
+    assert_eq!(dotted.stdout, b"dot-file");
+    f.ok(&[
+        "vault",
+        "lockboxes",
+        "move",
+        "./fresh.lbox",
+        "./extensionless",
+    ]);
+    f.ok(&["extensionless", "variables", "set", "TOKEN", "exact-file"]);
+    let exact = f.run(VALUE, &["./extensionless", "TOKEN"]);
+    assert!(exact.status.success(), "{exact:?}");
+    assert_eq!(exact.stdout, b"exact-file");
+}
+
+#[test]
+fn bare_alias_same_identity_accepts_local_copy_and_missing_remembered_path() {
+    let f = Fixture::new();
+    f.ok(&["vault", "lockboxes", "aliases", "set", "copy", "./dev.lbox"]);
+    // Public CLI moves refresh remembered locations. External copies/removal
+    // are required to exercise identical archives at different paths and a
+    // stale remembered location without changing the encrypted Vault records.
+    std::fs::copy(
+        f.root.path().join("dev.lbox"),
+        f.root.path().join("copy.lbox"),
+    )
+    .unwrap();
+    let copy = f.run(VALUE, &["copy", "TOKEN"]);
+    assert!(copy.status.success(), "{copy:?}");
+    assert_eq!(copy.stdout, b"synthetic-token");
+    std::fs::remove_file(f.root.path().join("dev.lbox")).unwrap();
+    let copy = f.run(VALUE, &["copy", "TOKEN"]);
+    assert!(copy.status.success(), "{copy:?}");
+    assert_eq!(copy.stdout, b"synthetic-token");
+    f.ok(&["copy", "variables", "set", "TOKEN", "local-copy"]);
+    let local = f.run(VALUE, &["./copy.lbox", "TOKEN"]);
+    assert!(local.status.success(), "{local:?}");
+    assert_eq!(local.stdout, b"local-copy");
+}
+
+#[test]
+fn bare_local_selection_checks_vault_availability_but_explicit_paths_do_not() {
+    let f = Fixture::new();
+    for (binary, args) in [
+        (LBX, vec!["dev", "variables", "get", "TOKEN"]),
+        (VALUE, vec!["dev", "TOKEN"]),
+    ] {
+        let locked = f
+            .command(binary, &args)
+            .env("LOCKBOX_VAULT_PASSWORD", "wrong-password")
+            .test_output()
+            .unwrap();
+        assert!(!locked.status.success(), "{locked:?}");
+        assert!(locked.stdout.is_empty(), "{locked:?}");
+    }
+    let explicit = f
+        .command(VALUE, &["./dev.lbox", "TOKEN"])
+        .env("LOCKBOX_VAULT_PASSWORD", "wrong-password")
+        .test_output()
+        .unwrap();
+    assert!(explicit.status.success(), "{explicit:?}");
+    assert_eq!(explicit.stdout, b"synthetic-token");
+    // Point at an uninitialized Vault using the public configuration option.
+    let headless = f
+        .command(VALUE, &["dev", "TOKEN"])
+        .env("LOCKBOX_VAULT_DIR", f.root.path().join("no-vault"))
+        .env_remove("LOCKBOX_VAULT_PASSWORD")
+        .test_output()
+        .unwrap();
+    assert!(headless.status.success(), "{headless:?}");
+    assert_eq!(headless.stdout, b"synthetic-token");
+}
+
+#[test]
+fn exec_helper_accepts_bare_alias_and_explicit_bare_selection() {
+    let f = Fixture::new();
+    f.form();
+    for selections in [
+        vec![
+            "dev",
+            "TOKEN",
+            "/work/github@username",
+            "RENAMED=/work/github@token",
+        ],
+        vec![
+            "--lockbox",
+            "dev",
+            "TOKEN",
+            "/work/github@username",
+            "RENAMED=/work/github@token",
+        ],
+    ] {
+        assert_helper_environment(&f, &selections);
+    }
+}
+
 struct Fixture {
     root: tempfile::TempDir,
     raw_key: bool,
@@ -555,7 +734,8 @@ fn helper_help_is_useful_without_a_vault_or_session() {
             for expected in [
                 "Usage:",
                 "session default",
-                "a@dev",
+                "a@NAME",
+                "--lockbox NAME",
                 "/full/path/dev.lbox",
                 "never prompt",
                 "Examples:",

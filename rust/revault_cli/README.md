@@ -137,7 +137,10 @@ in the child environment and preserves its exit code. Both read normal or
 secret values without prompting; open the Vault and Lockbox first. Without
 `NAME=`, the environment name is the variable basename or form field name.
 `forms get` and `forms set` now use one `/path@field` argument.
-Use `./a@dev` for a host file literally named `a@dev`; bare `a@dev` always
+Simple names such as `dev` resolve a local Lockbox or Vault alias. If both exist
+and identify different Lockboxes, use `a@dev` for the alias, or `./dev` or
+`dev.lbox` for the local file. Paths and names with extensions select files.
+Use `./a@dev` for a host file literally named `a@dev`; `a@dev` always
 selects a Vault alias. A single `lbx completion install` registers completion
 for `lockbox`, `lbx`, `lbxv` and `lbxx` together.
 

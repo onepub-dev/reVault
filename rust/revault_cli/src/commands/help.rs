@@ -32,7 +32,7 @@ pub(crate) fn command(verbose: bool) -> Command {
                 .value_name("LOCKBOX")
                 .required(false)
                 .add(ArgValueCompleter::new(completion::lockbox_path_candidates))
-                .help("Lockbox path or a@alias. Defaults to the session lockbox. Only create creates a missing selected archive."),
+                .help("Lockbox filename, bare alias or a@alias. Bare names also check local files (including NAME.lbox); conflicts require a@NAME or an explicit filename. Defaults to the session lockbox. Only create creates a missing selected archive."),
         )
         .arg(
             Arg::new("verbose")
@@ -1463,7 +1463,7 @@ fn session_command(verbose: bool) -> Command {
                         .conflicts_with("lockbox")
                         .help("Clear the default lockbox."),
                 )
-                .arg(optional("lockbox", "Lockbox path or a@alias.").required_unless_present("clear")),
+                .arg(optional("lockbox", "Lockbox filename, bare alias or a@alias.").required_unless_present("clear")),
         )
         .subcommand(
             Command::new("close-all")
@@ -1892,7 +1892,7 @@ fn vault_command(verbose: bool) -> Command {
                 .about("Manage lockboxes remembered by the vault.")
                 .subcommand(Command::new("aliases")
                     .alias("alias")
-                    .about("Manage stable lockbox aliases selected with a@NAME.")
+                    .about("Manage stable lockbox aliases selected with NAME or a@NAME.")
                     .subcommand_required(true)
                     .subcommand(Command::new("set")
                         .about("Set or replace an alias and remember its target path.")
