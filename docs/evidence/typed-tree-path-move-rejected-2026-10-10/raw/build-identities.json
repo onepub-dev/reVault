@@ -1,0 +1,19 @@
+{
+  "commit": "f99f4e3fc72319973dfa033315d8b7687fa43969",
+  "rustc": "rustc 1.88.0 (6b00bc388 2025-06-23)",
+  "target": "/tmp/revault-tree-open-stages-20261010/target",
+  "baseline_path": "/tmp/revault-tree-path-move-20261010/bin/before",
+  "baseline_sha256": "2cebc6ceee449e5f111f2af2018f2330dd202376188451e2a76aac9d829aefdb",
+  "candidate_source_artifact": "/tmp/revault-tree-open-stages-20261010/target/release/deps/revault_lockbox_api-e3bcc2539127e239",
+  "candidate_path": "/tmp/revault-tree-path-move-20261010/bin/after",
+  "candidate_sha256": "0f63b9141d59bfd7b413b8bc352f24a324381daf62169b8b74fcd44ef9649c92",
+  "source_patch_sha256": "7b6d0241f7b5a65f9a716d59106c109fa6377a0ca6e6ad0765d17165b3c07a73",
+  "source_sha256": {
+    "overflow.rs": "dfea972dbc152678030782fac18cab2d2c3513a04550ae1edab1e952e825b1c1",
+    "open_reads.rs": "3f2be35ce8202768e05200851df970d68b3b0d3b2200c419d2faf6a8bd62718d",
+    "tree_probe.rs": "20c2280bd85878a8907ab4eba56a1c393303a6e01d184adea08b616b7ed493f0",
+    "storage_meter.rs": "519ef593ec58416cfdbb7a8ea5f7afafa79913bf5c8dc0ddd8446015e1443eef",
+    "Cargo.lock": "30f035feb33237411a1fe46b2f13656454e7062954223677d2ca569ba7e5a081"
+  },
+  "worktree_status": "M revault_lockbox_api/src/file_format/candidate_files/dense_catalogue/overflow.rs"
+}

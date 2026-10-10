@@ -22,6 +22,16 @@ or erase failures.
 
 ## Current position and next work
 
+### Rejected path-buffer move — 2026-10-10
+
+The [two-line ownership-move trial](evidence/typed-tree-path-move-rejected-2026-10-10/README.md)
+passes lifecycle/reader checks and Clippy. Small-file opening improves 1.9%, but
+all three large-fixture cases regress 1.5–3.2%; it is reverted to `f99f4e3f`.
+Source allocation elimination does not establish end-to-end benefit. Next pursue
+the decoder-to-visitor allocation boundary identified by function attribution,
+with preserved validation/wipe lifetimes and uninstrumented comparison before
+broader claims. Keep the rejected micro-optimizations as negative evidence.
+
 ### Traversal function attribution — 2026-10-10
 
 The [temporary instrumented diagnostic](evidence/typed-tree-index-attribution-2026-10-10/README.md)
