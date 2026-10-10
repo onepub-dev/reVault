@@ -130,6 +130,45 @@ pub(super) fn run(
         )
         .unwrap()
     };
+    if let Ok(repeats) = std::env::var("REVAULT_TREE_OPEN_DIAGNOSTIC") {
+        let repeats: usize = repeats.parse().unwrap();
+        assert!((1..=1000).contains(&repeats));
+        let before = digest_file(&target);
+        verify(&mut open(), root, count, bytes);
+        let mut observations = Vec::with_capacity(repeats);
+        for _ in 0..repeats {
+            let mut stages = serde_json::Map::new();
+            let started = Instant::now();
+            let storage = StorageBackend::file(&target).unwrap();
+            stages.insert(
+                "storage_handle".into(),
+                json!(started.elapsed().as_secs_f64()),
+            );
+            let mut last = Instant::now();
+            let opened =
+                TreeImage::open_observed(storage, archive(), mode, &authority, key, |name| {
+                    let now = Instant::now();
+                    stages.insert(name.into(), json!(now.duration_since(last).as_secs_f64()));
+                    last = now;
+                })
+                .unwrap();
+            let total = started.elapsed().as_secs_f64();
+            assert_eq!(opened.image.filesystem_metadata().unwrap().len(), count);
+            drop(opened);
+            observations.push(json!({"total_seconds":total,"stages_seconds":stages}));
+        }
+        verify(&mut open(), root, count, bytes);
+        assert_eq!(digest_file(&target), before);
+        println!(
+            "TREE_OPEN_DIAGNOSTIC {}",
+            json!({
+                "repeats":repeats,"observations":observations,"verified":true,
+                "archive_sha256":before,
+                "scope":"warm repeated opens with stage observation overhead; verification and drop excluded; no ZIP gate or function-level CPU profile"
+            })
+        );
+        return;
+    }
     let mut result = sample(root, count, bytes, open);
     result["layout"] = json!("shared-control-typed-tree");
     result["candidate_scope"] = json!(

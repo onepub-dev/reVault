@@ -22,6 +22,15 @@ or erase failures.
 
 ## Current position and next work
 
+### Open-stage diagnostic — 2026-10-10
+
+The [100-open diagnostic](evidence/typed-tree-open-stages-2026-10-10/README.md)
+uses the same verification path and identifies authenticated traversal as the
+largest stage in four fixtures (249–1161 microseconds). The stage includes
+decoding, ownership and reclaimed-space checks; it is not a CPU profile. Host
+profiling permissions were left unchanged. Focused reader tests and Clippy pass.
+Any follow-up must preserve verification and measure against frozen controls.
+
 ### Matched read baseline — 2026-10-10
 
 The [current fixed read batch](evidence/typed-tree-matched-read-2026-10-10/README.md)

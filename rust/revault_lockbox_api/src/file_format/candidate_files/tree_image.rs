@@ -62,11 +62,29 @@ impl<S: Storage> TreeImage<S> {
         authority: &Authority<'_>,
         key: Option<&[u8]>,
     ) -> Result<Self> {
+        Self::open_observed(storage, archive, mode, authority, key, |_| {})
+    }
+
+    /// Test-only stage observer; the ordinary reader uses a statically empty
+    /// callback. All validation and owner verification use this same path.
+    pub(super) fn open_observed(
+        storage: S,
+        archive: LockboxId,
+        mode: FormatMode,
+        authority: &Authority<'_>,
+        key: Option<&[u8]>,
+        mut stage: impl FnMut(&'static str),
+    ) -> Result<Self> {
         let codec = Codec::shared_packed(archive, mode, key)?;
+        stage("codec");
         let (catalogue, tree) = Catalogue::with_tree(&codec, |visitor| {
-            Tree::open_visit(&storage, archive, mode, authority, key, visitor)
+            let tree = Tree::open_visit(&storage, archive, mode, authority, key, visitor)?;
+            stage("authenticated_traversal_and_reclaimed");
+            Ok(tree)
         })?;
+        stage("typed_validation");
         catalogue.verify_padding(&storage, &codec)?;
+        stage("pack_padding");
         let mut image = Image {
             storage,
             anchor: tree.anchor.clone(),
@@ -74,9 +92,11 @@ impl<S: Storage> TreeImage<S> {
             catalogue,
             codec,
         };
+        stage("value_key");
         if mode.plaintext() && mode.signed() {
             image.verify_all()?;
         }
+        stage("owner_payload_verification");
         Ok(Self { image, tree })
     }
 }
