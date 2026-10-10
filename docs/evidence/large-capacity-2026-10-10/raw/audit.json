@@ -1,0 +1,47 @@
+{
+  "stable_executables_and_sources": true,
+  "identities_before": {
+    "/tmp/revault-journal-buffer-20261010/bin/archive_evaluation": "fc8c419adfc158f44512416b2bd6acf06cf374640f45d90e54a420315a2a879e",
+    "/tmp/revault-journal-buffer-20261010/bin/adapter_after": "9470bd5cff158782f665216f792ff028ea670a8d083945ed44bd94a1e00cf248",
+    "/tmp/revault-journal-buffer-20261010/bin/before": "997632d6c233e4a6289eb7a91976fbfee4038e5987f7fcdb3de266539167be56",
+    "/tmp/revault-journal-buffer-20261010/bin/after": "6e52a248f63699ae842af76c4cf38ed94edfd93dd78829e5c53fd8cb063bec18",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/Cargo.lock": "c2f9e9ce9b8fe9ea54c6781ce39d696ae88d7972d886342d03299cff60ce6dd8",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api/src/file_format/preparation_journal/compact.rs": "785a84242259e9d539ba160d6785f06bdffbf811481ffebc7c525aa0e76c5632",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api/src/file_format/page_buffer.rs": "1b1466ba4a84fcb78a33bdab2eb1ed8d57cbd973719a92b29244670702d13b16",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/reader.rs": "5e7213ab97a08d6747119b1e31ebc1cea4706c826c1b8f1e064891873c9390a1",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api/src/file_format/authenticated_index/cache.rs": "9ea39d1ad41660a94ddb66e74f49c76432418478cf57e28b9e745dc0fe6236af",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api/src/file_format/authenticated_index/borrowed.rs": "b7000ed2352d43e00aecbee1f0fd6d392d35892701925c5aed0c88dfa79a474e"
+  },
+  "identities_after": {
+    "/tmp/revault-journal-buffer-20261010/bin/archive_evaluation": "fc8c419adfc158f44512416b2bd6acf06cf374640f45d90e54a420315a2a879e",
+    "/tmp/revault-journal-buffer-20261010/bin/adapter_after": "9470bd5cff158782f665216f792ff028ea670a8d083945ed44bd94a1e00cf248",
+    "/tmp/revault-journal-buffer-20261010/bin/before": "997632d6c233e4a6289eb7a91976fbfee4038e5987f7fcdb3de266539167be56",
+    "/tmp/revault-journal-buffer-20261010/bin/after": "6e52a248f63699ae842af76c4cf38ed94edfd93dd78829e5c53fd8cb063bec18",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/Cargo.lock": "c2f9e9ce9b8fe9ea54c6781ce39d696ae88d7972d886342d03299cff60ce6dd8",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api/src/file_format/preparation_journal/compact.rs": "785a84242259e9d539ba160d6785f06bdffbf811481ffebc7c525aa0e76c5632",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api/src/file_format/page_buffer.rs": "1b1466ba4a84fcb78a33bdab2eb1ed8d57cbd973719a92b29244670702d13b16",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/reader.rs": "5e7213ab97a08d6747119b1e31ebc1cea4706c826c1b8f1e064891873c9390a1",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api/src/file_format/authenticated_index/cache.rs": "9ea39d1ad41660a94ddb66e74f49c76432418478cf57e28b9e745dc0fe6236af",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api/src/file_format/authenticated_index/borrowed.rs": "b7000ed2352d43e00aecbee1f0fd6d392d35892701925c5aed0c88dfa79a474e"
+  },
+  "results": [
+    {
+      "name": "raw-random-1gib",
+      "root": "/home/bsutton/.cache/revault-performance-20261010-large/raw-random-1gib",
+      "exit_code": 101,
+      "files": 1,
+      "bytes_per_file": 1073741824,
+      "corpus_bytes": 1073741824,
+      "leftover_paths": [
+        "/home/bsutton/.cache/revault-performance-20261010-large/raw-random-1gib/case.json",
+        "/home/bsutton/.cache/revault-performance-20261010-large/raw-random-1gib/source",
+        "/home/bsutton/.cache/revault-performance-20261010-large/raw-random-1gib/inventory.json",
+        "/home/bsutton/.cache/revault-performance-20261010-large/raw-random-1gib/samples.jsonl",
+        "/home/bsutton/.cache/revault-performance-20261010-large/raw-random-1gib/archive.zip",
+        "/home/bsutton/.cache/revault-performance-20261010-large/raw-random-1gib/tree-staging.lbox",
+        "/home/bsutton/.cache/revault-performance-20261010-large/raw-random-1gib/tree.lbox"
+      ]
+    }
+  ],
+  "utc_end": "2026-10-10T10:02:06.657736Z"
+}

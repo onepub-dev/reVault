@@ -116,3 +116,9 @@ and development failures; path installation and full-format acceptance are separ
 - [Stored-byte hash cost](evidence/stored-byte-hash-cost-2026-10-10/README.md): isolated single-thread SHA-256/BLAKE3 comparison; no archive algorithm change.
 
 - [Wiped reusable read-buffer trial](evidence/wiped-read-buffer-2026-10-10/README.md): retained allocation-reuse experiment with unchanged payload verification.
+
+- [Opening admission profile](evidence/open-admission-profile-2026-10-10/README.md): bounded publication, manifest, journal and format-lookup attribution with retained provenance limits.
+
+- [Journal decoded-buffer normalization](evidence/journal-buffer-2026-10-10/README.md): small measured improvement; disk-backed real-world scale remains unqualified.
+
+- [Disk-backed capacity checks](evidence/large-capacity-2026-10-10/README.md): realistic workload correction, experimental construction limits and outstanding scale qualification.

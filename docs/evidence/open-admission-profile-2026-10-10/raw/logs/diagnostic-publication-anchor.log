@@ -1,0 +1,113 @@
+    Finished `release` profile [optimized] target(s) in 0.11s
+     Running unittests src/lib.rs (/tmp/revault-tree-open-stages-20261010/target/release/deps/revault_lockbox_api-e3bcc2539127e239)
+
+running 54 tests
+test file_format::publication_anchor::bootstrap::tests::bootstrap_reads_only_bounded_public_records_and_propagates_io_errors ... ok
+test file_format::publication_anchor::bootstrap::tests::directory_identity_generation_and_slot_ids_are_checked ... ok
+test file_format::publication_anchor::bootstrap::tests::directory_rejects_noncanonical_and_overflow_inputs ... ok
+test file_format::publication_anchor::bootstrap::tests::forged_unsigned_generation_never_grants_old_credentials_fallback ... ok
+test file_format::publication_anchor::bootstrap::tests::old_credential_cannot_reopen_previous_generation_during_rekey ... ok
+test file_format::publication_anchor::bootstrap::tests::password_and_contact_bootstrap_authenticate_before_private_metadata ... ok
+test file_format::publication_anchor::bootstrap::tests::public_directory_mirrors_and_trust_context_are_enforced ... ok
+test file_format::publication_anchor::shared::catalogue::tests::fixed_private_envelope_round_trips_all_modes_and_binds_context ... ok
+test file_format::publication_anchor::shared::catalogue::tests::private_envelope_checks_lengths_padding_codec_and_overflow_before_decode ... ok
+test file_format::publication_anchor::shared::ownership::tests::descendant_graph_requires_disjoint_failure_regions_and_complete_ownership ... ok
+test file_format::publication_anchor::shared::ownership::tests::descendant_retirement_requires_pending_state_and_cannot_use_private_tail_proof ... ok
+test file_format::publication_anchor::shared::ownership::tests::free_bytes_are_checked_but_pending_secret_bytes_are_not_misclassified_as_free ... ok
+test file_format::publication_anchor::shared::ownership::tests::graph_accounts_for_every_byte_and_refuses_control_payload_aliases ... ok
+test file_format::publication_anchor::shared::ownership::tests::graph_final_coverage_refuses_overlaps_in_either_insertion_order ... ok
+test file_format::publication_anchor::shared::ownership::tests::inline_external_inline_transition_requires_reservation_retirement_and_erasure ... ok
+test file_format::publication_anchor::shared::ownership::tests::metadata_tail_transition_preserves_payload_and_proves_removed_suffix ... ok
+test file_format::publication_anchor::shared::ownership::tests::reclaimed_checks_cover_chunk_edges_short_tails_and_release_guards_on_failure ... ok
+test file_format::publication_anchor::shared::ownership::tests::transitions_refuse_in_place_mutation_early_free_and_unlinked_publication ... ok
+test file_format::publication_anchor::shared::tests::changing_the_shared_profile_bytes_does_not_preserve_publication_authentication ... ok
+test file_format::publication_anchor::shared::tests::shared_control_image_bootstraps_and_decrypts_after_either_region_is_lost ... ok
+test file_format::publication_anchor::shared::tests::shared_control_profile_is_authenticated_and_cannot_cross_decode_as_separated ... ok
+test file_format::publication_anchor::shared::tests::shared_control_roles_exclude_anchors_journals_and_other_private_subranges ... ok
+test file_format::publication_anchor::shared::tree::tests::abort::authenticated_overflow_abort_mirrors_selected_publication_before_cleanup ... ok
+test file_format::publication_anchor::shared::tree::tests::abort::authenticated_overflow_abort_refuses_invalid_authority_ownership_and_aliases_unchanged ... ok
+test file_format::publication_anchor::shared::tree::tests::abort::authenticated_overflow_abort_rejects_malformed_committed_graph_before_writes ... ok
+test file_format::publication_anchor::shared::tree::tests::abort::authenticated_overflow_abort_reopens_all_modes_and_each_copy_loss ... ok
+test file_format::publication_anchor::shared::tree::tests::abort::authenticated_overflow_abort_survives_interrupted_staging_and_recovery_all_modes ... AUTHENTICATED_OVERFLOW_ABORT_POWER_LOSS_CASES 5280
+ok
+test file_format::publication_anchor::shared::tree::tests::abort::commit::authenticated_overflow_commit_refuses_stale_and_unowned_arena_without_writes ... ok
+test file_format::publication_anchor::shared::tree::tests::abort::commit::authenticated_overflow_commit_reopens_all_modes_and_each_copy_loss ... ok
+test file_format::publication_anchor::shared::tree::tests::abort::commit::authenticated_overflow_commit_resource_observation ... ignored, bounded serial resource observation; run separately from regression tests
+test file_format::publication_anchor::shared::tree::tests::abort::commit::authenticated_overflow_commit_survives_interruption_all_modes ... AUTHENTICATED_OVERFLOW_COMMIT_POWER_LOSS_CASES 2208
+ok
+test file_format::publication_anchor::shared::tree::tests::abort::update::authenticated_tree_update_interruptions_select_only_old_or_new_all_modes ... AUTHENTICATED_TREE_UPDATE_POWER_LOSS_CASES 3168
+ok
+test file_format::publication_anchor::shared::tree::tests::abort::update::authenticated_tree_update_lifecycle_and_no_change_all_modes ... ok
+test file_format::publication_anchor::shared::tree::tests::abort::update::authenticated_tree_update_refuses_malformed_records_without_mutation ... ok
+test file_format::publication_anchor::shared::tree::tests::abort::update::authenticated_tree_update_reuse_stabilizes_metadata_cycles_all_modes ... TREE_REUSE_AGING mode=0 initial_bytes=458752 stabilized_bytes=720896 cycles=40
+TREE_REUSE_AGING mode=1 initial_bytes=458752 stabilized_bytes=720896 cycles=40
+TREE_REUSE_AGING mode=2 initial_bytes=458752 stabilized_bytes=720896 cycles=40
+TREE_REUSE_AGING mode=3 initial_bytes=458752 stabilized_bytes=720896 cycles=40
+TREE_REUSE_AGING mode=4 initial_bytes=458752 stabilized_bytes=720896 cycles=40
+TREE_REUSE_AGING mode=5 initial_bytes=458752 stabilized_bytes=720896 cycles=40
+TREE_REUSE_AGING mode=6 initial_bytes=458752 stabilized_bytes=720896 cycles=40
+TREE_REUSE_AGING mode=7 initial_bytes=458752 stabilized_bytes=720896 cycles=40
+TREE_REUSE_AGING mode=8 initial_bytes=458752 stabilized_bytes=720896 cycles=40
+TREE_REUSE_AGING mode=9 initial_bytes=458752 stabilized_bytes=720896 cycles=40
+TREE_REUSE_AGING mode=10 initial_bytes=458752 stabilized_bytes=720896 cycles=40
+TREE_REUSE_AGING mode=11 initial_bytes=458752 stabilized_bytes=720896 cycles=40
+TREE_REUSE_AGING mode=12 initial_bytes=458752 stabilized_bytes=720896 cycles=40
+TREE_REUSE_AGING mode=13 initial_bytes=458752 stabilized_bytes=720896 cycles=40
+TREE_REUSE_AGING mode=14 initial_bytes=458752 stabilized_bytes=720896 cycles=40
+TREE_REUSE_AGING mode=15 initial_bytes=458752 stabilized_bytes=720896 cycles=40
+ok
+test file_format::publication_anchor::shared::tree::tests::abort::update::authenticated_tree_update_reused_arena_abort_interruptions_all_modes ... REUSED_ARENA_ABORT_POWER_LOSS_CASES 3360
+ok
+test file_format::publication_anchor::shared::tree::tests::abort::update::authenticated_tree_update_uses_overflow_for_large_reuse_all_modes ... TREE_OVERFLOW_REUSE mode=0 initial_bytes=10813440 completed_bytes=13565952
+TREE_OVERFLOW_AGING mode=0 stabilized_bytes=26542080 additional_cycles=8
+TREE_OVERFLOW_REUSE mode=1 initial_bytes=10813440 completed_bytes=13565952
+TREE_OVERFLOW_AGING mode=1 stabilized_bytes=26542080 additional_cycles=8
+TREE_OVERFLOW_REUSE mode=2 initial_bytes=10813440 completed_bytes=13565952
+TREE_OVERFLOW_AGING mode=2 stabilized_bytes=26542080 additional_cycles=8
+TREE_OVERFLOW_REUSE mode=3 initial_bytes=10813440 completed_bytes=13565952
+TREE_OVERFLOW_AGING mode=3 stabilized_bytes=26542080 additional_cycles=8
+TREE_OVERFLOW_REUSE mode=4 initial_bytes=10813440 completed_bytes=13565952
+TREE_OVERFLOW_AGING mode=4 stabilized_bytes=26542080 additional_cycles=8
+TREE_OVERFLOW_REUSE mode=5 initial_bytes=10813440 completed_bytes=13565952
+TREE_OVERFLOW_AGING mode=5 stabilized_bytes=26542080 additional_cycles=8
+TREE_OVERFLOW_REUSE mode=6 initial_bytes=10813440 completed_bytes=13565952
+TREE_OVERFLOW_AGING mode=6 stabilized_bytes=26542080 additional_cycles=8
+TREE_OVERFLOW_REUSE mode=7 initial_bytes=10813440 completed_bytes=13565952
+TREE_OVERFLOW_AGING mode=7 stabilized_bytes=26542080 additional_cycles=8
+TREE_OVERFLOW_REUSE mode=8 initial_bytes=10813440 completed_bytes=13565952
+TREE_OVERFLOW_AGING mode=8 stabilized_bytes=26542080 additional_cycles=8
+TREE_OVERFLOW_REUSE mode=9 initial_bytes=10813440 completed_bytes=13565952
+TREE_OVERFLOW_AGING mode=9 stabilized_bytes=26542080 additional_cycles=8
+TREE_OVERFLOW_REUSE mode=10 initial_bytes=10813440 completed_bytes=13565952
+TREE_OVERFLOW_AGING mode=10 stabilized_bytes=26542080 additional_cycles=8
+TREE_OVERFLOW_REUSE mode=11 initial_bytes=10813440 completed_bytes=13565952
+TREE_OVERFLOW_AGING mode=11 stabilized_bytes=26542080 additional_cycles=8
+TREE_OVERFLOW_REUSE mode=12 initial_bytes=10813440 completed_bytes=13565952
+TREE_OVERFLOW_AGING mode=12 stabilized_bytes=26542080 additional_cycles=8
+TREE_OVERFLOW_REUSE mode=13 initial_bytes=10813440 completed_bytes=13565952
+TREE_OVERFLOW_AGING mode=13 stabilized_bytes=26542080 additional_cycles=8
+TREE_OVERFLOW_REUSE mode=14 initial_bytes=10813440 completed_bytes=13565952
+TREE_OVERFLOW_AGING mode=14 stabilized_bytes=26542080 additional_cycles=8
+TREE_OVERFLOW_REUSE mode=15 initial_bytes=10813440 completed_bytes=13565952
+TREE_OVERFLOW_AGING mode=15 stabilized_bytes=26542080 additional_cycles=8
+ok
+test file_format::publication_anchor::shared::tree::tests::shared_tree_opens_beyond_inline_capacity_and_survives_each_metadata_copy_loss ... ok
+test file_format::publication_anchor::shared::tree::tests::shared_tree_refuses_malformed_ownership_and_unclaimed_or_aliased_bytes ... ok
+test file_format::publication_anchor::shared::tree::tests::shared_tree_validates_free_pending_and_payload_ownership_before_exposing_records ... ok
+test file_format::publication_anchor::tests::damaged_roots_never_authorize_rollback_to_an_older_publication ... ok
+test file_format::publication_anchor::tests::every_byte_prefix_of_a_torn_slot_keeps_an_old_or_new_authenticated_root ... ok
+test file_format::publication_anchor::tests::every_mutating_storage_failure_preserves_a_selected_complete_generation ... ok
+test file_format::publication_anchor::tests::independent_checksum_and_hmac_vectors_match_exact_bytes ... ok
+test file_format::publication_anchor::tests::mirrored_publications_round_trip_all_modes_and_ignore_prepared_tail_records ... ok
+test file_format::publication_anchor::tests::old_adjacent_publication_geometry_is_not_selected_as_current_format ... ok
+test file_format::publication_anchor::tests::one_slot_can_be_lost_but_conflicting_or_unlinked_valid_slots_are_rejected ... ok
+test file_format::publication_anchor::tests::owner_mode_archive_and_every_signed_field_are_pinned ... ok
+test file_format::publication_anchor::tests::power_loss_and_failed_final_sync_do_not_grant_cleanup_early ... ok
+test file_format::publication_anchor::tests::preparation_signatures_cannot_be_reused_as_publication_authority ... ok
+test file_format::publication_anchor::tests::publication_and_mirror_repair_survive_real_process_death ... ok
+test file_format::publication_anchor::tests::publication_process_child ... ok
+test file_format::publication_anchor::tests::slot_read_errors_do_not_authorize_selecting_the_other_generation ... ok
+test file_format::publication_anchor::tests::symmetric_authentication_rejects_wrong_keys_modified_fields_and_short_tags ... ok
+
+test result: ok. 53 passed; 0 failed; 1 ignored; 0 measured; 615 filtered out; finished in 246.83s
+

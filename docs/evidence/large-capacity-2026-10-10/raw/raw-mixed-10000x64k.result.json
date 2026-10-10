@@ -1,0 +1,1 @@
+{"exit_code":101,"df_after":"Filesystem     1024-blocks      Used  Available Capacity Mounted on\n/dev/dm-1       1950350336 415277860 1529271420      22% /home\n","case_dir_exists":true}

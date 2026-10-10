@@ -1,0 +1,463 @@
+//! Ordinary read sessions authenticate only the selected root and lookup paths.
+//! They are not whole-archive audits or allocation authority. The caller holds a
+//! stable snapshot/read lock; every newly fetched page and payload is verified.
+use super::*;
+use crate::file_format::allocation_map::Extent;
+use crate::file_format::authenticated_index::{Entry, PageCache};
+use crate::file_format::publication_anchor::RootRef;
+use crate::{LockboxEntry, LockboxEntryKind, LockboxPath};
+use std::cell::RefCell;
+
+pub(in crate::file_format::candidate_files) struct TreeImage<S: Storage> {
+    pub image: ReadImage<S>,
+}
+pub(in crate::file_format::candidate_files) struct ReadImage<S: Storage> {
+    pub storage: S,
+    pub anchor: Anchor,
+    index: Index,
+    root: RootRef,
+    cache: RefCell<PageCache>,
+    version: u8,
+    codec: Codec,
+    key: Option<Zeroizing<Vec<u8>>>,
+}
+impl<S: Storage> TreeImage<S> {
+    pub fn open(
+        storage: S,
+        archive: LockboxId,
+        mode: FormatMode,
+        authority: &Authority<'_>,
+        key: Option<&[u8]>,
+    ) -> Result<Self> {
+        Self::open_observed(storage, archive, mode, authority, key, |_| {})
+    }
+    pub(in crate::file_format::candidate_files) fn open_observed(
+        storage: S,
+        archive: LockboxId,
+        mode: FormatMode,
+        authority: &Authority<'_>,
+        key: Option<&[u8]>,
+        mut stage: impl FnMut(&'static str),
+    ) -> Result<Self> {
+        // Bounded publication/journal admission remains mandatory. No global
+        // allocation graph, unused padding, free-space or payload scan occurs.
+        let (anchor, body) = shared::open_private(&storage, archive, mode, authority, key)?;
+        stage("selected_publication");
+        let root = tree::parse_manifest(&body)?;
+        let mut image = ReadImage {
+            storage,
+            anchor,
+            root,
+            cache: RefCell::default(),
+            version: 0,
+            index: Index::new(archive, mode, key)?,
+            codec: Codec::shared_packed(archive, mode, key)?,
+            key: key.map(|v| Zeroizing::new(v.to_vec())),
+        };
+        let format = crate::file_format::diagnostic_timing::measure(5, || image.required(5, b"format"))?;
+        if !matches!(
+            format.value.as_slice(),
+            b"RV4FS001" | b"RV4FS002" | b"RV4FS003"
+        ) {
+            return Err(Error::CorruptRecord);
+        }
+        image.version = match format.value.as_slice() {
+            b"RV4FS001" => 1,
+            b"RV4FS002" => 2,
+            _ => 3,
+        };
+        stage("format_lookup");
+        Ok(Self { image })
+    }
+    pub fn open_credential(
+        storage: S,
+        archive: LockboxId,
+        mode: FormatMode,
+        owner: Option<&crate::OwnerSigningPublicKey>,
+        credential: publication::bootstrap::Credential<'_>,
+        slot: Option<u64>,
+    ) -> Result<Self> {
+        let opened = shared::credential_open(&storage, archive, mode, owner, credential, slot)?;
+        let mut key = Zeroizing::new([0u8; 32]);
+        opened.key.with_bytes(|bytes| {
+            if bytes.len() != key.len() {
+                return Err(Error::CorruptRecord);
+            }
+            key.copy_from_slice(bytes);
+            Ok(())
+        })??;
+        let authority = owner.map_or(Authority::Symmetric(key.as_ref()), Authority::Owner);
+        let image = Self::open(storage, archive, mode, &authority, Some(key.as_ref()))?;
+        if image.image.anchor != opened.anchor {
+            return Err(Error::CorruptRecord);
+        }
+        Ok(image)
+    }
+}
+impl<S: Storage> ReadImage<S> {
+    fn get(&self, namespace: u8, key: &[u8]) -> Result<Option<Entry>> {
+        self.index.get_cached(
+            &self.storage,
+            self.root,
+            self.anchor.sealed_len,
+            namespace,
+            key,
+            &mut self.cache.borrow_mut(),
+        )
+    }
+    fn required(&self, namespace: u8, key: &[u8]) -> Result<Entry> {
+        self.get(namespace, key)?.ok_or(Error::CorruptRecord)
+    }
+    fn file_info(&self, entry: &Entry) -> Result<(u32, FileInfo)> {
+        super::super::dense_catalogue::nodes::canonical(&entry.key)?;
+        if entry.value.len() != 76 {
+            return Err(Error::CorruptRecord);
+        }
+        let permissions = u32::from_le_bytes(entry.value[..4].try_into().unwrap());
+        crate::security::validate_permissions(permissions).map_err(|_| Error::CorruptRecord)?;
+        Ok((
+            permissions,
+            FileInfo::decode(&entry.value[4..], &self.codec)?,
+        ))
+    }
+    pub fn info(&self, path: &[u8]) -> Result<Option<FileInfo>> {
+        super::super::dense_catalogue::nodes::canonical(path)?;
+        self.get(1, path)?
+            .map(|entry| self.file_info(&entry).map(|(_, info)| info))
+            .transpose()
+    }
+    pub fn read_range(
+        &mut self,
+        path: &[u8],
+        offset: u64,
+        len: u64,
+        mut visitor: impl FnMut(&[u8]) -> Result<()>,
+    ) -> Result<()> {
+        let info = self
+            .info(path)?
+            .ok_or(Error::InvalidInput("file not found".into()))?;
+        let end = offset
+            .checked_add(len)
+            .ok_or(Error::InvalidInput("range overflow".into()))?;
+        if end > info.len {
+            return Err(Error::InvalidInput("range outside file".into()));
+        }
+        if len == 0 {
+            return Ok(());
+        }
+        for ordinal in offset / info.unit as u64..end.div_ceil(info.unit as u64) {
+            let row = self.required(2, &chunk_key(info.id, ordinal))?;
+            if row.value.len() != 112 {
+                return Err(Error::CorruptRecord);
+            }
+            let descriptor = Descriptor::decode(&row.value[..64])?;
+            let logical = ordinal
+                .checked_mul(info.unit as u64)
+                .ok_or(Error::CorruptRecord)?;
+            if descriptor.object != info.id
+                || descriptor.ordinal != ordinal
+                || descriptor.offset != logical
+                || descriptor.logical_len as u64 != (info.len - logical).min(info.unit as u64)
+            {
+                return Err(Error::CorruptRecord);
+            }
+            let start = u64::from_le_bytes(row.value[64..72].try_into().unwrap());
+            let relative = u64::from_le_bytes(row.value[72..80].try_into().unwrap());
+            let pack = self.required(3, &start.to_be_bytes())?;
+            if pack.value.len() != 72 {
+                return Err(Error::CorruptRecord);
+            }
+            let pack_len = u64::from_le_bytes(pack.value[..8].try_into().unwrap());
+            let stored = descriptor.stored_len() as u64;
+            if start < REGION_LEN as u64
+                || pack_len == 0
+                || pack_len
+                    > self
+                        .codec
+                        .pack_padded_len(self.codec.logical_unit(MAX_LOGICAL)? + 28)?
+                        as u64
+                || start
+                    .checked_add(pack_len)
+                    .is_none_or(|v| v > self.anchor.sealed_len)
+                || relative.checked_add(stored).is_none_or(|v| v > pack_len)
+            {
+                return Err(Error::CorruptRecord);
+            }
+            let extent = Extent {
+                start: start.checked_add(relative).ok_or(Error::CorruptRecord)?,
+                len: stored,
+                digest: row.value[80..].try_into().unwrap(),
+            };
+            // The fragment digest is authenticated by the index path, not merely
+            // taken from the payload itself. Codec verifies it before decoding
+            // or invoking the caller, including any internal authenticated pad.
+            let first = offset.saturating_sub(logical) as usize;
+            let last = (end - logical).min(descriptor.logical_len as u64) as usize;
+            self.codec.with_loaded(
+                &self.storage,
+                extent,
+                self.anchor.sealed_len,
+                &descriptor,
+                |bytes| visitor(&bytes[first..last]),
+            )?;
+        }
+        Ok(())
+    }
+    /// Listing intentionally traverses filesystem metadata, not fragment,
+    /// variable or form-value records and never their payloads or spare space.
+    pub fn filesystem_metadata(&self) -> Result<Vec<Metadata>> {
+        let mut entries = Vec::new();
+        let mut path_bytes = 0usize;
+        for namespace in [1u8, 4] {
+            self.index.visit_range(
+                &self.storage,
+                self.root,
+                self.anchor.sealed_len,
+                Some((namespace, &[])),
+                Some((namespace + 1, &[])),
+                |row| {
+                    let path = super::super::dense_catalogue::nodes::canonical(&row.key)?;
+                    path_bytes = path_bytes
+                        .checked_add(row.key.len())
+                        .ok_or(Error::CorruptRecord)?;
+                    if entries.len() >= MAX_FILES || path_bytes > MAX_PATH_BYTES {
+                        return Err(Error::SecurityLimitExceeded(
+                            "filesystem listing budget".into(),
+                        ));
+                    }
+                    let (kind, len, permissions, target) = if namespace == 1 {
+                        let (permissions, info) = self.file_info(&row)?;
+                        (LockboxEntryKind::File, info.len, permissions, None)
+                    } else {
+                        if row.value.len() < 5 {
+                            return Err(Error::CorruptRecord);
+                        }
+                        let permissions = u32::from_le_bytes(row.value[1..5].try_into().unwrap());
+                        crate::security::validate_permissions(permissions)
+                            .map_err(|_| Error::CorruptRecord)?;
+                        match row.value[0] {
+                            3 if row.value.len() == 5 => {
+                                (LockboxEntryKind::Directory, 0, permissions, None)
+                            }
+                            2 if row.value.len() > 5 => {
+                                let target = super::super::dense_catalogue::nodes::canonical(
+                                    &row.value[5..],
+                                )?;
+                                (
+                                    LockboxEntryKind::Symlink,
+                                    0,
+                                    permissions,
+                                    Some(LockboxPath::new(target)?),
+                                )
+                            }
+                            _ => return Err(Error::CorruptRecord),
+                        }
+                    };
+                    entries.push(Metadata {
+                        entry: LockboxEntry {
+                            path: LockboxPath::new(path)?,
+                            kind,
+                            len,
+                            permissions,
+                        },
+                        target,
+                    });
+                    Ok(())
+                },
+            )?;
+        }
+        entries.sort_by(|a, b| a.entry.path.cmp(&b.entry.path));
+        if entries
+            .windows(2)
+            .any(|p| p[0].entry.path == p[1].entry.path)
+        {
+            return Err(Error::CorruptRecord);
+        }
+        Ok(entries)
+    }
+    /// Explicit full verification retains graph, padding, erased-space and
+    /// complete content checks. It is never called implicitly by a read.
+    pub fn verify_all(&mut self) -> Result<()> {
+        let codec = Codec::shared_packed(
+            self.anchor.archive,
+            self.anchor.mode,
+            self.key.as_deref().map(Vec::as_slice),
+        )?;
+        let (catalogue, tree) = Catalogue::with_tree_borrowed(&codec, |visitor| {
+            Tree::from_snapshot_visit(
+                &self.storage,
+                self.anchor.archive,
+                self.anchor.mode,
+                self.key.as_deref().map(Vec::as_slice),
+                self.anchor.clone(),
+                &tree::manifest(self.root),
+                visitor,
+                &mut |_| {},
+            )
+        })?;
+        tree.graph.verify_reclaimed(&self.storage)?;
+        catalogue.verify_padding(&self.storage, &codec)?;
+        let mut audit = Image {
+            storage: allocation::compaction::View(&self.storage),
+            anchor: self.anchor.clone(),
+            value_key: super::super::dense_image::value_key_for(
+                &catalogue,
+                self.anchor.mode,
+                self.key.as_deref().map(Vec::as_slice),
+            )?,
+            catalogue,
+            codec,
+        };
+        audit.verify_all()
+    }
+    fn value_key(&self) -> Result<Zeroizing<[u8; 32]>> {
+        super::super::dense_image::value_key(
+            self.anchor.mode,
+            self.key.as_deref().map(Vec::as_slice),
+        )
+    }
+}
+
+impl<S: Storage> TreeImage<S> {
+    fn variable(
+        &self,
+        name: &crate::VariableName,
+    ) -> Result<Option<crate::file_format::secure_segments::Layout>> {
+        self.image
+            .get(6, name.as_str().as_bytes())?
+            .map(|row| {
+                if self.image.version < 2 {
+                    return Err(Error::CorruptRecord);
+                }
+                crate::file_format::secure_segments::Layout::decode_metadata(
+                    &row.value,
+                    self.image.anchor.mode,
+                    self.image.anchor.sealed_len,
+                )
+            })
+            .transpose()
+    }
+    pub fn get_variable(&self, name: &crate::VariableName) -> Result<Option<String>> {
+        let Some(layout) = self.variable(name)? else {
+            return Ok(None);
+        };
+        if layout.sensitivity == crate::VariableSensitivity::Secret {
+            return Err(Error::InvalidOperation(
+                "variable is secret; use secret access".into(),
+            ));
+        }
+        let bytes = layout.read(
+            &self.image.storage,
+            self.image.anchor.archive,
+            &*self.image.value_key()?,
+            self.image.anchor.sealed_len,
+        )?;
+        bytes.with_bytes(|bytes| {
+            Ok(Some(
+                std::str::from_utf8(bytes)
+                    .map_err(|_| Error::CorruptRecord)?
+                    .to_owned(),
+            ))
+        })?
+    }
+    pub fn with_secret_variable<R>(
+        &self,
+        name: &crate::VariableName,
+        f: impl FnOnce(&crate::SecretString) -> R,
+    ) -> Result<Option<R>> {
+        let Some(layout) = self.variable(name)? else {
+            return Ok(None);
+        };
+        if layout.sensitivity != crate::VariableSensitivity::Secret {
+            return Err(Error::InvalidOperation("variable is not secret".into()));
+        }
+        let bytes = layout.read(
+            &self.image.storage,
+            self.image.anchor.archive,
+            &*self.image.value_key()?,
+            self.image.anchor.sealed_len,
+        )?;
+        let value = std::sync::Arc::new(crate::SecretString::from_secure_vec(bytes));
+        Ok(Some(f(&value)))
+    }
+    pub fn get_form_definition(
+        &self,
+        id: &crate::FormTypeId,
+        revision: u32,
+    ) -> Result<Option<crate::FormDefinition>> {
+        let forms = super::super::dense_catalogue::forms::Forms::selected_definition(
+            id,
+            revision,
+            self.image.anchor.mode,
+            self.image.anchor.sealed_len,
+            |n, k| self.image.get(n, k),
+        )?;
+        if self.image.version < 3 && !forms.is_empty() {
+            return Err(Error::CorruptRecord);
+        }
+        forms
+            .definitions
+            .first()
+            .map(|d| {
+                d.read(
+                    &self.image.storage,
+                    self.image.anchor.archive,
+                    &*self.image.value_key()?,
+                    self.image.anchor.sealed_len,
+                )
+            })
+            .transpose()
+    }
+    fn selected_form(
+        &self,
+        path: &LockboxPath,
+    ) -> Result<super::super::dense_catalogue::forms::Forms> {
+        let forms = super::super::dense_catalogue::forms::Forms::selected_record(
+            path,
+            self.image.anchor.mode,
+            self.image.anchor.sealed_len,
+            |n, k| self.image.get(n, k),
+        )?;
+        if self.image.version < 3 && !forms.is_empty() {
+            return Err(Error::CorruptRecord);
+        }
+        Ok(forms)
+    }
+    pub fn get_form_record(&self, path: &LockboxPath) -> Result<Option<crate::FormRecord>> {
+        let forms = self.selected_form(path)?;
+        forms
+            .records
+            .first()
+            .map(|r| {
+                r.read(
+                    &self.image.storage,
+                    self.image.anchor.archive,
+                    &*self.image.value_key()?,
+                    self.image.anchor.sealed_len,
+                )
+            })
+            .transpose()
+    }
+    pub fn with_form_field_value<R>(
+        &self,
+        path: &LockboxPath,
+        id: &str,
+        f: impl FnOnce(&crate::FormValue) -> R,
+    ) -> Result<Option<R>> {
+        let forms = self.selected_form(path)?;
+        let Some(field) = forms
+            .records
+            .first()
+            .and_then(|r| r.fields.iter().find(|f| f.id == id))
+        else {
+            return Ok(None);
+        };
+        let value = field.read_value(
+            &self.image.storage,
+            self.image.anchor.archive,
+            &*self.image.value_key()?,
+            self.image.anchor.sealed_len,
+        )?;
+        Ok(Some(f(&value)))
+    }
+}

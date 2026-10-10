@@ -1,0 +1,28 @@
+#! /usr/bin/env dcli
+import 'dart:io';
+const root='/tmp/revault-journal-buffer-20261010';
+const runner='$root/bin/archive_evaluation';
+const primary='$root/bin/adapter_before';
+const other='$root/bin/adapter_after';
+const fixtures='/tmp/revault-selective-read-20261010/fixtures';
+const cases=[
+  ('small512-mixed-compressed','stream',262144),
+  ('raw8m-random','stream',65536),
+  ('compressed8m-pattern','stream',262144),
+  ('raw8m-random','range',65536),
+  ('raw64m-random','stream',65536),
+  ('raw64m-random','range',65536),
+];
+void main(){
+  final out=Directory('$root/smoke-fixed')..createSync();
+  for(var i=0;i<cases.length;i++){
+    final (name,access,unit)=cases[i];
+    final fixture='$fixtures/$name';
+    final evidence='${out.path}/case-$i-$name-$access';
+    final result=Process.runSync('taskset',['-c','2',runner,'compare-existing',evidence,fixture,primary,'$fixture/other',other,'$fixture/other',access,'1','1'],environment:{...Platform.environment,'REVAULT_CANDIDATE_UNIT':'$unit'});
+    final log='${result.stdout}${result.stderr}';
+    File('${out.path}/case-$i.log').writeAsStringSync(log,flush:true);
+    if(result.exitCode!=0)throw StateError('smoke failed: $name $access; ${log.length>1000?log.substring(0,1000):log}');
+    print('SMOKE_OK $name $access evidence=$evidence/samples.jsonl');
+  }
+}

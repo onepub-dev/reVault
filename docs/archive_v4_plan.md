@@ -22,6 +22,29 @@ or erase failures.
 
 ## Current position and next work
 
+### Performance resumed with 50% remaining cutoff — 2026-10-10
+
+The user explicitly resumed work until usage remaining reaches 50%. This
+supersedes the previous no-cutoff run below. The fresh current-session reading at
+09:43 UTC reports 0% used (100% remaining) for the seven-day window. Recheck local
+rate-limit telemetry at bounded milestones and stop new work at 50% used.
+The worktree was clean at resume revision `1db0cb59`, including the later Unicode alias validation;
+preserve those commits. The [opening admission profile](evidence/open-admission-profile-2026-10-10/README.md)
+is complete; journal opening contributes 16–17 µs and metadata-page reads dominate
+format lookup. Instrumentation is removed. The [journal buffer substitution](evidence/journal-buffer-2026-10-10/README.md)
+is retained for a small measured benefit, explicitly not realistic throughput
+qualification. The user highlighted the inadequacy of small artifacts and
+approved evaluating bounded parallel reads. The [disk-backed capacity checks](evidence/large-capacity-2026-10-10/README.md)
+expose the fresh exporter’s 4,096-fragment ceiling on a 1 GiB file and its
+1,024-file ceiling on the 10,000-file workload.
+Prioritize bounded-memory construction/audit scaling before further small-fixture
+optimization; preserve failures rather than silently downsizing workloads.
+Measure full filesystem extraction separately
+from a verified streaming sink, and report CPU/RSS alongside worker count.
+The earlier fixtures are RAM-backed and cache-resident; their measurements are
+microcost evidence only.
+No performance qualification or public v4 activation is implied.
+
 ### Unicode Vault aliases — 2026-10-10
 
 The user assigned [issue #328](https://github.com/onepub-dev/reVault/issues/328)

@@ -1,0 +1,7 @@
+ docs/archive_v4_plan.md                                      | 11 +++++++++++
+ .../src/file_format/authenticated_index/cache.rs             |  4 ++--
+ .../file_format/candidate_files/resource_probe/tree_probe.rs |  6 +++++-
+ .../src/file_format/candidate_files/tree_image/reader.rs     |  2 +-
+ rust/revault_lockbox_api/src/file_format/mod.rs              |  2 ++
+ .../src/file_format/publication_anchor/shared.rs             | 12 +++++-------
+ 6 files changed, 26 insertions(+), 11 deletions(-)

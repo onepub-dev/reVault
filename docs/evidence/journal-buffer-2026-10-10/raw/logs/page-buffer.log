@@ -1,0 +1,10 @@
+    Finished `release` profile [optimized] target(s) in 0.12s
+     Running unittests src/lib.rs (/tmp/revault-tree-open-stages-20261010/target/release/deps/revault_lockbox_api-e3bcc2539127e239)
+
+running 3 tests
+test file_format::page_buffer::tests::byte_wiping_handles_empty_and_partial_allocations ... ok
+test file_format::page_buffer::tests::spare_wiping_covers_uninitialized_and_unaligned_regions ... ok
+test file_format::page_buffer::tests::wide_wiping_covers_unaligned_slices_without_touching_neighbours ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 666 filtered out; finished in 0.00s
+

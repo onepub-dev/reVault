@@ -1,0 +1,550 @@
+{
+  "stable": true,
+  "fixture_hashes_nonempty": true,
+  "binary_sha256_before_after": [
+    "8b66a0c56cb619d1a956c301c0278be2cefd44b6efa2e3f3d72449e2b71f11a1",
+    "8b66a0c56cb619d1a956c301c0278be2cefd44b6efa2e3f3d72449e2b71f11a1"
+  ],
+  "summary": {
+    "raw8m-random": {
+      "observation_count": 100,
+      "median_total_seconds": 0.000160357,
+      "stages": {
+        "format_lookup": {
+          "median_stage_seconds": 0.000064256,
+          "median_function_timers": {
+            "decode_cached_page": {
+              "observations": 100,
+              "median_calls": 1.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.0000212755
+            },
+            "decode_manifest": {
+              "observations": 100,
+              "median_calls": 0.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.0
+            },
+            "format_lookup": {
+              "observations": 100,
+              "median_calls": 1.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.000062106
+            },
+            "journal_open": {
+              "observations": 100,
+              "median_calls": 0.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.0
+            },
+            "publication_commitment": {
+              "observations": 100,
+              "median_calls": 0.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.0
+            },
+            "read_manifest": {
+              "observations": 100,
+              "median_calls": 0.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.0
+            },
+            "select_publication": {
+              "observations": 100,
+              "median_calls": 0.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.0
+            },
+            "verified_index_page": {
+              "observations": 100,
+              "median_calls": 1.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.0000393255
+            }
+          },
+          "median_storage_counts_and_seconds": {
+            "failed_calls": 0.0,
+            "length_calls": 1.0,
+            "length_seconds": 6.6E-7,
+            "read_calls": 1.0,
+            "read_into_calls": 0.0,
+            "read_seconds": 0.000006795,
+            "requested_bytes": 65536.0
+          }
+        },
+        "selected_publication": {
+          "median_stage_seconds": 0.0000859265,
+          "median_function_timers": {
+            "decode_cached_page": {
+              "observations": 100,
+              "median_calls": 0.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.0
+            },
+            "decode_manifest": {
+              "observations": 100,
+              "median_calls": 1.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.00002031
+            },
+            "format_lookup": {
+              "observations": 100,
+              "median_calls": 0.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.0
+            },
+            "journal_open": {
+              "observations": 100,
+              "median_calls": 1.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.00001653
+            },
+            "publication_commitment": {
+              "observations": 100,
+              "median_calls": 1.0,
+              "median_failures": 0.0,
+              "median_seconds": 3.7E-7
+            },
+            "read_manifest": {
+              "observations": 100,
+              "median_calls": 1.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.000029956
+            },
+            "select_publication": {
+              "observations": 100,
+              "median_calls": 1.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.00001671
+            },
+            "verified_index_page": {
+              "observations": 100,
+              "median_calls": 0.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.0
+            }
+          },
+          "median_storage_counts_and_seconds": {
+            "failed_calls": 0.0,
+            "length_calls": 3.0,
+            "length_seconds": 0.0000018900000000000001,
+            "read_calls": 5.0,
+            "read_into_calls": 0.0,
+            "read_seconds": 0.000010170000000000001,
+            "requested_bytes": 73728.0
+          }
+        },
+        "storage_handle": {
+          "median_stage_seconds": 0.000006865,
+          "median_function_timers": {},
+          "median_storage_counts_and_seconds": {}
+        }
+      }
+    },
+    "raw64m-random": {
+      "observation_count": 100,
+      "median_total_seconds": 0.0002333235,
+      "stages": {
+        "format_lookup": {
+          "median_stage_seconds": 0.0001335665,
+          "median_function_timers": {
+            "decode_cached_page": {
+              "observations": 100,
+              "median_calls": 2.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.0000488465
+            },
+            "decode_manifest": {
+              "observations": 100,
+              "median_calls": 0.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.0
+            },
+            "format_lookup": {
+              "observations": 100,
+              "median_calls": 1.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.00013120200000000002
+            },
+            "journal_open": {
+              "observations": 100,
+              "median_calls": 0.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.0
+            },
+            "publication_commitment": {
+              "observations": 100,
+              "median_calls": 0.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.0
+            },
+            "read_manifest": {
+              "observations": 100,
+              "median_calls": 0.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.0
+            },
+            "select_publication": {
+              "observations": 100,
+              "median_calls": 0.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.0
+            },
+            "verified_index_page": {
+              "observations": 100,
+              "median_calls": 2.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.000079286
+            }
+          },
+          "median_storage_counts_and_seconds": {
+            "failed_calls": 0.0,
+            "length_calls": 2.0,
+            "length_seconds": 0.0000013600000000000001,
+            "read_calls": 2.0,
+            "read_into_calls": 0.0,
+            "read_seconds": 0.000014040000000000001,
+            "requested_bytes": 131072.0
+          }
+        },
+        "selected_publication": {
+          "median_stage_seconds": 0.0000872615,
+          "median_function_timers": {
+            "decode_cached_page": {
+              "observations": 100,
+              "median_calls": 0.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.0
+            },
+            "decode_manifest": {
+              "observations": 100,
+              "median_calls": 1.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.00002038
+            },
+            "format_lookup": {
+              "observations": 100,
+              "median_calls": 0.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.0
+            },
+            "journal_open": {
+              "observations": 100,
+              "median_calls": 1.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.0000167605
+            },
+            "publication_commitment": {
+              "observations": 100,
+              "median_calls": 1.0,
+              "median_failures": 0.0,
+              "median_seconds": 3.8E-7
+            },
+            "read_manifest": {
+              "observations": 100,
+              "median_calls": 1.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.00003021
+            },
+            "select_publication": {
+              "observations": 100,
+              "median_calls": 1.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.0000171055
+            },
+            "verified_index_page": {
+              "observations": 100,
+              "median_calls": 0.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.0
+            }
+          },
+          "median_storage_counts_and_seconds": {
+            "failed_calls": 0.0,
+            "length_calls": 3.0,
+            "length_seconds": 0.0000019,
+            "read_calls": 5.0,
+            "read_into_calls": 0.0,
+            "read_seconds": 0.000010520000000000001,
+            "requested_bytes": 73728.0
+          }
+        },
+        "storage_handle": {
+          "median_stage_seconds": 0.0000085155,
+          "median_function_timers": {},
+          "median_storage_counts_and_seconds": {}
+        }
+      }
+    },
+    "compressed8m-pattern": {
+      "observation_count": 100,
+      "median_total_seconds": 0.0001697775,
+      "stages": {
+        "format_lookup": {
+          "median_stage_seconds": 0.000072331,
+          "median_function_timers": {
+            "decode_cached_page": {
+              "observations": 100,
+              "median_calls": 1.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.0000285755
+            },
+            "decode_manifest": {
+              "observations": 100,
+              "median_calls": 0.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.0
+            },
+            "format_lookup": {
+              "observations": 100,
+              "median_calls": 1.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.00007005100000000001
+            },
+            "journal_open": {
+              "observations": 100,
+              "median_calls": 0.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.0
+            },
+            "publication_commitment": {
+              "observations": 100,
+              "median_calls": 0.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.0
+            },
+            "read_manifest": {
+              "observations": 100,
+              "median_calls": 0.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.0
+            },
+            "select_publication": {
+              "observations": 100,
+              "median_calls": 0.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.0
+            },
+            "verified_index_page": {
+              "observations": 100,
+              "median_calls": 1.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.000039190500000000004
+            }
+          },
+          "median_storage_counts_and_seconds": {
+            "failed_calls": 0.0,
+            "length_calls": 1.0,
+            "length_seconds": 6.6E-7,
+            "read_calls": 1.0,
+            "read_into_calls": 0.0,
+            "read_seconds": 0.00000675,
+            "requested_bytes": 65536.0
+          }
+        },
+        "selected_publication": {
+          "median_stage_seconds": 0.000085736,
+          "median_function_timers": {
+            "decode_cached_page": {
+              "observations": 100,
+              "median_calls": 0.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.0
+            },
+            "decode_manifest": {
+              "observations": 100,
+              "median_calls": 1.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.0000202655
+            },
+            "format_lookup": {
+              "observations": 100,
+              "median_calls": 0.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.0
+            },
+            "journal_open": {
+              "observations": 100,
+              "median_calls": 1.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.0000164855
+            },
+            "publication_commitment": {
+              "observations": 100,
+              "median_calls": 1.0,
+              "median_failures": 0.0,
+              "median_seconds": 3.7E-7
+            },
+            "read_manifest": {
+              "observations": 100,
+              "median_calls": 1.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.0000299555
+            },
+            "select_publication": {
+              "observations": 100,
+              "median_calls": 1.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.000016515
+            },
+            "verified_index_page": {
+              "observations": 100,
+              "median_calls": 0.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.0
+            }
+          },
+          "median_storage_counts_and_seconds": {
+            "failed_calls": 0.0,
+            "length_calls": 3.0,
+            "length_seconds": 0.0000018900000000000001,
+            "read_calls": 5.0,
+            "read_into_calls": 0.0,
+            "read_seconds": 0.000010125000000000002,
+            "requested_bytes": 73728.0
+          }
+        },
+        "storage_handle": {
+          "median_stage_seconds": 0.00000676,
+          "median_function_timers": {},
+          "median_storage_counts_and_seconds": {}
+        }
+      }
+    },
+    "small512-mixed-compressed": {
+      "observation_count": 100,
+      "median_total_seconds": 0.000223013,
+      "stages": {
+        "format_lookup": {
+          "median_stage_seconds": 0.00012468199999999998,
+          "median_function_timers": {
+            "decode_cached_page": {
+              "observations": 100,
+              "median_calls": 2.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.0000401955
+            },
+            "decode_manifest": {
+              "observations": 100,
+              "median_calls": 0.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.0
+            },
+            "format_lookup": {
+              "observations": 100,
+              "median_calls": 1.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.0001224315
+            },
+            "journal_open": {
+              "observations": 100,
+              "median_calls": 0.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.0
+            },
+            "publication_commitment": {
+              "observations": 100,
+              "median_calls": 0.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.0
+            },
+            "read_manifest": {
+              "observations": 100,
+              "median_calls": 0.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.0
+            },
+            "select_publication": {
+              "observations": 100,
+              "median_calls": 0.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.0
+            },
+            "verified_index_page": {
+              "observations": 100,
+              "median_calls": 2.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.000079
+            }
+          },
+          "median_storage_counts_and_seconds": {
+            "failed_calls": 0.0,
+            "length_calls": 2.0,
+            "length_seconds": 0.00000135,
+            "read_calls": 2.0,
+            "read_into_calls": 0.0,
+            "read_seconds": 0.000013885,
+            "requested_bytes": 131072.0
+          }
+        },
+        "selected_publication": {
+          "median_stage_seconds": 0.00008645699999999999,
+          "median_function_timers": {
+            "decode_cached_page": {
+              "observations": 100,
+              "median_calls": 0.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.0
+            },
+            "decode_manifest": {
+              "observations": 100,
+              "median_calls": 1.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.00002038
+            },
+            "format_lookup": {
+              "observations": 100,
+              "median_calls": 0.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.0
+            },
+            "journal_open": {
+              "observations": 100,
+              "median_calls": 1.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.00001665
+            },
+            "publication_commitment": {
+              "observations": 100,
+              "median_calls": 1.0,
+              "median_failures": 0.0,
+              "median_seconds": 3.7E-7
+            },
+            "read_manifest": {
+              "observations": 100,
+              "median_calls": 1.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.0000300905
+            },
+            "select_publication": {
+              "observations": 100,
+              "median_calls": 1.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.00001689
+            },
+            "verified_index_page": {
+              "observations": 100,
+              "median_calls": 0.0,
+              "median_failures": 0.0,
+              "median_seconds": 0.0
+            }
+          },
+          "median_storage_counts_and_seconds": {
+            "failed_calls": 0.0,
+            "length_calls": 3.0,
+            "length_seconds": 0.0000019,
+            "read_calls": 5.0,
+            "read_into_calls": 0.0,
+            "read_seconds": 0.000010435000000000001,
+            "requested_bytes": 73728.0
+          }
+        },
+        "storage_handle": {
+          "median_stage_seconds": 0.00000836,
+          "median_function_timers": {},
+          "median_storage_counts_and_seconds": {}
+        }
+      }
+    }
+  }
+}

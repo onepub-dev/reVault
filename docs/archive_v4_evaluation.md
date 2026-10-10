@@ -37,9 +37,24 @@ a faster implementation of the same contract. A cost-only prototype may reject a
 hypothesis but cannot establish a release winner. Keep at most one primary layout
 hypothesis active per experiment; stop after its predeclared measurement batch.
 
+## Realistic workload correction — 2026-10-10
+
+The user challenged the practical significance of the small artifacts below.
+The [disk-backed capacity checks](evidence/large-capacity-2026-10-10/README.md)
+now take priority: one 1 GiB file and 10,000 files totaling 625 MiB. Existing
+8/64 MiB and 512-file results remain valid only for their measured microcosts;
+they used RAM-backed `/tmp` and do not establish realistic disk throughput.
+The 1 GiB construction attempt already fails the experimental repacker's
+4,096-fragment bound; the 10,000-file attempt fails its 1,024-file bound.
+Scale qualification must include construction and verified
+reopening, not just selected reads from a fixture produced outside the budget.
+Report seconds, throughput, CPU and total RSS for full reads and actual filesystem
+extraction. Keep small-range latency separate. The broader G3/G11 goals and all
+integrity requirements remain unchanged; no scale or performance gate passes.
+
 ## Primary workloads and statistics
 
-Primary local read cases: 512 files × 4 KiB, individual 1/8/64 MiB files, and a
+Historical diagnostic cases: 512 files × 4 KiB, individual 1/8/64 MiB files, and a
 pinned source-tree corpus. Each uses compressible, seeded incompressible and mixed
 bytes. Record corpus generator/version, seed and SHA-256 inventory before timing.
 The real corpus should be a clean Git archive of `0f9a137e`, excluding retained

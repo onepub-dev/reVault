@@ -1,0 +1,234 @@
+#! /usr/bin/env dcli
+import 'dart:convert';
+import 'dart:io';
+import 'package:dcli/dcli.dart';
+
+const root = '/tmp/revault-journal-buffer-20261010';
+const fixtureRoot = '/tmp/revault-selective-read-20261010/fixtures';
+const runner = '$root/bin/archive_evaluation';
+const core = '$root/bin/after';
+const packed = '$root/bin/adapter_before';
+const tree = '$root/bin/adapter_after';
+const rust = '/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust';
+
+final frozen = <String, String>{
+  'core_test_binary': core,
+  'index_cache': '$rust/revault_lockbox_api/src/file_format/authenticated_index/cache.rs',
+  'borrowed_index_decoder': '$rust/revault_lockbox_api/src/file_format/authenticated_index/borrowed.rs',
+  'baseline_test_binary': '$root/bin/before',
+  'selective_reader': '$rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/reader.rs',
+  'page_cache': '$rust/revault_lockbox_api/src/file_format/authenticated_index/cache.rs',
+  'packed_adapter': packed,
+  'tree_adapter': tree,
+  'archive_evaluation_runner': runner,
+  'cargo_lock': '$rust/Cargo.lock',
+  'runner_source': '$rust/revault_lockbox_api/benches/evaluation/runner.rs',
+  'comparison_source': '$rust/revault_lockbox_api/benches/evaluation/existing.rs',
+  'candidate_driver_source': '$rust/revault_lockbox_api/benches/evaluation/candidate_driver.rs',
+  'resource_probe_source': '$rust/revault_lockbox_api/src/file_format/candidate_files/resource_probe.rs',
+  'tree_probe_source': '$rust/revault_lockbox_api/src/file_format/candidate_files/resource_probe/tree_probe.rs',
+  'fragment_assembly_source': '$rust/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue/overflow.rs',
+  'fragment_join_tests': '$rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/open_reads.rs',
+  'tree_image_source': '$rust/revault_lockbox_api/src/file_format/candidate_files/tree_image.rs',
+  'preparation_journal_compact': '$rust/revault_lockbox_api/src/file_format/preparation_journal/compact.rs',
+  'page_buffer': '$rust/revault_lockbox_api/src/file_format/page_buffer.rs',
+  'batch_script': '$root/run-fixed-batch.dart',
+};
+
+String sha(String path) {
+  final result = Process.runSync('sha256sum', [path]);
+  if (result.exitCode != 0) throw StateError('sha256sum failed for $path: ${result.stderr}');
+  return '${result.stdout}'.split(RegExp(r'\s+')).first;
+}
+
+Map<String, String> hashes() => {for (final entry in frozen.entries) entry.key: sha(entry.value)};
+
+Map<String, String> fixtureHashes(String name) {
+  final root = '$fixtureRoot/$name';
+  final paths = <String, String>{
+    'archive.zip': '$root/archive.zip',
+    'candidate.lbox': '$root/candidate.lbox',
+    'candidate.public': '$root/candidate.public',
+    'case.json': '$root/case.json',
+    'inventory.json': '$root/inventory.json',
+    'other/case.json': '$root/other/case.json',
+    'other/tree.lbox': '$root/other/tree.lbox',
+    'other/tree.public': '$root/other/tree.public',
+  };
+  for (final entity in Directory('$root/source').listSync(recursive: true, followLinks: true)) {
+    if (entity is File) {
+      final relative = entity.path.substring('$root/'.length);
+      paths[relative] = entity.path;
+    }
+  }
+  for (final entity in Directory('$root/other/source').listSync(recursive: true, followLinks: true)) {
+    if (entity is File) {
+      final relative = entity.path.substring('$root/'.length);
+      paths[relative] = entity.path;
+    }
+  }
+  for (final required in ['case.json', 'other/case.json', 'other/tree.lbox', 'other/tree.public', 'source/file-000000.bin', 'other/source/file-000000.bin']) {
+    if (!paths.containsKey(required) || !File(paths[required]!).existsSync()) throw StateError('Missing required unique fixture path $required in $name');
+  }
+  return {for (final entry in paths.entries) entry.key: sha(entry.value)};
+}
+
+String git(String subcommand) {
+  final result = Process.runSync('git', subcommand.split(' '), workingDirectory: rust);
+  if (result.exitCode != 0) throw StateError('git $subcommand failed: ${result.stderr}');
+  return '${result.stdout}'.trim();
+}
+
+Map<String, Object> hostContext() {
+  final status = File('/proc/self/status').readAsLinesSync();
+  final cpu = File('/proc/cpuinfo').readAsLinesSync().firstWhere(
+    (line) => line.startsWith('model name'), orElse: () => 'model name: unknown');
+  final taskset = Process.runSync('taskset', ['-c', '2', 'true']);
+  if (taskset.exitCode != 0) throw StateError('CPU 2 is not available: ${taskset.stderr}');
+  return {
+    'utc': DateTime.now().toUtc().toIso8601String(),
+    'loadavg': File('/proc/loadavg').readAsStringSync().trim(),
+    'cpu_model': cpu,
+    'kernel': File('/proc/sys/kernel/osrelease').readAsStringSync().trim(),
+    'online_cpus': Process.runSync('nproc', []).stdout.toString().trim(),
+    'allowed_cpus': status.firstWhere((line) => line.startsWith('Cpus_allowed_list:'), orElse: () => 'unknown'),
+    'measurement_cpu': 2,
+  };
+}
+
+class FixedCase {
+  const FixedCase(this.name, this.rootName, this.access, this.unit);
+  final String name;
+  final String rootName;
+  final String access;
+  final int unit;
+}
+
+void main() {
+  const measureRoot = '$root/measure';
+  final measureDir = Directory(measureRoot);
+  if (measureDir.existsSync()) throw StateError('Refusing existing measurement directory');
+  const fixtureNames = ['small512-mixed-compressed', 'raw8m-random', 'compressed8m-pattern', 'raw64m-random'];
+  for (final name in fixtureNames) {
+    if (!Directory('$fixtureRoot/$name').existsSync()) throw StateError('Missing prepared fixture $name');
+  }
+  measureDir.createSync();
+
+  if (Platform.environment.containsKey('REVAULT_TREE_OPEN_DIAGNOSTIC')) throw StateError('normal reads only');
+  if (sha('$root/bin/before') != '997632d6c233e4a6289eb7a91976fbfee4038e5987f7fcdb3de266539167be56') throw StateError('Unexpected baseline binary');
+  if (sha(core) != '6e52a248f63699ae842af76c4cf38ed94edfd93dd78829e5c53fd8cb063bec18') throw StateError('Unexpected candidate binary');
+  final before = hashes();
+  final fixtureBefore = {for (final name in fixtureNames) name: fixtureHashes(name)};
+  final revision = git('rev-parse HEAD');
+  final status = git('status --short');
+  final toolchain = Process.runSync('rustc', ['+1.88.0', '--version']);
+  if (toolchain.exitCode != 0) throw StateError('rustc +1.88.0 failed');
+  final hostBefore = hostContext();
+  File('$root/hash-before.json').writeAsStringSync(const JsonEncoder.withIndent('  ').convert({
+    'source_revision': revision,
+    'worktree_status': status,
+    'rustc': '${toolchain.stdout}'.trim(),
+    'sha256': before,
+    'paths': frozen,
+    'fixtures': fixtureBefore,
+  }), flush: true);
+  File('$root/host-before.json').writeAsStringSync(const JsonEncoder.withIndent('  ').convert(hostBefore), flush: true);
+
+  final cases = <FixedCase>[
+    const FixedCase('small512-mixed-compressed-stream', 'small512-mixed-compressed', 'stream', 262144),
+    const FixedCase('raw8m-random-stream', 'raw8m-random', 'stream', 65536),
+    const FixedCase('compressed8m-pattern-stream', 'compressed8m-pattern', 'stream', 262144),
+    const FixedCase('raw8m-random-range', 'raw8m-random', 'range', 65536),
+    const FixedCase('raw64m-random-stream', 'raw64m-random', 'stream', 65536),
+    const FixedCase('raw64m-random-range', 'raw64m-random', 'range', 65536),
+  ];
+  final batchFailures = <String>[];
+  for (final item in cases) {
+    final caseRoot = '$fixtureRoot/${item.rootName}';
+    final evidence = '$measureRoot/${item.name}';
+    final args = [
+      '-c', '2', runner, 'compare-existing', evidence,
+      caseRoot, packed, '$caseRoot/other', tree, '$caseRoot/other',
+      item.access, '1', '30',
+    ];
+    final result = Process.runSync(
+      'taskset', args,
+      environment: {...Platform.environment, 'REVAULT_CANDIDATE_UNIT': '${item.unit}'},
+    );
+    final output = '${result.stdout}${result.stderr}';
+    File('$root/timing-${item.name}.log').writeAsStringSync(output, flush: true);
+    if (result.exitCode == 0) {
+      print('TIMING_CASE_OK ${item.name} evidence=$evidence/samples.jsonl');
+    } else {
+      batchFailures.add(item.name);
+      print('TIMING_CASE_FAILED ${item.name} exit=${result.exitCode} evidence=$evidence log=$root/timing-${item.name}.log');
+    }
+  }
+
+  final after = hashes();
+  final fixtureAfter = {for (final name in fixtureNames) name: fixtureHashes(name)};
+  final hostAfter = hostContext();
+  final stable = jsonEncode(before) == jsonEncode(after) && jsonEncode(fixtureBefore) == jsonEncode(fixtureAfter);
+  File('$root/hash-after.json').writeAsStringSync(const JsonEncoder.withIndent('  ').convert({'sha256': after, 'fixtures': fixtureAfter, 'stable': stable}), flush: true);
+  File('$root/host-after.json').writeAsStringSync(const JsonEncoder.withIndent('  ').convert(hostAfter), flush: true);
+  if (!stable) batchFailures.add('frozen_binary_or_source_hash_changed');
+
+  // Summarize only after all six fixed comparisons have completed.
+  final summaries = <String, List<Map<String, dynamic>>>{};
+  for (final item in cases) {
+    final samples = '$measureRoot/${item.name}/samples.jsonl';
+    if (!File(samples).existsSync()) {
+      batchFailures.add('missing_samples_${item.name}');
+      continue;
+    }
+    final result = Process.runSync(runner, ['summarize', samples]);
+    final output = '${result.stdout}${result.stderr}';
+    File('$root/summary-${item.name}.jsonl').writeAsStringSync(output, flush: true);
+    if (result.exitCode != 0) {
+      batchFailures.add('summary_failed_${item.name}');
+      continue;
+    }
+    summaries[item.name] = output.split('\n').where((line) => line.trim().startsWith('{'))
+      .map((line) => jsonDecode(line) as Map<String, dynamic>).toList();
+  }
+
+  final metrics = <String, Object?>{};
+  for (final item in cases) {
+    final rows = summaries[item.name];
+    if (rows == null) continue;
+    Map<String, dynamic>? find(String candidate, String baseline, String metric) {
+      for (final row in rows) {
+        if (row['candidate'] == candidate && row['baseline'] == baseline && row['metric'] == metric) return row;
+      }
+      return null;
+    }
+    final treeZip = find('other', 'zip', 'total_seconds');
+    final treePacked = find('other', 'primary', 'total_seconds');
+    if (treeZip == null || treePacked == null) {
+      batchFailures.add('summary_metrics_missing_${item.name}');
+      continue;
+    }
+    final medians = <String, Object?>{};
+    for (final metric in ['open_seconds', 'read_seconds', 'total_seconds', 'peak_rss_kib', 'cpu_seconds']) {
+      final row = find('other', 'zip', metric);
+      if (row != null) medians[metric] = row['candidate_median'];
+    }
+    metrics[item.name] = {
+      'tree_vs_zip_total': {'ratio': treeZip['ratio'], 'low95': treeZip['low95'], 'high95': treeZip['high95']},
+      'tree_vs_packed_control_total': {'ratio': treePacked['ratio'], 'low95': treePacked['low95'], 'high95': treePacked['high95']},
+      'tree_medians': medians,
+    };
+  }
+  File('$root/metrics-summary.json').writeAsStringSync(const JsonEncoder.withIndent('  ').convert({
+    'scope': 'matched-toolchain read comparison; smoke/setup timings excluded',
+    'pairs': 30,
+    'warmup_pairs': 3,
+    'passes': 1,
+    'workers': 1,
+    'cpu': 2,
+    'hashes_stable': stable,
+    'batch_failures': batchFailures,
+    'cases': metrics,
+  }), flush: true);
+  print('BATCH_FINISHED hashes_stable=$stable failures=${batchFailures.join(',')} metrics=$root/metrics-summary.json');
+}
