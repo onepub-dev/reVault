@@ -1,0 +1,14 @@
+Harness preparation and correctness smokes only. No paired measurement batch was run.
+
+Builds:
+- cargo +1.88.0 test -p revault_lockbox_api --release --features external-source --lib --no-run --message-format=json-render-diagnostics: passed; Cargo JSON artifact identified and copied to bin/revault_lockbox_api_tests.
+- cargo +1.88.0 bench -p revault_lockbox_api --features external-source --bench archive_evaluation --no-run --message-format=json-render-diagnostics: passed; Cargo JSON artifact identified and copied to bin/archive_evaluation. Note: cargo bench already selects the optimized bench profile; Cargo rejects an explicit --release argument.
+- Packed and typed-tree candidate_driver adapters compiled with rustc +1.88.0 --edition=2021 -O against the copied frozen test binary; output binaries in bin/adapter_packed and bin/adapter_tree.
+- cargo +1.88.0 clippy -p revault_lockbox_api --features external-source --lib --tests --benches -- -D warnings: passed.
+
+Correctness-only smokes:
+- 16 protection/codec/padding combinations, each 2 x 4096 bytes with one pass/sample through archive_evaluation run: all passed. Raw unit 65536, compressed unit 262144.
+- 1 x 64 MiB seeded-random raw, plain, default-padded fixture: stream run passed, followed by compare-existing stream and midpoint-range checks with one sample each. All passed and reported retained inputs unchanged; runner built-in verification compared output bytes outside timed reads.
+- Timings from smokes are diagnostics and excluded from any performance claim.
+
+Raw Cargo build logs are test-build.jsonl and bench-build.jsonl. Adapter compiler logs, Clippy, all smoke invocation logs, scripts, and executable/source identities are retained under /tmp/revault-tree-read-20261010 and /tmp/revault_*tree_read*.dart. See build-identities.txt for source and binary hashes.

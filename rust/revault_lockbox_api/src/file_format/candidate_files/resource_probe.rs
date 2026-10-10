@@ -1,5 +1,6 @@
 //! Protocol adapter for the common A/B/ZIP fresh-process runner. Test-only C.
 use super::*;
+mod tree_probe;
 use crate::storage::StorageBackend;
 use crate::{
     Compression, EncryptionMode, LockboxFormatOptions, OwnerSigningPublicKey, SigningMode,
@@ -63,6 +64,9 @@ impl Resources {
 // One measurement/verification loop for both archive layouts; only the reader
 // implementation differs. No fixture hashes or source reads are inside timers.
 trait ReadImage {
+    fn stored_name(index: usize) -> String {
+        name(index)
+    }
     fn info(&self, path: &[u8]) -> Result<Option<FileInfo>>;
     fn visit(
         &mut self,
@@ -100,15 +104,19 @@ impl<S: Storage> ReadImage for super::dense_image::Image<S> {
         self.read_range(path, offset, len, visitor)
     }
 }
-fn verify(files: &mut impl ReadImage, root: &Path, count: usize, bytes: u64) {
+fn verify<R: ReadImage>(files: &mut R, root: &Path, count: usize, bytes: u64) {
     let mut expected = vec![0; MAX_LOGICAL];
     for index in 0..count {
         let name = name(index);
+        let stored_name = R::stored_name(index);
         let mut source = File::open(root.join("source").join(&name)).unwrap();
-        assert_eq!(files.info(name.as_bytes()).unwrap().unwrap().len, bytes);
+        assert_eq!(
+            files.info(stored_name.as_bytes()).unwrap().unwrap().len,
+            bytes
+        );
         let mut position = 0;
         files
-            .visit(name.as_bytes(), 0, bytes, |chunk| {
+            .visit(stored_name.as_bytes(), 0, bytes, |chunk| {
                 source.read_exact(&mut expected[..chunk.len()]).unwrap();
                 assert!(
                     chunk == &expected[..chunk.len()],
@@ -168,6 +176,10 @@ fn candidate_file_resource_probe() {
         },
     });
     let key = encrypted.then_some(KEY.as_slice());
+    if phase == "tree-create" || phase == "tree-sample" {
+        tree_probe::run(&root, count, bytes, unit, mode, key, &phase);
+        return;
+    }
     if phase == "dense-create" || phase == "dense-lifecycle" || phase == "dense-tail-lifecycle" {
         let cycles = if phase != "dense-create" {
             std::env::var("REVAULT_CANDIDATE_CYCLES")
@@ -717,14 +729,14 @@ fn sample<R: ReadImage>(root: &Path, count: usize, bytes: u64, open: impl Fn() -
     let mut copy = [0; 65536];
     for _ in 0..passes {
         for index in 0..count {
-            let name = name(index);
+            let stored_name = R::stored_name(index);
             let (offset, len) = if access == "range" {
                 (bytes / 2, 4096.min(bytes - bytes / 2))
             } else {
                 (0, bytes)
             };
             files
-                .visit(name.as_bytes(), offset, len, |chunk| {
+                .visit(stored_name.as_bytes(), offset, len, |chunk| {
                     for part in chunk.chunks(copy.len()) {
                         copy[..part.len()].copy_from_slice(part);
                         first.get_or_insert_with(|| started.elapsed().as_secs_f64());
@@ -747,13 +759,13 @@ fn sample<R: ReadImage>(root: &Path, count: usize, bytes: u64, open: impl Fn() -
         let len = 4096.min(bytes - offset);
         let mut expected = [0; 4096];
         for index in 0..count {
-            let name = name(index);
-            let mut source = File::open(root.join("source").join(&name)).unwrap();
+            let stored_name = R::stored_name(index);
+            let mut source = File::open(root.join("source").join(name(index))).unwrap();
             source.seek(SeekFrom::Start(offset)).unwrap();
             source.read_exact(&mut expected[..len as usize]).unwrap();
             let mut position = 0;
             checked
-                .visit(name.as_bytes(), offset, len, |chunk| {
+                .visit(stored_name.as_bytes(), offset, len, |chunk| {
                     assert!(chunk == &expected[position..position + chunk.len()]);
                     position += chunk.len();
                     Ok(())

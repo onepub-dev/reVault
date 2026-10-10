@@ -65,3 +65,6 @@ private key remains in the parent process. The child arms its requested exit onl
 after fixture preparation, so preparatory compaction cannot consume the checkpoint.
 This models abrupt process exit, not physical power loss, automatic temporary
 ownership/cleanup, or platform-independent durability.
+
+Post-format verification at `1b58c5d0` repeats all 72 process exits successfully
+and passes strict Clippy. The raw post-format logs are retained.

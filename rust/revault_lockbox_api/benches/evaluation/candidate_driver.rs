@@ -12,7 +12,14 @@ fn main() {
         .or_else(|| std::env::var_os("REVAULT_CANDIDATE_TEST_BINARY"))
         .expect("set test executable");
     let dense = option_env!("REVAULT_CANDIDATE_FROZEN_DENSE") == Some("1");
-    let phase = if dense {
+    let tree = option_env!("REVAULT_CANDIDATE_FROZEN_TREE") == Some("1");
+    let phase = if tree {
+        if args[0] == "create" {
+            "tree-create"
+        } else {
+            "tree-sample"
+        }
+    } else if dense {
         if args[0] == "create" {
             "dense-create"
         } else {

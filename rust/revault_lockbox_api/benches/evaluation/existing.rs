@@ -37,12 +37,23 @@ pub(super) fn compare(args: &[String]) {
     let source = inventory(primary_root, &case);
     assert_eq!(source, inventory(other_root, &case));
     assert_eq!(source, inventory(zip_root, &case));
+    // Accept exactly one complete shared-image fixture pair. Ambiguous or
+    // incomplete sets must not silently select a different comparison input.
+    let layouts: Vec<_> = ["dense", "tree"]
+        .into_iter()
+        .filter(|layout| {
+            other_root.join(format!("{layout}.lbox")).exists()
+                || other_root.join(format!("{layout}.public")).exists()
+        })
+        .collect();
+    assert_eq!(layouts.len(), 1, "select exactly one shared-image fixture");
+    let shared_layout = layouts[0];
     let artifacts = [
         zip_root.join("archive.zip"),
         primary_root.join("candidate.lbox"),
         primary_root.join("candidate.public"),
-        other_root.join("dense.lbox"),
-        other_root.join("dense.public"),
+        other_root.join(format!("{shared_layout}.lbox")),
+        other_root.join(format!("{shared_layout}.public")),
     ];
     let hashes: Vec<_> = artifacts.iter().map(|path| hash_file(path)).collect();
     fs::create_dir(output).expect("use a new evidence directory");
@@ -66,7 +77,7 @@ pub(super) fn compare(args: &[String]) {
     write_record(
         &mut evidence,
         &json!({"kind":"environment","case":case.json(),
-        "layout":"retained-candidate-versus-aged-shared-control","executable_sha256":hash_file(&executable),
+        "layout":"retained-candidate-versus-shared-control","executable_sha256":hash_file(&executable),
         "primary_executable_sha256":hash_file(primary),"other_executable_sha256":hash_file(other),
         "source_revision_at_run":String::from_utf8_lossy(&revision.stdout).trim(),
         "runner_source_sha256":hex(&Sha256::digest(include_bytes!("runner.rs"))),
