@@ -77,7 +77,7 @@ Mirror projects store configuration and enforce ownership; this crate does not
 walk host directories or choose deletion policy overrides. Higher-level code
 calculates a plan from the host and archive TOC, presents any required safety
 confirmation, then applies it through `Lockbox::with_mirror_project_mutation`.
-The CLI provides that complete workflow through `lbx LOCKBOX mirror`.
+The CLI provides that complete workflow through `lbx LOCKBOX mirrors`.
 
 ## Encryption And Authentication
 
@@ -128,12 +128,14 @@ Normal callers should use the standard `Lockbox` open/create APIs.
 
 ## Archive Format
 
-The [archive format reference](https://github.com/onepub-dev/reVault/blob/main/rust/revault_lockbox_api/ARCHIVE_FORMAT.md)
-retains historical layout descriptions; it is not the v4 wire specification.
-Use [Transactions and recovery](https://github.com/onepub-dev/reVault/blob/main/manual/develop-with-revault/transactions.md)
-for the maintained transaction contract and the
-[v4 work entry point](https://github.com/onepub-dev/reVault/blob/main/docs/archive_v4_plan.md)
-to locate development plans and qualification evidence.
+Main writes format-3 archives in the `0.4.x` compatibility line. The
+[archive format reference](https://github.com/onepub-dev/reVault/blob/main/rust/revault_lockbox_api/ARCHIVE_FORMAT.md)
+retains historical layout descriptions; verify exact encodings against the
+implementation and released compatibility fixtures. Use
+[Transactions and recovery](https://github.com/onepub-dev/reVault/blob/main/manual/develop-with-revault/transactions.md)
+for the maintained transaction contract. Format-4 work remains on its development
+branch; the [v4 work entry point](https://github.com/onepub-dev/reVault/blob/main/docs/archive_v4_plan.md)
+locates its plans and qualification evidence.
 
 Implementation notes such as page-cache boundaries, compaction flow, key
 removal maintenance, and recovery scan behavior are in

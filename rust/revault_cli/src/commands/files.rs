@@ -1,6 +1,4 @@
-use super::context::{
-    cli_error, open_existing, open_for_reading, open_or_create, require_arg, Access, CliResult,
-};
+use super::context::{cli_error, open_existing, open_for_reading, require_arg, Access, CliResult};
 use super::filters::{excluded, included, normalize as normalize_rules};
 use super::output::{human_size, output_format_from_matches, print_records, OutputFormat};
 use super::{
@@ -66,7 +64,7 @@ pub(crate) fn rename_matches(matches: &ArgMatches, access: &Access) -> CliResult
             .is_some_and(|value| super::looks_like_lockbox_path(value))
     {
         return Err(cli_error(
-            "move renames entries inside a lockbox; use `lockbox LOCKBOX move FROM TO`. To move the lockbox file itself, use `lockbox vault lockbox move SOURCE DESTINATION`",
+            "move renames entries inside a lockbox; use `lockbox LOCKBOX move FROM TO`. To move the lockbox file itself, use `lockbox vault lockboxes move SOURCE DESTINATION`",
         ));
     }
     rename(&optional_lockbox_positionals(values, 2)?, access)
@@ -270,7 +268,7 @@ fn extract_args_from_matches(matches: &ArgMatches) -> CliResult<Vec<String>> {
 
 fn add(request: AddRequest, access: &Access, worker_policy: WorkerPolicy) -> CliResult<()> {
     let creates_lockbox = !Path::new(&request.lockbox_path).exists();
-    let mut lb = open_or_create(&request.lockbox_path, access)?;
+    let mut lb = open_existing(&request.lockbox_path, access)?;
     lb.set_worker_policy(worker_policy);
     if creates_lockbox
         || request.sources.len() > 1

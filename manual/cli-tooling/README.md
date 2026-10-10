@@ -17,7 +17,7 @@ Start with the [Quick start guide](quick-start-guide.md). For help at any level,
 ```bash
 lbx --help
 lbx vault --help
-lbx secrets.lbox variable --help
+lbx secrets.lbox variables --help
 ```
 
 Add `--verbose` to expose advanced command forms and options that are normally kept out of the way.

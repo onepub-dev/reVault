@@ -19,15 +19,15 @@ This design covers:
 
 ```
 lockbox vault share
-lockbox vault contact add --share-code
-lockbox vault contact update --share-code
-lockbox vault contact update --accept
-lockbox vault contact update --reject
+lockbox vault contacts add --share-code
+lockbox vault contacts update --share-code
+lockbox vault contacts update --accept
+lockbox vault contacts update --reject
 lockbox vault identity rotate
 lockbox vault identity history
 lockbox access refresh
-lockbox vault lockbox list
-lockbox vault lockbox forget
+lockbox vault lockboxes list
+lockbox vault lockboxes forget
 share server URL configuration
 binary vault contact records
 signed and unsigned key replacement
@@ -43,13 +43,13 @@ New and amended commands:
 ```
 lockbox vault share [identity] [--key-index N] [--server URL] [--ttl 15m] [--max-fetches 1]
 
-lockbox vault contact add <identity> --share-code CODE [--server URL]
-lockbox vault contact add <identity> <public-key-file>
+lockbox vault contacts add <identity> --share-code CODE [--server URL]
+lockbox vault contacts add <identity> <public-key-file>
 
-lockbox vault contact update <identity> --share-code CODE [--server URL]
-lockbox vault contact update <identity> <public-key-file>
-lockbox vault contact update <identity> --accept
-lockbox vault contact update <identity> --reject
+lockbox vault contacts update <identity> --share-code CODE [--server URL]
+lockbox vault contacts update <identity> <public-key-file>
+lockbox vault contacts update <identity> --accept
+lockbox vault contacts update <identity> --reject
 
 lockbox vault identity rotate [identity]
 lockbox vault identity history [identity]
@@ -58,8 +58,8 @@ lockbox access refresh <lockbox> <identity>
 lockbox access refresh --all <identity>
 lockbox access refresh --all
 
-lockbox vault lockbox list
-lockbox vault lockbox forget <lockbox>
+lockbox vault lockboxes list
+lockbox vault lockboxes forget <lockbox>
 ```
 
 `contact add` is only for creating a new contact. If a contact already exists, it must fail and direct the user to `contact update`. Do not keep `--overwrite` for contacts; it hides whether the user is creating first trust or changing an existing trust relationship.
@@ -70,7 +70,7 @@ lockbox vault lockbox forget <lockbox>
 
 `access refresh` updates lockbox access entries from retired identity generations to active identity generations. It is the user-facing command for the underlying key-directory update operation.
 
-`vault lockbox forget` removes a missing or unwanted lockbox reference from the vault's known-lockbox list. It does not modify the lockbox file itself.
+`vault lockboxes forget` removes a missing or unwanted lockbox reference from the vault's known-lockbox list. It does not modify the lockbox file itself.
 
 ## Worked Examples
 
@@ -95,7 +95,7 @@ Alice gives both codes to Bob over an independent channel.
 Bob adds Alice:
 
 ```bash
-lockbox vault contact add alice@example.com --share-code 0123456789012
+lockbox vault contacts add alice@example.com --share-code 0123456789012
 ```
 
 Bob is prompted:
@@ -117,7 +117,7 @@ lockbox vault identity export alice@example.com alice.lockbox-contact
 Bob imports and verifies it:
 
 ```bash
-lockbox vault contact add alice@example.com alice.lockbox-contact
+lockbox vault contacts add alice@example.com alice.lockbox-contact
 ```
 
 The CLI computes the same verification code from the file payload and asks Bob to enter the code received from Alice. The contact is stored only if the code matches.
@@ -143,7 +143,7 @@ Because Alice has an old retired signing key, the CLI builds a `signed_key_repla
 Bob updates Alice:
 
 ```bash
-lockbox vault contact update alice@example.com --share-code 0123456789012
+lockbox vault contacts update alice@example.com --share-code 0123456789012
 ```
 
 If the signature verifies against Alice's current verified contact key, Bob's contact record is promoted to the new key and remains verified.
@@ -159,7 +159,7 @@ lockbox vault share alice@example.com --unsigned-replacement
 Bob updates Alice:
 
 ```bash
-lockbox vault contact update alice@example.com --share-code 0123456789012
+lockbox vault contacts update alice@example.com --share-code 0123456789012
 ```
 
 The CLI detects `unsigned_key_replacement_v1`, computes the replacement verification code, and asks Bob to enter the code from Alice. If it matches, Bob may accept the replacement. If verification is deferred, the replacement is stored as pending and every use of Alice's old key warns.
@@ -359,7 +359,7 @@ revoked
 ```
 WARNING: alice@example.com has a pending key replacement.
 Using the currently verified old key.
-Run: lockbox vault contact update alice@example.com --accept
+Run: lockbox vault contacts update alice@example.com --accept
 ```
 
 The warning is important because a pending replacement is evidence that the contact may have moved to a new key, but it is not enough to discard trust in the old key.
@@ -498,7 +498,7 @@ The share server does not decide whether a payload is signed. It only validates 
 ### Add Contact By Share Code
 
 ```bash
-lockbox vault contact add alice@example.com \
+lockbox vault contacts add alice@example.com \
   --share-code 0123456789012 \
   [--server URL] \
   [--verification-code 71-44-92]
@@ -521,7 +521,7 @@ The command should reject overwriting an existing contact unless an explicit rep
 ### Receive Replacement By Share Code
 
 ```bash
-lockbox vault contact update alice@example.com \
+lockbox vault contacts update alice@example.com \
   --share-code 0123456789012 \
   [--server URL] \
   [--verification-code 71-44-92]
@@ -565,8 +565,8 @@ If an unsigned replacement is fetched but verification is deferred, store it as 
 ### Accept Or Reject Pending Replacement
 
 ```bash
-lockbox vault contact update alice@example.com --accept
-lockbox vault contact update alice@example.com --reject
+lockbox vault contacts update alice@example.com --accept
+lockbox vault contacts update alice@example.com --reject
 ```
 
 `--accept` promotes a pending replacement only if its continuity requirements have already been met:
@@ -782,11 +782,11 @@ Known lockbox records let `lockbox access refresh --all` build a plan without sc
 Users need a way to remove stale records:
 
 ```bash
-lockbox vault lockbox list
-lockbox vault lockbox forget <lockbox>
+lockbox vault lockboxes list
+lockbox vault lockboxes forget <lockbox>
 ```
 
-`vault lockbox list` should show:
+`vault lockboxes list` should show:
 
 ```
 path
@@ -795,7 +795,7 @@ lockbox_id
 last_seen
 ```
 
-`vault lockbox forget <lockbox>` removes the known-lockbox record only. It must not delete or modify the lockbox file.
+`vault lockboxes forget <lockbox>` removes the known-lockbox record only. It must not delete or modify the lockbox file.
 
 ## Doctor Checks
 
@@ -813,7 +813,7 @@ For missing lockboxes, doctor should print the paths and suggested cleanup:
 ```
 Missing known lockboxes:
   /home/alice/old-project.lbox
-    run: lockbox vault lockbox forget /home/alice/old-project.lbox
+    run: lockbox vault lockboxes forget /home/alice/old-project.lbox
 ```
 
 Doctor should not remove records automatically. It only reports and suggests the explicit forget command.
@@ -845,13 +845,13 @@ Do not use JSON for contact, history, identity, or replacement records.
 5. Add binary identity records with signing key material.
 6. Add verification-code helpers and canonical signing body helpers to the shared protocol or a small contact-sharing module.
 7. Implement `lockbox vault share` publish/receive/delete.
-8. Implement `lockbox vault contact add --share-code`.
+8. Implement `lockbox vault contacts add --share-code`.
 9. Implement `lockbox vault identity rotate`.
-10. Implement signed and unsigned `lockbox vault contact update --share-code`.
+10. Implement signed and unsigned `lockbox vault contacts update --share-code`.
 11. Implement `--accept` and `--reject` pending replacement handling.
 12. Implement lockbox access refresh commands for retired identity generations.
 13. Track known lockboxes in the vault.
-14. Add `lockbox vault lockbox list` and `lockbox vault lockbox forget`.
+14. Add `lockbox vault lockboxes list` and `lockbox vault lockboxes forget`.
 
 Implemented in the current share-server pass:
 

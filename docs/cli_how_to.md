@@ -173,29 +173,29 @@ or APIs request them.
 Set a variable:
 
 ```bash
-lockbox secrets.lbox variable set DATABASE_URL 'postgres://localhost/app'
-lockbox secrets.lbox variable set DATABASE_URL='postgres://localhost/app'
-lockbox secrets.lbox variable set DATABASE_URL --value 'postgres://localhost/app'
+lockbox secrets.lbox variables set DATABASE_URL 'postgres://localhost/app'
+lockbox secrets.lbox variables set DATABASE_URL='postgres://localhost/app'
+lockbox secrets.lbox variables set DATABASE_URL --value 'postgres://localhost/app'
 ```
 
 Set a secret variable with an explicit value source:
 
 ```bash
-lockbox secrets.lbox variable set --secret API_TOKEN --interactive
-lockbox secrets.lbox variable set --secret API_TOKEN --file ./api-token.txt
-lockbox secrets.lbox variable set --secret API_TOKEN --stdin
-lockbox secrets.lbox variable set --secret API_TOKEN --from-env API_TOKEN
-lockbox secrets.lbox variable set --secret API_TOKEN --value "$API_TOKEN"
+lockbox secrets.lbox variables set --secret API_TOKEN --interactive
+lockbox secrets.lbox variables set --secret API_TOKEN --file ./api-token.txt
+lockbox secrets.lbox variables set --secret API_TOKEN --stdin
+lockbox secrets.lbox variables set --secret API_TOKEN --from-env API_TOKEN
+lockbox secrets.lbox variables set --secret API_TOKEN --value "$API_TOKEN"
 ```
 
 Short forms are also supported:
 
 ```bash
-lockbox secrets.lbox variable set -s API_TOKEN -i
-lockbox secrets.lbox variable set -s API_TOKEN -f ./api-token.txt
-lockbox secrets.lbox variable set -s API_TOKEN -t
-lockbox secrets.lbox variable set -s API_TOKEN -e API_TOKEN
-lockbox secrets.lbox variable set -s API_TOKEN -v "$API_TOKEN"
+lockbox secrets.lbox variables set -s API_TOKEN -i
+lockbox secrets.lbox variables set -s API_TOKEN -f ./api-token.txt
+lockbox secrets.lbox variables set -s API_TOKEN -t
+lockbox secrets.lbox variables set -s API_TOKEN -e API_TOKEN
+lockbox secrets.lbox variables set -s API_TOKEN -v "$API_TOKEN"
 ```
 
 Sensitivity is declared when a variable is created. Updating the value preserves
@@ -205,26 +205,26 @@ way around, delete it and recreate it.
 Get a variable:
 
 ```bash
-lockbox secrets.lbox variable get DATABASE_URL
-lockbox secrets.lbox variable get --secret API_TOKEN
+lockbox secrets.lbox variables get DATABASE_URL
+lockbox secrets.lbox variables get --secret API_TOKEN
 ```
 
 List variable names:
 
 ```bash
-lockbox secrets.lbox variable list
+lockbox secrets.lbox variables list
 ```
 
 Export variables for shell use:
 
 ```bash
-lockbox secrets.lbox variable export
+lockbox secrets.lbox variables export
 ```
 
 Remove a variable:
 
 ```bash
-lockbox secrets.lbox variable rm DATABASE_URL
+lockbox secrets.lbox variables rm DATABASE_URL
 ```
 
 Environment variable names should use portable shell-style names:
@@ -264,7 +264,7 @@ The command prints public lockbox profile, summary counts for files, symlinks,
 environment variables, key slots, logical file bytes, per-page metadata, page
 object kinds, and a recovery-scan summary. It does not print file paths, file
 contents, environment variable names, or environment variable values. Use
-`lockbox list` and `lockbox variable list` for those details.
+`lockbox list` and `lockbox variables list` for those details.
 
 ## List Files
 
@@ -455,7 +455,7 @@ lockbox vault import-key legacy alice.key alice.pub
 Export a vault-managed private key:
 
 ```bash
-lockbox vault profile export-private legacy legacy.key
+lockbox vault profiles export-private legacy legacy.key
 ```
 
 Supported key file formats:
@@ -470,8 +470,8 @@ Supported key file formats:
 Select an export format with `--format`:
 
 ```bash
-lockbox vault profile export --format jwk default alice.jwk
-lockbox vault profile export-private --format lockbox-pem legacy legacy.key
+lockbox vault profiles export --format jwk default alice.jwk
+lockbox vault profiles export-private --format lockbox-pem legacy legacy.key
 ```
 
 Imports auto-detect native Lockbox PEM, JWK, JWKS, and raw hex.
@@ -561,24 +561,24 @@ directory and one exclusively managed lockbox directory. Creating a project
 records the relationship but does not copy files:
 
 ```bash
-lbx backup.lbox mirror project create --from ./project --to /projects/project
-lbx backup.lbox mirror project status
-lbx backup.lbox mirror project update
+lbx backup.lbox mirrors project create --from ./project --to /projects/project
+lbx backup.lbox mirrors project status
+lbx backup.lbox mirrors project update
 ```
 
 `status` is the only preview operation. `update` recalculates the plan before
 applying it, adds new files, replaces changed files, and by default removes
 managed files that are missing or excluded on the host. Use
-`mirror project configure --missing-files retain` when archive-only files
+`mirrors project configure --missing-files retain` when archive-only files
 should survive an update.
 
 Rules belong to the project and travel inside the encrypted lockbox:
 
 ```bash
-lbx backup.lbox mirror project rule add include 'src/**' README.md
-lbx backup.lbox mirror project rule add exclude '*.tmp' target/**
-lbx backup.lbox mirror project rule list
-lbx backup.lbox mirror project rule remove exclude '*.tmp'
+lbx backup.lbox mirrors project rules add include 'src/**' README.md
+lbx backup.lbox mirrors project rules add exclude '*.tmp' target/**
+lbx backup.lbox mirrors project rules list
+lbx backup.lbox mirrors project rules remove exclude '*.tmp'
 ```
 
 An empty include list selects everything. Include and exclude patterns are
@@ -588,7 +588,7 @@ temporary and are not stored.
 
 Each project owns its complete destination subtree. Destinations cannot overlap,
 and a project at `/` prevents any other project. Ordinary file commands cannot
-change a managed subtree; use the project-scoped `mirror NAME add`, `extract`,
+change a managed subtree; use the project-scoped `mirrors NAME add`, `extract`,
 `cat`, `list`, `remove`, or `move` forms instead. Those commands use the same
 options as their ordinary file-command counterparts. `forget` removes only the
 project definition and leaves its files in place; `delete` removes both.
@@ -596,14 +596,14 @@ project definition and leaves its files in place; `delete` removes both.
 The source is stored as a canonical absolute host path together with a
 filesystem identity where the platform provides one (for example, the Unix
 device and inode). If the directory moves or is replaced, explicitly accept the
-new identity with `mirror NAME rebind --from HOST_DIRECTORY`. Empty selected
+new identity with `mirrors NAME rebind --from HOST_DIRECTORY`. Empty selected
 sources and plans that remove more than half the managed files require
 `--allow-empty` and `--allow-large-delete`.
 
 Project definitions are encrypted normal variables under
 `/.revault/mirrors/NAME`. Dot-prefixed variables are hidden from ordinary
-variable listings and all exports. Use `variable list --all` and an exact
-`variable get` when low-level inspection is necessary.
+variable listings and all exports. Use `variables list --all` and an exact
+`variables get` when low-level inspection is necessary.
 
 The CLI should reject or fail closed on:
 

@@ -63,7 +63,7 @@ blocking client API
 
 The server crate depends on `revault_publish_protocol`; it must not carry a
 private duplicate of the wire format. The CLI should also depend on
-`revault_publish_protocol` when it grows `lockbox vault profile publish`, `lockbox contact add
+`revault_publish_protocol` when it grows `lockbox vault profiles publish`, `lockbox contact add
 --publish-code`, and `lockbox contact update --publish-code`.
 
 The client API should make the normal call flow explicit:

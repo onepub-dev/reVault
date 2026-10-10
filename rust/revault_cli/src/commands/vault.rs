@@ -63,10 +63,10 @@ pub(crate) fn run_matches(matches: &ArgMatches) -> CliResult<()> {
         "backup" => backup_options(required_value(sub, "output"), sub.get_flag("overwrite")),
         "restore" => restore_options(required_value(sub, "backup"), sub.get_flag("overwrite")),
         "passphrase" => change_passphrase(&[]),
-        "form" => vault_form_matches(sub),
-        "profile" => vault_profile_matches(sub),
-        "contact" => vault_contact_matches(sub),
-        "lockbox" => vault_lockbox_matches(sub),
+        "forms" => vault_form_matches(sub),
+        "profiles" => vault_profile_matches(sub),
+        "contacts" => vault_contact_matches(sub),
+        "lockboxes" => vault_lockbox_matches(sub),
         _ => Err(Error::InvalidInput(format!("unknown vault command: {command}")).into()),
     }
 }
@@ -110,18 +110,18 @@ fn string_values(matches: &ArgMatches, name: &str) -> Vec<String> {
 fn vault_form_matches(matches: &ArgMatches) -> CliResult<()> {
     let (command, sub) = matches
         .subcommand()
-        .ok_or_else(|| Error::InvalidInput("missing vault form command".to_string()))?;
+        .ok_or_else(|| Error::InvalidInput("missing vault forms command".to_string()))?;
     match command {
         "define" => form_define_matches(sub),
         "list" | "ls" => form_definitions_with_format(output_format_from_matches(sub)?),
-        _ => Err(Error::InvalidInput(format!("unknown vault form command: {command}")).into()),
+        _ => Err(Error::InvalidInput(format!("unknown vault forms command: {command}")).into()),
     }
 }
 
 fn vault_profile_matches(matches: &ArgMatches) -> CliResult<()> {
     let (command, sub) = matches
         .subcommand()
-        .ok_or_else(|| Error::InvalidInput("missing vault profile command".to_string()))?;
+        .ok_or_else(|| Error::InvalidInput("missing vault profiles command".to_string()))?;
     match command {
         "list" | "ls" => list_profiles_with_format(output_format_from_matches(sub)?),
         "create" if sub.get_flag("password") => {
@@ -161,14 +161,14 @@ fn vault_profile_matches(matches: &ArgMatches) -> CliResult<()> {
             remove_key_options(optional_value(sub, "name"), sub.get_flag("force"))
         }
         "rotate" => rotate_key(&optional_string_arg(sub, "name")),
-        _ => Err(Error::InvalidInput(format!("unknown vault profile command: {command}")).into()),
+        _ => Err(Error::InvalidInput(format!("unknown vault profiles command: {command}")).into()),
     }
 }
 
 fn vault_contact_matches(matches: &ArgMatches) -> CliResult<()> {
     let (command, sub) = matches.subcommand().ok_or_else(|| {
         Error::InvalidInput(
-            "missing vault contact command; use `lockbox vault contact list`, `lockbox vault contact import <name> <public-key>`, `lockbox vault contact receive <publish-code>`, or `lockbox vault contact remove <name>`"
+            "missing vault contacts command; use `lockbox vault contacts list`, `lockbox vault contacts import <name> <public-key>`, `lockbox vault contacts receive <publish-code>`, or `lockbox vault contacts remove <name>`"
                 .to_string(),
         )
     })?;
@@ -177,14 +177,14 @@ fn vault_contact_matches(matches: &ArgMatches) -> CliResult<()> {
         "import" => contact_import_options(ContactImportOptions::from_matches(sub)),
         "receive" => receive_publish_options(PublishCliOptions::from_receive_matches(sub)?),
         "remove" | "rm" | "delete" => remove_contact_name(&required_value(sub, "name")),
-        _ => Err(Error::InvalidInput(format!("unknown vault contact command: {command}")).into()),
+        _ => Err(Error::InvalidInput(format!("unknown vault contacts command: {command}")).into()),
     }
 }
 
 fn vault_lockbox_matches(matches: &ArgMatches) -> CliResult<()> {
     let (command, sub) = matches.subcommand().ok_or_else(|| {
         Error::InvalidInput(
-            "missing vault lockbox command; use `lockbox vault lockbox list`, `lockbox vault lockbox remember <lockbox>`, `lockbox vault lockbox move <source> <destination>`, or `lockbox vault lockbox forget <lockbox>`"
+            "missing vault lockboxes command; use `lockbox vault lockboxes list`, `lockbox vault lockboxes remember <lockbox>`, `lockbox vault lockboxes move <source> <destination>`, or `lockbox vault lockboxes forget <lockbox>`"
                 .to_string(),
         )
     })?;
@@ -193,14 +193,33 @@ fn vault_lockbox_matches(matches: &ArgMatches) -> CliResult<()> {
             output_format_from_matches(sub)?,
             sub.get_flag("with-description"),
         ),
-        "remember" => remember_known_lockbox_path(&required_value(sub, "lockbox")),
+        "remember" => remember_known_lockbox_path(&lockbox_operand(
+            sub,
+            "lockbox",
+            super::aliases::TargetPolicy::Existing,
+        )?),
         "move" | "mv" | "rename" => move_known_lockbox(
-            &required_value(sub, "source"),
+            &lockbox_operand(sub, "source", super::aliases::TargetPolicy::Existing)?,
             &required_value(sub, "destination"),
         ),
-        "forget" => forget_known_lockbox_path(&required_value(sub, "lockbox")),
-        "alias" => lockbox_alias_matches(sub),
-        _ => Err(Error::InvalidInput(format!("unknown vault lockbox command: {command}")).into()),
+        "forget" => forget_known_lockbox_path(&lockbox_operand(
+            sub,
+            "lockbox",
+            super::aliases::TargetPolicy::Remembered,
+        )?),
+        "aliases" => lockbox_alias_matches(sub),
+        _ => Err(Error::InvalidInput(format!("unknown vault lockboxes command: {command}")).into()),
+    }
+}
+
+fn lockbox_operand(
+    matches: &ArgMatches,
+    name: &str,
+    policy: super::aliases::TargetPolicy,
+) -> CliResult<String> {
+    match matches.get_one::<String>(name) {
+        Some(value) => Ok(super::aliases::resolve_with_policy(value, policy)?.0),
+        None => super::selected_lockbox(policy),
     }
 }
 
@@ -212,7 +231,7 @@ fn lockbox_alias_matches(matches: &ArgMatches) -> CliResult<()> {
         "set" => {
             let name = required_value(sub, "name");
             super::aliases::validate_name(&name)?;
-            let (path, _) = super::aliases::resolve(&required_value(sub, "lockbox"))?;
+            let path = lockbox_operand(sub, "lockbox", super::aliases::TargetPolicy::Existing)?;
             let inspection = Lockbox::inspect_file(&path)?;
             let vault = default_vault()?;
             vault.remember_known_lockbox(inspection.lockbox_id, &path)?;
@@ -306,7 +325,7 @@ fn form_define_matches(matches: &ArgMatches) -> CliResult<()> {
         .map(str::to_string)
         .or_else(|| alias.clone())
         .ok_or_else(|| {
-            Error::InvalidInput("vault form define requires an alias or --name".to_string())
+            Error::InvalidInput("vault forms define requires an alias or --name".to_string())
         })?;
     let alias = alias.unwrap_or_else(|| default_form_alias(&name));
     let description = optional_value(matches, "description")
@@ -677,7 +696,7 @@ fn keygen_options(name: Option<&str>, overwrite: bool) -> CliResult<()> {
     }
     println!("Created vault profile: {name}");
     println!(
-        "Export its public key with: lockbox vault profile export <public-key-output> --name {name}"
+        "Export its public key with: lockbox vault profiles export <public-key-output> --name {name}"
     );
     Ok(())
 }
@@ -758,13 +777,13 @@ fn publish_profile_options(options: PublishCliOptions) -> CliResult<()> {
     let nonce = publish_nonce(profile, &public_key, now);
     if options.email.is_some() {
         return Err(Error::InvalidInput(
-            "set the profile email with `lockbox vault profile email [profile] <email>` before publishing".to_string(),
+            "set the profile email with `lockbox vault profiles email [profile] <email>` before publishing".to_string(),
         )
         .into());
     }
     let email = vault.profile_email(profile)?.ok_or_else(|| {
         cli_error(format!(
-            "You may not publish a public key for a Profile that does not have an email address.\nThe profile `{profile}` has no email address.\nRun `lockbox vault profile email {profile} <email>`.\nThen run this command again."
+            "You may not publish a public key for a Profile that does not have an email address.\nThe profile `{profile}` has no email address.\nRun `lockbox vault profiles email {profile} <email>`.\nThen run this command again."
         ))
     })?;
     let email = normalize_contact_email(&email)
@@ -1546,7 +1565,7 @@ fn profile_history_with_format(name: &str, format: OutputFormat) -> CliResult<()
 fn profile_fingerprint(args: &[String]) -> CliResult<()> {
     if args.len() > 1 {
         return Err(Error::InvalidInput(
-            "vault profile fingerprint accepts at most one profile name".to_string(),
+            "vault profiles fingerprint accepts at most one profile name".to_string(),
         )
         .into());
     }
@@ -1563,7 +1582,7 @@ fn profile_fingerprint(args: &[String]) -> CliResult<()> {
         .to_bytes();
     let email = vault.profile_email(profile)?.ok_or_else(|| {
         cli_error(format!(
-            "Cannot calculate the publish fingerprint for `{profile}` because it has no email address.\nRun `lockbox vault profile email {profile} <email>`.\nThen run this command again."
+            "Cannot calculate the publish fingerprint for `{profile}` because it has no email address.\nRun `lockbox vault profiles email {profile} <email>`.\nThen run this command again."
         ))
     })?;
     let email = normalize_contact_email(&email)
@@ -1804,7 +1823,10 @@ fn move_known_lockbox(source: &str, destination: &str) -> CliResult<()> {
             destination_path.display()
         )));
     }
-    let parent = destination_path.parent().unwrap_or_else(|| Path::new("."));
+    let parent = destination_path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
     if !parent.is_dir() {
         return Err(cli_error(format!(
             "destination directory does not exist: {}; no files or vault records were changed",
@@ -1846,7 +1868,7 @@ fn move_known_lockbox(source: &str, destination: &str) -> CliResult<()> {
         .and_then(|()| vault.remember_known_lockbox(lockbox_id, &destination_path))
     {
         return Err(cli_error(format!(
-            "lockbox moved to {}, but the vault path update failed: {err}. Run `lockbox vault lockbox forget {}` and reopen the destination.",
+            "lockbox moved to {}, but the vault path update failed: {err}. Run `lockbox vault lockboxes forget {}` and reopen the destination.",
             destination_path.display(),
             source_path.display()
         )));

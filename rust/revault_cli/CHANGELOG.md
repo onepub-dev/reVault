@@ -2,6 +2,28 @@
 
 ## Unreleased
 
+- Register a Vault alias when creating a Lockbox, using its filename stem or
+  `--alias NAME`. Preserve existing alias mappings and warn on collisions while
+  retaining the newly created archive.
+
+- Add `doctor migrate all --replace` to migrate the local Vault and all known
+  Lockboxes, retaining backups and reporting individual failures. Older-format
+  diagnostics offer both targeted and bulk migration commands.
+- Unlock closed historical Lockboxes during explicit migration using Vault
+  credentials or their pass phrase, even when Auto Open is disabled. Ordinary
+  opens still require the current archive format.
+- Resolve simple Lockbox names as local files or Vault aliases. Reject conflicting
+  matches with guidance to use `a@name`, `./name`, or `name.lbox` explicitly.
+- Use plural resource groups throughout the CLI: `variables`, `forms`, `mirrors`,
+  `rules`, and Vault `profiles`, `contacts`, `lockboxes`, `aliases`, and `forms`.
+  Help, completion, examples, and the manual use these command names.
+- Show the Lockbox format version and both Vault container and structure versions
+  first in doctor reports. Report required Vault upgrades on one status line,
+  summarize access-slot counts, and show available credential names only with
+  readable encrypted content.
+- Migrate an older Vault container even when its internal structure is already
+  current, preserving aliases, credentials, profile history, and the original
+  backup. Migration status messages identify both versions.
 - Restrict E2E coverage recording and its file locking to debug builds so
   release CLI builds do not include test-only coverage support.
 

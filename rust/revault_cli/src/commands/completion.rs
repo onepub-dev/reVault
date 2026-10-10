@@ -432,6 +432,14 @@ pub(crate) fn selector_candidates(current: &OsStr) -> Vec<CompletionCandidate> {
         .collect()
 }
 
+pub(crate) fn helper_candidates(current: &OsStr) -> Vec<CompletionCandidate> {
+    let mut values = selector_candidates(current);
+    if completion_words().len() <= 1 {
+        values.extend(lockbox_path_candidates(current));
+    }
+    values
+}
+
 pub(crate) fn form_field_candidates(current: &OsStr) -> Vec<CompletionCandidate> {
     candidates(current, selector_names(false))
 }
@@ -608,6 +616,28 @@ fn cached_archive_candidates(
 }
 
 fn completion_lockbox_paths() -> Vec<String> {
+    if is_helper_completion() {
+        let words = completion_words();
+        let explicit = words
+            .iter()
+            .position(|word| word == "--lockbox")
+            .and_then(|index| words.get(index + 1))
+            .or_else(|| {
+                words.first().filter(|word| {
+                    word.to_str()
+                        .is_some_and(super::helpers::is_lockbox_argument)
+                })
+            });
+        let selected = words
+            .iter()
+            .filter_map(|word| word.to_str())
+            .find_map(|word| word.strip_prefix("--lockbox=").map(str::to_owned))
+            .or_else(|| explicit.map(|path| path.to_string_lossy().into_owned()));
+        return super::aliases::select_noninteractive(selected.as_deref())
+            .ok()
+            .map(|(path, _)| vec![path])
+            .unwrap_or_default();
+    }
     selected_lockbox_path()
         .map(|path| {
             super::aliases::resolve_noninteractive(&path)
@@ -621,6 +651,14 @@ fn completion_lockbox_paths() -> Vec<String> {
                 .filter_map(|cached| cached.path)
                 .collect()
         })
+}
+
+fn is_helper_completion() -> bool {
+    env::args_os()
+        .next()
+        .as_deref()
+        .and_then(|path| Path::new(path).file_stem())
+        .is_some_and(|name| name == "lbxv" || name == "lbxx")
 }
 
 fn selected_lockbox_path() -> Option<String> {
@@ -641,6 +679,7 @@ fn is_command_name(value: &OsStr) -> bool {
                 | "close"
                 | "add"
                 | "mirror"
+                | "mirrors"
                 | "extract"
                 | "cat"
                 | "list"
@@ -654,6 +693,7 @@ fn is_command_name(value: &OsStr) -> bool {
                 | "var"
                 | "variables"
                 | "form"
+                | "forms"
                 | "session"
                 | "completion"
                 | "doctor"
@@ -707,7 +747,10 @@ pub(crate) fn archive_value_candidates(current: &OsStr) -> Vec<CompletionCandida
     {
         return variable_candidates(current);
     }
-    if words.iter().any(|word| word.to_str() == Some("form")) {
+    if words
+        .iter()
+        .any(|word| matches!(word.to_str(), Some("form" | "forms")))
+    {
         return lockbox_form_candidates(current);
     }
     archive_entry_candidates(current)
@@ -745,7 +788,7 @@ pub(crate) fn mirror_rule_candidates(current: &OsStr) -> Vec<CompletionCandidate
         .and_then(|word| word.to_str());
     let explicit_name = words
         .iter()
-        .position(|word| word == "mirror")
+        .position(|word| word == "mirror" || word == "mirrors")
         .and_then(|index| words.get(index + 1))
         .filter(|word| !is_mirror_action(word))
         .and_then(|word| word.to_str());
@@ -783,7 +826,7 @@ fn mirror_path_candidates(current: &OsStr, directories_only: bool) -> Vec<Comple
     let words = completion_words();
     let explicit_name = words
         .iter()
-        .position(|word| word == "mirror")
+        .position(|word| word == "mirror" || word == "mirrors")
         .and_then(|index| words.get(index + 1))
         .filter(|word| !is_mirror_action(word))
         .and_then(|word| word.to_str());

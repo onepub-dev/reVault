@@ -10,15 +10,15 @@ On the runner, initialise its own Vault and Profile:
 
 ```bash
 lbx vault init
-lbx vault profile create ci
-lbx vault profile export ./ci.pub --name ci
-lbx vault profile fingerprint ci
+lbx vault profiles create ci
+lbx vault profiles export ./ci.pub --name ci
+lbx vault profiles fingerprint ci
 ```
 
 On an administration machine, import that public Profile as a Contact after independently checking its fingerprint, then grant it access:
 
 ```bash
-lbx vault contact import ci-runner ./ci.pub \
+lbx vault contacts import ci-runner ./ci.pub \
   --fingerprint <fingerprint-code> \
   --fingerprint-channel deployment-console
 lbx ci.lbox access grant ci-runner
@@ -31,10 +31,10 @@ Transfer the updated Lockbox to the runner through your normal artefact channel.
 Prefer retrieving only the value needed by the current step:
 
 ```bash
-lbx ci.lbox variable get --secret DEPLOY_TOKEN
+lbx ci.lbox variables get --secret DEPLOY_TOKEN
 ```
 
-Avoid command tracing around secret-handling steps, and do not print the result. reVault deliberately excludes secret variables from `variable export`.
+Avoid command tracing around secret-handling steps, and do not print the result. reVault deliberately excludes secret variables from `variables export`.
 
 The runner still needs a way to open its Vault. Supply that through the CI platform's protected secret mechanism or provision the machine's platform credential store. Treat Auto Open on a shared runner with care: any process operating as that account may be able to use it.
 

@@ -1,10 +1,6 @@
-/// Durable recovery phase for an interrupted transaction.
+/// Durable cleanup phase for an interrupted transaction.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TransactionRecoveryPhase {
-    /// A verified free suffix must be removed from the physical file.
-    Truncate,
-    /// An unpublished transaction must erase its reservations and restore the base.
-    Rollback,
     /// The commit is published, but obsolete encrypted pages still need zeroing.
     Cleanup,
 }
@@ -12,7 +8,7 @@ pub enum TransactionRecoveryPhase {
 /// Decision returned by a controlled recovery progress callback.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TransactionRecoveryControl {
-    /// Continue with the next recovery unit (reservation range, manifest page or truncation).
+    /// Continue with the next manifest page.
     Continue,
     /// Stop after the current durable checkpoint.
     Cancel,
@@ -23,30 +19,30 @@ pub enum TransactionRecoveryControl {
 pub enum TransactionRecoveryOutcome {
     /// The archive was already clean and sealed.
     NotRequired,
-    /// Required rollback, cleanup or truncation completed.
+    /// Cleanup and sealing completed.
     Complete,
     /// Recovery stopped at a durable checkpoint and can be resumed.
     Cancelled(TransactionRecoveryStatus),
 }
 
-/// Authenticated recovery work advertised by the selected lockbox header.
+/// Recovery work advertised by a published lockbox transaction.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TransactionRecoveryStatus {
-    /// Selected transaction sequence; identifies the base during unpublished rollback.
+    /// Published transaction that owns the cleanup manifest.
     pub transaction_sequence: u64,
     /// Last transaction whose cleanup was durably completed.
     pub cleanup_sequence: u64,
     /// Current recovery phase.
     pub phase: TransactionRecoveryPhase,
-    /// Number of reservation or cleanup ranges; interpreted together with `phase`.
+    /// Number of ranges that must be zeroed.
     pub range_count: u32,
     /// Number of ranges durably completed.
     pub completed_ranges: u32,
-    /// Recovery units: reservation ranges for rollback, manifest pages for cleanup.
+    /// Number of manifest pages that must be processed.
     pub page_count: u32,
-    /// Number of phase-specific recovery units durably completed.
+    /// Number of manifest pages durably completed.
     pub completed_pages: u32,
-    /// Total recovery bytes for this phase, including truncation where applicable.
+    /// Total bytes that must be zeroed.
     pub total_bytes: u64,
     /// Number of bytes durably completed.
     pub completed_bytes: u64,
@@ -59,14 +55,14 @@ pub struct TransactionRecoveryProgress {
     pub phase: TransactionRecoveryPhase,
     /// Number of ranges durably processed so far.
     pub completed_ranges: u32,
-    /// Total ranges for the current recovery phase.
+    /// Total number of ranges in the recovery manifest.
     pub total_ranges: u32,
-    /// Number of phase-specific recovery units durably processed.
+    /// Number of manifest pages durably processed.
     pub completed_pages: u32,
-    /// Total recovery units for the current phase.
+    /// Total manifest pages in the transaction.
     pub total_pages: u32,
     /// Number of bytes processed so far.
     pub completed_bytes: u64,
-    /// Total bytes for the current recovery phase.
+    /// Total bytes in the recovery manifest.
     pub total_bytes: u64,
 }

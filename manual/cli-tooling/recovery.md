@@ -4,7 +4,7 @@ description: "Inspect damage and recover readable entries from a Lockbox."
 
 # Recover a damaged Lockbox
 
-`doctor recover` first checks for an interrupted authenticated transaction. If one exists, it resumes rollback, cleanup or truncation in place. Otherwise it uses salvage recovery, scanning authenticated pages to recover complete, path-bearing entries when some index or data pages are damaged.
+`doctor recover` first checks for interrupted format-3 transaction cleanup. If cleanup is pending, it resumes that work in place. Otherwise it uses salvage recovery, scanning authenticated pages to recover complete, path-bearing entries when some index or data pages are damaged. The source must exist; recovery never recreates a missing Lockbox.
 
 {% hint style="warning" %}
 Work from a copy whenever possible. Keep the original unchanged until the recovered Lockbox has been opened, inspected and backed up.
@@ -42,7 +42,7 @@ Recovery writes only complete entries whose metadata can still be associated wit
 
 ## Interrupted transactions
 
-Before a replacement commit is published, recovery rolls back to the previous committed state: it zeros reserved reusable ranges and truncates appended preparation data. Once published, it finishes cleanup. An interrupted free-tail truncation is completed without changing logical contents.
+Format 3 retains cleanup after publication. It does not provide the deferred v4 protocol's durable rollback of unpublished allocations or interrupted tail truncation. A failed operation can leave unpublished physical storage even when the previous logical contents remain authoritative.
 
 If a transaction published its new logical state before cleanup was interrupted, reVault must roll that cleanup forward. It cannot roll back because the new state is already authoritative.
 

@@ -8,10 +8,10 @@ The reVault key-sharing service is a temporary delivery channel for published pu
 
 The normal flow is:
 
-1. the owner associates an email address with a Profile and runs `lbx vault profile publish`;
+1. the owner associates an email address with a Profile and runs `lbx vault profiles publish`;
 2. the service verifies access to that email address and returns a publish code;
 3. the owner sends the publish code to the recipient;
-4. the recipient runs `lbx vault contact receive <publish-code> <contact-name>`; and
+4. the recipient runs `lbx vault contacts receive <publish-code> <contact-name>`; and
 5. the recipient independently compares the Profile fingerprint with the owner.
 
 Read [Sharing](../cli-tooling/sharing.md) for the complete user workflow and its trust warnings.

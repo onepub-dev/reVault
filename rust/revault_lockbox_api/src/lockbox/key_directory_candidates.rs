@@ -2,7 +2,8 @@ use std::cmp::Reverse;
 
 use crate::file_format::read_header;
 use crate::key_directory::{
-    best_key_directory, read_key_directory, read_key_directory_via_page_cache, DecodedKeyDirectory,
+    best_key_directory, read_key_directory, read_key_directory_via_page_cache,
+    scan_key_directories, DecodedKeyDirectory,
 };
 use crate::storage::{Storage, StorageBackend};
 use crate::{Error, Result};
@@ -15,19 +16,20 @@ pub(crate) struct KeyDirectoryCandidates {
 impl KeyDirectoryCandidates {
     pub(crate) fn from_bytes(bytes: &[u8]) -> Result<Self> {
         let mut directories = Vec::new();
-        {
-            let header = read_header(bytes)?;
+        let header_result = read_header(bytes);
+        if let Err(error @ Error::UnsupportedFormatVersion { .. }) = header_result {
+            return Err(error);
+        }
+        if let Ok(header) = header_result {
             let lockbox_id = header.lockbox_id;
             if let Ok(directory) =
                 read_key_directory(bytes, header.key_directory_offset, Some(lockbox_id))
             {
                 directories.push(directory);
             }
-            if let Ok(directory) =
-                read_key_directory(bytes, header.key_directory_mirror_offset, Some(lockbox_id))
-            {
-                directories.push(directory);
-            }
+            directories.extend(scan_key_directories(bytes, Some(lockbox_id)));
+        } else {
+            directories.extend(scan_key_directories(bytes, None));
         }
         Self::ranked(directories)
     }
@@ -35,8 +37,11 @@ impl KeyDirectoryCandidates {
     pub(crate) fn from_storage(storage: &StorageBackend) -> Result<Self> {
         let header_bytes = storage.read_at(0, crate::constants::HEADER_LEN)?;
         let mut directories = Vec::new();
-        {
-            let header = read_header(&header_bytes)?;
+        let header_result = read_header(&header_bytes);
+        if let Err(error @ Error::UnsupportedFormatVersion { .. }) = header_result {
+            return Err(error);
+        }
+        if let Ok(header) = header_result {
             let lockbox_id = header.lockbox_id;
             if let Ok(directory) = read_key_directory_via_page_cache(
                 storage,
@@ -45,13 +50,11 @@ impl KeyDirectoryCandidates {
             ) {
                 directories.push(directory);
             }
-            if let Ok(directory) = read_key_directory_via_page_cache(
-                storage,
-                header.key_directory_mirror_offset,
-                Some(lockbox_id),
-            ) {
-                directories.push(directory);
+            if directories.is_empty() {
+                directories.extend(scan_key_directories(&storage.read_all()?, Some(lockbox_id)));
             }
+        } else {
+            directories.extend(scan_key_directories(&storage.read_all()?, None));
         }
         Self::ranked(directories)
     }

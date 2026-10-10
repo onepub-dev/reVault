@@ -59,7 +59,7 @@ signature: ...
 Bob imports the claim:
 
 ```bash
-lockbox vault contact import alice@example.com ./alice.pub --fingerprint <hex>
+lockbox vault contacts import alice@example.com ./alice.pub --fingerprint <hex>
 ```
 
 reVault should:

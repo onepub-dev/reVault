@@ -20,7 +20,7 @@ mod vault;
 mod visualize;
 
 use clap::ArgMatches;
-use context::{cli_error, ensure_lockbox_path_accessible, Access, CliResult};
+use context::{cli_error, Access, CliResult};
 use revault_lockbox_api::{Error, SecretVec, WorkerPolicy};
 use revault_vault_api::SecretActivityKind;
 use std::cell::RefCell;
@@ -36,6 +36,7 @@ pub(crate) use error_output::{exit_code, print_error};
 thread_local! {
     static COMMAND_LOCKBOX: RefCell<Option<String>> = const { RefCell::new(None) };
     static COMMAND_LOCKBOX_ID: RefCell<Option<revault_lockbox_api::LockboxId>> = const { RefCell::new(None) };
+    static COMMAND_LOCKBOX_REFERENCE: RefCell<bool> = const { RefCell::new(false) };
 }
 
 pub(crate) fn run() -> CliResult<()> {
@@ -90,20 +91,28 @@ pub(crate) fn run() -> CliResult<()> {
             "{command} is not a lockbox-scoped command; place the command immediately after `lockbox`"
         )));
     }
+    COMMAND_LOCKBOX_REFERENCE.with(|reference| {
+        *reference.borrow_mut() = command_lockbox
+            .as_ref()
+            .is_some_and(|path| path.starts_with("a@"))
+    });
+    let policy = if command == "create" {
+        aliases::TargetPolicy::MustBeMissing
+    } else {
+        aliases::TargetPolicy::Existing
+    };
     let resolved = command_lockbox
-        .map(|path| aliases::resolve(&path))
+        .map(|path| aliases::resolve_with_policy(&path, policy))
         .transpose()?;
-    if command == "create" && resolved.as_ref().is_some_and(|(_, id)| id.is_some()) {
-        // An alias names an existing archive, even if its filename lacks an
-        // extension. Do not append .lbox and accidentally create a second file.
-        return Err(Error::AlreadyExists(resolved.as_ref().unwrap().0.clone()).into());
-    }
     COMMAND_LOCKBOX_ID.with(|id| *id.borrow_mut() = resolved.as_ref().and_then(|(_, id)| *id));
+    if resolved.as_ref().is_some_and(|(_, id)| id.is_some()) {
+        COMMAND_LOCKBOX_REFERENCE.with(|reference| *reference.borrow_mut() = true);
+    }
     set_command_lockbox(resolved.map(|(path, _)| path));
     let secret_activity = if command == "doctor"
         && matches!(
             command_matches.subcommand_name(),
-            Some("recover" | "migrate" | "compact")
+            Some("recover" | "migrate")
         ) {
         Some(SecretActivityKind::Recovery)
     } else {
@@ -130,15 +139,15 @@ pub(crate) fn run() -> CliResult<()> {
             &access,
             read_worker_policy(command_matches)?,
         ),
-        "mirror" => mirror::run_matches(command_matches, &access),
+        "mirrors" => mirror::run_matches(command_matches, &access),
         "extract" => files::extract_matches(command_matches, &access),
         "cat" => files::cat_matches(command_matches, &access),
         "list" => files::list_matches(command_matches, &access),
         "remove" => files::remove_matches(command_matches, &access),
         "move" => files::rename_matches(command_matches, &access),
-        "variable" => variables::run_matches(command_matches, &access),
+        "variables" => variables::run_matches(command_matches, &access),
         "description" => variables::description_matches(command_matches, &access),
-        "form" => form::run_matches(command_matches, &access),
+        "forms" => form::run_matches(command_matches, &access),
         "visualize" => visualize::run_matches(command_matches, &access),
         _ => Err(Error::InvalidInput(format!("unknown command: {command}")).into()),
     };
@@ -225,6 +234,7 @@ fn command_accepts_lockbox(command: &str) -> bool {
             | "close"
             | "add"
             | "mirror"
+            | "mirrors"
             | "extract"
             | "cat"
             | "list"
@@ -240,6 +250,7 @@ fn command_accepts_lockbox(command: &str) -> bool {
             | "variables"
             | "description"
             | "form"
+            | "forms"
             | "access"
             | "doctor"
             | "visualize"
@@ -258,13 +269,48 @@ pub(crate) fn command_lockbox() -> Option<String> {
     COMMAND_LOCKBOX.with(|selected| selected.borrow().clone())
 }
 
+pub(crate) fn command_lockbox_is_reference() -> bool {
+    COMMAND_LOCKBOX_REFERENCE.with(|reference| *reference.borrow())
+}
+
+pub(crate) fn selected_lockbox(policy: aliases::TargetPolicy) -> CliResult<String> {
+    if let Some(path) = command_lockbox() {
+        let identity = COMMAND_LOCKBOX_ID.with(|id| *id.borrow());
+        aliases::validate_target(&path, identity, policy)?;
+        return Ok(path);
+    }
+    let default = session::default_lockbox_or_none()?.ok_or_else(|| {
+        cli_error("missing lockbox; pass a path or a@alias, or run `lbx session default LOCKBOX`")
+    })?;
+    if policy == aliases::TargetPolicy::Existing && !default.starts_with("a@") {
+        context::ensure_lockbox_path_accessible(&default).map_err(|error| {
+            if error
+                .downcast_ref::<context::CliMessage>()
+                .is_some_and(|message| message.exit_code() == error_output::ExitCode::NotFound)
+            {
+                aliases::missing_default(&default)
+            } else {
+                error
+            }
+        })?;
+    }
+    let (path, identity) = aliases::resolve_with_policy(&default, policy)?;
+    aliases::validate_target(&path, identity, policy)?;
+    COMMAND_LOCKBOX_ID.with(|id| *id.borrow_mut() = identity);
+    COMMAND_LOCKBOX_REFERENCE.with(|reference| *reference.borrow_mut() = true);
+    set_command_lockbox(Some(path.clone()));
+    Ok(path)
+}
+
 fn normalize_form_define_separator(mut args: Vec<String>) -> Vec<String> {
     let command_index = usize::from(
         args.first()
             .is_some_and(|arg| command_accepts_lockbox_at_position(arg, &args)),
     );
-    if args.get(command_index).map(String::as_str) != Some("form")
-        || args.get(command_index + 1).map(String::as_str) != Some("define")
+    if !matches!(
+        args.get(command_index).map(String::as_str),
+        Some("form" | "forms")
+    ) || args.get(command_index + 1).map(String::as_str) != Some("define")
     {
         return args;
     }
@@ -279,7 +325,7 @@ fn reject_variables_set_single_dash_secret(args: &[String]) -> CliResult<()> {
     );
     if matches!(
         args.get(command_index).map(String::as_str),
-        Some("variable" | "var")
+        Some("variable" | "variables" | "var")
     ) && args.get(command_index + 1).map(String::as_str) == Some("set")
         && args
             .iter()
@@ -346,10 +392,10 @@ fn command_secret_activity(command: &str) -> Option<SecretActivityKind> {
     match command {
         "open" => Some(SecretActivityKind::Open),
         "close" => Some(SecretActivityKind::Close),
-        "add" | "mirror" | "extract" | "cat" | "list" | "remove" | "delete" | "move"
+        "add" | "mirrors" | "extract" | "cat" | "list" | "remove" | "delete" | "move"
         | "visualize" => Some(SecretActivityKind::Open),
-        "variable" | "description" => Some(SecretActivityKind::Variables),
-        "form" => Some(SecretActivityKind::Form),
+        "variables" | "description" => Some(SecretActivityKind::Variables),
+        "forms" => Some(SecretActivityKind::Form),
         "access" | "open-key" | "session" => Some(SecretActivityKind::Vault),
         _ => None,
     }
@@ -402,21 +448,7 @@ fn read_worker_policy(matches: &ArgMatches) -> CliResult<WorkerPolicy> {
 }
 
 pub(crate) fn default_lockbox_for_add() -> CliResult<String> {
-    if let Some(lockbox) = command_lockbox() {
-        return Ok(lockbox);
-    }
-    default_lockbox_for_add_if_set()?.ok_or_else(|| {
-        cli_error("missing lockbox; pass a .lbox path or set a session default lockbox")
-    })
-}
-
-fn default_lockbox_for_add_if_set() -> CliResult<Option<String>> {
-    let Some(default) = session::default_lockbox_or_none()? else {
-        return Ok(None);
-    };
-    ensure_lockbox_path_accessible(&default)
-        .map_err(|_| cli_error(format!("session default lockbox not found: {default}")))?;
-    Ok(Some(default))
+    default_lockbox_for_command()
 }
 
 pub(crate) fn optional_lockbox_value(_matches: &ArgMatches, _name: &str) -> CliResult<String> {
@@ -453,9 +485,7 @@ pub(crate) fn default_lockbox_for_command() -> CliResult<String> {
     if let Some(lockbox) = command_lockbox() {
         return Ok(lockbox);
     }
-    default_lockbox_for_add_if_set()?.ok_or_else(|| {
-        cli_error("missing lockbox; pass a .lbox path or set a session default lockbox")
-    })
+    selected_lockbox(aliases::TargetPolicy::Existing)
 }
 
 pub(crate) fn looks_like_lockbox_path(value: &str) -> bool {

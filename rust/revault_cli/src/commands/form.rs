@@ -9,8 +9,7 @@ use revault_lockbox_api::{
 };
 
 use super::context::{
-    cli_error, default_vault, open_existing, open_for_reading, open_or_create, require_arg, Access,
-    CliResult,
+    cli_error, default_vault, open_existing, open_for_reading, require_arg, Access, CliResult,
 };
 use super::output::{output_format_from_matches, print_records, OutputFormat};
 use super::{default_lockbox_for_command, optional_lockbox_positionals, positional_values};
@@ -19,7 +18,7 @@ use crate::secret_prompt::prompt_secret;
 pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()> {
     let (command, sub) = matches
         .subcommand()
-        .ok_or_else(|| Error::InvalidInput("missing form command".to_string()))?;
+        .ok_or_else(|| Error::InvalidInput("missing forms command".to_string()))?;
     match command {
         "define" => define_matches(sub, access),
         "definitions" => definitions_with_format(
@@ -56,7 +55,7 @@ pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()
             &optional_lockbox_positionals(positional_values(sub, "args"), 2)?,
             access,
         ),
-        _ => Err(Error::InvalidInput(format!("unknown form command: {command}")).into()),
+        _ => Err(Error::InvalidInput(format!("unknown forms command: {command}")).into()),
     }
 }
 
@@ -135,7 +134,7 @@ fn define_matches(matches: &ArgMatches, access: &Access) -> CliResult<()> {
         .map(str::to_string)
         .or_else(|| alias.clone())
         .ok_or_else(|| {
-            Error::InvalidInput("form define requires an alias or --name".to_string())
+            Error::InvalidInput("forms define requires an alias or --name".to_string())
         })?;
     let alias = alias.unwrap_or_else(|| default_form_alias(&name));
     let description = optional_value(matches, "description").unwrap_or_default();
@@ -166,7 +165,7 @@ fn define_options(
     fields: Vec<FormFieldDefinition>,
     access: &Access,
 ) -> CliResult<()> {
-    let mut lb = open_or_create(lockbox_path, access)?;
+    let mut lb = open_existing(lockbox_path, access)?;
     let definition = if let Some(type_id) = type_id {
         lb.define_form_with_type_id_and_description(type_id, &alias, &name, &description, fields)?
     } else {
@@ -228,7 +227,7 @@ fn use_vault_definition(args: &[String], access: &Access) -> CliResult<()> {
     let form_name = require_arg(args, 0, "form name")?;
     let lockbox_path = require_arg(args, 1, "lockbox")?;
     let definition = default_vault()?.resolve_form_definition(form_name)?;
-    let mut lb = open_or_create(lockbox_path, access)?;
+    let mut lb = open_existing(lockbox_path, access)?;
     let definition = lb.import_form_definition(definition)?;
     lb.commit()?;
     print_form_definition_saved(&definition);
@@ -308,7 +307,7 @@ fn add_matches(matches: &ArgMatches, access: &Access) -> CliResult<()> {
         .map(|assignment| parse_field_assignment(assignment))
         .collect::<CliResult<Vec<_>>>()?;
     let interactive = matches.get_flag("interactive");
-    let mut lb = open_or_create(lockbox_path, access)?;
+    let mut lb = open_existing(lockbox_path, access)?;
     lb.create_parent_dirs_for(&path)?;
     let record = lb.create_form_record(&path, &form_type, &name)?;
     let definition = lb.resolve_form_definition(record.type_id.as_str())?;
@@ -332,7 +331,7 @@ fn edit_matches(matches: &ArgMatches, access: &Access) -> CliResult<()> {
     let interactive = matches.get_flag("interactive");
     if assignments.is_empty() && !interactive {
         return Err(
-            Error::InvalidInput("form edit requires --set or --interactive".to_string()).into(),
+            Error::InvalidInput("forms edit requires --set or --interactive".to_string()).into(),
         );
     }
     let mut lb = open_existing(lockbox_path, access)?;
@@ -363,7 +362,7 @@ fn apply_normal_field_assignments(
             .ok_or_else(|| Error::InvalidInput(format!("unknown form field: {field_id}")))?;
         if field.kind.is_secret() {
             return Err(Error::InvalidInput(format!(
-                "field {field_id} is secret; use --interactive or form set --secret --stdin"
+                "field {field_id} is secret; use --interactive or forms set --secret --stdin"
             ))
             .into());
         }
@@ -395,7 +394,7 @@ fn set_matches(matches: &ArgMatches, access: &Access) -> CliResult<()> {
         (false, false, None, None, None, Some(value)) => FieldValueSource::Literal(value.clone()),
         _ => {
             return Err(Error::InvalidInput(
-                "form set accepts exactly one value source".to_string(),
+                "forms set accepts exactly one value source".to_string(),
             )
             .into())
         }

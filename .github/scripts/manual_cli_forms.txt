@@ -10,10 +10,10 @@ secrets.lbox list
 secrets.lbox remove
 secrets.lbox move
 secrets.lbox description set
-secrets.lbox variable set
-secrets.lbox variable export
-secrets.lbox form define
-secrets.lbox form add
+secrets.lbox variables set
+secrets.lbox variables export
+secrets.lbox forms define
+secrets.lbox forms add
 session
 session default
 session auto-open status
@@ -22,13 +22,15 @@ doctor
 vault init
 vault backup
 vault restore
-vault profile create
-vault profile rotate
-vault contact receive
-vault lockbox move
-vault form define
+vault profiles create
+vault profiles rotate
+vault contacts receive
+vault lockboxes move
+vault lockboxes aliases list
+vault forms define
 doctor migrate vault
 doctor migrate lockbox
+doctor migrate all --replace
 completion install
 
 # Representative documented option and argument forms.
@@ -38,13 +40,13 @@ project.lbox add --recursive ./project --to archive/project/
 project.lbox extract /docs/readme.md ./README.md
 project.lbox remove --recursive /old/
 project.lbox description set Project-Atlas
-secrets.lbox variable set API_TOKEN --secret --interactive
-secrets.lbox variable export --format json
-secrets.lbox form add /work/github --type login --name GitHub --interactive
+secrets.lbox variables set API_TOKEN --secret --interactive
+secrets.lbox variables export --format json
+secrets.lbox forms add /work/github --type login --name GitHub --interactive
 session auto-open disable
-vault profile backup ./production.profile-backup --name production
-vault profile restore ./production.profile-backup --name production
-vault contact import alice ./alice.pub --fingerprint example --fingerprint-channel in-person
+vault profiles backup ./production.profile-backup --name production
+vault profiles restore ./production.profile-backup --name production
+vault contacts import alice ./alice.pub --fingerprint example --fingerprint-channel in-person
 access refresh --all production --dry-run
-backup.lbox mirror project create --from ./project --to /projects/project
-backup.lbox mirror project rule add exclude *.tmp
+backup.lbox mirrors project create --from ./project --to /projects/project
+backup.lbox mirrors project rules add exclude *.tmp

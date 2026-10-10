@@ -452,11 +452,6 @@ impl Storage for ExternalStorage {
             "external archive is read-only".into(),
         ))
     }
-    fn truncate(&mut self, _: u64) -> crate::Result<()> {
-        Err(Error::InvalidOperation(
-            "external archive is read-only".into(),
-        ))
-    }
     fn sync(&self) -> crate::Result<()> {
         Ok(())
     }
@@ -637,7 +632,6 @@ mod tests {
         };
         assert!(storage.append(b"x").is_err());
         assert!(storage.write_at(0, b"x").is_err());
-        assert!(storage.truncate(0).is_err());
         assert!(StorageBackend::External(storage.clone())
             .read_at_secure(0, usize::MAX)
             .is_err());

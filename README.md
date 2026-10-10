@@ -123,10 +123,10 @@ including its include and exclude rules, is encrypted inside the lockbox and
 travels with it.
 
 ```bash
-lbx secrets.lbox mirror source create --from ./src --to /projects/source
-lbx secrets.lbox mirror source rule add exclude target/** '*.tmp'
-lbx secrets.lbox mirror source status
-lbx secrets.lbox mirror source update
+lbx secrets.lbox mirrors source create --from ./src --to /projects/source
+lbx secrets.lbox mirrors source rules add exclude target/** '*.tmp'
+lbx secrets.lbox mirrors source status
+lbx secrets.lbox mirrors source update
 ```
 
 `status` previews the complete plan; `update` recalculates and applies it.
@@ -163,7 +163,7 @@ See [docs/cli_how_to.md](docs/cli_how_to.md) for command-focused examples.
 Create another local profile:
 
 ```bash
-lockbox vault profile create laptop
+lockbox vault profiles create laptop
 ```
 
 Create an independent encrypted vault with a fresh profile and register that
@@ -185,14 +185,14 @@ material from the current vault.
 List profiles and export a public key:
 
 ```bash
-lockbox vault profile list
-lockbox vault profile export ./laptop.pub --name laptop
+lockbox vault profiles list
+lockbox vault profiles export ./laptop.pub --name laptop
 ```
 
 Import a contact public key after independently verifying its fingerprint:
 
 ```bash
-lockbox vault contact import alice ./alice.pub \
+lockbox vault contacts import alice ./alice.pub \
   --fingerprint <fingerprint> \
   --fingerprint-channel phone-call-to-owner
 ```
@@ -215,7 +215,7 @@ Exporting a private key is supported for backup and migration, but treat the
 output as a secret:
 
 ```bash
-lockbox vault profile backup ./default.profile-backup
+lockbox vault profiles backup ./default.profile-backup
 ```
 
 Private vault keys are stored inside the local vault as secret variable records,
@@ -226,23 +226,22 @@ not as normal files in the vault lockbox. See the CLI help and
 
 Variables are encrypted metadata, not files. They do not appear in file
 listings and are loaded only when variable commands or APIs request them. The
-canonical command is `variable`; `variables` and `var` remain compatibility
-aliases.
+command group is `variables`.
 
 Plain variables are for values that are useful configuration but not high-value
 secrets:
 
 ```bash
-lockbox secrets.lbox variable set DATABASE_URL --value 'postgres://localhost/app'
-lockbox secrets.lbox variable set DATABASE_URL='postgres://localhost/app'
-lockbox secrets.lbox variable get DATABASE_URL
+lockbox secrets.lbox variables set DATABASE_URL --value 'postgres://localhost/app'
+lockbox secrets.lbox variables set DATABASE_URL='postgres://localhost/app'
+lockbox secrets.lbox variables get DATABASE_URL
 ```
 
 With a session-default lockbox, assignment syntax is also supported:
 
 ```bash
-lockbox variable set DATABASE_URL='postgres://localhost/app'
-lockbox variable set DATABASE_URL 'postgres://localhost/app'
+lockbox variables set DATABASE_URL='postgres://localhost/app'
+lockbox variables set DATABASE_URL 'postgres://localhost/app'
 ```
 
 Secret variables are for passwords, API tokens, signing keys, and similar
@@ -250,10 +249,10 @@ material. They use secure-memory handling in the variable path and must be provi
 through an explicit source:
 
 ```bash
-lockbox secrets.lbox variable set --secret API_TOKEN --interactive
-lockbox secrets.lbox variable set --secret API_TOKEN --file ./api-token.txt
-lockbox secrets.lbox variable set --secret API_TOKEN --stdin
-lockbox secrets.lbox variable set --secret API_TOKEN --from-env API_TOKEN
+lockbox secrets.lbox variables set --secret API_TOKEN --interactive
+lockbox secrets.lbox variables set --secret API_TOKEN --file ./api-token.txt
+lockbox secrets.lbox variables set --secret API_TOKEN --stdin
+lockbox secrets.lbox variables set --secret API_TOKEN --from-env API_TOKEN
 ```
 
 Avoid passing secrets as command-line arguments. Shell history and process

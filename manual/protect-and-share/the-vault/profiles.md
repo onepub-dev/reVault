@@ -17,16 +17,16 @@ lbx personal.lbox create --for personal
 ## Create and inspect Profiles
 
 ```bash
-lbx vault profile create personal
-lbx vault profile list
-lbx vault profile history personal
-lbx vault profile fingerprint personal
+lbx vault profiles create personal
+lbx vault profiles list
+lbx vault profiles history personal
+lbx vault profiles fingerprint personal
 ```
 
 Associate an email address before publishing a Profile through the key-sharing service:
 
 ```bash
-lbx vault profile email personal alice@example.com
+lbx vault profiles email personal alice@example.com
 ```
 
 ## Back up a Profile
@@ -34,7 +34,7 @@ lbx vault profile email personal alice@example.com
 Both Profile types support backup and restore.
 
 ```bash
-lbx vault profile backup ./personal.profile-backup --name personal
+lbx vault profiles backup ./personal.profile-backup --name personal
 ```
 
 {% hint style="danger" %}
@@ -44,7 +44,7 @@ A Profile backup contains private keys or the Profile's password in plaintext. A
 Restore a backup with:
 
 ```bash
-lbx vault profile restore ./personal.profile-backup
+lbx vault profiles restore ./personal.profile-backup
 ```
 
 Use `--name` to restore it under a different name. If that name already exists, `--overwrite` replaces the Profile after reVault backs up the current Vault.
@@ -56,7 +56,7 @@ Replacement must use the same Profile type. Remove a Profile explicitly before r
 Create a password Profile on your own machine, then grant it access alongside your existing identity:
 
 ```bash
-lbx vault profile create production-server --password
+lbx vault profiles create production-server --password
 lbx shared.lbox access grant production-server
 lbx shared.lbox access list
 ```
@@ -76,13 +76,13 @@ lbx server.lbox create --for production-server
 Retrieve the same password whenever you need it:
 
 ```bash
-lbx vault profile password production-server
+lbx vault profiles password production-server
 ```
 
 The command unlocks your Vault normally and prints the password. Profile listings show its type and keep the secret hidden. To write the exact password bytes to a file:
 
 ```bash
-lbx vault profile password production-server --output ./server-credential
+lbx vault profiles password production-server --output ./server-credential
 ```
 
 On Unix, the file has owner-only permissions. Existing files are refused unless you pass `--overwrite`.
@@ -109,7 +109,7 @@ If the server loses its password, retrieve it again from your Vault. If the Prof
 Create a replacement Profile, grant it access and verify the server can read with its new credential before revoking the old entry:
 
 ```bash
-lbx vault profile create production-server-next --password
+lbx vault profiles create production-server-next --password
 lbx shared.lbox access grant production-server-next
 # Provision and verify the replacement password on the server.
 lbx shared.lbox access revoke production-server
@@ -121,12 +121,12 @@ Removing a Profile from your Vault does not revoke the corresponding Lockbox acc
 
 ## Rotate or remove a Profile
 
-For key-pair Profiles, `lbx vault profile rotate personal` creates a new key generation while retaining the history needed to work with earlier Lockboxes. Use `lbx access refresh` on Lockboxes whose access entry needs the newer generation. Password Profiles use the replacement workflow above; key history, fingerprints, public export, publishing and key rotation apply to key-pair Profiles.
+For key-pair Profiles, `lbx vault profiles rotate personal` creates a new key generation while retaining the history needed to work with earlier Lockboxes. Use `lbx access refresh` on Lockboxes whose access entry needs the newer generation. Password Profiles use the replacement workflow above; key history, fingerprints, public export, publishing and key rotation apply to key-pair Profiles.
 
 Removing a Profile can remove your ability to open its Lockboxes. Check its use and make a secure backup first:
 
 ```bash
-lbx vault profile remove personal
+lbx vault profiles remove personal
 ```
 
 Publishing a Profile shares only its public key. Read [Sharing](sharing.md) before exchanging keys or granting access.

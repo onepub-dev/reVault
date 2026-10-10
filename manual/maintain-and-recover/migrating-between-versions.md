@@ -10,7 +10,7 @@ Vault structure version 3 adds password Profiles. Upgrade an existing version 2 
 lbx doctor migrate vault --replace
 ```
 
-The migration retains the previous Vault as a versioned backup. Older clients reject version 3 Vaults for normal Vault operations, protecting password Profiles from tools that do not understand them. Vault structure version 3 is separate from its Lockbox container version. The v4 development implementation retains Vault structure version 3 but upgrades its container to v4. Standalone older Lockboxes must also be migrated before the v4 client can open them.
+The migration retains the previous Vault as a versioned backup. Older clients reject version 3 Vaults for normal Vault operations, protecting password Profiles from tools that do not understand them. Vault structure version 3 is separate from its Lockbox container version. The current `0.4.x` line uses container format 3. Format-4 transaction recovery remains on the separate performance branch; format-4 archives and Vault containers require a matching v4 build and are not downgraded by these commands.
 
 ## Migrating a reVault vault or archive
 
@@ -30,6 +30,25 @@ Make sure that:
 * you have enough free disk space for a complete new copy of the vault or archive you are migrating.
 
 Migration does not delete the source when an output path is supplied. It creates and validates the new artifact first, so the source can be kept until you have confirmed the result.
+
+### Migrate the Vault and all known Lockboxes
+
+To upgrade the configured Vault and every Lockbox remembered by it in one command:
+
+```console
+lbx doctor migrate all --replace
+```
+
+The Vault is migrated first. If that fails, Lockbox migration does not start.
+Otherwise, the command attempts each known Lockbox and reports failures by path,
+including missing files and identity mismatches. It exits unsuccessfully if any
+Lockbox could not be migrated; successful migrations retain their versioned backups.
+Already-current formats need no migration. Files that the Vault does not know
+about must be migrated individually.
+
+The command requires `--replace` and uses the same validation and backups as
+individual migrations. Missing Lockboxes are never recreated. Correct any
+reported failures and run the command again.
 
 ### Migrate a vault
 
@@ -70,11 +89,15 @@ Pass the archive path and a separate output path:
 lockbox doctor migrate lockbox secrets.lbox --output secrets-migrated.lbox
 ```
 
-The CLI first tries the current and historical Profile keys stored in the migrated Vault. It can also use a Lockbox password remembered by the Vault. You only need to supply a password when the Vault does not hold a credential that can open the Lockbox and the Lockbox has password access.
+Migration unlocks the older archive directly; you do not need to run `open`
+first or enable Auto Open. The CLI tries current and historical Profile keys,
+remembered Lockbox passwords, and password Profiles in the migrated Vault.
+If none can unlock the archive and it has password access, supply its passphrase
+through `LOCKBOX_PASSWORD` or the secure prompt.
 
 The vault must already exist and be in the current format. If the vault exists use the above vault migration guide to migrate the vault.
 
-If the Vault does not exist, restore a Vault backup or initialise a new Vault and restore the required Profile backups with `lbx vault profile restore`. A newly initialised Vault does not contain the old Profile keys and cannot open Lockboxes that relied on them.
+If the Vault does not exist, restore a Vault backup or initialise a new Vault and restore the required Profile backups with `lbx vault profiles restore`. A newly initialised Vault does not contain the old Profile keys and cannot open Lockboxes that relied on them.
 
 You can now migrate your archives:
 
@@ -104,7 +127,7 @@ lockbox secrets-migrated.lbox cat /path/to/important-file
 lockbox secrets-migrated.lbox close
 ```
 
-Archive migration creates a new signed commit chain. The files, forms, and other logical records are migrated, but the old archive's public commit and signature history is not copied into the new archive. The new archive uses the current format. For signed v2/v3 archives it retains the established signing owner; the matching signing key must be available in the migrated Vault, including historical Profile generations. Missing signing material is an error rather than permission to substitute a different owner. Only committed reachable contents are imported; abandoned allocations and free space are omitted.
+Archive migration creates a new signed commit chain. The files, forms, and other logical records are migrated, but the old archive's public commit and signature history is not copied into the new archive. The new archive uses the current format. Verify its contents and access before replacing or removing the source.
 
 ### Mirror projects after migration
 
@@ -117,9 +140,9 @@ After opening the migrated Lockbox, inspect a project's configuration and planne
 changes before updating it:
 
 ```console
-lockbox secrets-migrated.lbox mirror project info
-lockbox secrets-migrated.lbox mirror project status
-lockbox secrets-migrated.lbox mirror project update
+lockbox secrets-migrated.lbox mirrors project info
+lockbox secrets-migrated.lbox mirrors project status
+lockbox secrets-migrated.lbox mirrors project update
 ```
 
 Replace `project` with the stored project name. Ownership checks and empty-source
@@ -134,7 +157,7 @@ lockbox doctor migrate vault --replace
 lockbox doctor migrate lockbox secrets.lbox --replace
 ```
 
-`--replace` cannot be combined with `--output`. The CLI validates the replacement before renaming the original to a versioned backup and installing the new artifact at the original location. For a Lockbox, validation includes reopening it, checking physical ownership, and comparing logical records and file bytes against the migration artifact.
+`--replace` cannot be combined with `--output`. The CLI validates the replacement before renaming the original to a versioned backup and installing the new artifact at the original location. Independently open the replacement and check its contents before removing the backup.
 
 For example, replacing `secrets.lbox` from archive format version 1 retains a backup similar to:
 
@@ -148,7 +171,7 @@ Without `--replace`, `--output` is required. Existing output paths are not overw
 
 ### Older formats and historical exporters
 
-The current lockbox and vault APIs intentionally read only their current native formats. When the CLI encounters an older format, the direct migration command automatically:
+The current Vault structure and Lockbox container format are version 3. Normal CLI operations refuse older formats and direct you to migration. The migration command retains the historical format-2 reader. For older formats that require an exporter, the direct migration command automatically:
 
 1. detects the source format version;
 2. installs the exact historical exporter registered for that version from crates.io, if it is not already cached;
@@ -156,9 +179,9 @@ The current lockbox and vault APIs intentionally read only their current native 
 4. upgrades the migration schema one step at a time; and
 5. imports and validates a new current-format vault or archive.
 
-The current destination is Lockbox container v4. The CLI selects a historical reader for the source and imports its committed logical records directly into the current container; it does not rewrite the source through every intermediate native format. Migration artifact schemas may still be upgraded in steps.
+The current destination is Lockbox container format 3. The CLI selects a registered historical reader for older sources and imports their logical records into the current container. Migration artifact schemas may be upgraded in steps.
 
-The v4 implementation adds `revault-migrate-archive-v3` for v2/v3 archives and `revault-migrate-vault-v3` for structure-v3 Vaults in v3 containers, alongside the older registered exporters. The `v3` names describe their historical input reader, not the destination format. These helpers use isolated working copies so historical recovery cannot alter the original. They are part of the development branch and must be published with the v4 release before automatic installation can work.
+The v4-only exporters are deferred to the performance branch. Do not use this format-3 build to resume a migration targeting format 4. Keep its journal, source and temporary files intact, and use a matching v4 build to recover that operation.
 
 The first migration may therefore require network access and a working Cargo installation. The exporter is cached under the user cache directory and is checked for the expected artifact type, native version, and migration schema before it is used.
 
@@ -172,7 +195,7 @@ Migration is resumable. The CLI stores an encrypted migration journal and tempor
 lockbox doctor migrate lockbox secrets.lbox --output secrets-migrated.lbox
 ```
 
-Completed export, upgrade, and import stages are verified and reused. Reusing an imported archive requires a full content comparison, not just a readable header. An incomplete stage is discarded and rebuilt. The CLI refuses to resume when the source path, source format version, or source contents no longer match the saved journal.
+Completed stages are checked before reuse. An incomplete stage is discarded and rebuilt. The CLI refuses to resume when the source path, source format version, or source contents no longer match the saved journal. It also refuses journals or output containers targeting a newer format. Independently reopen the completed result and compare important contents with the source.
 
 If the process stopped during `--replace`, run the same replacement command again. The CLI detects the interrupted replacement and completes the safe rename when the retained backup and validated output are available.
 

@@ -200,12 +200,12 @@ pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()
     let explicit = matches.get_one::<String>("project").map(String::as_str);
     let (action, action_matches) = matches
         .subcommand()
-        .ok_or_else(|| cli_error("mirror requires an action"))?;
+        .ok_or_else(|| cli_error("mirrors requires an action"))?;
     match action {
         "create" => create_project(&lockbox, explicit, action_matches, access),
         "projects" if explicit.is_none() => list_projects(&lockbox, action_matches, access),
         "projects" => Err(cli_error(
-            "mirror projects lists every project and does not accept a project name",
+            "mirrors projects lists every project and does not accept a project name",
         )),
         _ => {
             let project = select_project(&lockbox, explicit, access)?;
@@ -219,11 +219,11 @@ pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()
                 "destroy" | "delete-project" => {
                     delete_project(&lockbox, project, action_matches, access)
                 }
-                "rule" => rules_project(&lockbox, project, action_matches, access),
+                "rules" => rules_project(&lockbox, project, action_matches, access),
                 "add" | "extract" | "cat" | "list" | "remove" | "move" => {
                     project_file_command(&lockbox, project, action, action_matches, access)
                 }
-                other => Err(cli_error(format!("unknown mirror action: {other}"))),
+                other => Err(cli_error(format!("unknown mirrors action: {other}"))),
             }
         }
     }
@@ -268,7 +268,7 @@ fn rebind_project(
     let source = canonical_source(Path::new(
         matches
             .get_one::<String>("from")
-            .ok_or_else(|| cli_error("mirror rebind requires --from"))?,
+            .ok_or_else(|| cli_error("mirrors rebind requires --from"))?,
     ))?;
     let identity = platform_identity(&source)?;
     println!("Rebind mirror '{}':", project.name);
@@ -363,7 +363,7 @@ fn rules_project(
 ) -> CliResult<()> {
     let (action, action_matches) = matches
         .subcommand()
-        .ok_or_else(|| cli_error("mirror rule requires an action"))?;
+        .ok_or_else(|| cli_error("mirrors rules requires an action"))?;
     if action == "list" {
         let kind = action_matches.get_one::<String>("kind").map(String::as_str);
         let format = selected_format(action_matches);
@@ -445,7 +445,7 @@ fn rules_project(
     lb.update_mirror_project(&project)?;
     commit_mirror_change(lb, lockbox_path, access)?;
     println!(
-        "Updated {} rules for mirror '{}'. Run mirror status before updating.",
+        "Updated {} rules for mirror '{}'. Run mirrors status before updating.",
         kind, project.name
     );
     Ok(())
@@ -580,7 +580,7 @@ fn project_file_command(
         "list" => project_list(lockbox_path, &project, matches, access),
         "remove" | "delete" => project_remove(lockbox_path, &project, matches, access),
         "move" => project_move(lockbox_path, &project, matches, access),
-        _ => Err(cli_error(format!("unknown mirror file action: {action}"))),
+        _ => Err(cli_error(format!("unknown mirrors file action: {action}"))),
     }
 }
 
@@ -734,7 +734,7 @@ fn project_extract(
     if let Some(destination) = matches.get_one::<String>("to") {
         if args.len() > 1 {
             return Err(cli_error(
-                "mirror extract --to accepts at most one project path",
+                "mirrors extract --to accepts at most one project path",
             ));
         }
         if let Some(source) = args.first() {
@@ -748,7 +748,7 @@ fn project_extract(
     }
     if args.len() != 2 {
         return Err(cli_error(
-            "mirror extract requires PATH DESTINATION or --to DESTINATION",
+            "mirrors extract requires PATH DESTINATION or --to DESTINATION",
         ));
     }
     extract_project_entry(&lb, project, args[0], Path::new(args[1]), &policy)?;
@@ -927,7 +927,7 @@ fn project_cat(
         project,
         matches
             .get_one::<String>("path")
-            .ok_or_else(|| cli_error("mirror cat requires a path"))?,
+            .ok_or_else(|| cli_error("mirrors cat requires a path"))?,
     )?;
     let lb = open_existing(lockbox_path, access)?;
     let stdout = io::stdout();
@@ -1061,10 +1061,10 @@ fn project_move(
 ) -> CliResult<()> {
     let from_value = matches
         .get_one::<String>("from")
-        .ok_or_else(|| cli_error("mirror move requires FROM"))?;
+        .ok_or_else(|| cli_error("mirrors move requires FROM"))?;
     let to_value = matches
         .get_one::<String>("to")
-        .ok_or_else(|| cli_error("mirror move requires TO"))?;
+        .ok_or_else(|| cli_error("mirrors move requires TO"))?;
     let from = project_join(project, from_value)?;
     let to = project_join(project, to_value)?;
     let mut lb = open_existing(lockbox_path, access)?;
@@ -1077,7 +1077,7 @@ fn project_move(
 
 fn print_direct_change_warning(project: &MirrorProject) {
     println!(
-        "Direct changes may be reversed by the next update; run `mirror {} status`.",
+        "Direct changes may be reversed by the next update; run `mirrors {} status`.",
         project.name
     );
 }
@@ -1132,26 +1132,26 @@ fn create_project(
     if let Some(misplaced) = matches.get_one::<String>("misplaced-project") {
         let intended = name.unwrap_or(misplaced);
         return Err(cli_error(format!(
-            "the mirror project name must appear before 'create'; use:\n  lbx mirror {intended} create --from <HOST_DIRECTORY> --to <LOCKBOX_DIRECTORY>"
+            "the mirror project name must appear before 'create'; use:\n  lbx mirrors {intended} create --from <HOST_DIRECTORY> --to <LOCKBOX_DIRECTORY>"
         )));
     }
     let name = name.ok_or_else(|| {
         cli_error(
-            "mirror create requires a project name before 'create'; use:\n  lbx mirror <NAME> create --from <HOST_DIRECTORY> --to <LOCKBOX_DIRECTORY>",
+            "mirrors create requires a project name before 'create'; use:\n  lbx mirrors <NAME> create --from <HOST_DIRECTORY> --to <LOCKBOX_DIRECTORY>",
         )
     })?;
     validate_project_action_name(name)?;
     let source = PathBuf::from(
         matches
             .get_one::<String>("from")
-            .ok_or_else(|| cli_error("mirror create requires --from"))?,
+            .ok_or_else(|| cli_error("mirrors create requires --from"))?,
     );
     let canonical = canonical_source(&source)?;
     let identity = platform_identity(&canonical)?;
     let destination = lockbox_path(
         matches
             .get_one::<String>("to")
-            .ok_or_else(|| cli_error("mirror create requires --to"))?,
+            .ok_or_else(|| cli_error("mirrors create requires --to"))?,
     )?;
     let project = MirrorProject {
         name: name.to_string(),
@@ -1170,7 +1170,7 @@ fn create_project(
     lb.create_mirror_project(project.clone(), matches.get_flag("adopt"))?;
     commit_mirror_change(lb, archive_path, access)?;
     println!(
-        "Created mirror '{}': {} -> {}.\nNo files were copied. Add them with:\n  lbx {} mirror {} update",
+        "Created mirror '{}': {} -> {}.\nNo files were copied. Add them with:\n  lbx {} mirrors {} update",
         project.name, project.source, project.destination, archive_path, project.name
     );
     Ok(())
@@ -1319,7 +1319,7 @@ fn run_mirror(request: MirrorRequest, access: &Access, apply: bool) -> CliResult
     let identity = platform_identity(&canonical)?;
     if request.project.host_identity.as_deref() != identity.as_deref() {
         return Err(cli_error(format!(
-            "host directory identity changed for mirror '{}'; use mirror {} rebind --from <HOST_DIRECTORY>",
+            "host directory identity changed for mirror '{}'; use mirrors {} rebind --from <HOST_DIRECTORY>",
             request.project.name, request.project.name
         )));
     }
@@ -1350,7 +1350,7 @@ fn run_mirror(request: MirrorRequest, access: &Access, apply: bool) -> CliResult
     }
     if source_entries.files_empty() && plan.removals > 0 && !request.options.allow_empty {
         return Err(cli_error(
-            "no source files match the project rules; pass --allow-empty after inspecting mirror status",
+            "no source files match the project rules; pass --allow-empty after inspecting mirrors status",
         ));
     }
     validate_large_delete(
@@ -1432,54 +1432,26 @@ fn run_mirror(request: MirrorRequest, access: &Access, apply: bool) -> CliResult
         Ok(())
     })?;
     let mut applied_progress = MirrorProgress::new(false);
-    let applied_plan =
-        match build_plan(&lb, &request, &source_entries, &mut applied_progress, false) {
-            Ok(plan) => plan,
-            Err(error) => {
-                let rollback = lb.abort().err();
-                return Err(match rollback {
-                    Some(rollback) => cli_error(format!(
-                        "mirror update planning failed: {error}; rollback failed: {rollback}"
-                    )),
-                    None => error,
-                });
-            }
-        };
+    let applied_plan = build_plan(&lb, &request, &source_entries, &mut applied_progress, false)?;
     if applied_plan.additions > 0
         || applied_plan.replacements > 0
         || applied_plan.removals > 0
         || applied_plan.directories > 0
     {
-        let error = cli_error(format!(
+        return Err(cli_error(format!(
             "mirror '{}' could not apply the planned contents before commit",
             request.project.name
-        ));
-        let rollback = lb.abort().err();
-        return Err(match rollback {
-            Some(rollback) => cli_error(format!("{error}; rollback failed: {rollback}")),
-            None => error,
-        });
+        )));
     }
     progress.stage("checking the source for changes before commit.");
-    if let Err(error) = verify_source_tree(
+    verify_source_tree(
         &canonical,
         &request.includes,
         &request.excludes,
         &ignored_paths,
         &source_entries,
         request.project.strict,
-    ) {
-        // The mirror has already streamed new pages into the lockbox. A
-        // source-change refusal must discard that physical preparation before
-        // returning, otherwise the old published commit hides an untracked
-        // copy of every imported file.
-        lb.abort().map_err(|abort_error| {
-            cli_error(format!(
-                "mirror update was refused and rollback failed: {abort_error}"
-            ))
-        })?;
-        return Err(error);
-    }
+    )?;
     progress.stage("committing the encrypted update.");
     commit_mirror_change(lb, &request.lockbox, access)?;
     progress.begin_counted("verifying the committed mirror contents.");
@@ -1525,12 +1497,7 @@ fn commit_mirror_change(
             drop(open_existing(lockbox_path, access)?);
             Ok(())
         }
-        Err(error) => match lockbox.abort() {
-            Ok(()) => Err(error.into()),
-            Err(rollback) => Err(cli_error(format!(
-                "mirror commit failed: {error}; rollback failed: {rollback}"
-            ))),
-        },
+        Err(error) => Err(error.into()),
     }
 }
 
@@ -2259,7 +2226,7 @@ fn validate_large_delete(
         && plan.removed_files * 100 > destination_files * LARGE_DELETE_PERCENT
     {
         return Err(cli_error(format!(
-            "mirror update would delete {} of {} managed files; pass --allow-large-delete",
+            "mirrors update would delete {} of {} managed files; pass --allow-large-delete",
             plan.removed_files, destination_files
         )));
     }
@@ -2367,7 +2334,7 @@ fn for_each_plan_path(
 fn confirm(prompt: &str) -> CliResult<bool> {
     if !io::stdin().is_terminal() {
         return Err(cli_error(
-            "confirmation requires a terminal; inspect with `mirror status`, then pass --force",
+            "confirmation requires a terminal; inspect with `mirrors status`, then pass --force",
         ));
     }
     print!("{prompt}");

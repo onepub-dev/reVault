@@ -284,6 +284,19 @@ impl VaultDirectory {
         decode_structure_version(&record)
     }
 
+    /// Loads the established container signer from a migration reader without
+    /// writing to the source or substituting a rotated profile signing key.
+    #[doc(hidden)]
+    pub fn migration_container_signing_key<State>(
+        lockbox: &Lockbox<State>,
+    ) -> Result<OwnerSigningKeyPair> {
+        match load_vault_container_signing_key_from_lockbox(lockbox) {
+            Ok(key) => Ok(key),
+            Err(Error::NotFound(_)) => find_established_default_profile_signing_key(lockbox),
+            Err(error) => Err(error),
+        }
+    }
+
     /// Opens or creates the default vault directory using `password`.
     ///
     /// The directory is chosen by `default_vault_dir`.
@@ -735,25 +748,6 @@ impl VaultDirectory {
     /// available, then refreshes that cache after the normal vault load.
     pub fn load_owner_signing_key_cached(&self, name: &str) -> Result<OwnerSigningKeyPair> {
         self.load_owner_signing_key(name)
-    }
-
-    /// Find an existing owner key by verified fingerprint without creating keys.
-    pub fn find_owner_signing_key(&self, fingerprint: &str) -> Result<Option<OwnerSigningKeyPair>> {
-        for name in self.list_private_keys()? {
-            match self.load_owner_signing_key_existing(&name) {
-                Ok(key) if key.fingerprint()? == fingerprint => return Ok(Some(key)),
-                Ok(_) | Err(Error::NotFound(_)) => {}
-                Err(err) => return Err(err),
-            }
-            for generation in self.list_profile_generations(&name)?.generations {
-                match self.load_owner_signing_key_generation(&name, generation.index) {
-                    Ok(key) if key.fingerprint()? == fingerprint => return Ok(Some(key)),
-                    Ok(_) | Err(Error::NotFound(_)) => {}
-                    Err(err) => return Err(err),
-                }
-            }
-        }
-        Ok(None)
     }
 
     /// Returns whether a private key exists under `name`.

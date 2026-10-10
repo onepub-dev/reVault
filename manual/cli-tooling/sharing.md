@@ -15,14 +15,14 @@ The difficult part of exchanging a public key is proving who owns it. reVault gi
 For example, Alice can publish her `default` Profile:
 
 ```bash
-lbx vault profile email default alice@example.com
-lbx vault profile publish default
+lbx vault profiles email default alice@example.com
+lbx vault profiles publish default
 ```
 
 The service verifies control of the email address and returns a publish code. Alice sends that code to Bob. Bob receives the Profile and chooses a local Contact name:
 
 ```bash
-lbx vault contact receive <publish-code> alice
+lbx vault contacts receive <publish-code> alice
 ```
 
 Bob must compare the fingerprint with Alice through a channel he already trusts. He should initiate that contact himself. An email address proves access to an inbox at one point in time; it does not prove a legal identity, employment, authority or continuing ownership.
@@ -63,14 +63,14 @@ Revocation replaces the content key in the Lockbox you control and reconstructs 
 Export your public Profile:
 
 ```bash
-lbx vault profile export ./default.pub
-lbx vault profile fingerprint default
+lbx vault profiles export ./default.pub
+lbx vault profiles fingerprint default
 ```
 
 The recipient imports it after independently obtaining and checking the fingerprint:
 
 ```bash
-lbx vault contact import alice ./default.pub \
+lbx vault contacts import alice ./default.pub \
   --fingerprint <fingerprint-code> \
   --fingerprint-channel phone-call-to-owner
 ```

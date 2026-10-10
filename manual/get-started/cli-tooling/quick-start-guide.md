@@ -113,15 +113,15 @@ lbx remove /docs/readme.md
 Store and retrieve a normal variable:
 
 ```bash
-lbx variable set DB_PORT 5432
-lbx variable get DB_PORT
+lbx variables set DB_PORT 5432
+lbx variables get DB_PORT
 ```
 
 Store a secret without putting its value in shell history or the process list:
 
 ```bash
-lbx variable set --secret API_TOKEN --interactive
-lbx variable get --secret API_TOKEN
+lbx variables set --secret API_TOKEN --interactive
+lbx variables get --secret API_TOKEN
 ```
 
 You can also supply a secret through `--stdin`, `--file` or `--from-env`.
@@ -131,7 +131,7 @@ You can also supply a secret through `--stdin`, `--file` or `--from-env`.
 Create a reusable form definition in your Vault:
 
 ```bash
-lbx vault form define login \
+lbx vault forms define login \
   --field username:text:required:Username \
   --field password:secret:required:Password
 ```
@@ -139,9 +139,9 @@ lbx vault form define login \
 Copy the definition into the default Lockbox and add a record:
 
 ```bash
-lbx form use login
-lbx form add /work/github --type login --name GitHub --interactive
-lbx form show /work/github
+lbx forms use login
+lbx forms add /work/github --type login --name GitHub --interactive
+lbx forms show /work/github
 ```
 
 See [Forms](forms.md) for field types and non-interactive examples.
@@ -151,13 +151,13 @@ See [Forms](forms.md) for field types and non-interactive examples.
 Ask your associate to publish their default Profile:
 
 ```bash
-lbx vault profile publish
+lbx vault profiles publish
 ```
 
 They give you the resulting publish code. Receive it under a local Contact name:
 
 ```bash
-lbx vault contact receive <publish-code> alice
+lbx vault contacts receive <publish-code> alice
 ```
 
 The command asks you to verify the fingerprint through a second, trusted channel. You should initiate that second contact using details you already trust.
