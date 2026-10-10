@@ -30,8 +30,9 @@ experimental ordinary reader is separated from the explicit audited image used
 by updates. It authenticates lookup paths, selected file chunks, variables and
 form values, with a bounded per-snapshot decoded-page cache. Complete graph,
 padding, reclaimed-space and payload audits remain explicit. No Vault integrity
-cache or format change is introduced. Validation and fresh-process performance
-comparison are in progress; this paragraph is not a passing qualification claim.
+cache or format change is introduced. Focused validation and the fixed six-case fresh-process comparison are complete;
+see [implementation and measured results](evidence/selective-authenticated-reads-2026-10-10/README.md).
+This completes the selective-read task, not overall format qualification.
 The earlier borrowed traversal remains in the audited path and has no isolated
 performance acceptance claim. Experimental v4 remains on this branch.
 
@@ -99,8 +100,8 @@ on `ed4d6c0f` passes every content/identity check and still fails ZIP parity:
 focused tests and Clippy pass. The failed launcher setup and excluded observations
 are retained separately. Opening dominates ranges; payload work dominates large
 streams. Next investigate bounded authenticated traversal and fresh payload cost
-attribution while preserving validation. This supersedes the earlier full-read
-baseline as the current scorecard, not as an isolated before/after experiment.
+attribution while preserving validation. This superseded the earlier full-read
+baseline at the time; the selective-read evidence above is now the current read scorecard.
 Public activation, scale, recovery, migration and full qualification remain open.
 
 ### Bounded fragment join — 2026-10-10

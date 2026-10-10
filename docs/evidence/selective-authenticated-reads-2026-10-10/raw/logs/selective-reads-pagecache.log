@@ -1,0 +1,24 @@
+    Finished `release` profile [optimized] target(s) in 0.10s
+     Running unittests src/lib.rs (/tmp/revault-tree-open-stages-20261010/target/release/deps/revault_lockbox_api-e3bcc2539127e239)
+
+running 3 tests
+test file_format::candidate_files::tests::tree_tests::selective_reads::selective_reads_leave_spare_space_auditing_to_full_verification_and_writers ... 
+thread 'file_format::candidate_files::tests::tree_tests::selective_reads::selective_reads_leave_spare_space_auditing_to_full_verification_and_writers' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads.rs:120:214:
+called `Option::unwrap()` on a `None` value
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+test file_format::candidate_files::tests::tree_tests::selective_reads::selective_reads_skip_damaged_unrelated_index_subtrees_and_authenticate_selected_pages ... 
+thread 'file_format::candidate_files::tests::tree_tests::selective_reads::selective_reads_skip_damaged_unrelated_index_subtrees_and_authenticate_selected_pages' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests.rs:30:6:
+called `Result::unwrap()` on an `Err` value: SecurityLimitExceeded("bounded filesystem metadata")
+FAILED
+test file_format::candidate_files::tests::tree_tests::selective_reads::selective_reads_skip_unrelated_payload_padding_and_free_space_all_modes ... ok
+
+failures:
+
+failures:
+    file_format::candidate_files::tests::tree_tests::selective_reads::selective_reads_leave_spare_space_auditing_to_full_verification_and_writers
+    file_format::candidate_files::tests::tree_tests::selective_reads::selective_reads_skip_damaged_unrelated_index_subtrees_and_authenticate_selected_pages
+
+test result: FAILED. 1 passed; 2 failed; 0 ignored; 0 measured; 661 filtered out; finished in 0.50s
+
+error: test failed, to rerun pass `-p revault_lockbox_api --lib`

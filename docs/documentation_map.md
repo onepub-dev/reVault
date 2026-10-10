@@ -106,3 +106,5 @@ and development failures; path installation and full-format acceptance are separ
 - [Rejected path-buffer move](evidence/typed-tree-path-move-rejected-2026-10-10/README.md): small-file gain outweighed by three measured regressions; two-line source experiment reverted.
 
 - [Selective authenticated reads](selective_authenticated_reads.md): accepted ordinary-read versus audit/update boundaries; no timestamp or Vault integrity evidence.
+
+- [Selective-read implementation and evidence](evidence/selective-authenticated-reads-2026-10-10/README.md): correctness, changed verification timing, and fixed ZIP/eager/selective comparison.

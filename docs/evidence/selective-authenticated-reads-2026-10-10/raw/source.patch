@@ -1,0 +1,3905 @@
+diff --git a/rust/revault_lockbox_api/src/file_format/authenticated_index.rs b/rust/revault_lockbox_api/src/file_format/authenticated_index.rs
+index c854e958..366520ae 100644
+--- a/rust/revault_lockbox_api/src/file_format/authenticated_index.rs
++++ b/rust/revault_lockbox_api/src/file_format/authenticated_index.rs
+@@ -9,6 +9,11 @@ use crate::{Error, LockboxId, Result};
+ use sha2::Sha256;
+ use zeroize::Zeroizing;
+ 
++mod cache;
++pub(crate) use cache::PageCache;
++mod borrowed;
++pub(crate) use borrowed::{EntryRef, VisitRef};
++
+ const MAGIC: &[u8; 8] = b"RV4IDX02";
+ const HEADER: usize = 44;
+ const MAX_NODE: usize = 65536;
+@@ -746,74 +751,6 @@ impl Index {
+             sealed,
+         )
+     }
+-    fn decode(&self, bytes: &[u8], sealed: u64) -> Result<Node> {
+-        if bytes.len() < HEADER
+-            || bytes.len() > MAX_NODE
+-            || (!self.mode.unpadded() && bytes.len() != MAX_NODE)
+-            || &bytes[..8] != MAGIC
+-            || bytes[8..10] != 1u16.to_le_bytes()
+-            || bytes[10..12] != self.mode.0.to_le_bytes()
+-            || bytes[12..28] != *self.archive.as_bytes()
+-            || u32::from_le_bytes(bytes[40..44].try_into().unwrap()) as usize
+-                != bytes.len() - HEADER
+-        {
+-            return Err(Error::CorruptRecord);
+-        }
+-        let body = if let Some(key) = &self.key {
+-            ZeroizingBytes::new(open_with_nonce(
+-                &bytes[HEADER..],
+-                key.as_slice(),
+-                &bytes[28..40],
+-                &bytes[..28],
+-            )?)
+-        } else {
+-            if bytes[28..40] != [0; 12] {
+-                return Err(Error::CorruptRecord);
+-            }
+-            ZeroizingBytes::new(bytes[HEADER..].to_vec())
+-        };
+-        let mut cursor = Cursor(&body);
+-        let height = cursor.take(1)?[0];
+-        let count = cursor.u64()?;
+-        let items = cursor.u16()? as usize;
+-        if height > MAX_HEIGHT || count > MAX_ENTRIES || items > MAX_ITEMS {
+-            return Err(Error::CorruptRecord);
+-        }
+-        let node = if height == 0 {
+-            let mut entries = Vec::with_capacity(items);
+-            for _ in 0..items {
+-                let namespace = cursor.take(1)?[0];
+-                let key_len = cursor.u16()? as usize;
+-                let value_len = cursor.u32()? as usize;
+-                if key_len > MAX_KEY || value_len > MAX_VALUE {
+-                    return Err(Error::CorruptRecord);
+-                }
+-                entries.push(Entry::new(
+-                    namespace,
+-                    cursor.take(key_len)?,
+-                    cursor.take(value_len)?,
+-                )?);
+-            }
+-            Node::Leaf(entries)
+-        } else {
+-            let mut children = Vec::with_capacity(items);
+-            for _ in 0..items {
+-                children.push(cursor.link(sealed)?);
+-            }
+-            Node::Branch { height, children }
+-        };
+-        validate_node(&node, sealed)?;
+-        if count != node.count()
+-            || if self.mode.unpadded() {
+-                !cursor.0.is_empty()
+-            } else {
+-                cursor.0.iter().any(|b| *b != 0)
+-            }
+-        {
+-            return Err(Error::CorruptRecord);
+-        }
+-        Ok(node)
+-    }
+     fn encode(&self, node: &Node) -> Result<ZeroizingBytes> {
+         validate_node(node, u64::MAX)?;
+         let stored_len = if self.mode.unpadded() {
+diff --git a/rust/revault_lockbox_api/src/file_format/authenticated_index/borrowed.rs b/rust/revault_lockbox_api/src/file_format/authenticated_index/borrowed.rs
+new file mode 100644
+index 00000000..c975bdc7
+--- /dev/null
++++ b/rust/revault_lockbox_api/src/file_format/authenticated_index/borrowed.rs
+@@ -0,0 +1,242 @@
++//! Page-scoped record views. No view outlives its zeroizing decoded page.
++use super::*;
++
++#[derive(Clone, Copy)]
++pub(crate) struct EntryRef<'a> {
++    pub namespace: u8,
++    pub key: &'a [u8],
++    pub value: &'a [u8],
++}
++impl EntryRef<'_> {
++    pub(crate) fn to_owned(self) -> Result<Entry> {
++        Entry::new(self.namespace, self.key, self.value)
++    }
++    fn identity(&self) -> (u8, &[u8]) {
++        (self.namespace, self.key)
++    }
++}
++impl Entry {
++    pub(crate) fn as_ref(&self) -> EntryRef<'_> {
++        EntryRef {
++            namespace: self.namespace,
++            key: &self.key,
++            value: &self.value,
++        }
++    }
++}
++pub(crate) enum VisitRef<'a> {
++    Page(RootRef),
++    Entry(EntryRef<'a>),
++}
++enum NodeView<'a> {
++    Leaf(Vec<EntryRef<'a>>),
++    Branch(Node),
++}
++impl NodeView<'_> {
++    fn height(&self) -> u8 {
++        match self {
++            Self::Leaf(_) => 0,
++            Self::Branch(node) => node.height(),
++        }
++    }
++    fn count(&self) -> u64 {
++        match self {
++            Self::Leaf(entries) => entries.len() as u64,
++            Self::Branch(node) => node.count(),
++        }
++    }
++    fn first(&self) -> Option<(u8, &[u8])> {
++        match self {
++            Self::Leaf(entries) => entries.first().map(EntryRef::identity),
++            Self::Branch(node) => node.first(),
++        }
++    }
++    fn last(&self) -> Option<(u8, &[u8])> {
++        match self {
++            Self::Leaf(entries) => entries.last().map(EntryRef::identity),
++            Self::Branch(node) => node.last(),
++        }
++    }
++    fn validate(&self, sealed: u64) -> Result<()> {
++        match self {
++            Self::Branch(node) => validate_node(node, sealed),
++            Self::Leaf(entries) => {
++                if entries.len() > MAX_ITEMS
++                    || entries.len() as u64 > MAX_ENTRIES
++                    || BODY_HEADER
++                        + entries
++                            .iter()
++                            .map(|entry| 7 + entry.key.len() + entry.value.len())
++                            .sum::<usize>()
++                        > MAX_BODY
++                {
++                    return Err(Error::CorruptRecord);
++                }
++                for entry in entries {
++                    validate_input(entry.key, entry.value)?;
++                }
++                if entries
++                    .windows(2)
++                    .any(|pair| pair[0].identity() >= pair[1].identity())
++                {
++                    return Err(Error::CorruptRecord);
++                }
++                Ok(())
++            }
++        }
++    }
++    fn into_owned(self) -> Result<Node> {
++        match self {
++            Self::Leaf(entries) => entries
++                .into_iter()
++                .map(EntryRef::to_owned)
++                .collect::<Result<Vec<_>>>()
++                .map(Node::Leaf),
++            Self::Branch(node) => Ok(node),
++        }
++    }
++}
++impl Index {
++    pub(super) fn decode(&self, bytes: &[u8], sealed: u64) -> Result<Node> {
++        self.with_decoded(bytes, sealed, |node| node.into_owned())
++    }
++    fn with_decoded<T>(
++        &self,
++        bytes: &[u8],
++        sealed: u64,
++        consume: impl FnOnce(NodeView<'_>) -> Result<T>,
++    ) -> Result<T> {
++        if bytes.len() < HEADER
++            || bytes.len() > MAX_NODE
++            || (!self.mode.unpadded() && bytes.len() != MAX_NODE)
++            || &bytes[..8] != MAGIC
++            || bytes[8..10] != 1u16.to_le_bytes()
++            || bytes[10..12] != self.mode.0.to_le_bytes()
++            || bytes[12..28] != *self.archive.as_bytes()
++            || u32::from_le_bytes(bytes[40..44].try_into().unwrap()) as usize
++                != bytes.len() - HEADER
++        {
++            return Err(Error::CorruptRecord);
++        }
++        let body = if let Some(key) = &self.key {
++            ZeroizingBytes::new(open_with_nonce(
++                &bytes[HEADER..],
++                key.as_slice(),
++                &bytes[28..40],
++                &bytes[..28],
++            )?)
++        } else {
++            if bytes[28..40] != [0; 12] {
++                return Err(Error::CorruptRecord);
++            }
++            ZeroizingBytes::new(bytes[HEADER..].to_vec())
++        };
++        let mut cursor = Cursor(&body);
++        let height = cursor.take(1)?[0];
++        let count = cursor.u64()?;
++        let items = cursor.u16()? as usize;
++        if height > MAX_HEIGHT || count > MAX_ENTRIES || items > MAX_ITEMS {
++            return Err(Error::CorruptRecord);
++        }
++        let node = if height == 0 {
++            let mut entries = Vec::with_capacity(items);
++            for _ in 0..items {
++                let namespace = cursor.take(1)?[0];
++                let key_len = cursor.u16()? as usize;
++                let value_len = cursor.u32()? as usize;
++                if key_len > MAX_KEY || value_len > MAX_VALUE {
++                    return Err(Error::CorruptRecord);
++                }
++                entries.push(EntryRef {
++                    namespace,
++                    key: cursor.take(key_len)?,
++                    value: cursor.take(value_len)?,
++                });
++            }
++            NodeView::Leaf(entries)
++        } else {
++            let mut children = Vec::with_capacity(items);
++            for _ in 0..items {
++                children.push(cursor.link(sealed)?);
++            }
++            NodeView::Branch(Node::Branch { height, children })
++        };
++        node.validate(sealed)?;
++        if count != node.count()
++            || if self.mode.unpadded() {
++                !cursor.0.is_empty()
++            } else {
++                cursor.0.iter().any(|b| *b != 0)
++            }
++        {
++            return Err(Error::CorruptRecord);
++        }
++        consume(node)
++    }
++    /// Every page is fully decoded and validated before its callbacks. Parent
++    /// relationships are checked before page/entry exposure. Callback output
++    /// remains staged: a later descendant failure invalidates the entire walk.
++    pub(crate) fn visit_borrowed(
++        &self,
++        storage: &impl Storage,
++        root: RootRef,
++        sealed: u64,
++        mut visitor: impl FnMut(VisitRef<'_>) -> Result<()>,
++    ) -> Result<()> {
++        self.visit_borrowed_node(storage, root, sealed, None, &mut visitor)
++    }
++    fn visit_borrowed_node(
++        &self,
++        storage: &impl Storage,
++        reference: RootRef,
++        sealed: u64,
++        expected: Option<(u8, &Link, Option<&Key>)>,
++        visitor: &mut impl FnMut(VisitRef<'_>) -> Result<()>,
++    ) -> Result<()> {
++        // The page buffers and leaf views drop before descending into a branch;
++        // only its bounded child links survive, as in the owned traversal.
++        let branch = {
++            validate_ref(reference, sealed)?;
++            let bytes = ZeroizingBytes::new(reference.read_verified(storage)?);
++            self.with_decoded(&bytes, sealed, |node| {
++                if let Some((height, link, upper)) = expected {
++                    if node.height() + 1 != height
++                        || node.count() != link.count
++                        || node.first() != Some(link.first.identity())
++                        || node
++                            .last()
++                            .is_some_and(|last| upper.is_some_and(|upper| last >= upper.identity()))
++                    {
++                        return Err(Error::CorruptRecord);
++                    }
++                }
++                visitor(VisitRef::Page(reference))?;
++                match node {
++                    NodeView::Leaf(entries) => {
++                        for entry in entries {
++                            visitor(VisitRef::Entry(entry))?;
++                        }
++                        Ok(None)
++                    }
++                    NodeView::Branch(node) => Ok(Some(node)),
++                }
++            })?
++        };
++        if let Some(Node::Branch { height, children }) = branch {
++            for (position, link) in children.iter().enumerate() {
++                let upper = children
++                    .get(position + 1)
++                    .map(|next| &next.first)
++                    .or_else(|| expected.and_then(|(_, _, upper)| upper));
++                self.visit_borrowed_node(
++                    storage,
++                    link.reference,
++                    sealed,
++                    Some((height, link, upper)),
++                    visitor,
++                )?;
++            }
++        }
++        Ok(())
++    }
++}
+diff --git a/rust/revault_lockbox_api/src/file_format/authenticated_index/cache.rs b/rust/revault_lockbox_api/src/file_format/authenticated_index/cache.rs
+new file mode 100644
+index 00000000..96699f93
+--- /dev/null
++++ b/rust/revault_lockbox_api/src/file_format/authenticated_index/cache.rs
+@@ -0,0 +1,116 @@
++//! Bounded cache of already authenticated decoded pages for one read snapshot.
++//! Keys include both locations, length and digest. No filesystem timestamps or
++//! external integrity cache are trusted. Entry/branch buffers wipe on eviction.
++use super::*;
++use std::collections::VecDeque;
++const CACHE_PAGES: usize = 16;
++
++#[derive(Default)]
++pub(crate) struct PageCache {
++    pages: VecDeque<(RootRef, Node)>,
++    scope: Option<(LockboxId, u16, RootRef, u64)>,
++    key: Option<Zeroizing<[u8; 32]>>,
++}
++impl Index {
++    #[allow(clippy::too_many_arguments)]
++    pub(crate) fn get_cached(
++        &self,
++        storage: &impl Storage,
++        root: RootRef,
++        sealed: u64,
++        namespace: u8,
++        key: &[u8],
++        cache: &mut PageCache,
++    ) -> Result<Option<Entry>> {
++        validate_input(key, &[])?;
++        let scope = (self.archive, self.mode.0, root, sealed);
++        if cache.scope != Some(scope) || cache.key.as_deref() != self.key.as_deref() {
++            cache.pages.clear();
++            cache.scope = Some(scope);
++            cache.key = self.key.clone();
++        }
++        let identity = (namespace, key);
++        let mut reference = root;
++        let mut expected: Option<(u8, Link)> = None;
++        let mut upper: Option<Key> = None;
++        loop {
++            // Bounds are checked even on a hit: a cached page is not authority
++            // for a different sealed length or parent-child relationship.
++            validate_ref(reference, sealed)?;
++            let position =
++                if let Some(position) = cache.pages.iter().position(|(r, _)| *r == reference) {
++                    position
++                } else {
++                    let node = self.read(storage, reference, sealed)?;
++                    if cache.pages.len() == CACHE_PAGES {
++                        cache.pages.pop_front();
++                    }
++                    cache.pages.push_back((reference, node));
++                    cache.pages.len() - 1
++                };
++            let node = &cache.pages[position].1;
++            if let Some((height, link)) = &expected {
++                if node.height() + 1 != *height
++                    || node.count() != link.count
++                    || node.first() != Some(link.first.identity())
++                    || node.last().is_some_and(|last| {
++                        upper.as_ref().is_some_and(|bound| last >= bound.identity())
++                    })
++                {
++                    return Err(Error::CorruptRecord);
++                }
++            }
++            match node {
++                Node::Leaf(entries) => {
++                    return Ok(entries
++                        .binary_search_by(|e| e.identity().cmp(&identity))
++                        .ok()
++                        .map(|i| entries[i].clone()))
++                }
++                Node::Branch { height, children } => {
++                    let position = children.partition_point(|c| c.first.identity() <= identity);
++                    if position == 0 {
++                        return Ok(None);
++                    }
++                    let position = position - 1;
++                    if let Some(next) = children.get(position + 1) {
++                        upper = Some(next.first.clone());
++                    }
++                    reference = children[position].reference;
++                    expected = Some((*height, children[position].clone()));
++                }
++            }
++        }
++    }
++}
++
++#[test]
++fn page_cache_evicts_at_its_fixed_bound_and_preserves_exact_lookups() {
++    // Private index fixture; the public CLI cannot expose cache occupancy.
++    let mode = crate::creation_options::FormatMode::new(crate::LockboxFormatOptions {
++        encryption: crate::EncryptionMode::None,
++        signing: crate::SigningMode::None,
++        compression: crate::Compression::None,
++        size_padding: crate::SizePadding::Default,
++    });
++    let index = Index::new(LockboxId::from_bytes([81; 16]), mode, None).unwrap();
++    let mut storage = crate::storage::StorageBackend::memory(vec![0; REGION_LEN]);
++    let root = index
++        .build_sorted(
++            &mut storage,
++            (0u32..1000).map(|n| Entry::new(1, &n.to_be_bytes(), &vec![n as u8; 1500])),
++        )
++        .unwrap()
++        .root;
++    let sealed = storage.len().unwrap();
++    let mut cache = PageCache::default();
++    for n in (0u32..1000).chain((0u32..1000).rev()) {
++        let entry = index
++            .get_cached(&storage, root, sealed, 1, &n.to_be_bytes(), &mut cache)
++            .unwrap()
++            .unwrap();
++        assert_eq!(entry.value.as_slice(), &vec![n as u8; 1500]);
++        assert!(cache.pages.len() <= CACHE_PAGES);
++    }
++    assert_eq!(cache.pages.len(), CACHE_PAGES);
++}
+diff --git a/rust/revault_lockbox_api/src/file_format/authenticated_index_tests.rs b/rust/revault_lockbox_api/src/file_format/authenticated_index_tests.rs
+index 88c96ec9..6cfa4275 100644
+--- a/rust/revault_lockbox_api/src/file_format/authenticated_index_tests.rs
++++ b/rust/revault_lockbox_api/src/file_format/authenticated_index_tests.rs
+@@ -1222,3 +1222,281 @@ fn root_collapse_validates_the_promoted_child_before_returning_a_new_root() {
+     let sealed = storage.len().unwrap();
+     assert!(index.remove(&mut storage, root, sealed, 1, b"a").is_err());
+ }
++
++#[test]
++fn borrowed_walk_matches_owned_pages_records_and_failure_boundaries() {
++    // The public CLI cannot construct this candidate tree or forged child links.
++    for encrypted in [false, true] {
++        for signed in [false, true] {
++            for padded in [false, true] {
++                let mut options = mode(encrypted, signed).options();
++                options.size_padding = if padded {
++                    SizePadding::Default
++                } else {
++                    SizePadding::None
++                };
++                let index = Index::new(
++                    LockboxId::from_bytes([45; 16]),
++                    FormatMode::new(options),
++                    encrypted.then_some(&[7u8; 32][..]),
++                )
++                .unwrap();
++                let mut storage = StorageBackend::memory(vec![0; REGION_LEN]);
++                let mut root = index.empty(&mut storage).unwrap();
++                // Enough records for multiple leaves and parent-bound checks.
++                for n in 0u32..80 {
++                    root = put(
++                        &index,
++                        &mut storage,
++                        root,
++                        1,
++                        &n.to_be_bytes(),
++                        &vec![n as u8; 1500],
++                    )
++                    .root;
++                }
++                let sealed = storage.len().unwrap();
++                let mut owned_pages = Vec::new();
++                let mut owned = Vec::new();
++                index
++                    .visit_owned(&storage, root, sealed, |event| {
++                        match event {
++                            Visit::Page(page) => owned_pages.push(page),
++                            Visit::Entry(entry) => {
++                                let entry: EntryRef<'_> = entry.as_ref();
++                                owned.push((
++                                    entry.namespace,
++                                    entry.key.to_vec(),
++                                    entry.value.to_vec(),
++                                ));
++                            }
++                        }
++                        Ok(())
++                    })
++                    .unwrap();
++                let mut pages = Vec::new();
++                let mut borrowed = Vec::new();
++                index
++                    .visit_borrowed(&storage, root, sealed, |event| {
++                        match event {
++                            VisitRef::Page(page) => pages.push(page),
++                            VisitRef::Entry(entry) => borrowed.push((
++                                entry.namespace,
++                                entry.key.to_vec(),
++                                entry.value.to_vec(),
++                            )),
++                        }
++                        Ok(())
++                    })
++                    .unwrap();
++                assert_eq!(pages, owned_pages);
++                assert_eq!(borrowed, owned);
++                assert!(pages.len() > 2);
++                for fail_at in [0usize, 1, 40, 79] {
++                    let mut seen = 0;
++                    let result = index.visit_borrowed(&storage, root, sealed, |event| {
++                        if let VisitRef::Entry(_) = event {
++                            if seen == fail_at {
++                                return Err(Error::InvalidInput("visitor refuses".into()));
++                            }
++                            seen += 1;
++                        }
++                        Ok(())
++                    });
++                    assert!(matches!(result, Err(Error::InvalidInput(_))));
++                    assert_eq!(seen, fail_at);
++                }
++                // A valid mirror still works; destroying both copies refuses.
++                let leaf = *pages.last().unwrap();
++                let primary = storage.read_at(leaf.primary, leaf.len as usize).unwrap();
++                let mirror = storage.read_at(leaf.mirror, leaf.len as usize).unwrap();
++                storage
++                    .write_at(leaf.primary, &vec![0; leaf.len as usize])
++                    .unwrap();
++                index
++                    .visit_borrowed(&storage, root, sealed, |_| Ok(()))
++                    .unwrap();
++                storage
++                    .write_at(leaf.mirror, &vec![0; leaf.len as usize])
++                    .unwrap();
++                assert!(index
++                    .visit_borrowed(&storage, root, sealed, |_| Ok(()))
++                    .is_err());
++                storage.write_at(leaf.primary, &primary).unwrap();
++                storage.write_at(leaf.mirror, &mirror).unwrap();
++                let expected: Values = (0u32..80)
++                    .map(|n| ((1, n.to_be_bytes().to_vec()), vec![n as u8; 1500]))
++                    .collect();
++                assert_eq!(values(&index, &storage, root, sealed), expected);
++            }
++        }
++    }
++}
++
++#[test]
++fn cached_lookup_binds_snapshot_mode_archive_and_key() {
++    // Private index fixture; no public CLI exposes this experimental page API.
++    for encrypted in [false, true] {
++        let index = index(encrypted, true);
++        let mut storage = StorageBackend::memory(vec![0; REGION_LEN]);
++        let root = index.empty(&mut storage).unwrap();
++        let root = put(&index, &mut storage, root, 1, b"name", b"original").root;
++        let sealed = storage.len().unwrap();
++        let mut cache = PageCache::default();
++        for _ in 0..2 {
++            assert_eq!(
++                index
++                    .get_cached(&storage, root, sealed, 1, b"name", &mut cache)
++                    .unwrap()
++                    .unwrap()
++                    .value
++                    .as_slice(),
++                b"original"
++            );
++        }
++        let wrong_mode = Index::new(
++            index.archive,
++            mode(encrypted, false),
++            encrypted.then_some(&[17u8; 32][..]),
++        )
++        .unwrap();
++        assert!(wrong_mode
++            .get_cached(&storage, root, sealed, 1, b"name", &mut cache)
++            .is_err());
++        let wrong_archive = Index::new(
++            LockboxId::from_bytes([99; 16]),
++            index.mode,
++            encrypted.then_some(&[17u8; 32][..]),
++        )
++        .unwrap();
++        assert!(wrong_archive
++            .get_cached(&storage, root, sealed, 1, b"name", &mut cache)
++            .is_err());
++        assert!(index
++            .get_cached(&storage, root, sealed, 1, b"name", &mut cache)
++            .unwrap()
++            .is_some());
++        if encrypted {
++            let wrong_key = Index::new(index.archive, index.mode, Some(&[18u8; 32])).unwrap();
++            assert!(wrong_key
++                .get_cached(&storage, root, sealed, 1, b"name", &mut cache)
++                .is_err());
++        }
++        let new_root = put(&index, &mut storage, root, 1, b"name", b"replacement").root;
++        assert_eq!(
++            index
++                .get_cached(
++                    &storage,
++                    new_root,
++                    storage.len().unwrap(),
++                    1,
++                    b"name",
++                    &mut cache
++                )
++                .unwrap()
++                .unwrap()
++                .value
++                .as_slice(),
++            b"replacement"
++        );
++        assert_eq!(
++            index
++                .get_cached(&storage, root, sealed, 1, b"name", &mut cache)
++                .unwrap()
++                .unwrap()
++                .value
++                .as_slice(),
++            b"original"
++        );
++        assert!(index
++            .get_cached(&storage, root, REGION_LEN as u64, 1, b"name", &mut cache)
++            .is_err());
++    }
++}
++
++#[test]
++fn borrowed_walk_refuses_parent_mismatches_before_child_callbacks() {
++    // Private fixture exception: no public CLI can forge candidate parent links.
++    for encrypted in [false, true] {
++        for signed in [false, true] {
++            for padded in [false, true] {
++                let mut options = mode(encrypted, signed).options();
++                options.size_padding = if padded {
++                    SizePadding::Default
++                } else {
++                    SizePadding::None
++                };
++                let index = Index::new(
++                    LockboxId::from_bytes([46; 16]),
++                    FormatMode::new(options),
++                    encrypted.then_some(&[7u8; 32][..]),
++                )
++                .unwrap();
++                for fault in 0..4 {
++                    let mut storage = StorageBackend::memory(vec![0; REGION_LEN]);
++                    let mut left = index
++                        .write(
++                            &mut storage,
++                            &Node::Leaf(vec![
++                                Entry::new(1, b"a", b"first").unwrap(),
++                                Entry::new(1, b"x", b"last").unwrap(),
++                            ]),
++                        )
++                        .unwrap();
++                    let right = index
++                        .write(
++                            &mut storage,
++                            &Node::Leaf(vec![Entry::new(
++                                1,
++                                if fault == 3 { b"m" } else { b"z" },
++                                b"right",
++                            )
++                            .unwrap()]),
++                        )
++                        .unwrap();
++                    if fault == 0 {
++                        left.count += 1;
++                    }
++                    if fault == 1 {
++                        left.first = Key::new((1, b"b"));
++                    }
++                    let root = index
++                        .write(
++                            &mut storage,
++                            &Node::Branch {
++                                height: if fault == 2 { 2 } else { 1 },
++                                children: vec![left, right],
++                            },
++                        )
++                        .unwrap()
++                        .reference;
++                    let sealed = storage.len().unwrap();
++                    let mut pages = 0;
++                    let mut entries = 0;
++                    assert!(
++                        index
++                            .visit_borrowed(&storage, root, sealed, |event| {
++                                match event {
++                                    VisitRef::Page(_) => pages += 1,
++                                    VisitRef::Entry(_) => entries += 1,
++                                }
++                                Ok(())
++                            })
++                            .is_err(),
++                        "fault={fault}"
++                    );
++                    assert_eq!(pages, 1, "only the locally valid root may be exposed");
++                    assert_eq!(entries, 0, "invalid child must expose no entries");
++                    let mut cache = PageCache::default();
++                    // Query b so the forged first-key case actually descends.
++                    assert!(index
++                        .get_cached(&storage, root, sealed, 1, b"b", &mut cache)
++                        .is_err());
++                    assert!(index
++                        .visit_owned(&storage, root, sealed, |_| Ok(()))
++                        .is_err());
++                }
++            }
++        }
++    }
++}
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue.rs
+index 67992e2e..7e226136 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue.rs
+@@ -9,7 +9,7 @@ use crate::file_format::publication_anchor::REGION_LEN;
+ use crate::page_buffer::ZeroizingBytes;
+ use std::collections::BTreeSet;
+ pub(super) mod forms;
+-mod nodes;
++pub(super) mod nodes;
+ pub(super) mod overflow;
+ pub(super) use nodes::Metadata;
+ const MAX_BODY: usize = 65536;
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue/forms.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue/forms.rs
+index ab17596c..a2e788ef 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue/forms.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue/forms.rs
+@@ -692,3 +692,87 @@ fn stored_form_validation_preserves_operational_errors() {
+         assert_eq!(stored_value_error(error), Error::CorruptRecord);
+     }
+ }
++
++impl Forms {
++    /// Fetch just the selected definition and its ordered field descriptors.
++    /// The same decoder and semantic validator serve audits and selective reads.
++    pub fn selected_definition(
++        id: &FormTypeId,
++        revision: u32,
++        mode: FormatMode,
++        sealed: u64,
++        mut get: impl FnMut(u8, &[u8]) -> Result<Option<Entry>>,
++    ) -> Result<Self> {
++        let key = definition_key(id, revision);
++        let Some(row) = get(DEFINITION, &key)? else {
++            return Ok(Self::default());
++        };
++        let mut rows = Vec::new();
++        Self::definition_rows(row, mode, sealed, &mut get, &mut rows)?;
++        Self::decode(rows, mode, sealed)
++    }
++    fn definition_rows(
++        row: Entry,
++        mode: FormatMode,
++        sealed: u64,
++        get: &mut impl FnMut(u8, &[u8]) -> Result<Option<Entry>>,
++        rows: &mut Vec<Entry>,
++    ) -> Result<()> {
++        Self::admit_row(&row)?;
++        let mut c = Input(&row.value);
++        c.string()?;
++        c.layout(mode, sealed)?;
++        c.layout(mode, sealed)?;
++        let count = c.count()?;
++        c.end()?;
++        if rows
++            .len()
++            .checked_add(count + 1)
++            .is_none_or(|n| n > MAX_ROWS)
++        {
++            return Err(Error::CorruptRecord);
++        }
++        for n in 0..count {
++            let mut key = row.key.to_vec();
++            key.extend_from_slice(&(n as u32).to_be_bytes());
++            let field = get(DEFINITION_FIELD, &key)?.ok_or(Error::CorruptRecord)?;
++            Self::admit_row(&field)?;
++            rows.push(field);
++        }
++        rows.push(row);
++        Ok(())
++    }
++    pub fn selected_record(
++        path: &LockboxPath,
++        mode: FormatMode,
++        sealed: u64,
++        mut get: impl FnMut(u8, &[u8]) -> Result<Option<Entry>>,
++    ) -> Result<Self> {
++        let Some(row) = get(RECORD, path.as_str().as_bytes())? else {
++            return Ok(Self::default());
++        };
++        Self::admit_row(&row)?;
++        let mut c = Input(&row.value);
++        let record_id: [u8; 16] = c.take(16)?.try_into().unwrap();
++        let definition = c.take(40)?.to_vec();
++        c.string()?;
++        c.layout(mode, sealed)?;
++        let count = c.count()?;
++        c.end()?;
++        if count >= MAX_ROWS {
++            return Err(Error::CorruptRecord);
++        }
++        let mut rows = Vec::new();
++        for n in 0..count {
++            let mut key = record_id.to_vec();
++            key.extend_from_slice(&(n as u32).to_be_bytes());
++            let capture = get(CAPTURE, &key)?.ok_or(Error::CorruptRecord)?;
++            Self::admit_row(&capture)?;
++            rows.push(capture);
++        }
++        rows.push(row);
++        let definition = get(DEFINITION, &definition)?.ok_or(Error::CorruptRecord)?;
++        Self::definition_rows(definition, mode, sealed, &mut get, &mut rows)?;
++        Self::decode(rows, mode, sealed)
++    }
++}
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue/nodes.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue/nodes.rs
+index 10ea921a..fb414e0b 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue/nodes.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue/nodes.rs
+@@ -13,7 +13,7 @@ pub(crate) struct Node {
+     pub(super) permissions: u32,
+     pub(super) target: Option<Zeroizing<Vec<u8>>>,
+ }
+-pub(super) fn canonical(bytes: &[u8]) -> Result<&str> {
++pub(in crate::file_format::candidate_files) fn canonical(bytes: &[u8]) -> Result<&str> {
+     let path = std::str::from_utf8(bytes).map_err(|_| Error::CorruptRecord)?;
+     // Keep the validator's temporary canonical copy wipeable too.
+     let checked = Zeroizing::new(
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue/overflow.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue/overflow.rs
+index 0ca3c848..42df309d 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue/overflow.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue/overflow.rs
+@@ -1,7 +1,7 @@
+ //! Typed filesystem records for the experimental shared tree. File fragments
+ //! are separate bounded records; no file descriptor grows with its payload.
+ use super::*;
+-use crate::file_format::authenticated_index::Entry;
++use crate::file_format::authenticated_index::{Entry, EntryRef};
+ use crate::file_format::publication_anchor::shared::tree::Tree;
+ use std::collections::BTreeMap;
+ const FILE_RECORD: u8 = 1;
+@@ -140,6 +140,13 @@ impl Catalogue {
+     pub(in crate::file_format::candidate_files) fn with_tree(
+         codec: &Codec,
+         visit: impl FnOnce(&mut dyn FnMut(Entry) -> Result<()>) -> Result<Tree>,
++    ) -> Result<(Self, Tree)> {
++        Self::with_tree_borrowed(codec, |decode| visit(&mut |entry| decode(entry.as_ref())))
++    }
++
++    pub(in crate::file_format::candidate_files) fn with_tree_borrowed(
++        codec: &Codec,
++        visit: impl FnOnce(&mut dyn FnMut(EntryRef<'_>) -> Result<()>) -> Result<Tree>,
+     ) -> Result<(Self, Tree)> {
+         let mut files = Vec::new();
+         let mut nodes = Vec::new();
+@@ -159,7 +166,7 @@ impl Catalogue {
+                         .checked_add(entry.key.len())
+                         .ok_or(Error::CorruptRecord)?;
+                     files.push(File {
+-                        path: entry.key.clone(),
++                        path: Zeroizing::new(entry.key.to_vec()),
+                         permissions: u32::from_le_bytes(entry.value[..4].try_into().unwrap()),
+                         info: FileInfo::decode(&entry.value[4..], codec)?,
+                         fragments: Vec::new(),
+@@ -199,7 +206,7 @@ impl Catalogue {
+                     }
+                     packs.push(Pack {
+                         extent: Extent {
+-                            start: u64::from_be_bytes(entry.key.as_slice().try_into().unwrap()),
++                            start: u64::from_be_bytes(entry.key.try_into().unwrap()),
+                             len: u64::from_le_bytes(entry.value[..8].try_into().unwrap()),
+                             digest: entry.value[8..40].try_into().unwrap(),
+                         },
+@@ -224,7 +231,7 @@ impl Catalogue {
+                         _ => return Err(Error::CorruptRecord),
+                     };
+                     nodes.push(nodes::Node {
+-                        path: entry.key.clone(),
++                        path: Zeroizing::new(entry.key.to_vec()),
+                         permissions: u32::from_le_bytes(entry.value[1..5].try_into().unwrap()),
+                         target,
+                     });
+@@ -236,9 +243,10 @@ impl Catalogue {
+                     path_bytes = path_bytes
+                         .checked_add(entry.key.len())
+                         .ok_or(Error::CorruptRecord)?;
+-                    variables.push(entry);
++                    variables.push(entry.to_owned()?);
+                 }
+                 7..=10 => {
++                    let entry = entry.to_owned()?;
+                     forms::Forms::admit_row(&entry)?;
+                     if form_rows.len() >= 4096 {
+                         return Err(Error::CorruptRecord);
+@@ -250,15 +258,12 @@ impl Catalogue {
+                 }
+                 FORMAT_RECORD
+                     if format == 0
+-                        && entry.key.as_slice() == b"format"
+-                        && matches!(
+-                            entry.value.as_slice(),
+-                            b"RV4FS001" | b"RV4FS002" | b"RV4FS003"
+-                        ) =>
++                        && entry.key == b"format"
++                        && matches!(entry.value, b"RV4FS001" | b"RV4FS002" | b"RV4FS003") =>
+                 {
+-                    format = if entry.value.as_slice() == b"RV4FS003" {
++                    format = if entry.value == b"RV4FS003" {
+                         3
+-                    } else if entry.value.as_slice() == b"RV4FS001" {
++                    } else if entry.value == b"RV4FS001" {
+                         1
+                     } else {
+                         2
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/dense_update.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/dense_update.rs
+index 49618d35..511bbe88 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/dense_update.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/dense_update.rs
+@@ -377,7 +377,7 @@ pub(super) fn publish_catalogue(
+         return Err(Error::CorruptRecord);
+     }
+     let mut old_catalogue = if tree_base {
+-        let opened = super::tree_image::TreeImage::open(
++        let opened = super::tree_image::AuditedTreeImage::open(
+             allocation::compaction::View(&*storage),
+             archive,
+             mode,
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests.rs
+index 6729dbae..7bc15434 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests.rs
+@@ -1,6 +1,6 @@
+ //! Direct candidate fixtures: public CLI does not write this experimental tree.
+ use super::super::dense_catalogue::Metadata;
+-use super::super::tree_image::{self, TreeImage};
++use super::super::tree_image::{self, AuditedTreeImage};
+ use super::*;
+ use crate::file_format::publication_anchor::{shared, FAILURE_REGION};
+ mod access_export;
+@@ -8,6 +8,7 @@ mod forms;
+ mod fresh;
+ mod mutation;
+ mod open_reads;
++mod selective_reads;
+ mod variables;
+ 
+ fn exported(
+@@ -47,7 +48,7 @@ fn check(
+     authority: &Authority<'_>,
+     entries: &[Metadata],
+ ) {
+-    let mut image = TreeImage::open(
++    let mut image = tree_image::TreeImage::open(
+         StorageBackend::memory(storage.read_all().unwrap()),
+         archive(),
+         mode,
+@@ -142,15 +143,16 @@ fn typed_tree_filesystem_growth_deletion_permissions_and_copy_loss_all_modes() {
+         )
+         .unwrap();
+         check(&storage, mode, &authority, &changed);
+-        let payload = TreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
+-            .unwrap()
+-            .tree
+-            .graph
+-            .payloads()[0];
++        let payload =
++            AuditedTreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
++                .unwrap()
++                .tree
++                .graph
++                .payloads()[0];
+         let mut damaged = StorageBackend::memory(storage.read_all().unwrap());
+         let byte = damaged.read_at(payload.start, 1).unwrap()[0] ^ 1;
+         damaged.write_at(payload.start, &[byte]).unwrap();
+-        let opened = TreeImage::open(damaged, archive(), mode, &authority, key(mode));
++        let opened = AuditedTreeImage::open(damaged, archive(), mode, &authority, key(mode));
+         if mode.plaintext() && mode.signed() {
+             assert!(opened.is_err());
+         } else {
+@@ -219,12 +221,17 @@ fn typed_tree_interrupted_growth_keeps_complete_selected_metadata() {
+                     .unwrap_or_else(|e| {
+                         panic!("mode={bits} at={at} prefix={prefix} persist={persist}: {e}")
+                     });
+-                    let actual =
+-                        TreeImage::open(reopened.clone(), archive(), mode, &authority, key(mode))
+-                            .unwrap()
+-                            .image
+-                            .filesystem_metadata()
+-                            .unwrap();
++                    let actual = AuditedTreeImage::open(
++                        reopened.clone(),
++                        archive(),
++                        mode,
++                        &authority,
++                        key(mode),
++                    )
++                    .unwrap()
++                    .image
++                    .filesystem_metadata()
++                    .unwrap();
+                     assert!(actual == entries || actual == large);
+                     check(&reopened, mode, &authority, &actual);
+                     cases += 1;
+@@ -265,7 +272,7 @@ fn typed_tree_rejects_selected_pack_claim_mismatch() {
+     )
+     .unwrap();
+     let before = storage.read_all().unwrap();
+-    assert!(TreeImage::open(
++    assert!(AuditedTreeImage::open(
+         allocation::compaction::View(&storage),
+         archive(),
+         mode,
+@@ -345,8 +352,8 @@ fn typed_tree_salvage_preserves_intact_neighbor_and_selected_membership_all_mode
+             key(mode),
+         )
+         .unwrap();
+-        let image =
+-            TreeImage::open(storage.clone(), archive(), mode, &authority, key(mode)).unwrap();
++        let image = AuditedTreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
++            .unwrap();
+         let file = &image.image.catalogue.files[0];
+         let fragment = &file.fragments[0];
+         let at = image.image.catalogue.packs[fragment.pack].extent.start + fragment.relative as u64;
+@@ -468,7 +475,7 @@ fn check_selected(
+ ) -> Vec<Metadata> {
+     let (_, body) = shared::open_private(storage, archive(), mode, authority, key(mode)).unwrap();
+     let mut image = if body.starts_with(b"RV4TRE01") {
+-        TreeImage::open(
++        AuditedTreeImage::open(
+             StorageBackend::memory(storage.read_all().unwrap()),
+             archive(),
+             mode,
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/access_export.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/access_export.rs
+index 58b8102a..621028ea 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/access_export.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/access_export.rs
+@@ -133,7 +133,7 @@ fn dense_tree_export_preserves_wrappers_and_resets_directory_generation() {
+                 (Credential::Password(&password), 31),
+                 (Credential::Contact(&contact), 47),
+             ] {
+-                let mut opened = TreeImage::open_credential(
++                let mut opened = AuditedTreeImage::open_credential(
+                     allocation::compaction::View(&destination),
+                     archive(),
+                     mode,
+@@ -153,7 +153,7 @@ fn dense_tree_export_preserves_wrappers_and_resets_directory_generation() {
+                     .unwrap();
+                 assert_eq!(bytes, b"payload");
+             }
+-            assert!(TreeImage::open_credential(
++            assert!(AuditedTreeImage::open_credential(
+                 allocation::compaction::View(&destination),
+                 archive(),
+                 mode,
+@@ -162,7 +162,7 @@ fn dense_tree_export_preserves_wrappers_and_resets_directory_generation() {
+                 Some(31)
+             )
+             .is_err());
+-            assert!(TreeImage::open_credential(
++            assert!(AuditedTreeImage::open_credential(
+                 allocation::compaction::View(&destination),
+                 archive(),
+                 mode,
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms.rs
+index bbe507bc..ddab5d9c 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms.rs
+@@ -162,7 +162,8 @@ fn typed_form_snapshots_large_metadata_history_and_retention_all_modes() {
+         .is_err());
+         assert_eq!(storage.read_all().unwrap(), stable);
+         let opened =
+-            TreeImage::open(storage.clone(), archive(), mode, &authority, key(mode)).unwrap();
++            AuditedTreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
++                .unwrap();
+         assert_eq!(
+             opened.get_form_definition(&type_id, 3).unwrap(),
+             Some(definition.clone())
+@@ -179,6 +180,35 @@ fn typed_form_snapshots_large_metadata_history_and_retention_all_modes() {
+             .iter()
+             .any(|m| m.entry.path.as_str() == "/new/deep"
+                 && m.entry.kind == crate::LockboxEntryKind::Directory));
++        let selected =
++            tree_image::TreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
++                .unwrap();
++        assert_eq!(
++            selected.get_form_definition(&type_id, 3).unwrap(),
++            Some(definition.clone())
++        );
++        assert_eq!(
++            selected.get_form_record(&record.path).unwrap(),
++            Some(record.clone())
++        );
++        for field in &record.values {
++            assert_eq!(
++                selected
++                    .with_form_field_value(&record.path, &field.field_id, |value| assert_eq!(
++                        value,
++                        &field.value
++                    ))
++                    .unwrap(),
++                Some(())
++            );
++        }
++        assert_eq!(
++            selected
++                .with_form_field_value(&record.path, "missing", |_| ())
++                .unwrap(),
++            None
++        );
++        drop(selected);
+         let payloads: Vec<_> = opened
+             .image
+             .catalogue
+@@ -214,7 +244,8 @@ fn typed_form_snapshots_large_metadata_history_and_retention_all_modes() {
+         )
+         .unwrap();
+         let mut opened =
+-            TreeImage::open(storage.clone(), archive(), mode, &authority, key(mode)).unwrap();
++            AuditedTreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
++                .unwrap();
+         assert_eq!(
+             opened.get_form_record(&record.path).unwrap(),
+             Some(record.clone())
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/admission.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/admission.rs
+index 2fda4e77..f9692bb5 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/admission.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/admission.rs
+@@ -72,7 +72,8 @@ fn typed_form_guarded_admission_and_semantic_page_substitution_all_modes() {
+         )
+         .unwrap();
+         let opened =
+-            TreeImage::open(storage.clone(), archive(), mode, &authority, key(mode)).unwrap();
++            AuditedTreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
++                .unwrap();
+         assert_eq!(
+             opened
+                 .with_form_field_value(&record.path, "secret", |v| match v {
+@@ -278,7 +279,7 @@ fn typed_form_guarded_admission_and_semantic_page_substitution_all_modes() {
+             rows,
+         )
+         .unwrap();
+-        match TreeImage::open(storage, archive(), mode, &authority, key(mode)) {
++        match AuditedTreeImage::open(storage, archive(), mode, &authority, key(mode)) {
+             Err(_) => assert!(mode.plaintext() && mode.signed()),
+             Ok(opened) => {
+                 assert!(!(mode.plaintext() && mode.signed()));
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/aggregate.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/aggregate.rs
+index be64c76e..00af735a 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/aggregate.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/aggregate.rs
+@@ -120,7 +120,7 @@ fn run(selected_source: bool) {
+     let ranges = if selected_source {
+         let writer = Guarded::new(StorageBackend::file_for_write(&path).unwrap(), ranges);
+         let old = {
+-            let opened = TreeImage::open(
++            let opened = AuditedTreeImage::open(
+                 crate::file_format::allocation_map::compaction::View(&writer),
+                 archive(),
+                 mode,
+@@ -156,7 +156,7 @@ fn run(selected_source: bool) {
+     } else {
+         ranges
+     };
+-    let mut opened = TreeImage::open(
++    let mut opened = AuditedTreeImage::open(
+         Guarded::new(StorageBackend::file(&path).unwrap(), ranges),
+         archive(),
+         mode,
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/compaction.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/compaction.rs
+index 9671991a..cbf877fc 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/compaction.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/compaction.rs
+@@ -191,7 +191,7 @@ fn whole_tree_compaction_preserves_selected_history_and_lineage_all_modes() {
+         )
+         .unwrap();
+         let old_hash = hash(&original);
+-        let opened = TreeImage::open(
++        let opened = AuditedTreeImage::open(
+             crate::file_format::allocation_map::compaction::View(&original),
+             archive(),
+             mode,
+@@ -265,7 +265,7 @@ fn whole_tree_compaction_preserves_selected_history_and_lineage_all_modes() {
+         assert_eq!(report, tree_image::forms::SalvageReport::default());
+         assert_eq!(actual_defs, defs);
+         assert_eq!(actual_records, records);
+-        let mut reopened = TreeImage::open(
++        let mut reopened = AuditedTreeImage::open(
+             crate::file_format::allocation_map::compaction::View(&result),
+             archive(),
+             mode,
+@@ -511,7 +511,7 @@ fn whole_tree_compaction_refusals_precede_destination_mutation_all_modes() {
+             u64::MAX,
+         )
+         .unwrap();
+-        let mut reopened = TreeImage::open(
++        let mut reopened = AuditedTreeImage::open(
+             crate::file_format::allocation_map::compaction::View(&maximum),
+             archive(),
+             mode,
+@@ -530,7 +530,7 @@ fn whole_tree_compaction_refusals_precede_destination_mutation_all_modes() {
+         assert_eq!(calls.get(), 0);
+         assert_eq!(output.len().unwrap(), 0);
+         assert_eq!(hash(&maximum), maximum_hash);
+-        let opened = TreeImage::open(
++        let opened = AuditedTreeImage::open(
+             crate::file_format::allocation_map::compaction::View(&original),
+             archive(),
+             mode,
+@@ -589,7 +589,7 @@ fn whole_tree_compaction_preserves_authenticated_access_root() {
+             key(mode),
+         )
+         .unwrap();
+-        let opened = TreeImage::open(
++        let opened = AuditedTreeImage::open(
+             crate::file_format::allocation_map::compaction::View(&fresh),
+             archive(),
+             mode,
+@@ -645,7 +645,7 @@ fn whole_tree_compaction_preserves_authenticated_access_root() {
+             .key
+             .with_bytes(|k| assert_eq!(k, key(mode).unwrap()))
+             .unwrap();
+-        TreeImage::open(
++        AuditedTreeImage::open(
+             crate::file_format::allocation_map::compaction::View(&source),
+             archive(),
+             mode,
+@@ -692,7 +692,7 @@ fn whole_tree_compaction_preserves_authenticated_access_root() {
+         )
+         .unwrap();
+         for _ in 0..2 {
+-            let selected = TreeImage::open(
++            let selected = AuditedTreeImage::open(
+                 crate::file_format::allocation_map::compaction::View(&compacted),
+                 archive(),
+                 mode,
+@@ -790,7 +790,7 @@ fn whole_tree_compaction_preserves_authenticated_access_root() {
+             .unwrap();
+         }
+         assert_eq!(hash(&source), before);
+-        let anchor = TreeImage::open(
++        let anchor = AuditedTreeImage::open(
+             crate::file_format::allocation_map::compaction::View(&compacted),
+             archive(),
+             mode,
+@@ -833,7 +833,7 @@ fn whole_tree_compaction_returned_failures_durably_discard_owned_destination() {
+         let signer = mode.signed().then_some(&owner);
+         let (original, defs, records) = super::lifecycle::fixture(mode, &authority, &owner);
+         let original_hash = hash(&original);
+-        let opened = TreeImage::open(
++        let opened = AuditedTreeImage::open(
+             crate::file_format::allocation_map::compaction::View(&original),
+             archive(),
+             mode,
+@@ -904,7 +904,7 @@ fn whole_tree_compaction_returned_failures_durably_discard_owned_destination() {
+             StorageBackend::memory(baseline.durable()),
+             new_secure.clone(),
+         );
+-        TreeImage::open(
++        AuditedTreeImage::open(
+             crate::file_format::allocation_map::compaction::View(&persisted),
+             archive(),
+             mode,
+@@ -1019,7 +1019,7 @@ fn whole_tree_compaction_checks_extent_tail_and_reports_cleanup_failures() {
+         )
+         .unwrap();
+         drop(value);
+-        let opened = TreeImage::open(
++        let opened = AuditedTreeImage::open(
+             crate::file_format::allocation_map::compaction::View(&source),
+             archive(),
+             mode,
+@@ -1182,7 +1182,7 @@ fn whole_tree_compaction_rechecks_source_before_and_after_publication() {
+         let (original, _, _) = super::lifecycle::fixture(mode, &authority, &owner);
+         let bytes = original.inner.read_all().unwrap();
+         let spans = original.spans.borrow().clone();
+-        let opened = TreeImage::open(
++        let opened = AuditedTreeImage::open(
+             crate::file_format::allocation_map::compaction::View(&original),
+             archive(),
+             mode,
+@@ -1253,7 +1253,7 @@ fn whole_tree_compaction_rechecks_source_before_and_after_publication() {
+             assert!(switched.get());
+             assert_eq!(output.len().unwrap(), 0);
+             assert_eq!(hash(&source), next_hash);
+-            let reopened = TreeImage::open(
++            let reopened = AuditedTreeImage::open(
+                 crate::file_format::allocation_map::compaction::View(&source),
+                 archive(),
+                 mode,
+@@ -1302,7 +1302,7 @@ fn whole_tree_compaction_large_selected_state_file_store_all_modes() {
+         )
+         .unwrap();
+         drop(seed);
+-        let opened = TreeImage::open(
++        let opened = AuditedTreeImage::open(
+             crate::file_format::allocation_map::compaction::View(&initial),
+             archive(),
+             mode,
+@@ -1357,7 +1357,7 @@ fn whole_tree_compaction_large_selected_state_file_store_all_modes() {
+         drop(caller);
+         let source_hash = hash(&writer);
+         let source_size = writer.len().unwrap();
+-        let opened = TreeImage::open(
++        let opened = AuditedTreeImage::open(
+             crate::file_format::allocation_map::compaction::View(&writer),
+             archive(),
+             mode,
+@@ -1436,7 +1436,7 @@ fn whole_tree_compaction_large_selected_state_file_store_all_modes() {
+             Guarded::new(StorageBackend::file(&destination_path).unwrap(), new_secure);
+         assert_eq!(hash(&destination), destination_hash);
+         let mut reopened =
+-            TreeImage::open(destination, archive(), mode, &authority, key(mode)).unwrap();
++            AuditedTreeImage::open(destination, archive(), mode, &authority, key(mode)).unwrap();
+         assert_eq!(reopened.image.anchor.generation, predecessor.generation + 1);
+         assert_eq!(
+             reopened.image.anchor.previous,
+@@ -1518,7 +1518,7 @@ fn refresh_live_guard<S: Storage>(
+     mode: FormatMode,
+     authority: &Authority<'_>,
+ ) {
+-    let mut reopened = TreeImage::open(
++    let mut reopened = AuditedTreeImage::open(
+         crate::file_format::allocation_map::compaction::View(&storage.inner),
+         archive(),
+         mode,
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/definitions.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/definitions.rs
+index 2d0d0648..4017da33 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/definitions.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/definitions.rs
+@@ -79,7 +79,7 @@ fn typed_form_definition_revision_resolver_and_empty_create_all_modes() {
+             )
+             .unwrap();
+         }
+-        let opened = TreeImage::open(
++        let opened = AuditedTreeImage::open(
+             crate::file_format::allocation_map::compaction::View(&storage),
+             archive(),
+             mode,
+@@ -162,7 +162,7 @@ fn typed_form_definition_revision_resolver_and_empty_create_all_modes() {
+         )
+         .unwrap();
+         assert_eq!(assigned.revision, 3);
+-        let opened = TreeImage::open(
++        let opened = AuditedTreeImage::open(
+             crate::file_format::allocation_map::compaction::View(&storage),
+             archive(),
+             mode,
+@@ -190,7 +190,7 @@ fn typed_form_definition_revision_resolver_and_empty_create_all_modes() {
+             &secret,
+         )
+         .unwrap();
+-        let opened = TreeImage::open(
++        let opened = AuditedTreeImage::open(
+             crate::file_format::allocation_map::compaction::View(&storage),
+             archive(),
+             mode,
+@@ -282,7 +282,7 @@ fn typed_form_definition_revision_resolver_and_empty_create_all_modes() {
+             &FormValue::normal("normal again"),
+         )
+         .unwrap();
+-        let opened = TreeImage::open(
++        let opened = AuditedTreeImage::open(
+             crate::file_format::allocation_map::compaction::View(&storage),
+             archive(),
+             mode,
+@@ -342,7 +342,7 @@ fn typed_form_definition_alias_import_and_refusal_controls_all_modes() {
+             .revision,
+             2
+         );
+-        let mut definition = TreeImage::open(
++        let mut definition = AuditedTreeImage::open(
+             crate::file_format::allocation_map::compaction::View(&storage),
+             archive(),
+             mode,
+@@ -465,7 +465,7 @@ fn typed_form_definition_alias_import_and_refusal_controls_all_modes() {
+         )
+         .unwrap();
+         assert_ne!(one.type_id, two.type_id);
+-        let opened = TreeImage::open(
++        let opened = AuditedTreeImage::open(
+             crate::file_format::allocation_map::compaction::View(&storage),
+             archive(),
+             mode,
+@@ -643,7 +643,7 @@ fn typed_form_definition_aggregate_normal_metadata_and_per_text_limits_all_modes
+             &fields,
+         )
+         .unwrap();
+-        let opened = TreeImage::open(
++        let opened = AuditedTreeImage::open(
+             crate::file_format::allocation_map::compaction::View(&storage),
+             archive(),
+             mode,
+@@ -774,7 +774,7 @@ fn typed_form_definition_shared_staging_refuses_concurrent_selected_change_all_m
+         let old_bytes = original.inner.read_all().unwrap();
+         let old_spans = original.spans.borrow().clone();
+         let old_commit = shared::commitment(
+-            &TreeImage::open(
++            &AuditedTreeImage::open(
+                 crate::file_format::allocation_map::compaction::View(&original),
+                 archive(),
+                 mode,
+@@ -821,7 +821,7 @@ fn typed_form_definition_shared_staging_refuses_concurrent_selected_change_all_m
+         // Calibrate the complete reader phase; preparation from borrowed normal text
+         // performs no storage reads. The next slot0 selection is writer admission.
+         let calibration = make(None);
+-        let mut opened = TreeImage::open(
++        let mut opened = AuditedTreeImage::open(
+             crate::file_format::allocation_map::compaction::View(&calibration),
+             archive(),
+             mode,
+@@ -900,7 +900,7 @@ fn typed_form_definition_shared_staging_refuses_concurrent_selected_change_all_m
+                 "new authenticated index not traversed"
+             );
+             assert_eq!(identity(&storage), expected_hash);
+-            let opened = TreeImage::open(
++            let opened = AuditedTreeImage::open(
+                 crate::file_format::allocation_map::compaction::View(&storage),
+                 archive(),
+                 mode,
+@@ -968,7 +968,7 @@ fn typed_form_empty_creation_preserves_file_namespace_and_name_limits_all_modes(
+             Err(Error::InvalidInput(_))
+         ));
+         assert_eq!(identity(&storage), before_empty);
+-        assert!(!TreeImage::open(
++        assert!(!AuditedTreeImage::open(
+             crate::file_format::allocation_map::compaction::View(&storage),
+             archive(),
+             mode,
+@@ -1025,7 +1025,7 @@ fn typed_form_empty_creation_preserves_file_namespace_and_name_limits_all_modes(
+             &name,
+         )
+         .unwrap();
+-        let mut opened = TreeImage::open(
++        let mut opened = AuditedTreeImage::open(
+             crate::file_format::allocation_map::compaction::View(&storage),
+             archive(),
+             mode,
+@@ -1074,7 +1074,7 @@ fn typed_form_definition_and_empty_record_atomic_recovery_faults() {
+         let image = original.inner.read_all().unwrap();
+         let spans = original.spans.borrow().clone();
+         let type_id = old_defs[0].type_id.clone();
+-        let opened = TreeImage::open(
++        let opened = AuditedTreeImage::open(
+             crate::file_format::allocation_map::compaction::View(&original),
+             archive(),
+             mode,
+@@ -1188,7 +1188,7 @@ fn typed_form_definition_and_empty_record_atomic_recovery_faults() {
+                         old_records.clone()
+                     }
+                 );
+-                let mut opened = TreeImage::open(
++                let mut opened = AuditedTreeImage::open(
+                     crate::file_format::allocation_map::compaction::View(s),
+                     archive(),
+                     mode,
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/field_aggregate.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/field_aggregate.rs
+index 6d96f25d..84d5bace 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/field_aggregate.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/field_aggregate.rs
+@@ -127,7 +127,7 @@ fn typed_form_field_upgrade_aggregate_probe() {
+         ranges,
+     ));
+     let (old, old_def) = {
+-        let opened = TreeImage::open(
++        let opened = AuditedTreeImage::open(
+             crate::file_format::allocation_map::compaction::View(&writer),
+             archive(),
+             mode,
+@@ -190,7 +190,7 @@ fn typed_form_field_upgrade_aggregate_probe() {
+     let ranges = writer.0.spans.borrow().clone();
+     drop(writer);
+     drop(value);
+-    let mut opened = TreeImage::open(
++    let mut opened = AuditedTreeImage::open(
+         NoClone(Guarded::new(StorageBackend::file(&path).unwrap(), ranges)),
+         archive(),
+         mode,
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/fields.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/fields.rs
+index a24484b8..025fbeac 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/fields.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/fields.rs
+@@ -66,7 +66,7 @@ fn typed_form_field_upgrade_mixed_history_and_context_all_modes() {
+         .unwrap();
+         expected.push(mixed);
+         // Historical secret can be replaced normally under the selected normal schema.
+-        let before = TreeImage::open(
++        let before = AuditedTreeImage::open(
+             crate::file_format::allocation_map::compaction::View(&storage),
+             archive(),
+             mode,
+@@ -102,7 +102,7 @@ fn typed_form_field_upgrade_mixed_history_and_context_all_modes() {
+         expected[0].values[0].kind = FormFieldKind::Text;
+         expected[0].values[0].captured_label = "Current label".into();
+         expected[0].values[0].value = FormValue::normal("secret 0");
+-        let reopened = TreeImage::open(
++        let reopened = AuditedTreeImage::open(
+             crate::file_format::allocation_map::compaction::View(&storage),
+             archive(),
+             mode,
+@@ -169,7 +169,7 @@ fn typed_form_field_upgrade_mixed_history_and_context_all_modes() {
+                 }
+             }
+         }
+-        let reopened = TreeImage::open(
++        let reopened = AuditedTreeImage::open(
+             crate::file_format::allocation_map::compaction::View(&storage),
+             archive(),
+             mode,
+@@ -251,7 +251,7 @@ fn typed_form_field_label_reference_only_and_kind_validation_all_modes() {
+         let target = &records[0];
+         let value = &target.values[0].value;
+         let layouts = |storage: &_| {
+-            let opened = TreeImage::open(
++            let opened = AuditedTreeImage::open(
+                 crate::file_format::allocation_map::compaction::View(storage),
+                 archive(),
+                 mode,
+@@ -268,7 +268,7 @@ fn typed_form_field_label_reference_only_and_kind_validation_all_modes() {
+                 .map(|l| l.encode_metadata())
+                 .collect::<Vec<_>>()
+         };
+-        let before = TreeImage::open(
++        let before = AuditedTreeImage::open(
+             crate::file_format::allocation_map::compaction::View(&storage),
+             archive(),
+             mode,
+@@ -296,7 +296,7 @@ fn typed_form_field_label_reference_only_and_kind_validation_all_modes() {
+             value
+         )
+         .unwrap());
+-        let after = TreeImage::open(
++        let after = AuditedTreeImage::open(
+             crate::file_format::allocation_map::compaction::View(&storage),
+             archive(),
+             mode,
+@@ -340,7 +340,7 @@ fn typed_form_field_label_reference_only_and_kind_validation_all_modes() {
+         )
+         .unwrap());
+         assert_eq!(before, layouts(&storage));
+-        let reopened = TreeImage::open(
++        let reopened = AuditedTreeImage::open(
+             crate::file_format::allocation_map::compaction::View(&storage),
+             archive(),
+             mode,
+@@ -415,7 +415,7 @@ fn typed_form_field_label_reference_only_and_kind_validation_all_modes() {
+             value
+         )
+         .unwrap());
+-        let reopened = TreeImage::open(
++        let reopened = AuditedTreeImage::open(
+             crate::file_format::allocation_map::compaction::View(&storage),
+             archive(),
+             mode,
+@@ -523,7 +523,7 @@ fn typed_form_field_limits_refusals_and_verified_no_change_all_modes() {
+             &normal
+         )
+         .unwrap());
+-        let reopened = TreeImage::open(
++        let reopened = AuditedTreeImage::open(
+             crate::file_format::allocation_map::compaction::View(&storage),
+             archive(),
+             mode,
+@@ -549,7 +549,7 @@ fn typed_form_field_limits_refusals_and_verified_no_change_all_modes() {
+             &secret
+         )
+         .unwrap());
+-        let reopened = TreeImage::open(
++        let reopened = AuditedTreeImage::open(
+             crate::file_format::allocation_map::compaction::View(&storage),
+             archive(),
+             mode,
+@@ -646,7 +646,7 @@ fn install_max_text_revision(
+     path: &LockboxPath,
+ ) {
+     use crate::file_format::{form_segments, publication_anchor::shared::tree};
+-    let opened = TreeImage::open(
++    let opened = AuditedTreeImage::open(
+         crate::file_format::allocation_map::compaction::View(&*storage),
+         archive(),
+         mode,
+@@ -779,7 +779,7 @@ fn typed_form_field_checked_text_revision_all_modes() {
+             Err(Error::SecurityLimitExceeded(_))
+         ));
+         assert_eq!(snapshot, bytes(&storage));
+-        let reopened = TreeImage::open(
++        let reopened = AuditedTreeImage::open(
+             crate::file_format::allocation_map::compaction::View(&storage),
+             archive(),
+             mode,
+@@ -866,7 +866,7 @@ fn typed_form_field_upgrade_guarded_atomic_recovery_faults() {
+         )
+         .unwrap();
+         let (_, old_defs, old_records) = collect(&original, mode, &authority).unwrap();
+-        let opened = TreeImage::open(
++        let opened = AuditedTreeImage::open(
+             crate::file_format::allocation_map::compaction::View(&original),
+             archive(),
+             mode,
+@@ -948,7 +948,7 @@ fn typed_form_field_upgrade_guarded_atomic_recovery_faults() {
+                     old_records.clone()
+                 }
+             );
+-            let mut opened = TreeImage::open(
++            let mut opened = AuditedTreeImage::open(
+                 crate::file_format::allocation_map::compaction::View(s),
+                 archive(),
+                 mode,
+@@ -1142,7 +1142,7 @@ fn typed_form_field_move_delete_and_selected_salvage_all_modes() {
+             &value
+         )
+         .unwrap());
+-        let before = TreeImage::open(
++        let before = AuditedTreeImage::open(
+             crate::file_format::allocation_map::compaction::View(&storage),
+             archive(),
+             mode,
+@@ -1181,7 +1181,7 @@ fn typed_form_field_move_delete_and_selected_salvage_all_modes() {
+         )
+         .unwrap());
+         assert_eq!(snapshot, bytes(&storage));
+-        let opened = TreeImage::open(
++        let opened = AuditedTreeImage::open(
+             crate::file_format::allocation_map::compaction::View(&storage),
+             archive(),
+             mode,
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/installation.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/installation.rs
+index e82666ed..5e9a3302 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/installation.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/installation.rs
+@@ -85,7 +85,7 @@ fn verify(storage: &StorageBackend, mode: FormatMode, authority: &Authority<'_>)
+             _ => panic!("secret downgraded"),
+         }
+     }
+-    let mut image = TreeImage::open(
++    let mut image = AuditedTreeImage::open(
+         crate::file_format::allocation_map::compaction::View(storage),
+         archive(),
+         mode,
+@@ -136,7 +136,7 @@ fn whole_tree_path_install_reopens_all_families_and_remains_writable() {
+         let path = directory.0.join(format!("{bits}.tree"));
+         let baseline = fixture(&path, mode, &authority, &owner);
+         let source = StorageBackend::memory(baseline);
+-        let old = TreeImage::open(source, archive(), mode, &authority, key(mode))
++        let old = AuditedTreeImage::open(source, archive(), mode, &authority, key(mode))
+             .unwrap()
+             .image
+             .anchor;
+@@ -190,7 +190,7 @@ fn whole_tree_path_install_reopens_all_families_and_remains_writable() {
+         )
+         .unwrap();
+         drop(storage);
+-        let reopened = TreeImage::open(
++        let reopened = AuditedTreeImage::open(
+             StorageBackend::file(&path).unwrap(),
+             archive(),
+             mode,
+@@ -420,7 +420,7 @@ fn whole_tree_path_install_process_death_reopens_old_or_complete_new() {
+             .unwrap();
+             let authority = authority(mode, &public);
+             let baseline = std::fs::read(path.with_extension("base")).unwrap();
+-            let old = TreeImage::open(
++            let old = AuditedTreeImage::open(
+                 StorageBackend::memory(baseline.clone()),
+                 archive(),
+                 mode,
+@@ -432,7 +432,7 @@ fn whole_tree_path_install_process_death_reopens_old_or_complete_new() {
+             .anchor;
+             let storage = StorageBackend::file(&path).unwrap();
+             verify(&storage, mode, &authority);
+-            let actual = TreeImage::open(
++            let actual = AuditedTreeImage::open(
+                 crate::file_format::allocation_map::compaction::View(&storage),
+                 archive(),
+                 mode,
+@@ -804,7 +804,7 @@ fn whole_tree_resume_preserves_credentials_and_rejects_changed_wrappers() {
+         )
+         .unwrap();
+         let mut replacement = StorageBackend::file_for_write(&candidate).unwrap();
+-        let old_anchor = TreeImage::open(
++        let old_anchor = AuditedTreeImage::open(
+             crate::file_format::allocation_map::compaction::View(&replacement),
+             archive(),
+             mode,
+@@ -852,7 +852,7 @@ fn whole_tree_resume_preserves_credentials_and_rejects_changed_wrappers() {
+     }
+ }
+ 
+-fn check_credential_reader<S: Storage>(mut opened: TreeImage<S>) {
++fn check_credential_reader<S: Storage>(mut opened: tree_image::TreeImage<S>) {
+     assert_eq!(
+         opened
+             .get_variable(&VariableName::new("retained").unwrap())
+@@ -872,6 +872,25 @@ fn check_credential_reader<S: Storage>(mut opened: TreeImage<S>) {
+         .get_form_record(&LockboxPath::new("/forms/0").unwrap())
+         .unwrap()
+         .unwrap();
++    assert_eq!(
++        opened
++            .with_form_field_value(&record.path, &record.values[0].field_id, |value| {
++                match value {
++                    FormValue::Secret(secret) => secret
++                        .with_str(|value| assert_eq!(value, "secret 0"))
++                        .unwrap(),
++                    _ => panic!("selected field was not secret"),
++                }
++            })
++            .unwrap(),
++        Some(())
++    );
++    assert_eq!(
++        opened
++            .with_form_field_value(&record.path, "absent", |_| ())
++            .unwrap(),
++        None
++    );
+     assert_eq!(record.definition_revision, 1);
+     assert_eq!(record.values[0].captured_label, "Historical password");
+     match &record.values[0].value {
+@@ -928,7 +947,7 @@ fn typed_credential_open_reads_all_families_and_preserves_refusals() {
+             (publication::bootstrap::Credential::Password(&password), 1),
+             (publication::bootstrap::Credential::Contact(&contact), 2),
+         ] {
+-            let opened = TreeImage::open_credential(
++            let opened = tree_image::TreeImage::open_credential(
+                 StorageBackend::file(&path).unwrap(),
+                 archive(),
+                 mode,
+@@ -938,7 +957,7 @@ fn typed_credential_open_reads_all_families_and_preserves_refusals() {
+             )
+             .unwrap();
+             check_credential_reader(opened);
+-            assert!(TreeImage::open_credential(
++            assert!(tree_image::TreeImage::open_credential(
+                 StorageBackend::file(&path).unwrap(),
+                 archive(),
+                 mode,
+@@ -947,7 +966,7 @@ fn typed_credential_open_reads_all_families_and_preserves_refusals() {
+                 Some(99)
+             )
+             .is_err());
+-            assert!(TreeImage::open_credential(
++            assert!(tree_image::TreeImage::open_credential(
+                 StorageBackend::file(&path).unwrap(),
+                 archive(),
+                 mode,
+@@ -957,7 +976,7 @@ fn typed_credential_open_reads_all_families_and_preserves_refusals() {
+             )
+             .is_err());
+         }
+-        assert!(TreeImage::open_credential(
++        assert!(tree_image::TreeImage::open_credential(
+             StorageBackend::file(&path).unwrap(),
+             archive(),
+             mode,
+@@ -1050,7 +1069,7 @@ fn typed_credential_open_rejects_publication_switch_after_bootstrap() {
+         // a backend changing publication inside one read-only open operation.
+         for storage in [&original, &replacement] {
+             check_credential_reader(
+-                TreeImage::open_credential(
++                tree_image::TreeImage::open_credential(
+                     allocation::compaction::View(storage),
+                     archive(),
+                     mode,
+@@ -1068,7 +1087,7 @@ fn typed_credential_open_rejects_publication_switch_after_bootstrap() {
+             selections: selections.clone(),
+         };
+         assert!(matches!(
+-            TreeImage::open_credential(
++            tree_image::TreeImage::open_credential(
+                 switching,
+                 archive(),
+                 mode,
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/installation/credential_process.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/installation/credential_process.rs
+index a9747c23..a6e9c735 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/installation/credential_process.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/installation/credential_process.rs
+@@ -70,7 +70,7 @@ fn credential_check(
+         (publication::bootstrap::Credential::Password(password), 1),
+         (publication::bootstrap::Credential::Contact(contact), 2),
+     ] {
+-        let opened = TreeImage::open_credential(
++        let opened = tree_image::TreeImage::open_credential(
+             StorageBackend::file(path).unwrap(),
+             archive(),
+             mode,
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/lifecycle.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/lifecycle.rs
+index f9c2eb10..d2d42836 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/lifecycle.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/lifecycle.rs
+@@ -193,7 +193,8 @@ fn typed_form_delete_and_stream_salvage_all_modes() {
+         ));
+         assert_eq!(storage.inner.read_all().unwrap(), stable);
+         let current =
+-            TreeImage::open(storage.clone(), archive(), mode, &authority, key(mode)).unwrap();
++            AuditedTreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
++                .unwrap();
+         let form = &current.image.catalogue.forms.records[0];
+         let mut retired = form.name.extents.clone();
+         for f in &form.fields {
+@@ -269,7 +270,8 @@ fn typed_form_delete_and_stream_salvage_all_modes() {
+             }
+         }
+         let mut opened =
+-            TreeImage::open(storage.clone(), archive(), mode, &authority, key(mode)).unwrap();
++            AuditedTreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
++                .unwrap();
+         assert!(opened.get_form_record(&records[0].path).unwrap().is_none());
+         let mut neighbor = Vec::new();
+         opened
+@@ -331,7 +333,8 @@ fn typed_form_deletion_guarded_atomic_recovery_faults() {
+         let bytes = original.inner.read_all().unwrap();
+         let spans = original.spans.borrow().clone();
+         let opened =
+-            TreeImage::open(original.clone(), archive(), mode, &authority, key(mode)).unwrap();
++            AuditedTreeImage::open(original.clone(), archive(), mode, &authority, key(mode))
++                .unwrap();
+         let removed = &opened.image.catalogue.forms.records[0];
+         let mut retired = removed.name.extents.clone();
+         for field in &removed.fields {
+@@ -356,7 +359,7 @@ fn typed_form_deletion_guarded_atomic_recovery_faults() {
+             let committed = got == records[1..];
+             assert!(committed || got == records);
+             let mut opened =
+-                TreeImage::open(s.clone(), archive(), mode, &authority, key(mode)).unwrap();
++                AuditedTreeImage::open(s.clone(), archive(), mode, &authority, key(mode)).unwrap();
+             let mut neighbor = Vec::new();
+             opened
+                 .image
+@@ -505,7 +508,8 @@ fn typed_form_stream_delivery_errors_are_fatal_after_partial_events() {
+         let authority = authority(mode, &public);
+         let (original, _, _) = fixture(mode, &authority, &owner);
+         let opened =
+-            TreeImage::open(original.clone(), archive(), mode, &authority, key(mode)).unwrap();
++            AuditedTreeImage::open(original.clone(), archive(), mode, &authority, key(mode))
++                .unwrap();
+         let extent = opened.image.catalogue.forms.records[0].fields[0]
+             .value
+             .extents[0];
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/moves.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/moves.rs
+index be54edcf..cf0256c7 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/moves.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/moves.rs
+@@ -14,7 +14,7 @@ struct Identity {
+ }
+ type Identities = BTreeMap<[u8; 16], Identity>;
+ fn identities<S: Storage>(storage: S, mode: FormatMode, authority: &Authority<'_>) -> Identities {
+-    let opened = TreeImage::open(storage, archive(), mode, authority, key(mode)).unwrap();
++    let opened = AuditedTreeImage::open(storage, archive(), mode, authority, key(mode)).unwrap();
+     opened
+         .image
+         .catalogue
+@@ -89,7 +89,8 @@ fn guard<S: Storage>(
+     mode: FormatMode,
+     authority: &Authority<'_>,
+ ) -> Stable<S> {
+-    let opened = TreeImage::open(original.clone(), archive(), mode, authority, key(mode)).unwrap();
++    let opened =
++        AuditedTreeImage::open(original.clone(), archive(), mode, authority, key(mode)).unwrap();
+     Stable {
+         inner: Guarded::new(inner, original.spans.borrow().clone()),
+         payloads: opened
+@@ -126,7 +127,7 @@ fn check(
+     let actual = identities(storage.clone(), mode, authority);
+     assert_eq!(&actual, original);
+     let mut opened =
+-        TreeImage::open(storage.clone(), archive(), mode, authority, key(mode)).unwrap();
++        AuditedTreeImage::open(storage.clone(), archive(), mode, authority, key(mode)).unwrap();
+     assert_eq!(
+         opened
+             .get_variable(&VariableName::new("retained").unwrap())
+@@ -308,7 +309,7 @@ fn directories<S: Storage>(
+     mode: FormatMode,
+     authority: &Authority<'_>,
+ ) -> Vec<LockboxPath> {
+-    TreeImage::open(storage, archive(), mode, authority, key(mode))
++    AuditedTreeImage::open(storage, archive(), mode, authority, key(mode))
+         .unwrap()
+         .image
+         .filesystem_metadata()
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/selected_source.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/selected_source.rs
+index 44a9f350..8c6a855a 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/selected_source.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/selected_source.rs
+@@ -17,7 +17,7 @@ pub(super) fn prepare_texts(
+     tree::PreparedStoragePayloadPlan<'static>,
+ )> {
+     let (mut catalogue, base, content_key) = {
+-        let mut opened = TreeImage::open(
++        let mut opened = AuditedTreeImage::open(
+             crate::file_format::allocation_map::compaction::View(storage),
+             archive(),
+             mode,
+@@ -190,7 +190,8 @@ fn selected_source_capability_and_connected_replacement_all_modes() {
+         let authority = authority(mode, &public);
+         let (original, definitions, records) = fixture(mode, &authority, &owner);
+         let opened =
+-            TreeImage::open(original.clone(), archive(), mode, &authority, key(mode)).unwrap();
++            AuditedTreeImage::open(original.clone(), archive(), mode, &authority, key(mode))
++                .unwrap();
+         let old: Vec<_> = opened
+             .image
+             .catalogue
+@@ -278,7 +279,7 @@ fn selected_source_capability_and_connected_replacement_all_modes() {
+         assert_eq!(report, tree_image::forms::SalvageReport::default());
+         assert_eq!(defs, definitions);
+         assert_eq!(got, records);
+-        let reopened = TreeImage::open(
++        let reopened = AuditedTreeImage::open(
+             crate::file_format::allocation_map::compaction::View(&storage),
+             archive(),
+             mode,
+@@ -397,7 +398,7 @@ fn selected_source_stale_and_second_pass_failures_preserve_selection() {
+                 writes: std::cell::Cell::new(0),
+                 mutations: std::cell::Cell::new(0),
+             };
+-            let opened = TreeImage::open(
++            let opened = AuditedTreeImage::open(
+                 crate::file_format::allocation_map::compaction::View(&storage),
+                 archive(),
+                 mode,
+@@ -474,7 +475,7 @@ fn selected_source_stale_and_second_pass_failures_preserve_selection() {
+             assert_eq!(report, tree_image::forms::SalvageReport::default());
+             assert_eq!(defs, definitions);
+             assert_eq!(got, records);
+-            let opened = TreeImage::open(
++            let opened = AuditedTreeImage::open(
+                 crate::file_format::allocation_map::compaction::View(&storage),
+                 archive(),
+                 mode,
+@@ -558,7 +559,7 @@ fn selected_source_empty_split_utf8_and_maximum_texts_all_modes() {
+             mutations: std::cell::Cell::new(0),
+         };
+         replace_texts(&mut storage, mode, &authority, &owner).unwrap();
+-        let opened = TreeImage::open(
++        let opened = AuditedTreeImage::open(
+             crate::file_format::allocation_map::compaction::View(&storage),
+             archive(),
+             mode,
+@@ -607,7 +608,8 @@ fn selected_source_replacement_guarded_atomic_recovery_faults() {
+         let bytes = original.inner.read_all().unwrap();
+         let spans = original.spans.borrow().clone();
+         let opened =
+-            TreeImage::open(original.clone(), archive(), mode, &authority, key(mode)).unwrap();
++            AuditedTreeImage::open(original.clone(), archive(), mode, &authority, key(mode))
++                .unwrap();
+         let old: Vec<_> = opened
+             .image
+             .catalogue
+@@ -628,7 +630,7 @@ fn selected_source_replacement_guarded_atomic_recovery_faults() {
+             assert_eq!(report, tree_image::forms::SalvageReport::default());
+             assert_eq!(defs, definitions);
+             assert_eq!(got, records);
+-            let mut opened = TreeImage::open(
++            let mut opened = AuditedTreeImage::open(
+                 crate::file_format::allocation_map::compaction::View(s),
+                 archive(),
+                 mode,
+@@ -802,7 +804,7 @@ fn selected_source_rebinds_normal_name_into_secret_value_context_all_modes() {
+         let authority = authority(mode, &public);
+         let (mut storage, definitions, mut records) = fixture(mode, &authority, &owner);
+         let (mut catalogue, base, content_key) = {
+-            let mut opened = TreeImage::open(
++            let mut opened = AuditedTreeImage::open(
+                 crate::file_format::allocation_map::compaction::View(&storage),
+                 archive(),
+                 mode,
+@@ -879,7 +881,8 @@ fn selected_source_rebinds_normal_name_into_secret_value_context_all_modes() {
+         assert_eq!(defs, definitions);
+         assert_eq!(got, records);
+         let reopened =
+-            TreeImage::open(storage.clone(), archive(), mode, &authority, key(mode)).unwrap();
++            AuditedTreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
++                .unwrap();
+         assert_eq!(reopened.image.catalogue.forms.records[0].name, name);
+         for (e, expected) in name.extents.iter().zip(source_bytes) {
+             assert_eq!(
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/fresh.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/fresh.rs
+index ba290823..a2af6838 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/fresh.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/fresh.rs
+@@ -43,7 +43,8 @@ fn verify<S: Storage>(
+     entries: &[Metadata],
+     source: &Files<impl Storage>,
+ ) {
+-    let mut opened = TreeImage::open(storage, archive(), mode, authority, key(mode)).unwrap();
++    let mut opened =
++        AuditedTreeImage::open(storage, archive(), mode, authority, key(mode)).unwrap();
+     assert_eq!(opened.image.filesystem_metadata().unwrap(), entries);
+     assert!(opened
+         .image
+@@ -475,7 +476,7 @@ fn fresh_tree_export_streams_sixty_four_mib_without_dense_intermediate() {
+         )
+         .unwrap();
+         drop(output);
+-        let mut reopened = TreeImage::open(
++        let mut reopened = AuditedTreeImage::open(
+             StorageBackend::file(&output_path).unwrap(),
+             archive(),
+             mode,
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/mutation.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/mutation.rs
+index 108ecd39..7bee8997 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/mutation.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/mutation.rs
+@@ -69,7 +69,7 @@ pub(super) fn seed(
+     .unwrap()
+ }
+ fn inspect(storage: &StorageBackend, mode: FormatMode, authority: &Authority<'_>) -> bool {
+-    let mut opened = TreeImage::open(
++    let mut opened = AuditedTreeImage::open(
+         StorageBackend::memory(storage.read_all().unwrap()),
+         archive(),
+         mode,
+@@ -103,7 +103,7 @@ fn inspect(storage: &StorageBackend, mode: FormatMode, authority: &Authority<'_>
+     }
+     present
+ }
+-fn read_file(image: &mut TreeImage<StorageBackend>, path: &[u8]) -> Vec<u8> {
++fn read_file(image: &mut AuditedTreeImage<StorageBackend>, path: &[u8]) -> Vec<u8> {
+     let len = image
+         .image
+         .catalogue
+@@ -150,7 +150,8 @@ fn typed_tree_payload_add_replace_no_change_and_invalid_plans_all_modes() {
+         let signer = mode.signed().then_some(&owner);
+         let mut storage = seed(mode, &authority, &owner);
+         let opened =
+-            TreeImage::open(storage.clone(), archive(), mode, &authority, key(mode)).unwrap();
++            AuditedTreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
++                .unwrap();
+         let initial = storage.len().unwrap();
+         let old = opened.image.catalogue.packs[0].extent;
+         let id = opened.image.catalogue.files[0].info.id;
+@@ -209,7 +210,7 @@ fn typed_tree_payload_add_replace_no_change_and_invalid_plans_all_modes() {
+             &[]
+         )
+         .unwrap());
+-        let mut reopened = TreeImage::open(
++        let mut reopened = AuditedTreeImage::open(
+             StorageBackend::memory(storage.read_all().unwrap()),
+             archive(),
+             mode,
+@@ -246,7 +247,7 @@ fn typed_tree_payload_add_replace_no_change_and_invalid_plans_all_modes() {
+                 .unwrap();
+             tree_image::recover(&mut lost, archive(), mode, &authority, key(mode)).unwrap();
+             let mut reopened =
+-                TreeImage::open(lost, archive(), mode, &authority, key(mode)).unwrap();
++                AuditedTreeImage::open(lost, archive(), mode, &authority, key(mode)).unwrap();
+             assert_eq!(read_file(&mut reopened, b"/docs/data"), bytes);
+             assert_eq!(read_file(&mut reopened, b"/docs/neighbor"), b"neighbor");
+         }
+@@ -328,7 +329,7 @@ fn typed_tree_payload_update_interruptions_keep_atomic_file_set() {
+                         .unwrap_or_else(|e| {
+                             panic!("mode={bits} at={at} prefix={prefix} persist={persist}: {e}")
+                         });
+-                    let mut image = TreeImage::open(
++                    let mut image = AuditedTreeImage::open(
+                         StorageBackend::memory(reopened.read_all().unwrap()),
+                         archive(),
+                         mode,
+@@ -379,11 +380,12 @@ fn typed_tree_payload_reuse_stabilizes_bounded_lifecycle_all_modes() {
+                 if cycle % 3 == 0 { 70000 } else { 2000 }
+             ];
+             let prior = storage.len().unwrap();
+-            let old = TreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
+-                .unwrap()
+-                .tree
+-                .graph
+-                .payloads();
++            let old =
++                AuditedTreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
++                    .unwrap()
++                    .tree
++                    .graph
++                    .payloads();
+             tree_image::update_files(
+                 &mut storage,
+                 archive(),
+@@ -395,7 +397,7 @@ fn typed_tree_payload_reuse_stabilizes_bounded_lifecycle_all_modes() {
+                 &[],
+             )
+             .unwrap();
+-            let mut image = TreeImage::open(
++            let mut image = AuditedTreeImage::open(
+                 StorageBackend::memory(storage.read_all().unwrap()),
+                 archive(),
+                 mode,
+@@ -460,7 +462,7 @@ fn typed_tree_payload_reused_writes_recover_without_neighbor_loss() {
+             )
+             .unwrap();
+         }
+-        let old = TreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
++        let old = AuditedTreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
+             .unwrap()
+             .tree
+             .graph
+@@ -482,7 +484,8 @@ fn typed_tree_payload_reused_writes_recover_without_neighbor_loss() {
+         let mut observed = CrashStore::new(seed.clone(), None, 0, false);
+         run(&mut observed).unwrap();
+         let complete = StorageBackend::memory(observed.durable());
+-        let selected = TreeImage::open(complete, archive(), mode, &authority, key(mode)).unwrap();
++        let selected =
++            AuditedTreeImage::open(complete, archive(), mode, &authority, key(mode)).unwrap();
+         assert!(selected
+             .tree
+             .graph
+@@ -499,7 +502,7 @@ fn typed_tree_payload_reused_writes_recover_without_neighbor_loss() {
+                         .unwrap_or_else(|e| {
+                             panic!("mode={bits} at={at} prefix={prefix} persist={persist}: {e}")
+                         });
+-                    let mut image = TreeImage::open(
++                    let mut image = AuditedTreeImage::open(
+                         StorageBackend::memory(reopened.read_all().unwrap()),
+                         archive(),
+                         mode,
+@@ -529,11 +532,12 @@ fn typed_tree_payload_updates_preserve_large_typed_catalogues_all_modes() {
+         let authority = authority(mode, &public);
+         let signer = mode.signed().then_some(&owner);
+         let mut storage = seed(mode, &authority, &owner);
+-        let metadata = TreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
+-            .unwrap()
+-            .image
+-            .filesystem_metadata()
+-            .unwrap();
++        let metadata =
++            AuditedTreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
++                .unwrap()
++                .image
++                .filesystem_metadata()
++                .unwrap();
+         let large = grown(&metadata);
+         tree_image::replace_metadata(
+             &mut storage,
+@@ -556,7 +560,7 @@ fn typed_tree_payload_updates_preserve_large_typed_catalogues_all_modes() {
+             &[],
+         )
+         .unwrap();
+-        let mut image = TreeImage::open(
++        let mut image = AuditedTreeImage::open(
+             StorageBackend::memory(storage.read_all().unwrap()),
+             archive(),
+             mode,
+@@ -581,7 +585,7 @@ fn typed_tree_payload_updates_preserve_large_typed_catalogues_all_modes() {
+         )
+         .unwrap();
+         assert_eq!(
+-            TreeImage::open(storage, archive(), mode, &authority, key(mode))
++            AuditedTreeImage::open(storage, archive(), mode, &authority, key(mode))
+                 .unwrap()
+                 .image
+                 .filesystem_metadata()
+@@ -721,7 +725,8 @@ fn typed_tree_payload_removal_preserves_neighbors_and_erases_old_pack_all_modes(
+             assert_eq!(storage.read_all().unwrap(), before);
+         }
+         let opened =
+-            TreeImage::open(storage.clone(), archive(), mode, &authority, key(mode)).unwrap();
++            AuditedTreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
++                .unwrap();
+         assert_eq!(opened.image.catalogue.packs.len(), 1);
+         let old = opened.image.catalogue.packs[0].extent;
+         assert!(tree_image::remove_files(
+@@ -769,7 +774,8 @@ fn typed_tree_payload_removal_preserves_neighbors_and_erases_old_pack_all_modes(
+             &[b"/docs/neighbor".to_vec()]
+         )
+         .unwrap());
+-        let opened = TreeImage::open(storage, archive(), mode, &authority, key(mode)).unwrap();
++        let opened =
++            AuditedTreeImage::open(storage, archive(), mode, &authority, key(mode)).unwrap();
+         assert!(opened.image.catalogue.files.is_empty());
+         assert!(opened.tree.graph.payloads().is_empty());
+     }
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/mutation/dense.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/mutation/dense.rs
+index 3070049f..af674487 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/mutation/dense.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/mutation/dense.rs
+@@ -42,7 +42,7 @@ pub(super) fn selected(
+         )
+         .unwrap()
+     } else {
+-        TreeImage::open(copy, archive(), mode, authority, key(mode))
++        AuditedTreeImage::open(copy, archive(), mode, authority, key(mode))
+             .unwrap()
+             .image
+     };
+@@ -70,11 +70,12 @@ fn typed_dense_payload_return_capacity_refusals_do_not_relocate() {
+     let authority = authority(mode, &public);
+     for envelope in [false, true] {
+         let mut storage = seed(mode, &authority, &owner);
+-        let mut metadata = TreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
+-            .unwrap()
+-            .image
+-            .filesystem_metadata()
+-            .unwrap();
++        let mut metadata =
++            AuditedTreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
++                .unwrap()
++                .image
++                .filesystem_metadata()
++                .unwrap();
+         for i in 0..if envelope { 900 } else { 1100 } {
+             let path = if envelope {
+                 format!("/d-{i:04}-{}", "x".repeat(52))
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/open_reads.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/open_reads.rs
+index 0cfcb45b..f92c7513 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/open_reads.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/open_reads.rs
+@@ -68,7 +68,8 @@ fn typed_tree_single_traversal_preserves_complete_open_all_modes() {
+         }
+         let old_reads = counted.calls.replace(0);
+         let mut current =
+-            TreeImage::open(counted.clone(), archive(), mode, &authority, key(mode)).unwrap();
++            AuditedTreeImage::open(counted.clone(), archive(), mode, &authority, key(mode))
++                .unwrap();
+         let new_reads = counted.calls.get();
+         assert!(
+             new_reads < old_reads,
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads.rs
+new file mode 100644
+index 00000000..27f2de86
+--- /dev/null
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads.rs
+@@ -0,0 +1,428 @@
++//! Private candidate fixtures: the public CLI cannot construct this layout or
++//! inject physical corruption. All observations use ordinary read/audit APIs.
++use super::super::super::tree_image::TreeImage;
++use super::*;
++use crate::file_format::authenticated_index::{Index, Visit};
++use std::{cell::RefCell, rc::Rc};
++
++#[derive(Clone, Debug)]
++struct Trace {
++    storage: StorageBackend,
++    reads: Rc<RefCell<Vec<(u64, u64)>>>,
++}
++impl Storage for Trace {
++    fn len(&self) -> Result<u64> {
++        self.storage.len()
++    }
++    fn read_at(&self, at: u64, len: usize) -> Result<Vec<u8>> {
++        self.reads.borrow_mut().push((at, at + len as u64));
++        self.storage.read_at(at, len)
++    }
++    fn read_at_into(&self, at: u64, bytes: &mut [u8]) -> Result<()> {
++        self.reads.borrow_mut().push((at, at + bytes.len() as u64));
++        self.storage.read_at_into(at, bytes)
++    }
++    fn append(&mut self, _: &[u8]) -> Result<u64> {
++        panic!("read-only")
++    }
++    fn write_at(&mut self, _: u64, _: &[u8]) -> Result<()> {
++        panic!("read-only")
++    }
++    fn truncate(&mut self, _: u64) -> Result<()> {
++        panic!("read-only")
++    }
++    fn sync(&self) -> Result<()> {
++        panic!("read-only")
++    }
++}
++fn intersects(a: (u64, u64), b: (u64, u64)) -> bool {
++    a.0 < b.1 && b.0 < a.1
++}
++fn content(n: usize) -> Vec<u8> {
++    (0..n).map(|i| ((i * 31 + i / 17) % 251) as u8).collect()
++}
++fn files(
++    mode: FormatMode,
++    authority: &Authority<'_>,
++    owner: &OwnerSigningKeyPair,
++) -> (StorageBackend, Vec<u8>) {
++    let bytes = content(140_123);
++    let names = ["/file-a", "/file-z"];
++    let signer = mode.signed().then_some(owner);
++    let source = Files::create(
++        StorageBackend::memory(Vec::new()),
++        archive(),
++        mode,
++        authority,
++        signer,
++        key(mode),
++        65536,
++        names.iter().map(|name| Input {
++            path: name.as_bytes().to_vec(),
++            reader: std::io::Cursor::new(bytes.clone()),
++        }),
++    )
++    .unwrap();
++    let mut source = Files::open(source, archive(), mode, authority, key(mode)).unwrap();
++    let metadata: Vec<_> = names
++        .iter()
++        .map(|name| Metadata {
++            entry: crate::LockboxEntry {
++                path: crate::LockboxPath::new(name).unwrap(),
++                kind: crate::LockboxEntryKind::File,
++                len: bytes.len() as u64,
++                permissions: 0o600,
++            },
++            target: None,
++        })
++        .collect();
++    (
++        tree_image::from_candidate(
++            &mut source,
++            StorageBackend::memory(Vec::new()),
++            authority,
++            signer,
++            key(mode),
++            &metadata,
++        )
++        .unwrap(),
++        bytes,
++    )
++}
++fn read<S: Storage>(
++    image: &mut TreeImage<S>,
++    path: &[u8],
++    offset: u64,
++    len: u64,
++) -> Result<Vec<u8>> {
++    let mut out = Vec::new();
++    image.image.read_range(path, offset, len, |v| {
++        out.extend_from_slice(v);
++        Ok(())
++    })?;
++    Ok(out)
++}
++
++#[test]
++fn selective_reads_skip_unrelated_payload_padding_and_free_space_all_modes() {
++    let owner = OwnerSigningKeyPair::generate().unwrap();
++    let public = owner.public_key();
++    for bits in 0..16 {
++        let mode = mode(bits & 1 != 0, bits & 2 != 0, bits & 4 != 0, bits & 8 != 0);
++        let authority = authority(mode, &public);
++        let (storage, bytes) = files(mode, &authority, &owner);
++        let audit = AuditedTreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
++            .unwrap();
++        let first = &audit.image.catalogue.files[0];
++        let selected = &first.fragments[0];
++        let selected_start =
++            audit.image.catalogue.packs[selected.pack].extent.start + selected.relative as u64;
++        let selected_end = selected_start + selected.descriptor.stored_len() as u64;
++        let mut forbidden = Vec::new();
++        for file in &audit.image.catalogue.files {
++            for fragment in &file.fragments {
++                let at = audit.image.catalogue.packs[fragment.pack].extent.start
++                    + fragment.relative as u64;
++                if at != selected_start {
++                    forbidden.push((at, at + fragment.descriptor.stored_len() as u64));
++                }
++            }
++        }
++        for pack in &audit.image.catalogue.packs {
++            if (pack.used as u64) < pack.extent.len {
++                forbidden.push((
++                    pack.extent.start + pack.used as u64,
++                    pack.extent.start + pack.extent.len,
++                ));
++            }
++        }
++        // Control/journal admission is bounded and intentionally still read.
++        // Only genuinely free claims are excluded, not descendant pages marked
++        // as pending by the return-to-inline inventory helper.
++        for vacant in audit.tree.graph.catalogue_vacant() {
++            if vacant.kind == shared::ownership::VacantKind::Free {
++                forbidden.push((vacant.span.start, vacant.span.start + vacant.span.len));
++            }
++        }
++        let trace = Trace {
++            storage: storage.clone(),
++            reads: Rc::new(RefCell::new(Vec::new())),
++        };
++        let mut reader =
++            TreeImage::open(trace.clone(), archive(), mode, &authority, key(mode)).unwrap();
++        assert!(
++            !trace
++                .reads
++                .borrow()
++                .iter()
++                .any(|&r| intersects(r, (selected_start, selected_end))),
++            "open read payload mode={bits}"
++        );
++        assert_eq!(
++            read(&mut reader, b"/file-a", 31, 4096).unwrap(),
++            bytes[31..4127]
++        );
++        for &r in trace.reads.borrow().iter() {
++            assert!(
++                !forbidden.iter().any(|&span| intersects(r, span)),
++                "unrelated read {r:?} mode={bits}"
++            );
++        }
++        trace.reads.borrow_mut().clear();
++        assert!(reader.image.info(b"/file-a").unwrap().is_some());
++        assert!(
++            trace.reads.borrow().is_empty(),
++            "verified page cache should satisfy repeated metadata lookup"
++        );
++        assert_eq!(
++            read(&mut reader, b"/file-a", 65000, 70000).unwrap(),
++            bytes[65000..135000]
++        );
++        assert_eq!(
++            read(&mut reader, b"/file-z", 0, bytes.len() as u64).unwrap(),
++            bytes
++        );
++        assert!(reader.image.info(b"/absent").unwrap().is_none());
++        assert!(read(&mut reader, b"/file-a", u64::MAX, 2).is_err());
++        assert!(read(&mut reader, b"/file-a", bytes.len() as u64, 1).is_err());
++        assert!(read(&mut reader, b"/file-a", bytes.len() as u64, 0)
++            .unwrap()
++            .is_empty());
++        reader.image.verify_all().unwrap();
++
++        // Unread payload damage does not prevent opening or authenticated reads
++        // elsewhere, including signed plaintext. Requested corruption is fatal
++        // before the first callback for that chunk; a full audit also rejects it.
++        let bad = &first.fragments[1];
++        let at = audit.image.catalogue.packs[bad.pack].extent.start + bad.relative as u64;
++        let mut damaged = StorageBackend::memory(storage.read_all().unwrap());
++        let original = damaged.read_at(at, 1).unwrap()[0];
++        damaged.write_at(at, &[original ^ 1]).unwrap();
++        let mut reader = TreeImage::open(damaged, archive(), mode, &authority, key(mode)).unwrap();
++        assert_eq!(
++            read(&mut reader, b"/file-a", 31, 4096).unwrap(),
++            bytes[31..4127]
++        );
++        let mut calls = 0;
++        assert!(reader
++            .image
++            .read_range(b"/file-a", bad.descriptor.offset, 1, |_| {
++                calls += 1;
++                Ok(())
++            })
++            .is_err());
++        assert_eq!(calls, 0);
++        assert!(reader.image.verify_all().is_err());
++    }
++}
++
++#[test]
++fn selective_reads_leave_spare_space_auditing_to_full_verification_and_writers() {
++    let owner = OwnerSigningKeyPair::generate().unwrap();
++    let public = owner.public_key();
++    for encrypted in [false, true] {
++        let mode = mode(encrypted, true, false, true);
++        let authority = authority(mode, &public);
++        let (storage, bytes) = files(mode, &authority, &owner);
++        let audit = AuditedTreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
++            .unwrap();
++        let pack = audit
++            .image
++            .catalogue
++            .packs
++            .iter()
++            .find(|p| (p.used as u64) < p.extent.len)
++            .unwrap();
++        let vacant = audit
++            .tree
++            .graph
++            .catalogue_vacant()
++            .into_iter()
++            .find(|v| v.kind == shared::ownership::VacantKind::Free && v.span.len > 0)
++            .unwrap();
++        for at in [pack.extent.start + pack.used as u64, vacant.span.start] {
++            let mut damaged = StorageBackend::memory(storage.read_all().unwrap());
++            let original = damaged.read_at(at, 1).unwrap()[0];
++            damaged.write_at(at, &[original ^ 1]).unwrap();
++            let before = damaged.read_all().unwrap();
++            let mut reader =
++                TreeImage::open(damaged.clone(), archive(), mode, &authority, key(mode)).unwrap();
++            assert_eq!(read(&mut reader, b"/file-a", 0, 7).unwrap(), bytes[..7]);
++            assert!(reader.image.verify_all().is_err());
++            assert!(tree_image::remove_files(
++                &mut damaged,
++                archive(),
++                mode,
++                &authority,
++                Some(&owner),
++                key(mode),
++                &[b"/file-a".to_vec()]
++            )
++            .is_err());
++            assert_eq!(
++                damaged.read_all().unwrap(),
++                before,
++                "writer changed unaudited storage"
++            );
++        }
++    }
++}
++
++#[test]
++fn selective_reads_skip_damaged_unrelated_index_subtrees_and_authenticate_selected_pages() {
++    let owner = OwnerSigningKeyPair::generate().unwrap();
++    let public = owner.public_key();
++    let mode = mode(false, true, false, true);
++    let authority = authority(mode, &public);
++    let entries = grown(&public_filesystem_metadata(&owner));
++    let mut storage = exported(
++        mode,
++        &authority,
++        &owner,
++        &public_filesystem_metadata(&owner),
++    );
++    tree_image::replace_metadata(
++        &mut storage,
++        archive(),
++        mode,
++        &authority,
++        Some(&owner),
++        key(mode),
++        &entries,
++    )
++    .unwrap();
++    let (anchor, body) =
++        shared::open_private(&storage, archive(), mode, &authority, key(mode)).unwrap();
++    let root = shared::tree::parse_manifest(&body).unwrap();
++    let index = Index::new(archive(), mode, key(mode)).unwrap();
++    let mut pages = Vec::new();
++    index
++        .visit_owned(&storage, root, anchor.sealed_len, |event| {
++            match event {
++                Visit::Page(page) => pages.push((page, Vec::new())),
++                Visit::Entry(row) => pages.last_mut().unwrap().1.push(row.namespace),
++            }
++            Ok(())
++        })
++        .unwrap();
++    let unrelated = pages
++        .iter()
++        .find(|(_, ns)| !ns.is_empty() && ns.iter().all(|&n| n == 4))
++        .unwrap()
++        .0;
++    let mut damaged = StorageBackend::memory(storage.read_all().unwrap());
++    for at in [unrelated.primary, unrelated.mirror] {
++        damaged
++            .write_at(at, &vec![0; unrelated.len as usize])
++            .unwrap();
++    }
++    let trace = Trace {
++        storage: damaged,
++        reads: Rc::new(RefCell::new(Vec::new())),
++    };
++    let mut reader =
++        TreeImage::open(trace.clone(), archive(), mode, &authority, key(mode)).unwrap();
++    assert_eq!(read(&mut reader, b"/docs/data", 0, 7).unwrap(), b"payload");
++    for at in [unrelated.primary, unrelated.mirror] {
++        assert!(!trace
++            .reads
++            .borrow()
++            .iter()
++            .any(|&r| intersects(r, (at, at + unrelated.len))));
++    }
++    assert!(reader.image.filesystem_metadata().is_err());
++    assert!(reader.image.verify_all().is_err());
++    // The authenticated root page is always necessary. One valid mirror works;
++    // destroying both copies refuses before exposing any file data.
++    let mut damaged = StorageBackend::memory(storage.read_all().unwrap());
++    damaged
++        .write_at(root.primary, &vec![0; root.len as usize])
++        .unwrap();
++    let mut reader =
++        TreeImage::open(damaged.clone(), archive(), mode, &authority, key(mode)).unwrap();
++    assert_eq!(read(&mut reader, b"/docs/data", 0, 7).unwrap(), b"payload");
++    damaged
++        .write_at(root.mirror, &vec![0; root.len as usize])
++        .unwrap();
++    assert!(TreeImage::open(damaged, archive(), mode, &authority, key(mode)).is_err());
++}
++
++#[test]
++fn selective_reads_refuse_authenticated_misbound_fragment_descriptors() {
++    // Deliberately malformed but authenticated records require the private raw
++    // tree writer: the public CLI cannot publish these invalid typed bindings.
++    let owner = OwnerSigningKeyPair::generate().unwrap();
++    let public = owner.public_key();
++    for bits in 0..16 {
++        let mode = mode(bits & 1 != 0, bits & 2 != 0, bits & 4 != 0, bits & 8 != 0);
++        let authority = authority(mode, &public);
++        let source = exported(
++            mode,
++            &authority,
++            &owner,
++            &public_filesystem_metadata(&owner),
++        );
++        let tree =
++            shared::tree::Tree::open(&source, archive(), mode, &authority, key(mode)).unwrap();
++        let mut original = Vec::new();
++        tree.visit(&source, |row| {
++            original.push(row);
++            Ok(())
++        })
++        .unwrap();
++        for fault in 0..10 {
++            let mut records = original.clone();
++            let fragment = records.iter().position(|r| r.namespace == 2).unwrap();
++            let file = records.iter().position(|r| r.namespace == 1).unwrap();
++            let pack = records.iter().position(|r| r.namespace == 3).unwrap();
++            match fault {
++                0 => records[fragment].value[8..24].copy_from_slice(&[99; 16]),
++                1 => records[fragment].value[24..32].copy_from_slice(&1u64.to_le_bytes()),
++                2 => records[fragment].value[32..40].copy_from_slice(&1u64.to_le_bytes()),
++                3 => records[fragment].value[40..44].copy_from_slice(&6u32.to_le_bytes()),
++                4 => records[fragment].value[64..72].copy_from_slice(&0u64.to_le_bytes()),
++                5 => records[fragment].value[72..80].copy_from_slice(&u64::MAX.to_le_bytes()),
++                6 => records[fragment].value[80] ^= 1,
++                7 => records[pack].value[..8].copy_from_slice(&u64::MAX.to_le_bytes()),
++                8 => records[file].value[28..36].copy_from_slice(&65537u64.to_le_bytes()),
++                9 => {
++                    records.remove(fragment);
++                }
++                _ => unreachable!(),
++            }
++            let mut storage = StorageBackend::memory(source.read_all().unwrap());
++            shared::tree::rewrite_records(
++                &mut storage,
++                archive(),
++                mode,
++                &authority,
++                mode.signed().then_some(&owner),
++                key(mode),
++                records,
++            )
++            .unwrap();
++            let persisted = storage.read_all().unwrap();
++            let mut reader = TreeImage::open(
++                StorageBackend::memory(persisted.clone()),
++                archive(),
++                mode,
++                &authority,
++                key(mode),
++            )
++            .unwrap();
++            let mut callbacks = 0;
++            assert!(
++                reader
++                    .image
++                    .read_range(b"/docs/data", 0, 7, |_| {
++                        callbacks += 1;
++                        Ok(())
++                    })
++                    .is_err(),
++                "mode={bits} fault={fault}"
++            );
++            assert_eq!(callbacks, 0, "mode={bits} fault={fault}");
++            assert_eq!(storage.read_all().unwrap(), persisted);
++        }
++    }
++}
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/variables.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/variables.rs
+index 456cd73c..5d2da92d 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/variables.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/variables.rs
+@@ -18,7 +18,7 @@ fn typed_tree_variables_lifecycle_secure_read_and_file_coexistence_all_modes() {
+         let signer = mode.signed().then_some(&owner);
+         let mut storage = super::mutation::seed(mode, &authority, &owner);
+         assert!(
+-            TreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
++            AuditedTreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
+                 .unwrap()
+                 .image
+                 .value_key
+@@ -47,7 +47,8 @@ fn typed_tree_variables_lifecycle_secure_read_and_file_coexistence_all_modes() {
+         )
+         .unwrap());
+         let opened =
+-            TreeImage::open(storage.clone(), archive(), mode, &authority, key(mode)).unwrap();
++            AuditedTreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
++                .unwrap();
+         assert_eq!(
+             opened.get_variable(&name).unwrap().as_deref(),
+             Some("normal")
+@@ -112,7 +113,8 @@ fn typed_tree_variables_lifecycle_secure_read_and_file_coexistence_all_modes() {
+         .is_err());
+         assert_eq!(storage.read_all().unwrap(), stable);
+         let opened =
+-            TreeImage::open(storage.clone(), archive(), mode, &authority, key(mode)).unwrap();
++            AuditedTreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
++                .unwrap();
+         assert!(opened.image.value_key.is_some());
+         assert!(opened.get_variable(&name).is_err());
+         assert_eq!(
+@@ -125,6 +127,22 @@ fn typed_tree_variables_lifecycle_secure_read_and_file_coexistence_all_modes() {
+             opened.get_variable(&other).unwrap().as_deref(),
+             Some("neighbor")
+         );
++        let selected =
++            tree_image::TreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
++                .unwrap();
++        assert_eq!(
++            selected.get_variable(&other).unwrap().as_deref(),
++            Some("neighbor")
++        );
++        assert!(selected.get_variable(&name).is_err());
++        assert_eq!(
++            selected
++                .with_secret_variable(&name, |v| v.with_str(|s| assert_eq!(s, boundary)).unwrap())
++                .unwrap(),
++            Some(())
++        );
++        assert!(selected.with_secret_variable(&other, |_| ()).is_err());
++        drop(selected);
+         let mut metadata = opened.image.filesystem_metadata().unwrap();
+         metadata
+             .iter_mut()
+@@ -169,7 +187,8 @@ fn typed_tree_variables_lifecycle_secure_read_and_file_coexistence_all_modes() {
+         )
+         .unwrap());
+         let opened =
+-            TreeImage::open(storage.clone(), archive(), mode, &authority, key(mode)).unwrap();
++            AuditedTreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
++                .unwrap();
+         assert!(opened.image.info(b"/docs/data").unwrap().is_none());
+         opened
+             .with_secret_variable(&name, |v| v.with_str(|s| assert_eq!(s, boundary)).unwrap())
+@@ -209,7 +228,8 @@ fn typed_tree_variables_lifecycle_secure_read_and_file_coexistence_all_modes() {
+         )
+         .unwrap());
+         let opened =
+-            TreeImage::open(storage.clone(), archive(), mode, &authority, key(mode)).unwrap();
++            AuditedTreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
++                .unwrap();
+         assert_eq!(
+             opened.get_variable(&name).unwrap().as_deref(),
+             Some("recreated")
+@@ -274,7 +294,8 @@ fn typed_tree_variables_maximum_empty_and_one_over_all_modes() {
+         .unwrap();
+         drop(value);
+         let opened =
+-            TreeImage::open(storage.clone(), archive(), mode, &authority, key(mode)).unwrap();
++            AuditedTreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
++                .unwrap();
+         opened
+             .with_secret_variable(&name, |v| {
+                 v.with_str(|s| {
+@@ -314,7 +335,8 @@ fn typed_tree_variables_maximum_empty_and_one_over_all_modes() {
+         )
+         .unwrap();
+         let opened =
+-            TreeImage::open(storage.clone(), archive(), mode, &authority, key(mode)).unwrap();
++            AuditedTreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
++                .unwrap();
+         opened
+             .with_secret_variable(&name, |v| v.with_str(|s| assert!(s.is_empty())).unwrap())
+             .unwrap()
+@@ -373,7 +395,7 @@ impl<S: Storage> Storage for Guarded<S> {
+     }
+ }
+ fn extents(storage: &StorageBackend, mode: FormatMode, authority: &Authority<'_>) -> Vec<Extent> {
+-    TreeImage::open(storage.clone(), archive(), mode, authority, key(mode))
++    AuditedTreeImage::open(storage.clone(), archive(), mode, authority, key(mode))
+         .unwrap()
+         .image
+         .catalogue
+@@ -388,7 +410,8 @@ fn check_value<S: Storage>(
+     authority: &Authority<'_>,
+     name: &VariableName,
+ ) -> Option<bool> {
+-    let mut opened = TreeImage::open(storage, archive(), mode, authority, key(mode)).unwrap();
++    let mut opened =
++        AuditedTreeImage::open(storage, archive(), mode, authority, key(mode)).unwrap();
+     assert_eq!(
+         opened
+             .get_variable(&VariableName::new("retained").unwrap())
+@@ -455,7 +478,8 @@ fn typed_tree_variables_guarded_transaction_and_recovery_faults() {
+         )
+         .unwrap();
+         let opened =
+-            TreeImage::open(original.clone(), archive(), mode, &authority, key(mode)).unwrap();
++            AuditedTreeImage::open(original.clone(), archive(), mode, &authority, key(mode))
++                .unwrap();
+         let target_ranges: Vec<_> = opened
+             .image
+             .catalogue
+@@ -629,7 +653,8 @@ fn typed_tree_variables_selected_ownership_corruption_and_salvage_all_modes() {
+             &b,
+         )
+         .unwrap();
+-        let opened = TreeImage::open(seed.clone(), archive(), mode, &authority, key(mode)).unwrap();
++        let opened =
++            AuditedTreeImage::open(seed.clone(), archive(), mode, &authority, key(mode)).unwrap();
+         let layouts: Vec<_> = opened
+             .image
+             .catalogue
+@@ -692,7 +717,7 @@ fn typed_tree_variables_selected_ownership_corruption_and_salvage_all_modes() {
+                 changed,
+             )
+             .unwrap();
+-            let read = TreeImage::open(bad, archive(), mode, &authority, key(mode));
++            let read = AuditedTreeImage::open(bad, archive(), mode, &authority, key(mode));
+             match read {
+                 Err(_) => {}
+                 Ok(mut image) => assert!(image.image.verify_all().is_err()),
+@@ -705,9 +730,14 @@ fn typed_tree_variables_selected_ownership_corruption_and_salvage_all_modes() {
+             .write_at(extent.start + extent.len - 1, &[byte])
+             .unwrap();
+         if mode.plaintext() && mode.signed() {
+-            assert!(
+-                TreeImage::open(damaged.clone(), archive(), mode, &authority, key(mode)).is_err()
+-            );
++            assert!(AuditedTreeImage::open(
++                damaged.clone(),
++                archive(),
++                mode,
++                &authority,
++                key(mode)
++            )
++            .is_err());
+         }
+         let mut names = Vec::new();
+         let lost = salvage_variables(
+@@ -796,7 +826,7 @@ fn typed_tree_variables_selected_ownership_corruption_and_salvage_all_modes() {
+             assert_eq!(names, vec![second.clone()]);
+         }
+         let current =
+-            TreeImage::open(seed.clone(), archive(), mode, &authority, key(mode)).unwrap();
++            AuditedTreeImage::open(seed.clone(), archive(), mode, &authority, key(mode)).unwrap();
+         let mut damaged = StorageBackend::memory(seed.read_all().unwrap());
+         for start in [
+             current.tree.anchor.index.primary,
+@@ -844,7 +874,8 @@ fn typed_tree_variable_max_revision_can_be_deleted_but_not_replaced() {
+         &value,
+     )
+     .unwrap();
+-    let opened = TreeImage::open(storage.clone(), archive(), mode, &authority, key(mode)).unwrap();
++    let opened =
++        AuditedTreeImage::open(storage.clone(), archive(), mode, &authority, key(mode)).unwrap();
+     let bytes = crate::secret_vec::SecureVec::try_from_slice(b"last").unwrap();
+     let encoded = secure_segments::encode(
+         &bytes,
+@@ -905,7 +936,7 @@ fn typed_tree_variable_max_revision_can_be_deleted_but_not_replaced() {
+     )
+     .is_err());
+     assert_eq!(storage.read_all().unwrap(), before);
+-    let prior = TreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
++    let prior = AuditedTreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
+         .unwrap()
+         .image
+         .catalogue
+@@ -925,7 +956,7 @@ fn typed_tree_variable_max_revision_can_be_deleted_but_not_replaced() {
+         )
+         .unwrap());
+         assert_eq!(
+-            TreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
++            AuditedTreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
+                 .unwrap()
+                 .image
+                 .catalogue
+@@ -945,7 +976,7 @@ fn typed_tree_variable_max_revision_can_be_deleted_but_not_replaced() {
+     )
+     .unwrap());
+     assert!(
+-        TreeImage::open(storage, archive(), mode, &authority, key(mode))
++        AuditedTreeImage::open(storage, archive(), mode, &authority, key(mode))
+             .unwrap()
+             .with_secret_variable(&name, |_| ())
+             .unwrap()
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/variables/moves.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/variables/moves.rs
+index ebe7e317..38b980e3 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/variables/moves.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/variables/moves.rs
+@@ -9,7 +9,7 @@ fn name(value: &str) -> VariableName {
+ }
+ type Names = BTreeMap<VariableName, Layout>;
+ fn names<S: Storage>(storage: S, mode: FormatMode, authority: &Authority<'_>) -> Names {
+-    TreeImage::open(storage, archive(), mode, authority, key(mode))
++    AuditedTreeImage::open(storage, archive(), mode, authority, key(mode))
+         .unwrap()
+         .image
+         .catalogue
+@@ -123,7 +123,8 @@ fn guard<S: Storage>(
+     mode: FormatMode,
+     authority: &Authority<'_>,
+ ) -> Stable<S> {
+-    let opened = TreeImage::open(original.clone(), archive(), mode, authority, key(mode)).unwrap();
++    let opened =
++        AuditedTreeImage::open(original.clone(), archive(), mode, authority, key(mode)).unwrap();
+     Stable {
+         inner,
+         variables: opened
+@@ -150,7 +151,8 @@ fn check<S: Storage>(
+     expected: &Names,
+     original: &Names,
+ ) {
+-    let mut opened = TreeImage::open(storage, archive(), mode, authority, key(mode)).unwrap();
++    let mut opened =
++        AuditedTreeImage::open(storage, archive(), mode, authority, key(mode)).unwrap();
+     let actual: Names = opened
+         .image
+         .catalogue
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/variables/prepared.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/variables/prepared.rs
+index da992204..eab30f6a 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/variables/prepared.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/variables/prepared.rs
+@@ -13,7 +13,8 @@ fn replacement<'a>(
+     failure: &'static str,
+     at: usize,
+ ) -> (Vec<Entry>, shared::tree::PreparedSecurePayloadPlan<'a>) {
+-    let opened = TreeImage::open(original.clone(), archive(), mode, authority, key(mode)).unwrap();
++    let opened =
++        AuditedTreeImage::open(original.clone(), archive(), mode, authority, key(mode)).unwrap();
+     let base = shared::commitment(&opened.tree.anchor).unwrap();
+     let old = &opened.image.catalogue.variables[0];
+     let prepared = secure_segments::prepare_source(
+@@ -134,7 +135,7 @@ fn prepared_staging_preflight_and_second_pass_failures_preserve_selected_values_
+                 tree_image::recover(&mut storage, archive(), mode, &authority, key(mode)).unwrap();
+                 tree_image::recover(&mut storage, archive(), mode, &authority, key(mode)).unwrap();
+                 let mut opened =
+-                    TreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
++                    AuditedTreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
+                         .unwrap();
+                 assert_eq!(
+                     opened.image.catalogue.variables[0].layout.extents,
+@@ -240,7 +241,7 @@ fn prepared_staging_aggregate_guarded_source_probe() {
+     let source = SecretString::try_from_slice(&vec![b'x'; 1024 * 1024]).unwrap();
+     let after_source = memory();
+     let mut storage = Guarded::new(StorageBackend::file_for_write(&path).unwrap(), Vec::new());
+-    let opened = TreeImage::open(
++    let opened = AuditedTreeImage::open(
+         crate::file_format::allocation_map::compaction::View(&storage),
+         archive(),
+         mode,
+@@ -316,7 +317,7 @@ fn prepared_staging_aggregate_guarded_source_probe() {
+     let ranges = storage.spans.borrow().clone();
+     drop(storage);
+     drop(source);
+-    let opened = TreeImage::open(
++    let opened = AuditedTreeImage::open(
+         Guarded::new(StorageBackend::file(&path).unwrap(), ranges),
+         archive(),
+         mode,
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/variables/resource.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/variables/resource.rs
+index 2f1be6ad..b6b7e33d 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/variables/resource.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/variables/resource.rs
+@@ -83,7 +83,8 @@ fn digest(storage: &impl Storage) -> String {
+ }
+ fn verify(path: &Path, mode: FormatMode, authority: &Authority<'_>, expected: u8) -> Value {
+     let storage = StorageBackend::file(path).unwrap();
+-    let mut opened = TreeImage::open(storage, archive(), mode, authority, key(mode)).unwrap();
++    let mut opened =
++        AuditedTreeImage::open(storage, archive(), mode, authority, key(mode)).unwrap();
+     let name = VariableName::new("resource_probe").unwrap();
+     opened
+         .with_secret_variable(&name, |value| {
+@@ -204,7 +205,7 @@ fn typed_variable_resource_probe() {
+     // Include fresh open and signed-plaintext eager verification. Stop at the
+     // fully assembled callback entry; byte verification happens after the timer.
+     let mut meter = Some(Meter::start("open_and_read"));
+-    let opened = TreeImage::open(
++    let opened = AuditedTreeImage::open(
+         StorageBackend::file(&path).unwrap(),
+         archive(),
+         mode,
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image.rs
+index f40a09df..192799ee 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image.rs
+@@ -7,6 +7,8 @@ use super::dense_image::Image;
+ use super::*;
+ use crate::file_format::publication_anchor::{shared, FAILURE_REGION, REGION_LEN};
+ use shared::tree::{self, Tree};
++mod reader;
++pub(super) use reader::TreeImage;
+ mod resume;
+ pub(super) use resume::resume_path;
+ mod install;
+@@ -20,11 +22,11 @@ mod mutation;
+ pub(super) mod variables;
+ pub(super) use mutation::{remove_files, update_files};
+ 
+-pub(super) struct TreeImage<S: Storage> {
++pub(super) struct AuditedTreeImage<S: Storage> {
+     pub image: Image<S>,
+     pub tree: Tree,
+ }
+-impl<S: Storage> TreeImage<S> {
++impl<S: Storage> AuditedTreeImage<S> {
+     /// Credential bootstrap and typed records must refer to the same selected
+     /// publication. A bounded zeroizing key copy allows guarded record allocation.
+     pub fn open_credential(
+@@ -77,8 +79,10 @@ impl<S: Storage> TreeImage<S> {
+     ) -> Result<Self> {
+         let codec = Codec::shared_packed(archive, mode, key)?;
+         stage("codec");
+-        let (catalogue, tree) = Catalogue::with_tree(&codec, |visitor| {
+-            Tree::open_visit_observed(&storage, archive, mode, authority, key, visitor, &mut stage)
++        let (catalogue, tree) = Catalogue::with_tree_borrowed(&codec, |visitor| {
++            Tree::open_visit_borrowed_observed(
++                &storage, archive, mode, authority, key, visitor, &mut stage,
++            )
+         })?;
+         stage("typed_validation");
+         catalogue.verify_padding(&storage, &codec)?;
+@@ -187,7 +191,7 @@ pub(super) fn return_inline(
+     if !body.starts_with(b"RV4TRE01") {
+         return super::dense_update::return_inline(storage, archive, mode, authority, signer, key);
+     }
+-    let mut opened = TreeImage::open(
++    let mut opened = AuditedTreeImage::open(
+         allocation::compaction::View(&*storage),
+         archive,
+         mode,
+@@ -226,7 +230,7 @@ pub(super) fn return_inline(
+     } else {
+         drop(opened);
+     }
+-    let opened = TreeImage::open(
++    let opened = AuditedTreeImage::open(
+         allocation::compaction::View(&*storage),
+         archive,
+         mode,
+@@ -251,7 +255,7 @@ pub(super) fn can_return_inline(
+     authority: &Authority<'_>,
+     key: Option<&[u8]>,
+ ) -> Result<bool> {
+-    let mut opened = TreeImage::open(
++    let mut opened = AuditedTreeImage::open(
+         allocation::compaction::View(storage),
+         archive,
+         mode,
+@@ -357,7 +361,7 @@ pub(super) fn replace_metadata(
+             tree::grow_dense_records(storage, archive, mode, authority, signer, key, records)
+         };
+     }
+-    let mut opened = TreeImage::open(
++    let mut opened = AuditedTreeImage::open(
+         allocation::compaction::View(&*storage),
+         archive,
+         mode,
+@@ -443,7 +447,7 @@ pub(super) fn from_dense<S: Storage, T: Storage>(
+             &tree::manifest(root),
+             &slots,
+         )?;
+-        TreeImage::open(
++        AuditedTreeImage::open(
+             allocation::compaction::View(&destination),
+             archive,
+             mode,
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/compact.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/compact.rs
+index 96acdf70..0cf84468 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/compact.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/compact.rs
+@@ -22,7 +22,7 @@ pub(in crate::file_format::candidate_files) fn compact<S: Storage, T: Storage>(
+         ));
+     }
+     // All refusal/preparation below precedes even cleanup: discard(empty) mutates.
+-    let mut opened = TreeImage::open(
++    let mut opened = AuditedTreeImage::open(
+         allocation::compaction::View(source),
+         archive,
+         mode,
+@@ -170,7 +170,7 @@ pub(in crate::file_format::candidate_files) fn compact<S: Storage, T: Storage>(
+         {
+             return Err(Error::CorruptRecord);
+         }
+-        let mut reopened = TreeImage::open(
++        let mut reopened = AuditedTreeImage::open(
+             allocation::compaction::View(&destination),
+             archive,
+             mode,
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/forms.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/forms.rs
+index 2038a701..64aba1c8 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/forms.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/forms.rs
+@@ -12,7 +12,7 @@ use crate::{
+     VariableSensitivity,
+ };
+ use std::collections::BTreeMap;
+-impl<S: Storage> TreeImage<S> {
++impl<S: Storage> AuditedTreeImage<S> {
+     /// Read one selected captured field without assembling every value in the form.
+     pub fn with_form_field_value<R>(
+         &self,
+@@ -127,7 +127,7 @@ pub(in crate::file_format::candidate_files) fn import_definition(
+     definition: &FormDefinition,
+ ) -> Result<bool> {
+     validate_definition(definition)?;
+-    let mut opened = TreeImage::open(
++    let mut opened = AuditedTreeImage::open(
+         allocation::compaction::View(&*storage),
+         archive,
+         mode,
+@@ -294,7 +294,7 @@ pub(in crate::file_format::candidate_files) fn import_captured_record(
+             return Err(Error::CorruptRecord);
+         }
+     }
+-    let mut opened = TreeImage::open(
++    let mut opened = AuditedTreeImage::open(
+         allocation::compaction::View(&*storage),
+         archive,
+         mode,
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/forms/definitions.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/forms/definitions.rs
+index 180401c8..38586b6c 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/forms/definitions.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/forms/definitions.rs
+@@ -51,7 +51,7 @@ fn resolve(forms: &forms::Forms, reference: &str) -> Result<usize> {
+         ))),
+     }
+ }
+-impl<S: Storage> TreeImage<S> {
++impl<S: Storage> AuditedTreeImage<S> {
+     pub fn resolve_form_definition(&self, reference: &str) -> Result<FormDefinition> {
+         let index = resolve(&self.image.catalogue.forms, reference)?;
+         self.image.catalogue.forms.definitions[index].read(
+@@ -116,7 +116,7 @@ pub(in crate::file_format::candidate_files) fn mutate_definition(
+         }
+         DefinitionTarget::Revise(_) => None,
+     };
+-    let mut opened = TreeImage::open(
++    let mut opened = AuditedTreeImage::open(
+         allocation::compaction::View(&*storage),
+         archive,
+         mode,
+@@ -203,7 +203,7 @@ pub(in crate::file_format::candidate_files) fn create_record(
+ ) -> Result<()> {
+     let path = path.file_path()?;
+     FormRecord::validated_name(name)?;
+-    let mut opened = TreeImage::open(
++    let mut opened = AuditedTreeImage::open(
+         allocation::compaction::View(&*storage),
+         archive,
+         mode,
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/forms/fields.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/forms/fields.rs
+index c6feaf6d..3a142bff 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/forms/fields.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/forms/fields.rs
+@@ -97,7 +97,7 @@ pub(in crate::file_format::candidate_files) fn set_field(
+ ) -> Result<bool> {
+     let path = path.file_path()?;
+     let field_id = FormFieldDefinition::validated_id(field_id)?;
+-    let mut opened = TreeImage::open(
++    let mut opened = AuditedTreeImage::open(
+         allocation::compaction::View(&*storage),
+         archive,
+         mode,
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/forms/lifecycle.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/forms/lifecycle.rs
+index 641ddf03..961af8d0 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/forms/lifecycle.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/forms/lifecycle.rs
+@@ -16,7 +16,7 @@ pub(in crate::file_format::candidate_files) fn delete_record(
+     path: &LockboxPath,
+ ) -> Result<bool> {
+     let path = path.file_path()?;
+-    let mut opened = TreeImage::open(
++    let mut opened = AuditedTreeImage::open(
+         allocation::compaction::View(&*storage),
+         archive,
+         mode,
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/forms/moves.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/forms/moves.rs
+index a2d1a97e..3da6c8af 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/forms/moves.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/forms/moves.rs
+@@ -15,7 +15,7 @@ pub(in crate::file_format::candidate_files) fn move_records(
+         .iter()
+         .map(|(source, destination)| Ok((source.file_path()?, destination.file_path()?)))
+         .collect::<Result<Vec<_>>>()?;
+-    let mut opened = TreeImage::open(
++    let mut opened = AuditedTreeImage::open(
+         allocation::compaction::View(&*storage),
+         archive,
+         mode,
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/fresh.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/fresh.rs
+index 0588aeb6..94f99502 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/fresh.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/fresh.rs
+@@ -100,7 +100,7 @@ pub(in crate::file_format::candidate_files) fn from_candidate<S: Storage, T: Sto
+             &tree::manifest(root),
+             &[],
+         )?;
+-        TreeImage::open(
++        AuditedTreeImage::open(
+             allocation::compaction::View(&destination),
+             archive,
+             mode,
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/install.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/install.rs
+index 58357834..50f5f370 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/install.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/install.rs
+@@ -11,7 +11,7 @@ pub(in crate::file_format::candidate_files) fn compact_path(
+     authority: &Authority<'_>,
+     signer: Option<&OwnerSigningKeyPair>,
+     key: Option<&[u8]>,
+-) -> Result<TreeImage<StorageBackend>> {
++) -> Result<AuditedTreeImage<StorageBackend>> {
+     compact_path_with(path, archive, mode, authority, signer, key, |phase| {
+         super::super::compaction::checkpoint(phase);
+         Ok(())
+@@ -26,7 +26,7 @@ pub(in crate::file_format::candidate_files) fn compact_path_with(
+     signer: Option<&OwnerSigningKeyPair>,
+     key: Option<&[u8]>,
+     mut checkpoint: impl FnMut(&str) -> Result<()>,
+-) -> Result<TreeImage<StorageBackend>> {
++) -> Result<AuditedTreeImage<StorageBackend>> {
+     let metadata = std::fs::symlink_metadata(path).map_err(|e| Error::Io(e.to_string()))?;
+     if !metadata.file_type().is_file() {
+         return Err(Error::InvalidOperation(
+@@ -44,7 +44,7 @@ pub(in crate::file_format::candidate_files) fn compact_path_with(
+             .map_err(|e| Error::Io(e.to_string()))?;
+         checkpoint("tree-created")?;
+         let destination = compact(&source, temporary, archive, mode, authority, signer, key)?;
+-        let mut checked = TreeImage::open(destination, archive, mode, authority, key)?;
++        let mut checked = AuditedTreeImage::open(destination, archive, mode, authority, key)?;
+         checked.image.verify_all()?;
+         checked.image.storage.sync()?;
+         checkpoint("tree-verified")?;
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/mutation.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/mutation.rs
+index 58165cc5..4625b43b 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/mutation.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/mutation.rs
+@@ -73,7 +73,7 @@ pub(in crate::file_format::candidate_files) fn update_files<R: Read + Seek>(
+             key,
+         )?
+     } else {
+-        TreeImage::open(
++        AuditedTreeImage::open(
+             allocation::compaction::View(&*storage),
+             archive,
+             mode,
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/reader.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/reader.rs
+new file mode 100644
+index 00000000..2d71fb8b
+--- /dev/null
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/reader.rs
+@@ -0,0 +1,460 @@
++//! Ordinary read sessions authenticate only the selected root and lookup paths.
++//! They are not whole-archive audits or allocation authority. The caller holds a
++//! stable snapshot/read lock; every newly fetched page and payload is verified.
++use super::*;
++use crate::file_format::allocation_map::Extent;
++use crate::file_format::authenticated_index::{Entry, PageCache};
++use crate::file_format::publication_anchor::RootRef;
++use crate::{LockboxEntry, LockboxEntryKind, LockboxPath};
++use std::cell::RefCell;
++
++pub(in crate::file_format::candidate_files) struct TreeImage<S: Storage> {
++    pub image: ReadImage<S>,
++}
++pub(in crate::file_format::candidate_files) struct ReadImage<S: Storage> {
++    pub storage: S,
++    pub anchor: Anchor,
++    index: Index,
++    root: RootRef,
++    cache: RefCell<PageCache>,
++    version: u8,
++    codec: Codec,
++    key: Option<Zeroizing<Vec<u8>>>,
++}
++impl<S: Storage> TreeImage<S> {
++    pub fn open(
++        storage: S,
++        archive: LockboxId,
++        mode: FormatMode,
++        authority: &Authority<'_>,
++        key: Option<&[u8]>,
++    ) -> Result<Self> {
++        Self::open_observed(storage, archive, mode, authority, key, |_| {})
++    }
++    pub(in crate::file_format::candidate_files) fn open_observed(
++        storage: S,
++        archive: LockboxId,
++        mode: FormatMode,
++        authority: &Authority<'_>,
++        key: Option<&[u8]>,
++        mut stage: impl FnMut(&'static str),
++    ) -> Result<Self> {
++        // Bounded publication/journal admission remains mandatory. No global
++        // allocation graph, unused padding, free-space or payload scan occurs.
++        let (anchor, body) = shared::open_private(&storage, archive, mode, authority, key)?;
++        stage("selected_publication");
++        let root = tree::parse_manifest(&body)?;
++        let mut image = ReadImage {
++            storage,
++            anchor,
++            root,
++            cache: RefCell::default(),
++            version: 0,
++            index: Index::new(archive, mode, key)?,
++            codec: Codec::shared_packed(archive, mode, key)?,
++            key: key.map(|v| Zeroizing::new(v.to_vec())),
++        };
++        let format = image.required(5, b"format")?;
++        if !matches!(
++            format.value.as_slice(),
++            b"RV4FS001" | b"RV4FS002" | b"RV4FS003"
++        ) {
++            return Err(Error::CorruptRecord);
++        }
++        image.version = match format.value.as_slice() {
++            b"RV4FS001" => 1,
++            b"RV4FS002" => 2,
++            _ => 3,
++        };
++        stage("format_lookup");
++        Ok(Self { image })
++    }
++    pub fn open_credential(
++        storage: S,
++        archive: LockboxId,
++        mode: FormatMode,
++        owner: Option<&crate::OwnerSigningPublicKey>,
++        credential: publication::bootstrap::Credential<'_>,
++        slot: Option<u64>,
++    ) -> Result<Self> {
++        let opened = shared::credential_open(&storage, archive, mode, owner, credential, slot)?;
++        let mut key = Zeroizing::new([0u8; 32]);
++        opened.key.with_bytes(|bytes| {
++            if bytes.len() != key.len() {
++                return Err(Error::CorruptRecord);
++            }
++            key.copy_from_slice(bytes);
++            Ok(())
++        })??;
++        let authority = owner.map_or(Authority::Symmetric(key.as_ref()), Authority::Owner);
++        let image = Self::open(storage, archive, mode, &authority, Some(key.as_ref()))?;
++        if image.image.anchor != opened.anchor {
++            return Err(Error::CorruptRecord);
++        }
++        Ok(image)
++    }
++}
++impl<S: Storage> ReadImage<S> {
++    fn get(&self, namespace: u8, key: &[u8]) -> Result<Option<Entry>> {
++        self.index.get_cached(
++            &self.storage,
++            self.root,
++            self.anchor.sealed_len,
++            namespace,
++            key,
++            &mut self.cache.borrow_mut(),
++        )
++    }
++    fn required(&self, namespace: u8, key: &[u8]) -> Result<Entry> {
++        self.get(namespace, key)?.ok_or(Error::CorruptRecord)
++    }
++    fn file_info(&self, entry: &Entry) -> Result<(u32, FileInfo)> {
++        super::super::dense_catalogue::nodes::canonical(&entry.key)?;
++        if entry.value.len() != 76 {
++            return Err(Error::CorruptRecord);
++        }
++        let permissions = u32::from_le_bytes(entry.value[..4].try_into().unwrap());
++        crate::security::validate_permissions(permissions).map_err(|_| Error::CorruptRecord)?;
++        Ok((
++            permissions,
++            FileInfo::decode(&entry.value[4..], &self.codec)?,
++        ))
++    }
++    pub fn info(&self, path: &[u8]) -> Result<Option<FileInfo>> {
++        super::super::dense_catalogue::nodes::canonical(path)?;
++        self.get(1, path)?
++            .map(|entry| self.file_info(&entry).map(|(_, info)| info))
++            .transpose()
++    }
++    pub fn read_range(
++        &mut self,
++        path: &[u8],
++        offset: u64,
++        len: u64,
++        mut visitor: impl FnMut(&[u8]) -> Result<()>,
++    ) -> Result<()> {
++        let info = self
++            .info(path)?
++            .ok_or(Error::InvalidInput("file not found".into()))?;
++        let end = offset
++            .checked_add(len)
++            .ok_or(Error::InvalidInput("range overflow".into()))?;
++        if end > info.len {
++            return Err(Error::InvalidInput("range outside file".into()));
++        }
++        if len == 0 {
++            return Ok(());
++        }
++        for ordinal in offset / info.unit as u64..end.div_ceil(info.unit as u64) {
++            let row = self.required(2, &chunk_key(info.id, ordinal))?;
++            if row.value.len() != 112 {
++                return Err(Error::CorruptRecord);
++            }
++            let descriptor = Descriptor::decode(&row.value[..64])?;
++            let logical = ordinal
++                .checked_mul(info.unit as u64)
++                .ok_or(Error::CorruptRecord)?;
++            if descriptor.object != info.id
++                || descriptor.ordinal != ordinal
++                || descriptor.offset != logical
++                || descriptor.logical_len as u64 != (info.len - logical).min(info.unit as u64)
++            {
++                return Err(Error::CorruptRecord);
++            }
++            let start = u64::from_le_bytes(row.value[64..72].try_into().unwrap());
++            let relative = u64::from_le_bytes(row.value[72..80].try_into().unwrap());
++            let pack = self.required(3, &start.to_be_bytes())?;
++            if pack.value.len() != 72 {
++                return Err(Error::CorruptRecord);
++            }
++            let pack_len = u64::from_le_bytes(pack.value[..8].try_into().unwrap());
++            let stored = descriptor.stored_len() as u64;
++            if start < REGION_LEN as u64
++                || pack_len == 0
++                || pack_len
++                    > self
++                        .codec
++                        .pack_padded_len(self.codec.logical_unit(MAX_LOGICAL)? + 28)?
++                        as u64
++                || start
++                    .checked_add(pack_len)
++                    .is_none_or(|v| v > self.anchor.sealed_len)
++                || relative.checked_add(stored).is_none_or(|v| v > pack_len)
++            {
++                return Err(Error::CorruptRecord);
++            }
++            let extent = Extent {
++                start: start.checked_add(relative).ok_or(Error::CorruptRecord)?,
++                len: stored,
++                digest: row.value[80..].try_into().unwrap(),
++            };
++            // The fragment digest is authenticated by the index path, not merely
++            // taken from the payload itself. Codec verifies it before decoding
++            // or invoking the caller, including any internal authenticated pad.
++            let bytes =
++                self.codec
++                    .load(&self.storage, extent, self.anchor.sealed_len, &descriptor)?;
++            let first = offset.saturating_sub(logical) as usize;
++            let last = (end - logical).min(descriptor.logical_len as u64) as usize;
++            visitor(&bytes[first..last])?;
++        }
++        Ok(())
++    }
++    /// Listing intentionally traverses filesystem metadata, not fragment,
++    /// variable or form-value records and never their payloads or spare space.
++    pub fn filesystem_metadata(&self) -> Result<Vec<Metadata>> {
++        let mut entries = Vec::new();
++        let mut path_bytes = 0usize;
++        for namespace in [1u8, 4] {
++            self.index.visit_range(
++                &self.storage,
++                self.root,
++                self.anchor.sealed_len,
++                Some((namespace, &[])),
++                Some((namespace + 1, &[])),
++                |row| {
++                    let path = super::super::dense_catalogue::nodes::canonical(&row.key)?;
++                    path_bytes = path_bytes
++                        .checked_add(row.key.len())
++                        .ok_or(Error::CorruptRecord)?;
++                    if entries.len() >= MAX_FILES || path_bytes > MAX_PATH_BYTES {
++                        return Err(Error::SecurityLimitExceeded(
++                            "filesystem listing budget".into(),
++                        ));
++                    }
++                    let (kind, len, permissions, target) = if namespace == 1 {
++                        let (permissions, info) = self.file_info(&row)?;
++                        (LockboxEntryKind::File, info.len, permissions, None)
++                    } else {
++                        if row.value.len() < 5 {
++                            return Err(Error::CorruptRecord);
++                        }
++                        let permissions = u32::from_le_bytes(row.value[1..5].try_into().unwrap());
++                        crate::security::validate_permissions(permissions)
++                            .map_err(|_| Error::CorruptRecord)?;
++                        match row.value[0] {
++                            3 if row.value.len() == 5 => {
++                                (LockboxEntryKind::Directory, 0, permissions, None)
++                            }
++                            2 if row.value.len() > 5 => {
++                                let target = super::super::dense_catalogue::nodes::canonical(
++                                    &row.value[5..],
++                                )?;
++                                (
++                                    LockboxEntryKind::Symlink,
++                                    0,
++                                    permissions,
++                                    Some(LockboxPath::new(target)?),
++                                )
++                            }
++                            _ => return Err(Error::CorruptRecord),
++                        }
++                    };
++                    entries.push(Metadata {
++                        entry: LockboxEntry {
++                            path: LockboxPath::new(path)?,
++                            kind,
++                            len,
++                            permissions,
++                        },
++                        target,
++                    });
++                    Ok(())
++                },
++            )?;
++        }
++        entries.sort_by(|a, b| a.entry.path.cmp(&b.entry.path));
++        if entries
++            .windows(2)
++            .any(|p| p[0].entry.path == p[1].entry.path)
++        {
++            return Err(Error::CorruptRecord);
++        }
++        Ok(entries)
++    }
++    /// Explicit full verification retains graph, padding, erased-space and
++    /// complete content checks. It is never called implicitly by a read.
++    pub fn verify_all(&mut self) -> Result<()> {
++        let codec = Codec::shared_packed(
++            self.anchor.archive,
++            self.anchor.mode,
++            self.key.as_deref().map(Vec::as_slice),
++        )?;
++        let (catalogue, tree) = Catalogue::with_tree_borrowed(&codec, |visitor| {
++            Tree::from_snapshot_visit(
++                &self.storage,
++                self.anchor.archive,
++                self.anchor.mode,
++                self.key.as_deref().map(Vec::as_slice),
++                self.anchor.clone(),
++                &tree::manifest(self.root),
++                visitor,
++                &mut |_| {},
++            )
++        })?;
++        tree.graph.verify_reclaimed(&self.storage)?;
++        catalogue.verify_padding(&self.storage, &codec)?;
++        let mut audit = Image {
++            storage: allocation::compaction::View(&self.storage),
++            anchor: self.anchor.clone(),
++            value_key: super::super::dense_image::value_key_for(
++                &catalogue,
++                self.anchor.mode,
++                self.key.as_deref().map(Vec::as_slice),
++            )?,
++            catalogue,
++            codec,
++        };
++        audit.verify_all()
++    }
++    fn value_key(&self) -> Result<Zeroizing<[u8; 32]>> {
++        super::super::dense_image::value_key(
++            self.anchor.mode,
++            self.key.as_deref().map(Vec::as_slice),
++        )
++    }
++}
++
++impl<S: Storage> TreeImage<S> {
++    fn variable(
++        &self,
++        name: &crate::VariableName,
++    ) -> Result<Option<crate::file_format::secure_segments::Layout>> {
++        self.image
++            .get(6, name.as_str().as_bytes())?
++            .map(|row| {
++                if self.image.version < 2 {
++                    return Err(Error::CorruptRecord);
++                }
++                crate::file_format::secure_segments::Layout::decode_metadata(
++                    &row.value,
++                    self.image.anchor.mode,
++                    self.image.anchor.sealed_len,
++                )
++            })
++            .transpose()
++    }
++    pub fn get_variable(&self, name: &crate::VariableName) -> Result<Option<String>> {
++        let Some(layout) = self.variable(name)? else {
++            return Ok(None);
++        };
++        if layout.sensitivity == crate::VariableSensitivity::Secret {
++            return Err(Error::InvalidOperation(
++                "variable is secret; use secret access".into(),
++            ));
++        }
++        let bytes = layout.read(
++            &self.image.storage,
++            self.image.anchor.archive,
++            &*self.image.value_key()?,
++            self.image.anchor.sealed_len,
++        )?;
++        bytes.with_bytes(|bytes| {
++            Ok(Some(
++                std::str::from_utf8(bytes)
++                    .map_err(|_| Error::CorruptRecord)?
++                    .to_owned(),
++            ))
++        })?
++    }
++    pub fn with_secret_variable<R>(
++        &self,
++        name: &crate::VariableName,
++        f: impl FnOnce(&crate::SecretString) -> R,
++    ) -> Result<Option<R>> {
++        let Some(layout) = self.variable(name)? else {
++            return Ok(None);
++        };
++        if layout.sensitivity != crate::VariableSensitivity::Secret {
++            return Err(Error::InvalidOperation("variable is not secret".into()));
++        }
++        let bytes = layout.read(
++            &self.image.storage,
++            self.image.anchor.archive,
++            &*self.image.value_key()?,
++            self.image.anchor.sealed_len,
++        )?;
++        let value = std::sync::Arc::new(crate::SecretString::from_secure_vec(bytes));
++        Ok(Some(f(&value)))
++    }
++    pub fn get_form_definition(
++        &self,
++        id: &crate::FormTypeId,
++        revision: u32,
++    ) -> Result<Option<crate::FormDefinition>> {
++        let forms = super::super::dense_catalogue::forms::Forms::selected_definition(
++            id,
++            revision,
++            self.image.anchor.mode,
++            self.image.anchor.sealed_len,
++            |n, k| self.image.get(n, k),
++        )?;
++        if self.image.version < 3 && !forms.is_empty() {
++            return Err(Error::CorruptRecord);
++        }
++        forms
++            .definitions
++            .first()
++            .map(|d| {
++                d.read(
++                    &self.image.storage,
++                    self.image.anchor.archive,
++                    &*self.image.value_key()?,
++                    self.image.anchor.sealed_len,
++                )
++            })
++            .transpose()
++    }
++    fn selected_form(
++        &self,
++        path: &LockboxPath,
++    ) -> Result<super::super::dense_catalogue::forms::Forms> {
++        let forms = super::super::dense_catalogue::forms::Forms::selected_record(
++            path,
++            self.image.anchor.mode,
++            self.image.anchor.sealed_len,
++            |n, k| self.image.get(n, k),
++        )?;
++        if self.image.version < 3 && !forms.is_empty() {
++            return Err(Error::CorruptRecord);
++        }
++        Ok(forms)
++    }
++    pub fn get_form_record(&self, path: &LockboxPath) -> Result<Option<crate::FormRecord>> {
++        let forms = self.selected_form(path)?;
++        forms
++            .records
++            .first()
++            .map(|r| {
++                r.read(
++                    &self.image.storage,
++                    self.image.anchor.archive,
++                    &*self.image.value_key()?,
++                    self.image.anchor.sealed_len,
++                )
++            })
++            .transpose()
++    }
++    pub fn with_form_field_value<R>(
++        &self,
++        path: &LockboxPath,
++        id: &str,
++        f: impl FnOnce(&crate::FormValue) -> R,
++    ) -> Result<Option<R>> {
++        let forms = self.selected_form(path)?;
++        let Some(field) = forms
++            .records
++            .first()
++            .and_then(|r| r.fields.iter().find(|f| f.id == id))
++        else {
++            return Ok(None);
++        };
++        let value = field.read_value(
++            &self.image.storage,
++            self.image.anchor.archive,
++            &*self.image.value_key()?,
++            self.image.anchor.sealed_len,
++        )?;
++        Ok(Some(f(&value)))
++    }
++}
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/resume.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/resume.rs
+index b7525885..6288ad44 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/resume.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/resume.rs
+@@ -15,14 +15,14 @@ fn verify_copy<S: Storage, T: Storage>(
+     authority: &Authority<'_>,
+     key: Option<&[u8]>,
+ ) -> Result<()> {
+-    let mut old = TreeImage::open(
++    let mut old = AuditedTreeImage::open(
+         allocation::compaction::View(source),
+         archive,
+         mode,
+         authority,
+         key,
+     )?;
+-    let mut new = TreeImage::open(
++    let mut new = AuditedTreeImage::open(
+         allocation::compaction::View(candidate),
+         archive,
+         mode,
+@@ -119,7 +119,7 @@ pub(in crate::file_format::candidate_files) fn resume_path(
+     mode: FormatMode,
+     authority: &Authority<'_>,
+     key: Option<&[u8]>,
+-) -> Result<TreeImage<StorageBackend>> {
++) -> Result<AuditedTreeImage<StorageBackend>> {
+     let metadata = std::fs::symlink_metadata(path).map_err(|e| Error::Io(e.to_string()))?;
+     let replacement_metadata =
+         std::fs::symlink_metadata(candidate).map_err(|e| Error::Io(e.to_string()))?;
+@@ -166,5 +166,5 @@ pub(in crate::file_format::candidate_files) fn resume_path(
+         "resumed compaction installed but directory durability is uncertain; reopen before continuing: {error}"
+     )))?;
+     super::super::compaction::checkpoint("tree-resume-synced");
+-    TreeImage::open(installed, archive, mode, authority, key)
++    AuditedTreeImage::open(installed, archive, mode, authority, key)
+ }
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/variables.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/variables.rs
+index b34e0790..1986b965 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/variables.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/variables.rs
+@@ -6,7 +6,7 @@ use crate::secret_vec::SecureVec;
+ use crate::{SecretString, VariableName, VariableSensitivity};
+ use std::sync::Arc;
+ 
+-impl<S: Storage> TreeImage<S> {
++impl<S: Storage> AuditedTreeImage<S> {
+     pub fn get_variable(&self, name: &VariableName) -> Result<Option<String>> {
+         let Some(variable) = self
+             .image
+@@ -149,7 +149,7 @@ pub(in crate::file_format::candidate_files) fn move_variables(
+     moves: &[(VariableName, VariableName)],
+ ) -> Result<bool> {
+     use std::collections::{BTreeMap, BTreeSet};
+-    let mut opened = TreeImage::open(
++    let mut opened = AuditedTreeImage::open(
+         allocation::compaction::View(&*storage),
+         archive,
+         mode,
+@@ -228,7 +228,7 @@ fn change(
+     name: &VariableName,
+     value: Option<(VariableSensitivity, secure_segments::Source<'_>, usize)>,
+ ) -> Result<bool> {
+-    let mut opened = TreeImage::open(
++    let mut opened = AuditedTreeImage::open(
+         allocation::compaction::View(&*storage),
+         archive,
+         mode,
+diff --git a/rust/revault_lockbox_api/src/file_format/publication_anchor/shared/tree.rs b/rust/revault_lockbox_api/src/file_format/publication_anchor/shared/tree.rs
+index 6c11b96f..a70b3f89 100644
+--- a/rust/revault_lockbox_api/src/file_format/publication_anchor/shared/tree.rs
++++ b/rust/revault_lockbox_api/src/file_format/publication_anchor/shared/tree.rs
+@@ -3,7 +3,7 @@
+ //! The caller retains a stable snapshot/read lock for open and subsequent reads.
+ use super::*;
+ use crate::file_format::allocation_map::Extent;
+-use crate::file_format::authenticated_index::{Entry, Index, Visit};
++use crate::file_format::authenticated_index::{Entry, EntryRef, Index, VisitRef};
+ use ownership::{Graph, Span, Vacant, VacantKind};
+ 
+ const MAGIC: &[u8; 8] = b"RV4TRE01";
+@@ -31,7 +31,7 @@ pub(crate) fn manifest(root: RootRef) -> [u8; 64] {
+     body
+ }
+ 
+-fn parse_manifest(body: &[u8]) -> Result<RootRef> {
++pub(crate) fn parse_manifest(body: &[u8]) -> Result<RootRef> {
+     if body.len() != 64 || &body[..8] != MAGIC {
+         return Err(Error::CorruptRecord);
+     }
+@@ -54,7 +54,7 @@ impl Tree {
+         mode: FormatMode,
+         authority: &Authority<'_>,
+         key: Option<&[u8]>,
+-        visitor: impl FnMut(Entry) -> Result<()>,
++        mut visitor: impl FnMut(Entry) -> Result<()>,
+     ) -> Result<Self> {
+         let (anchor, body) = salvage_private(storage, archive, mode, authority, key)?;
+         Self::from_snapshot_visit(
+@@ -64,7 +64,7 @@ impl Tree {
+             key,
+             anchor,
+             &body,
+-            visitor,
++            |entry| visitor(entry.to_owned()?),
+             &mut |_| {},
+         )
+     }
+@@ -98,7 +98,27 @@ impl Tree {
+         mode: FormatMode,
+         authority: &Authority<'_>,
+         key: Option<&[u8]>,
+-        visitor: impl FnMut(Entry) -> Result<()>,
++        mut visitor: impl FnMut(Entry) -> Result<()>,
++        stage: impl FnMut(&'static str),
++    ) -> Result<Self> {
++        Self::open_visit_borrowed_observed(
++            storage,
++            archive,
++            mode,
++            authority,
++            key,
++            |entry| visitor(entry.to_owned()?),
++            stage,
++        )
++    }
++
++    pub(crate) fn open_visit_borrowed_observed(
++        storage: &impl Storage,
++        archive: LockboxId,
++        mode: FormatMode,
++        authority: &Authority<'_>,
++        key: Option<&[u8]>,
++        visitor: impl FnMut(EntryRef<'_>) -> Result<()>,
+         mut stage: impl FnMut(&'static str),
+     ) -> Result<Self> {
+         let (anchor, body) = open_private(storage, archive, mode, authority, key)?;
+@@ -132,14 +152,14 @@ impl Tree {
+     }
+ 
+     #[allow(clippy::too_many_arguments)]
+-    fn from_snapshot_visit(
++    pub(crate) fn from_snapshot_visit(
+         storage: &impl Storage,
+         archive: LockboxId,
+         mode: FormatMode,
+         key: Option<&[u8]>,
+         anchor: Anchor,
+         body: &[u8],
+-        mut visitor: impl FnMut(Entry) -> Result<()>,
++        mut visitor: impl FnMut(EntryRef<'_>) -> Result<()>,
+         stage: &mut impl FnMut(&'static str),
+     ) -> Result<Self> {
+         let root = parse_manifest(body)?;
+@@ -159,9 +179,9 @@ impl Tree {
+             }
+         }
+         let mut ownership_records = 0;
+-        index.visit_owned(storage, root, anchor.sealed_len, |event| {
++        index.visit_borrowed(storage, root, anchor.sealed_len, |event| {
+             match event {
+-                Visit::Page(reference) => {
++                VisitRef::Page(reference) => {
+                     if pages.len() == MAX_PAGES {
+                         return Err(Error::SecurityLimitExceeded(
+                             "overflow page ownership bound".into(),
+@@ -191,7 +211,7 @@ impl Tree {
+                     }
+                     pages.push(reference);
+                 }
+-                Visit::Entry(entry) if entry.namespace == OWNERSHIP => {
++                VisitRef::Entry(entry) if entry.namespace == OWNERSHIP => {
+                     ownership_records += 1;
+                     if ownership_records > MAX_OWNERSHIP_RECORDS {
+                         return Err(Error::SecurityLimitExceeded(
+@@ -222,7 +242,7 @@ impl Tree {
+                         _ => return Err(Error::CorruptRecord),
+                     }
+                 }
+-                Visit::Entry(entry) => visitor(entry)?,
++                VisitRef::Entry(entry) => visitor(entry)?,
+             }
+             Ok(())
+         })?;
