@@ -22,6 +22,17 @@ or erase failures.
 
 ## Current position and next work
 
+### Traversal function attribution — 2026-10-10
+
+The [temporary instrumented diagnostic](evidence/typed-tree-index-attribution-2026-10-10/README.md)
+passes index/reader checks, Clippy and 400 verified opens. Raw 64 MiB index-stage
+medians split into 234 µs verified page reads, 248 µs decoding and 346 µs visitor
+work; 186 µs checksum time is nested within page reads. All timing source is
+restored to `0fd6ae24`; only reproducible evidence is retained. Next investigate
+bounded per-record allocation reduction across decoding/typed visitor staging,
+with complete membership/page validation and wipe lifetimes preserved. A borrowed
+record view is a new unimplemented hypothesis, not an accepted architecture.
+
 ### Rejected fused leaf validation — 2026-10-10
 
 The [leaf-validation trial](evidence/typed-tree-leaf-validation-rejected-2026-10-10/README.md)

@@ -1,0 +1,124 @@
+diff --git a/rust/revault_lockbox_api/src/file_format/authenticated_index.rs b/rust/revault_lockbox_api/src/file_format/authenticated_index.rs
+index c854e958..a3e21e19 100644
+--- a/rust/revault_lockbox_api/src/file_format/authenticated_index.rs
++++ b/rust/revault_lockbox_api/src/file_format/authenticated_index.rs
+@@ -622,8 +622,9 @@ impl Index {
+         mut visitor: impl FnMut(Visit) -> Result<()>,
+     ) -> Result<()> {
+         let node = self.read(storage, root, sealed)?;
+-        visitor(Visit::Page(root))?;
+-        self.visit_node(storage, node, sealed, None, None, None, &mut visitor)
++        let mut observed = |event| super::diagnostic_timing::measure(2, || visitor(event));
++        observed(Visit::Page(root))?;
++        self.visit_node(storage, node, sealed, None, None, None, &mut observed)
+     }
+     #[allow(clippy::too_many_arguments)]
+     fn visit_node(
+@@ -741,10 +742,8 @@ impl Index {
+     }
+     fn read(&self, storage: &impl Storage, reference: RootRef, sealed: u64) -> Result<Node> {
+         validate_ref(reference, sealed)?;
+-        self.decode(
+-            &ZeroizingBytes::new(reference.read_verified(storage)?),
+-            sealed,
+-        )
++        let bytes = ZeroizingBytes::new(super::diagnostic_timing::measure(0, || reference.read_verified(storage))?);
++        super::diagnostic_timing::measure(1, || self.decode(&bytes, sealed))
+     }
+     fn decode(&self, bytes: &[u8], sealed: u64) -> Result<Node> {
+         if bytes.len() < HEADER
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/resource_probe/tree_probe.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/resource_probe/tree_probe.rs
+index f4ba7aeb..aaf41188 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/resource_probe/tree_probe.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/resource_probe/tree_probe.rs
+@@ -138,6 +138,8 @@ pub(super) fn run(
+         verify(&mut open(), root, count, bytes);
+         let mut observations = Vec::with_capacity(repeats);
+         for _ in 0..repeats {
++            let _scope = crate::file_format::diagnostic_timing::begin();
++            let mut function_stages = serde_json::Map::new();
+             let mut stages = serde_json::Map::new();
+             let started = Instant::now();
+             let storage = storage_meter::Meter::new(StorageBackend::file(&target).unwrap());
+@@ -151,6 +153,7 @@ pub(super) fn run(
+             let opened =
+                 TreeImage::open_observed(storage, archive(), mode, &authority, key, |name| {
+                     let now = Instant::now();
++                    function_stages.insert(name.into(), crate::file_format::diagnostic_timing::take());
+                     storage_stages.insert(name.into(), meter.take().json());
+                     stages.insert(name.into(), json!(now.duration_since(last).as_secs_f64()));
+                     last = now;
+@@ -159,7 +162,7 @@ pub(super) fn run(
+             let total = started.elapsed().as_secs_f64();
+             assert_eq!(opened.image.filesystem_metadata().unwrap().len(), count);
+             drop(opened);
+-            observations.push(json!({"total_seconds":total,"stages_seconds":stages,"storage_by_stage":storage_stages}));
++            observations.push(json!({"total_seconds":total,"stages_seconds":stages,"storage_by_stage":storage_stages,"functions_by_stage":function_stages}));
+         }
+         verify(&mut open(), root, count, bytes);
+         assert_eq!(digest_file(&target), before);
+diff --git a/rust/revault_lockbox_api/src/file_format/mod.rs b/rust/revault_lockbox_api/src/file_format/mod.rs
+index 36a769e0..d80e28ca 100644
+--- a/rust/revault_lockbox_api/src/file_format/mod.rs
++++ b/rust/revault_lockbox_api/src/file_format/mod.rs
+@@ -64,3 +64,6 @@ pub(crate) mod candidate_files;
+ // Executable ordering model for the proposed shared-control placement, not a wire format.
+ #[cfg(test)]
+ mod shared_control_model;
++
++#[cfg(test)]
++pub(crate) mod diagnostic_timing;
+diff --git a/rust/revault_lockbox_api/src/file_format/publication_anchor.rs b/rust/revault_lockbox_api/src/file_format/publication_anchor.rs
+index 4ced06e7..44cceb5f 100644
+--- a/rust/revault_lockbox_api/src/file_format/publication_anchor.rs
++++ b/rust/revault_lockbox_api/src/file_format/publication_anchor.rs
+@@ -150,7 +150,7 @@ impl RootRef {
+                 continue;
+             }
+             let bytes = storage.read_at(offset, self.len as usize)?;
+-            if strong_checksum(&bytes) == self.digest {
++            if super::diagnostic_timing::measure(3, || Ok(strong_checksum(&bytes) == self.digest))? {
+                 return Ok(bytes);
+             }
+         }
+diff --git a/revault_lockbox_api/src/file_format/diagnostic_timing.rs b/revault_lockbox_api/src/file_format/diagnostic_timing.rs
+new file mode 100644
+index 00000000..1de44717
+--- /dev/null
++++ b/revault_lockbox_api/src/file_format/diagnostic_timing.rs
+@@ -0,0 +1,35 @@
++//! Temporary instrumented experiment, not a production reader feature.
++use std::{cell::Cell, marker::PhantomData, rc::Rc, time::Instant};
++use crate::Result;
++#[derive(Clone, Copy, Default)]
++struct Counts { calls: [u64; 4], seconds: [f64; 4], failures: [u64; 4] }
++thread_local! { static COUNTS: Cell<Option<Counts>> = const { Cell::new(None) }; }
++pub(crate) struct Scope(PhantomData<Rc<()>>);
++pub(crate) fn begin() -> Scope {
++    COUNTS.with(|c| { assert!(c.get().is_none()); c.set(Some(Counts::default())); });
++    Scope(PhantomData)
++}
++impl Drop for Scope { fn drop(&mut self) { COUNTS.with(|c| c.set(None)); } }
++pub(crate) fn measure<T>(kind: usize, f: impl FnOnce() -> Result<T>) -> Result<T> {
++    if !COUNTS.with(|c| c.get().is_some()) { return f(); }
++    let start = Instant::now();
++    let result = f();
++    let seconds = start.elapsed().as_secs_f64();
++    COUNTS.with(|c| {
++        let mut value = c.get().unwrap();
++        value.calls[kind] += 1;
++        value.seconds[kind] += seconds;
++        value.failures[kind] += u64::from(result.is_err());
++        c.set(Some(value));
++    });
++    result
++}
++pub(crate) fn take() -> serde_json::Value {
++    let counts = COUNTS.with(|c| c.replace(Some(Counts::default())).unwrap());
++    let names = ["verified_index_page", "index_decode", "index_visitor", "root_checksum"];
++    let mut out = serde_json::Map::new();
++    for (i, name) in names.iter().enumerate() {
++        out.insert((*name).into(), serde_json::json!({"calls":counts.calls[i],"seconds":counts.seconds[i],"failures":counts.failures[i]}));
++    }
++    serde_json::Value::Object(out)
++}
