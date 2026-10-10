@@ -583,6 +583,14 @@ fn archive_v1_contact_only_migration_uses_keys_from_the_current_vault() {
     let vault_password = SecretString::try_from_slice(VAULT_PASSWORD.as_bytes()).unwrap();
     let vault = VaultDirectory::open_or_create(&fixture.vault, &vault_password).unwrap();
     vault.store_private_key("legacy", &current_contact).unwrap();
+    // Current CLI cannot inspect a format-1 header to remember it. Preserve the
+    // historical known record here, as a migrated Vault would provide it.
+    vault
+        .remember_known_lockbox(
+            revault_lockbox_api::LockboxId::from_bytes(*legacy.lockbox_id().as_bytes()),
+            &source,
+        )
+        .unwrap();
     // Release the fixture's vault lock before invoking the migration CLI.
     drop(vault);
 
@@ -605,6 +613,21 @@ fn archive_v1_contact_only_migration_uses_keys_from_the_current_vault() {
             .unwrap(),
         b"opened by a migrated profile key"
     );
+    drop(migrated);
+    fixture.success(&["doctor", "migrate", "all", "--replace"]);
+    let opened = fixture
+        .command(&[path(&source), "open"])
+        .env_remove("LOCKBOX_KEY")
+        .test_output()
+        .unwrap();
+    assert_success(&opened);
+    let content = fixture
+        .command(&[path(&source), "cat", "/contact.txt"])
+        .env_remove("LOCKBOX_KEY")
+        .test_output()
+        .unwrap();
+    assert_success(&content);
+    assert_eq!(content.stdout, b"opened by a migrated profile key");
 }
 
 #[test]
@@ -648,10 +671,10 @@ struct Fixture {
 impl Fixture {
     fn new(prefix: &str) -> Self {
         let temp = TestTempDir::new(prefix);
-        let root = temp.path().to_path_buf();
+        let root = temp.path().canonicalize().unwrap();
         Self {
             vault: root.join("vault"),
-            agent: root.join("agent"),
+            agent: common::agent_socket_dir(&root.join("agent")),
             _temp: temp,
             root,
         }
@@ -820,6 +843,252 @@ fn assert_failure_contains(output: &Output, expected: &str) {
 fn path(value: &Path) -> &str {
     value.to_str().unwrap()
 }
+#[test]
+fn all_migration_reports_partial_failures_and_can_be_repeated() {
+    let fixture = Fixture::new("all-migration");
+    fixture.init_current_vault();
+    let current = fixture.create_archive("current.lbox");
+    fixture.success(&["session", "default", path(&current)]);
+    let missing = fixture.create_archive("missing.lbox");
+    for archive in [&current, &missing] {
+        fixture.success(&["vault", "lockboxes", "remember", path(archive)]);
+    }
+    // No public CLI command removes an archive while deliberately retaining its
+    // known-path record; host removal models an unavailable remembered file.
+    std::fs::remove_file(&missing).unwrap();
+    use revault_lockbox_api_structure_v2 as old;
+    // Only fixture creation needs the historical API: current CLI writes v3.
+    let mut archive = old::Lockbox::create_in_memory(
+        old::LockboxProtection::ContentKey(
+            old::SecretVec::try_from_slice(b"migration-test-content-key").unwrap(),
+        ),
+        &old::OwnerSigningKeyPair::generate().unwrap(),
+    )
+    .unwrap();
+    archive
+        .add_file(
+            &old::LockboxPath::new("/payload").unwrap(),
+            b"bulk historical payload",
+            false,
+        )
+        .unwrap();
+    archive.commit().unwrap();
+    let original = archive.try_to_bytes().unwrap();
+    let source = fixture.root.join("historical.lbox");
+    std::fs::write(&source, &original).unwrap();
+    fixture.success(&["vault", "lockboxes", "remember", path(&source)]);
+    let current_bytes = std::fs::read(&current).unwrap();
+    assert_failure_contains(&fixture.run(&["doctor", "migrate", "all"]), "--replace");
+    let result = fixture.run(&["doctor", "migrate", "all", "--replace"]);
+    assert_failure_contains(&result, "known Lockbox is missing");
+    assert!(String::from_utf8_lossy(&result.stdout).contains("2 Lockboxes complete; 1 failed"));
+    assert_eq!(
+        fixture.success(&[path(&source), "cat", "/payload"]).stdout,
+        b"bulk historical payload"
+    );
+    assert_eq!(
+        std::fs::read(source.with_file_name("historical.lbox.v2-v3.pre-migration")).unwrap(),
+        original
+    );
+    assert_eq!(std::fs::read(&current).unwrap(), current_bytes);
+    assert!(!missing.exists());
+    fixture.success(&["vault", "lockboxes", "forget", path(&missing)]);
+    let repeated = fixture.success(&["doctor", "migrate", "all", "--replace"]);
+    assert!(String::from_utf8_lossy(&repeated.stdout).contains("2 Lockboxes complete; 0 failed"));
+    assert_eq!(
+        fixture.success(&[path(&source), "cat", "/payload"]).stdout,
+        b"bulk historical payload"
+    );
+}
+
+#[test]
+fn all_migration_recovers_interrupted_replacements_before_missing_path_checks() {
+    use revault_migration::{ArtifactKind, MigrationJournal, MigrationStage};
+    for kind in [ArtifactKind::Vault, ArtifactKind::Archive] {
+        let fixture = Fixture::new("all-migration-resume");
+        fixture.init_current_vault();
+        let archive = fixture.create_archive("resumed.lbox");
+        fixture.success(&["vault", "lockboxes", "remember", path(&archive)]);
+        fixture.success(&[path(&archive), "variables", "set", "PAYLOAD", "retained"]);
+        let source = if kind == ArtifactKind::Vault {
+            fixture.vault.clone()
+        } else {
+            archive.clone()
+        };
+        let output = fixture.root.join("pending-output");
+        let backup = source.with_file_name(format!(
+            "{}.v2-v3.pre-migration",
+            source.file_name().unwrap().to_str().unwrap()
+        ));
+        // No CLI can stop exactly between replacement renames. Construct only
+        // that crash boundary and its authenticated journal; all content was
+        // created above through CLI and is verified through CLI after recovery.
+        if kind == ArtifactKind::Vault {
+            std::fs::create_dir(&backup).unwrap();
+            std::fs::copy(
+                source.join("local-vault.lbox"),
+                backup.join("local-vault.lbox"),
+            )
+            .unwrap();
+        } else {
+            std::fs::copy(&source, &backup).unwrap();
+        }
+        std::fs::rename(&source, &output).unwrap();
+        let work = fixture.root.join(".revault-migration-interrupted");
+        std::fs::create_dir(&work).unwrap();
+        let mut journal = MigrationJournal {
+            operation_id: [1; 16],
+            artifact_kind: kind,
+            source_path: source.clone(),
+            source_format_version: 2,
+            source_fingerprint: [2; 32],
+            target_format_version: 3,
+            current_stage: MigrationStage::Replace,
+            temporary_paths: vec![output],
+            exporter_version: None,
+            artifact_key: SecretVec::try_from_slice(&[3; 32]).unwrap(),
+        };
+        journal
+            .save(
+                &work.join(if kind == ArtifactKind::Vault {
+                    "vault.migration-state"
+                } else {
+                    "archive.migration-state"
+                }),
+                VAULT_PASSWORD.as_bytes(),
+            )
+            .unwrap();
+        fixture.success(&["doctor", "migrate", "all", "--replace"]);
+        assert_eq!(
+            fixture
+                .success(&[path(&archive), "variables", "get", "PAYLOAD"])
+                .stdout,
+            b"retained\n"
+        );
+        assert!(backup.exists());
+        assert!(!work.exists());
+    }
+}
+
+#[test]
+fn all_migration_refuses_a_replaced_known_identity() {
+    let fixture = Fixture::new("all-migration-changed-identity");
+    fixture.init_current_vault();
+    let target = fixture.create_archive("target.lbox");
+    let other = fixture.create_archive("other.lbox");
+    for archive in [&target, &other] {
+        fixture.success(&["vault", "lockboxes", "remember", path(archive)]);
+    }
+    let replacement = std::fs::read(&other).unwrap();
+    // The public CLI intentionally keeps records consistent. Model an external
+    // replacement to verify bulk migration never trusts the remembered path alone.
+    std::fs::write(&target, &replacement).unwrap();
+    let result = fixture.run(&["doctor", "migrate", "all", "--replace"]);
+    assert_failure_contains(&result, "identity");
+    assert!(String::from_utf8_lossy(&result.stdout).contains("1 Lockboxes complete; 1 failed"));
+    assert_eq!(std::fs::read(&target).unwrap(), replacement);
+}
+
+#[test]
+fn all_migration_requires_existing_vault_and_migrates_legacy_vault_first() {
+    let absent = Fixture::new("all-migration-no-vault");
+    assert_failure_contains(
+        &absent.run(&["doctor", "migrate", "all", "--replace"]),
+        "existing local Vault",
+    );
+    assert!(!absent.vault.exists());
+    let fixture = Fixture::new("all-migration-legacy-vault");
+    fixture.init_structure_v2_container_v1_vault();
+    build_historical_vault_exporter();
+    fixture.success(&["doctor", "migrate", "all", "--replace"]);
+    fixture.success(&["vault", "profiles", "list"]);
+    fixture.success(&["doctor", "migrate", "all", "--replace"]);
+}
+
+#[test]
+fn closed_format_two_archive_migrates_without_normal_open_or_auto_open() {
+    use revault_lockbox_api_structure_v2 as old;
+    for contact_only in [false, true] {
+        let fixture = Fixture::new("closed-archive2-migration");
+        fixture.init_current_vault();
+        fixture.success(&["session", "auto-open", "disable", "--yes"]);
+        let public = fixture.root.join("owner.pub");
+        fixture.success(&[
+            "vault",
+            "profile",
+            "export",
+            path(&public),
+            "--format",
+            "raw",
+        ]);
+        let public = revault_vault_api::import_public_key(&std::fs::read(public).unwrap()).unwrap();
+        // The current CLI cannot write format 2. The pinned historical API is
+        // used only for fixture creation, with a publicly exported vault key.
+        let password = old::SecretString::try_from_slice(LOCKBOX_PASSWORD.as_bytes()).unwrap();
+        let protection = if contact_only {
+            old::LockboxProtection::ContactPublicKey {
+                name: Some("default".into()),
+                contact: old::ContactPublicKey::from_bytes(&public.to_bytes()).unwrap(),
+            }
+        } else {
+            old::LockboxProtection::Password(&password)
+        };
+        let mut archive = old::Lockbox::create_in_memory(
+            protection,
+            &old::OwnerSigningKeyPair::generate().unwrap(),
+        )
+        .unwrap();
+        let payload = b"closed historical payload\0\xff";
+        archive
+            .add_file(&old::LockboxPath::new("/payload").unwrap(), payload, false)
+            .unwrap();
+        archive.commit().unwrap();
+        let original = archive.try_to_bytes().unwrap();
+        let source = fixture.root.join("closed.lbox");
+        std::fs::write(&source, &original).unwrap();
+        let run = |args: &[&str]| {
+            fixture
+                .command(args)
+                .env_remove("LOCKBOX_KEY")
+                .test_output()
+                .unwrap()
+        };
+        assert_failure_contains(&run(&[path(&source), "open"]), "migrate");
+        if !contact_only {
+            let wrong = fixture
+                .command(&["doctor", "migrate", "lockbox", path(&source), "--replace"])
+                .env_remove("LOCKBOX_KEY")
+                .env("LOCKBOX_PASSWORD", "wrong-password")
+                .test_output()
+                .unwrap();
+            assert!(!wrong.status.success());
+            assert_eq!(std::fs::read(&source).unwrap(), original);
+        }
+        assert_success(&run(&[
+            "doctor",
+            "migrate",
+            "lockbox",
+            path(&source),
+            "--replace",
+        ]));
+        assert_success(&run(&[path(&source), "open"]));
+        let result = run(&[path(&source), "cat", "/payload"]);
+        assert_success(&result);
+        assert_eq!(result.stdout, payload);
+        assert_eq!(
+            std::fs::read(source.with_file_name("closed.lbox.v2-v3.pre-migration")).unwrap(),
+            original
+        );
+        assert_success(&run(&[
+            "doctor",
+            "migrate",
+            "lockbox",
+            path(&source),
+            "--replace",
+        ]));
+    }
+}
+
 #[test]
 fn older_archive_is_refused_normally_then_explicitly_migrated() {
     let fixture = Fixture::new("archive2-explicit-migration");

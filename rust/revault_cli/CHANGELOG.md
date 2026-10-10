@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Add `doctor migrate all --replace` to migrate the local Vault and all known
+  Lockboxes, retaining backups and reporting individual failures. Older-format
+  diagnostics offer both targeted and bulk migration commands.
+- Unlock closed historical Lockboxes during explicit migration using Vault
+  credentials or their pass phrase, even when Auto Open is disabled. Ordinary
+  opens still require the current archive format.
 - Use plural resource groups throughout the CLI: `variables`, `forms`, `mirrors`,
   `rules`, and Vault `profiles`, `contacts`, `lockboxes`, `aliases`, and `forms`.
   Help, completion, examples, and the manual use these command names.

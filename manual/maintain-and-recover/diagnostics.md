@@ -36,6 +36,11 @@ This container-2/structure-3 state needs a container migration. Run
 `lbx doctor migrate vault --replace` and then run `lbx doctor` again to confirm
 the container format has advanced to version 3.
 
+To migrate the Vault and all Lockboxes remembered by it together, run
+`lbx doctor migrate all --replace`. The Vault is upgraded first, and each
+successful replacement retains a backup. The command reports missing or
+unreadable Lockboxes individually; it does not recreate them.
+
 `doctor` does not print decrypted file paths, variable values or secret contents. Even so, review diagnostic output before sharing it because local paths and platform details may identify your environment.
 
 For a command failure, record:

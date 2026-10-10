@@ -287,7 +287,7 @@ fn print_local_vault(path: &Path) -> CliResult<Option<VaultDirectory>> {
     if let Ok(version) = version {
         if version != revault_lockbox_api::LOCKBOX_FORMAT_VERSION {
             if version < revault_lockbox_api::LOCKBOX_FORMAT_VERSION {
-                println!("  status: upgrade required; run: lbx doctor migrate vault --replace");
+                println!("  status: upgrade required; run: lbx doctor migrate vault --replace; or migrate the Vault and all known Lockboxes: lbx doctor migrate all --replace");
             } else {
                 println!("  status: unsupported container; upgrade reVault. Automatic downgrade is not supported");
             }

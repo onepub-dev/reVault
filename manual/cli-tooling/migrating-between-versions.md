@@ -31,6 +31,25 @@ Make sure that:
 
 Migration does not delete the source when an output path is supplied. It creates and validates the new artifact first, so the source can be kept until you have confirmed the result.
 
+### Migrate the Vault and all known Lockboxes
+
+To upgrade the configured Vault and every Lockbox remembered by it in one command:
+
+```console
+lbx doctor migrate all --replace
+```
+
+The Vault is migrated first. If that fails, Lockbox migration does not start.
+Otherwise, the command attempts each known Lockbox and reports failures by path,
+including missing files and identity mismatches. It exits unsuccessfully if any
+Lockbox could not be migrated; successful migrations retain their versioned backups.
+Already-current formats need no migration. Files that the Vault does not know
+about must be migrated individually.
+
+The command requires `--replace` and uses the same validation and backups as
+individual migrations. Missing Lockboxes are never recreated. Correct any
+reported failures and run the command again.
+
 ### Migrate a vault
 
 The vault command operates on the configured default vault.&#x20;
@@ -70,7 +89,11 @@ Pass the archive path and a separate output path:
 lockbox doctor migrate lockbox secrets.lbox --output secrets-migrated.lbox
 ```
 
-The CLI first tries the current and historical Profile keys stored in the migrated Vault. It can also use a Lockbox password remembered by the Vault. You only need to supply a password when the Vault does not hold a credential that can open the Lockbox and the Lockbox has password access.
+Migration unlocks the older archive directly; you do not need to run `open`
+first or enable Auto Open. The CLI tries current and historical Profile keys,
+remembered Lockbox passwords, and password Profiles in the migrated Vault.
+If none can unlock the archive and it has password access, supply its passphrase
+through `LOCKBOX_PASSWORD` or the secure prompt.
 
 The vault must already exist and be in the current format. If the vault exists use the above vault migration guide to migrate the vault.
 

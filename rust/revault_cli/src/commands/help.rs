@@ -2287,6 +2287,10 @@ fn migration_command(verbose: bool) -> Command {
         .subcommands([
             migration_vault_command(verbose),
             migration_lockbox_command(verbose),
+            Command::new("all")
+                .about("Migrate the local Vault, then all known Lockboxes, retaining backups.")
+                .long_about("Migrate the local Vault first, then each known Lockbox in place. Requires --replace and retains versioned backups. Current formats are left unchanged. Reports missing paths and other failures, continues with remaining Lockboxes, and exits unsuccessfully if any failed.")
+                .arg(Arg::new("replace").long("replace").action(ArgAction::SetTrue).required(true).help("Replace migrated files and retain versioned backups.")),
         ])
 }
 
@@ -2443,6 +2447,7 @@ mod migration_inventory_tests {
         let mut actual = BTreeMap::new();
         collect(migration, "doctor/migrate", &mut actual);
         let expected = BTreeMap::from([
+            ("doctor/migrate/all".to_string(), strings(&["replace"])),
             (
                 "doctor/migrate/lockbox".to_string(),
                 strings(&["exporter", "lockbox", "output", "replace"]),

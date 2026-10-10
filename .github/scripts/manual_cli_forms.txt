@@ -30,6 +30,7 @@ vault lockboxes aliases list
 vault forms define
 doctor migrate vault
 doctor migrate lockbox
+doctor migrate all --replace
 completion install
 
 # Representative documented option and argument forms.

@@ -97,13 +97,92 @@ pub(super) fn is_unencrypted(path: &str) -> CliResult<bool> {
 }
 
 pub(crate) fn open_existing(path: &str, access: &Access) -> CliResult<Lockbox> {
-    verify_open_identity(path, open_existing_inner(path, access, false)?)
+    verify_open_identity(path, open_existing_inner(path, access)?)
 }
 
 /// Explicit migration may export historical formats still readable by the core.
 /// Ordinary command opens must use `open_existing` and its current-format gate.
-pub(crate) fn open_existing_for_migration(path: &str, access: &Access) -> CliResult<Lockbox> {
-    verify_open_identity(path, open_existing_inner(path, access, true)?)
+pub(crate) fn open_existing_for_migration(
+    path: &str,
+    access: &Access,
+) -> CliResult<Lockbox<revault_lockbox_api::ReadOnly>> {
+    ensure_lockbox_path_accessible_inner(path, false)?;
+    match access {
+        Access::ContentKey(key) => return verify_open_identity(
+            path,
+            Lockbox::open(Path::new(path), LockboxOpen::ContentKey(key.try_clone()?))?,
+        ),
+        Access::PromptPassword => return Err(cli_error(
+            "password prompting is only used when creating a new lockbox; pass --key or open through the local vault",
+        )),
+        Access::CacheOnly => {}
+    }
+    let inspection = Lockbox::inspect_file(path)?;
+    if inspection
+        .format_options
+        .is_some_and(|options| options.encryption == revault_lockbox_api::EncryptionMode::None)
+    {
+        return verify_open_identity(
+            path,
+            Lockbox::open(Path::new(path), LockboxOpen::Unencrypted)?,
+        );
+    }
+    match local_vault().open_lockbox_read_only(path) {
+        Ok(lockbox) => return verify_open_identity(path, lockbox),
+        Err(Error::VaultUnavailable(message)) if message.contains("no cached content key") => {}
+        Err(error) => return Err(lockbox_open_error(path, error)),
+    }
+    // Migration is an explicit unlock operation: historical archives cannot be
+    // opened by the normal command, and Auto Open may be disabled. Read with
+    // migration credentials without changing the archive or session policy.
+    let vault = default_vault()?;
+    for profile in vault.list_private_keys()? {
+        let mut keys = vec![vault.load_private_key(&profile)?];
+        let history = vault.list_profile_generations(&profile)?;
+        for generation in history.generations {
+            if generation.index != history.active_generation {
+                keys.push(vault.load_private_key_generation(&profile, generation.index)?);
+            }
+        }
+        for key in keys {
+            match Lockbox::open(Path::new(path), LockboxOpen::ContactKeyPair(key)) {
+                Ok(lockbox) => return verify_open_identity(path, lockbox),
+                Err(Error::InvalidKey) => {}
+                Err(error) => return Err(lockbox_open_error(path, error)),
+            }
+        }
+    }
+    let mut passwords = Vec::new();
+    let id = VaultOpen::read_lockbox_id(Path::new(path))?;
+    if let Some(password) = vault.remembered_lockbox_password(id)? {
+        passwords.push(password);
+    }
+    for profile in vault.list_password_profiles()? {
+        passwords.push(vault.load_profile_password(&profile)?);
+    }
+    drop(vault);
+    for password in passwords {
+        match Lockbox::open(Path::new(path), LockboxOpen::Password(&password)) {
+            Ok(lockbox) => return verify_open_identity(path, lockbox),
+            Err(Error::InvalidKey) => {}
+            Err(error) => return Err(lockbox_open_error(path, error)),
+        }
+    }
+    if !inspection
+        .key_slots
+        .iter()
+        .any(|slot| slot.protection == revault_lockbox_api::LockboxKeySlotProtection::Password)
+    {
+        return Err(cli_error("no local vault credential can unlock this lockbox for migration; import an authorized profile or pass --key"));
+    }
+    let password = match SecretString::try_from_env("LOCKBOX_PASSWORD")? {
+        Some(password) => password,
+        None => prompt_secret("Lockbox pass phrase: ")?,
+    };
+    verify_open_identity(
+        path,
+        Lockbox::open(Path::new(path), LockboxOpen::Password(&password))?,
+    )
 }
 
 fn verify_open_identity<State>(path: &str, lockbox: Lockbox<State>) -> CliResult<Lockbox<State>> {
@@ -117,11 +196,9 @@ fn verify_open_identity<State>(path: &str, lockbox: Lockbox<State>) -> CliResult
     Ok(lockbox)
 }
 
-fn open_existing_inner(path: &str, access: &Access, migration: bool) -> CliResult<Lockbox> {
-    ensure_lockbox_path_accessible_inner(path, !migration)?;
-    if !migration {
-        super::recovery::complete_pending_cleanup_if_available(path, access)?;
-    }
+fn open_existing_inner(path: &str, access: &Access) -> CliResult<Lockbox> {
+    ensure_lockbox_path_accessible(path)?;
+    super::recovery::complete_pending_cleanup_if_available(path, access)?;
     if let Some(options) = Lockbox::inspect_file(path)
         .map_err(|error| lockbox_open_error(path, error))?
         .format_options
@@ -277,7 +354,7 @@ pub(crate) fn lockbox_open_error(path: &str, error: Error) -> Box<dyn std::error
         if found > supported {
             "Use a reVault build that supports this newer format. Automatic downgrade is not supported.".to_string()
         } else {
-            format!("Run `lbx doctor migrate lockbox {path} --replace`.")
+            format!("Run `lbx doctor migrate lockbox {path} --replace`, or migrate the Vault and all known Lockboxes with `lbx doctor migrate all --replace`.")
         },
     )
 }
@@ -332,7 +409,7 @@ fn closed_lockbox_error(path: &str, reason: Option<Error>) -> Box<dyn std::error
                     "Your local vault uses Lockbox container format {found}; this reVault build uses container format {supported}."
                 ),
             ));
-            "Migrate the vault, then retry:\n  lbx doctor migrate vault --replace".to_string()
+            "Migrate the vault, then retry:\n  lbx doctor migrate vault --replace\nOr migrate the Vault and all known Lockboxes:\n  lbx doctor migrate all --replace".to_string()
         }
         Some(Error::UnsupportedFormatVersion {
             artifact: revault_lockbox_api::ArtifactKind::Lockbox,
@@ -757,7 +834,7 @@ pub(crate) fn vault_open_error(error: Error) -> Box<dyn std::error::Error> {
             let next_step = if found > supported {
                 "Use a reVault build that supports this newer format. Automatic downgrade is not supported."
             } else {
-                "Run `lbx doctor migrate vault --output <directory>` or use `--replace`."
+                "Run `lbx doctor migrate vault --replace`, or migrate the Vault and all known Lockboxes with `lbx doctor migrate all --replace`."
             };
             cli_diagnostic(
                 ExitCode::UnsupportedFormat,

@@ -153,7 +153,14 @@ fn render_api_error(error: &Error, colour: bool) -> String {
         } => (
             format!("Unsupported {} format", artifact.as_str()),
             format!("Found version {found}; this reVault build supports version {supported}."),
-            Some(error.guidance()),
+            Some(if found < supported {
+                match artifact {
+                    revault_lockbox_api::ArtifactKind::Vault => "Run `lockbox doctor migrate vault --replace`, or migrate the Vault and all known Lockboxes with `lbx doctor migrate all --replace`.",
+                    revault_lockbox_api::ArtifactKind::Lockbox => "Run `lockbox doctor migrate lockbox <path> --replace`, or migrate the Vault and all known Lockboxes with `lbx doctor migrate all --replace`.",
+                }
+            } else {
+                error.guidance()
+            }),
         ),
         Error::CorruptRecord => (
             "Lockbox data is damaged".to_string(),

@@ -25,9 +25,77 @@ pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()
     match matches.subcommand() {
         Some(("vault", sub)) => vault_matches(sub),
         Some(("lockbox", sub)) => lockbox_matches(sub, access),
+        Some(("all", _)) => migrate_all(access),
         Some((other, _)) => Err(cli_error(format!("unknown migration command: {other}"))),
-        None => Err(cli_error("migrate requires vault or lockbox")),
+        None => Err(cli_error("migrate requires vault, lockbox, or all")),
     }
+}
+
+fn migrate_all(access: &Access) -> CliResult<()> {
+    if super::command_lockbox().is_some() {
+        return Err(cli_error(
+            "migrate all is not lockbox-scoped; run `lbx doctor migrate all --replace`",
+        ));
+    }
+    let vault_root = default_vault_dir()?;
+    if !vault_root.join("local-vault.lbox").try_exists()? {
+        let password = vault_password_without_open()?;
+        if !recover_interrupted_replacement(&vault_root, ArtifactKind::Vault, &password)? {
+            return Err(cli_error(
+                "migrate all requires an existing local Vault; no Vault was created",
+            ));
+        }
+    }
+    println!("Migrating Vault: {}", vault_root.display());
+    migrate_vault(true, None, None)?;
+    let known = default_vault()?.list_known_lockboxes()?;
+    let mut paths = std::collections::BTreeSet::new();
+    let mut succeeded = 0;
+    let mut failed = 0;
+    for lockbox in known {
+        if !paths.insert(lockbox.path.clone()) {
+            continue;
+        }
+        println!("Migrating Lockbox: {}", lockbox.path);
+        super::set_command_lockbox(Some(lockbox.path.clone()));
+        super::COMMAND_LOCKBOX_ID.with(|id| *id.borrow_mut() = Some(lockbox.lockbox_id));
+        let result = (|| {
+            if !Path::new(&lockbox.path).try_exists()? {
+                let password = vault_password_without_open()?;
+                if !recover_interrupted_replacement(
+                    Path::new(&lockbox.path),
+                    ArtifactKind::Archive,
+                    &password,
+                )? {
+                    return Err(cli_error("known Lockbox is missing; restore it at its recorded path and retry, or forget its Vault record"));
+                }
+            }
+            let version = probe_archive_path(Path::new(&lockbox.path))?;
+            if version >= 2 {
+                super::aliases::check_identity(&lockbox.path, lockbox.lockbox_id)?;
+            }
+            // Format 1 needs its historical exporter. The imported output's
+            // preserved identity is checked before replacing the source below.
+            migrate_archive(PathBuf::from(&lockbox.path), true, None, None, access)
+        })();
+        super::set_command_lockbox(None);
+        super::COMMAND_LOCKBOX_ID.with(|id| *id.borrow_mut() = None);
+        match result {
+            Ok(()) => {
+                succeeded += 1;
+                println!("Completed Lockbox: {}", lockbox.path);
+            }
+            Err(error) => {
+                failed += 1;
+                eprintln!("Failed Lockbox {}: {error}", lockbox.path);
+            }
+        }
+    }
+    println!("Migration summary: Vault complete; {succeeded} Lockboxes complete; {failed} failed.");
+    if failed > 0 {
+        return Err(cli_error("some known Lockboxes could not be migrated; resolve the reported failures and rerun `lbx doctor migrate all --replace`"));
+    }
+    Ok(())
 }
 
 fn vault_matches(matches: &ArgMatches) -> CliResult<()> {
@@ -188,6 +256,15 @@ fn archive_verify(matches: &ArgMatches) -> CliResult<()> {
 fn migrate_vault_direct(matches: &ArgMatches) -> CliResult<()> {
     let replace = matches.get_flag("replace");
     let requested_output = matches.get_one::<String>("output").map(PathBuf::from);
+    let exporter = matches.get_one::<String>("exporter").map(PathBuf::from);
+    migrate_vault(replace, requested_output, exporter)
+}
+
+fn migrate_vault(
+    replace: bool,
+    requested_output: Option<PathBuf>,
+    exporter: Option<PathBuf>,
+) -> CliResult<()> {
     require_destination(replace, requested_output.as_deref(), "vault")?;
     let source = default_vault_dir()?;
     let source_password = vault_password_without_open()?;
@@ -277,11 +354,7 @@ fn migrate_vault_direct(matches: &ArgMatches) -> CliResult<()> {
                 )?;
                 export_archive(&lockbox, &artifact, &migration_key, operation_id)?;
             } else {
-                let exporter = resolve_exporter(
-                    ArtifactKind::Vault,
-                    source_version,
-                    matches.get_one::<String>("exporter").map(PathBuf::from),
-                )?;
+                let exporter = resolve_exporter(ArtifactKind::Vault, source_version, exporter)?;
                 let artifact_password = SecretString::from_secure_vec(migration_key.try_clone()?);
                 run_historical_vault_exporter(
                     &exporter,
@@ -405,6 +478,17 @@ fn migrate_archive_direct(matches: &ArgMatches, access: &Access) -> CliResult<()
         .get_one::<String>("output")
         .map(|value| super::aliases::resolve(value).map(|(path, _)| PathBuf::from(path)))
         .transpose()?;
+    let exporter = matches.get_one::<String>("exporter").map(PathBuf::from);
+    migrate_archive(source, replace, requested_output, exporter, access)
+}
+
+fn migrate_archive(
+    source: PathBuf,
+    replace: bool,
+    requested_output: Option<PathBuf>,
+    exporter: Option<PathBuf>,
+    access: &Access,
+) -> CliResult<()> {
     require_destination(replace, requested_output.as_deref(), "lockbox")?;
     let vault_root = default_vault_dir()?;
     if !vault_root.join("local-vault.lbox").exists() {
@@ -483,11 +567,7 @@ fn migrate_archive_direct(matches: &ArgMatches, access: &Access) -> CliResult<()
                     super::context::open_existing_for_migration(&source.to_string_lossy(), access)?;
                 export_archive(&lockbox, &artifact, &migration_key, operation_id)?;
             } else {
-                let exporter = resolve_exporter(
-                    ArtifactKind::Archive,
-                    source_version,
-                    matches.get_one::<String>("exporter").map(PathBuf::from),
-                )?;
+                let exporter = resolve_exporter(ArtifactKind::Archive, source_version, exporter)?;
                 let artifact_password = SecretString::from_secure_vec(migration_key.try_clone()?);
                 let vault = open_default_vault_with_password(&vault_password)?;
                 run_historical_archive_exporter(
@@ -535,6 +615,13 @@ fn migrate_archive_direct(matches: &ArgMatches, access: &Access) -> CliResult<()
         save_journal(&mut journal, &journal_path, &vault_password)?;
     }
     if replace {
+        if let Some(expected) = super::COMMAND_LOCKBOX_ID.with(|id| *id.borrow()) {
+            if Lockbox::inspect_file(&output)?.lockbox_id != expected {
+                return Err(cli_error(
+                    "known Lockbox identity changed; migration source was not replaced",
+                ));
+            }
+        }
         let backup =
             versioned_backup_path(&source, source_version, u32::from(LOCKBOX_FORMAT_VERSION));
         if backup.exists() {
@@ -1070,7 +1157,7 @@ fn recover_interrupted_replacement<P: MigrationPassphrase + ?Sized>(
             continue;
         };
         if journal.artifact_kind != kind
-            || journal.source_path != source
+            || !same_replacement_source(&journal.source_path, source)
             || journal.current_stage != MigrationStage::Replace
         {
             continue;
@@ -1108,6 +1195,25 @@ fn recover_interrupted_replacement<P: MigrationPassphrase + ?Sized>(
         return Ok(true);
     }
     Ok(false)
+}
+
+fn same_replacement_source(saved: &Path, requested: &Path) -> bool {
+    if saved == requested {
+        return true;
+    }
+    // The source itself is absent between replacement renames. Canonicalize
+    // its existing parent so a bulk run can resume a prior relative-path run.
+    let normalize = |path: &Path| -> Option<PathBuf> {
+        let parent = path.parent()?;
+        let parent = if parent.as_os_str().is_empty() {
+            Path::new(".")
+        } else {
+            parent
+        };
+        Some(fs::canonicalize(parent).ok()?.join(path.file_name()?))
+    };
+    normalize(saved)
+        .is_some_and(|saved| normalize(requested).is_some_and(|requested| saved == requested))
 }
 
 fn remove_partial(path: &Path) -> CliResult<()> {
@@ -1310,6 +1416,7 @@ mod tests {
     #[test]
     fn interrupted_replace_is_finished_from_the_encrypted_journal() {
         let temp = tempfile::tempdir().unwrap();
+        fs::create_dir(temp.path().join("nested")).unwrap();
         let source = temp.path().join("secrets.lbox");
         let backup = versioned_backup_path(&source, 1, u32::from(LOCKBOX_FORMAT_VERSION));
         let output = temp.path().join("migrated.lbox");
@@ -1329,7 +1436,7 @@ mod tests {
         let mut journal = new_journal(
             [4; 16],
             ArtifactKind::Archive,
-            source.clone(),
+            temp.path().join("nested/../secrets.lbox"),
             1,
             u32::from(LOCKBOX_FORMAT_VERSION),
             [5; 32],
