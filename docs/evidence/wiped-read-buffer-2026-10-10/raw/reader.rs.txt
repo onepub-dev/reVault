@@ -193,13 +193,7 @@ impl<S: Storage> ReadImage<S> {
             // or invoking the caller, including any internal authenticated pad.
             let first = offset.saturating_sub(logical) as usize;
             let last = (end - logical).min(descriptor.logical_len as u64) as usize;
-            self.codec.with_loaded(
-                &self.storage,
-                extent,
-                self.anchor.sealed_len,
-                &descriptor,
-                |bytes| visitor(&bytes[first..last]),
-            )?;
+            self.codec.with_loaded(&self.storage,extent,self.anchor.sealed_len,&descriptor,|bytes| visitor(&bytes[first..last]))?;
         }
         Ok(())
     }

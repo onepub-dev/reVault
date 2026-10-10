@@ -1,0 +1,10 @@
+    Finished `release` profile [optimized] target(s) in 0.10s
+     Running unittests src/lib.rs (/tmp/revault-tree-open-stages-20261010/target/release/deps/revault_lockbox_api-e3bcc2539127e239)
+
+running 3 tests
+test external_source::tests::backend_refuses_every_mutation_and_checks_limits_before_secure_allocation ... ok
+test external_source::tests::native_block_reader_preserves_external_failure_latching_in_every_mode ... ok
+test external_source::tests::native_file_handle_retains_index_and_bounds_raw_reads_without_bypassing_failure_latch ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 666 filtered out; finished in 0.28s
+

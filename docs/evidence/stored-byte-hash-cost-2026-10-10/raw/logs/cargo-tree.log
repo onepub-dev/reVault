@@ -1,0 +1,67 @@
+revault-hash-cost-probe v0.0.0 (/tmp/revault-hash-probe-20261010)
+├── blake3 feature "pure"
+│   └── blake3 v1.8.7
+│       ├── arrayvec v0.7.8
+│       ├── constant_time_eq v0.4.2
+│       ├── cfg-if feature "default"
+│       │   └── cfg-if v1.0.5
+│       └── cpufeatures feature "default"
+│           └── cpufeatures v0.3.1
+│       [build-dependencies]
+│       └── cc feature "default"
+│           └── cc v1.7.0
+│               ├── find-msvc-tools feature "default"
+│               │   └── find-msvc-tools v0.1.14
+│               └── shlex feature "default"
+│                   ├── shlex v2.0.1
+│                   └── shlex feature "std"
+│                       └── shlex v2.0.1
+├── blake3 feature "std"
+│   ├── blake3 v1.8.7 (*)
+│   └── constant_time_eq feature "std"
+│       └── constant_time_eq v0.4.2
+├── serde_json feature "default"
+│   ├── serde_json v1.0.151
+│   │   ├── memchr v2.8.3
+│   │   ├── serde_core v1.0.229
+│   │   ├── itoa feature "default"
+│   │   │   └── itoa v1.0.18
+│   │   └── zmij feature "default"
+│   │       └── zmij v1.0.23
+│   └── serde_json feature "std"
+│       ├── serde_json v1.0.151 (*)
+│       ├── memchr feature "std"
+│       │   ├── memchr v2.8.3
+│       │   └── memchr feature "alloc"
+│       │       └── memchr v2.8.3
+│       └── serde_core feature "std"
+│           └── serde_core v1.0.229
+└── sha2 feature "default"
+    ├── sha2 v0.11.0
+    │   ├── cfg-if feature "default" (*)
+    │   ├── cpufeatures feature "default" (*)
+    │   └── digest feature "default"
+    │       ├── digest v0.11.3
+    │       │   ├── block-buffer feature "default"
+    │       │   │   └── block-buffer v0.12.1
+    │       │   │       └── hybrid-array feature "default"
+    │       │   │           └── hybrid-array v0.4.15
+    │       │   │               ├── typenum feature "const-generics"
+    │       │   │               │   └── typenum v1.20.1
+    │       │   │               └── typenum feature "default"
+    │       │   │                   └── typenum v1.20.1
+    │       │   ├── const-oid feature "default"
+    │       │   │   └── const-oid v0.10.2
+    │       │   └── crypto-common feature "default"
+    │       │       └── crypto-common v0.2.2
+    │       │           └── hybrid-array feature "default" (*)
+    │       └── digest feature "block-api"
+    │           └── digest v0.11.3 (*)
+    ├── sha2 feature "alloc"
+    │   ├── sha2 v0.11.0 (*)
+    │   └── digest feature "alloc"
+    │       └── digest v0.11.3 (*)
+    └── sha2 feature "oid"
+        ├── sha2 v0.11.0 (*)
+        └── digest feature "oid"
+            └── digest v0.11.3 (*)

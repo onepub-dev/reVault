@@ -1,0 +1,60 @@
+#! /usr/bin/env dcli
+import 'dart:convert';
+import 'dart:io';
+import 'package:dcli/dcli.dart';
+
+const root = '/tmp/revault-raw-buffer-20261010';
+const cases = {
+  'small512-mixed-compressed-stream': 2097152,
+  'raw8m-random-stream': 8388608,
+  'compressed8m-pattern-stream': 8388608,
+  'raw8m-random-range': 4096,
+  'raw64m-random-stream': 67108864,
+  'raw64m-random-range': 4096,
+};
+
+void main() {
+  final auditCases = <String, dynamic>{};
+  for (final entry in cases.entries) {
+    final file = File('$root/measure/${entry.key}/samples.jsonl');
+    final records = file.readAsLinesSync().where((line) => line.trim().isNotEmpty)
+      .map((line) => jsonDecode(line) as Map<String, dynamic>).toList();
+    final environment = records.where((row) => row['kind'] == 'environment').toList();
+    final samples = records.where((row) => row['kind'] == 'sample').toList();
+    final retained = records.where((row) => row['kind'] == 'retained_inputs_verified').toList();
+    final groups = <String, List<Map<String, dynamic>>>{};
+    for (final sample in samples) {
+      final key = '${sample['backend']}/${sample['other']}';
+      groups.putIfAbsent(key, () => []).add(sample);
+    }
+    final groupAudit = <String, dynamic>{};
+    var groupOk = groups.length == 3;
+    for (final group in groups.entries) {
+      final rows = group.value;
+      final pairNumbers = rows.map((row) => row['pair'] as int).toSet();
+      final warmups = rows.where((row) => row['warmup'] == true).length;
+      final verified = rows.where((row) => row['verified'] == true).length;
+      final expectedBytes = rows.every((row) => row['logical_bytes_read'] == entry.value);
+      final ok = rows.length == 33 && pairNumbers.length == 33 && pairNumbers.contains(0) && pairNumbers.contains(32)
+        && warmups == 3 && verified == 33 && expectedBytes;
+      groupOk = groupOk && ok;
+      groupAudit[group.key] = {'samples': rows.length, 'pairs': pairNumbers.length, 'warmups': warmups, 'verified': verified,
+        'logical_bytes_read': rows.isEmpty ? null : rows.first['logical_bytes_read'], 'ok': ok};
+    }
+    final inputsOk = retained.length == 1 && retained.single['archives_and_sources_unchanged'] == true;
+    final ok = environment.length == 1 && samples.length == 99 && groupOk && inputsOk;
+    auditCases[entry.key] = {'environment_records': environment.length, 'sample_records': samples.length,
+      'groups': groupAudit, 'retained_inputs_verified': inputsOk, 'ok': ok};
+    print('${ok ? 'AUDIT_OK' : 'AUDIT_FAILED'} ${entry.key} samples=${samples.length}');
+    if (!ok) throw StateError('invalid sample audit for ${entry.key}');
+  }
+  final before = jsonDecode(File('$root/hash-before.json').readAsStringSync()) as Map<String, dynamic>;
+  final after = jsonDecode(File('$root/hash-after.json').readAsStringSync()) as Map<String, dynamic>;
+  final hashesStable = after['stable'] == true && jsonEncode(before['sha256']) == jsonEncode(after['sha256'])
+    && jsonEncode(before['fixtures']) == jsonEncode(after['fixtures']);
+  if (!hashesStable) throw StateError('binary/source/fixture hash audit failed');
+  final output = {'cases': auditCases, 'hashes_stable': hashesStable, 'pairs': 30, 'warmup_pairs': 3,
+    'samples_per_backend_per_case': 33, 'sample_rows_per_case': 99};
+  File('$root/final-audit.json').writeAsStringSync(const JsonEncoder.withIndent('  ').convert(output), flush: true);
+  print('AUDIT_COMPLETE hashes_stable=$hashesStable file=$root/final-audit.json');
+}

@@ -112,3 +112,7 @@ and development failures; path installation and full-format acceptance are separ
 - [Selective reader function profile](evidence/selective-read-profile-2026-10-10/README.md): first versus repeated lookup attribution and payload checksum cost, with collection limitations retained.
 
 - [Compact authenticated index cache](evidence/compact-index-cache-2026-10-10/README.md): retained bounded representation with isolated range/small-file gains and wrong-control evidence excluded.
+
+- [Stored-byte hash cost](evidence/stored-byte-hash-cost-2026-10-10/README.md): isolated single-thread SHA-256/BLAKE3 comparison; no archive algorithm change.
+
+- [Wiped reusable read-buffer trial](evidence/wiped-read-buffer-2026-10-10/README.md): retained allocation-reuse experiment with unchanged payload verification.

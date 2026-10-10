@@ -439,162 +439,81 @@ fn raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures() {
         fail: Cell<bool>,
     }
     impl Storage for Partial {
-        fn len(&self) -> Result<u64> {
-            self.storage.len()
-        }
-        fn read_at(&self, offset: u64, len: usize) -> Result<Vec<u8>> {
-            self.storage.read_at(offset, len)
-        }
-        fn read_at_into(&self, offset: u64, out: &mut [u8]) -> Result<()> {
+        fn len(&self)->Result<u64> {self.storage.len()}
+        fn read_at(&self,offset:u64,len:usize)->Result<Vec<u8>> {self.storage.read_at(offset,len)}
+        fn read_at_into(&self,offset:u64,out:&mut [u8])->Result<()> {
             if self.fail.replace(false) {
-                let len = out.len().min(17);
-                out[..len].fill(71);
+                let len=out.len().min(17); out[..len].fill(71);
                 return Err(Error::Io("injected partial read".into()));
             }
-            self.storage.read_at_into(offset, out)
+            self.storage.read_at_into(offset,out)
         }
-        fn append(&mut self, bytes: &[u8]) -> Result<u64> {
-            self.storage.append(bytes)
-        }
-        fn write_at(&mut self, offset: u64, bytes: &[u8]) -> Result<()> {
-            self.storage.write_at(offset, bytes)
-        }
-        fn truncate(&mut self, len: u64) -> Result<()> {
-            self.storage.truncate(len)
-        }
-        fn sync(&self) -> Result<()> {
-            self.storage.sync()
-        }
+        fn append(&mut self,bytes:&[u8])->Result<u64>{self.storage.append(bytes)}
+        fn write_at(&mut self,offset:u64,bytes:&[u8])->Result<()>{self.storage.write_at(offset,bytes)}
+        fn truncate(&mut self,len:u64)->Result<()>{self.storage.truncate(len)}
+        fn sync(&self)->Result<()>{self.storage.sync()}
     }
-    for compressed in [false, true] {
-        for signed in [false, true] {
-            for padded in [false, true] {
-                let mode = mode(false, signed, compressed, padded);
-                let mut codec = Codec::shared_packed(archive(), mode, None).unwrap();
-                let mut storage = Partial {
-                    storage: StorageBackend::memory(vec![0; publication::REGION_LEN]),
-                    fail: Cell::new(false),
-                };
-                let sizes = if compressed {
-                    vec![65536, 196608, 262144, 17, 4096, 262144]
-                } else {
-                    vec![65536, 17, 4096, 65536]
-                };
-                for size in sizes {
-                    // Deterministic incompressible bytes exercise the raw fallback
-                    // in compression-enabled mode at its larger fragment bound.
-                    let mut state = 0x819af132b61480d9u64;
-                    let plain: Vec<u8> = (0..size)
-                        .map(|_| {
-                            state ^= state << 13;
-                            state ^= state >> 7;
-                            state ^= state << 17;
-                            state as u8
-                        })
-                        .collect();
-                    let (descriptor, bytes) = codec.encode([81; 16], 0, 0, &plain).unwrap();
-                    assert_eq!(descriptor.codec, COMPRESSION_NONE);
-                    let start = storage.append(&bytes).unwrap();
-                    let extent = allocation::Extent {
-                        start,
-                        len: bytes.len() as u64,
-                        digest: strong_checksum(&bytes),
-                    };
-                    let sealed = storage.len().unwrap();
-                    codec
-                        .with_loaded(&storage, extent, sealed, &descriptor, |loaded| {
-                            assert_eq!(loaded, plain);
-                            Ok(())
-                        })
-                        .unwrap();
-                    assert!(codec.raw_scratch.iter().all(|b| *b == 0));
-                    assert!(codec.raw_scratch.capacity() <= MAX_ALLOCATION);
-                    let capacity = codec.raw_scratch.capacity();
-                    storage.fail.set(true);
-                    let mut exposed = false;
-                    assert!(codec
-                        .with_loaded(&storage, extent, sealed, &descriptor, |_| {
-                            exposed = true;
-                            Ok(())
-                        })
-                        .is_err());
-                    assert!(!exposed);
-                    assert!(codec.raw_scratch.iter().all(|b| *b == 0));
-                    assert!(codec
-                        .with_loaded::<()>(&storage, extent, sealed, &descriptor, |_| Err(
-                            Error::CorruptRecord
-                        ))
-                        .is_err());
-                    assert!(codec.raw_scratch.iter().all(|b| *b == 0));
-                    assert!(codec
-                        .with_loaded(
-                            &storage,
-                            allocation::Extent {
-                                digest: [0; 32],
-                                ..extent
-                            },
-                            sealed,
-                            &descriptor,
-                            |_| {
-                                exposed = true;
-                                Ok(())
-                            }
-                        )
-                        .is_err());
-                    assert!(!exposed);
-                    assert!(codec.raw_scratch.iter().all(|b| *b == 0));
-                    assert_eq!(codec.raw_scratch.capacity(), capacity);
-                    let caught = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                        codec.with_loaded::<()>(&storage, extent, sealed, &descriptor, |_| {
-                            panic!("injected visitor unwind")
-                        })
-                    }));
-                    assert!(caught.is_err());
-                    assert!(codec.raw_scratch.is_empty());
-                    codec
-                        .with_loaded(&storage, extent, sealed, &descriptor, |loaded| {
-                            assert_eq!(loaded, plain);
-                            Ok(())
-                        })
-                        .unwrap();
-                    assert!(codec.raw_scratch.iter().all(|b| *b == 0));
-                }
+    for compressed in [false,true] {
+    for signed in [false,true] {
+        for padded in [false,true] {
+            let mode=mode(false,signed,compressed,padded);
+            let mut codec=Codec::shared_packed(archive(),mode,None).unwrap();
+            let mut storage=Partial {storage:StorageBackend::memory(vec![0;publication::REGION_LEN]),fail:Cell::new(false)};
+            let sizes=if compressed {vec![65536,196608,262144,17,4096,262144]} else {vec![65536,17,4096,65536]};
+            for size in sizes {
+                // Deterministic incompressible bytes exercise the raw fallback
+                // in compression-enabled mode at its larger fragment bound.
+                let mut state=0x819af132b61480d9u64;
+                let plain: Vec<u8>=(0..size).map(|_| {
+                    state ^= state << 13; state ^= state >> 7; state ^= state << 17;
+                    state as u8
+                }).collect();
+                let (descriptor,bytes)=codec.encode([81;16],0,0,&plain).unwrap();
+                assert_eq!(descriptor.codec,COMPRESSION_NONE);
+                let start=storage.append(&bytes).unwrap();
+                let extent=allocation::Extent {start,len:bytes.len() as u64,digest:strong_checksum(&bytes)};
+                let sealed=storage.len().unwrap();
+                codec.with_loaded(&storage,extent,sealed,&descriptor,|loaded|{assert_eq!(loaded,plain);Ok(())}).unwrap();
+                assert!(codec.raw_scratch.iter().all(|b|*b==0));
+                assert!(codec.raw_scratch.capacity()<=MAX_ALLOCATION);
+                let capacity=codec.raw_scratch.capacity();
+                storage.fail.set(true);
+                let mut exposed=false;
+                assert!(codec.with_loaded(&storage,extent,sealed,&descriptor,|_|{exposed=true;Ok(())}).is_err());
+                assert!(!exposed);
+                assert!(codec.raw_scratch.iter().all(|b|*b==0));
+                assert!(codec.with_loaded::<()>(&storage,extent,sealed,&descriptor,|_|Err(Error::CorruptRecord)).is_err());
+                assert!(codec.raw_scratch.iter().all(|b|*b==0));
+                assert!(codec.with_loaded(&storage,allocation::Extent {digest:[0;32],..extent},sealed,&descriptor,|_|{exposed=true;Ok(())}).is_err());
+                assert!(!exposed);
+                assert!(codec.raw_scratch.iter().all(|b|*b==0));
+                assert_eq!(codec.raw_scratch.capacity(),capacity);
+                let caught=std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    codec.with_loaded::<()>(&storage,extent,sealed,&descriptor,|_|panic!("injected visitor unwind"))
+                }));
+                assert!(caught.is_err());
+                assert!(codec.raw_scratch.is_empty());
+                codec.with_loaded(&storage,extent,sealed,&descriptor,|loaded|{assert_eq!(loaded,plain);Ok(())}).unwrap();
+                assert!(codec.raw_scratch.iter().all(|b|*b==0));
             }
         }
     }
 }
 
+}
+
 #[test]
 fn raw_visit_still_refuses_authenticated_nonzero_internal_padding() {
-    let mode = mode(false, true, false, true);
-    let mut codec = Codec::new(archive(), mode, None).unwrap();
-    let (descriptor, mut bytes) = codec.encode([82; 16], 0, 0, b"short plaintext").unwrap();
-    assert!(bytes.len() > descriptor.encoded_len as usize);
-    *bytes.last_mut().unwrap() = 1;
-    let mut storage = StorageBackend::memory(vec![
-        0;
-        super::super::preparation_journal::DATA_START
-            as usize
-    ]);
-    let start = storage.append(&bytes).unwrap();
-    let extent = allocation::Extent {
-        start,
-        len: bytes.len() as u64,
-        digest: strong_checksum(&bytes),
-    };
-    let mut exposed = false;
-    assert!(codec
-        .with_loaded(
-            &storage,
-            extent,
-            storage.len().unwrap(),
-            &descriptor,
-            |_| {
-                exposed = true;
-                Ok(())
-            }
-        )
-        .is_err());
+    let mode=mode(false,true,false,true);
+    let mut codec=Codec::new(archive(),mode,None).unwrap();
+    let (descriptor,mut bytes)=codec.encode([82;16],0,0,b"short plaintext").unwrap();
+    assert!(bytes.len()>descriptor.encoded_len as usize);
+    *bytes.last_mut().unwrap()=1;
+    let mut storage=StorageBackend::memory(vec![0;super::super::preparation_journal::DATA_START as usize]);
+    let start=storage.append(&bytes).unwrap();
+    let extent=allocation::Extent {start,len:bytes.len() as u64,digest:strong_checksum(&bytes)};
+    let mut exposed=false;
+    assert!(codec.with_loaded(&storage,extent,storage.len().unwrap(),&descriptor,|_|{exposed=true;Ok(())}).is_err());
     assert!(!exposed);
-    assert!(codec.raw_scratch.iter().all(|b| *b == 0));
+    assert!(codec.raw_scratch.iter().all(|b|*b==0));
 }

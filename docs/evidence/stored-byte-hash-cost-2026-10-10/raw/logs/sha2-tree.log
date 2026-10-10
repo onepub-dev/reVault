@@ -1,0 +1,8 @@
+sha2 v0.11.0
+├── sha2 feature "alloc"
+│   └── sha2 feature "default"
+│       └── revault-hash-cost-probe v0.0.0 (/tmp/revault-hash-probe-20261010)
+│           └── revault-hash-cost-probe feature "default" (command-line)
+├── sha2 feature "default" (*)
+└── sha2 feature "oid"
+    └── sha2 feature "default" (*)

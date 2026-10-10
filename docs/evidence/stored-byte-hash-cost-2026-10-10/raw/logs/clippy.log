@@ -1,0 +1,19 @@
+    Checking typenum v1.20.1
+    Checking cfg-if v1.0.5
+    Checking cpufeatures v0.3.1
+    Checking const-oid v0.10.2
+    Checking arrayvec v0.7.8
+    Checking constant_time_eq v0.4.2
+    Checking itoa v1.0.18
+    Checking memchr v2.8.3
+    Checking serde_core v1.0.229
+    Checking zmij v1.0.23
+    Checking blake3 v1.8.7
+    Checking hybrid-array v0.4.15
+    Checking block-buffer v0.12.1
+    Checking crypto-common v0.2.2
+    Checking serde_json v1.0.151
+    Checking digest v0.11.3
+    Checking sha2 v0.11.0
+    Checking revault-hash-cost-probe v0.0.0 (/tmp/revault-hash-probe-20261010)
+    Finished `release` profile [optimized] target(s) in 1.77s

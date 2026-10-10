@@ -1,0 +1,184 @@
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/reader.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/reader.rs
+index 2d71fb8b..bc0c99d2 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/reader.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/reader.rs
+@@ -191,12 +191,9 @@ impl<S: Storage> ReadImage<S> {
+             // The fragment digest is authenticated by the index path, not merely
+             // taken from the payload itself. Codec verifies it before decoding
+             // or invoking the caller, including any internal authenticated pad.
+-            let bytes =
+-                self.codec
+-                    .load(&self.storage, extent, self.anchor.sealed_len, &descriptor)?;
+             let first = offset.saturating_sub(logical) as usize;
+             let last = (end - logical).min(descriptor.logical_len as u64) as usize;
+-            visitor(&bytes[first..last])?;
++            self.codec.with_loaded(&self.storage,extent,self.anchor.sealed_len,&descriptor,|bytes| visitor(&bytes[first..last]))?;
+         }
+         Ok(())
+     }
+diff --git a/rust/revault_lockbox_api/src/file_format/data_extent.rs b/rust/revault_lockbox_api/src/file_format/data_extent.rs
+index 99f7d75e..c79de13b 100644
+--- a/rust/revault_lockbox_api/src/file_format/data_extent.rs
++++ b/rust/revault_lockbox_api/src/file_format/data_extent.rs
+@@ -81,6 +81,7 @@ pub(crate) struct Codec {
+     mode: FormatMode,
+     key: Option<Zeroizing<[u8; 32]>>,
+     scratch: ZeroizingBytes,
++    raw_scratch: ZeroizingBytes,
+     packed: bool,
+     data_start: u64,
+ }
+@@ -136,6 +137,7 @@ impl Codec {
+             mode,
+             key,
+             scratch: ZeroizingBytes::new(Vec::new()),
++            raw_scratch: ZeroizingBytes::new(Vec::new()),
+             packed,
+             data_start: super::preparation_journal::DATA_START,
+         })
+@@ -320,6 +322,47 @@ impl Codec {
+         }
+         Ok(())
+     }
++    /// Reuse a wiped bounded input buffer for uncompressed plaintext. Every call
++    /// rereads and verifies the stored-byte commitment before exposing bytes.
++    /// Encrypted/compressed fragments retain the existing decoder path.
++    pub(crate) fn with_loaded<R>(
++        &mut self,
++        storage: &impl Storage,
++        extent: Extent,
++        sealed: u64,
++        descriptor: &Descriptor,
++        visitor: impl FnOnce(&[u8]) -> Result<R>,
++    ) -> Result<R> {
++        if self.key.is_some() || descriptor.codec != COMPRESSION_NONE {
++            let bytes = self.load(storage, extent, sealed, descriptor)?;
++            return visitor(&bytes);
++        }
++        self.validate_extent(extent, sealed, descriptor)?;
++        // The retained buffer contains only zeros between calls. Growth may
++        // therefore reallocate without releasing a private prior allocation.
++        let mut stored = std::mem::replace(&mut self.raw_scratch, ZeroizingBytes::new(Vec::new()));
++        let len=extent.len as usize;
++        if stored.capacity()<len {
++            // Geometric Vec growth could exceed the validated allocation bound.
++            let additional=len-stored.len();
++            stored.reserve_exact(additional);
++        }
++        stored.resize(len,0);
++        let result = (|| {
++            storage.read_at_into(extent.start,&mut stored)?;
++            if strong_checksum(&stored) != extent.digest { return Err(Error::CorruptRecord); }
++            let encoded_len=descriptor.encoded_len as usize;
++            if stored[encoded_len..].iter().any(|b|*b!=0) { return Err(Error::CorruptRecord); }
++            visitor(&stored[..encoded_len])
++        })();
++        // Includes partial failed reads and failed callbacks. If the callback
++        // unwinds, the local ZeroizingBytes instead wipes on drop, leaving the
++        // codec's empty replacement in place.
++        crate::page_buffer::zeroize_bytes(&mut stored);
++        self.raw_scratch=stored;
++        result
++    }
++
+     /// Validates lengths before any read; verifies the owner's stored-byte
+     /// commitment before decrypting or decompressing. Caller validates membership.
+     pub(crate) fn load(
+diff --git a/rust/revault_lockbox_api/src/file_format/data_extent/tests.rs b/rust/revault_lockbox_api/src/file_format/data_extent/tests.rs
+index 16e02a5f..9c625898 100644
+--- a/rust/revault_lockbox_api/src/file_format/data_extent/tests.rs
++++ b/rust/revault_lockbox_api/src/file_format/data_extent/tests.rs
+@@ -427,3 +427,93 @@ fn packed_codec_and_padding_contexts_are_distinct_and_bounded() {
+         }
+     }
+ }
++
++#[test]
++fn raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures() {
++    // Private codec fixture: no public CLI exposes experimental buffer state or
++    // partial storage callbacks. Stored fragments still use the real encoder.
++    use std::cell::Cell;
++    #[derive(Clone, Debug)]
++    struct Partial {
++        storage: StorageBackend,
++        fail: Cell<bool>,
++    }
++    impl Storage for Partial {
++        fn len(&self)->Result<u64> {self.storage.len()}
++        fn read_at(&self,offset:u64,len:usize)->Result<Vec<u8>> {self.storage.read_at(offset,len)}
++        fn read_at_into(&self,offset:u64,out:&mut [u8])->Result<()> {
++            if self.fail.replace(false) {
++                let len=out.len().min(17); out[..len].fill(71);
++                return Err(Error::Io("injected partial read".into()));
++            }
++            self.storage.read_at_into(offset,out)
++        }
++        fn append(&mut self,bytes:&[u8])->Result<u64>{self.storage.append(bytes)}
++        fn write_at(&mut self,offset:u64,bytes:&[u8])->Result<()>{self.storage.write_at(offset,bytes)}
++        fn truncate(&mut self,len:u64)->Result<()>{self.storage.truncate(len)}
++        fn sync(&self)->Result<()>{self.storage.sync()}
++    }
++    for compressed in [false,true] {
++    for signed in [false,true] {
++        for padded in [false,true] {
++            let mode=mode(false,signed,compressed,padded);
++            let mut codec=Codec::shared_packed(archive(),mode,None).unwrap();
++            let mut storage=Partial {storage:StorageBackend::memory(vec![0;publication::REGION_LEN]),fail:Cell::new(false)};
++            let sizes=if compressed {vec![65536,196608,262144,17,4096,262144]} else {vec![65536,17,4096,65536]};
++            for size in sizes {
++                // Deterministic incompressible bytes exercise the raw fallback
++                // in compression-enabled mode at its larger fragment bound.
++                let mut state=0x819af132b61480d9u64;
++                let plain: Vec<u8>=(0..size).map(|_| {
++                    state ^= state << 13; state ^= state >> 7; state ^= state << 17;
++                    state as u8
++                }).collect();
++                let (descriptor,bytes)=codec.encode([81;16],0,0,&plain).unwrap();
++                assert_eq!(descriptor.codec,COMPRESSION_NONE);
++                let start=storage.append(&bytes).unwrap();
++                let extent=allocation::Extent {start,len:bytes.len() as u64,digest:strong_checksum(&bytes)};
++                let sealed=storage.len().unwrap();
++                codec.with_loaded(&storage,extent,sealed,&descriptor,|loaded|{assert_eq!(loaded,plain);Ok(())}).unwrap();
++                assert!(codec.raw_scratch.iter().all(|b|*b==0));
++                assert!(codec.raw_scratch.capacity()<=MAX_ALLOCATION);
++                let capacity=codec.raw_scratch.capacity();
++                storage.fail.set(true);
++                let mut exposed=false;
++                assert!(codec.with_loaded(&storage,extent,sealed,&descriptor,|_|{exposed=true;Ok(())}).is_err());
++                assert!(!exposed);
++                assert!(codec.raw_scratch.iter().all(|b|*b==0));
++                assert!(codec.with_loaded::<()>(&storage,extent,sealed,&descriptor,|_|Err(Error::CorruptRecord)).is_err());
++                assert!(codec.raw_scratch.iter().all(|b|*b==0));
++                assert!(codec.with_loaded(&storage,allocation::Extent {digest:[0;32],..extent},sealed,&descriptor,|_|{exposed=true;Ok(())}).is_err());
++                assert!(!exposed);
++                assert!(codec.raw_scratch.iter().all(|b|*b==0));
++                assert_eq!(codec.raw_scratch.capacity(),capacity);
++                let caught=std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
++                    codec.with_loaded::<()>(&storage,extent,sealed,&descriptor,|_|panic!("injected visitor unwind"))
++                }));
++                assert!(caught.is_err());
++                assert!(codec.raw_scratch.is_empty());
++                codec.with_loaded(&storage,extent,sealed,&descriptor,|loaded|{assert_eq!(loaded,plain);Ok(())}).unwrap();
++                assert!(codec.raw_scratch.iter().all(|b|*b==0));
++            }
++        }
++    }
++}
++
++}
++
++#[test]
++fn raw_visit_still_refuses_authenticated_nonzero_internal_padding() {
++    let mode=mode(false,true,false,true);
++    let mut codec=Codec::new(archive(),mode,None).unwrap();
++    let (descriptor,mut bytes)=codec.encode([82;16],0,0,b"short plaintext").unwrap();
++    assert!(bytes.len()>descriptor.encoded_len as usize);
++    *bytes.last_mut().unwrap()=1;
++    let mut storage=StorageBackend::memory(vec![0;super::super::preparation_journal::DATA_START as usize]);
++    let start=storage.append(&bytes).unwrap();
++    let extent=allocation::Extent {start,len:bytes.len() as u64,digest:strong_checksum(&bytes)};
++    let mut exposed=false;
++    assert!(codec.with_loaded(&storage,extent,storage.len().unwrap(),&descriptor,|_|{exposed=true;Ok(())}).is_err());
++    assert!(!exposed);
++    assert!(codec.raw_scratch.iter().all(|b|*b==0));
++}

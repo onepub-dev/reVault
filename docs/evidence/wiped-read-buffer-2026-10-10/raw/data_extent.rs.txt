@@ -341,29 +341,25 @@ impl Codec {
         // The retained buffer contains only zeros between calls. Growth may
         // therefore reallocate without releasing a private prior allocation.
         let mut stored = std::mem::replace(&mut self.raw_scratch, ZeroizingBytes::new(Vec::new()));
-        let len = extent.len as usize;
-        if stored.capacity() < len {
+        let len=extent.len as usize;
+        if stored.capacity()<len {
             // Geometric Vec growth could exceed the validated allocation bound.
-            let additional = len - stored.len();
+            let additional=len-stored.len();
             stored.reserve_exact(additional);
         }
-        stored.resize(len, 0);
+        stored.resize(len,0);
         let result = (|| {
-            storage.read_at_into(extent.start, &mut stored)?;
-            if strong_checksum(&stored) != extent.digest {
-                return Err(Error::CorruptRecord);
-            }
-            let encoded_len = descriptor.encoded_len as usize;
-            if stored[encoded_len..].iter().any(|b| *b != 0) {
-                return Err(Error::CorruptRecord);
-            }
+            storage.read_at_into(extent.start,&mut stored)?;
+            if strong_checksum(&stored) != extent.digest { return Err(Error::CorruptRecord); }
+            let encoded_len=descriptor.encoded_len as usize;
+            if stored[encoded_len..].iter().any(|b|*b!=0) { return Err(Error::CorruptRecord); }
             visitor(&stored[..encoded_len])
         })();
         // Includes partial failed reads and failed callbacks. If the callback
         // unwinds, the local ZeroizingBytes instead wipes on drop, leaving the
         // codec's empty replacement in place.
         crate::page_buffer::zeroize_bytes(&mut stored);
-        self.raw_scratch = stored;
+        self.raw_scratch=stored;
         result
     }
 

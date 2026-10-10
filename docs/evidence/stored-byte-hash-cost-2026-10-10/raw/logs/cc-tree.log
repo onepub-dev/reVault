@@ -1,0 +1,9 @@
+cc v1.7.0
+└── cc feature "default"
+    [build-dependencies]
+    └── blake3 v1.8.7
+        ├── blake3 feature "pure"
+        │   └── revault-hash-cost-probe v0.0.0 (/tmp/revault-hash-probe-20261010)
+        │       └── revault-hash-cost-probe feature "default" (command-line)
+        └── blake3 feature "std"
+            └── revault-hash-cost-probe v0.0.0 (/tmp/revault-hash-probe-20261010) (*)
