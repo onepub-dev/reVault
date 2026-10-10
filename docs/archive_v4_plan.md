@@ -37,7 +37,13 @@ shows BLAKE3 benefits at large units but a substantial 4 KiB regression. SHA-256
 remains unchanged pending a separate archive-level and dependency/security decision.
 The [wiped read-buffer trial](evidence/wiped-read-buffer-2026-10-10/README.md)
 is retained after a fixed paired comparison. Raw full-stream total time improves 2.0% at 8 MiB and 1.5% at 64 MiB; 8 MiB range improves 2.6%. Small-file, compressed-stream and 64 MiB range intervals include no change, so no gain is claimed there. All six cases still fall short of ZIP parity.
-All broader integration, scale, recovery and performance gates remain open.
+The current implementation checkpoint is `311bbeef`, following compact cache
+`f57a12ca`; tests and raw evidence are retained. Remaining read work should target
+the measured publication/lookup cost for fresh range reads and evaluate payload
+hashing through an explicit architecture proposal, rather than assuming further
+allocation micro-optimizations will close the ZIP gap. No usage cutoff is active
+for this resumed work. All broader integration, scale, recovery and performance
+gates remain open.
 
 ### Selective authenticated reads — 2026-10-10
 

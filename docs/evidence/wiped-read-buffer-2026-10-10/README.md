@@ -26,3 +26,5 @@ Strict Clippy passes. Focused release checks pass: eight data-extent tests, four
 Review found geometric Vec growth could exceed the intended bound; the measured candidate reserves exactly before resizing. Two preliminary compile errors (missing test fixture traits and borrow ordering) are retained separately from final passing logs. Formatting is deferred until after tests and measurement, as required by the commit hook.
 
 The first smoke launcher used a nonexistent fixture directory and failed before comparison; its log is retained under `raw/smoke-fixed/`. Corrected smoke checks under `raw/smoke-fixed-corrected/` all pass. This setup correction produced no timed samples; the fixed measured batch ran once.
+
+Commit `311bbeef` passes post-format strict Clippy, eight data-extent tests and four selective-read tests. Documentation relative-link checks pass, including the current evidence pages. [Final validation logs](postformat/) are retained. These checks validate the formatted code; no post-format benchmark was run.
