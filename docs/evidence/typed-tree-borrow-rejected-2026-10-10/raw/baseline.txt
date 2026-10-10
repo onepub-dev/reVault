@@ -1,0 +1,20 @@
+Frozen pre-borrow baseline
+
+Commit: 65d2d84564a721f9bd0ce305b9cbfd6e88c81ae8
+Rust: rustc 1.88.0 (6b00bc388 2025-06-23)
+Cargo target reused: /tmp/revault-tree-open-stages-20261010/target
+Optimized external-source test executable: bin/before
+Executable SHA-256: b521c42e9e087646e47163f4bf2e327bf3ed9d811b18ca8556bd288e8e4fff64
+Source hashes:
+- tree_probe.rs 10789cbc6d2fdb4854c12d63ebef7199d88b3a3922b6381504721d4830cf09dc
+- tree_image.rs 2a4e6a9dceaabbbb15adf9257a10319d47201e672227efc9f7a57ff965e63d8b
+- rust/Cargo.lock 30f035feb33237411a1fe46b2f13656454e7062954223677d2ca569ba7e5a081
+- commit patch SHA-256 46345600369e49923c38df6b40dfdfaa0e267f77bc9d072b9bfac14ff99d090e
+
+Validation passed on this commit:
+- CARGO_TARGET_DIR=/tmp/revault-tree-open-stages-20261010/target cargo +1.88.0 test -p revault_lockbox_api --release --features external-source --lib typed_tree_single_traversal -- --nocapture --test-threads=1 (1 passed)
+- CARGO_TARGET_DIR=/tmp/revault-tree-open-stages-20261010/target cargo +1.88.0 test -p revault_lockbox_api --release --features external-source --lib typed_credential_open -- --nocapture --test-threads=1 (2 passed)
+- CARGO_TARGET_DIR=/tmp/revault-tree-open-stages-20261010/target cargo +1.88.0 clippy -p revault_lockbox_api --features external-source --lib --tests --benches -- -D warnings (passed)
+- CARGO_TARGET_DIR=/tmp/revault-tree-open-stages-20261010/target cargo +1.88.0 test -p revault_lockbox_api --release --features external-source --lib --no-run (passed)
+
+No tracked or untracked source changes were present at baseline freeze. The optimized executable was copied and is independent of future Cargo rebuilds.

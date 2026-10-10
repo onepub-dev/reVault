@@ -22,6 +22,15 @@ or erase failures.
 
 ## Current position and next work
 
+### Rejected plaintext-copy experiment — 2026-10-10
+
+The [fixed paired experiment](evidence/typed-tree-borrow-rejected-2026-10-10/README.md)
+removed a redundant plaintext index copy but regressed all four open-time cases
+by 1.7–3.5%; it was reverted. All correctness checks passed, so the rejection is
+performance-based. Raw observations, the rejected patch and identities remain.
+Next separate traversal decoding, ownership construction and reclaimed-space
+validation before selecting another change. ZIP parity remains failed.
+
 ### Open-stage diagnostic — 2026-10-10
 
 The [100-open diagnostic](evidence/typed-tree-open-stages-2026-10-10/README.md)

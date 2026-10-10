@@ -82,3 +82,5 @@ and development failures; path installation and full-format acceptance are separ
 - [Current matched read baseline](evidence/typed-tree-matched-read-2026-10-10/README.md): six fixed Rust 1.88.0 comparisons; every ZIP case fails, raw samples and identities retained.
 
 - [Typed open stage diagnostic](evidence/typed-tree-open-stages-2026-10-10/README.md): four verified repeated-open cases; traversal dominates, no ZIP qualification.
+
+- [Rejected plaintext index borrowing](evidence/typed-tree-borrow-rejected-2026-10-10/README.md): four measured regressions, reverted source, complete paired observations retained.
