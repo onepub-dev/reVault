@@ -1,0 +1,96 @@
+diff --git a/rust/revault_lockbox_api/src/file_format/authenticated_index.rs b/rust/revault_lockbox_api/src/file_format/authenticated_index.rs
+index c854e958..5a0f8bcc 100644
+--- a/rust/revault_lockbox_api/src/file_format/authenticated_index.rs
++++ b/rust/revault_lockbox_api/src/file_format/authenticated_index.rs
+@@ -788,11 +788,21 @@ impl Index {
+                 if key_len > MAX_KEY || value_len > MAX_VALUE {
+                     return Err(Error::CorruptRecord);
+                 }
+-                entries.push(Entry::new(
++                let entry = Entry::new(
+                     namespace,
+                     cursor.take(key_len)?,
+                     cursor.take(value_len)?,
+-                )?);
++                )?;
++                if entries.last().is_some_and(|previous: &Entry| previous.identity() >= entry.identity()) {
++                    return Err(Error::CorruptRecord);
++                }
++                entries.push(entry);
++            }
++            // Cursor consumption is the encoded leaf body length, including
++            // its header. Length/item bounds and ordering were checked above;
++            // avoid rescanning every owned key/value to derive the same facts.
++            if body.len() - cursor.0.len() > MAX_BODY {
++                return Err(Error::CorruptRecord);
+             }
+             Node::Leaf(entries)
+         } else {
+@@ -802,7 +812,9 @@ impl Index {
+             }
+             Node::Branch { height, children }
+         };
+-        validate_node(&node, sealed)?;
++        if height != 0 {
++            validate_node(&node, sealed)?;
++        }
+         if count != node.count()
+             || if self.mode.unpadded() {
+                 !cursor.0.is_empty()
+diff --git a/rust/revault_lockbox_api/src/file_format/authenticated_index_tests.rs b/rust/revault_lockbox_api/src/file_format/authenticated_index_tests.rs
+index 88c96ec9..ebcc9de9 100644
+--- a/rust/revault_lockbox_api/src/file_format/authenticated_index_tests.rs
++++ b/rust/revault_lockbox_api/src/file_format/authenticated_index_tests.rs
+@@ -1222,3 +1222,52 @@ fn root_collapse_validates_the_promoted_child_before_returning_a_new_root() {
+     let sealed = storage.len().unwrap();
+     assert!(index.remove(&mut storage, root, sealed, 1, b"a").is_err());
+ }
++
++#[test]
++fn leaf_decoder_refuses_order_count_and_body_limit_violations() {
++    // Deliberately malformed private nodes cannot be authored by the public CLI
++    // or Index::encode, which refuses these structures before serialization.
++    for signed in [false, true] {
++        for padded in [false, true] {
++            let mut options = mode(false, signed).options();
++            options.size_padding = if padded { SizePadding::Default } else { SizePadding::None };
++            let index = Index::new(LockboxId::from_bytes([45; 16]), FormatMode::new(options), None).unwrap();
++            let wire = |records: &[(u8, &[u8], &[u8])], count: u64| {
++                let mut body = vec![0];
++                body.extend_from_slice(&count.to_le_bytes());
++                body.extend_from_slice(&(records.len() as u16).to_le_bytes());
++                for (ns, key, value) in records {
++                    body.push(*ns);
++                    body.extend_from_slice(&(key.len() as u16).to_le_bytes());
++                    body.extend_from_slice(&(value.len() as u32).to_le_bytes());
++                    body.extend_from_slice(key);
++                    body.extend_from_slice(value);
++                }
++                if padded { body.resize(MAX_NODE - HEADER, 0); }
++                let mut bytes = MAGIC.to_vec();
++                bytes.extend_from_slice(&1u16.to_le_bytes());
++                bytes.extend_from_slice(&index.mode.0.to_le_bytes());
++                bytes.extend_from_slice(index.archive.as_bytes());
++                bytes.extend_from_slice(&[0; 12]);
++                bytes.extend_from_slice(&(body.len() as u32).to_le_bytes());
++                bytes.extend_from_slice(&body);
++                bytes
++            };
++            let records: [(u8, &[u8], &[u8]); 2] = [(1, b"a", b"x"), (1, b"b", b"y")];
++            let good = wire(&records, 2);
++            assert_eq!(index.decode(&good, u64::MAX).unwrap().count(), 2);
++            assert!(index.decode(&wire(&[records[1], records[0]], 2), u64::MAX).is_err());
++            assert!(index.decode(&wire(&[records[0], records[0]], 2), u64::MAX).is_err());
++            assert!(index.decode(&wire(&[(2, b"a", b"x"), (1, b"b", b"y")], 2), u64::MAX).is_err());
++            for count in [0, 1, 3, MAX_ENTRIES + 1] {
++                assert!(index.decode(&wire(&records, count), u64::MAX).is_err());
++            }
++            let oversized = vec![0; (MAX_BODY - BODY_HEADER) / 2 - 8 + 1];
++            let too_large = wire(&[(1, b"a", &oversized), (1, b"b", &oversized)], 2);
++            assert!(too_large.len() <= MAX_NODE);
++            assert!(index.decode(&too_large, u64::MAX).is_err());
++            // A failed parse must not poison a later independent valid decode.
++            assert_eq!(*index.encode(&index.decode(&good, u64::MAX).unwrap()).unwrap(), good);
++        }
++    }
++}

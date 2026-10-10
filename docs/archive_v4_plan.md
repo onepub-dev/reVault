@@ -22,6 +22,16 @@ or erase failures.
 
 ## Current position and next work
 
+### Rejected fused leaf validation — 2026-10-10
+
+The [leaf-validation trial](evidence/typed-tree-leaf-validation-rejected-2026-10-10/README.md)
+passes index/reader tests and Clippy but regresses raw 8 MiB opening by 1.4% and
+raw 64 MiB by 0.7%. Small/compressed intervals are inconclusive. The two Rust
+files are restored exactly to `9fcf3cb0`; only evidence is retained. Both paired
+binaries included storage-meter overhead, so this is a bounded diagnostic.
+Next separate checksum, decoding and typed staging costs before selecting
+another traversal change; do not repeat rejected scan/body-borrow hypotheses.
+
 ### Traversal storage attribution — 2026-10-10
 
 The [diagnostic-only storage meter](evidence/typed-tree-storage-meter-2026-10-10/README.md)

@@ -1,0 +1,39 @@
+#! /usr/bin/env dcli
+import 'dart:io';
+import 'package:dcli/dcli.dart';
+
+void main() {
+  final base = '/tmp/revault-tree-leaf-validation-20261010';
+  final old = File('/tmp/revault-tree-fragment-20261010/run-paired.dart').readAsStringSync();
+  final updated = old
+      .replaceFirst("const base = '/tmp/revault-tree-fragment-20261010';", "const base = '/tmp/revault-tree-leaf-validation-20261010';")
+      .replaceFirst("const patchedSource = '\$rust/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue/overflow.rs';", "const patchedSource = '\$rust/revault_lockbox_api/src/file_format/authenticated_index.rs';")
+      .replaceFirst("const patchedTests = '\$rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/open_reads.rs';", "const patchedTests = '\$rust/revault_lockbox_api/src/file_format/authenticated_index_tests.rs';");
+  if (updated == old) throw StateError('runner adaptation made no changes');
+  File('$base/run-paired.dart').writeAsStringSync(updated, flush: true);
+  final source = File('/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api/src/file_format/authenticated_index.rs');
+  final tests = File('/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api/src/file_format/authenticated_index_tests.rs');
+  final lock = File('/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/Cargo.lock');
+  final rows = <String>[
+    'baseline_commit=9fcf3cb0ff4505a588f3e8a98a3454fd5751fe57',
+    'baseline_binary_sha256=2cebc6ceee449e5f111f2af2018f2330dd202376188451e2a76aac9d829aefdb',
+    'candidate_binary_sha256=${hash('/tmp/revault-tree-leaf-validation-20261010/bin/after')}',
+    'authenticated_index_sha256=${hash(source.path)}',
+    'authenticated_index_tests_sha256=${hash(tests.path)}',
+    'cargo_lock_sha256=${hash(lock.path)}',
+    'patch_sha256=${hash('$base/source.patch')}',
+    'candidate_revision=9fcf3cb0ff4505a588f3e8a98a3454fd5751fe57',
+    'candidate_has_uncommitted_patch=true',
+    'rustc=1.88.0',
+    'target=/tmp/revault-tree-open-stages-20261010/target',
+    'instrumentation_caveat=both binaries include tree storage meter diagnostic overhead',
+  ];
+  File('$base/build-identities.txt').writeAsStringSync(rows.join('\n') + '\n', flush: true);
+  print('Prepared adapted runner and build identities at $base');
+}
+
+String hash(String path) {
+  final result = Process.runSync('sha256sum', [path]);
+  if (result.exitCode != 0) throw StateError('sha256sum failed for $path');
+  return result.stdout.toString().split(RegExp(r'\s+')).first;
+}
