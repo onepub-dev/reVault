@@ -1,0 +1,34 @@
+{
+  "command": [
+    "taskset",
+    "-c",
+    "2",
+    "/usr/bin/time",
+    "-v",
+    "timeout",
+    "900",
+    "/tmp/revault-scale-20261010/evidence/bin/revault_lockbox_api_tests",
+    "--exact",
+    "file_format::candidate_files::resource_probe::candidate_file_resource_probe",
+    "--ignored",
+    "--nocapture"
+  ],
+  "environment": {
+    "REVAULT_CANDIDATE_ROOT": "/home/bsutton/.cache/revault-performance-20261010-large/scale-v1/raw-mixed-10000x64k",
+    "REVAULT_CANDIDATE_PHASE": "tree-create",
+    "REVAULT_CANDIDATE_UNIT": "65536"
+  },
+  "candidate_sha256_before": "c3d55a2c59453263e348f986414e784fe03396a8c025f20358742399d89df868",
+  "source_inventory_before": {
+    "inventory_sha256": "0604d58abc4497ad3f6c46faf88442040413f1507b98a036b14cc0be9e410529",
+    "file_count": "10000",
+    "aggregate_manifest_sha256": "2687acacda88c58fb2c9e46300e47d0002b50ef656659c48e3c9ddd97f94438a"
+  },
+  "archive_zip_sha256_before": "945a29d3e09fe1bd92df54927bc8f3faf450a09e0a17ca644e0bb8d22c0fd3c7",
+  "spec": {
+    "files": 10000,
+    "bytes_each": 65536,
+    "payload_bytes": 655360000,
+    "unit": 65536
+  }
+}

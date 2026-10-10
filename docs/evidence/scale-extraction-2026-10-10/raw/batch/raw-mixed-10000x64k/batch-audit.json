@@ -1,0 +1,27 @@
+{
+  "case": "raw-mixed-10000x64k",
+  "source_before": {
+    "inventory_sha256": "0604d58abc4497ad3f6c46faf88442040413f1507b98a036b14cc0be9e410529",
+    "file_count": "10000",
+    "aggregate_manifest_sha256": "2687acacda88c58fb2c9e46300e47d0002b50ef656659c48e3c9ddd97f94438a"
+  },
+  "source_after": {
+    "inventory_sha256": "0604d58abc4497ad3f6c46faf88442040413f1507b98a036b14cc0be9e410529",
+    "file_count": "10000",
+    "aggregate_manifest_sha256": "2687acacda88c58fb2c9e46300e47d0002b50ef656659c48e3c9ddd97f94438a"
+  },
+  "archive_sha256_before": "945a29d3e09fe1bd92df54927bc8f3faf450a09e0a17ca644e0bb8d22c0fd3c7",
+  "archive_sha256_after": "945a29d3e09fe1bd92df54927bc8f3faf450a09e0a17ca644e0bb8d22c0fd3c7",
+  "tree_sha256_before": "6b6a9d93223f657e8c85395568a51bbc7081200637ae8b921337f206e579e9c5",
+  "tree_sha256_after": "6b6a9d93223f657e8c85395568a51bbc7081200637ae8b921337f206e579e9c5",
+  "stable": true,
+  "completed_pairs": 33,
+  "warmup_pair_count_planned": 3,
+  "measured_pair_count_planned": 30,
+  "backend_sample_counts": {
+    "zip": 33,
+    "typed-tree": 33
+  },
+  "generator_caveat": "Retained mixed generator alternates pattern/random only every 256 KiB within a file; this 64 KiB-per-file corpus is patterned, not broadly representative mixed content.",
+  "failure": null
+}

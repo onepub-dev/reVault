@@ -59,6 +59,31 @@ pub(in crate::file_format::candidate_files) fn definition_key(
     key
 }
 impl Forms {
+    pub(super) fn admit_tree_budget(
+        &self,
+        budget: &mut crate::file_format::metadata_budget::Budget,
+    ) -> Result<()> {
+        use crate::file_format::metadata_budget as memory;
+        // The key sizes are the same as encode/admit_row. No temporary encoded
+        // catalogue is needed to reject a writer before allocating its rows.
+        let mut row = |key: usize| -> Result<()> {
+            budget.take(memory::FORM)?;
+            budget.paths(key)
+        };
+        for definition in &self.definitions {
+            row(40)?;
+            for _ in &definition.fields {
+                row(44)?;
+            }
+        }
+        for record in &self.records {
+            row(record.path.as_str().len())?;
+            for _ in &record.fields {
+                row(20)?;
+            }
+        }
+        Ok(())
+    }
     pub fn admit(&self, additional: usize) -> Result<()> {
         let mut rows = additional;
         for n in std::iter::once(self.definitions.len())

@@ -1,0 +1,36 @@
+{
+  "command": [
+    "taskset",
+    "-c",
+    "2",
+    "/usr/bin/time",
+    "-v",
+    "timeout",
+    "900",
+    "/tmp/revault-scale-20261010/evidence/bin/revault_lockbox_api_tests",
+    "--exact",
+    "file_format::candidate_files::resource_probe::candidate_file_resource_probe",
+    "--ignored",
+    "--nocapture"
+  ],
+  "environment": {
+    "REVAULT_CANDIDATE_ROOT": "/home/bsutton/.cache/revault-performance-20261010-large/scale-v1/raw-random-1gib",
+    "REVAULT_CANDIDATE_PHASE": "tree-sample",
+    "REVAULT_CANDIDATE_UNIT": "65536",
+    "REVAULT_CANDIDATE_ACCESS": "stream",
+    "REVAULT_CANDIDATE_PASSES": "1"
+  },
+  "candidate_sha256_before": "c3d55a2c59453263e348f986414e784fe03396a8c025f20358742399d89df868",
+  "source_inventory_before": {
+    "inventory_sha256": "de96aec9691a38fb23dc9b565a1e03a197ad579a7d46863810c502164aa47b06",
+    "file_count": "1",
+    "aggregate_manifest_sha256": "cb4133c072d9731c1adf4df31b5da4762af25eeb0de5de13ffbd806337be0ec2"
+  },
+  "archive_zip_sha256_before": "f6d5258ad27006cde6bd8dcf3000c49905056cb1edcf9456421bc082b6489ab0",
+  "spec": {
+    "files": 1,
+    "bytes_each": 1073741824,
+    "payload_bytes": 1073741824,
+    "unit": 65536
+  }
+}

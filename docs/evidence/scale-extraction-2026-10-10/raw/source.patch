@@ -1,0 +1,708 @@
+diff --git a/rust/revault_lockbox_api/benches/evaluation/runner.rs b/rust/revault_lockbox_api/benches/evaluation/runner.rs
+index ab06cc4f..22256281 100644
+--- a/rust/revault_lockbox_api/benches/evaluation/runner.rs
++++ b/rust/revault_lockbox_api/benches/evaluation/runner.rs
+@@ -1,4 +1,6 @@
+ mod existing;
++#[path = "../../src/benchmark_extraction.rs"]
++mod extraction;
+ use revault_lockbox_api::{
+     Compression, Encryption, Lockbox, LockboxCreateOptions, LockboxOpen, LockboxPath,
+     LockboxProtection, OwnerSigningKeyPair, ReadOnly, SecretVec, Signing, SizePadding,
+@@ -431,6 +433,33 @@ pub fn main() {
+     let args: Vec<String> = std::env::args().skip(1).collect();
+     let command = args.first().map(String::as_str).unwrap_or("");
+     match command {
++        "extract-zip" => {
++            assert_eq!(args.len(), 3, "extract-zip ROOT NEW_OUTPUT");
++            let root = Path::new(&args[1]);
++            let output = Path::new(&args[2]);
++            let case = Case::read(root);
++            let before = Resources::now();
++            let mut result = extraction::measure(root, output, case.files, case.bytes,
++                || ZipArchive::new(File::open(root.join("archive.zip")).unwrap()).unwrap(),
++                |archive, index, output| {
++                    let mut input = archive.by_name(&Case::name(index)).unwrap();
++                    let mut buffer = [0u8; BUFFER];
++                    let mut copied = 0u64;
++                    // Read to EOF so the ZIP library completes CRC verification.
++                    loop {
++                        let n = input.read(&mut buffer).unwrap();
++                        if n == 0 { break; }
++                        output.write_all(&buffer[..n]).unwrap();
++                        copied += n as u64;
++                    }
++                    copied
++                }, || {
++                    let after = Resources::now();
++                    json!({"cpu":after.delta(before),"peak_rss_kib":after.peak_kib})
++                });
++            result["backend"] = json!("zip");
++            println!("{result}");
++        }
+         "create" => {
+             assert_eq!(args.len(), 3);
+             assert!(matches!(args[2].as_str(), "zip" | "lockbox"));
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/cost_model.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/cost_model.rs
+index d06f5500..63dbb819 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/cost_model.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/cost_model.rs
+@@ -230,8 +230,46 @@ pub(super) fn project_into<S: Storage>(
+ }
+ 
+ pub(super) fn repack_into<S: Storage>(
++    archive: &mut Files<S>,
++    emit: impl FnMut(Extent, &[u8]) -> Result<()>,
++) -> Result<Repacked> {
++    repack_bounded(archive, emit, false)
++}
++
++pub(super) fn repack_tree_into<S: Storage>(
++    archive: &mut Files<S>,
++    metadata: &[super::dense_catalogue::Metadata],
++    emit: impl FnMut(Extent, &[u8]) -> Result<()>,
++) -> Result<Repacked> {
++    use crate::file_format::metadata_budget as memory;
++    // Preflight precedes the source audit's retained file/coverage maps and all
++    // copying. One pack per fragment is a conservative bound on repack output.
++    let mut budget = memory::Budget::new(memory::TYPED_BYTES);
++    archive.index.visit(&archive.storage, archive.anchor.index, archive.anchor.sealed_len, |entry| {
++        match entry.namespace {
++            FILE => {
++                budget.take(memory::FILE)?;
++                budget.paths(entry.key.len())?;
++            }
++            CHUNK => budget.take(memory::FRAGMENT + memory::PACK)?,
++            _ => return Err(Error::CorruptRecord),
++        }
++        Ok(())
++    })?;
++    for entry in metadata {
++        if entry.entry.kind != crate::LockboxEntryKind::File {
++            budget.take(memory::FILE)?;
++            budget.paths(entry.entry.path.as_str().len())?;
++            budget.paths(entry.target.as_ref().map_or(0, |target| target.as_str().len()))?;
++        }
++    }
++    repack_bounded(archive, emit, true)
++}
++
++fn repack_bounded<S: Storage>(
+     archive: &mut Files<S>,
+     mut emit: impl FnMut(Extent, &[u8]) -> Result<()>,
++    tree: bool,
+ ) -> Result<Repacked> {
+     archive.audit_with(true)?;
+     let mut files = Vec::<File>::new();
+@@ -245,7 +283,7 @@ pub(super) fn repack_into<S: Storage>(
+             let owned = OwnedRecord::decode(&entry.value)?;
+             match entry.namespace {
+                 FILE => {
+-                    if files.len() >= 1024 {
++                    if !tree && files.len() >= 1024 {
+                         return Err(Error::SecurityLimitExceeded(
+                             "cost model: at most 1024 files".into(),
+                         ));
+@@ -260,7 +298,7 @@ pub(super) fn repack_into<S: Storage>(
+                 }
+                 CHUNK => {
+                     chunks += 1;
+-                    if chunks > 4096 {
++                    if !tree && chunks > 4096 {
+                         return Err(Error::SecurityLimitExceeded(
+                             "cost model: at most 4096 fragments".into(),
+                         ));
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue.rs
+index 7e226136..abd82cec 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue.rs
+@@ -84,21 +84,13 @@ impl<'a> Cursor<'a> {
+ }
+ impl Catalogue {
+     /// Build directly from the shared audited repacker; no dense body is created.
+-    /// Keep explicit experimental count limits even when metadata uses a tree.
++    /// Tree metadata has its own byte budget; inline decoding keeps its limits.
+     pub(super) fn from_repacked(
+         files: Vec<File>,
+         packs: Vec<Pack>,
+         codec: &Codec,
+         sealed: u64,
+     ) -> Result<Self> {
+-        if files.len() > MAX_MODEL_FILES
+-            || packs.len() > MAX_FRAGMENTS
+-            || files.iter().map(|file| file.fragments.len()).sum::<usize>() > MAX_FRAGMENTS
+-        {
+-            return Err(Error::SecurityLimitExceeded(
+-                "fresh tree repacking count budget".into(),
+-            ));
+-        }
+         let mut catalogue = Self {
+             variables: Vec::new(),
+             forms: forms::Forms::default(),
+@@ -109,6 +101,7 @@ impl Catalogue {
+             files,
+             packs,
+         };
++        catalogue.tree_budget()?;
+         catalogue.validate_fragments(codec, sealed)?;
+         Ok(catalogue)
+     }
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue/forms.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue/forms.rs
+index a2e788ef..b206f458 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue/forms.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue/forms.rs
+@@ -59,6 +59,27 @@ pub(in crate::file_format::candidate_files) fn definition_key(
+     key
+ }
+ impl Forms {
++    pub(super) fn admit_tree_budget(
++        &self,
++        budget: &mut crate::file_format::metadata_budget::Budget,
++    ) -> Result<()> {
++        use crate::file_format::metadata_budget as memory;
++        // The key sizes are the same as encode/admit_row. No temporary encoded
++        // catalogue is needed to reject a writer before allocating its rows.
++        let mut row = |key: usize| -> Result<()> {
++            budget.take(memory::FORM)?;
++            budget.paths(key)
++        };
++        for definition in &self.definitions {
++            row(40)?;
++            for _ in &definition.fields { row(44)?; }
++        }
++        for record in &self.records {
++            row(record.path.as_str().len())?;
++            for _ in &record.fields { row(20)?; }
++        }
++        Ok(())
++    }
+     pub fn admit(&self, additional: usize) -> Result<()> {
+         let mut rows = additional;
+         for n in std::iter::once(self.definitions.len())
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue/overflow.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue/overflow.rs
+index 42df309d..d1b5d7c4 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue/overflow.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/dense_catalogue/overflow.rs
+@@ -4,6 +4,7 @@ use super::*;
+ use crate::file_format::authenticated_index::{Entry, EntryRef};
+ use crate::file_format::publication_anchor::shared::tree::Tree;
+ use std::collections::BTreeMap;
++use crate::file_format::metadata_budget as memory;
+ const FILE_RECORD: u8 = 1;
+ const FRAGMENT_RECORD: u8 = 2;
+ const PACK_RECORD: u8 = 3;
+@@ -13,6 +14,78 @@ const VARIABLE_RECORD: u8 = 6;
+ const MAX_NODES: usize = 100_000;
+ 
+ impl Catalogue {
++    /// Account for materialized filesystem metadata and its temporary joins and
++    /// coverage vectors, including worst-case geometric vector capacity slack.
++    pub(super) fn tree_budget(&self) -> Result<memory::Budget> {
++        let mut budget = memory::Budget::new(memory::TYPED_BYTES);
++        for file in &self.files {
++            budget.take(memory::FILE)?;
++            budget.paths(file.path.len())?;
++            for _ in &file.fragments {
++                budget.take(memory::FRAGMENT)?;
++            }
++        }
++        for _ in &self.packs {
++            budget.take(memory::PACK)?;
++        }
++        for node in &self.nodes {
++            budget.take(memory::FILE)?;
++            budget.paths(node.path.len())?;
++            budget.paths(node.target.as_ref().map_or(0, |target| target.len()))?;
++        }
++        for variable in &self.variables {
++            budget.take(memory::VARIABLE)?;
++            budget.paths(variable.name.as_str().len())?;
++        }
++        self.forms.admit_tree_budget(&mut budget)?;
++        Ok(budget)
++    }
++
++    /// Fresh filesystem export only. Produce one private entry at a time in
++    /// namespace/key order, retaining only a file-reference permutation for the
++    /// object-ID ordered fragment namespace. No complete serialized row copy.
++    pub(in crate::file_format::candidate_files) fn fresh_tree_records(&self) -> Result<impl Iterator<Item = Result<Entry>> + '_> {
++        if !self.typed || !self.variables.is_empty() || !self.forms.is_empty() {
++            return Err(Error::InvalidOperation("fresh filesystem catalogue required".into()));
++        }
++        self.tree_budget()?;
++        nodes::validate_bounded(&self.files, &self.nodes, MAX_NODES)?;
++        let mut by_id: Vec<_> = self.files.iter().collect();
++        by_id.sort_unstable_by_key(|file| file.info.id);
++        if by_id.windows(2).any(|pair| pair[0].info.id == pair[1].info.id) {
++            return Err(Error::CorruptRecord);
++        }
++        let files = self.files.iter().map(|file| {
++            let mut value = Zeroizing::new(file.permissions.to_le_bytes().to_vec());
++            value.extend_from_slice(&file.info.encode());
++            Entry::new(FILE_RECORD, &file.path, &value)
++        });
++        let fragments = by_id.into_iter().flat_map(move |file| {
++            file.fragments.iter().map(move |fragment| {
++                let mut name = file.info.id.to_vec();
++                name.extend_from_slice(&fragment.descriptor.ordinal.to_be_bytes());
++                let mut value = Zeroizing::new(fragment.descriptor.encode().to_vec());
++                value.extend_from_slice(&self.packs[fragment.pack].extent.start.to_le_bytes());
++                value.extend_from_slice(&(fragment.relative as u64).to_le_bytes());
++                value.extend_from_slice(&fragment.digest);
++                Entry::new(FRAGMENT_RECORD, &name, &value)
++            })
++        });
++        let packs = self.packs.iter().map(|pack| {
++            let mut value = pack.extent.len.to_le_bytes().to_vec();
++            value.extend_from_slice(&pack.extent.digest);
++            value.extend_from_slice(&pack.padding_digest);
++            Entry::new(PACK_RECORD, &pack.extent.start.to_be_bytes(), &value)
++        });
++        let nodes = self.nodes.iter().map(|node| {
++            let mut value = Zeroizing::new(vec![if node.target.is_some() { 2 } else { 3 }]);
++            value.extend_from_slice(&node.permissions.to_le_bytes());
++            if let Some(target) = &node.target { value.extend_from_slice(target); }
++            Entry::new(NODE_RECORD, &node.path, &value)
++        });
++        Ok(files.chain(fragments).chain(packs).chain(nodes)
++            .chain(std::iter::once_with(|| Entry::new(FORMAT_RECORD, b"format", b"RV4FS001"))))
++    }
+     pub(in crate::file_format::candidate_files) fn dense_body_if_fits(
+         &self,
+         codec: &Codec,
+@@ -34,12 +107,16 @@ impl Catalogue {
+         &mut self,
+         entries: &[Metadata],
+     ) -> Result<()> {
++        let mut budget = self.tree_budget()?;
+         let mut bytes = 0usize;
+         for metadata in entries {
+             bytes = bytes
+                 .checked_add(metadata.entry.path.as_str().len())
+                 .ok_or(Error::CorruptRecord)?;
+             if metadata.entry.kind != crate::LockboxEntryKind::File {
++                budget.take(memory::FILE)?;
++                budget.paths(metadata.entry.path.as_str().len())?;
++                budget.paths(metadata.target.as_ref().map_or(0, |target| target.as_str().len()))?;
+                 bytes = bytes
+                     .checked_add(
+                         5 + metadata
+@@ -56,6 +133,9 @@ impl Catalogue {
+         self.set_metadata_bounded(entries, MAX_NODES)
+     }
+     pub(in crate::file_format::candidate_files) fn tree_records(&self) -> Result<Vec<Entry>> {
++        // All mutation/export writers use the same admission as audited open,
++        // before allocating complete rows or authorizing any publication.
++        self.tree_budget()?;
+         if !self.typed {
+             return Err(Error::InvalidOperation(
+                 "typed filesystem metadata required".into(),
+@@ -156,9 +236,12 @@ impl Catalogue {
+         let mut format = 0;
+         let mut variables = Vec::new();
+         let mut form_rows = Vec::new();
++        let mut budget = memory::Budget::new(memory::TYPED_BYTES);
+         let tree = visit(&mut |entry| {
+             match entry.namespace {
+                 FILE_RECORD => {
++                    budget.take(memory::FILE)?;
++                    budget.paths(entry.key.len())?;
+                     if entry.value.len() != 76 || files.len() + nodes.len() >= MAX_NODES {
+                         return Err(Error::CorruptRecord);
+                     }
+@@ -173,9 +256,9 @@ impl Catalogue {
+                     });
+                 }
+                 FRAGMENT_RECORD => {
++                    budget.take(memory::FRAGMENT)?;
+                     if entry.key.len() != 24
+                         || entry.value.len() != 112
+-                        || fragments.len() >= MAX_FRAGMENTS
+                     {
+                         return Err(Error::CorruptRecord);
+                     }
+@@ -198,9 +281,9 @@ impl Catalogue {
+                     ));
+                 }
+                 PACK_RECORD => {
++                    budget.take(memory::PACK)?;
+                     if entry.key.len() != 8
+                         || entry.value.len() != 72
+-                        || packs.len() >= MAX_FRAGMENTS
+                     {
+                         return Err(Error::CorruptRecord);
+                     }
+@@ -215,6 +298,9 @@ impl Catalogue {
+                     });
+                 }
+                 NODE_RECORD => {
++                    budget.take(memory::FILE)?;
++                    budget.paths(entry.key.len())?;
++                    budget.paths(entry.value.len().saturating_sub(5))?;
+                     if entry.value.len() < 5 || files.len() + nodes.len() >= MAX_NODES {
+                         return Err(Error::CorruptRecord);
+                     }
+@@ -237,6 +323,8 @@ impl Catalogue {
+                     });
+                 }
+                 VARIABLE_RECORD => {
++                    budget.take(memory::VARIABLE)?;
++                    budget.paths(entry.key.len())?;
+                     if variables.len() >= MAX_NODES || entry.value.len() > 824 {
+                         return Err(Error::CorruptRecord);
+                     }
+@@ -246,6 +334,8 @@ impl Catalogue {
+                     variables.push(entry.to_owned()?);
+                 }
+                 7..=10 => {
++                    budget.take(memory::FORM)?;
++                    budget.paths(entry.key.len())?;
+                     let entry = entry.to_owned()?;
+                     forms::Forms::admit_row(&entry)?;
+                     if form_rows.len() >= 4096 {
+@@ -326,7 +416,7 @@ impl Catalogue {
+         // exposed until counts, identities, extents and the full catalogue pass.
+         let mut ids = BTreeMap::new();
+         for (index, file) in files.iter().enumerate() {
+-            if ids.insert(file.info.id, index).is_some() || file.info.count() > MAX_FRAGMENTS as u64
++            if ids.insert(file.info.id, index).is_some()
+             {
+                 return Err(Error::CorruptRecord);
+             }
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/resource_probe.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/resource_probe.rs
+index 191e67b2..773816ef 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/resource_probe.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/resource_probe.rs
+@@ -1,6 +1,8 @@
+ //! Protocol adapter for the common A/B/ZIP fresh-process runner. Test-only C.
+ use super::*;
+ mod tree_probe;
++#[path = "../../benchmark_extraction.rs"]
++mod extraction;
+ use crate::storage::StorageBackend;
+ use crate::{
+     Compression, EncryptionMode, LockboxFormatOptions, OwnerSigningPublicKey, SigningMode,
+@@ -176,7 +178,7 @@ fn candidate_file_resource_probe() {
+         },
+     });
+     let key = encrypted.then_some(KEY.as_slice());
+-    if phase == "tree-create" || phase == "tree-sample" {
++    if matches!(phase.as_str(), "tree-create" | "tree-sample" | "tree-extract") {
+         tree_probe::run(&root, count, bytes, unit, mode, key, &phase);
+         return;
+     }
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/resource_probe/tree_probe.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/resource_probe/tree_probe.rs
+index f4ba7aeb..e4696945 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/resource_probe/tree_probe.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/resource_probe/tree_probe.rs
+@@ -112,7 +112,7 @@ pub(super) fn run(
+         );
+         return;
+     }
+-    assert_eq!(phase, "tree-sample");
++    assert!(matches!(phase, "tree-sample" | "tree-extract"));
+     let public = OwnerSigningPublicKey::from_bytes(&std::fs::read(&public_path).unwrap()).unwrap();
+     let authority = if mode.signed() {
+         Authority::Owner(&public)
+@@ -131,6 +131,30 @@ pub(super) fn run(
+         )
+         .unwrap()
+     };
++    if phase == "tree-extract" {
++        let output = std::path::PathBuf::from(std::env::var_os("REVAULT_EXTRACT_OUTPUT").unwrap());
++        let before = Resources::now();
++        let mut result = extraction::measure(root, &output, count, bytes, open,
++            |image, index, file| {
++                let path = TreeImage::<StorageBackend>::stored_name(index);
++                let mut copied = 0;
++                image.image.read_range(path.as_bytes(), 0, bytes, |chunk| {
++                    // Match ZIP's output syscall bound even for larger decoded units.
++                    for part in chunk.chunks(65_536) {
++                        file.write_all(part).unwrap();
++                        copied += part.len() as u64;
++                    }
++                    Ok(())
++                }).unwrap();
++                copied
++            }, || {
++                let after = Resources::now();
++                json!({"cpu":after.delta(before),"peak_rss_kib":after.peak})
++            });
++        result["backend"] = json!("typed-tree");
++        println!("CANDIDATE_SAMPLE {result}");
++        return;
++    }
+     if let Ok(repeats) = std::env::var("REVAULT_TREE_OPEN_DIAGNOSTIC") {
+         let repeats: usize = repeats.parse().unwrap();
+         assert!((1..=1000).contains(&repeats));
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/admission.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/admission.rs
+index f9692bb5..7a5eb895 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/admission.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/admission.rs
+@@ -24,6 +24,30 @@ fn definition() -> FormDefinition {
+         ],
+     }
+ }
++
++#[test]
++fn typed_form_metadata_byte_budget_refuses_before_publication() {
++    let owner = OwnerSigningKeyPair::generate().unwrap();
++    let public = owner.public_key();
++    let mode = mode(false, false, false, false);
++    let authority = authority(mode, &public);
++    let mut storage = super::super::mutation::seed(mode, &authority, &owner);
++    let before = storage.read_all().unwrap();
++    let mut definition = definition();
++    // Within the old 4096-row/page ceilings, but the aggregate metadata charge
++    // exceeds the shared reader/writer byte budget. Payload callbacks must not run.
++    definition.fields = (0..3100).map(|index| FormFieldDefinition {
++        id: format!("field_{index}"),
++        label: "Field".into(),
++        kind: FormFieldKind::Text,
++        required: false,
++    }).collect();
++    let result = import_definition(&mut storage, archive(), mode, &authority, None, key(mode), &definition);
++    assert!(matches!(result, Err(Error::SecurityLimitExceeded(ref reason)) if reason.contains("metadata byte budget")));
++    assert_eq!(storage.read_all().unwrap(), before);
++    AuditedTreeImage::open(storage, archive(), mode, &authority, key(mode)).unwrap()
++        .image.verify_all().unwrap();
++}
+ #[test]
+ fn typed_form_guarded_admission_and_semantic_page_substitution_all_modes() {
+     let owner = OwnerSigningKeyPair::generate().unwrap();
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/fresh.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/fresh.rs
+index a2af6838..46af0a49 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/fresh.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/fresh.rs
+@@ -585,27 +585,65 @@ fn fresh_tree_export_refuses_authenticated_existing_access_tree() {
+ }
+ 
+ #[test]
+-fn fresh_tree_export_keeps_explicit_source_file_count_limit() {
++fn fresh_tree_export_exceeds_old_file_and_fragment_counts() {
+     let owner = OwnerSigningKeyPair::generate().unwrap();
+     let public = owner.public_key();
+     let mode = mode(false, false, false, false);
+     let authority = authority(mode, &public);
+-    let entries = entries(1025, 2, 0);
++    let entries = entries(10_000, 2, 17);
+     let storage = seed(mode, &authority, &owner, &entries);
+     let before = storage.read_all().unwrap();
+     let mut source = Files::open(storage, archive(), mode, &authority, key(mode)).unwrap();
+     let output = SharedMemory::new(Vec::new());
+-    let result = tree_image::from_candidate(
++    tree_image::from_candidate(
+         &mut source,
+         output.clone(),
+         &authority,
+         None,
+         key(mode),
+         &entries,
+-    );
+-    assert!(
+-        matches!(result, Err(Error::SecurityLimitExceeded(ref reason)) if reason.contains("1024 files"))
+-    );
++    ).unwrap();
++    verify(output.clone(), mode, &authority, &entries, &source);
++    // Independently opened full payload validation must still catch a changed
++    // committed pack even when metadata admission accepts the larger inventory.
++    let mut reopened = AuditedTreeImage::open(output.clone(), archive(), mode, &authority, key(mode)).unwrap();
++    reopened.image.verify_all().unwrap();
++    let start = reopened.image.catalogue.packs[0].extent.start;
++    drop(reopened);
++    let mut damaged = output.clone();
++    let byte = damaged.read_at(start, 1).unwrap()[0] ^ 1;
++    damaged.write_at(start, &[byte]).unwrap();
++    let result = AuditedTreeImage::open(damaged, archive(), mode, &authority, key(mode));
++    assert!(result.and_then(|mut image| image.image.verify_all()).is_err());
++    assert_eq!(source.storage.read_all().unwrap(), before);
++}
++
++#[test]
++fn fresh_tree_export_metadata_budget_refusal_cleans_destination() {
++    let owner = OwnerSigningKeyPair::generate().unwrap();
++    let public = owner.public_key();
++    let mode = mode(false, false, false, false);
++    let authority = authority(mode, &public);
++    let mut entries = entries(1, 2, 17);
++    let storage = seed(mode, &authority, &owner, &entries);
++    let before = storage.read_all().unwrap();
++    let mut source = Files::open(storage, archive(), mode, &authority, key(mode)).unwrap();
++    // All directories are valid independent root children; their metadata alone
++    // exceeds the admission budget, without constructing an oversized payload.
++    for index in 0..32_768 {
++        entries.push(Metadata {
++            entry: crate::LockboxEntry {
++                path: crate::LockboxPath::new(format!("/directory-{index:05}")).unwrap(),
++                kind: crate::LockboxEntryKind::Directory,
++                len: 0,
++                permissions: 0o755,
++            },
++            target: None,
++        });
++    }
++    let output = SharedMemory::new(Vec::new());
++    let result = tree_image::from_candidate(&mut source, output.clone(), &authority, None, key(mode), &entries);
++    assert!(matches!(result, Err(Error::SecurityLimitExceeded(ref reason)) if reason.contains("metadata byte budget")));
+     assert_eq!(output.len().unwrap(), 0);
+     assert_eq!(source.storage.read_all().unwrap(), before);
+ }
+diff --git a/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/fresh.rs b/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/fresh.rs
+index 94f99502..6ca4d668 100644
+--- a/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/fresh.rs
++++ b/rust/revault_lockbox_api/src/file_format/candidate_files/tree_image/fresh.rs
+@@ -32,7 +32,7 @@ pub(in crate::file_format::candidate_files) fn from_candidate<S: Storage, T: Sto
+     }
+     let result = (|| {
+         destination.append(&vec![0; REGION_LEN])?;
+-        let repacked = super::super::cost_model::repack_into(source, |extent, bytes| {
++        let repacked = super::super::cost_model::repack_tree_into(source, entries, |extent, bytes| {
+             if destination.append(bytes)? != extent.start {
+                 return Err(Error::CorruptRecord);
+             }
+@@ -45,6 +45,7 @@ pub(in crate::file_format::candidate_files) fn from_candidate<S: Storage, T: Sto
+         let mut catalogue = repacked.into_catalogue(&codec)?;
+         catalogue.set_tree_metadata(entries)?;
+         catalogue.verify_padding(&destination, &codec)?;
++        let catalogue = {
+         let mut unpublished = Image {
+             storage: allocation::compaction::View(&destination),
+             anchor: Anchor {
+@@ -56,34 +57,30 @@ pub(in crate::file_format::candidate_files) fn from_candidate<S: Storage, T: Sto
+             codec,
+         };
+         unpublished.verify_all()?;
+-        let mut rows = Vec::new();
+-        for pack in &unpublished.catalogue.packs {
+-            rows.push(Entry::new(
+-                0,
+-                &[vec![2], pack.extent.start.to_be_bytes().to_vec()].concat(),
+-                &[
+-                    pack.extent.len.to_le_bytes().to_vec(),
+-                    pack.extent.digest.to_vec(),
+-                ]
+-                .concat(),
+-            )?);
+-        }
+-        rows.extend(unpublished.catalogue.tree_records()?);
+-        drop(unpublished);
++        unpublished.catalogue
++        };
+         let end = destination.len()?;
+         let aligned = end.div_ceil(FAILURE_REGION) * FAILURE_REGION;
+-        if aligned > end {
++        let vacancy = if aligned > end {
+             destination.append(&vec![0; (aligned - end) as usize])?;
+-            rows.push(Entry::new(
++            Some(Entry::new(
+                 0,
+                 &[vec![0], end.to_be_bytes().to_vec()].concat(),
+                 &(aligned - end).to_le_bytes(),
+-            )?);
+-        }
+-        rows.sort_by(|a, b| (a.namespace, a.key.as_slice()).cmp(&(b.namespace, b.key.as_slice())));
++            )?)
++        } else { None };
++        let ownership = catalogue.packs.iter().map(|pack| {
++            Entry::new(0,
++                &[vec![2], pack.extent.start.to_be_bytes().to_vec()].concat(),
++                &[pack.extent.len.to_le_bytes().to_vec(), pack.extent.digest.to_vec()].concat())
++        });
++        let rows = vacancy.into_iter().map(Ok).chain(ownership)
++            .chain(catalogue.fresh_tree_records()?);
+         let root = Index::new(archive, mode, key)?
+-            .build_sorted(&mut destination, rows.into_iter().map(Ok))?
++            .build_sorted(&mut destination, rows)?
+             .root;
++        // Release construction metadata before independently reopening/auditing.
++        drop(catalogue);
+         // Detect source publication changes before publishing copied authority.
+         if publication::select(&source.storage, archive, mode, authority)?.commitment
+             != selected.commitment
+diff --git a/rust/revault_lockbox_api/src/file_format/mod.rs b/rust/revault_lockbox_api/src/file_format/mod.rs
+index 36a769e0..7c0e89ac 100644
+--- a/rust/revault_lockbox_api/src/file_format/mod.rs
++++ b/rust/revault_lockbox_api/src/file_format/mod.rs
+@@ -45,6 +45,9 @@ pub(crate) mod preparation_journal;
+ #[cfg(test)]
+ pub(crate) mod allocation_map;
+ 
++#[cfg(test)]
++pub(crate) mod metadata_budget;
++
+ // Candidate C data codec; only the test comparison harness uses this encoding.
+ #[cfg(test)]
+ pub(crate) mod data_extent;
+diff --git a/rust/revault_lockbox_api/src/file_format/publication_anchor/shared/ownership.rs b/rust/revault_lockbox_api/src/file_format/publication_anchor/shared/ownership.rs
+index 72c2c9b1..b5d874d1 100644
+--- a/rust/revault_lockbox_api/src/file_format/publication_anchor/shared/ownership.rs
++++ b/rust/revault_lockbox_api/src/file_format/publication_anchor/shared/ownership.rs
+@@ -5,7 +5,7 @@
+ use super::*;
+ use crate::file_format::allocation_map::Extent;
+ use std::collections::BTreeMap;
+-const MAX_CLAIMS: usize = 8192;
++use crate::file_format::metadata_budget as memory;
+ #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+ pub(crate) struct Span {
+     pub start: u64,
+@@ -207,7 +207,9 @@ impl Graph {
+         if claim.span.len == 0 || end > self.anchor.sealed_len {
+             return Err(Error::CorruptRecord);
+         }
+-        if self.claims.len() == MAX_CLAIMS {
++        // Includes B-tree node overhead/slack, alongside the independently
++        // budgeted traversal arrays and typed catalogue in an audited open.
++        if self.claims.len() >= memory::GRAPH_BYTES / memory::CLAIM {
+             return Err(Error::SecurityLimitExceeded(
+                 "bounded shared ownership graph".into(),
+             ));
+diff --git a/rust/revault_lockbox_api/src/file_format/publication_anchor/shared/tree.rs b/rust/revault_lockbox_api/src/file_format/publication_anchor/shared/tree.rs
+index a70b3f89..817d1131 100644
+--- a/rust/revault_lockbox_api/src/file_format/publication_anchor/shared/tree.rs
++++ b/rust/revault_lockbox_api/src/file_format/publication_anchor/shared/tree.rs
+@@ -5,9 +5,11 @@ use super::*;
+ use crate::file_format::allocation_map::Extent;
+ use crate::file_format::authenticated_index::{Entry, EntryRef, Index, VisitRef};
+ use ownership::{Graph, Span, Vacant, VacantKind};
++use crate::file_format::metadata_budget as memory;
+ 
+ const MAGIC: &[u8; 8] = b"RV4TRE01";
+ const OWNERSHIP: u8 = 0;
++// Transaction rewrite staging retains its separate, narrower operation limit.
+ const MAX_PAGES: usize = 4096;
+ pub(crate) const MAX_OWNERSHIP_RECORDS: usize = 4096;
+ 
+@@ -178,15 +180,12 @@ impl Tree {
+                 });
+             }
+         }
+-        let mut ownership_records = 0;
++        let mut budget = memory::Budget::new(memory::TREE_BYTES);
++        budget.take(2 * memory::OWNERSHIP)?;
+         index.visit_borrowed(storage, root, anchor.sealed_len, |event| {
+             match event {
+                 VisitRef::Page(reference) => {
+-                    if pages.len() == MAX_PAGES {
+-                        return Err(Error::SecurityLimitExceeded(
+-                            "overflow page ownership bound".into(),
+-                        ));
+-                    }
++                    budget.take(memory::PAGE)?;
+                     // Each node copy owns one aligned failure-region allocation.
+                     // Short unpadded node tails are derived zero/free space, not
+                     // another caller-controlled ownership record or hidden data.
+@@ -212,12 +211,7 @@ impl Tree {
+                     pages.push(reference);
+                 }
+                 VisitRef::Entry(entry) if entry.namespace == OWNERSHIP => {
+-                    ownership_records += 1;
+-                    if ownership_records > MAX_OWNERSHIP_RECORDS {
+-                        return Err(Error::SecurityLimitExceeded(
+-                            "overflow allocation record bound".into(),
+-                        ));
+-                    }
++                    budget.take(memory::OWNERSHIP)?;
+                     if entry.key.len() != 9 || entry.value.len() < 8 {
+                         return Err(Error::CorruptRecord);
+                     }

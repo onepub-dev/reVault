@@ -231,7 +231,55 @@ pub(super) fn project_into<S: Storage>(
 
 pub(super) fn repack_into<S: Storage>(
     archive: &mut Files<S>,
+    emit: impl FnMut(Extent, &[u8]) -> Result<()>,
+) -> Result<Repacked> {
+    repack_bounded(archive, emit, false)
+}
+
+pub(super) fn repack_tree_into<S: Storage>(
+    archive: &mut Files<S>,
+    metadata: &[super::dense_catalogue::Metadata],
+    emit: impl FnMut(Extent, &[u8]) -> Result<()>,
+) -> Result<Repacked> {
+    use crate::file_format::metadata_budget as memory;
+    // Preflight precedes the source audit's retained file/coverage maps and all
+    // copying. One pack per fragment is a conservative bound on repack output.
+    let mut budget = memory::Budget::new(memory::TYPED_BYTES);
+    archive.index.visit(
+        &archive.storage,
+        archive.anchor.index,
+        archive.anchor.sealed_len,
+        |entry| {
+            match entry.namespace {
+                FILE => {
+                    budget.take(memory::FILE)?;
+                    budget.paths(entry.key.len())?;
+                }
+                CHUNK => budget.take(memory::FRAGMENT + memory::PACK)?,
+                _ => return Err(Error::CorruptRecord),
+            }
+            Ok(())
+        },
+    )?;
+    for entry in metadata {
+        if entry.entry.kind != crate::LockboxEntryKind::File {
+            budget.take(memory::FILE)?;
+            budget.paths(entry.entry.path.as_str().len())?;
+            budget.paths(
+                entry
+                    .target
+                    .as_ref()
+                    .map_or(0, |target| target.as_str().len()),
+            )?;
+        }
+    }
+    repack_bounded(archive, emit, true)
+}
+
+fn repack_bounded<S: Storage>(
+    archive: &mut Files<S>,
     mut emit: impl FnMut(Extent, &[u8]) -> Result<()>,
+    tree: bool,
 ) -> Result<Repacked> {
     archive.audit_with(true)?;
     let mut files = Vec::<File>::new();
@@ -245,7 +293,7 @@ pub(super) fn repack_into<S: Storage>(
             let owned = OwnedRecord::decode(&entry.value)?;
             match entry.namespace {
                 FILE => {
-                    if files.len() >= 1024 {
+                    if !tree && files.len() >= 1024 {
                         return Err(Error::SecurityLimitExceeded(
                             "cost model: at most 1024 files".into(),
                         ));
@@ -260,7 +308,7 @@ pub(super) fn repack_into<S: Storage>(
                 }
                 CHUNK => {
                     chunks += 1;
-                    if chunks > 4096 {
+                    if !tree && chunks > 4096 {
                         return Err(Error::SecurityLimitExceeded(
                             "cost model: at most 4096 fragments".into(),
                         ));

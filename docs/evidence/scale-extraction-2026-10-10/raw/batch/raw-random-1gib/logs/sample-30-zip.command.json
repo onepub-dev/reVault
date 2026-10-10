@@ -1,0 +1,22 @@
+{
+  "command": [
+    "taskset",
+    "-c",
+    "2",
+    "/usr/bin/time",
+    "-v",
+    "timeout",
+    "900",
+    "/tmp/revault-scale-20261010/evidence/bin/archive_evaluation",
+    "extract-zip",
+    "/home/bsutton/.cache/revault-performance-20261010-large/scale-v1/raw-random-1gib",
+    "/home/bsutton/.cache/revault-performance-20261010-large/scale-v1/raw-random-1gib/extract-output/sample-30-zip"
+  ],
+  "environment": {},
+  "case": "raw-random-1gib",
+  "backend": "zip",
+  "pair_index": 30,
+  "warmup": false,
+  "candidate_sha256_before": "637054a803b1d16c00e37adff59bbb2be801eaecc95cc8a6a9e971c77c2b6784",
+  "output_directory": "/home/bsutton/.cache/revault-performance-20261010-large/scale-v1/raw-random-1gib/extract-output/sample-30-zip"
+}

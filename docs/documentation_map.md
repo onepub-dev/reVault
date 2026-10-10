@@ -122,3 +122,5 @@ and development failures; path installation and full-format acceptance are separ
 - [Journal decoded-buffer normalization](evidence/journal-buffer-2026-10-10/README.md): small measured improvement; disk-backed real-world scale remains unqualified.
 
 - [Disk-backed capacity checks](evidence/large-capacity-2026-10-10/README.md): realistic workload correction, experimental construction limits and outstanding scale qualification.
+
+- [Bounded construction and disk-backed extraction](evidence/scale-extraction-2026-10-10/README.md): successful GiB/10,000-file gates and paired filesystem extraction evidence with CPU/RSS.

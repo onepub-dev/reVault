@@ -4,8 +4,8 @@
 //! the journal and both durable publications must authorize actual execution.
 use super::*;
 use crate::file_format::allocation_map::Extent;
+use crate::file_format::metadata_budget as memory;
 use std::collections::BTreeMap;
-const MAX_CLAIMS: usize = 8192;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct Span {
     pub start: u64,
@@ -207,7 +207,9 @@ impl Graph {
         if claim.span.len == 0 || end > self.anchor.sealed_len {
             return Err(Error::CorruptRecord);
         }
-        if self.claims.len() == MAX_CLAIMS {
+        // Includes B-tree node overhead/slack, alongside the independently
+        // budgeted traversal arrays and typed catalogue in an audited open.
+        if self.claims.len() >= memory::GRAPH_BYTES / memory::CLAIM {
             return Err(Error::SecurityLimitExceeded(
                 "bounded shared ownership graph".into(),
             ));

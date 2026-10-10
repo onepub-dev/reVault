@@ -1,0 +1,7 @@
+
+running 1 test
+test file_format::candidate_files::resource_probe::candidate_file_resource_probe ... CANDIDATE_SAMPLE {"backend":"typed-tree","durability":"write/flush/close; no fsync; directory creation included","files":10000,"kind":"filesystem_extraction","logical_bytes_written":655360000,"mib_per_second":433.16058967563526,"open_seconds":0.000481397,"resources":{"cpu":{"cpu_seconds":1.4426350000000001,"major_faults":0,"system_seconds":0.8224629999999999,"user_seconds":0.620172},"peak_rss_kib":10124},"scope":"synthetic regular-file component; excludes CLI startup and permission restoration","total_seconds":1.442882882,"verified":true}
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 674 filtered out; finished in 1.70s
+

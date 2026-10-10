@@ -112,7 +112,7 @@ pub(super) fn run(
         );
         return;
     }
-    assert_eq!(phase, "tree-sample");
+    assert!(matches!(phase, "tree-sample" | "tree-extract"));
     let public = OwnerSigningPublicKey::from_bytes(&std::fs::read(&public_path).unwrap()).unwrap();
     let authority = if mode.signed() {
         Authority::Owner(&public)
@@ -131,6 +131,40 @@ pub(super) fn run(
         )
         .unwrap()
     };
+    if phase == "tree-extract" {
+        let output = std::path::PathBuf::from(std::env::var_os("REVAULT_EXTRACT_OUTPUT").unwrap());
+        let before = Resources::now();
+        let mut result = extraction::measure(
+            root,
+            &output,
+            count,
+            bytes,
+            open,
+            |image, index, file| {
+                let path = TreeImage::<StorageBackend>::stored_name(index);
+                let mut copied = 0;
+                image
+                    .image
+                    .read_range(path.as_bytes(), 0, bytes, |chunk| {
+                        // Match ZIP's output syscall bound even for larger decoded units.
+                        for part in chunk.chunks(65_536) {
+                            file.write_all(part).unwrap();
+                            copied += part.len() as u64;
+                        }
+                        Ok(())
+                    })
+                    .unwrap();
+                copied
+            },
+            || {
+                let after = Resources::now();
+                json!({"cpu":after.delta(before),"peak_rss_kib":after.peak})
+            },
+        );
+        result["backend"] = json!("typed-tree");
+        println!("CANDIDATE_SAMPLE {result}");
+        return;
+    }
     if let Ok(repeats) = std::env::var("REVAULT_TREE_OPEN_DIAGNOSTIC") {
         let repeats: usize = repeats.parse().unwrap();
         assert!((1..=1000).contains(&repeats));

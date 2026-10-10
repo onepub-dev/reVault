@@ -1,0 +1,8 @@
+{
+  "existing_apparent_logical_bytes_below_parent": 6953360216,
+  "projected_remaining_new_bytes": 5187305472,
+  "projected_total_bytes": 12140665688,
+  "artifact_cap_bytes": 21474836480,
+  "available_bytes": 1558080524288,
+  "capacity_assertion_passed": true
+}

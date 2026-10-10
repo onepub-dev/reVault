@@ -1,0 +1,27 @@
+{
+  "case": "raw-random-1gib",
+  "source_before": {
+    "inventory_sha256": "de96aec9691a38fb23dc9b565a1e03a197ad579a7d46863810c502164aa47b06",
+    "file_count": "1",
+    "aggregate_manifest_sha256": "cb4133c072d9731c1adf4df31b5da4762af25eeb0de5de13ffbd806337be0ec2"
+  },
+  "source_after": {
+    "inventory_sha256": "de96aec9691a38fb23dc9b565a1e03a197ad579a7d46863810c502164aa47b06",
+    "file_count": "1",
+    "aggregate_manifest_sha256": "cb4133c072d9731c1adf4df31b5da4762af25eeb0de5de13ffbd806337be0ec2"
+  },
+  "archive_sha256_before": "f6d5258ad27006cde6bd8dcf3000c49905056cb1edcf9456421bc082b6489ab0",
+  "archive_sha256_after": "f6d5258ad27006cde6bd8dcf3000c49905056cb1edcf9456421bc082b6489ab0",
+  "tree_sha256_before": "04c7af72eebefd1b97e5ec16b196c7f303f6cd2512c7073d257c2bae22ad5255",
+  "tree_sha256_after": "04c7af72eebefd1b97e5ec16b196c7f303f6cd2512c7073d257c2bae22ad5255",
+  "stable": true,
+  "completed_pairs": 33,
+  "warmup_pair_count_planned": 3,
+  "measured_pair_count_planned": 30,
+  "backend_sample_counts": {
+    "zip": 33,
+    "typed-tree": 33
+  },
+  "generator_caveat": null,
+  "failure": null
+}

@@ -45,6 +45,9 @@ pub(crate) mod preparation_journal;
 #[cfg(test)]
 pub(crate) mod allocation_map;
 
+#[cfg(test)]
+pub(crate) mod metadata_budget;
+
 // Candidate C data codec; only the test comparison harness uses this encoding.
 #[cfg(test)]
 pub(crate) mod data_extent;

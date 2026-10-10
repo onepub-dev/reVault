@@ -4,10 +4,12 @@
 use super::*;
 use crate::file_format::allocation_map::Extent;
 use crate::file_format::authenticated_index::{Entry, EntryRef, Index, VisitRef};
+use crate::file_format::metadata_budget as memory;
 use ownership::{Graph, Span, Vacant, VacantKind};
 
 const MAGIC: &[u8; 8] = b"RV4TRE01";
 const OWNERSHIP: u8 = 0;
+// Transaction rewrite staging retains its separate, narrower operation limit.
 const MAX_PAGES: usize = 4096;
 pub(crate) const MAX_OWNERSHIP_RECORDS: usize = 4096;
 
@@ -178,15 +180,12 @@ impl Tree {
                 });
             }
         }
-        let mut ownership_records = 0;
+        let mut budget = memory::Budget::new(memory::TREE_BYTES);
+        budget.take(2 * memory::OWNERSHIP)?;
         index.visit_borrowed(storage, root, anchor.sealed_len, |event| {
             match event {
                 VisitRef::Page(reference) => {
-                    if pages.len() == MAX_PAGES {
-                        return Err(Error::SecurityLimitExceeded(
-                            "overflow page ownership bound".into(),
-                        ));
-                    }
+                    budget.take(memory::PAGE)?;
                     // Each node copy owns one aligned failure-region allocation.
                     // Short unpadded node tails are derived zero/free space, not
                     // another caller-controlled ownership record or hidden data.
@@ -212,12 +211,7 @@ impl Tree {
                     pages.push(reference);
                 }
                 VisitRef::Entry(entry) if entry.namespace == OWNERSHIP => {
-                    ownership_records += 1;
-                    if ownership_records > MAX_OWNERSHIP_RECORDS {
-                        return Err(Error::SecurityLimitExceeded(
-                            "overflow allocation record bound".into(),
-                        ));
-                    }
+                    budget.take(memory::OWNERSHIP)?;
                     if entry.key.len() != 9 || entry.value.len() < 8 {
                         return Err(Error::CorruptRecord);
                     }

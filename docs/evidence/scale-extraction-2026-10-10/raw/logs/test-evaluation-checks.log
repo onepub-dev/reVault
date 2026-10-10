@@ -1,0 +1,33 @@
+   Compiling revault_lockbox_api v0.0.41 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api)
+    Finished `release` profile [optimized] target(s) in 28.15s
+     Running tests/evaluation_checks.rs (/tmp/revault-tree-open-stages-20261010/target/release/deps/evaluation_checks-5953c9776633eec3)
+
+running 6 tests
+test runner::existing::tests::only_zip_may_have_reduced_protection ... 
+thread 'runner::existing::tests::only_zip_may_have_reduced_protection' panicked at revault_lockbox_api/tests/../benches/evaluation/existing.rs:20:5:
+assertion `left == right` failed: fixture settings differ
+  left: Object {"bytes": Number(4096), "compressed": Bool(true), "corpus": String("mixed"), "files": Number(512), "mode": String("encrypted-signed"), "unpadded": Bool(false)}
+ right: Object {"bytes": Number(4096), "compressed": Bool(true), "corpus": String("mixed"), "files": Number(512), "mode": String("plain"), "unpadded": Bool(false)}
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'runner::existing::tests::only_zip_may_have_reduced_protection' panicked at revault_lockbox_api/tests/../benches/evaluation/existing.rs:20:5:
+assertion `left == right` failed: fixture settings differ
+  left: Object {"bytes": Number(4096), "compressed": Bool(true), "corpus": String("mixed"), "files": Number(512), "mode": String("plain"), "unpadded": Bool(false)}
+ right: Object {"bytes": Number(4097), "compressed": Bool(true), "corpus": String("mixed"), "files": Number(512), "mode": String("plain"), "unpadded": Bool(false)}
+ok
+test runner::extraction::tests::extraction_checks_reopened_bytes_across_buffer_boundary ... ok
+test runner::extraction::tests::extraction_refuses_existing_destination_before_opening_archive ... 
+thread 'runner::extraction::tests::extraction_refuses_existing_destination_before_opening_archive' panicked at revault_lockbox_api/tests/../benches/evaluation/../../src/benchmark_extraction.rs:17:5:
+extraction requires a fresh destination
+ok
+test runner::extraction::tests::extraction_rejects_wrong_output_even_with_correct_reported_count ... 
+thread 'runner::extraction::tests::extraction_rejects_wrong_output_even_with_correct_reported_count' panicked at revault_lockbox_api/tests/../benches/evaluation/../../src/benchmark_extraction.rs:51:13:
+assertion `left == right` failed: file-000000.bin: output bytes differ
+  left: [99, 111, 114, 114, 101, 99, 116]
+ right: [99, 111, 114, 114, 117, 112, 116]
+ok
+test runner::tests::corpus_generation_is_independent_of_read_chunking ... ok
+test runner::tests::paired_interval_preserves_known_ratios_and_reproducibility ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+

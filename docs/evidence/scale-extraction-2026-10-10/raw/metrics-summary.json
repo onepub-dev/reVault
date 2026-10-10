@@ -1,0 +1,62 @@
+{
+  "cases": {
+    "raw-random-1gib": {
+      "pairs": 30,
+      "elapsed_tree_over_zip": {
+        "geometric_mean": 1.4748221963783446,
+        "low95": 1.4020087883848316,
+        "high95": 1.5464011154160109
+      },
+      "cpu_tree_over_zip": {
+        "geometric_mean": 1.4765036135031107,
+        "low95": 1.4238823363667772,
+        "high95": 1.526319312421778
+      },
+      "zip": {
+        "median_seconds": 0.9864398715,
+        "median_mib_per_second": 1038.076964618449,
+        "median_cpu_seconds": 0.986341,
+        "max_timed_peak_rss_kib": 4372.0,
+        "max_process_peak_rss_kib": 8292.0
+      },
+      "typed-tree": {
+        "median_seconds": 1.474626956,
+        "median_mib_per_second": 694.4129129301045,
+        "median_cpu_seconds": 1.4744565,
+        "max_timed_peak_rss_kib": 10492.0,
+        "max_process_peak_rss_kib": 10492.0
+      }
+    },
+    "raw-mixed-10000x64k": {
+      "pairs": 30,
+      "elapsed_tree_over_zip": {
+        "geometric_mean": 1.603303349662651,
+        "low95": 1.5352806485927062,
+        "high95": 1.668552502378672
+      },
+      "cpu_tree_over_zip": {
+        "geometric_mean": 1.6036481320491789,
+        "low95": 1.5398054977319178,
+        "high95": 1.6631936399746197
+      },
+      "zip": {
+        "median_seconds": 0.8940975705,
+        "median_mib_per_second": 699.0296565053538,
+        "median_cpu_seconds": 0.8936290000000001,
+        "max_timed_peak_rss_kib": 10532.0,
+        "max_process_peak_rss_kib": 10532.0
+      },
+      "typed-tree": {
+        "median_seconds": 1.453337278,
+        "median_mib_per_second": 430.04476205000503,
+        "median_cpu_seconds": 1.4529345,
+        "max_timed_peak_rss_kib": 10640.0,
+        "max_process_peak_rss_kib": 10868.0
+      }
+    }
+  },
+  "bootstrap_seed": 31020261010,
+  "bootstrap_resamples": 10000,
+  "measurement": "warm-cache one-worker filesystem extraction; no fsync; exact output verification outside timing",
+  "qualification": "component evidence only; no CLI RSS or TB/million-file claim"
+}

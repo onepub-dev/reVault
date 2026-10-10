@@ -22,6 +22,20 @@ or erase failures.
 
 ## Current position and next work
 
+### Disk-backed scale and extraction milestone — 2026-10-10
+
+The [bounded construction and extraction evidence](evidence/scale-extraction-2026-10-10/README.md)
+supersedes the failed first capacity attempts for the new implementation. Both
+1 GiB and 10,000-file/625 MiB fixtures now create and independently verify.
+Fresh index records are streamed, and writer/readers apply shared metadata byte
+budgets while preserving integrity and refusal/cleanup behavior. The fixed
+30-pair one-worker comparison measures actual filesystem extraction, CPU and RSS.
+It is warm-cache Btrfs, raw/plain and write/close without fsync, not public CLI or
+cold-I/O qualification. The prior failures and small-fixture results remain
+historical evidence. TB/million-entry streaming, broader modes, mutation scale,
+parallel reads and the G11 release gates remain outstanding. The user’s 50%
+remaining usage cutoff still applies.
+
 ### Performance resumed with 50% remaining cutoff — 2026-10-10
 
 The user explicitly resumed work until usage remaining reaches 50%. This

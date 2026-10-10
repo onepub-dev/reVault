@@ -32,12 +32,13 @@ pub(in crate::file_format::candidate_files) fn from_candidate<S: Storage, T: Sto
     }
     let result = (|| {
         destination.append(&vec![0; REGION_LEN])?;
-        let repacked = super::super::cost_model::repack_into(source, |extent, bytes| {
-            if destination.append(bytes)? != extent.start {
-                return Err(Error::CorruptRecord);
-            }
-            Ok(())
-        })?;
+        let repacked =
+            super::super::cost_model::repack_tree_into(source, entries, |extent, bytes| {
+                if destination.append(bytes)? != extent.start {
+                    return Err(Error::CorruptRecord);
+                }
+                Ok(())
+            })?;
         if repacked.end() != destination.len()? {
             return Err(Error::CorruptRecord);
         }
@@ -45,20 +46,34 @@ pub(in crate::file_format::candidate_files) fn from_candidate<S: Storage, T: Sto
         let mut catalogue = repacked.into_catalogue(&codec)?;
         catalogue.set_tree_metadata(entries)?;
         catalogue.verify_padding(&destination, &codec)?;
-        let mut unpublished = Image {
-            storage: allocation::compaction::View(&destination),
-            anchor: Anchor {
-                sealed_len: destination.len()?,
-                ..source.anchor.clone()
-            },
-            value_key: super::super::dense_image::value_key_for(&catalogue, mode, key)?,
-            catalogue,
-            codec,
+        let catalogue = {
+            let mut unpublished = Image {
+                storage: allocation::compaction::View(&destination),
+                anchor: Anchor {
+                    sealed_len: destination.len()?,
+                    ..source.anchor.clone()
+                },
+                value_key: super::super::dense_image::value_key_for(&catalogue, mode, key)?,
+                catalogue,
+                codec,
+            };
+            unpublished.verify_all()?;
+            unpublished.catalogue
         };
-        unpublished.verify_all()?;
-        let mut rows = Vec::new();
-        for pack in &unpublished.catalogue.packs {
-            rows.push(Entry::new(
+        let end = destination.len()?;
+        let aligned = end.div_ceil(FAILURE_REGION) * FAILURE_REGION;
+        let vacancy = if aligned > end {
+            destination.append(&vec![0; (aligned - end) as usize])?;
+            Some(Entry::new(
+                0,
+                &[vec![0], end.to_be_bytes().to_vec()].concat(),
+                &(aligned - end).to_le_bytes(),
+            )?)
+        } else {
+            None
+        };
+        let ownership = catalogue.packs.iter().map(|pack| {
+            Entry::new(
                 0,
                 &[vec![2], pack.extent.start.to_be_bytes().to_vec()].concat(),
                 &[
@@ -66,24 +81,18 @@ pub(in crate::file_format::candidate_files) fn from_candidate<S: Storage, T: Sto
                     pack.extent.digest.to_vec(),
                 ]
                 .concat(),
-            )?);
-        }
-        rows.extend(unpublished.catalogue.tree_records()?);
-        drop(unpublished);
-        let end = destination.len()?;
-        let aligned = end.div_ceil(FAILURE_REGION) * FAILURE_REGION;
-        if aligned > end {
-            destination.append(&vec![0; (aligned - end) as usize])?;
-            rows.push(Entry::new(
-                0,
-                &[vec![0], end.to_be_bytes().to_vec()].concat(),
-                &(aligned - end).to_le_bytes(),
-            )?);
-        }
-        rows.sort_by(|a, b| (a.namespace, a.key.as_slice()).cmp(&(b.namespace, b.key.as_slice())));
+            )
+        });
+        let rows = vacancy
+            .into_iter()
+            .map(Ok)
+            .chain(ownership)
+            .chain(catalogue.fresh_tree_records()?);
         let root = Index::new(archive, mode, key)?
-            .build_sorted(&mut destination, rows.into_iter().map(Ok))?
+            .build_sorted(&mut destination, rows)?
             .root;
+        // Release construction metadata before independently reopening/auditing.
+        drop(catalogue);
         // Detect source publication changes before publishing copied authority.
         if publication::select(&source.storage, archive, mode, authority)?.commitment
             != selected.commitment

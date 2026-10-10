@@ -2,6 +2,7 @@
 //! are separate bounded records; no file descriptor grows with its payload.
 use super::*;
 use crate::file_format::authenticated_index::{Entry, EntryRef};
+use crate::file_format::metadata_budget as memory;
 use crate::file_format::publication_anchor::shared::tree::Tree;
 use std::collections::BTreeMap;
 const FILE_RECORD: u8 = 1;
@@ -13,6 +14,92 @@ const VARIABLE_RECORD: u8 = 6;
 const MAX_NODES: usize = 100_000;
 
 impl Catalogue {
+    /// Account for materialized filesystem metadata and its temporary joins and
+    /// coverage vectors, including worst-case geometric vector capacity slack.
+    pub(super) fn tree_budget(&self) -> Result<memory::Budget> {
+        let mut budget = memory::Budget::new(memory::TYPED_BYTES);
+        for file in &self.files {
+            budget.take(memory::FILE)?;
+            budget.paths(file.path.len())?;
+            for _ in &file.fragments {
+                budget.take(memory::FRAGMENT)?;
+            }
+        }
+        for _ in &self.packs {
+            budget.take(memory::PACK)?;
+        }
+        for node in &self.nodes {
+            budget.take(memory::FILE)?;
+            budget.paths(node.path.len())?;
+            budget.paths(node.target.as_ref().map_or(0, |target| target.len()))?;
+        }
+        for variable in &self.variables {
+            budget.take(memory::VARIABLE)?;
+            budget.paths(variable.name.as_str().len())?;
+        }
+        self.forms.admit_tree_budget(&mut budget)?;
+        Ok(budget)
+    }
+
+    /// Fresh filesystem export only. Produce one private entry at a time in
+    /// namespace/key order, retaining only a file-reference permutation for the
+    /// object-ID ordered fragment namespace. No complete serialized row copy.
+    pub(in crate::file_format::candidate_files) fn fresh_tree_records(
+        &self,
+    ) -> Result<impl Iterator<Item = Result<Entry>> + '_> {
+        if !self.typed || !self.variables.is_empty() || !self.forms.is_empty() {
+            return Err(Error::InvalidOperation(
+                "fresh filesystem catalogue required".into(),
+            ));
+        }
+        self.tree_budget()?;
+        nodes::validate_bounded(&self.files, &self.nodes, MAX_NODES)?;
+        let mut by_id: Vec<_> = self.files.iter().collect();
+        by_id.sort_unstable_by_key(|file| file.info.id);
+        if by_id
+            .windows(2)
+            .any(|pair| pair[0].info.id == pair[1].info.id)
+        {
+            return Err(Error::CorruptRecord);
+        }
+        let files = self.files.iter().map(|file| {
+            let mut value = Zeroizing::new(file.permissions.to_le_bytes().to_vec());
+            value.extend_from_slice(&file.info.encode());
+            Entry::new(FILE_RECORD, &file.path, &value)
+        });
+        let fragments = by_id.into_iter().flat_map(move |file| {
+            file.fragments.iter().map(move |fragment| {
+                let mut name = file.info.id.to_vec();
+                name.extend_from_slice(&fragment.descriptor.ordinal.to_be_bytes());
+                let mut value = Zeroizing::new(fragment.descriptor.encode().to_vec());
+                value.extend_from_slice(&self.packs[fragment.pack].extent.start.to_le_bytes());
+                value.extend_from_slice(&(fragment.relative as u64).to_le_bytes());
+                value.extend_from_slice(&fragment.digest);
+                Entry::new(FRAGMENT_RECORD, &name, &value)
+            })
+        });
+        let packs = self.packs.iter().map(|pack| {
+            let mut value = pack.extent.len.to_le_bytes().to_vec();
+            value.extend_from_slice(&pack.extent.digest);
+            value.extend_from_slice(&pack.padding_digest);
+            Entry::new(PACK_RECORD, &pack.extent.start.to_be_bytes(), &value)
+        });
+        let nodes = self.nodes.iter().map(|node| {
+            let mut value = Zeroizing::new(vec![if node.target.is_some() { 2 } else { 3 }]);
+            value.extend_from_slice(&node.permissions.to_le_bytes());
+            if let Some(target) = &node.target {
+                value.extend_from_slice(target);
+            }
+            Entry::new(NODE_RECORD, &node.path, &value)
+        });
+        Ok(files
+            .chain(fragments)
+            .chain(packs)
+            .chain(nodes)
+            .chain(std::iter::once_with(|| {
+                Entry::new(FORMAT_RECORD, b"format", b"RV4FS001")
+            })))
+    }
     pub(in crate::file_format::candidate_files) fn dense_body_if_fits(
         &self,
         codec: &Codec,
@@ -34,12 +121,21 @@ impl Catalogue {
         &mut self,
         entries: &[Metadata],
     ) -> Result<()> {
+        let mut budget = self.tree_budget()?;
         let mut bytes = 0usize;
         for metadata in entries {
             bytes = bytes
                 .checked_add(metadata.entry.path.as_str().len())
                 .ok_or(Error::CorruptRecord)?;
             if metadata.entry.kind != crate::LockboxEntryKind::File {
+                budget.take(memory::FILE)?;
+                budget.paths(metadata.entry.path.as_str().len())?;
+                budget.paths(
+                    metadata
+                        .target
+                        .as_ref()
+                        .map_or(0, |target| target.as_str().len()),
+                )?;
                 bytes = bytes
                     .checked_add(
                         5 + metadata
@@ -56,6 +152,9 @@ impl Catalogue {
         self.set_metadata_bounded(entries, MAX_NODES)
     }
     pub(in crate::file_format::candidate_files) fn tree_records(&self) -> Result<Vec<Entry>> {
+        // All mutation/export writers use the same admission as audited open,
+        // before allocating complete rows or authorizing any publication.
+        self.tree_budget()?;
         if !self.typed {
             return Err(Error::InvalidOperation(
                 "typed filesystem metadata required".into(),
@@ -156,9 +255,12 @@ impl Catalogue {
         let mut format = 0;
         let mut variables = Vec::new();
         let mut form_rows = Vec::new();
+        let mut budget = memory::Budget::new(memory::TYPED_BYTES);
         let tree = visit(&mut |entry| {
             match entry.namespace {
                 FILE_RECORD => {
+                    budget.take(memory::FILE)?;
+                    budget.paths(entry.key.len())?;
                     if entry.value.len() != 76 || files.len() + nodes.len() >= MAX_NODES {
                         return Err(Error::CorruptRecord);
                     }
@@ -173,10 +275,8 @@ impl Catalogue {
                     });
                 }
                 FRAGMENT_RECORD => {
-                    if entry.key.len() != 24
-                        || entry.value.len() != 112
-                        || fragments.len() >= MAX_FRAGMENTS
-                    {
+                    budget.take(memory::FRAGMENT)?;
+                    if entry.key.len() != 24 || entry.value.len() != 112 {
                         return Err(Error::CorruptRecord);
                     }
                     let descriptor = Descriptor::decode(&entry.value[..64])?;
@@ -198,10 +298,8 @@ impl Catalogue {
                     ));
                 }
                 PACK_RECORD => {
-                    if entry.key.len() != 8
-                        || entry.value.len() != 72
-                        || packs.len() >= MAX_FRAGMENTS
-                    {
+                    budget.take(memory::PACK)?;
+                    if entry.key.len() != 8 || entry.value.len() != 72 {
                         return Err(Error::CorruptRecord);
                     }
                     packs.push(Pack {
@@ -215,6 +313,9 @@ impl Catalogue {
                     });
                 }
                 NODE_RECORD => {
+                    budget.take(memory::FILE)?;
+                    budget.paths(entry.key.len())?;
+                    budget.paths(entry.value.len().saturating_sub(5))?;
                     if entry.value.len() < 5 || files.len() + nodes.len() >= MAX_NODES {
                         return Err(Error::CorruptRecord);
                     }
@@ -237,6 +338,8 @@ impl Catalogue {
                     });
                 }
                 VARIABLE_RECORD => {
+                    budget.take(memory::VARIABLE)?;
+                    budget.paths(entry.key.len())?;
                     if variables.len() >= MAX_NODES || entry.value.len() > 824 {
                         return Err(Error::CorruptRecord);
                     }
@@ -246,6 +349,8 @@ impl Catalogue {
                     variables.push(entry.to_owned()?);
                 }
                 7..=10 => {
+                    budget.take(memory::FORM)?;
+                    budget.paths(entry.key.len())?;
                     let entry = entry.to_owned()?;
                     forms::Forms::admit_row(&entry)?;
                     if form_rows.len() >= 4096 {
@@ -326,8 +431,7 @@ impl Catalogue {
         // exposed until counts, identities, extents and the full catalogue pass.
         let mut ids = BTreeMap::new();
         for (index, file) in files.iter().enumerate() {
-            if ids.insert(file.info.id, index).is_some() || file.info.count() > MAX_FRAGMENTS as u64
-            {
+            if ids.insert(file.info.id, index).is_some() {
                 return Err(Error::CorruptRecord);
             }
         }

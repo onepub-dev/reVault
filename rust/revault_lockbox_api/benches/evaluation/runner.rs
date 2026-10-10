@@ -1,4 +1,6 @@
 mod existing;
+#[path = "../../src/benchmark_extraction.rs"]
+mod extraction;
 use revault_lockbox_api::{
     Compression, Encryption, Lockbox, LockboxCreateOptions, LockboxOpen, LockboxPath,
     LockboxProtection, OwnerSigningKeyPair, ReadOnly, SecretVec, Signing, SizePadding,
@@ -431,6 +433,33 @@ pub fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let command = args.first().map(String::as_str).unwrap_or("");
     match command {
+        "extract-zip" => {
+            assert_eq!(args.len(), 3, "extract-zip ROOT NEW_OUTPUT");
+            let root = Path::new(&args[1]);
+            let output = Path::new(&args[2]);
+            let case = Case::read(root);
+            let before = Resources::now();
+            let mut result = extraction::measure(root, output, case.files, case.bytes,
+                || ZipArchive::new(File::open(root.join("archive.zip")).unwrap()).unwrap(),
+                |archive, index, output| {
+                    let mut input = archive.by_name(&Case::name(index)).unwrap();
+                    let mut buffer = [0u8; BUFFER];
+                    let mut copied = 0u64;
+                    // Read to EOF so the ZIP library completes CRC verification.
+                    loop {
+                        let n = input.read(&mut buffer).unwrap();
+                        if n == 0 { break; }
+                        output.write_all(&buffer[..n]).unwrap();
+                        copied += n as u64;
+                    }
+                    copied
+                }, || {
+                    let after = Resources::now();
+                    json!({"cpu":after.delta(before),"peak_rss_kib":after.peak_kib})
+                });
+            result["backend"] = json!("zip");
+            println!("{result}");
+        }
         "create" => {
             assert_eq!(args.len(), 3);
             assert!(matches!(args[2].as_str(), "zip" | "lockbox"));

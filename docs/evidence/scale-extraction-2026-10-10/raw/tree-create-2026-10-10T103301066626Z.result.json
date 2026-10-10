@@ -1,0 +1,31 @@
+{
+  "exit_code": 0,
+  "success": true,
+  "sample": {
+    "archive_bytes": 1083703296,
+    "archive_sha256": "04c7af72eebefd1b97e5ec16b196c7f303f6cd2512c7073d257c2bae22ad5255",
+    "kind": "typed_tree_fixture",
+    "layout": "shared-control-typed-tree",
+    "scope": "fresh direct typed export; construction is not a write-performance sample",
+    "verified": true
+  },
+  "source_inventory_after": {
+    "inventory_sha256": "de96aec9691a38fb23dc9b565a1e03a197ad579a7d46863810c502164aa47b06",
+    "file_count": "1",
+    "aggregate_manifest_sha256": "cb4133c072d9731c1adf4df31b5da4762af25eeb0de5de13ffbd806337be0ec2"
+  },
+  "archive_zip_sha256_after": "f6d5258ad27006cde6bd8dcf3000c49905056cb1edcf9456421bc082b6489ab0",
+  "candidate_sha256_after": "c3d55a2c59453263e348f986414e784fe03396a8c025f20358742399d89df868",
+  "source_stable": true,
+  "archive_stable": true,
+  "candidate_stable": true,
+  "owned_output_files_and_bytes": {
+    "raw-random-1gib/tree.lbox": 1083703296,
+    "raw-random-1gib/tree.public": 2000
+  },
+  "owned_output_files_total_bytes": 1083705296,
+  "apparent_logical_artifact_bytes_below_old_root": 6289871752,
+  "owned_output_cap_bytes": 21474836480,
+  "remaining_owned_output_cap_bytes": 15184964728,
+  "log": "/tmp/revault-scale-20261010/raw-random-1gib/tree-create-2026-10-10T103301066626Z.log"
+}

@@ -1,5 +1,7 @@
 //! Protocol adapter for the common A/B/ZIP fresh-process runner. Test-only C.
 use super::*;
+#[path = "../../benchmark_extraction.rs"]
+mod extraction;
 mod tree_probe;
 use crate::storage::StorageBackend;
 use crate::{
@@ -176,7 +178,10 @@ fn candidate_file_resource_probe() {
         },
     });
     let key = encrypted.then_some(KEY.as_slice());
-    if phase == "tree-create" || phase == "tree-sample" {
+    if matches!(
+        phase.as_str(),
+        "tree-create" | "tree-sample" | "tree-extract"
+    ) {
         tree_probe::run(&root, count, bytes, unit, mode, key, &phase);
         return;
     }

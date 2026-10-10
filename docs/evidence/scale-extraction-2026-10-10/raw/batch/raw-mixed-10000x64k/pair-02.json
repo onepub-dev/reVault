@@ -1,0 +1,143 @@
+{
+  "case": "raw-mixed-10000x64k",
+  "pair_index": 2,
+  "warmup": true,
+  "order": [
+    "zip",
+    "typed-tree"
+  ],
+  "results": [
+    {
+      "command": [
+        "taskset",
+        "-c",
+        "2",
+        "/usr/bin/time",
+        "-v",
+        "timeout",
+        "900",
+        "/tmp/revault-scale-20261010/evidence/bin/archive_evaluation",
+        "extract-zip",
+        "/home/bsutton/.cache/revault-performance-20261010-large/scale-v1/raw-mixed-10000x64k",
+        "/home/bsutton/.cache/revault-performance-20261010-large/scale-v1/raw-mixed-10000x64k/extract-output/warmup-02-zip"
+      ],
+      "environment": {},
+      "case": "raw-mixed-10000x64k",
+      "backend": "zip",
+      "pair_index": 2,
+      "warmup": true,
+      "candidate_sha256_before": "637054a803b1d16c00e37adff59bbb2be801eaecc95cc8a6a9e971c77c2b6784",
+      "output_directory": "/home/bsutton/.cache/revault-performance-20261010-large/scale-v1/raw-mixed-10000x64k/extract-output/warmup-02-zip",
+      "exit_code": 0,
+      "verified": true,
+      "sample": {
+        "backend": "zip",
+        "durability": "write/flush/close; no fsync; directory creation included",
+        "files": 10000,
+        "kind": "filesystem_extraction",
+        "logical_bytes_written": 655360000,
+        "mib_per_second": 686.4902218304402,
+        "open_seconds": 0.022060839,
+        "resources": {
+          "cpu": {
+            "cpu_seconds": 0.910309,
+            "major_faults": 0,
+            "system_seconds": 0.8231890000000001,
+            "user_seconds": 0.08712
+          },
+          "peak_rss_kib": 10352
+        },
+        "scope": "synthetic regular-file component; excludes CLI startup and permission restoration",
+        "total_seconds": 0.910428117,
+        "verified": true
+      },
+      "time_v": {
+        "user_seconds": 0.11,
+        "system_seconds": 1.05,
+        "elapsed_raw": "0:01.16",
+        "elapsed_seconds": 1.16,
+        "maximum_resident_set_kib": 10352,
+        "raw_stderr_retained_separately": true
+      },
+      "process_wall_seconds": 1.16,
+      "process_max_rss_kib": 10352,
+      "process_user_seconds": 0.11,
+      "process_system_seconds": 1.05,
+      "extracted_file_count": 10000,
+      "extracted_total_bytes": 655360000,
+      "source_verified_by_probe_after_timed_write": true,
+      "output_retained_on_failure": false,
+      "successful_output_removed_after_verification": true,
+      "apparent_logical_artifact_bytes_after_cleanup": 6953360216
+    },
+    {
+      "command": [
+        "taskset",
+        "-c",
+        "2",
+        "/usr/bin/time",
+        "-v",
+        "timeout",
+        "900",
+        "/tmp/revault-scale-20261010/evidence/bin/revault_lockbox_api_tests",
+        "--exact",
+        "file_format::candidate_files::resource_probe::candidate_file_resource_probe",
+        "--ignored",
+        "--nocapture"
+      ],
+      "environment": {
+        "REVAULT_CANDIDATE_ROOT": "/home/bsutton/.cache/revault-performance-20261010-large/scale-v1/raw-mixed-10000x64k",
+        "REVAULT_CANDIDATE_PHASE": "tree-extract",
+        "REVAULT_CANDIDATE_UNIT": "65536",
+        "REVAULT_EXTRACT_OUTPUT": "/home/bsutton/.cache/revault-performance-20261010-large/scale-v1/raw-mixed-10000x64k/extract-output/warmup-02-typed-tree"
+      },
+      "case": "raw-mixed-10000x64k",
+      "backend": "typed-tree",
+      "pair_index": 2,
+      "warmup": true,
+      "candidate_sha256_before": "c3d55a2c59453263e348f986414e784fe03396a8c025f20358742399d89df868",
+      "output_directory": "/home/bsutton/.cache/revault-performance-20261010-large/scale-v1/raw-mixed-10000x64k/extract-output/warmup-02-typed-tree",
+      "exit_code": 0,
+      "verified": true,
+      "sample": {
+        "backend": "typed-tree",
+        "durability": "write/flush/close; no fsync; directory creation included",
+        "files": 10000,
+        "kind": "filesystem_extraction",
+        "logical_bytes_written": 655360000,
+        "mib_per_second": 427.5165522438565,
+        "open_seconds": 0.000482497,
+        "resources": {
+          "cpu": {
+            "cpu_seconds": 1.461668,
+            "major_faults": 0,
+            "system_seconds": 0.852483,
+            "user_seconds": 0.609185
+          },
+          "peak_rss_kib": 10332
+        },
+        "scope": "synthetic regular-file component; excludes CLI startup and permission restoration",
+        "total_seconds": 1.4619317,
+        "verified": true
+      },
+      "time_v": {
+        "user_seconds": 0.62,
+        "system_seconds": 1.09,
+        "elapsed_raw": "0:01.71",
+        "elapsed_seconds": 1.71,
+        "maximum_resident_set_kib": 10660,
+        "raw_stderr_retained_separately": true
+      },
+      "process_wall_seconds": 1.71,
+      "process_max_rss_kib": 10660,
+      "process_user_seconds": 0.62,
+      "process_system_seconds": 1.09,
+      "extracted_file_count": 10000,
+      "extracted_total_bytes": 655360000,
+      "source_verified_by_probe_after_timed_write": true,
+      "output_retained_on_failure": false,
+      "successful_output_removed_after_verification": true,
+      "apparent_logical_artifact_bytes_after_cleanup": 6953360216
+    }
+  ]
+}

@@ -585,15 +585,66 @@ fn fresh_tree_export_refuses_authenticated_existing_access_tree() {
 }
 
 #[test]
-fn fresh_tree_export_keeps_explicit_source_file_count_limit() {
+fn fresh_tree_export_exceeds_old_file_and_fragment_counts() {
     let owner = OwnerSigningKeyPair::generate().unwrap();
     let public = owner.public_key();
     let mode = mode(false, false, false, false);
     let authority = authority(mode, &public);
-    let entries = entries(1025, 2, 0);
+    let entries = entries(10_000, 2, 17);
     let storage = seed(mode, &authority, &owner, &entries);
     let before = storage.read_all().unwrap();
     let mut source = Files::open(storage, archive(), mode, &authority, key(mode)).unwrap();
+    let output = SharedMemory::new(Vec::new());
+    tree_image::from_candidate(
+        &mut source,
+        output.clone(),
+        &authority,
+        None,
+        key(mode),
+        &entries,
+    )
+    .unwrap();
+    verify(output.clone(), mode, &authority, &entries, &source);
+    // Independently opened full payload validation must still catch a changed
+    // committed pack even when metadata admission accepts the larger inventory.
+    let mut reopened =
+        AuditedTreeImage::open(output.clone(), archive(), mode, &authority, key(mode)).unwrap();
+    reopened.image.verify_all().unwrap();
+    let start = reopened.image.catalogue.packs[0].extent.start;
+    drop(reopened);
+    let mut damaged = output.clone();
+    let byte = damaged.read_at(start, 1).unwrap()[0] ^ 1;
+    damaged.write_at(start, &[byte]).unwrap();
+    let result = AuditedTreeImage::open(damaged, archive(), mode, &authority, key(mode));
+    assert!(result
+        .and_then(|mut image| image.image.verify_all())
+        .is_err());
+    assert_eq!(source.storage.read_all().unwrap(), before);
+}
+
+#[test]
+fn fresh_tree_export_metadata_budget_refusal_cleans_destination() {
+    let owner = OwnerSigningKeyPair::generate().unwrap();
+    let public = owner.public_key();
+    let mode = mode(false, false, false, false);
+    let authority = authority(mode, &public);
+    let mut entries = entries(1, 2, 17);
+    let storage = seed(mode, &authority, &owner, &entries);
+    let before = storage.read_all().unwrap();
+    let mut source = Files::open(storage, archive(), mode, &authority, key(mode)).unwrap();
+    // All directories are valid independent root children; their metadata alone
+    // exceeds the admission budget, without constructing an oversized payload.
+    for index in 0..32_768 {
+        entries.push(Metadata {
+            entry: crate::LockboxEntry {
+                path: crate::LockboxPath::new(format!("/directory-{index:05}")).unwrap(),
+                kind: crate::LockboxEntryKind::Directory,
+                len: 0,
+                permissions: 0o755,
+            },
+            target: None,
+        });
+    }
     let output = SharedMemory::new(Vec::new());
     let result = tree_image::from_candidate(
         &mut source,
@@ -604,7 +655,7 @@ fn fresh_tree_export_keeps_explicit_source_file_count_limit() {
         &entries,
     );
     assert!(
-        matches!(result, Err(Error::SecurityLimitExceeded(ref reason)) if reason.contains("1024 files"))
+        matches!(result, Err(Error::SecurityLimitExceeded(ref reason)) if reason.contains("metadata byte budget"))
     );
     assert_eq!(output.len().unwrap(), 0);
     assert_eq!(source.storage.read_all().unwrap(), before);

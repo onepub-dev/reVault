@@ -1,0 +1,32 @@
+{
+  "source_revision": "7af703b42d00f6992a4d188eedafcce7b8c0feb1",
+  "worktree_status": "M revault_lockbox_api/benches/evaluation/runner.rs\n M revault_lockbox_api/src/file_format/candidate_files/cost_model.rs\n M revault_lockbox_api/src/file_format/candidate_files/dense_catalogue.rs\n M revault_lockbox_api/src/file_format/candidate_files/dense_catalogue/forms.rs\n M revault_lockbox_api/src/file_format/candidate_files/dense_catalogue/overflow.rs\n M revault_lockbox_api/src/file_format/candidate_files/resource_probe.rs\n M revault_lockbox_api/src/file_format/candidate_files/resource_probe/tree_probe.rs\n M revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/forms/admission.rs\n M revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/fresh.rs\n M revault_lockbox_api/src/file_format/candidate_files/tree_image/fresh.rs\n M revault_lockbox_api/src/file_format/mod.rs\n M revault_lockbox_api/src/file_format/publication_anchor/shared/ownership.rs\n M revault_lockbox_api/src/file_format/publication_anchor/shared/tree.rs\n?? revault_lockbox_api/src/benchmark_extraction.rs\n?? revault_lockbox_api/src/file_format/metadata_budget.rs",
+  "source_hashes": {
+    "candidate_probe": "b805e2f943a133bda1bae9c6ef905a01cbfb9512c7bf2a0248bbd6a2bd44ba98",
+    "tree_probe": "cb6311c94a6672327ac96b7981bd1f719569c5889f9c791b0a5d181ec7127a9d",
+    "extract_sink": "2ca57af96c31f5383022c4672dbb6694397ae94ed0ab34794bd0fff1f4f5459f",
+    "zip_runner": "b2228e8c85a1cb2cbf0c1796d65e14d9a8d85678d8a7b6683c8d2ff631b34d27",
+    "file_format_mod": "a1ef0cc39b1ebe13d568876d3f0ccd136141d7231523e6961ffc7ebc3f6c5c58",
+    "metadata_budget": "4d0ae79f15620ed1596b2fa30a48fd70efefc7aff3046c7f4ce16bfa2513e3d1",
+    "cost_model": "f6c06e98fe4255a2930c937d3f7296fa9a3bf8551afb803fdca335ba0d74bfa0",
+    "dense_catalogue": "ac460db9218740f1a55153c7bf02143fad2098ea419ea46248845156c3076959",
+    "dense_catalogue_forms": "e7c530679feef62a4e11d1dd1f9a17f20b71a9a5f65abfaba6d324f151ee3a21",
+    "overflow": "d6bf680b8de05b4332057be2f60f68b9c07db376ddf26cacadd37e69c8d8a3c4",
+    "fresh_export": "2ad447acf69fab3717f0096d3320d380a789236ec761301be7e746fda56fa34b",
+    "fresh_export_tests": "06ae61f6fcb41445a9747b6ec8c967d4ac6b0bb4afe807bc339336f4a31d254b",
+    "forms_admission_tests": "ef20b49c6b03b8075da055302c0124cda8c67650f8af636cae4a2c5e26fd3965",
+    "publication_ownership": "130951928a617d53fede558bcf6d61f6f24eacb428cbc50b0d3f522877a687a8",
+    "publication_tree": "3d03d42fd5226093af681eb2a1c3e4068249d5132e8dbfe79e444f0d8b345019",
+    "cargo_lock": "c2f9e9ce9b8fe9ea54c6781ce39d696ae88d7972d886342d03299cff60ce6dd8",
+    "scale_runner": "0155d25e87e1fc27e3740ad21974b75d23f8644094733ade5aefb4eff7039142"
+  },
+  "tree_test_executable": "/tmp/revault-scale-20261010/evidence/bin/revault_lockbox_api_tests",
+  "tree_test_executable_sha256": "c3d55a2c59453263e348f986414e784fe03396a8c025f20358742399d89df868",
+  "zip_runner_executable": "/tmp/revault-scale-20261010/evidence/bin/archive_evaluation",
+  "zip_runner_executable_sha256": "637054a803b1d16c00e37adff59bbb2be801eaecc95cc8a6a9e971c77c2b6784",
+  "captured_utc": "2026-10-10T10:39:08.385179Z",
+  "available_cpus": "16",
+  "cpu_affinity": "Cpus_allowed_list:\t0-15",
+  "load_average": "3.15 3.61 3.69 3/3914 1839108",
+  "cpu_model": "model name\t: AMD Ryzen 7 3700X 8-Core Processor"
+}

@@ -24,6 +24,45 @@ fn definition() -> FormDefinition {
         ],
     }
 }
+
+#[test]
+fn typed_form_metadata_byte_budget_refuses_before_publication() {
+    let owner = OwnerSigningKeyPair::generate().unwrap();
+    let public = owner.public_key();
+    let mode = mode(false, false, false, false);
+    let authority = authority(mode, &public);
+    let mut storage = super::super::mutation::seed(mode, &authority, &owner);
+    let before = storage.read_all().unwrap();
+    let mut definition = definition();
+    // Within the old 4096-row/page ceilings, but the aggregate metadata charge
+    // exceeds the shared reader/writer byte budget. Publication must not change.
+    definition.fields = (0..3100)
+        .map(|index| FormFieldDefinition {
+            id: format!("field_{index}"),
+            label: "Field".into(),
+            kind: FormFieldKind::Text,
+            required: false,
+        })
+        .collect();
+    let result = import_definition(
+        &mut storage,
+        archive(),
+        mode,
+        &authority,
+        None,
+        key(mode),
+        &definition,
+    );
+    assert!(
+        matches!(result, Err(Error::SecurityLimitExceeded(ref reason)) if reason.contains("metadata byte budget"))
+    );
+    assert_eq!(storage.read_all().unwrap(), before);
+    AuditedTreeImage::open(storage, archive(), mode, &authority, key(mode))
+        .unwrap()
+        .image
+        .verify_all()
+        .unwrap();
+}
 #[test]
 fn typed_form_guarded_admission_and_semantic_page_substitution_all_modes() {
     let owner = OwnerSigningKeyPair::generate().unwrap();

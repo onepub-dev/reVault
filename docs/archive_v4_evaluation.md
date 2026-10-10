@@ -146,6 +146,15 @@ including Vault containers. `0.4.x` remains format 3 and is isolated from this w
 
 ## Current scorecard
 
+The [disk-backed scale/extraction milestone](evidence/scale-extraction-2026-10-10/README.md)
+now provides capacity and actual filesystem extraction measurements for the
+1 GiB and 10,000-file/625 MiB cases. Both construction/read gates pass on the
+new bounded builder. See its paired elapsed, throughput, CPU and peak-RSS results
+and explicit warm-cache/no-fsync/component scope. This supersedes earlier capacity
+failures for this revision only; the broader G3/G11 acceptance gates remain open.
+The small-fixture results below are historical diagnostics.
+
+
 The [combined October 10 batch](evidence/typed-tree-combined-read-2026-10-10/README.md)
 on `ed4d6c0f` is the latest typed-read baseline. All six fixed 30-pair cases fail
 ZIP parity: 1.159× small files, 2.600–3.359× streams and 9.716×/23.954× ranges.

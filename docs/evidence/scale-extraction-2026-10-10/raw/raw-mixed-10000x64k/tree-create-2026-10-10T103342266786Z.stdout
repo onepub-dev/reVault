@@ -1,0 +1,7 @@
+
+running 1 test
+test file_format::candidate_files::resource_probe::candidate_file_resource_probe ... CANDIDATE_SAMPLE {"archive_bytes":663486464,"archive_sha256":"6b6a9d93223f657e8c85395568a51bbc7081200637ae8b921337f206e579e9c5","kind":"typed_tree_fixture","layout":"shared-control-typed-tree","scope":"fresh direct typed export; construction is not a write-performance sample","verified":true}
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 674 filtered out; finished in 11.81s
+
