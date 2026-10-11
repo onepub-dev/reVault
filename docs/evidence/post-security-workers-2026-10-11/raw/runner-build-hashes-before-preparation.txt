@@ -1,0 +1,6 @@
+c5bdfb51c88b8c7fcb5b6abb00c132da53ec5d1c800c81be573bb9af1f324246  tools/worker-crossover.dart
+c5bdfb51c88b8c7fcb5b6abb00c132da53ec5d1c800c81be573bb9af1f324246  docs/evidence/post-security-workers-2026-10-11/raw/worker-crossover.dart
+1d677549dd41a381014584227ee21362484bbe3365a62c498f234a0e9142e85c  rust/target/release/deps/revault_lockbox_api-e3bcc2539127e239
+50b0b76d4d3e9dadc0834c597beeef7a9c0544c1bdb972150e2037b8c78f84aa  docs/evidence/post-security-workers-2026-10-11/raw/protocol-before-measurements.md
+104eaeee9bf95580b5da3ad7a173dedd37bbd947ca27b4df0e2be2a70fb6a5ff  docs/evidence/post-security-workers-2026-10-11/raw/source-diff-a191020a.patch
+0ae6f4c46aca265bc94d7b95662288b1307bd355ac110d3fec36d11fba10c985  docs/evidence/post-security-workers-2026-10-11/raw/source-hashes-before-measurements.txt

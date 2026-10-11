@@ -12,7 +12,16 @@ Historical microbenchmarks remain evidence about their own revisions.
 
 ## Security prerequisite — 2026-10-11
 
-Performance experiments are paused at `0de2dd4a` by user direction. The
+Following pushed security checkpoint `a191020a`, Brett explicitly resumed
+optimisation. The [post-security worker experiment](evidence/post-security-workers-2026-10-11/README.md)
+records a fresh bounded source epoch and crossover matrix. The earlier pause
+below is historical; this resume does not close candidate or release gates.
+The completed 640-sample matrix favors four workers for compressed-source files
+at 16–1024 MiB and serial reads for 1 MiB files and all raw/plain fallback cases.
+The serial default remains; mixed-encoding descriptor-aware selection is the next
+bounded experiment, not an accepted automatic policy.
+
+At the historical checkpoint, performance experiments were paused at `0de2dd4a` by user direction. The
 [security-first handoff](evidence/password-integrity-audit-2026-10-11/handoff.txt)
 and [implementation sequence](archive_v4_plan.md#security-prerequisite-and-performance-pause--2026-10-11)
 take priority over further worker selection or throughput tuning. Security work

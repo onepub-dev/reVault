@@ -1,0 +1,152 @@
+
+running 2 tests
+
+thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+synthetic sink unwind
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+synthetic sink unwind
+
+thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+synthetic sink unwind
+
+thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+synthetic sink unwind
+
+thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+synthetic sink unwind
+
+thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+synthetic sink unwind
+
+thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+synthetic sink unwind
+
+thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+synthetic sink unwind
+
+thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+synthetic sink unwind
+test file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_bound_input_batches_before_callbacks ... ok
+
+thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+synthetic sink unwind
+
+thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+synthetic sink unwind
+
+thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+synthetic sink unwind
+
+thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+synthetic sink unwind
+
+thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+synthetic sink unwind
+
+thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+synthetic sink unwind
+
+thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+synthetic sink unwind
+
+thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+synthetic sink unwind
+
+thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+synthetic sink unwind
+
+thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+synthetic sink unwind
+
+thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+synthetic sink unwind
+
+thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+synthetic sink unwind
+
+thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+synthetic sink unwind
+
+thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+synthetic sink unwind
+
+thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+synthetic sink unwind
+
+thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+synthetic sink unwind
+
+thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+synthetic sink unwind
+
+thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+synthetic sink unwind
+
+thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+synthetic sink unwind
+
+thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+synthetic sink unwind
+
+thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+synthetic sink unwind
+
+thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+synthetic sink unwind
+
+thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+synthetic sink unwind
+
+thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+synthetic sink unwind
+
+thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+synthetic sink unwind
+
+thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+synthetic sink unwind
+
+thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+synthetic sink unwind
+
+thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+synthetic sink unwind
+
+thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+synthetic sink unwind
+
+thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+synthetic sink unwind
+
+thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+synthetic sink unwind
+
+thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+synthetic sink unwind
+
+thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+synthetic sink unwind
+
+thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+synthetic sink unwind
+
+thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+synthetic sink unwind
+
+thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+synthetic sink unwind
+
+thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+synthetic sink unwind
+
+thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+synthetic sink unwind
+
+thread 'file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes' panicked at revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/selective_reads/parallel.rs:49:29:
+synthetic sink unwind
+test file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 700 filtered out; finished in 0.42s
+

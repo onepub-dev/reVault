@@ -153,6 +153,28 @@ impl<S: Storage> ReadImage<S> {
             .map(|entry| self.file_info(&entry).map(|(_, info)| info))
             .transpose()
     }
+    /// Untimed benchmark fixture census from authenticated chunk references.
+    #[cfg(test)]
+    pub(in crate::file_format::candidate_files) fn codec_census(
+        &self,
+        path: &[u8],
+    ) -> Result<(u64, u64, u64, u64)> {
+        let info = self.info(path)?.ok_or(Error::CorruptRecord)?;
+        let mut census = (0u64, 0u64, 0u64, 0u64);
+        for ordinal in 0..info.count() {
+            let selected = self.select_chunk(&info, ordinal, 0, info.len)?;
+            let (raw, encoded_len) = selected.descriptor.benchmark_encoding();
+            if raw {
+                census.0 += 1;
+            } else {
+                census.1 += 1;
+            }
+            census.2 += u64::from(selected.descriptor.logical_len);
+            census.3 += u64::from(encoded_len);
+        }
+        Ok(census)
+    }
+
     pub fn read_range(
         &mut self,
         path: &[u8],

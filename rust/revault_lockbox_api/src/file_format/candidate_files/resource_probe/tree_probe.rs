@@ -96,6 +96,18 @@ pub(super) fn run(
         .unwrap();
         verify(&mut opened, root, count, bytes);
         assert_eq!(opened.image.filesystem_metadata().unwrap(), metadata);
+        let mut codec_census = (0u64, 0u64, 0u64, 0u64);
+        for index in 0..count {
+            let row = opened
+                .image
+                .codec_census(TreeImage::<StorageBackend>::stored_name(index).as_bytes())
+                .unwrap();
+            codec_census.0 += row.0;
+            codec_census.1 += row.1;
+            codec_census.2 += row.2;
+            codec_census.3 += row.3;
+        }
+        assert_eq!(codec_census.2, bytes * count as u64);
         std::fs::OpenOptions::new()
             .write(true)
             .create_new(true)
@@ -108,7 +120,7 @@ pub(super) fn run(
         std::fs::remove_file(staging_path).unwrap();
         println!(
             "CANDIDATE_SAMPLE {}",
-            json!({"kind":"typed_tree_fixture","layout":"shared-control-typed-tree","archive_bytes":std::fs::metadata(&target).unwrap().len(),"archive_sha256":digest_file(&target),"verified":true,"scope":"fresh direct typed export; construction is not a write-performance sample"})
+            json!({"kind":"typed_tree_fixture","layout":"shared-control-typed-tree","archive_bytes":std::fs::metadata(&target).unwrap().len(),"archive_sha256":digest_file(&target),"verified":true,"codec_census":{"raw_chunks":codec_census.0,"zstd_chunks":codec_census.1,"logical_bytes":codec_census.2,"encoded_bytes":codec_census.3},"scope":"fresh direct typed export; construction and authenticated descriptor census are not timed samples"})
         );
         return;
     }

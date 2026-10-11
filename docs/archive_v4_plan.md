@@ -22,6 +22,26 @@ or erase failures.
 
 ## Current position and next work
 
+### Optimisation resumed after security checkpoint — 2026-10-11
+
+Brett explicitly instructed: "if the password fix is in resume optimisation".
+Security checkpoint `a191020a` is pushed; this new instruction supersedes the
+performance pause below. The current account reading reports 0% used in the
+seven-day window, permitting bounded work under the prior 50%-remaining cutoff.
+No release is authorized. Historical security and performance evidence remains
+unchanged.
+
+The [completed bounded milestone](evidence/post-security-workers-2026-10-11/README.md)
+rebuilt the candidate endpoint and completed 640 verified extractions. Four workers
+improve compressed-source reads at 16–1024 MiB by 10.3–40.5%; serial wins at
+1 MiB and for raw/plain and incompressible plaintext fallback at every tested size.
+The default remains serial. Next test lazy authenticated-descriptor selection,
+including mixed compressed/raw chunks and short/repeated reads, before adopting
+automatic policy. Final account usage is 2% used (98% remaining); this checkpoint
+closes a bounded measurement milestone, not the remaining optimisation work. This candidate
+endpoint is distinct from the repaired native authenticated graph; its separate
+security and release qualification remain open.
+
 ### Security prerequisite and performance pause — 2026-10-11
 
 Brett has paused performance tuning at checkpoint `0de2dd4a` until the

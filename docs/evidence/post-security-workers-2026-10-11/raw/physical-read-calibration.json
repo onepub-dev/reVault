@@ -1,0 +1,542 @@
+{
+  "/home/bsutton/.cache/revault-post-security-workers-20261011/fixtures/source-raw-plain-1mib/tree.lbox": {
+    "scans": [
+      {
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 212992,
+        "logical_bytes": 1310720,
+        "buffer_bytes": 65536
+      },
+      {
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 212992,
+        "logical_bytes": 1310720,
+        "buffer_bytes": 65536
+      }
+    ],
+    "minimum_physical_read_bytes": 212992,
+    "maximum_physical_read_bytes": 212992,
+    "required_extraction_read_bytes": 106496,
+    "fraction": 0.5,
+    "basis": "two independently evicted full-archive synchronous 64KiB reads using this process read_bytes counter"
+  },
+  "/home/bsutton/.cache/revault-post-security-workers-20261011/fixtures/source-zstd-plain-1mib/tree.lbox": {
+    "scans": [
+      {
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 344064,
+        "logical_bytes": 458752,
+        "buffer_bytes": 65536
+      },
+      {
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 344064,
+        "logical_bytes": 458752,
+        "buffer_bytes": 65536
+      }
+    ],
+    "minimum_physical_read_bytes": 344064,
+    "maximum_physical_read_bytes": 344064,
+    "required_extraction_read_bytes": 172032,
+    "fraction": 0.5,
+    "basis": "two independently evicted full-archive synchronous 64KiB reads using this process read_bytes counter"
+  },
+  "/home/bsutton/.cache/revault-post-security-workers-20261011/fixtures/source-zstd-encrypted-1mib/tree.lbox": {
+    "scans": [
+      {
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 450560,
+        "logical_bytes": 458752,
+        "buffer_bytes": 65536
+      },
+      {
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 450560,
+        "logical_bytes": 458752,
+        "buffer_bytes": 65536
+      }
+    ],
+    "minimum_physical_read_bytes": 450560,
+    "maximum_physical_read_bytes": 450560,
+    "required_extraction_read_bytes": 225280,
+    "fraction": 0.5,
+    "basis": "two independently evicted full-archive synchronous 64KiB reads using this process read_bytes counter"
+  },
+  "/home/bsutton/.cache/revault-post-security-workers-20261011/fixtures/random-zstd-fallback-plain-1mib/tree.lbox": {
+    "scans": [
+      {
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 1196032,
+        "logical_bytes": 1310720,
+        "buffer_bytes": 65536
+      },
+      {
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 1196032,
+        "logical_bytes": 1310720,
+        "buffer_bytes": 65536
+      }
+    ],
+    "minimum_physical_read_bytes": 1196032,
+    "maximum_physical_read_bytes": 1196032,
+    "required_extraction_read_bytes": 598016,
+    "fraction": 0.5,
+    "basis": "two independently evicted full-archive synchronous 64KiB reads using this process read_bytes counter"
+  },
+  "/home/bsutton/.cache/revault-post-security-workers-20261011/fixtures/source-raw-plain-16mib/tree.lbox": {
+    "scans": [
+      {
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 3706880,
+        "logical_bytes": 17301504,
+        "buffer_bytes": 65536
+      },
+      {
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 3706880,
+        "logical_bytes": 17301504,
+        "buffer_bytes": 65536
+      }
+    ],
+    "minimum_physical_read_bytes": 3706880,
+    "maximum_physical_read_bytes": 3706880,
+    "required_extraction_read_bytes": 1853440,
+    "fraction": 0.5,
+    "basis": "two independently evicted full-archive synchronous 64KiB reads using this process read_bytes counter"
+  },
+  "/home/bsutton/.cache/revault-post-security-workers-20261011/fixtures/source-zstd-plain-16mib/tree.lbox": {
+    "scans": [
+      {
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 3571712,
+        "logical_bytes": 3735552,
+        "buffer_bytes": 65536
+      },
+      {
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 3571712,
+        "logical_bytes": 3735552,
+        "buffer_bytes": 65536
+      }
+    ],
+    "minimum_physical_read_bytes": 3571712,
+    "maximum_physical_read_bytes": 3571712,
+    "required_extraction_read_bytes": 1785856,
+    "fraction": 0.5,
+    "basis": "two independently evicted full-archive synchronous 64KiB reads using this process read_bytes counter"
+  },
+  "/home/bsutton/.cache/revault-post-security-workers-20261011/fixtures/source-zstd-encrypted-16mib/tree.lbox": {
+    "scans": [
+      {
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 3727360,
+        "logical_bytes": 3735552,
+        "buffer_bytes": 65536
+      },
+      {
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 3727360,
+        "logical_bytes": 3735552,
+        "buffer_bytes": 65536
+      }
+    ],
+    "minimum_physical_read_bytes": 3727360,
+    "maximum_physical_read_bytes": 3727360,
+    "required_extraction_read_bytes": 1863680,
+    "fraction": 0.5,
+    "basis": "two independently evicted full-archive synchronous 64KiB reads using this process read_bytes counter"
+  },
+  "/home/bsutton/.cache/revault-post-security-workers-20261011/fixtures/random-zstd-fallback-plain-16mib/tree.lbox": {
+    "scans": [
+      {
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 16924672,
+        "logical_bytes": 17039360,
+        "buffer_bytes": 65536
+      },
+      {
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 16924672,
+        "logical_bytes": 17039360,
+        "buffer_bytes": 65536
+      }
+    ],
+    "minimum_physical_read_bytes": 16924672,
+    "maximum_physical_read_bytes": 16924672,
+    "required_extraction_read_bytes": 8462336,
+    "fraction": 0.5,
+    "basis": "two independently evicted full-archive synchronous 64KiB reads using this process read_bytes counter"
+  },
+  "/home/bsutton/.cache/revault-post-security-workers-20261011/fixtures/source-raw-plain-64mib/tree.lbox": {
+    "scans": [
+      {
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 15069184,
+        "logical_bytes": 68026368,
+        "buffer_bytes": 65536
+      },
+      {
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 15069184,
+        "logical_bytes": 68026368,
+        "buffer_bytes": 65536
+      }
+    ],
+    "minimum_physical_read_bytes": 15069184,
+    "maximum_physical_read_bytes": 15069184,
+    "required_extraction_read_bytes": 7534592,
+    "fraction": 0.5,
+    "basis": "two independently evicted full-archive synchronous 64KiB reads using this process read_bytes counter"
+  },
+  "/home/bsutton/.cache/revault-post-security-workers-20261011/fixtures/source-zstd-plain-64mib/tree.lbox": {
+    "scans": [
+      {
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 14569472,
+        "logical_bytes": 14811136,
+        "buffer_bytes": 65536
+      },
+      {
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 14569472,
+        "logical_bytes": 14811136,
+        "buffer_bytes": 65536
+      }
+    ],
+    "minimum_physical_read_bytes": 14569472,
+    "maximum_physical_read_bytes": 14569472,
+    "required_extraction_read_bytes": 7284736,
+    "fraction": 0.5,
+    "basis": "two independently evicted full-archive synchronous 64KiB reads using this process read_bytes counter"
+  },
+  "/home/bsutton/.cache/revault-post-security-workers-20261011/fixtures/source-zstd-encrypted-64mib/tree.lbox": {
+    "scans": [
+      {
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 14741504,
+        "logical_bytes": 14811136,
+        "buffer_bytes": 65536
+      },
+      {
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 14741504,
+        "logical_bytes": 14811136,
+        "buffer_bytes": 65536
+      }
+    ],
+    "minimum_physical_read_bytes": 14741504,
+    "maximum_physical_read_bytes": 14741504,
+    "required_extraction_read_bytes": 7370752,
+    "fraction": 0.5,
+    "basis": "two independently evicted full-archive synchronous 64KiB reads using this process read_bytes counter"
+  },
+  "/home/bsutton/.cache/revault-post-security-workers-20261011/fixtures/random-zstd-fallback-plain-64mib/tree.lbox": {
+    "scans": [
+      {
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 67522560,
+        "logical_bytes": 67764224,
+        "buffer_bytes": 65536
+      },
+      {
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 67522560,
+        "logical_bytes": 67764224,
+        "buffer_bytes": 65536
+      }
+    ],
+    "minimum_physical_read_bytes": 67522560,
+    "maximum_physical_read_bytes": 67522560,
+    "required_extraction_read_bytes": 33761280,
+    "fraction": 0.5,
+    "basis": "two independently evicted full-archive synchronous 64KiB reads using this process read_bytes counter"
+  },
+  "/home/bsutton/.cache/revault-post-security-workers-20261011/fixtures/source-raw-plain-256mib/tree.lbox": {
+    "scans": [
+      {
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 60403712,
+        "logical_bytes": 271187968,
+        "buffer_bytes": 65536
+      },
+      {
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 60403712,
+        "logical_bytes": 271187968,
+        "buffer_bytes": 65536
+      }
+    ],
+    "minimum_physical_read_bytes": 60403712,
+    "maximum_physical_read_bytes": 60403712,
+    "required_extraction_read_bytes": 30201856,
+    "fraction": 0.5,
+    "basis": "two independently evicted full-archive synchronous 64KiB reads using this process read_bytes counter"
+  },
+  "/home/bsutton/.cache/revault-post-security-workers-20261011/fixtures/source-zstd-plain-256mib/tree.lbox": {
+    "scans": [
+      {
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 56758272,
+        "logical_bytes": 58064896,
+        "buffer_bytes": 65536
+      },
+      {
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 56758272,
+        "logical_bytes": 58064896,
+        "buffer_bytes": 65536
+      }
+    ],
+    "minimum_physical_read_bytes": 56758272,
+    "maximum_physical_read_bytes": 56758272,
+    "required_extraction_read_bytes": 28379136,
+    "fraction": 0.5,
+    "basis": "two independently evicted full-archive synchronous 64KiB reads using this process read_bytes counter"
+  },
+  "/home/bsutton/.cache/revault-post-security-workers-20261011/fixtures/source-zstd-encrypted-256mib/tree.lbox": {
+    "scans": [
+      {
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 57696256,
+        "logical_bytes": 58195968,
+        "buffer_bytes": 65536
+      },
+      {
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 57696256,
+        "logical_bytes": 58195968,
+        "buffer_bytes": 65536
+      }
+    ],
+    "minimum_physical_read_bytes": 57696256,
+    "maximum_physical_read_bytes": 57696256,
+    "required_extraction_read_bytes": 28848128,
+    "fraction": 0.5,
+    "basis": "two independently evicted full-archive synchronous 64KiB reads using this process read_bytes counter"
+  },
+  "/home/bsutton/.cache/revault-post-security-workers-20261011/fixtures/random-zstd-fallback-plain-256mib/tree.lbox": {
+    "scans": [
+      {
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 270155776,
+        "logical_bytes": 270270464,
+        "buffer_bytes": 65536
+      },
+      {
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 270155776,
+        "logical_bytes": 270270464,
+        "buffer_bytes": 65536
+      }
+    ],
+    "minimum_physical_read_bytes": 270155776,
+    "maximum_physical_read_bytes": 270155776,
+    "required_extraction_read_bytes": 135077888,
+    "fraction": 0.5,
+    "basis": "two independently evicted full-archive synchronous 64KiB reads using this process read_bytes counter"
+  },
+  "/home/bsutton/.cache/revault-post-security-workers-20261011/fixtures/source-raw-plain-1024mib/tree.lbox": {
+    "scans": [
+      {
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 241721344,
+        "logical_bytes": 1083703296,
+        "buffer_bytes": 65536
+      },
+      {
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 241721344,
+        "logical_bytes": 1083703296,
+        "buffer_bytes": 65536
+      }
+    ],
+    "minimum_physical_read_bytes": 241721344,
+    "maximum_physical_read_bytes": 241721344,
+    "required_extraction_read_bytes": 120860672,
+    "fraction": 0.5,
+    "basis": "two independently evicted full-archive synchronous 64KiB reads using this process read_bytes counter"
+  },
+  "/home/bsutton/.cache/revault-post-security-workers-20261011/fixtures/source-zstd-plain-1024mib/tree.lbox": {
+    "scans": [
+      {
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 231096320,
+        "logical_bytes": 231211008,
+        "buffer_bytes": 65536
+      },
+      {
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 231096320,
+        "logical_bytes": 231211008,
+        "buffer_bytes": 65536
+      }
+    ],
+    "minimum_physical_read_bytes": 231096320,
+    "maximum_physical_read_bytes": 231096320,
+    "required_extraction_read_bytes": 115548160,
+    "fraction": 0.5,
+    "basis": "two independently evicted full-archive synchronous 64KiB reads using this process read_bytes counter"
+  },
+  "/home/bsutton/.cache/revault-post-security-workers-20261011/fixtures/source-zstd-encrypted-1024mib/tree.lbox": {
+    "scans": [
+      {
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 231923712,
+        "logical_bytes": 231931904,
+        "buffer_bytes": 65536
+      },
+      {
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 231923712,
+        "logical_bytes": 231931904,
+        "buffer_bytes": 65536
+      }
+    ],
+    "minimum_physical_read_bytes": 231923712,
+    "maximum_physical_read_bytes": 231923712,
+    "required_extraction_read_bytes": 115961856,
+    "fraction": 0.5,
+    "basis": "two independently evicted full-archive synchronous 64KiB reads using this process read_bytes counter"
+  },
+  "/home/bsutton/.cache/revault-post-security-workers-20261011/fixtures/random-zstd-fallback-plain-1024mib/tree.lbox": {
+    "scans": [
+      {
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 1079918592,
+        "logical_bytes": 1080033280,
+        "buffer_bytes": 65536
+      },
+      {
+        "sync_exit_code": 0,
+        "fadvise_exit_code": 0,
+        "fincore_exit_code": 0,
+        "resident_bytes_before": 0,
+        "physical_read_bytes": 1079918592,
+        "logical_bytes": 1080033280,
+        "buffer_bytes": 65536
+      }
+    ],
+    "minimum_physical_read_bytes": 1079918592,
+    "maximum_physical_read_bytes": 1079918592,
+    "required_extraction_read_bytes": 539959296,
+    "fraction": 0.5,
+    "basis": "two independently evicted full-archive synchronous 64KiB reads using this process read_bytes counter"
+  }
+}

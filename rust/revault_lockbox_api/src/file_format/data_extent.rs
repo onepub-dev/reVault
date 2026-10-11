@@ -27,6 +27,11 @@ pub(crate) struct Descriptor {
     allocation_len: u32,
 }
 impl Descriptor {
+    #[cfg(test)]
+    pub(crate) fn benchmark_encoding(&self) -> (bool, u32) {
+        (self.codec == COMPRESSION_NONE, self.encoded_len)
+    }
+
     pub(crate) fn encode(&self) -> [u8; 64] {
         let mut bytes = [0; 64];
         bytes[..8].copy_from_slice(MAGIC);

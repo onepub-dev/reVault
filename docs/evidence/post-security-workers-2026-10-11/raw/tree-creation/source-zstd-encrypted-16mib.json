@@ -1,0 +1,64 @@
+{
+  "command": [
+    "taskset",
+    "-c",
+    "0,1,2,3,4",
+    "/usr/bin/time",
+    "-v",
+    "timeout",
+    "900",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/release/deps/revault_lockbox_api-e3bcc2539127e239",
+    "--exact",
+    "file_format::candidate_files::resource_probe::candidate_file_resource_probe",
+    "--ignored",
+    "--nocapture"
+  ],
+  "environment": {
+    "REVAULT_CANDIDATE_ROOT": "/home/bsutton/.cache/revault-post-security-workers-20261011/fixtures/source-zstd-encrypted-16mib",
+    "REVAULT_CANDIDATE_PHASE": "tree-create",
+    "REVAULT_CANDIDATE_UNIT": "65536"
+  },
+  "candidate_sha256_before": "1d677549dd41a381014584227ee21362484bbe3365a62c498f234a0e9142e85c",
+  "candidate_sha256_after": "1d677549dd41a381014584227ee21362484bbe3365a62c498f234a0e9142e85c",
+  "inputs_before": {
+    "source": {
+      "inventory_sha256": "07f2450cd403d4d59c0be0f54385e985b59b3af0f6f6769cc10bb11888754662",
+      "file_count": 1,
+      "unique_file_hashes": 1,
+      "aggregate_manifest_sha256": "0cdd97a7aa87943f8b5ccfc8e8a4684d4ed7b4ca33302d7597519b9e3a0142d8"
+    },
+    "case_json_sha256": "ee086ecfa52caa7631f93aad5e348e932d4b040399361f8c4e4b80fdb2f44b93",
+    "inventory_sha256": "07f2450cd403d4d59c0be0f54385e985b59b3af0f6f6769cc10bb11888754662"
+  },
+  "inputs_after": {
+    "source": {
+      "inventory_sha256": "07f2450cd403d4d59c0be0f54385e985b59b3af0f6f6769cc10bb11888754662",
+      "file_count": 1,
+      "unique_file_hashes": 1,
+      "aggregate_manifest_sha256": "0cdd97a7aa87943f8b5ccfc8e8a4684d4ed7b4ca33302d7597519b9e3a0142d8"
+    },
+    "case_json_sha256": "ee086ecfa52caa7631f93aad5e348e932d4b040399361f8c4e4b80fdb2f44b93",
+    "inventory_sha256": "07f2450cd403d4d59c0be0f54385e985b59b3af0f6f6769cc10bb11888754662"
+  },
+  "sample": {
+    "archive_bytes": 3735552,
+    "archive_sha256": "e25e92b4474893cb65036acd6b30a2498b59ad99c2789bb704eddc361428d640",
+    "codec_census": {
+      "encoded_bytes": 3349746,
+      "logical_bytes": 16777216,
+      "raw_chunks": 0,
+      "zstd_chunks": 256
+    },
+    "kind": "typed_tree_fixture",
+    "layout": "shared-control-typed-tree",
+    "scope": "fresh direct typed export; construction and authenticated descriptor census are not timed samples",
+    "verified": true
+  },
+  "codec_census_verified": true,
+  "tree_sha256": "e25e92b4474893cb65036acd6b30a2498b59ad99c2789bb704eddc361428d640",
+  "tree_public_sha256": "2117af7c7376b5329a01e879eb0cdea610a498f7fd5a1a5ae0f91caf3b2995ea",
+  "exit_code": 0,
+  "stdout": "\nrunning 1 test\nCANDIDATE_SAMPLE {\"archive_bytes\":3735552,\"archive_sha256\":\"e25e92b4474893cb65036acd6b30a2498b59ad99c2789bb704eddc361428d640\",\"codec_census\":{\"encoded_bytes\":3349746,\"logical_bytes\":16777216,\"raw_chunks\":0,\"zstd_chunks\":256},\"kind\":\"typed_tree_fixture\",\"layout\":\"shared-control-typed-tree\",\"scope\":\"fresh direct typed export; construction and authenticated descriptor census are not timed samples\",\"verified\":true}\ntest file_format::candidate_files::resource_probe::candidate_file_resource_probe ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 701 filtered out; finished in 0.46s\n\n",
+  "stderr": "\tCommand being timed: \"timeout 900 /home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/release/deps/revault_lockbox_api-e3bcc2539127e239 --exact file_format::candidate_files::resource_probe::candidate_file_resource_probe --ignored --nocapture\"\n\tUser time (seconds): 0.37\n\tSystem time (seconds): 0.05\n\tPercent of CPU this job got: 90%\n\tElapsed (wall clock) time (h:mm:ss or m:ss): 0:00.47\n\tAverage shared text size (kbytes): 0\n\tAverage unshared data size (kbytes): 0\n\tAverage stack size (kbytes): 0\n\tAverage total size (kbytes): 0\n\tMaximum resident set size (kbytes): 18404\n\tAverage resident set size (kbytes): 0\n\tMajor (requiring I/O) page faults: 0\n\tMinor (reclaiming a frame) page faults: 2956\n\tVoluntary context switches: 699\n\tInvoluntary context switches: 3\n\tSwaps: 0\n\tFile system inputs: 0\n\tFile system outputs: 46312\n\tSocket messages sent: 0\n\tSocket messages received: 0\n\tSignals delivered: 0\n\tPage size (bytes): 4096\n\tExit status: 0\n\tCommand being timed: \"timeout 930 taskset -c 0,1,2,3,4 /usr/bin/time -v timeout 900 /home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/release/deps/revault_lockbox_api-e3bcc2539127e239 --exact file_format::candidate_files::resource_probe::candidate_file_resource_probe --ignored --nocapture\"\n\tUser time (seconds): 0.37\n\tSystem time (seconds): 0.06\n\tPercent of CPU this job got: 90%\n\tElapsed (wall clock) time (h:mm:ss or m:ss): 0:00.47\n\tAverage shared text size (kbytes): 0\n\tAverage unshared data size (kbytes): 0\n\tAverage stack size (kbytes): 0\n\tAverage total size (kbytes): 0\n\tMaximum resident set size (kbytes): 18404\n\tAverage resident set size (kbytes): 0\n\tMajor (requiring I/O) page faults: 0\n\tMinor (reclaiming a frame) page faults: 3654\n\tVoluntary context switches: 704\n\tInvoluntary context switches: 5\n\tSwaps: 0\n\tFile system inputs: 0\n\tFile system outputs: 46312\n\tSocket messages sent: 0\n\tSocket messages received: 0\n\tSignals delivered: 0\n\tPage size (bytes): 4096\n\tExit status: 0\n",
+  "verified": true
+}
