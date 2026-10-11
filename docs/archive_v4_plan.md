@@ -36,7 +36,7 @@ completed 720 verified samples. Lazy authenticated-descriptor selection passes
 the frozen aggregate control and useful-profile gates; retain it as opt-in while
 keeping the serial default. The 17 MiB boundary has a 3.35% mean penalty and
 does not establish parity-wise non-inferiority. No threshold revision is planned.
-The latest completed milestone reading is 19% used (81% remaining), so the goal continues.
+The latest completed milestone reading is 24% used (76% remaining), so the goal continues.
 
 The [native/public comparison](evidence/native-public-extraction-2026-10-11/README.md)
 completed 480 component and 64 public CLI samples. All archive variants remain
@@ -80,6 +80,23 @@ The raw odd-round interval includes one, so not every stratum proves a speedup.
 Global ReadMostly and range/interactive behavior remain unchanged; no broader
 G11, architecture or release qualification is claimed.
 
+
+The [current public write baseline](evidence/public-add-2026-10-12/README.md)
+and [serial diagnostic](evidence/public-add-serial-2026-10-12/README.md) each
+completed 16 verified processes. Auto write RSS remained above 100 MB in all
+four cohorts; serial reduced RSS but roughly doubled compressed-source elapsed.
+The [parallel encoder reuse trial](evidence/parallel-encoder-reuse-2026-10-12/README.md)
+then completed 112 fresh paired processes and passed its frozen intermediate
+gates. Retain per-worker scoped encoder reuse: compressed BulkImport median RSS
+fell 27.3% and maximum RSS fell from 153.9 to 107.0 MB. All aggregate elapsed
+upper bounds were below 1.05. Raw BulkImport median RSS increased 13.3%, and
+its odd-round elapsed interval does not establish the same 5% bound. All new
+cohort maxima still exceed 100 MB; the whole-CLI write target remains open.
+Next assess command-local import retention or bounded in-flight ownership, keeping
+parallelism, durable preparation and authentication intact. All 15 focused
+default/native API and public CLI checks passed; no broad suite was rerun for
+this individual experiment. No architecture or
+release acceptance follows from this intermediate improvement.
 
 The explicit CLI password-unlock path was already bounded; no CLI-unlock or
 contact-performance gain is claimed. The worker-budget trial is no longer enabled.

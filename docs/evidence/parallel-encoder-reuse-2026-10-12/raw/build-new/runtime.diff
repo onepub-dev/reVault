@@ -1,0 +1,93 @@
+diff --git a/rust/revault_lockbox_api/src/lockbox/file_import_pipeline.rs b/rust/revault_lockbox_api/src/lockbox/file_import_pipeline.rs
+index d0c40357..72b7b8f5 100644
+--- a/rust/revault_lockbox_api/src/lockbox/file_import_pipeline.rs
++++ b/rust/revault_lockbox_api/src/lockbox/file_import_pipeline.rs
+@@ -209,9 +209,18 @@ impl FileImportPipeline {
+             .collect()
+     }
+ 
++    #[cfg(test)]
+     pub(super) fn prepare_parallel_job(
++        self,
++        job: ParallelCompressionJob,
++    ) -> ParallelCompressionResult {
++        self.prepare_parallel_job_with_encoder(job, &mut |payload| self.encode(payload))
++    }
++
++    pub(super) fn prepare_parallel_job_with_encoder(
+         self,
+         mut job: ParallelCompressionJob,
++        encode: &mut FrameEncoder<'_>,
+     ) -> ParallelCompressionResult {
+         let prepare_start = Instant::now();
+         let index = job.index;
+@@ -223,25 +232,15 @@ impl FileImportPipeline {
+             compression_frame_offset: 0,
+             len: job.data.len() as u64,
+         };
+-        let frame = self.prepare_payload(
++        let frame = self.prepare_payload_with_encoder(
+             Cow::Owned(std::mem::take(&mut job.data)),
+             vec![slice],
+             prepare_start,
++            encode,
+         );
+         ParallelCompressionResult { index, frame }
+     }
+ 
+-    fn prepare_payload(
+-        self,
+-        payload: Cow<'_, [u8]>,
+-        slices: Vec<CompressionFrameSlice>,
+-        prepare_start: Instant,
+-    ) -> PreparedCompressionFrame {
+-        self.prepare_payload_with_encoder(payload, slices, prepare_start, &mut |payload| {
+-            self.encode(payload)
+-        })
+-    }
+-
+     fn encode(self, payload: &[u8]) -> (u8, Vec<u8>) {
+         match self.compression {
+             Some(compression) => crate::compression::encode_with_compression(payload, compression),
+diff --git a/rust/revault_lockbox_api/src/lockbox/files.rs b/rust/revault_lockbox_api/src/lockbox/files.rs
+index 4141a575..f9460350 100644
+--- a/rust/revault_lockbox_api/src/lockbox/files.rs
++++ b/rust/revault_lockbox_api/src/lockbox/files.rs
+@@ -773,18 +773,30 @@ impl<State> Lockbox<State> {
+             for _ in 0..jobs {
+                 let job_rx = Arc::clone(&job_rx);
+                 let result_tx = result_tx.clone();
+-                scope.spawn(move || loop {
+-                    let job = match job_rx.lock() {
++                scope.spawn(move || {
++                    let first_job = match job_rx.lock() {
+                         Ok(rx) => rx.recv(),
+                         Err(_) => return,
+                     };
+-                    let Ok(job) = job else {
++                    let Ok(mut job) = first_job else {
+                         return;
+                     };
+-                    let result = pipeline.prepare_parallel_job(job);
+-                    if result_tx.send(result).is_err() {
+-                        return;
+-                    }
++                    // Keep one scoped encoder per worker. Its existing lease
++                    // wipes backing buffers on normal exit and unwinding.
++                    pipeline.with_encoder(pipeline.encoder_frame(&job.data), |encode| loop {
++                        let result = pipeline.prepare_parallel_job_with_encoder(job, encode);
++                        if result_tx.send(result).is_err() {
++                            return;
++                        }
++                        let next_job = match job_rx.lock() {
++                            Ok(rx) => rx.recv(),
++                            Err(_) => return,
++                        };
++                        match next_job {
++                            Ok(next) => job = next,
++                            Err(_) => return,
++                        }
++                    });
+                 });
+             }
+             drop(result_tx);

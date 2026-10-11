@@ -1,0 +1,18 @@
+{
+  "hashes": {
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/explicit-file-extraction-20261012/bin/lockbox-new": "85caddce82608beace258c8f507f8d33b73d27541d0ccbbfea0ea5ff648a273d",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/tools/public-add.dart": "a281e4c2a54699739c00d6adfddd27ca604a893ae7971ddcd78732a102949d22",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/docs/evidence/public-add-2026-10-12/README.md": "ca6611d9cb3c62ea25c8f4118dd693814d7c249298bd100d231f08eb116a3df3",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/docs/evidence/public-add-2026-10-12/raw/cases.json": "152c9073c9a5f32fdaade429f86abd3937fda718863ab231e88aa9d65c92ec52",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/docs/evidence/native-public-extraction-2026-10-11/raw/cases.json": "7f12238be2968bbec66d1b7dd6f9b93317b1714c1128592ad7576d3db06e4467",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/docs/evidence/explicit-file-extraction-2026-10-12/raw/build-new/manifest.txt": "cd1344f73723207099dac3be4b7edf1cd99c92c8af48acc3f69bb5f694cdf2e6",
+    "/home/bsutton/.cache/revault-native-public-20261011/fixtures-v2/source-zstd-1gib/A/source/file-000000.bin": "a90cac77289634f3369065f9037ce2d2f48490e967efaf59d78c3c51508ee77d",
+    "/home/bsutton/.cache/revault-native-public-20261011/fixtures-v2/random-raw-1gib/A/source/file-000000.bin": "abefe2d07b94a4f7e266b7df41ed7694856b9d7fc707bbf4d6b2fb4c4e54de96"
+  },
+  "planned_processes": 16,
+  "preparation": 4,
+  "measured": 12,
+  "settings": "native default layout; plaintext unsigned; Zstd3/defaultpadding; Auto cache/workers; affinity0-4; Interactive file versus BulkImport one-file directory; create outside timing; no phase diagnostics",
+  "available_processors": 16,
+  "umask": "0022"
+}

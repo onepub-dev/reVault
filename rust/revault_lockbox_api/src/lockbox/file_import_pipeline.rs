@@ -209,9 +209,18 @@ impl FileImportPipeline {
             .collect()
     }
 
+    #[cfg(test)]
     pub(super) fn prepare_parallel_job(
         self,
+        job: ParallelCompressionJob,
+    ) -> ParallelCompressionResult {
+        self.prepare_parallel_job_with_encoder(job, &mut |payload| self.encode(payload))
+    }
+
+    pub(super) fn prepare_parallel_job_with_encoder(
+        self,
         mut job: ParallelCompressionJob,
+        encode: &mut FrameEncoder<'_>,
     ) -> ParallelCompressionResult {
         let prepare_start = Instant::now();
         let index = job.index;
@@ -223,23 +232,13 @@ impl FileImportPipeline {
             compression_frame_offset: 0,
             len: job.data.len() as u64,
         };
-        let frame = self.prepare_payload(
+        let frame = self.prepare_payload_with_encoder(
             Cow::Owned(std::mem::take(&mut job.data)),
             vec![slice],
             prepare_start,
+            encode,
         );
         ParallelCompressionResult { index, frame }
-    }
-
-    fn prepare_payload(
-        self,
-        payload: Cow<'_, [u8]>,
-        slices: Vec<CompressionFrameSlice>,
-        prepare_start: Instant,
-    ) -> PreparedCompressionFrame {
-        self.prepare_payload_with_encoder(payload, slices, prepare_start, &mut |payload| {
-            self.encode(payload)
-        })
     }
 
     fn encode(self, payload: &[u8]) -> (u8, Vec<u8>) {

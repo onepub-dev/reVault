@@ -773,18 +773,30 @@ impl<State> Lockbox<State> {
             for _ in 0..jobs {
                 let job_rx = Arc::clone(&job_rx);
                 let result_tx = result_tx.clone();
-                scope.spawn(move || loop {
-                    let job = match job_rx.lock() {
+                scope.spawn(move || {
+                    let first_job = match job_rx.lock() {
                         Ok(rx) => rx.recv(),
                         Err(_) => return,
                     };
-                    let Ok(job) = job else {
+                    let Ok(mut job) = first_job else {
                         return;
                     };
-                    let result = pipeline.prepare_parallel_job(job);
-                    if result_tx.send(result).is_err() {
-                        return;
-                    }
+                    // Keep one scoped encoder per worker. Its existing lease
+                    // wipes backing buffers on normal exit and unwinding.
+                    pipeline.with_encoder(pipeline.encoder_frame(&job.data), |encode| loop {
+                        let result = pipeline.prepare_parallel_job_with_encoder(job, encode);
+                        if result_tx.send(result).is_err() {
+                            return;
+                        }
+                        let next_job = match job_rx.lock() {
+                            Ok(rx) => rx.recv(),
+                            Err(_) => return,
+                        };
+                        match next_job {
+                            Ok(next) => job = next,
+                            Err(_) => return,
+                        }
+                    });
                 });
             }
             drop(result_tx);

@@ -46,7 +46,7 @@ They recorded 283 and 287 observed passes respectively, 11 ignored each and no
 observed failures, but no complete-suite result. All 35 CLI creation/password
 and Vault consumer tests passed. The subsequent raw-data worker-cache trial is recorded below.
 The continuing goal stops below 10% remaining or above 99% after a reset;
-the current checkpoint reading is 81% remaining.
+the current checkpoint reading is 76% remaining.
 
 The [raw many-file trial](evidence/parallel-extraction-2026-10-12/README.md)
 passed its fixed 56-process gate and all 33 focused test executions, but the
@@ -67,6 +67,23 @@ The raw odd-round interval includes one, so not every stratum proves a speedup.
 Global ReadMostly and range/interactive behavior remain unchanged; no broader
 G11, architecture or release qualification is claimed.
 
+
+The [current public write baseline](evidence/public-add-2026-10-12/README.md)
+and [serial diagnostic](evidence/public-add-serial-2026-10-12/README.md) each
+completed 16 verified processes. Auto write RSS remained above 100 MB in all
+four cohorts; serial reduced RSS but roughly doubled compressed-source elapsed.
+The [parallel encoder reuse trial](evidence/parallel-encoder-reuse-2026-10-12/README.md)
+then completed 112 fresh paired processes and passed its frozen intermediate
+gates. Retain per-worker scoped encoder reuse: compressed BulkImport median RSS
+fell 27.3% and maximum RSS fell from 153.9 to 107.0 MB. All aggregate elapsed
+upper bounds were below 1.05. Raw BulkImport median RSS increased 13.3%, and
+its odd-round elapsed interval does not establish the same 5% bound. All new
+cohort maxima still exceed 100 MB; the whole-CLI write target remains open.
+Next assess command-local import retention or bounded in-flight ownership, keeping
+parallelism, durable preparation and authentication intact. All 15 focused
+default/native API and public CLI checks passed; no broad suite was rerun for
+this individual experiment. No architecture or
+release acceptance follows from this intermediate improvement.
 
 At the historical checkpoint, performance experiments were paused at `0de2dd4a` by user direction. The
 [security-first handoff](evidence/password-integrity-audit-2026-10-11/handoff.txt)
