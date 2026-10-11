@@ -1,0 +1,3 @@
+Path correction: The first preservation command ran from the rust directory and placed the binary at repository-root target/page-body-borrow-20261012/bin/lockbox-new. After verifying its expected SHA256, that binary was moved to the required rust/target/page-body-borrow-20261012/bin/lockbox-new path. The repository-root copy was removed; no rebuild or content change occurred.
+Original path SHA256 before move: 1087a467ffe56ef24a4e668dbd41f1565c1060563ff568f4a1c9bae6f00f9568
+Final path SHA256 after move: 1087a467ffe56ef24a4e668dbd41f1565c1060563ff568f4a1c9bae6f00f9568

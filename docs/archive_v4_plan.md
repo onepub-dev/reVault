@@ -36,7 +36,7 @@ completed 720 verified samples. Lazy authenticated-descriptor selection passes
 the frozen aggregate control and useful-profile gates; retain it as opt-in while
 keeping the serial default. The 17 MiB boundary has a 3.35% mean penalty and
 does not establish parity-wise non-inferiority. No threshold revision is planned.
-The latest completed milestone reading is 34% used (66% remaining), so the goal continues.
+The latest completed milestone reading is 37% used (63% remaining), so the goal continues.
 
 The [native/public comparison](evidence/native-public-extraction-2026-10-11/README.md)
 completed 480 component and 64 public CLI samples. All archive variants remain
@@ -141,6 +141,14 @@ in this four-cohort screen. Aggregate elapsed ratios are 0.9977/0.9633/0.9567/0.
 all but compressed Interactive establish improvements, without an every-stratum
 speedup claim. All nine focused release checks and both portable WASM lifecycles
 passed; the generated WASM is current. No per-experiment broad suite was rerun.
+
+The [borrowed page-body trial](evidence/page-body-borrow-2026-10-12/README.md)
+completed 112 verified processes but failed its frozen memory gate: compressed
+Interactive median RSS ratio 0.9666 misses 0.95. Although all aggregate elapsed
+intervals improve and maximum-RSS guards pass, compressed Interactive still
+peaks at 108.77 MB and raw median RSS rises 5.8%/1.8%. Reverted the two-expression
+trial exactly to `4957aa5a`; no extra samples, tests or WASM rebuild followed.
+The page-flush improvement remains current and the overall write target stays open.
 
 The explicit CLI password-unlock path was already bounded; no CLI-unlock or
 contact-performance gain is claimed. The worker-budget trial is no longer enabled.

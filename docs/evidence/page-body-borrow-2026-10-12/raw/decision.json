@@ -1,0 +1,8 @@
+{
+  "retained": false,
+  "failed_gate": "source-zstd-1gib/single-file-interactive median RSS ratio .9666425963814338 > .95",
+  "runtime_restored_to": "4957aa5a59c9d78933f98685a70db5dde141e9a1",
+  "runtime_and_bindings_diff_empty": true,
+  "additional_tests_or_wasm_build": false,
+  "remaining_usage_percent": 63
+}
