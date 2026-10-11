@@ -1,0 +1,138 @@
+diff --git a/rust/revault_lockbox_api/benches/evaluation/runner.rs b/rust/revault_lockbox_api/benches/evaluation/runner.rs
+index d4022860..abcfb671 100644
+--- a/rust/revault_lockbox_api/benches/evaluation/runner.rs
++++ b/rust/revault_lockbox_api/benches/evaluation/runner.rs
+@@ -461,6 +461,29 @@ pub fn main() {
+     let args: Vec<String> = std::env::args().skip(1).collect();
+     let command = args.first().map(String::as_str).unwrap_or("");
+     match command {
++        "open-password" => {
++            assert_eq!(args.len(), 3, "open-password ROOT NEW_PROOF_OUTPUT");
++            let root = Path::new(&args[1]);
++            let password = revault_lockbox_api::SecretString::try_from_bytes(
++                std::env::var("LOCKBOX_PASSWORD").expect("synthetic password environment required").into_bytes(),
++            ).unwrap();
++            let before = Resources::now();
++            let started = Instant::now();
++            let archive = Lockbox::open(&root.join("archive.lbox"), LockboxOpen::Password(&password)).unwrap();
++            let mut output = OpenOptions::new().write(true).create_new(true).open(&args[2]).unwrap();
++            archive.extract_file_to_writer(&LockboxPath::new("/proof.bin").unwrap(), &mut output).unwrap();
++            output.flush().unwrap();
++            drop(output);
++            drop(archive);
++            let elapsed = started.elapsed().as_secs_f64();
++            let after = Resources::now();
++            let expected = fs::read(root.join("proof-source.bin")).unwrap();
++            assert_eq!(fs::read(&args[2]).unwrap(), expected, "persisted proof mismatch");
++            println!("{}", json!({"operation":"public-password-open-proof", "verified":true,
++                "proof_bytes":expected.len(), "elapsed_seconds":elapsed,
++                "cpu":after.delta(before), "peak_rss_kib":after.peak_kib,
++                "layout":layout(), "whole_payload_verified_in_timed_operation":false}));
++        }
+         "extract-lockbox" => {
+             assert_eq!(args.len(), 3, "extract-lockbox ROOT NEW_OUTPUT");
+             let root = Path::new(&args[1]);
+diff --git a/rust/revault_lockbox_api/src/lockbox/key_management.rs b/rust/revault_lockbox_api/src/lockbox/key_management.rs
+index 065bffaa..82bf4386 100644
+--- a/rust/revault_lockbox_api/src/lockbox/key_management.rs
++++ b/rust/revault_lockbox_api/src/lockbox/key_management.rs
+@@ -642,8 +642,10 @@ impl Lockbox {
+                 allow_recovery,
+             ),
+             LockboxOpen::Password(password) => {
+-                let bytes = storage.read_all()?;
+-                let opened = Self::open_bytes_with_password(&bytes, password)?;
++                let opened = Self::open_password_candidates(
++                    KeyDirectoryCandidates::from_storage(&storage)?,
++                    password,
++                )?;
+                 let mut lockbox = Self::open_storage_with_secret_key_mode(
+                     storage,
+                     opened.key,
+@@ -656,8 +658,10 @@ impl Lockbox {
+                 Ok(lockbox)
+             }
+             LockboxOpen::ContactKeyPair(contact) => {
+-                let bytes = storage.read_all()?;
+-                let opened = Self::open_bytes_with_contact(&bytes, &contact)?;
++                let opened = Self::open_contact_candidates(
++                    KeyDirectoryCandidates::from_storage(&storage)?,
++                    &contact,
++                )?;
+                 let mut lockbox = Self::open_storage_with_secret_key_mode(
+                     storage,
+                     opened.key,
+@@ -730,7 +734,14 @@ impl Lockbox {
+         bytes: &[u8],
+         password: &SecretString,
+     ) -> Result<OpenedContentKey> {
+-        for directory in KeyDirectoryCandidates::from_bytes(bytes)?.into_ranked() {
++        Self::open_password_candidates(KeyDirectoryCandidates::from_bytes(bytes)?, password)
++    }
++
++    fn open_password_candidates(
++        candidates: KeyDirectoryCandidates,
++        password: &SecretString,
++    ) -> Result<OpenedContentKey> {
++        for directory in candidates.into_ranked() {
+             for slot in directory.slots {
+                 let Ok(key) = slot.try_password(password) else {
+                     continue;
+@@ -752,19 +763,7 @@ impl Lockbox {
+         password: &SecretString,
+     ) -> Result<OpenedContentKey> {
+         let storage = StorageBackend::file(path)?;
+-        for directory in KeyDirectoryCandidates::from_storage(&storage)?.into_ranked() {
+-            for slot in directory.slots {
+-                let Ok(key) = slot.try_password(password) else {
+-                    continue;
+-                };
+-                return Ok(OpenedContentKey {
+-                    lockbox_id: directory.lockbox_id,
+-                    key: SecretVec::try_from_vec(key)?,
+-                    read_only: false,
+-                });
+-            }
+-        }
+-        Err(Error::InvalidKey)
++        Self::open_password_candidates(KeyDirectoryCandidates::from_storage(&storage)?, password)
+     }
+ 
+     /// Open a key-directory backup with a password.
+@@ -822,7 +821,14 @@ impl Lockbox {
+         bytes: &[u8],
+         contact: &ContactKeyPair,
+     ) -> Result<OpenedContentKey> {
+-        for directory in KeyDirectoryCandidates::from_bytes(bytes)?.into_ranked() {
++        Self::open_contact_candidates(KeyDirectoryCandidates::from_bytes(bytes)?, contact)
++    }
++
++    fn open_contact_candidates(
++        candidates: KeyDirectoryCandidates,
++        contact: &ContactKeyPair,
++    ) -> Result<OpenedContentKey> {
++        for directory in candidates.into_ranked() {
+             for slot in directory.slots {
+                 let Ok(key) = slot.try_contact(contact) else {
+                     continue;
+@@ -844,19 +850,7 @@ impl Lockbox {
+         contact: &ContactKeyPair,
+     ) -> Result<OpenedContentKey> {
+         let storage = StorageBackend::file(path)?;
+-        for directory in KeyDirectoryCandidates::from_storage(&storage)?.into_ranked() {
+-            for slot in directory.slots {
+-                let Ok(key) = slot.try_contact(contact) else {
+-                    continue;
+-                };
+-                return Ok(OpenedContentKey {
+-                    lockbox_id: directory.lockbox_id,
+-                    key: SecretVec::try_from_vec(key)?,
+-                    read_only: true,
+-                });
+-            }
+-        }
+-        Err(Error::InvalidKey)
++        Self::open_contact_candidates(KeyDirectoryCandidates::from_storage(&storage)?, contact)
+     }
+ 
+     /// Open a key-directory backup with a contact private key.

@@ -941,6 +941,143 @@ fn password_wrapping_preserves_variable_length_content_keys() {
 }
 
 #[test]
+fn path_backed_credential_candidates_preserve_mirrors_and_authority() {
+    for signed in [false, true] {
+        let path = temp_path("credential-candidate-path");
+        let first = password("first candidate password");
+        let second = password("second candidate password");
+        let wrong = password("unrelated password");
+        let owner = signing_key();
+        let contact = ContactKeyPair::generate().unwrap();
+        let outsider = ContactKeyPair::generate().unwrap();
+        let mut archive = Lockbox::create_file_with_options(
+            &path,
+            crate::LockboxCreateOptions::new(
+                crate::Encryption::Encrypted(LockboxProtection::Password(&first)),
+                if signed {
+                    crate::Signing::Owner(&owner)
+                } else {
+                    crate::Signing::None
+                },
+            ),
+        )
+        .unwrap();
+        archive.add_password(&second).unwrap();
+        archive.commit().unwrap();
+        archive.add_contact(&contact.public_key()).unwrap();
+        archive.commit().unwrap();
+        add_file(
+            &mut archive,
+            &p("/proof"),
+            b"current authenticated contents",
+            false,
+        )
+        .unwrap();
+        archive.commit().unwrap();
+        drop(archive);
+        let original = std::fs::read(&path).unwrap();
+        assert!(matches!(
+            Lockbox::open(&path, LockboxOpen::Password(&wrong)),
+            Err(Error::InvalidKey)
+        ));
+        assert!(matches!(
+            Lockbox::open(&path, LockboxOpen::ContactKeyPair(outsider)),
+            Err(Error::InvalidKey)
+        ));
+        {
+            let by_password = Lockbox::open(&path, LockboxOpen::Password(&second)).unwrap();
+            assert_eq!(
+                by_password.get_file(&p("/proof")).unwrap(),
+                b"current authenticated contents"
+            );
+            let by_contact: Lockbox<crate::ReadOnly> = Lockbox::open(
+                &path,
+                LockboxOpen::ContactKeyPair(
+                    ContactKeyPair::from_private_key_record(contact.private_key_record().unwrap())
+                        .unwrap(),
+                ),
+            )
+            .unwrap();
+            assert_eq!(
+                by_contact.get_file(&p("/proof")).unwrap(),
+                b"current authenticated contents"
+            );
+        }
+        assert_eq!(
+            std::fs::read(&path).unwrap(),
+            original,
+            "read-only credential opens must preserve storage"
+        );
+        if signed {
+            assert!(matches!(
+                Lockbox::open_for_write(
+                    &path,
+                    LockboxOpen::ContactKeyPair(
+                        ContactKeyPair::from_private_key_record(
+                            contact.private_key_record().unwrap()
+                        )
+                        .unwrap()
+                    ),
+                    crate::Signing::None,
+                ),
+                Err(Error::InvalidInput(_))
+            ));
+            assert_eq!(std::fs::read(&path).unwrap(), original);
+        }
+        let header = crate::file_format::read_header(&original).unwrap();
+        let offsets = [
+            header.key_directory_offset,
+            header.key_directory_mirror_offset,
+        ];
+        // Direct local fixture damage has no public CLI equivalent. This checks
+        // supported mirror loss and refusal, not historical-state acceptance.
+        for missing in offsets {
+            let mut bytes = original.clone();
+            bytes[missing as usize] = 0;
+            std::fs::write(&path, &bytes).unwrap();
+            let by_password = Lockbox::open(&path, LockboxOpen::Password(&second)).unwrap();
+            assert_eq!(
+                by_password.get_file(&p("/proof")).unwrap(),
+                b"current authenticated contents"
+            );
+            drop(by_password);
+            let by_contact = Lockbox::open(
+                &path,
+                LockboxOpen::ContactKeyPair(
+                    ContactKeyPair::from_private_key_record(contact.private_key_record().unwrap())
+                        .unwrap(),
+                ),
+            )
+            .unwrap();
+            assert_eq!(
+                by_contact.get_file(&p("/proof")).unwrap(),
+                b"current authenticated contents"
+            );
+            drop(by_contact);
+            assert_eq!(std::fs::read(&path).unwrap(), bytes);
+        }
+        let mut bytes = original;
+        for offset in offsets {
+            bytes[offset as usize] = 0;
+        }
+        std::fs::write(&path, &bytes).unwrap();
+        assert!(matches!(
+            Lockbox::open(&path, LockboxOpen::Password(&second)),
+            Err(Error::CorruptHeader)
+        ));
+        assert!(matches!(
+            Lockbox::open(&path, LockboxOpen::ContactKeyPair(contact)),
+            Err(Error::CorruptHeader)
+        ));
+        assert!(matches!(
+            Lockbox::open_with_password(bytes, &second),
+            Err(Error::CorruptHeader)
+        ));
+        std::fs::remove_file(path).unwrap();
+    }
+}
+
+#[test]
 fn password_directory_tolerates_either_missing_mirror_but_not_both() {
     let password = password("mirror lifecycle fixture");
     let mut lb = Lockbox::create_with_password(&password).unwrap();

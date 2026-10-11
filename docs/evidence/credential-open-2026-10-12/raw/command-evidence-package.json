@@ -1,0 +1,7 @@
+{
+  "files": 1218,
+  "archive_sha256": "fcf269c020e5ce4cc30f24b1ab3d9e429c878bef7c2216f9a478e9f36c4cd92c",
+  "all_extracted_bytes_verified": true,
+  "originals_preserved_locally": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/evidence-original-credential-open-2026-10-12",
+  "restore": "tar -xzf command-evidence.tar.gz (from raw directory)"
+}

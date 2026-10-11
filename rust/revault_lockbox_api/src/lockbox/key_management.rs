@@ -642,8 +642,10 @@ impl Lockbox {
                 allow_recovery,
             ),
             LockboxOpen::Password(password) => {
-                let bytes = storage.read_all()?;
-                let opened = Self::open_bytes_with_password(&bytes, password)?;
+                let opened = Self::open_password_candidates(
+                    KeyDirectoryCandidates::from_storage(&storage)?,
+                    password,
+                )?;
                 let mut lockbox = Self::open_storage_with_secret_key_mode(
                     storage,
                     opened.key,
@@ -656,8 +658,10 @@ impl Lockbox {
                 Ok(lockbox)
             }
             LockboxOpen::ContactKeyPair(contact) => {
-                let bytes = storage.read_all()?;
-                let opened = Self::open_bytes_with_contact(&bytes, &contact)?;
+                let opened = Self::open_contact_candidates(
+                    KeyDirectoryCandidates::from_storage(&storage)?,
+                    &contact,
+                )?;
                 let mut lockbox = Self::open_storage_with_secret_key_mode(
                     storage,
                     opened.key,
@@ -730,7 +734,14 @@ impl Lockbox {
         bytes: &[u8],
         password: &SecretString,
     ) -> Result<OpenedContentKey> {
-        for directory in KeyDirectoryCandidates::from_bytes(bytes)?.into_ranked() {
+        Self::open_password_candidates(KeyDirectoryCandidates::from_bytes(bytes)?, password)
+    }
+
+    fn open_password_candidates(
+        candidates: KeyDirectoryCandidates,
+        password: &SecretString,
+    ) -> Result<OpenedContentKey> {
+        for directory in candidates.into_ranked() {
             for slot in directory.slots {
                 let Ok(key) = slot.try_password(password) else {
                     continue;
@@ -752,19 +763,7 @@ impl Lockbox {
         password: &SecretString,
     ) -> Result<OpenedContentKey> {
         let storage = StorageBackend::file(path)?;
-        for directory in KeyDirectoryCandidates::from_storage(&storage)?.into_ranked() {
-            for slot in directory.slots {
-                let Ok(key) = slot.try_password(password) else {
-                    continue;
-                };
-                return Ok(OpenedContentKey {
-                    lockbox_id: directory.lockbox_id,
-                    key: SecretVec::try_from_vec(key)?,
-                    read_only: false,
-                });
-            }
-        }
-        Err(Error::InvalidKey)
+        Self::open_password_candidates(KeyDirectoryCandidates::from_storage(&storage)?, password)
     }
 
     /// Open a key-directory backup with a password.
@@ -822,7 +821,14 @@ impl Lockbox {
         bytes: &[u8],
         contact: &ContactKeyPair,
     ) -> Result<OpenedContentKey> {
-        for directory in KeyDirectoryCandidates::from_bytes(bytes)?.into_ranked() {
+        Self::open_contact_candidates(KeyDirectoryCandidates::from_bytes(bytes)?, contact)
+    }
+
+    fn open_contact_candidates(
+        candidates: KeyDirectoryCandidates,
+        contact: &ContactKeyPair,
+    ) -> Result<OpenedContentKey> {
+        for directory in candidates.into_ranked() {
             for slot in directory.slots {
                 let Ok(key) = slot.try_contact(contact) else {
                     continue;
@@ -844,19 +850,7 @@ impl Lockbox {
         contact: &ContactKeyPair,
     ) -> Result<OpenedContentKey> {
         let storage = StorageBackend::file(path)?;
-        for directory in KeyDirectoryCandidates::from_storage(&storage)?.into_ranked() {
-            for slot in directory.slots {
-                let Ok(key) = slot.try_contact(contact) else {
-                    continue;
-                };
-                return Ok(OpenedContentKey {
-                    lockbox_id: directory.lockbox_id,
-                    key: SecretVec::try_from_vec(key)?,
-                    read_only: true,
-                });
-            }
-        }
-        Err(Error::InvalidKey)
+        Self::open_contact_candidates(KeyDirectoryCandidates::from_storage(&storage)?, contact)
     }
 
     /// Open a key-directory backup with a contact private key.

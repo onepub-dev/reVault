@@ -1,0 +1,11 @@
+Default API --lib release run
+Command: +1.88.0 locked offline, release, default features, --test-threads=2; outer timeout 1200s; exit 124 (timeout).
+Observed completed: 283 passed lines, 11 ignored lines, 0 failure/panic lines. No test-result summary was emitted, so this is a partial count, not a suite pass.
+Last reported test still running over 60s at timeout: file_format::candidate_files::tests::tree_tests::forms::fields::typed_form_field_upgrade_guarded_atomic_recovery_faults.
+
+Native-block-layout API --lib release run
+Command: +1.88.0 locked offline, release, native-block-layout, --test-threads=2; outer timeout 1200s; exit 124 (timeout).
+Observed completed: 287 passed lines, 11 ignored lines, 0 failure/panic lines. No test-result summary was emitted, so this is a partial count, not a suite pass.
+Last reported test still running over 60s at timeout: file_format::candidate_files::tests::tree_tests::forms::fields::typed_form_field_upgrade_guarded_atomic_recovery_faults.
+
+The ignored tests were left ignored. No tests were skipped or forced ignored.

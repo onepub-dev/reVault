@@ -1,0 +1,24 @@
+[
+  {
+    "case": "random-raw-64mib",
+    "root": "/home/bsutton/.cache/rv-credential-20261012/fixture0",
+    "bytes": 67108864,
+    "source": "/home/bsutton/.cache/revault-native-public-20261011/fixtures-v2/random-raw-64mib/A/source/file-000000.bin",
+    "source_sha256": "34bef3bb1ce80841f85d406982294557ae9221fb0f6e63ca9a28b6a5e6d8cf3a",
+    "archive_sha256": "b14bc37b5a33868632f09a3ff222b42350dabd4817fdb822833a9452c8e38b46",
+    "archive_bytes": 67660160,
+    "proof_sha256": "5d3cf26e2f16fd37c08c7dd3a308037b0878021071e7b9aadc7df48e752e30b7",
+    "full_payload_verified_by_separate_cli": true
+  },
+  {
+    "case": "random-raw-1gib",
+    "root": "/home/bsutton/.cache/rv-credential-20261012/fixture1",
+    "bytes": 1073741824,
+    "source": "/home/bsutton/.cache/revault-native-public-20261011/fixtures-v2/random-raw-1gib/A/source/file-000000.bin",
+    "source_sha256": "abefe2d07b94a4f7e266b7df41ed7694856b9d7fc707bbf4d6b2fb4c4e54de96",
+    "archive_sha256": "c49b36c7f5a65c092ef2f8753f99a4610976e402e59c24b73212c243e330f78d",
+    "archive_bytes": 1074526592,
+    "proof_sha256": "d5c707ab1b0e0683e40e0b33bdf7d861ca97430744168fdcf5f4f48c6e37ea5b",
+    "full_payload_verified_by_separate_cli": true
+  }
+]

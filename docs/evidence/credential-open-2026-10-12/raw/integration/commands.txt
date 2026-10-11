@@ -1,0 +1,6 @@
+TMPDIR=/home/bsutton/.cache/rv4-security-20261011 timeout --kill-after=30s 1200s cargo +1.88.0 test --locked --offline --release -p revault_lockbox_api@0.0.41 --lib -- --test-threads=2
+cd rust && TMPDIR=/home/bsutton/.cache/rv4-security-20261011 timeout --kill-after=30s 1200s cargo +1.88.0 test --locked --offline --release -p revault_lockbox_api@0.0.41 --lib -- --test-threads=2
+cd rust && TMPDIR=/home/bsutton/.cache/rv4-security-20261011 timeout --kill-after=30s 1200s cargo +1.88.0 test --locked --offline --release -p revault_lockbox_api@0.0.41 --lib --features native-block-layout -- --test-threads=2
+cd rust && TMPDIR=/home/bsutton/.cache/rv4-security-20261011 timeout --kill-after=30s 300s cargo +1.88.0 test --locked --offline --release -p revault_cli@0.5.0-dev.1 --test creation_options
+cd rust && TMPDIR=/home/bsutton/.cache/rv4-security-20261011 timeout --kill-after=30s 300s cargo +1.88.0 test --locked --offline --release -p revault_cli@0.5.0-dev.1 --test password_profiles
+cd rust && TMPDIR=/home/bsutton/.cache/rv4-security-20261011 timeout --kill-after=30s 600s cargo +1.88.0 test --locked --offline --release -p revault_vault_api@0.0.42 --lib -- --test-threads=2

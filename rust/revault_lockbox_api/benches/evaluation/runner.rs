@@ -461,6 +461,29 @@ pub fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let command = args.first().map(String::as_str).unwrap_or("");
     match command {
+        "open-password" => {
+            assert_eq!(args.len(), 3, "open-password ROOT NEW_PROOF_OUTPUT");
+            let root = Path::new(&args[1]);
+            let password = revault_lockbox_api::SecretString::try_from_bytes(
+                std::env::var("LOCKBOX_PASSWORD").expect("synthetic password environment required").into_bytes(),
+            ).unwrap();
+            let before = Resources::now();
+            let started = Instant::now();
+            let archive = Lockbox::open(&root.join("archive.lbox"), LockboxOpen::Password(&password)).unwrap();
+            let mut output = OpenOptions::new().write(true).create_new(true).open(&args[2]).unwrap();
+            archive.extract_file_to_writer(&LockboxPath::new("/proof.bin").unwrap(), &mut output).unwrap();
+            output.flush().unwrap();
+            drop(output);
+            drop(archive);
+            let elapsed = started.elapsed().as_secs_f64();
+            let after = Resources::now();
+            let expected = fs::read(root.join("proof-source.bin")).unwrap();
+            assert_eq!(fs::read(&args[2]).unwrap(), expected, "persisted proof mismatch");
+            println!("{}", json!({"operation":"public-password-open-proof", "verified":true,
+                "proof_bytes":expected.len(), "elapsed_seconds":elapsed,
+                "cpu":after.delta(before), "peak_rss_kib":after.peak_kib,
+                "layout":layout(), "whole_payload_verified_in_timed_operation":false}));
+        }
         "extract-lockbox" => {
             assert_eq!(args.len(), 3, "extract-lockbox ROOT NEW_OUTPUT");
             let root = Path::new(&args[1]);

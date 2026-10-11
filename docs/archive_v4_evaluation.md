@@ -33,10 +33,21 @@ CLI below 100 MB. Native Auto ExtractMany now retains 32 MiB of pages/native
 frames plus up to 8 MiB of separate decoded frames; 1 GiB process RSS fell 67–70%.
 Raw64 even-round intervals do not establish the same per-stratum timing bound.
 These single-file plaintext results do not close overall G11, parallel many-file
-memory, credential unlock or ReadMostly qualification. Next measure bounded
-password/contact unlock before changing its whole-archive buffering.
+memory or ReadMostly qualification. The subsequent
+[credential-open comparison](evidence/credential-open-2026-10-12/README.md)
+completed 56 paired old/new processes after an 8-process baseline. Direct public
+password-API open plus proof now peaks near 72 MB at both sizes; at 1 GiB the
+elapsed ratio is 0.109 [0.104, 0.115] and peak RSS falls from 1.146 GB.
+Normal explicit CLI password unlock already used bounded reads and is not a
+measured beneficiary. Contact semantics are regression-tested, not performance
+qualified. The complete default and native-layout library integration attempts each timed
+out after 20 minutes (exit 124) during the same candidate recovery campaign.
+They recorded 283 and 287 observed passes respectively, 11 ignored each and no
+observed failures, but no complete-suite result. All 35 CLI creation/password
+and Vault consumer tests passed. Next measure many-file extraction, including
+parent and worker caches.
 The continuing goal stops below 10% remaining or above 99% after a reset;
-the current checkpoint reading is 89% remaining.
+the current checkpoint reading is 85% remaining.
 
 At the historical checkpoint, performance experiments were paused at `0de2dd4a` by user direction. The
 [security-first handoff](evidence/password-integrity-audit-2026-10-11/handoff.txt)

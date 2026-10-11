@@ -1,0 +1,1 @@
+cargo +1.88.0 build --locked --offline --release -p revault_cli --bin lockbox -p revault_lockbox_api@0.0.41 --bench archive_evaluation

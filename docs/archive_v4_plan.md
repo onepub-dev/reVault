@@ -36,7 +36,7 @@ completed 720 verified samples. Lazy authenticated-descriptor selection passes
 the frozen aggregate control and useful-profile gates; retain it as opt-in while
 keeping the serial default. The 17 MiB boundary has a 3.35% mean penalty and
 does not establish parity-wise non-inferiority. No threshold revision is planned.
-The latest completed milestone reading is 11% used (89% remaining), so the goal continues.
+The latest completed milestone reading is 15% used (85% remaining), so the goal continues.
 
 The [native/public comparison](evidence/native-public-extraction-2026-10-11/README.md)
 completed 480 component and 64 public CLI samples. All archive variants remain
@@ -49,9 +49,21 @@ and 8 MiB separate decoded frames: measured 1 GiB maximum CLI RSS fell 67–70%,
 with every trial below 100 MB. Explicit policies and WASM are unchanged.
 Random64 even-round timing intervals remain uncertain above the 5% bound.
 
-Next baseline password/contact credential unlock plus a tiny persisted proof
-read, then replace demonstrated whole-archive credential buffering with bounded
-access-directory reads if measurements and authentication review support it.
+The [credential-open experiment](evidence/credential-open-2026-10-12/README.md)
+completed an 8-process baseline and 56-process paired comparison. Retain bounded
+access-directory reads on the existing locked handle: public password-API open
+plus a tiny persisted proof fell from 1.146 GB to 71.95 MB peak RSS at 1 GiB,
+with about 89% lower elapsed time. Both sizes and round strata pass the frozen
+timing gates; focused direct-file credential/authentication checks pass. The
+complete default and native-layout library integration attempts each reached
+their 20-minute bounds during the same unchanged candidate recovery campaign
+(exit 124). They recorded 283 and 287 observed passes respectively, 11 ignored
+each and no observed failures, but neither produced a complete-suite result.
+CLI creation/password consumers and the Vault library passed all 35 tests.
+Full candidate/release qualification remains open.
+The explicit CLI password-unlock path was already bounded; no CLI-unlock or
+contact-performance gain is claimed. Next measure actual public many-file
+extraction memory before considering a combined parent/worker Auto cache budget.
 Cached-content-key extraction is a different path. Many-file parallel cache
 multiplication, ReadMostly, PGP/write, candidate security, public semantics and
 cross-version qualification remain open; no architecture or release is selected.

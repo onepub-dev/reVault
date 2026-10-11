@@ -1,0 +1,11 @@
+b6da783ef05b6b01283117facccb8072311918ca
+ M rust/revault_lockbox_api/benches/evaluation/runner.rs
+ M rust/revault_lockbox_api/src/lockbox/key_management.rs
+?? docs/evidence/credential-open-2026-10-12/
+?? tools/credential-open.dart
+b0fb323753105217dd780e6bc3cdfb8e29af4b5f9044ef6a9835c63d913d994b  target/credential-open-20261012/bin/lockbox-new
+6934b691d767a4836681853a18ea87830712c6d7d407bcb95bbbc94203329bb4  target/credential-open-20261012/bin/evaluator-new
+b8870926efa54f9bd3afad049ab130e43b9949e89b7cd452b18eebebacec71af  revault_lockbox_api/src/lockbox/key_management.rs
+fb155c9fc2b9da7ce279aaa12f4183be4e4e42964c4aa82dd020f4c89924e00c  revault_lockbox_api/benches/evaluation/runner.rs
+8b3444bf2390acec1150d9840bfc3f0bfc02b7f42d4b34df926ce7974b36cdd2  revault_cli/Cargo.toml
+beab5d20edb8c69e95f2f330abdbe38e08f11cfc3ea81adc87eadbc557e8167f  revault_lockbox_api/Cargo.toml
