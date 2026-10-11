@@ -46,18 +46,18 @@ They recorded 283 and 287 observed passes respectively, 11 ignored each and no
 observed failures, but no complete-suite result. All 35 CLI creation/password
 and Vault consumer tests passed. The subsequent raw-data worker-cache trial is recorded below.
 The continuing goal stops below 10% remaining or above 99% after a reset;
-the current checkpoint reading is 84% remaining.
+the current checkpoint reading is 82% remaining.
 
-The [public many-file trial](evidence/parallel-extraction-2026-10-12/README.md)
-completed an 8-process baseline and 56 fresh paired CLI processes. Retain
-worker-local Auto ExtractMany sharing: maximum RSS fell from 212/258 MB to
-74.8/87.6 MB for 256-file/64 MiB and 1,024-file/1 GiB raw plaintext cases,
-with paired elapsed ratios 0.908 [0.852, 0.972] and 0.913 [0.901, 0.928].
-The parent remains unchanged; actual worker jobs share an additional 8 MiB
-page/native and 8 MiB decoded-frame target. The sum of clean retention targets
-is at most 56 MiB, not a hard process-memory bound. Explicit policies and WASM
-remain unchanged. All 33 focused default/native test executions pass; next qualify compressed many-file
-extraction using the same frozen binaries before further policy changes.
+The [raw many-file trial](evidence/parallel-extraction-2026-10-12/README.md)
+passed its fixed 56-process gate and all 33 focused test executions, but the
+subsequent [compressed qualification](evidence/parallel-compressed-extraction-2026-10-12/README.md)
+failed the small-case noninferiority bound: ratio 0.993 [0.911, 1.083], with an
+upper bound above 1.05. This does not prove a slowdown, but it does not qualify
+the global policy. Reverted only the worker-cache sharing change and its dependent
+tests to `a881d15d`; retain all raw/compressed evidence, the earlier single-file
+cache improvement and bounded credential opens. No outcome-based reruns or
+compression guard were introduced. Next measure the exact explicit single-file
+CLI branch using the restored baseline before considering its profile selection.
 
 At the historical checkpoint, performance experiments were paused at `0de2dd4a` by user direction. The
 [security-first handoff](evidence/password-integrity-audit-2026-10-11/handoff.txt)

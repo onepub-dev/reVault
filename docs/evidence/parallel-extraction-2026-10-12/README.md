@@ -2,7 +2,11 @@
 
 ## Completed raw-data result
 
-Retain the native Auto ExtractMany worker-cache change. After the eight-process
+The raw-data gate initially passed for the native Auto worker-cache trial.
+The subsequent [compressed qualification](../parallel-compressed-extraction-2026-10-12/README.md)
+failed its small-case noninferiority gate; the global worker policy was reverted.
+These raw measurements remain historical evidence, not current runtime behavior.
+After the eight-process
 descriptive baseline, all 56 fixed paired processes completed (48 measured,
 8 preparation). Exact persisted tree, bytes, modes, cold-archive admission,
 identity and owned-session cleanup checks passed.
