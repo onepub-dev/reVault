@@ -2888,11 +2888,15 @@ impl<'a, State> FilePageWriter<'a, State> {
             return Ok(());
         }
         let write_start = Instant::now();
-        let pending = self.packer.pending().to_vec();
-        let objects = pending
-            .iter()
-            .map(|pending| pending.object.clone())
-            .collect::<Vec<_>>();
+        // This operation-local writer is discarded on errors. Transfer payloads
+        // into the page, retaining only the small reference-publication context.
+        let pending = self.packer.take_pending();
+        let mut objects = Vec::with_capacity(pending.len());
+        let mut contexts = Vec::with_capacity(pending.len());
+        for pending in pending {
+            contexts.push((pending.object.id, pending.context));
+            objects.push(pending.object);
+        }
         let page_size = crate::page::page_size_for_encoded_objects_with_format(
             &objects,
             self.lockbox.format_mode,
@@ -2911,20 +2915,19 @@ impl<'a, State> FilePageWriter<'a, State> {
                 .mark_new_file_page(page_offset);
             self.lockbox.flush_file_pages_under_pressure()?;
         }
-        for pending in pending {
-            for chunk_index in pending.context.chunk_indices {
+        for (object_id, context) in contexts {
+            for chunk_index in context.chunk_indices {
                 if let Some(chunk) = chunks.get_mut(chunk_index) {
                     chunk.segments.push(CompressionFrameSegment {
                         page_offset,
                         page_len: page_size as u64,
-                        object_id: pending.object.id,
-                        segment_offset: pending.context.segment_offset,
-                        segment_len: pending.context.segment_len,
+                        object_id,
+                        segment_offset: context.segment_offset,
+                        segment_len: context.segment_len,
                     });
                 }
             }
         }
-        self.packer.clear();
         self.lockbox
             .add_page_write_nanos(write_start.elapsed().as_nanos());
         Ok(())

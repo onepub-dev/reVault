@@ -46,7 +46,7 @@ They recorded 283 and 287 observed passes respectively, 11 ignored each and no
 observed failures, but no complete-suite result. All 35 CLI creation/password
 and Vault consumer tests passed. The subsequent raw-data worker-cache trial is recorded below.
 The continuing goal stops below 10% remaining or above 99% after a reset;
-the current checkpoint reading is 67% remaining.
+the current checkpoint reading is 66% remaining.
 
 The [raw many-file trial](evidence/parallel-extraction-2026-10-12/README.md)
 passed its fixed 56-process gate and all 33 focused test executions, but the
@@ -118,6 +118,16 @@ fell 21.2% for source Zstd and 14.2% for raw fallback; maxima fell to 122.47 and
 meet the 5% guard but establish no speedup. Both maxima still exceed 100 MB.
 BulkImport was unchanged and not retimed. All seven focused release API/CLI
 lifecycle checks passed; no broad suite was rerun for this one-line policy change.
+
+The [page-flush ownership trial](evidence/page-flush-ownership-2026-10-12/README.md)
+completed 112 verified processes and met all frozen gates. Retain consuming
+payload transfer in place of two deep clones. Median RSS fell 11.9%/13.4% for
+compressed Interactive/BulkImport and 12.9%/25.0% for raw. Maxima are now
+108.47/97.21/87.70/75.25 MB; only compressed Interactive remains above 100 MB
+in this four-cohort screen. Aggregate elapsed ratios are 0.9977/0.9633/0.9567/0.9173;
+all but compressed Interactive establish improvements, without an every-stratum
+speedup claim. All nine focused release checks and both portable WASM lifecycles
+passed; the generated WASM is current. No per-experiment broad suite was rerun.
 
 At the historical checkpoint, performance experiments were paused at `0de2dd4a` by user direction. The
 [security-first handoff](evidence/password-integrity-audit-2026-10-11/handoff.txt)

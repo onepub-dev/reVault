@@ -1,0 +1,48 @@
+warning: revault_key_server@0.0.37: reVault key/topology server production operation requires a separate commercial license from OnePub IP Pty Ltd; see revault_key_server/LICENSE
+    Finished `release` profile [optimized] target(s) in 0.16s
+     Running tests/cli_flow.rs (target/release/deps/cli_flow-a494ce2937cf1fad)
+
+running 1 test
+test add_can_default_destination_and_list_recursively ... CLI start: test=add_can_default_destination_and_list_recursively pid=641462
+CLI end: test=add_can_default_destination_and_list_recursively pid=641462 elapsed=2.03488846s status=exit status: 0
+CLI start: test=add_can_default_destination_and_list_recursively pid=641478
+CLI end: test=add_can_default_destination_and_list_recursively pid=641478 elapsed=1.406007898s status=exit status: 1
+CLI start: test=add_can_default_destination_and_list_recursively pid=641482
+CLI end: test=add_can_default_destination_and_list_recursively pid=641482 elapsed=402.697713ms status=exit status: 0
+CLI start: test=add_can_default_destination_and_list_recursively pid=641485
+CLI end: test=add_can_default_destination_and_list_recursively pid=641485 elapsed=1.430886052s status=exit status: 0
+CLI start: test=add_can_default_destination_and_list_recursively pid=641510
+CLI end: test=add_can_default_destination_and_list_recursively pid=641510 elapsed=404.404557ms status=exit status: 0
+CLI start: test=add_can_default_destination_and_list_recursively pid=641513
+CLI end: test=add_can_default_destination_and_list_recursively pid=641513 elapsed=1.407050681s status=exit status: 0
+CLI start: test=add_can_default_destination_and_list_recursively pid=641518
+CLI end: test=add_can_default_destination_and_list_recursively pid=641518 elapsed=403.036008ms status=exit status: 1
+CLI start: test=add_can_default_destination_and_list_recursively pid=641532
+CLI end: test=add_can_default_destination_and_list_recursively pid=641532 elapsed=1.405707415s status=exit status: 0
+CLI start: test=add_can_default_destination_and_list_recursively pid=641536
+CLI end: test=add_can_default_destination_and_list_recursively pid=641536 elapsed=426.833376ms status=exit status: 1
+CLI start: test=add_can_default_destination_and_list_recursively pid=641539
+CLI end: test=add_can_default_destination_and_list_recursively pid=641539 elapsed=1.407565569s status=exit status: 0
+CLI start: test=add_can_default_destination_and_list_recursively pid=641561
+CLI end: test=add_can_default_destination_and_list_recursively pid=641561 elapsed=1.409385214s status=exit status: 0
+CLI start: test=add_can_default_destination_and_list_recursively pid=641566
+CLI end: test=add_can_default_destination_and_list_recursively pid=641566 elapsed=1.409708347s status=exit status: 0
+CLI start: test=add_can_default_destination_and_list_recursively pid=641569
+CLI end: test=add_can_default_destination_and_list_recursively pid=641569 elapsed=402.355959ms status=exit status: 0
+CLI start: test=add_can_default_destination_and_list_recursively pid=641575
+CLI end: test=add_can_default_destination_and_list_recursively pid=641575 elapsed=401.477927ms status=exit status: 0
+CLI start: test=add_can_default_destination_and_list_recursively pid=641579
+CLI end: test=add_can_default_destination_and_list_recursively pid=641579 elapsed=427.711468ms status=exit status: 0
+CLI start: test=add_can_default_destination_and_list_recursively pid=641601
+CLI end: test=add_can_default_destination_and_list_recursively pid=641601 elapsed=1.003777853s status=exit status: 0
+CLI start: test=add_can_default_destination_and_list_recursively pid=641607
+CLI end: test=add_can_default_destination_and_list_recursively pid=641607 elapsed=404.138901ms status=exit status: 0
+CLI start: test=add_can_default_destination_and_list_recursively pid=641610
+CLI end: test=add_can_default_destination_and_list_recursively pid=641610 elapsed=402.383548ms status=exit status: 0
+CLI start: test=add_can_default_destination_and_list_recursively pid=641613
+CLI end: test=add_can_default_destination_and_list_recursively pid=641613 elapsed=402.299517ms status=exit status: 0
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 77 filtered out; finished in 17.00s
+
+exit=0

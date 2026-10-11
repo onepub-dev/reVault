@@ -1,0 +1,8 @@
+Evidence inspection launcher diagnostic
+
+During read-only inspection of the completed trial artifacts, the tool/launcher emitted the following text before the command output. It was outside the redirected analyzer/setup/freeze/paired/summary logs and is not trial output:
+Failed to create stream fd: Operation not permitted
+Failed to create stream fd: Operation not permitted
+Failed to create stream fd: Operation not permitted
+
+The paired runner and frozen summary both exited 0. `paired-complete.json` records 112 accepted (96 measured, 16 preparation), identities verified after, owned agents stopped, and 1164.438 seconds. The summary log records `Page-flush ownership retention: true;112 audited.` No sample or summary rerun was performed.

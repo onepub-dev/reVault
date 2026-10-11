@@ -1,0 +1,20 @@
+   Compiling revault_lockbox_api v0.0.41 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api)
+warning: methods `pending` and `clear` are never used
+  --> revault_lockbox_api/src/model/page_object_packer.rs:30:19
+   |
+17 | impl<T> PageObjectPacker<T> {
+   | --------------------------- methods in this implementation
+...
+30 |     pub(crate) fn pending(&self) -> &[PackedPageObject<T>] {
+   |                   ^^^^^^^
+...
+40 |     pub(crate) fn clear(&mut self) {
+   |                   ^^^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+   Compiling revault_vault_api v0.0.42 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_vault_api)
+   Compiling revault_migration v0.0.39 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_migration)
+warning: `revault_lockbox_api` (lib) generated 1 warning
+   Compiling revault_cli v0.5.0-dev.1 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_cli)
+    Finished `release` profile [optimized] target(s) in 36.55s

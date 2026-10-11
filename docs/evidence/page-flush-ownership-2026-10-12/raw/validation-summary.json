@@ -1,0 +1,11 @@
+{
+  "focused_test_executions": 9,
+  "all_exit_zero": true,
+  "wasm_build_generation": "passed",
+  "portable_wasm_lifecycles": 2,
+  "harness_attempts": "PATH exit127 and nonexistent cache_stats assertion preserved; corrected actual API checks passed",
+  "full_suite_rerun": false,
+  "postmeasurement_changes": "remove uncalled pending/clear; add cfg(test) ownership regression",
+  "source_snapshot": "pre-format",
+  "remaining_usage_percent": 66
+}

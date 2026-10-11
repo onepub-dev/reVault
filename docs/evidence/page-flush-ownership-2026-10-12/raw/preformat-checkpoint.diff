@@ -1,0 +1,117 @@
+diff --git a/rust/revault_lockbox_api/src/lockbox/files.rs b/rust/revault_lockbox_api/src/lockbox/files.rs
+index f9460350..85fabcdd 100644
+--- a/rust/revault_lockbox_api/src/lockbox/files.rs
++++ b/rust/revault_lockbox_api/src/lockbox/files.rs
+@@ -2888,11 +2888,15 @@ impl<'a, State> FilePageWriter<'a, State> {
+             return Ok(());
+         }
+         let write_start = Instant::now();
+-        let pending = self.packer.pending().to_vec();
+-        let objects = pending
+-            .iter()
+-            .map(|pending| pending.object.clone())
+-            .collect::<Vec<_>>();
++        // This operation-local writer is discarded on errors. Transfer payloads
++        // into the page, retaining only the small reference-publication context.
++        let pending = self.packer.take_pending();
++        let mut objects = Vec::with_capacity(pending.len());
++        let mut contexts = Vec::with_capacity(pending.len());
++        for pending in pending {
++            contexts.push((pending.object.id, pending.context));
++            objects.push(pending.object);
++        }
+         let page_size = crate::page::page_size_for_encoded_objects_with_format(
+             &objects,
+             self.lockbox.format_mode,
+@@ -2911,20 +2915,19 @@ impl<'a, State> FilePageWriter<'a, State> {
+                 .mark_new_file_page(page_offset);
+             self.lockbox.flush_file_pages_under_pressure()?;
+         }
+-        for pending in pending {
+-            for chunk_index in pending.context.chunk_indices {
++        for (object_id, context) in contexts {
++            for chunk_index in context.chunk_indices {
+                 if let Some(chunk) = chunks.get_mut(chunk_index) {
+                     chunk.segments.push(CompressionFrameSegment {
+                         page_offset,
+                         page_len: page_size as u64,
+-                        object_id: pending.object.id,
+-                        segment_offset: pending.context.segment_offset,
+-                        segment_len: pending.context.segment_len,
++                        object_id,
++                        segment_offset: context.segment_offset,
++                        segment_len: context.segment_len,
+                     });
+                 }
+             }
+         }
+-        self.packer.clear();
+         self.lockbox
+             .add_page_write_nanos(write_start.elapsed().as_nanos());
+         Ok(())
+diff --git a/rust/revault_lockbox_api/src/model/page_object_packer.rs b/rust/revault_lockbox_api/src/model/page_object_packer.rs
+index 9496336c..722bfcba 100644
+--- a/rust/revault_lockbox_api/src/model/page_object_packer.rs
++++ b/rust/revault_lockbox_api/src/model/page_object_packer.rs
+@@ -27,13 +27,10 @@ impl<T> PageObjectPacker<T> {
+         self.pending.is_empty()
+     }
+ 
+-    pub(crate) fn pending(&self) -> &[PackedPageObject<T>] {
+-        &self.pending
+-    }
+-
+-    pub(crate) fn clear(&mut self) {
+-        self.pending.clear();
++    /// Transfer payload ownership while retaining the configured page size.
++    pub(crate) fn take_pending(&mut self) -> Vec<PackedPageObject<T>> {
+         self.pending_object_stream_len = 4;
++        std::mem::take(&mut self.pending)
+     }
+ 
+     pub(crate) fn encoded_object_len(&self, object: &PageObject) -> Result<usize> {
+@@ -73,3 +70,44 @@ impl<T> Default for PageObjectPacker<T> {
+         Self::new(crate::page::DEFAULT_PAGE_BYTES)
+     }
+ }
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++    use crate::page::PageObjectKind;
++
++    #[test]
++    fn taking_pending_preserves_payload_ownership_and_reuses_empty_page_capacity() {
++        // A context need not implement Clone: taking a page transfers it too.
++        struct Context(u64);
++        let mut payload = Vec::with_capacity(3500);
++        payload.resize(3000, 73);
++        let pointer = payload.as_ptr();
++        let object = PageObject::new(PageObjectKind::FileData, 41, payload);
++        let mut packer = PageObjectPacker::new(4096);
++        let encoded_len = packer.encoded_object_len(&object).unwrap();
++        assert!(packer.fits_encoded_len(encoded_len).unwrap());
++        packer.push_encoded(object, Context(17), encoded_len).unwrap();
++        assert!(!packer.fits_encoded_len(encoded_len).unwrap());
++
++        let taken = packer.take_pending();
++        assert!(packer.is_empty());
++        assert!(packer.fits_encoded_len(encoded_len).unwrap());
++        assert_eq!(taken.len(), 1);
++        assert_eq!(taken[0].object.id, 41);
++        assert_eq!(taken[0].context.0, 17);
++        taken[0].object.with_payload(|bytes| {
++            assert_eq!(bytes.as_ptr(), pointer);
++            assert_eq!(bytes, &[73; 3000]);
++        }).unwrap();
++
++        let next = PageObject::new(PageObjectKind::FileData, 42, vec![29; 3000]);
++        packer.push_encoded(next, Context(18), encoded_len).unwrap();
++        assert!(!packer.fits_encoded_len(encoded_len).unwrap());
++        let next = packer.take_pending();
++        assert_eq!(next[0].context.0, 18);
++        next[0].object.with_payload(|bytes| assert_eq!(bytes, &[29; 3000])).unwrap();
++        taken[0].object.with_payload(|bytes| assert_eq!(bytes, &[73; 3000])).unwrap();
++        assert!(packer.take_pending().is_empty());
++    }
++}
