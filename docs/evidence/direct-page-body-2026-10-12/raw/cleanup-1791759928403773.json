@@ -1,0 +1,13 @@
+{
+  "rows": [
+    {
+      "case": 0,
+      "stopped": true
+    },
+    {
+      "case": 1,
+      "stopped": true
+    }
+  ],
+  "passed": true
+}

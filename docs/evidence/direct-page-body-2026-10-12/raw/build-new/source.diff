@@ -1,0 +1,49 @@
+diff --git a/rust/revault_lockbox_api/src/file_format/page.rs b/rust/revault_lockbox_api/src/file_format/page.rs
+index 3a8e6dda..6a433e8f 100644
+--- a/rust/revault_lockbox_api/src/file_format/page.rs
++++ b/rust/revault_lockbox_api/src/file_format/page.rs
+@@ -558,8 +558,22 @@ fn encode_objects_body(
+     objects: &[PageObject],
+     mode: crate::creation_options::FormatMode,
+ ) -> Result<Vec<u8>> {
+-    let mut object_stream = encode_object_stream(objects)?;
+     let compress_body = objects_allow_body_compression(objects, mode);
++    if !compress_body
++        || (mode.0 != 0 && mode.options().compression == crate::Compression::None)
++    {
++        let stream_len = encoded_object_stream_len(objects)?;
++        let body_len = 16usize.checked_add(stream_len).ok_or_else(|| {
++            Error::SecurityLimitExceeded("page is too large".to_string())
++        })?;
++        let mut body = ZeroizingBytes::new(Vec::with_capacity(body_len));
++        body.extend_from_slice(&[PAGE_BODY_VERSION, COMPRESSION_NONE, 0, 0]);
++        body.extend_from_slice(&(stream_len as u64).to_le_bytes());
++        body.extend_from_slice(&0u32.to_le_bytes());
++        append_object_stream(&mut body, objects)?;
++        return Ok(std::mem::take(&mut *body));
++    }
++    let mut object_stream = encode_object_stream(objects)?;
+     let body = if mode.0 == 0
+         || !compress_body
+         || mode.options().compression == crate::Compression::None
+@@ -1401,6 +1415,11 @@ fn decode_page_body_plaintext(body: &[u8]) -> Result<Cow<'_, [u8]>> {
+ 
+ fn encode_object_stream(objects: &[PageObject]) -> Result<Vec<u8>> {
+     let mut out = Vec::new();
++    append_object_stream(&mut out, objects)?;
++    Ok(out)
++}
++
++fn append_object_stream(out: &mut Vec<u8>, objects: &[PageObject]) -> Result<()> {
+     out.extend_from_slice(&(objects.len() as u32).to_le_bytes());
+     for object in objects {
+         out.push(object.kind as u8);
+@@ -1410,7 +1429,7 @@ fn encode_object_stream(objects: &[PageObject]) -> Result<Vec<u8>> {
+         out.extend_from_slice(&(object.payload_len() as u64).to_le_bytes());
+         object.with_payload(|payload| out.extend_from_slice(payload))?;
+     }
+-    Ok(out)
++    Ok(())
+ }
+ 
+ fn decode_object_stream(bytes: &[u8]) -> Result<Vec<PageObject>> {

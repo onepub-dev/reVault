@@ -1,0 +1,5 @@
+tools/direct-page-body.dart: e4d1bba245db03ac1214a44ad96093a46a8609be74990b45901ce7c5ded78f94
+tools/summarize-direct-page-body.dart: ffc4d9b9b4be0e19ad9f525a0e0c124d316a1c70394f233dc8ad13bc06375233
+docs/evidence/direct-page-body-2026-10-12/README.md: 66ea69d2079d365d0dfe51f68b6b9bc7bc1a9160d6450a684ee6b377ea465c22
+rust/target/direct-page-body-20261012/bin/lockbox-new: 507b37e718cc06056bf8aa35229dffc028d3dcf3274886a5fe6339816944afd8
+rust/target/public-zip-comparison-20261012/bin/lockbox-current: 08bf819f90c3b77a7e69f0639c7bd5f73dde275b6e13f0d443a3285fe98d00f2

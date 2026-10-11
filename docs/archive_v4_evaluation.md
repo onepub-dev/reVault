@@ -10,6 +10,13 @@ and [delivery plan](archive_v4_plan.md) define purpose, guarantees and sequence.
 [Baseline evidence](evidence/v4-baseline-2026-09-26.md) records newly run checks.
 Historical microbenchmarks remain evidence about their own revisions.
 
+The [direct raw-body trial](evidence/direct-page-body-2026-10-12/RESULTS.md)
+completed 112 verified imports and was rejected despite 9.7–14.4% elapsed gains
+and a 6.2% compressed Interactive median RSS reduction. Raw Interactive and
+BulkImport maximum RSS rose 7.46% and 8.76%, violating the fixed guards. The
+runtime was restored exactly; no extra samples or qualification tests were run.
+Further work must address remaining allocation overlap without weakening gates.
+
 The [checked object-stream reservation trial](evidence/object-stream-reserve-2026-10-12/RESULTS.md)
 completed 112 verified adds and was rejected: compressed Interactive median RSS
 fell only 3.71% against a required 5%; compressed elapsed intervals missed the
