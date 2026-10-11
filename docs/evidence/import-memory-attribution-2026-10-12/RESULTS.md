@@ -67,3 +67,9 @@ and matching before/after source manifests are in `raw/build-instrumented`.
 The new module was compared byte-for-byte with its evidence copy before removal.
 No diagnostic runtime code, generated WASM change, or optimization is retained.
 No qualification tests or broad suite were run for this measurement-only screen.
+
+The commit hook formatted the initial `.rs` evidence copy. Before publication,
+the original hash-verified bytes were preserved as `import_memory_trace.rs.txt`;
+`raw/build-instrumented/evidence-relocation.json` maps the original frozen path
+to that copy. Frozen identities and source manifests remain unchanged and refer
+to the measured epoch, not the restored runtime. No measurement was repeated.
