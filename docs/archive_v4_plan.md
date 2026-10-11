@@ -36,7 +36,7 @@ completed 720 verified samples. Lazy authenticated-descriptor selection passes
 the frozen aggregate control and useful-profile gates; retain it as opt-in while
 keeping the serial default. The 17 MiB boundary has a 3.35% mean penalty and
 does not establish parity-wise non-inferiority. No threshold revision is planned.
-The latest completed milestone reading is 18% used (82% remaining), so the goal continues.
+The latest completed milestone reading is 19% used (81% remaining), so the goal continues.
 
 The [native/public comparison](evidence/native-public-extraction-2026-10-11/README.md)
 completed 480 component and 64 public CLI samples. All archive variants remain
@@ -69,8 +69,17 @@ upper bound above 1.05. This does not prove a slowdown, but it does not qualify
 the global policy. Reverted only the worker-cache sharing change and its dependent
 tests to `a881d15d`; retain all raw/compressed evidence, the earlier single-file
 cache improvement and bounded credential opens. No outcome-based reruns or
-compression guard were introduced. Next measure the exact explicit single-file
-CLI branch using the restored baseline before considering its profile selection.
+compression guard were introduced.
+
+The [explicit-file CLI trial](evidence/explicit-file-extraction-2026-10-12/README.md)
+completed eight descriptive and 56 paired processes. Retain the command-local
+File extraction profile change to ExtractMany: peak RSS fell 67–69% to 77.3 MB
+for source Zstd and 74.9 MB for random raw at 1 GiB. Elapsed ratios were 0.986
+[0.976, 0.995] and 0.978 [0.969, 0.988], passing the frozen aggregate timing gate.
+The raw odd-round interval includes one, so not every stratum proves a speedup.
+Global ReadMostly and range/interactive behavior remain unchanged; no broader
+G11, architecture or release qualification is claimed.
+
 
 The explicit CLI password-unlock path was already bounded; no CLI-unlock or
 contact-performance gain is claimed. The worker-budget trial is no longer enabled.

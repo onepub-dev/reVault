@@ -394,7 +394,8 @@ pub(crate) fn extract(args: &[String], access: &Access) -> CliResult<()> {
                 lb.extract_directory_to(&path, Path::new(dest), &policy)?;
             }
             LockboxEntryKind::File => {
-                lb.set_workload_profile(WorkloadProfile::ReadMostly);
+                // A full-file extraction is a stream, not an interactive read set.
+                lb.set_workload_profile(WorkloadProfile::ExtractMany);
                 let replace = policy.overwrite && Path::new(dest).exists();
                 lb.extract_file_to(&path, Path::new(dest), replace)?;
             }

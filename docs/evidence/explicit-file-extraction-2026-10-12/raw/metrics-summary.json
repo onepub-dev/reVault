@@ -1,0 +1,161 @@
+{
+  "accepted": 56,
+  "measured": 48,
+  "preparation": 8,
+  "retain": true,
+  "results": [
+    {
+      "case": "source-zstd-1gib",
+      "aggregate": {
+        "geometric_mean_ratio": 0.9860996857273907,
+        "low95": 0.9763650836134842,
+        "high95": 0.9952939040837147,
+        "pairs": 12,
+        "blocks": 6,
+        "replicates": 10000,
+        "seed": 1899248312,
+        "method": "six adjacent two-round paired log-ratio blocks"
+      },
+      "round_strata": [
+        {
+          "geometric_mean_ratio": 0.9869830507782713,
+          "low95": 0.9750333742272144,
+          "high95": 0.9986209847153267,
+          "pairs": 6,
+          "blocks": 6,
+          "replicates": 10000,
+          "seed": 762943189,
+          "method": "six within-round-stratum paired log ratios"
+        },
+        {
+          "geometric_mean_ratio": 0.9852171113018533,
+          "low95": 0.9733290478278785,
+          "high95": 0.9994830580323727,
+          "pairs": 6,
+          "blocks": 6,
+          "replicates": 10000,
+          "seed": 746165570,
+          "method": "six within-round-stratum paired log ratios"
+        }
+      ],
+      "variants": {
+        "old": {
+          "median_seconds": 3.75,
+          "maximum_rss_bytes": 236036096.0,
+          "every_rss_bytes": [
+            235450368.0,
+            235495424.0,
+            235520000.0,
+            235577344.0,
+            235618304.0,
+            235679744.0,
+            235724800.0,
+            235737088.0,
+            235765760.0,
+            235847680.0,
+            235888640.0,
+            236036096.0
+          ]
+        },
+        "new": {
+          "median_seconds": 3.685,
+          "maximum_rss_bytes": 77271040.0,
+          "every_rss_bytes": [
+            76877824.0,
+            76906496.0,
+            76992512.0,
+            77025280.0,
+            77037568.0,
+            77041664.0,
+            77041664.0,
+            77168640.0,
+            77193216.0,
+            77230080.0,
+            77238272.0,
+            77271040.0
+          ]
+        }
+      },
+      "retention_gate": true
+    },
+    {
+      "case": "random-raw-1gib",
+      "aggregate": {
+        "geometric_mean_ratio": 0.9784345208534027,
+        "low95": 0.968735934869237,
+        "high95": 0.988325831566077,
+        "pairs": 12,
+        "blocks": 6,
+        "replicates": 10000,
+        "seed": 2365853323,
+        "method": "six adjacent two-round paired log-ratio blocks"
+      },
+      "round_strata": [
+        {
+          "geometric_mean_ratio": 0.9737998931873248,
+          "low95": 0.9647890811957573,
+          "high95": 0.9828727997142925,
+          "pairs": 6,
+          "blocks": 6,
+          "replicates": 10000,
+          "seed": 2155201352,
+          "method": "six within-round-stratum paired log ratios"
+        },
+        {
+          "geometric_mean_ratio": 0.9830912062068485,
+          "low95": 0.9668820464861477,
+          "high95": 1.0012403527389078,
+          "pairs": 6,
+          "blocks": 6,
+          "replicates": 10000,
+          "seed": 2171978971,
+          "method": "six within-round-stratum paired log ratios"
+        }
+      ],
+      "variants": {
+        "old": {
+          "median_seconds": 3.045,
+          "maximum_rss_bytes": 242716672.0,
+          "every_rss_bytes": [
+            242065408.0,
+            242176000.0,
+            242266112.0,
+            242307072.0,
+            242331648.0,
+            242348032.0,
+            242364416.0,
+            242376704.0,
+            242376704.0,
+            242413568.0,
+            242442240.0,
+            242716672.0
+          ]
+        },
+        "new": {
+          "median_seconds": 2.965,
+          "maximum_rss_bytes": 74915840.0,
+          "every_rss_bytes": [
+            74571776.0,
+            74600448.0,
+            74641408.0,
+            74702848.0,
+            74706944.0,
+            74711040.0,
+            74719232.0,
+            74776576.0,
+            74784768.0,
+            74788864.0,
+            74911744.0,
+            74915840.0
+          ]
+        }
+      },
+      "retention_gate": true
+    }
+  ],
+  "samples_sha256": "fa66ac3de6c4d93d0d0db9015e53c16873035782c750d8676bf690d3b3cce707",
+  "identities_sha256": "9f987b33663a8647764d0591abe626e56ef9058145cbdba60bfb00f1b87e8a90",
+  "analysis_script_sha256": "2d0c4029babb4303745c4c0e99cfff4a9153a5347049b165c025098da6e2c969",
+  "statistics_helper_sha256": "44a33381aaa2e00a4c8913e9b5cb0c264dada5b67c3be0157f4861a40b6e89fb",
+  "scope": "Public default CLI explicit full-file extraction of two1GiB raw/Zstd plaintext archives; persisted bytes and mode verified outside timing; process RSS excludes owned helper agent; no small-file, random-range, encrypted or native-layout performance claim"
+}

@@ -1,0 +1,8 @@
+37788a7813649c994f97ce110a8638fdd165e837
+ M rust/revault_cli/src/commands/files.rs
+?? docs/evidence/explicit-file-extraction-2026-10-12/
+?? tools/explicit-file-extraction.dart
+b0fb323753105217dd780e6bc3cdfb8e29af4b5f9044ef6a9835c63d913d994b  target/credential-open-20261012/bin/lockbox-new
+85caddce82608beace258c8f507f8d33b73d27541d0ccbbfea0ea5ff648a273d  target/explicit-file-extraction-20261012/bin/lockbox-new
+c380cc00fa8fd6de6f65d3c22c7ea24c24e1eab1fd8eab235fc79df1ff14d52a  revault_cli/src/commands/files.rs
+8b3444bf2390acec1150d9840bfc3f0bfc02b7f42d4b34df926ce7974b36cdd2  revault_cli/Cargo.toml

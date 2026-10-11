@@ -46,7 +46,7 @@ They recorded 283 and 287 observed passes respectively, 11 ignored each and no
 observed failures, but no complete-suite result. All 35 CLI creation/password
 and Vault consumer tests passed. The subsequent raw-data worker-cache trial is recorded below.
 The continuing goal stops below 10% remaining or above 99% after a reset;
-the current checkpoint reading is 82% remaining.
+the current checkpoint reading is 81% remaining.
 
 The [raw many-file trial](evidence/parallel-extraction-2026-10-12/README.md)
 passed its fixed 56-process gate and all 33 focused test executions, but the
@@ -56,8 +56,17 @@ upper bound above 1.05. This does not prove a slowdown, but it does not qualify
 the global policy. Reverted only the worker-cache sharing change and its dependent
 tests to `a881d15d`; retain all raw/compressed evidence, the earlier single-file
 cache improvement and bounded credential opens. No outcome-based reruns or
-compression guard were introduced. Next measure the exact explicit single-file
-CLI branch using the restored baseline before considering its profile selection.
+compression guard were introduced.
+
+The [explicit-file CLI trial](evidence/explicit-file-extraction-2026-10-12/README.md)
+completed eight descriptive and 56 paired processes. Retain the command-local
+File extraction profile change to ExtractMany: peak RSS fell 67–69% to 77.3 MB
+for source Zstd and 74.9 MB for random raw at 1 GiB. Elapsed ratios were 0.986
+[0.976, 0.995] and 0.978 [0.969, 0.988], passing the frozen aggregate timing gate.
+The raw odd-round interval includes one, so not every stratum proves a speedup.
+Global ReadMostly and range/interactive behavior remain unchanged; no broader
+G11, architecture or release qualification is claimed.
+
 
 At the historical checkpoint, performance experiments were paused at `0de2dd4a` by user direction. The
 [security-first handoff](evidence/password-integrity-audit-2026-10-11/handoff.txt)

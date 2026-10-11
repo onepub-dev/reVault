@@ -1,0 +1,23 @@
+warning: revault_key_server@0.0.37: reVault key/topology server production operation requires a separate commercial license from OnePub IP Pty Ltd; see revault_key_server/LICENSE
+    Finished `release` profile [optimized] target(s) in 0.16s
+     Running tests/cli_flow.rs (target/release/deps/cli_flow-a494ce2937cf1fad)
+
+running 1 test
+test read_only_archive_supports_cli_listing_and_byte_exact_extraction ... CLI start: test=read_only_archive_supports_cli_listing_and_byte_exact_extraction pid=463735
+CLI end: test=read_only_archive_supports_cli_listing_and_byte_exact_extraction pid=463735 elapsed=755.820418ms status=exit status: 0
+CLI start: test=read_only_archive_supports_cli_listing_and_byte_exact_extraction pid=463742
+CLI end: test=read_only_archive_supports_cli_listing_and_byte_exact_extraction pid=463742 elapsed=1.38034924s status=exit status: 0
+CLI start: test=read_only_archive_supports_cli_listing_and_byte_exact_extraction pid=463748
+CLI end: test=read_only_archive_supports_cli_listing_and_byte_exact_extraction pid=463748 elapsed=402.714416ms status=exit status: 0
+CLI start: test=read_only_archive_supports_cli_listing_and_byte_exact_extraction pid=463751
+CLI end: test=read_only_archive_supports_cli_listing_and_byte_exact_extraction pid=463751 elapsed=427.050014ms status=exit status: 0
+CLI start: test=read_only_archive_supports_cli_listing_and_byte_exact_extraction pid=463757
+CLI end: test=read_only_archive_supports_cli_listing_and_byte_exact_extraction pid=463757 elapsed=401.675794ms status=exit status: 0
+CLI start: test=read_only_archive_supports_cli_listing_and_byte_exact_extraction pid=463779
+CLI end: test=read_only_archive_supports_cli_listing_and_byte_exact_extraction pid=463779 elapsed=402.654984ms status=exit status: 1
+CLI start: test=read_only_archive_supports_cli_listing_and_byte_exact_extraction pid=463782
+CLI end: test=read_only_archive_supports_cli_listing_and_byte_exact_extraction pid=463782 elapsed=403.370245ms status=exit status: 0
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 77 filtered out; finished in 4.18s
+

@@ -7374,6 +7374,37 @@ fn read_only_archive_supports_cli_listing_and_byte_exact_extraction() {
         &vault,
         &agent,
     );
+    let positional = dir.join("positional.bin");
+    let positional_args = [
+        path.to_str().unwrap(),
+        "extract",
+        "/payload.bin",
+        positional.to_str().unwrap(),
+    ];
+    assert_success(&run_output_in(bin, &positional_args, &vault, &agent));
+    assert_eq!(fs::read(&positional).unwrap(), payload);
+    // Host output state is intentionally distinct so refusal and replacement
+    // are observable independently of the archive payload.
+    fs::write(&positional, b"existing destination").unwrap();
+    let repeated = run_output_in(bin, &positional_args, &vault, &agent);
+    assert!(
+        !repeated.status.success(),
+        "existing output requires overwrite"
+    );
+    assert_eq!(fs::read(&positional).unwrap(), b"existing destination");
+    assert_success(&run_output_in(
+        bin,
+        &[
+            path.to_str().unwrap(),
+            "extract",
+            "/payload.bin",
+            positional.to_str().unwrap(),
+            "--overwrite",
+        ],
+        &vault,
+        &agent,
+    ));
+    assert_eq!(fs::read(&positional).unwrap(), payload);
     fs::set_permissions(&archives, fs::Permissions::from_mode(0o755)).unwrap();
     assert_success(&listing);
     assert!(String::from_utf8_lossy(&listing.stdout).contains("payload.bin"));
