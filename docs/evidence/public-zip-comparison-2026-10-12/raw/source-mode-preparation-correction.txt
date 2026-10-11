@@ -1,0 +1,1 @@
+Initial analyzer and0644-input smoke passed; setup stopped before freeze/timing because historical source modes are0664. Sources were inspected, not changed. Corrected gate pins0664 and rechecks it after batch; owned0664 smoke must establish output0644. Original runner/protocol and failed setup.stderr preserved.

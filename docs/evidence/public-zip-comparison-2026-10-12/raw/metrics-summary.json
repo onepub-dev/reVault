@@ -1,0 +1,348 @@
+{
+  "accepted": 32,
+  "measured": 24,
+  "preparation": 8,
+  "method": "three measured repetitions; medians and full ranges only; no inferential qualification",
+  "results": [
+    {
+      "case": "source-zstd-1gib",
+      "operation": "write",
+      "variants": {
+        "native": {
+          "cli_elapsed_seconds": {
+            "median": 2.1799999999999997,
+            "minimum": 2.14,
+            "maximum": 2.27
+          },
+          "drain_elapsed_seconds": {
+            "median": 0.0,
+            "minimum": 0.0,
+            "maximum": 0.0
+          },
+          "output_drained_elapsed_seconds": {
+            "median": 2.1799999999999997,
+            "minimum": 2.14,
+            "maximum": 2.27
+          },
+          "rss_bytes": {
+            "median": 102764544.0,
+            "minimum": 101404672.0,
+            "maximum": 104615936.0
+          },
+          "archive_bytes": {
+            "median": 183206272,
+            "minimum": 183206272,
+            "maximum": 183206272
+          },
+          "cpu_seconds": {
+            "median": 5.3100000000000005,
+            "minimum": 5.109999999999999,
+            "maximum": 5.470000000000001
+          },
+          "observed_codecs": [
+            "Zstd3 configured; per-frame raw fallback permitted"
+          ],
+          "output_modes": [
+            384
+          ]
+        },
+        "zip": {
+          "cli_elapsed_seconds": {
+            "median": 23.09,
+            "minimum": 23.03,
+            "maximum": 23.23
+          },
+          "drain_elapsed_seconds": {
+            "median": 0.11,
+            "minimum": 0.1,
+            "maximum": 0.11
+          },
+          "output_drained_elapsed_seconds": {
+            "median": 23.19,
+            "minimum": 23.14,
+            "maximum": 23.34
+          },
+          "rss_bytes": {
+            "median": 2863104.0,
+            "minimum": 2863104.0,
+            "maximum": 2863104.0
+          },
+          "archive_bytes": {
+            "median": 182405087,
+            "minimum": 182405087,
+            "maximum": 182405087
+          },
+          "cpu_seconds": {
+            "median": 23.07,
+            "minimum": 23.02,
+            "maximum": 23.19
+          },
+          "observed_codecs": [
+            "compression method:                             deflated"
+          ],
+          "output_modes": [
+            436
+          ]
+        }
+      },
+      "native_over_zip_cli_median_ratio": 0.09441316587267214,
+      "native_over_zip_drained_median_ratio": 0.0940060370849504
+    },
+    {
+      "case": "source-zstd-1gib",
+      "operation": "read",
+      "variants": {
+        "native": {
+          "cli_elapsed_seconds": {
+            "median": 3.7,
+            "minimum": 3.7,
+            "maximum": 3.89
+          },
+          "drain_elapsed_seconds": {
+            "median": 0.74,
+            "minimum": 0.74,
+            "maximum": 0.76
+          },
+          "output_drained_elapsed_seconds": {
+            "median": 4.44,
+            "minimum": 4.44,
+            "maximum": 4.65
+          },
+          "rss_bytes": {
+            "median": 77197312.0,
+            "minimum": 77152256.0,
+            "maximum": 77279232.0
+          },
+          "archive_bytes": {
+            "median": 183206272,
+            "minimum": 183206272,
+            "maximum": 183206272
+          },
+          "cpu_seconds": {
+            "median": 3.3800000000000003,
+            "minimum": 3.37,
+            "maximum": 3.48
+          },
+          "observed_codecs": [
+            "Zstd3 configured; per-frame raw fallback permitted"
+          ],
+          "output_modes": [
+            384
+          ]
+        },
+        "zip": {
+          "cli_elapsed_seconds": {
+            "median": 4.89,
+            "minimum": 4.88,
+            "maximum": 4.94
+          },
+          "drain_elapsed_seconds": {
+            "median": 0.73,
+            "minimum": 0.72,
+            "maximum": 0.75
+          },
+          "output_drained_elapsed_seconds": {
+            "median": 5.609999999999999,
+            "minimum": 5.609999999999999,
+            "maximum": 5.69
+          },
+          "rss_bytes": {
+            "median": 2985984.0,
+            "minimum": 2985984.0,
+            "maximum": 3051520.0
+          },
+          "archive_bytes": {
+            "median": 182405087,
+            "minimum": 182405087,
+            "maximum": 182405087
+          },
+          "cpu_seconds": {
+            "median": 4.88,
+            "minimum": 4.88,
+            "maximum": 4.93
+          },
+          "observed_codecs": [
+            "compression method:                             deflated"
+          ],
+          "output_modes": [
+            436
+          ]
+        }
+      },
+      "native_over_zip_cli_median_ratio": 0.7566462167689162,
+      "native_over_zip_drained_median_ratio": 0.7914438502673798
+    },
+    {
+      "case": "random-raw-1gib",
+      "operation": "write",
+      "variants": {
+        "native": {
+          "cli_elapsed_seconds": {
+            "median": 6.56,
+            "minimum": 6.56,
+            "maximum": 6.57
+          },
+          "drain_elapsed_seconds": {
+            "median": 0.0,
+            "minimum": 0.0,
+            "maximum": 0.0
+          },
+          "output_drained_elapsed_seconds": {
+            "median": 6.56,
+            "minimum": 6.56,
+            "maximum": 6.57
+          },
+          "rss_bytes": {
+            "median": 73351168.0,
+            "minimum": 72970240.0,
+            "maximum": 92303360.0
+          },
+          "archive_bytes": {
+            "median": 1074206080,
+            "minimum": 1074206080,
+            "maximum": 1074206080
+          },
+          "cpu_seconds": {
+            "median": 7.2,
+            "minimum": 7.15,
+            "maximum": 7.25
+          },
+          "observed_codecs": [
+            "Zstd3 configured; per-frame raw fallback permitted"
+          ],
+          "output_modes": [
+            384
+          ]
+        },
+        "zip": {
+          "cli_elapsed_seconds": {
+            "median": 24.31,
+            "minimum": 24.2,
+            "maximum": 24.57
+          },
+          "drain_elapsed_seconds": {
+            "median": 0.6,
+            "minimum": 0.45,
+            "maximum": 0.6
+          },
+          "output_drained_elapsed_seconds": {
+            "median": 24.91,
+            "minimum": 24.8,
+            "maximum": 25.02
+          },
+          "rss_bytes": {
+            "median": 2863104.0,
+            "minimum": 2797568.0,
+            "maximum": 2863104.0
+          },
+          "archive_bytes": {
+            "median": 1073915836,
+            "minimum": 1073915836,
+            "maximum": 1073915836
+          },
+          "cpu_seconds": {
+            "median": 24.29,
+            "minimum": 24.19,
+            "maximum": 24.560000000000002
+          },
+          "observed_codecs": [
+            "compression method:                             deflated"
+          ],
+          "output_modes": [
+            436
+          ]
+        }
+      },
+      "native_over_zip_cli_median_ratio": 0.269847799259564,
+      "native_over_zip_drained_median_ratio": 0.26334805299076675
+    },
+    {
+      "case": "random-raw-1gib",
+      "operation": "read",
+      "variants": {
+        "native": {
+          "cli_elapsed_seconds": {
+            "median": 2.92,
+            "minimum": 2.91,
+            "maximum": 2.92
+          },
+          "drain_elapsed_seconds": {
+            "median": 0.55,
+            "minimum": 0.55,
+            "maximum": 0.56
+          },
+          "output_drained_elapsed_seconds": {
+            "median": 3.4699999999999998,
+            "minimum": 3.4699999999999998,
+            "maximum": 3.47
+          },
+          "rss_bytes": {
+            "median": 75247616.0,
+            "minimum": 74944512.0,
+            "maximum": 75268096.0
+          },
+          "archive_bytes": {
+            "median": 1074206080,
+            "minimum": 1074206080,
+            "maximum": 1074206080
+          },
+          "cpu_seconds": {
+            "median": 2.67,
+            "minimum": 2.5999999999999996,
+            "maximum": 2.6799999999999997
+          },
+          "observed_codecs": [
+            "Zstd3 configured; per-frame raw fallback permitted"
+          ],
+          "output_modes": [
+            384
+          ]
+        },
+        "zip": {
+          "cli_elapsed_seconds": {
+            "median": 5.54,
+            "minimum": 5.52,
+            "maximum": 5.6
+          },
+          "drain_elapsed_seconds": {
+            "median": 0.57,
+            "minimum": 0.54,
+            "maximum": 0.58
+          },
+          "output_drained_elapsed_seconds": {
+            "median": 6.11,
+            "minimum": 6.1,
+            "maximum": 6.14
+          },
+          "rss_bytes": {
+            "median": 2985984.0,
+            "minimum": 2920448.0,
+            "maximum": 2985984.0
+          },
+          "archive_bytes": {
+            "median": 1073915836,
+            "minimum": 1073915836,
+            "maximum": 1073915836
+          },
+          "cpu_seconds": {
+            "median": 5.53,
+            "minimum": 5.5200000000000005,
+            "maximum": 5.59
+          },
+          "observed_codecs": [
+            "compression method:                             deflated"
+          ],
+          "output_modes": [
+            436
+          ]
+        }
+      },
+      "native_over_zip_cli_median_ratio": 0.5270758122743682,
+      "native_over_zip_drained_median_ratio": 0.5679214402618658
+    }
+  ],
+  "samples_sha256": "cdf61482ef654ae564f00b29c762a4cdc3a3d6c398037bb9298722ceedb3e03c",
+  "identities_sha256": "0cd71403dc9ba2b4bea61ae01c3e829f940805b0da6b17ce8b3f18fe7fe3b889",
+  "analysis_sha256": "43acae5d9bc5e83ce0714c2720526066db7b6329aa680740dd5b6110059318ce",
+  "scope": "Current default-layout native public CLI restoring stored0600 versus Info-ZIP restoring source0664; plaintext unsigned Zstd3/default padding versus Deflate6/observed fallback and CRC; unequal protection/recovery; single1GiB files only; process peak excludes helper agent."
+}

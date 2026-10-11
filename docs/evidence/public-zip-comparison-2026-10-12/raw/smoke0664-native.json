@@ -1,0 +1,6 @@
+{
+  "verified": true,
+  "bytes": 8192,
+  "codec": "Zstd3 configured; per-frame raw fallback permitted",
+  "timed": false
+}

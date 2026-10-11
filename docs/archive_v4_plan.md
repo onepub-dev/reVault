@@ -36,7 +36,7 @@ completed 720 verified samples. Lazy authenticated-descriptor selection passes
 the frozen aggregate control and useful-profile gates; retain it as opt-in while
 keeping the serial default. The 17 MiB boundary has a 3.35% mean penalty and
 does not establish parity-wise non-inferiority. No threshold revision is planned.
-The latest completed milestone reading is 39% used (61% remaining), so the goal continues.
+The latest completed milestone reading is 42% used (58% remaining), so the goal continues.
 
 The [native/public comparison](evidence/native-public-extraction-2026-10-11/README.md)
 completed 480 component and 64 public CLI samples. All archive variants remain
@@ -159,6 +159,16 @@ samples, qualification tests or WASM rebuild were run for the rejected change.
 The retained page-flush improvement
 remains current. Next, diagnose the prior incomplete integration campaign with
 an isolated bounded run before deciding the broader validation scope.
+
+The [fresh public ZIP comparison](evidence/public-zip-comparison-2026-10-12/README.md)
+completed 32 verified operations, with three measured repetitions per cell.
+For compressible/random 1 GiB sources, current native write medians are
+2.18/6.56 seconds versus Info-ZIP 23.09/24.31; read medians are 3.70/2.92
+versus 4.89/5.54 seconds. Native peak RSS reaches 104.62 MB, versus about
+3 MB for ZIP. This descriptive screen uses Zstd3 versus actual Deflate6 on
+both corpora, different integrity/recovery/metadata policies and public CLI
+endpoints; it is not equivalent-security parity or a comparison to the old
+Rust ZIP component's Stored/raw variant. The 100 MB write target remains open.
 
 The explicit CLI password-unlock path was already bounded; no CLI-unlock or
 contact-performance gain is claimed. The worker-budget trial is no longer enabled.

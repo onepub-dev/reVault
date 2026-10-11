@@ -46,7 +46,7 @@ They recorded 283 and 287 observed passes respectively, 11 ignored each and no
 observed failures, but no complete-suite result. All 35 CLI creation/password
 and Vault consumer tests passed. The subsequent raw-data worker-cache trial is recorded below.
 The continuing goal stops below 10% remaining or above 99% after a reset;
-the current checkpoint reading is 61% remaining.
+the current checkpoint reading is 58% remaining.
 
 The [raw many-file trial](evidence/parallel-extraction-2026-10-12/README.md)
 passed its fixed 56-process gate and all 33 focused test executions, but the
@@ -146,6 +146,16 @@ samples, qualification tests or WASM rebuild were run for the rejected change.
 The retained page-flush improvement
 remains current. Next, diagnose the prior incomplete integration campaign with
 an isolated bounded run before deciding the broader validation scope.
+
+The [fresh public ZIP comparison](evidence/public-zip-comparison-2026-10-12/README.md)
+completed 32 verified operations, with three measured repetitions per cell.
+For compressible/random 1 GiB sources, current native write medians are
+2.18/6.56 seconds versus Info-ZIP 23.09/24.31; read medians are 3.70/2.92
+versus 4.89/5.54 seconds. Native peak RSS reaches 104.62 MB, versus about
+3 MB for ZIP. This descriptive screen uses Zstd3 versus actual Deflate6 on
+both corpora, different integrity/recovery/metadata policies and public CLI
+endpoints; it is not equivalent-security parity or a comparison to the old
+Rust ZIP component's Stored/raw variant. The 100 MB write target remains open.
 
 At the historical checkpoint, performance experiments were paused at `0de2dd4a` by user direction. The
 [security-first handoff](evidence/password-integrity-audit-2026-10-11/handoff.txt)

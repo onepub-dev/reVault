@@ -1,0 +1,7 @@
+{
+  "files": 921,
+  "archive_sha256": "490442ca15771946e01b1227067a51e13d7fcdd72aa267f60a62b69f7531a980",
+  "all_extracted_bytes_verified": true,
+  "originals_preserved_locally": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/evidence-original-public-zip-comparison-2026-10-12",
+  "restore": "tar -xzf command-evidence.tar.gz (from raw directory)"
+}

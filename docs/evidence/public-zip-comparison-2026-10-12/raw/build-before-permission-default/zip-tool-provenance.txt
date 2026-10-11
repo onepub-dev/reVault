@@ -1,0 +1,10 @@
+Copyright (c) 1990-2008 Info-ZIP - Type 'zip "-L"' for software license.
+This is Zip 3.0 (July 5th 2008), by Info-ZIP.
+Currently maintained by E. Gordon.  Please send bug reports to
+the authors using the web page at www.info-zip.org; see README for details.
+UnZip 6.00 of 20 April 2009, by Debian. Original by Info-ZIP.
+
+Latest sources and executables are at ftp://ftp.info-zip.org/pub/infozip/ ;
+see ftp://ftp.info-zip.org/pub/infozip/UnZip.html for other sites.
+4497470bb70f9ecb837817cc9de0d479951a3f25ef252c0bbcc9667af8c4a8c6  /usr/bin/zip
+908a7d41dfe105c724737cb7f355f474186f51d645829af522265f01492a0cc7  /usr/bin/unzip
