@@ -10,6 +10,14 @@ and [delivery plan](archive_v4_plan.md) define purpose, guarantees and sequence.
 [Baseline evidence](evidence/v4-baseline-2026-09-26.md) records newly run checks.
 Historical microbenchmarks remain evidence about their own revisions.
 
+The [checked object-stream reservation trial](evidence/object-stream-reserve-2026-10-12/RESULTS.md)
+completed 112 verified adds and was rejected: compressed Interactive median RSS
+fell only 3.71% against a required 5%; compressed elapsed intervals missed the
+guard and raw BulkImport peak RSS rose 8.65%. The one-line change was restored
+exactly, with no extra samples or qualification tests. The diagnostic hypothesis
+did not establish a process-level win; a materially different mechanism is
+required before further runtime experiments.
+
 The [temporary import memory diagnostic](evidence/import-memory-attribution-2026-10-12/RESULTS.md)
 completed four independently verified public imports with balanced ownership
 ledgers and zero transient counters after worker joins. The temporary runtime

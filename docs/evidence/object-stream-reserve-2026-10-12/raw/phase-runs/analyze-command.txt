@@ -1,0 +1,1 @@
+TMPDIR=/home/bsutton/.cache/rv4-security-20261011 dart analyze tools/object-stream-reserve.dart tools/summarize-object-stream-reserve.dart

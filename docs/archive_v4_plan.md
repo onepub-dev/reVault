@@ -21,6 +21,14 @@ the separate component checkpoint below. This merge does not qualify the format
 or erase failures.
 
 ## Current position and next work
+The [checked object-stream reservation trial](evidence/object-stream-reserve-2026-10-12/RESULTS.md)
+completed 112 verified adds and was rejected: compressed Interactive median RSS
+fell only 3.71% against a required 5%; compressed elapsed intervals missed the
+guard and raw BulkImport peak RSS rose 8.65%. The one-line change was restored
+exactly, with no extra samples or qualification tests. The diagnostic hypothesis
+did not establish a process-level win; a materially different mechanism is
+required before further runtime experiments.
+
 The [temporary import memory diagnostic](evidence/import-memory-attribution-2026-10-12/RESULTS.md)
 completed four independently verified public imports with balanced ownership
 ledgers and zero transient counters after worker joins. The temporary runtime
@@ -50,7 +58,7 @@ completed 720 verified samples. Lazy authenticated-descriptor selection passes
 the frozen aggregate control and useful-profile gates; retain it as opt-in while
 keeping the serial default. The 17 MiB boundary has a 3.35% mean penalty and
 does not establish parity-wise non-inferiority. No threshold revision is planned.
-The latest completed milestone reading is 46% used (54% remaining), so the goal continues.
+The latest completed milestone reading is 47% used (53% remaining), so the goal continues.
 
 The [native/public comparison](evidence/native-public-extraction-2026-10-11/README.md)
 completed 480 component and 64 public CLI samples. All archive variants remain
