@@ -206,7 +206,14 @@ pub(crate) fn command(verbose: bool) -> Command {
                     Arg::new("restore-permissions")
                         .long("restore-permissions")
                         .action(ArgAction::SetTrue)
-                        .help("Restore file permissions when extracting a directory."),
+                        .help("Restore stored permissions (default)."),
+                )
+                .arg(
+                    Arg::new("no-restore-permissions")
+                        .long("no-restore-permissions")
+                        .action(ArgAction::SetTrue)
+                        .conflicts_with("restore-permissions")
+                        .help("Use host-created permissions instead of stored permissions."),
                 )
                 .arg(
                     Arg::new("args")
@@ -822,7 +829,14 @@ fn mirror_extract_command() -> Command {
             Arg::new("restore-permissions")
                 .long("restore-permissions")
                 .action(ArgAction::SetTrue)
-                .help("Restore stored permissions when extracting a directory."),
+                .help("Restore stored permissions (default)."),
+        )
+        .arg(
+            Arg::new("no-restore-permissions")
+                .long("no-restore-permissions")
+                .action(ArgAction::SetTrue)
+                .conflicts_with("restore-permissions")
+                .help("Use host-created permissions instead of stored permissions."),
         )
         .arg(
             Arg::new("args")

@@ -96,6 +96,17 @@ reader does not downgrade to their weaker interpretation. Migration authenticate
 the imported state going forward; it cannot prove that historical source bytes
 were never tampered with. Released format-3 readers remain isolated and unchanged.
 
+## Extraction permissions
+
+CLI extraction, including mirror extraction, must restore stored file and
+directory permissions by default on platforms that support them. Users can
+explicitly select `--no-restore-permissions` to use host-created permissions;
+the existing `--restore-permissions` flag remains accepted for compatibility.
+Restoration uses the archive's stored metadata, not the current source host's
+permissions. It must retain the existing path, overwrite and integrity checks.
+This CLI policy does not change library `ExtractPolicy` defaults or import
+semantics. See the [CLI permission options](cli_how_to.md#permissions).
+
 ## Transaction recovery and physical reclamation
 
 Transaction recovery selects a complete old or new committed generation after

@@ -23,6 +23,11 @@ lbx project.lbox extract /docs/readme.md ./README.md
 lbx project.lbox extract --to ./restored
 ```
 
+Extraction restores stored file and directory permissions by default where
+supported. Use `--no-restore-permissions` for host-created permissions; the
+existing `--restore-permissions` flag remains accepted. Current ordinary add and
+mirror import store file mode `0600`, which may differ from the source host mode.
+
 Existing destinations are not silently replaced. Use the command's explicit `--overwrite` option after reviewing the target.
 
 ## Remove entries

@@ -1440,3 +1440,205 @@ fn changed_source_after_preparation_rolls_back_appended_and_reused_payload() {
         success(&run(bin, dir, &["session", "stop"]));
     }
 }
+
+#[cfg(unix)]
+#[test]
+fn extraction_restores_stored_permissions_by_default_with_opt_out() {
+    use std::os::unix::fs::PermissionsExt;
+    use std::os::unix::process::CommandExt;
+    let bin = env!("CARGO_BIN_EXE_lockbox");
+    let temp = TestTempDir::new("extract-permissions");
+    let source = temp.path().join("project/nested/payload.bin");
+    fs::create_dir_all(source.parent().unwrap()).unwrap();
+    let payload = b"stored permission lifecycle\0\xff\n";
+    fs::write(&source, payload).unwrap();
+    fs::set_permissions(&source, fs::Permissions::from_mode(0o664)).unwrap();
+    let archive = temp.path().join("permissions.lbox");
+    let archive_arg = archive.to_str().unwrap();
+    let invoke = |args: &[&str]| {
+        let mut cmd = command(bin, temp.path(), args);
+        // Set only the child umask; never change the parallel test process.
+        unsafe {
+            cmd.pre_exec(|| {
+                libc::umask(0o022);
+                Ok(())
+            });
+        }
+        cmd.test_output().unwrap()
+    };
+    success(&invoke(&[
+        archive_arg,
+        "create",
+        "--encryption",
+        "none",
+        "--signing",
+        "none",
+    ]));
+    success(&invoke(&[
+        archive_arg,
+        "add",
+        source.to_str().unwrap(),
+        "--to",
+        "/ordinary.bin",
+    ]));
+    success(&invoke(&[
+        archive_arg,
+        "mirror",
+        "project",
+        "create",
+        "--from",
+        "project",
+        "--to",
+        "/project",
+    ]));
+    success(&invoke(&[
+        archive_arg,
+        "mirror",
+        "project",
+        "update",
+        "--force",
+    ]));
+    let before = fs::read(&archive).unwrap();
+    // Current public add and mirror import store 0600, independently of host
+    // source mode. Exercise that actual metadata rather than changing internals.
+    let paths: &[(&[&str], &str)] = &[
+        (&["extract", "/ordinary.bin"], ""),
+        (&["extract", "--to"], "ordinary.bin"),
+        (&["extract", "/project/nested"], "payload.bin"),
+        (
+            &["mirror", "project", "extract", "nested/payload.bin", "--to"],
+            "",
+        ),
+        (
+            &["mirror", "project", "extract", "nested", "--to"],
+            "payload.bin",
+        ),
+        (
+            &["mirror", "project", "extract", "--to"],
+            "nested/payload.bin",
+        ),
+    ];
+    for (index, (operation, relative)) in paths.iter().enumerate() {
+        for opt_out in [false, true] {
+            let destination = temp.path().join(format!("out-{index}-{opt_out}"));
+            let mut args = vec![archive_arg];
+            args.extend_from_slice(operation);
+            args.push(destination.to_str().unwrap());
+            if opt_out {
+                args.push("--no-restore-permissions");
+            }
+            success(&invoke(&args));
+            let output = if relative.is_empty() {
+                destination.clone()
+            } else {
+                destination.join(relative)
+            };
+            assert_eq!(fs::read(&output).unwrap(), payload);
+            assert_eq!(
+                fs::metadata(&output).unwrap().permissions().mode() & 0o777,
+                if opt_out { 0o644 } else { 0o600 }
+            );
+        }
+    }
+    // Observe stored directory metadata through the existing explicit public
+    // restoration option, then compare the new default and host-mode opt-out.
+    let legacy_tree = temp.path().join("legacy-tree");
+    success(&invoke(&[
+        archive_arg,
+        "extract",
+        "--to",
+        legacy_tree.to_str().unwrap(),
+        "--restore-permissions",
+    ]));
+    let stored_directory_mode = fs::metadata(legacy_tree.join("project/nested"))
+        .unwrap()
+        .permissions()
+        .mode()
+        & 0o777;
+    for (restored, host_mode) in [
+        ("out-1-false/project/nested", "out-1-true/project/nested"),
+        ("out-5-false/nested", "out-5-true/nested"),
+    ] {
+        assert_eq!(
+            fs::metadata(temp.path().join(restored))
+                .unwrap()
+                .permissions()
+                .mode()
+                & 0o777,
+            stored_directory_mode
+        );
+        assert_eq!(
+            fs::metadata(temp.path().join(host_mode))
+                .unwrap()
+                .permissions()
+                .mode()
+                & 0o777,
+            0o755
+        );
+    }
+    let explicit = temp.path().join("explicit.bin");
+    success(&invoke(&[
+        archive_arg,
+        "extract",
+        "/ordinary.bin",
+        explicit.to_str().unwrap(),
+        "--restore-permissions",
+    ]));
+    assert_eq!(fs::read(&explicit).unwrap(), payload);
+    assert_eq!(
+        fs::metadata(&explicit).unwrap().permissions().mode() & 0o777,
+        0o600
+    );
+    fs::write(&explicit, b"refusal sentinel").unwrap();
+    let refused = invoke(&[
+        archive_arg,
+        "extract",
+        "/ordinary.bin",
+        explicit.to_str().unwrap(),
+    ]);
+    assert!(!refused.status.success());
+    assert_eq!(fs::read(&explicit).unwrap(), b"refusal sentinel");
+    assert_eq!(
+        fs::metadata(&explicit).unwrap().permissions().mode() & 0o777,
+        0o600
+    );
+    success(&invoke(&[
+        archive_arg,
+        "extract",
+        "/ordinary.bin",
+        explicit.to_str().unwrap(),
+        "--overwrite",
+    ]));
+    assert_eq!(fs::read(&explicit).unwrap(), payload);
+    let conflict = temp.path().join("conflict.bin");
+    assert!(!invoke(&[
+        archive_arg,
+        "extract",
+        "/ordinary.bin",
+        conflict.to_str().unwrap(),
+        "--restore-permissions",
+        "--no-restore-permissions"
+    ])
+    .status
+    .success());
+    assert!(!conflict.exists());
+    assert!(!invoke(&[
+        archive_arg,
+        "mirror",
+        "project",
+        "extract",
+        "nested/payload.bin",
+        "--to",
+        conflict.to_str().unwrap(),
+        "--restore-permissions",
+        "--no-restore-permissions"
+    ])
+    .status
+    .success());
+    assert!(!conflict.exists());
+    assert_eq!(fs::read(&archive).unwrap(), before);
+    assert_eq!(
+        fs::metadata(&source).unwrap().permissions().mode() & 0o777,
+        0o664
+    );
+}

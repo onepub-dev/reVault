@@ -1,0 +1,41 @@
+warning: revault_key_server@0.0.37: reVault key/topology server production operation requires a separate commercial license from OnePub IP Pty Ltd; see revault_key_server/LICENSE
+    Finished `release` profile [optimized] target(s) in 0.16s
+     Running tests/mirror_cli.rs (target/release/deps/mirror_cli-bbde545f3f994456)
+
+running 1 test
+test mirror_file_commands_match_archive_file_command_shapes_and_destroy_removes_root ... CLI start: test=mirror_file_commands_match_archive_file_command_shapes_and_destroy_removes_root pid=713469
+CLI end: test=mirror_file_commands_match_archive_file_command_shapes_and_destroy_removes_root pid=713469 elapsed=752.347918ms status=exit status: 0
+CLI start: test=mirror_file_commands_match_archive_file_command_shapes_and_destroy_removes_root pid=713477
+CLI end: test=mirror_file_commands_match_archive_file_command_shapes_and_destroy_removes_root pid=713477 elapsed=1.379251831s status=exit status: 0
+CLI start: test=mirror_file_commands_match_archive_file_command_shapes_and_destroy_removes_root pid=713491
+CLI end: test=mirror_file_commands_match_archive_file_command_shapes_and_destroy_removes_root pid=713491 elapsed=2.410299328s status=exit status: 0
+CLI start: test=mirror_file_commands_match_archive_file_command_shapes_and_destroy_removes_root pid=713517
+CLI end: test=mirror_file_commands_match_archive_file_command_shapes_and_destroy_removes_root pid=713517 elapsed=2.409742922s status=exit status: 0
+CLI start: test=mirror_file_commands_match_archive_file_command_shapes_and_destroy_removes_root pid=713520
+CLI end: test=mirror_file_commands_match_archive_file_command_shapes_and_destroy_removes_root pid=713520 elapsed=2.43448433s status=exit status: 0
+CLI start: test=mirror_file_commands_match_archive_file_command_shapes_and_destroy_removes_root pid=713546
+CLI end: test=mirror_file_commands_match_archive_file_command_shapes_and_destroy_removes_root pid=713546 elapsed=2.408497416s status=exit status: 0
+CLI start: test=mirror_file_commands_match_archive_file_command_shapes_and_destroy_removes_root pid=713633
+CLI end: test=mirror_file_commands_match_archive_file_command_shapes_and_destroy_removes_root pid=713633 elapsed=2.410388901s status=exit status: 0
+CLI start: test=mirror_file_commands_match_archive_file_command_shapes_and_destroy_removes_root pid=713655
+CLI end: test=mirror_file_commands_match_archive_file_command_shapes_and_destroy_removes_root pid=713655 elapsed=2.408828529s status=exit status: 0
+CLI start: test=mirror_file_commands_match_archive_file_command_shapes_and_destroy_removes_root pid=713683
+CLI end: test=mirror_file_commands_match_archive_file_command_shapes_and_destroy_removes_root pid=713683 elapsed=402.409222ms status=exit status: 0
+CLI start: test=mirror_file_commands_match_archive_file_command_shapes_and_destroy_removes_root pid=713686
+CLI end: test=mirror_file_commands_match_archive_file_command_shapes_and_destroy_removes_root pid=713686 elapsed=2.433337086s status=exit status: 0
+CLI start: test=mirror_file_commands_match_archive_file_command_shapes_and_destroy_removes_root pid=713708
+CLI end: test=mirror_file_commands_match_archive_file_command_shapes_and_destroy_removes_root pid=713708 elapsed=2.409479097s status=exit status: 0
+CLI start: test=mirror_file_commands_match_archive_file_command_shapes_and_destroy_removes_root pid=713791
+CLI end: test=mirror_file_commands_match_archive_file_command_shapes_and_destroy_removes_root pid=713791 elapsed=3.412583976s status=exit status: 0
+CLI start: test=mirror_file_commands_match_archive_file_command_shapes_and_destroy_removes_root pid=713816
+CLI end: test=mirror_file_commands_match_archive_file_command_shapes_and_destroy_removes_root pid=713816 elapsed=2.409794624s status=exit status: 0
+CLI start: test=mirror_file_commands_match_archive_file_command_shapes_and_destroy_removes_root pid=713819
+CLI end: test=mirror_file_commands_match_archive_file_command_shapes_and_destroy_removes_root pid=713819 elapsed=3.413044072s status=exit status: 0
+CLI start: test=mirror_file_commands_match_archive_file_command_shapes_and_destroy_removes_root pid=713917
+CLI end: test=mirror_file_commands_match_archive_file_command_shapes_and_destroy_removes_root pid=713917 elapsed=2.435774876s status=exit status: 0
+CLI start: test=mirror_file_commands_match_archive_file_command_shapes_and_destroy_removes_root pid=713941
+CLI end: test=mirror_file_commands_match_archive_file_command_shapes_and_destroy_removes_root pid=713941 elapsed=403.108361ms status=exit status: 0
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 33.94s
+

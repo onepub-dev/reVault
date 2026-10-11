@@ -248,6 +248,7 @@ fn extract_args_from_matches(matches: &ArgMatches) -> CliResult<Vec<String>> {
             ("overwrite", "--overwrite"),
             ("restore-symlinks", "--restore-symlinks"),
             ("restore-permissions", "--restore-permissions"),
+            ("no-restore-permissions", "--no-restore-permissions"),
         ] {
             if matches.get_flag(name) {
                 args.push(flag.to_string());
@@ -260,6 +261,7 @@ fn extract_args_from_matches(matches: &ArgMatches) -> CliResult<Vec<String>> {
         ("overwrite", "--overwrite"),
         ("restore-symlinks", "--restore-symlinks"),
         ("restore-permissions", "--restore-permissions"),
+        ("no-restore-permissions", "--no-restore-permissions"),
     ] {
         if matches.get_flag(name) {
             args.push(flag.to_string());
@@ -402,6 +404,11 @@ pub(crate) fn extract(args: &[String], access: &Access) -> CliResult<()> {
                 lb.set_workload_profile(WorkloadProfile::ExtractMany);
                 let replace = policy.overwrite && Path::new(dest).exists();
                 lb.extract_file_to(&path, Path::new(dest), replace)?;
+                restore_host_permissions(
+                    Path::new(dest),
+                    entry.permissions,
+                    policy.restore_permissions,
+                )?;
             }
             LockboxEntryKind::Symlink => {
                 return Err(cli_error(format!(
@@ -691,12 +698,16 @@ fn nanos_to_secs(nanos: u128) -> f64 {
 }
 
 fn extract_policy_from_args(args: &[String]) -> ExtractPolicy {
-    let mut policy = ExtractPolicy::default();
+    let mut policy = ExtractPolicy {
+        restore_permissions: true,
+        ..ExtractPolicy::default()
+    };
     for arg in args {
         match arg.as_str() {
             "--overwrite" => policy.overwrite = true,
             "--restore-symlinks" => policy.restore_symlinks = true,
             "--restore-permissions" => policy.restore_permissions = true,
+            "--no-restore-permissions" => policy.restore_permissions = false,
             _ => {}
         }
     }
@@ -969,4 +980,26 @@ fn confirm_remove(entries: &[LockboxEntry]) -> CliResult<bool> {
         answer.trim().to_ascii_lowercase().as_str(),
         "y" | "yes"
     ))
+}
+
+#[cfg(unix)]
+pub(super) fn restore_host_permissions(
+    path: &Path,
+    permissions: u32,
+    restore: bool,
+) -> CliResult<()> {
+    if restore {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(path, fs::Permissions::from_mode(permissions))?;
+    }
+    Ok(())
+}
+
+#[cfg(not(unix))]
+pub(super) fn restore_host_permissions(
+    _path: &Path,
+    _permissions: u32,
+    _restore: bool,
+) -> CliResult<()> {
+    Ok(())
 }

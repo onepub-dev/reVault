@@ -1,3 +1,4 @@
+use super::files::restore_host_permissions;
 use clap::ArgMatches;
 use revault_lockbox_api::{
     lock_path_for, Error, ExtractPolicy, ListOptions, Lockbox, LockboxEntry, LockboxEntryKind,
@@ -727,7 +728,7 @@ fn project_extract(
         .collect::<Vec<_>>();
     let policy = ExtractPolicy {
         overwrite: matches.get_flag("overwrite"),
-        restore_permissions: matches.get_flag("restore-permissions"),
+        restore_permissions: !matches.get_flag("no-restore-permissions"),
         restore_symlinks: matches.get_flag("restore-symlinks"),
         ..ExtractPolicy::default()
     };
@@ -901,20 +902,6 @@ fn create_host_symlink(_target: &str, _path: &Path) -> CliResult<()> {
     Err(cli_error(
         "restoring symbolic links is unsupported on this platform",
     ))
-}
-
-#[cfg(unix)]
-fn restore_host_permissions(path: &Path, permissions: u32, restore: bool) -> CliResult<()> {
-    if restore {
-        use std::os::unix::fs::PermissionsExt;
-        fs::set_permissions(path, fs::Permissions::from_mode(permissions))?;
-    }
-    Ok(())
-}
-
-#[cfg(not(unix))]
-fn restore_host_permissions(_path: &Path, _permissions: u32, _restore: bool) -> CliResult<()> {
-    Ok(())
 }
 
 fn project_cat(
