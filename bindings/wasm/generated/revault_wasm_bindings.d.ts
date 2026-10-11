@@ -232,6 +232,11 @@ export class WasmLockbox {
      */
     rename(from: string, to: string): void;
     /**
+     * Sets a soft page/native-frame cache target: `auto`, `disabled`, or `bytes`.
+     * Pending writes and active shared owners remain valid; this is not a total-memory limit.
+     */
+    set_cache_limit(mode: string, bytes: bigint): void;
+    /**
      * Stages encrypted description text; call `commit` to publish it.
      * For example: `box.set_description("Production credentials"); box.commit()`.
      */

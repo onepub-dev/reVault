@@ -857,6 +857,11 @@ class Lockbox {
     if (!lockbox_set_workload_profile(handle_, profile.data(), profile.size()))
       throw std::runtime_error(buffer_last_error());
   }
+  /** Sets a soft cache limit (auto, disabled, or bytes). */
+  void set_cache_limit(const std::string& mode, std::uint64_t bytes = 0) {
+    if (!lockbox_set_cache_limit(handle_, mode.data(), mode.size(), bytes))
+      throw std::runtime_error(buffer_last_error());
+  }
   /** Sets worker policy. */
   void set_worker_policy(const std::string& mode, std::size_t jobs = 0) {
     if (!lockbox_set_worker_policy(handle_, mode.data(), mode.size(), jobs))

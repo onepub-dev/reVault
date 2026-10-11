@@ -90,6 +90,8 @@ function archiveLifecycle() {
   check(box.getSymlinkTarget('/link') === '/renamed.txt', 'symlink'); pass('lockbox_get_symlink_target', 3);
   check(box.list('/', true).length > 0, 'list'); box.stat('/renamed.txt'); pass('lockbox_list', 2); pass('lockbox_stat', 2);
   box.setWorkloadProfile('read-mostly'); box.setWorkerPolicy('single', 1); box.runtimeOptions();
+  box.setCacheLimit('bytes', 8192); check(Number(box.cacheStats().limitBytes) === 8192, 'cache limit');
+  box.setCacheLimit('auto', 0); pass('lockbox_set_cache_limit');
   pass('lockbox_set_workload_profile'); pass('lockbox_set_worker_policy'); pass('lockbox_runtime_options');
   box.commit(); pass('lockbox_commit'); check(Number(box.storageLen()) > 0, 'storage'); pass('lockbox_storage_len');
   const archive = box.toBytes(); pass('lockbox_to_bytes', 2); pass('buffer_free');

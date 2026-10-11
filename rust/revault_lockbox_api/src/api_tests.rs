@@ -2238,6 +2238,66 @@ fn import_stats_record_threaded_import_stages_and_can_be_reset() {
 
 #[cfg(not(target_arch = "wasm32"))]
 #[test]
+fn changing_cache_limit_preserves_pending_commit_abort_and_packed_reads() {
+    let mut archive = Lockbox::create_with_options(
+        KEY,
+        LockboxOptions {
+            workload_profile: WorkloadProfile::BulkImport,
+            ..LockboxOptions::default()
+        },
+    );
+    add_file(&mut archive, &p("/a"), b"original", false).unwrap();
+    add_file(&mut archive, &p("/b"), b"neighbor", false).unwrap();
+    archive.commit().unwrap();
+    archive.set_workload_profile(WorkloadProfile::ExtractMany);
+    for (limit, expected) in [
+        (CacheLimit::Bytes(9 * 1024 * 1024), 9 * 1024 * 1024),
+        (CacheLimit::Disabled, 0),
+        (CacheLimit::Auto, 32 * 1024 * 1024),
+    ] {
+        add_file(&mut archive, &p("/a"), b"aborted replacement", true).unwrap();
+        archive.set_cache_limit(limit);
+        assert_eq!(archive.inspector().cache_stats().limit_bytes, expected);
+        assert_eq!(archive.get_file(&p("/a")).unwrap(), b"aborted replacement");
+        assert_eq!(archive.get_file(&p("/b")).unwrap(), b"neighbor");
+        archive.abort().unwrap();
+        assert_eq!(archive.get_file(&p("/a")).unwrap(), b"original");
+        add_file(&mut archive, &p("/new"), b"committed addition", false).unwrap();
+        archive.set_cache_limit(CacheLimit::Disabled);
+        archive.commit().unwrap();
+        let reopened = Lockbox::open_bytes_with_key_options(
+            archive.to_bytes(),
+            KEY,
+            LockboxOptions {
+                cache_limit: CacheLimit::Disabled,
+                ..LockboxOptions::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(reopened.get_file(&p("/a")).unwrap(), b"original");
+        assert_eq!(reopened.get_file(&p("/b")).unwrap(), b"neighbor");
+        assert_eq!(
+            reopened.get_file(&p("/new")).unwrap(),
+            b"committed addition"
+        );
+        archive.delete(&p("/new")).unwrap();
+        archive.commit().unwrap();
+        archive.set_cache_limit(CacheLimit::Auto);
+        archive.set_workload_profile(WorkloadProfile::Interactive);
+        assert_eq!(
+            archive.inspector().cache_stats().limit_bytes,
+            128 * 1024 * 1024
+        );
+        archive.set_workload_profile(WorkloadProfile::ExtractMany);
+        assert_eq!(
+            archive.inspector().cache_stats().limit_bytes,
+            32 * 1024 * 1024
+        );
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
 fn auto_extract_many_budget_restores_profiles_and_packed_reads() {
     let mut source = Lockbox::create_with_options(
         KEY,

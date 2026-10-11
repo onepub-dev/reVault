@@ -70,6 +70,8 @@ func archiveLifecycle() throws {
     try check(try box.getSymlinkTarget("/link") == "/renamed.txt", "symlink"); pass("lockbox_get_symlink_target", 3)
     try check(try !box.list("/", true).isEmpty, "list"); _ = try box.stat("/renamed.txt"); pass("lockbox_list", 2); pass("lockbox_stat", 2)
     try box.setWorkloadProfile("read-mostly"); try box.setWorkerPolicy("single", 1); _ = try box.runtimeOptions()
+    try box.setCacheLimit("bytes", 8192); try check(try box.cacheStats().limitBytes == 8192, "cache limit")
+    try box.setCacheLimit("auto", 0); pass("lockbox_set_cache_limit")
     pass("lockbox_set_workload_profile"); pass("lockbox_set_worker_policy"); pass("lockbox_runtime_options")
     try box.commit(); pass("lockbox_commit"); try check(try box.storageLen() > 0, "storage"); pass("lockbox_storage_len")
     let archive = try box.toBytes(); pass("lockbox_to_bytes", 2); pass("buffer_free")

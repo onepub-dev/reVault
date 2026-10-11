@@ -8,6 +8,7 @@ inspect_file	lockbox_inspect_file	direct
 lockbox_id	lockbox_id	direct
 owner_inspection	lockbox_owner_inspection	direct
 set_owner_signing_key	lockbox_set_owner_signing_key	direct
+set_cache_limit	lockbox_set_cache_limit	direct live-handle cache tuning preserves pending writes
 set_workload_profile	lockbox_set_workload_profile	direct
 workload_profile	lockbox_runtime_options	returned in runtime options
 set_worker_policy	lockbox_set_worker_policy	direct

@@ -37,6 +37,7 @@ module Revault
     extern 'bool lockbox_reset_import_stats(void *)'
     extern 'uint64_t lockbox_storage_len(void *)'
     extern 'bool lockbox_set_workload_profile(void *, void *, size_t)'
+    extern 'bool lockbox_set_cache_limit(void *, void *, size_t, uint64_t)'
     extern 'bool lockbox_set_worker_policy(void *, void *, size_t, size_t)'
     extern 'bool lockbox_commit(void *)'
     extern 'bool lockbox_create_dir(void *, void *, size_t, bool)'
@@ -408,6 +409,10 @@ module Revault
 
     def lockbox_set_workload_profile(handle, profile)
       require_value(Native.lockbox_set_workload_profile(handle, Fiddle::Pointer[profile], profile.bytesize))
+    end
+
+    def lockbox_set_cache_limit(handle, mode, bytes)
+      require_value(Native.lockbox_set_cache_limit(handle, Fiddle::Pointer[mode], mode.bytesize, bytes))
     end
 
     def lockbox_set_worker_policy(handle, mode, jobs)

@@ -723,6 +723,11 @@ def _Lockbox_set_workload_profile(self, profile):
     return _call(self, 'lockbox_set_workload_profile', (profile,))
 Lockbox.set_workload_profile = _Lockbox_set_workload_profile
 
+def _Lockbox_set_cache_limit(self, mode, bytes):
+    """Sets a soft cache target without discarding pending writes."""
+    return _call(self, 'lockbox_set_cache_limit', (mode, bytes))
+Lockbox.set_cache_limit = _Lockbox_set_cache_limit
+
 def _Lockbox_set_worker_policy(self, mode, jobs):
     """Returns the policy."""
     return _call(self, 'lockbox_set_worker_policy', (mode, jobs))
@@ -1570,6 +1575,7 @@ _ROUTES = {
     'lockbox_recovery_scan_path': (('text', 'bytes'), 'message:RecoveryReport', False),
     'lockbox_storage_len': (('handle',), 'value', False),
     'lockbox_set_workload_profile': (('handle', 'text'), 'bool', False),
+    'lockbox_set_cache_limit': (('handle', 'text', 'value'), 'bool', False),
     'lockbox_set_worker_policy': (('handle', 'text', 'value'), 'bool', False),
     'lockbox_runtime_options': (('handle',), 'message:RuntimeOptions', False),
     'lockbox_commit': (('handle',), 'bool', False),

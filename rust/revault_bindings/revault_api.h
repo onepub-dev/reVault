@@ -122,6 +122,8 @@ RevaultBuffer lockbox_recovery_scan_path(const char *path, size_t path_len, cons
 uint64_t lockbox_storage_len(const void *handle);
 /** Sets workload profile. */
 bool lockbox_set_workload_profile(void *handle, const char *profile, size_t profile_len);
+/** Sets a soft cache target without discarding pending writes. */
+bool lockbox_set_cache_limit(void *handle, const char *mode, size_t mode_len, uint64_t bytes);
 /** Sets worker policy. */
 bool lockbox_set_worker_policy(void *handle, const char *mode, size_t mode_len, size_t jobs);
 /** Returns the runtime options. */

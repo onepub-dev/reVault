@@ -87,6 +87,8 @@ def archive_lifecycle
   check(box.get_symlink_target('/link') == '/renamed.txt', 'symlink'); pass('lockbox_get_symlink_target', 3)
   check(!box.list('/', true).entries.empty?, 'list'); box.stat('/renamed.txt'); pass('lockbox_list', 2); pass('lockbox_stat', 2)
   box.set_workload_profile('read-mostly'); box.set_worker_policy('single', 1); box.runtime_options
+  box.set_cache_limit('bytes', 8192); check(box.cache_stats.limit_bytes == 8192, 'cache limit')
+  box.set_cache_limit('auto', 0); pass('lockbox_set_cache_limit')
   pass('lockbox_set_workload_profile'); pass('lockbox_set_worker_policy'); pass('lockbox_runtime_options')
   box.commit; pass('lockbox_commit'); check(box.storage_len > 0, 'storage'); pass('lockbox_storage_len')
   archive = box.to_bytes; pass('lockbox_to_bytes', 2); pass('buffer_free')

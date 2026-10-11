@@ -541,6 +541,17 @@ final class BindingOperations {
     ),
   );
 
+  bool lockboxSetCacheLimit(
+    ffi.Pointer<ffi.Void> handle,
+    String mode,
+    int bytes,
+  ) => _withText(
+    mode,
+    (modePointer, modeLength) => _requireBool(
+      native.lockbox_set_cache_limit(handle, modePointer, modeLength, bytes),
+    ),
+  );
+
   bool lockboxSetWorkerPolicy(
     ffi.Pointer<ffi.Void> handle,
     String mode,

@@ -442,6 +442,11 @@ module Revault
       @operations.lockbox_set_workload_profile(@native_handle, profile)
     end
 
+    # Sets a soft cache limit (auto, disabled, or bytes).
+    def set_cache_limit(mode, bytes)
+      @operations.lockbox_set_cache_limit(@native_handle, mode, bytes)
+    end
+
     # Sets worker policy.
     def set_worker_policy(mode, jobs)
       @operations.lockbox_set_worker_policy(@native_handle, mode, jobs)

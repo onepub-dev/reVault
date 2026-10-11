@@ -46,6 +46,8 @@ RevaultBuffer lockbox_recovery_report_render(const void *handle, bool verbose, s
 RevaultBuffer lockbox_recovery_scan_path(const char *path, size_t path_len, const uint8_t *key, size_t key_len);
 uint64_t lockbox_storage_len(const void *handle);
 bool lockbox_set_workload_profile(void *handle, const char *profile, size_t profile_len);
+bool lockbox_set_cache_limit(void *handle, const char *mode, size_t mode_len, uint64_t bytes);
+/** Sets worker policy. */
 bool lockbox_set_worker_policy(void *handle, const char *mode, size_t mode_len, size_t jobs);
 RevaultBuffer lockbox_runtime_options(const void *handle);
 bool lockbox_commit(void *handle);

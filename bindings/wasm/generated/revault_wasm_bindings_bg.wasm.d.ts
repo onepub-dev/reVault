@@ -58,6 +58,7 @@ export const wasmlockbox_permissions: (a: number, b: number, c: number) => [numb
 export const wasmlockbox_read_range: (a: number, b: number, c: number, d: bigint, e: bigint) => [number, number, number, number];
 export const wasmlockbox_remove_dir: (a: number, b: number, c: number, d: number) => [number, number];
 export const wasmlockbox_rename: (a: number, b: number, c: number, d: number, e: number) => [number, number];
+export const wasmlockbox_set_cache_limit: (a: number, b: number, c: number, d: bigint) => [number, number];
 export const wasmlockbox_set_description: (a: number, b: number, c: number) => [number, number];
 export const wasmlockbox_set_permissions: (a: number, b: number, c: number, d: number) => [number, number];
 export const wasmlockbox_set_secret_variable: (a: number, b: number, c: number, d: number, e: number) => [number, number];

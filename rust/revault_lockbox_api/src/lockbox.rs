@@ -1316,6 +1316,21 @@ impl<State> Lockbox<State> {
         self.read_only = self.storage.is_read_only();
     }
 
+    /// Change the page/native-frame cache retention target.
+    ///
+    /// This is not a total-memory limit. Dirty pages and active shared owners
+    /// remain valid; reducing the target does not flush or discard pending writes.
+    /// Auto resolves using the current workload profile and platform defaults.
+    /// Separate decoded-frame retention is reconciled with the selected policy.
+    pub fn set_cache_limit(&mut self, limit: crate::CacheLimit) {
+        {
+            self.page_manager
+                .borrow_mut()
+                .set_cache_limit(limit, self.workload_profile);
+        }
+        self.trim_decoded_compression_frame_cache();
+    }
+
     /// Set cache behavior tuned for the caller's expected access pattern.
     pub fn set_workload_profile(&mut self, profile: WorkloadProfile) {
         let previous = self.workload_profile;
@@ -2408,6 +2423,42 @@ mod tests {
     {
         lb.create_parent_dirs_for(path)?;
         Lockbox::add_file(lb, path, data, replace)
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn cache_limit_auto_transition_releases_excess_decoded_frames() {
+        let mut archive = Lockbox::create("cache transition");
+        archive.set_workload_profile(WorkloadProfile::ExtractMany);
+        archive.set_cache_limit(crate::CacheLimit::Bytes(32 * 1024 * 1024));
+        // Seed the separate decoded cache directly: native-frame writers use
+        // the shared page cache, but this policy must also reconcile legacy
+        // decoded frames already owned by the same live handle.
+        {
+            let mut cache = archive.compression_frame_cache.borrow_mut();
+            for id in 0..9 {
+                cache.entries.insert(
+                    id,
+                    CachedCompressionFrame {
+                        native_reference: None,
+                        compression: 0,
+                        compression_frame_len: 1024 * 1024,
+                        compressed_len: 1024 * 1024,
+                        compression_frame_digest: [0; 32],
+                        slices: Vec::new(),
+                        data: vec![id as u8; 1024 * 1024],
+                    },
+                );
+            }
+            cache.used_bytes = 9 * 1024 * 1024;
+        }
+        archive.set_cache_limit(crate::CacheLimit::Auto);
+        let cache = archive.compression_frame_cache.borrow();
+        assert_eq!(cache.used_bytes, 8 * 1024 * 1024);
+        assert_eq!(cache.entries.len(), 8);
+        for (id, frame) in &cache.entries {
+            assert!(frame.data.iter().all(|byte| *byte == *id as u8));
+        }
     }
 
     #[test]

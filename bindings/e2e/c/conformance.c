@@ -479,6 +479,18 @@ static void archive_lifecycle(void) {
   RevaultBuffer options = lockbox_runtime_options(box);
   CHECK(framed_payload(options).len > 0, "runtime options");
   buffer_free(options);
+  CHECK(lockbox_set_cache_limit(box, "bytes", 5, 8192), "cache limit");
+  RevaultBuffer cache_limit_stats = lockbox_cache_stats(box);
+  Bytes cache_limit_payload = framed_payload(cache_limit_stats);
+  const uint8_t *cache_limit_field = flatbuffer_field(cache_limit_payload, 0);
+  CHECK(cache_limit_field != NULL && cache_limit_field + 8 <= cache_limit_payload.ptr + cache_limit_payload.len, "cache limit field");
+  uint64_t observed_cache_limit = 0;
+  for (unsigned cache_byte = 0; cache_byte < 8; ++cache_byte)
+    observed_cache_limit |= ((uint64_t)cache_limit_field[cache_byte]) << (8 * cache_byte);
+  CHECK(observed_cache_limit == 8192, "cache limit stats");
+  buffer_free(cache_limit_stats);
+  CHECK(lockbox_set_cache_limit(box, "auto", 4, 0), "restore cache");
+  PASS(lockbox_set_cache_limit, 2);
   PASS(lockbox_set_workload_profile, 1);
   PASS(lockbox_set_worker_policy, 1);
   PASS(lockbox_runtime_options, 1);

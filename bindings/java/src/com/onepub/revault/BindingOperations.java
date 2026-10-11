@@ -256,6 +256,12 @@ final class BindingOperations {
     }
   }
 
+  public boolean lockboxSetCacheLimit(MemorySegment handle, String mode, long bytes) {
+    try (var arena = Arena.ofConfined()) {
+      return require((boolean) call(api.lockbox_set_cache_limit, handle, text(arena, mode), (long) mode.getBytes(StandardCharsets.UTF_8).length, bytes));
+    }
+  }
+
   public boolean lockboxSetWorkerPolicy(MemorySegment handle, String mode, long jobs) {
     try (var arena = Arena.ofConfined()) {
       return require((boolean) call(api.lockbox_set_worker_policy, handle, text(arena, mode), (long) mode.getBytes(StandardCharsets.UTF_8).length, jobs));

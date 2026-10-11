@@ -96,6 +96,8 @@ function archiveLifecycle(ApiRuntime $api): void {
     check(count($box->list('/', true)->getEntries()) > 0, 'list'); pass('lockbox_list', 2);
     $box->stat('/renamed.txt'); pass('lockbox_stat', 2);
     $box->setWorkloadProfile('read-mostly'); pass('lockbox_set_workload_profile');
+    $box->setCacheLimit('bytes', 8192); check($box->cacheStats()->getLimitBytes() == 8192, 'cache limit');
+    $box->setCacheLimit('auto', 0); pass('lockbox_set_cache_limit');
     $box->setWorkerPolicy('single', 1); pass('lockbox_set_worker_policy');
     $box->runtimeOptions(); pass('lockbox_runtime_options');
     $box->commit(); pass('lockbox_commit');

@@ -205,6 +205,8 @@ export class Lockbox {
   storageLen(): number;
   /** Sets workload profile. */
   setWorkloadProfile(profile: string): boolean;
+  /** Sets a soft cache target without discarding pending writes. */
+  setCacheLimit(mode: string, bytes: number): boolean;
   /** Sets worker policy. */
   setWorkerPolicy(mode: string, jobs: number): boolean;
   /** Returns the cache, workload, and worker settings used by this Lockbox. */

@@ -125,6 +125,9 @@ func (native) LockboxStorageLen(handle unsafe.Pointer) C.uint64_t {
 func (native) LockboxSetWorkloadProfile(handle unsafe.Pointer, profile unsafe.Pointer, profile_len C.size_t) C.bool {
 	return C.lockbox_set_workload_profile(handle, (*C.char)(profile), profile_len)
 }
+func (native) LockboxSetCacheLimit(handle unsafe.Pointer, mode unsafe.Pointer, mode_len C.size_t, bytes C.uint64_t) C.bool {
+	return C.lockbox_set_cache_limit(handle, (*C.char)(mode), mode_len, bytes)
+}
 func (native) LockboxSetWorkerPolicy(handle unsafe.Pointer, mode unsafe.Pointer, mode_len C.size_t, jobs C.size_t) C.bool {
 	return C.lockbox_set_worker_policy(handle, (*C.char)(mode), mode_len, jobs)
 }

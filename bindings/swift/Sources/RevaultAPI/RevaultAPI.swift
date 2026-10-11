@@ -281,6 +281,13 @@ final class BindingOperations {
         }
     }
 
+    func lockboxSetCacheLimit(_ handle: UnsafeMutableRawPointer, _ mode: String, _ bytes: UInt64) throws -> Bool {
+        return try mode.withCString { modePointer in
+            guard lockbox_set_cache_limit(handle, modePointer, mode.utf8.count, bytes) else { throw RevaultError.native(lastError()) }
+            return true
+        }
+    }
+
     func lockboxSetWorkerPolicy(_ handle: UnsafeMutableRawPointer, _ mode: String, _ jobs: Int) throws -> Bool {
         return try mode.withCString { modePointer in
             guard lockbox_set_worker_policy(handle, modePointer, mode.utf8.count, jobs) else { throw RevaultError.native(lastError()) }
@@ -1883,6 +1890,12 @@ extension Lockbox {
     @discardableResult
     public func setWorkloadProfile(_ profile: WorkloadProfile) throws -> Bool {
         try setWorkloadProfile(profile.rawValue)
+    }
+
+    /// Sets a soft cache limit (auto, disabled, or bytes).
+    @discardableResult
+    public func setCacheLimit(_ mode: String, _ bytes: UInt64) throws -> Bool {
+        return try operations.lockboxSetCacheLimit(handle!, mode, bytes)
     }
 
     /// Sets worker policy.

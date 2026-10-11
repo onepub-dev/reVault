@@ -264,6 +264,8 @@ public sealed class Revault
         public ulong StorageLength => owner.operations.LockboxStorageLen(Handle);
         /// <summary>Sets workload profile.</summary>
         public void SetWorkloadProfile(string profile) => owner.operations.LockboxSetWorkloadProfile(Handle, profile);
+        /// <summary>Sets a soft cache target without discarding pending writes.</summary>
+        public void SetCacheLimit(string mode, ulong bytes) => owner.operations.LockboxSetCacheLimit(Handle, mode, bytes);
         /// <summary>Sets worker policy.</summary>
         public void SetWorkerPolicy(string mode, nuint jobs) => owner.operations.LockboxSetWorkerPolicy(Handle, mode, jobs);
         /// <summary>Returns the cache, workload, and worker settings used by this Lockbox.</summary>

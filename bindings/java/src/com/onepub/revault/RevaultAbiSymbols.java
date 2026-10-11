@@ -42,6 +42,7 @@ final class RevaultAbiSymbols {
     "lockbox_recovery_scan_path",
     "lockbox_storage_len",
     "lockbox_set_workload_profile",
+    "lockbox_set_cache_limit",
     "lockbox_set_worker_policy",
     "lockbox_runtime_options",
     "lockbox_commit",

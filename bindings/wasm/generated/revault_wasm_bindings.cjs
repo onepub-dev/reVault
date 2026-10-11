@@ -740,6 +740,20 @@ class WasmLockbox {
         }
     }
     /**
+     * Sets a soft page/native-frame cache target: `auto`, `disabled`, or `bytes`.
+     * Pending writes and active shared owners remain valid; this is not a total-memory limit.
+     * @param {string} mode
+     * @param {bigint} bytes
+     */
+    set_cache_limit(mode, bytes) {
+        const ptr0 = passStringToWasm0(mode, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.wasmlockbox_set_cache_limit(this.__wbg_ptr, ptr0, len0, bytes);
+        if (ret[1]) {
+            throw takeFromExternrefTable0(ret[0]);
+        }
+    }
+    /**
      * Stages encrypted description text; call `commit` to publish it.
      * For example: `box.set_description("Production credentials"); box.commit()`.
      * @param {string} description

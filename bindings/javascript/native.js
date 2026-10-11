@@ -77,6 +77,7 @@ let lockbox_recovery_report_render;
 let lockbox_recovery_scan_path;
 let lockbox_storage_len;
 let lockbox_set_workload_profile;
+let lockbox_set_cache_limit;
 let lockbox_set_worker_policy;
 let lockbox_runtime_options;
 let lockbox_commit;
@@ -309,6 +310,7 @@ export function configureNativeLibrary(explicitPath = undefined) {
   lockbox_recovery_scan_path = library.func('RevaultBuffer lockbox_recovery_scan_path(const char *, size_t, void *, size_t)');
   lockbox_storage_len = library.func('uint64_t lockbox_storage_len(void *)');
   lockbox_set_workload_profile = library.func('bool lockbox_set_workload_profile(void *, const char *, size_t)');
+  lockbox_set_cache_limit = library.func('bool lockbox_set_cache_limit(void *, const char *, size_t, uint64_t)');
   lockbox_set_worker_policy = library.func('bool lockbox_set_worker_policy(void *, const char *, size_t, size_t)');
   lockbox_runtime_options = library.func('RevaultBuffer lockbox_runtime_options(void *)');
   lockbox_commit = library.func('bool lockbox_commit(void *)');
@@ -625,6 +627,7 @@ export class BindingOperations {
 
   lockboxSetWorkloadProfile(handle, profile) { return requireValue(lockbox_set_workload_profile(handle, Buffer.from(profile), Buffer.byteLength(profile))); }
 
+  lockboxSetCacheLimit(handle, mode, bytes) { return requireValue(lockbox_set_cache_limit(handle, Buffer.from(mode), Buffer.byteLength(mode), bytes)); }
   lockboxSetWorkerPolicy(handle, mode, jobs) { return requireValue(lockbox_set_worker_policy(handle, Buffer.from(mode), Buffer.byteLength(mode), jobs)); }
 
   lockboxRuntimeOptions(handle) { return decode('RuntimeOptions', lockbox_runtime_options(handle)); }

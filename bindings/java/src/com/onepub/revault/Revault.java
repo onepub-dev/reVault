@@ -342,6 +342,8 @@ public final class Revault {
     public long storageLength() { return operations.lockboxStorageLen(handle); }
     /** Sets workload profile. */
     public void setWorkloadProfile(String profile) { operations.lockboxSetWorkloadProfile(handle, profile); }
+    /** Sets a soft cache target without discarding pending writes. */
+    public void setCacheLimit(String mode, long bytes) { operations.lockboxSetCacheLimit(handle, mode, bytes); }
     /** Sets worker policy. */
     public void setWorkerPolicy(String mode, long jobs) { operations.lockboxSetWorkerPolicy(handle, mode, jobs); }
     /** Returns the cache, workload, and worker settings used by this Lockbox. */

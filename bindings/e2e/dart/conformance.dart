@@ -173,6 +173,10 @@ void archiveLifecycle() {
   box.setWorkloadProfile(LockboxWorkload.readMostly);
   box.setWorkerPolicy(LockboxWorker.single, jobs: 1);
   check(box.runtimeOptions().workloadProfile.isNotEmpty, 'runtime');
+  box.setCacheLimit('bytes', bytes: 8192);
+  check(box.cacheStats().limitBytes == 8192, 'cache limit');
+  box.setCacheLimit('auto');
+  pass('lockbox_set_cache_limit');
   pass('lockbox_set_workload_profile');
   pass('lockbox_set_worker_policy');
   pass('lockbox_runtime_options');

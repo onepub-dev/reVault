@@ -94,6 +94,9 @@ internal static partial class RevaultNative
     public static extern bool lockbox_set_workload_profile(IntPtr handle, IntPtr profile, nuint profile_len);
     [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
     [return: MarshalAs(UnmanagedType.I1)]
+    public static extern bool lockbox_set_cache_limit(IntPtr handle, IntPtr mode, nuint mode_len, ulong bytes);
+    [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
+    [return: MarshalAs(UnmanagedType.I1)]
     public static extern bool lockbox_set_worker_policy(IntPtr handle, IntPtr mode, nuint mode_len, nuint jobs);
     [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
     public static extern RevaultBuffer lockbox_runtime_options(IntPtr handle);

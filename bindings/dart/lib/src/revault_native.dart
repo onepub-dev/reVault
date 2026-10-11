@@ -381,6 +381,15 @@ typedef _LockboxSetWorkloadProfileNative =
     ffi.Bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, ffi.Size);
 typedef _LockboxSetWorkloadProfileDart =
     bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int);
+typedef _LockboxSetCacheLimitNative =
+    ffi.Bool Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Uint64,
+    );
+typedef _LockboxSetCacheLimitDart =
+    bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int, int);
 typedef _LockboxSetWorkerPolicyNative =
     ffi.Bool Function(
       ffi.Pointer<ffi.Void>,
@@ -2044,6 +2053,17 @@ external bool _native_lockbox_set_workload_profile(
   ffi.Pointer<ffi.Void> p0,
   ffi.Pointer<ffi.Uint8> p1,
   int p2,
+);
+
+@ffi.Native<_LockboxSetCacheLimitNative>(
+  symbol: 'lockbox_set_cache_limit',
+  assetId: _assetId,
+)
+external bool _native_lockbox_set_cache_limit(
+  ffi.Pointer<ffi.Void> p0,
+  ffi.Pointer<ffi.Uint8> p1,
+  int p2,
+  int p3,
 );
 
 @ffi.Native<_LockboxSetWorkerPolicyNative>(
@@ -3868,6 +3888,11 @@ final class RevaultNative {
             _LockboxSetWorkloadProfileNative,
             _LockboxSetWorkloadProfileDart
           >('lockbox_set_workload_profile'),
+      _lockbox_set_cache_limit = library
+          .lookupFunction<
+            _LockboxSetCacheLimitNative,
+            _LockboxSetCacheLimitDart
+          >('lockbox_set_cache_limit'),
       _lockbox_set_worker_policy = library
           .lookupFunction<
             _LockboxSetWorkerPolicyNative,
@@ -4759,6 +4784,7 @@ final class RevaultNative {
       _lockbox_recovery_scan_path = _native_lockbox_recovery_scan_path,
       _lockbox_storage_len = _native_lockbox_storage_len,
       _lockbox_set_workload_profile = _native_lockbox_set_workload_profile,
+      _lockbox_set_cache_limit = _native_lockbox_set_cache_limit,
       _lockbox_set_worker_policy = _native_lockbox_set_worker_policy,
       _lockbox_runtime_options = _native_lockbox_runtime_options,
       _lockbox_commit = _native_lockbox_commit,
@@ -5276,6 +5302,13 @@ final class RevaultNative {
     ffi.Pointer<ffi.Uint8> profile,
     int profile_len,
   ) => _lockbox_set_workload_profile(handle, profile, profile_len);
+  final _LockboxSetCacheLimitDart _lockbox_set_cache_limit;
+  bool lockbox_set_cache_limit(
+    ffi.Pointer<ffi.Void> handle,
+    ffi.Pointer<ffi.Uint8> mode,
+    int mode_len,
+    int bytes,
+  ) => _lockbox_set_cache_limit(handle, mode, mode_len, bytes);
   final _LockboxSetWorkerPolicyDart _lockbox_set_worker_policy;
   bool lockbox_set_worker_policy(
     ffi.Pointer<ffi.Void> handle,

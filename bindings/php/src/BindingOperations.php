@@ -253,6 +253,11 @@ final class BindingOperations
         return $this->requireBool((bool) ($this->ffi->lockbox_set_workload_profile($handle, $profile, strlen($profile))));
     }
 
+    public function lockboxSetCacheLimit(CData $handle, string $mode, int $bytes): bool
+    {
+        return $this->requireBool((bool) ($this->ffi->lockbox_set_cache_limit($handle, $mode, strlen($mode), $bytes)));
+    }
+
     public function lockboxSetWorkerPolicy(CData $handle, string $mode, int $jobs): bool
     {
         return $this->requireBool((bool) ($this->ffi->lockbox_set_worker_policy($handle, $mode, strlen($mode), $jobs)));

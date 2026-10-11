@@ -74,6 +74,8 @@ static class Conformance
             box.AddSymlink("/link", "/renamed.txt"); Check(box.SymlinkTarget("/link") == "/renamed.txt", "link"); Pass("lockbox_add_symlink"); Pass("lockbox_get_symlink_target", 3);
             Check(box.List("/", true).Count > 0, "list"); Check(box.Stat("/renamed.txt") != null, "stat"); Pass("lockbox_list", 2); Pass("lockbox_stat", 2);
             box.SetWorkloadProfile("read-mostly"); box.SetWorkerPolicy("single", 1); Check(box.RuntimeOptions().WorkloadProfile.Length > 0, "runtime");
+            box.SetCacheLimit("bytes", 8192); Check(box.CacheStats().LimitBytes == 8192, "cache limit");
+            box.SetCacheLimit("auto", 0); Pass("lockbox_set_cache_limit");
             Pass("lockbox_set_workload_profile"); Pass("lockbox_set_worker_policy"); Pass("lockbox_runtime_options");
             box.Commit(); Check(box.StorageLength > 0, "storage"); Pass("lockbox_commit"); Pass("lockbox_storage_len");
             archive = box.Bytes; Check(archive.Length > 0, "bytes"); Pass("lockbox_to_bytes", 2); Pass("buffer_free");

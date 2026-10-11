@@ -1,0 +1,39 @@
+warning: field `payload` is never read
+  --> revault_lockbox_api/src/model/record.rs:26:16
+   |
+22 | pub(crate) struct DecodedRecord {
+   |                   ------------- field in this struct
+...
+26 |     pub(crate) payload: Vec<u8>,
+   |                ^^^^^^^
+   |
+   = note: `DecodedRecord` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` on by default
+
+warning: `revault_lockbox_api` (lib test) generated 1 warning
+    Finished `release` profile [optimized] target(s) in 0.10s
+     Running unittests src/lib.rs (target/release/deps/revault_lockbox_api-a596bb400f031d5b)
+
+running 19 tests
+test storage::page_cache::tests::append_secure_page_caches_secure_payloads ... ok
+test storage::page_cache::tests::authenticated_cache_reads_verify_expected_reference_even_on_hits ... ok
+test storage::page_cache::tests::authenticated_secure_reads_work_without_cache_admission ... ok
+test storage::page_cache::tests::cached_page_security_must_match_request ... ok
+test storage::page_cache::tests::changing_cache_limit_preserves_dirty_payload_and_active_owners ... ok
+test storage::page_cache::tests::cleanup_invalidates_intersections_but_preserves_neighbors_and_pending_writes ... ok
+test storage::page_cache::tests::evicts_by_weight ... ok
+test storage::page_cache::tests::explicit_trim_reduces_usage ... ok
+test storage::page_cache::tests::extract_many_budget_preserves_dirty_pages_and_configured_policy ... ok
+test storage::page_cache::tests::native_block_cache_accounts_individual_allocations_and_evicts_lru ... ok
+test storage::page_cache::tests::native_cache_rejects_wrong_context_overlap_and_overflow_before_mutation ... ok
+test storage::page_cache::tests::native_cache_retry_after_partial_file_append_does_not_insert_a_false_gap ... ok
+test storage::page_cache::tests::native_cache_staging_snapshots_flush_retries_and_eviction_preserve_all_modes ... ok
+test storage::page_cache::tests::native_decoded_cache_tracks_physical_extents_and_shared_ownership ... ok
+test storage::page_cache::tests::pressure_flush_preserves_dirty_metadata_and_pending_erasure ... ok
+test storage::page_cache::tests::read_page_caches_normal_payloads ... ok
+test storage::page_cache::tests::read_page_rejects_oversized_header_body_before_body_read ... ok
+test storage::page_cache::tests::repeated_reads_and_offset_churn_keep_cache_history_bounded ... ok
+test storage::page_cache::tests::secure_cached_pages_cannot_be_flushed_as_normal_dirty_pages ... ok
+
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 695 filtered out; finished in 0.02s
+

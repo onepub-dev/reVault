@@ -34,6 +34,7 @@ lockbox_recovery_report_render	archive.recovery	RevaultBuffer	const void *handle
 lockbox_recovery_scan_path	archive.recovery	RevaultBuffer	const char *path, size_t path_len, const uint8_t *key, size_t key_len
 lockbox_storage_len	archive.lifecycle	uint64_t	const void *handle
 lockbox_set_workload_profile	archive.lifecycle	bool	void *handle, const char *profile, size_t profile_len
+lockbox_set_cache_limit	archive.lifecycle	bool	void *handle, const char *mode, size_t mode_len, uint64_t bytes
 lockbox_set_worker_policy	archive.lifecycle	bool	void *handle, const char *mode, size_t mode_len, size_t jobs
 lockbox_runtime_options	archive.diagnostics	RevaultBuffer	const void *handle
 lockbox_commit	archive.lifecycle	bool	void *handle

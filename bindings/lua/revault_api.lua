@@ -59,6 +59,7 @@ RevaultBuffer lockbox_recovery_report_render(const void * handle, bool verbose, 
 RevaultBuffer lockbox_recovery_scan_path(const char * path, size_t path_len, const uint8_t * key, size_t key_len);
 uint64_t lockbox_storage_len(const void * handle);
 bool lockbox_set_workload_profile(void * handle, const char * profile, size_t profile_len);
+bool lockbox_set_cache_limit(void * handle, const char * mode, size_t mode_len, uint64_t bytes);
 bool lockbox_set_worker_policy(void * handle, const char * mode, size_t mode_len, size_t jobs);
 RevaultBuffer lockbox_runtime_options(const void * handle);
 bool lockbox_commit(void * handle);
@@ -672,6 +673,11 @@ end
 
 function Operations:lockbox_set_workload_profile(handle, profile)
   if not native.lockbox_set_workload_profile(handle, profile, #profile) then error(last_error(), 2) end
+  return true
+end
+
+function Operations:lockbox_set_cache_limit(handle, mode, bytes)
+  if not native.lockbox_set_cache_limit(handle, mode, #mode, bytes) then error(last_error(), 2) end
   return true
 end
 
@@ -1923,6 +1929,11 @@ end
 --- Sets workload profile.
 function Lockbox:set_workload_profile(profile)
   return self.operations:lockbox_set_workload_profile(self.handle, profile)
+end
+
+--- Sets a soft cache limit (auto, disabled, or bytes).
+function Lockbox:set_cache_limit(mode, bytes)
+  return self.operations:lockbox_set_cache_limit(self.handle, mode, bytes)
 end
 
 --- Sets worker policy.

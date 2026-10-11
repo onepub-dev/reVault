@@ -77,6 +77,8 @@ def configure_native(library, buffer_type):
     library.lockbox_storage_len.restype = ctypes.c_uint64
     library.lockbox_set_workload_profile.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_size_t]
     library.lockbox_set_workload_profile.restype = ctypes.c_bool
+    library.lockbox_set_cache_limit.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_size_t, ctypes.c_uint64]
+    library.lockbox_set_cache_limit.restype = ctypes.c_bool
     library.lockbox_set_worker_policy.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_size_t, ctypes.c_size_t]
     library.lockbox_set_worker_policy.restype = ctypes.c_bool
     library.lockbox_runtime_options.argtypes = [ctypes.c_void_p]

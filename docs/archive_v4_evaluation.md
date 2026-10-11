@@ -46,7 +46,7 @@ They recorded 283 and 287 observed passes respectively, 11 ignored each and no
 observed failures, but no complete-suite result. All 35 CLI creation/password
 and Vault consumer tests passed. The subsequent raw-data worker-cache trial is recorded below.
 The continuing goal stops below 10% remaining or above 99% after a reset;
-the current checkpoint reading is 74% remaining.
+the current checkpoint reading is 71% remaining.
 
 The [raw many-file trial](evidence/parallel-extraction-2026-10-12/README.md)
 passed its fixed 56-process gate and all 33 focused test executions, but the
@@ -85,11 +85,18 @@ elapsed upper bound 1.0579 exceeds 1.05 and raw BulkImport median RSS ratio 0.97
 misses the required 0.95. Compressed BulkImport also had a small elapsed slowdown,
 ratio 1.0224 [1.0165, 1.0292]. Reverted only the nine-line window to `7b7cb50a`;
 no outcome-driven reruns or tests of the rejected runtime were added.
-Next assess command-local import cache retention while preserving profile semantics, keeping
-parallelism, durable preparation and authentication intact. The retained encoder
-reuse passed all 15 focused default/native API and public CLI checks; the rejected
-window received no additional tests. No broad suite was rerun. No architecture or
-release acceptance follows from this intermediate improvement.
+The retained encoder reuse passed all 15 focused default/native API and public CLI
+checks; the rejected window received no additional tests. No broad suite was rerun.
+The [single-file add cache trial](evidence/single-file-add-cache-2026-10-12/README.md)
+then completed 56 verified processes and passed its frozen combined gates. Retain
+the command-local 32 MiB page/native-frame target for existing-archive single-file
+adds without changing profile/compression/worker semantics. Median RSS fell 38.0%
+for source Zstd and 44.4% for random raw; maxima fell to 150.5 and 149.7 MB, still
+above the 100 MB target. Aggregate elapsed ratios 0.9992 [0.9786, 1.0172] and 0.9937
+[0.9812, 1.0034] pass the guard but do not prove speedups. Raw even rounds show a
+small slowdown. All 51 focused test executions and representative Dart/JavaScript/WASM lifecycles
+passed; binding-check baseline debt and unavailable runtime coverage remain explicit;
+no architecture or release acceptance follows from this intermediate improvement.
 
 At the historical checkpoint, performance experiments were paused at `0de2dd4a` by user direction. The
 [security-first handoff](evidence/password-integrity-audit-2026-10-11/handoff.txt)

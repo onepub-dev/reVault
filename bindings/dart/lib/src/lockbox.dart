@@ -539,6 +539,11 @@ final class Lockbox extends Owned implements ffi.Finalizable {
   void setWorkloadProfile(LockboxWorkload profile) =>
       runtime.operations.lockboxSetWorkloadProfile(handle, profile.nativeName);
 
+  /// Sets a soft cache target using `auto`, `disabled`, or `bytes` mode.
+  /// Pending writes remain valid; this is not a total-memory limit.
+  void setCacheLimit(String mode, {int bytes = 0}) =>
+      runtime.operations.lockboxSetCacheLimit(handle, mode, bytes);
+
   /// Selects worker [mode] and its requested [jobs] count for this handle.
   ///
   /// Example:

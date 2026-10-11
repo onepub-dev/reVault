@@ -277,6 +277,10 @@ fn add(request: AddRequest, access: &Access, worker_policy: WorkerPolicy) -> Cli
         || request.sources.iter().any(|source| source.is_directory)
     {
         lb.set_workload_profile(WorkloadProfile::BulkImport);
+    } else {
+        // A single-file import does not need to retain all prior file pages.
+        // Keep its existing profile, compression and worker policy unchanged.
+        lb.set_cache_limit(revault_lockbox_api::CacheLimit::Bytes(32 * 1024 * 1024));
     }
     for source in &request.sources {
         if !request.overwrite && !source.is_directory && lb.stat(&source.destination).is_some() {

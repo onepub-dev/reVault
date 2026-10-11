@@ -238,6 +238,11 @@ impl PageCache {
         self.limit
     }
 
+    pub(crate) fn set_cache_limit(&mut self, limit: CacheLimit, profile: WorkloadProfile) {
+        self.limit = limit;
+        self.set_workload_profile(profile);
+    }
+
     pub(crate) fn set_workload_profile(&mut self, profile: WorkloadProfile) {
         // Streaming extraction needs a small reuse window, not all prior pages.
         // Keep the original policy so changing profiles restores Auto capacity.
@@ -2211,6 +2216,66 @@ mod tests {
                 assert!(explicit.dirty_offsets.contains(&0));
             }
         }
+    }
+
+    #[test]
+    fn changing_cache_limit_preserves_dirty_payload_and_active_owners() {
+        let mut cache = PageCache::new(CacheLimit::Bytes(65536));
+        cache.insert_page(
+            0,
+            DecodedPage {
+                page_id: 0,
+                sequence: 1,
+                objects: vec![PageObject::new(PageObjectKind::FileData, 1, vec![41; 8192])],
+            },
+            16384,
+        );
+        let retained = Arc::clone(cache.pages.get(&0).unwrap().page.decoded().unwrap());
+        let weak = Arc::downgrade(&retained);
+        cache.set_cache_limit(CacheLimit::Disabled, crate::WorkloadProfile::Interactive);
+        assert_eq!(cache.stats().used_bytes, 0);
+        assert_eq!(Arc::strong_count(&retained), 1);
+        assert_eq!(
+            retained.objects[0]
+                .with_payload(|bytes| bytes.to_vec())
+                .unwrap(),
+            vec![41; 8192]
+        );
+        cache
+            .stage_decoded_page_with_policy(
+                16384,
+                16384,
+                DecodedPage {
+                    page_id: 16384,
+                    sequence: 2,
+                    objects: vec![PageObject::new(PageObjectKind::FileData, 2, vec![73; 8192])],
+                },
+                PageWritePolicy::RetainAfterFlush,
+            )
+            .unwrap();
+        assert!(cache.dirty_offsets.contains(&16384));
+        for limit in [
+            CacheLimit::Bytes(1024),
+            CacheLimit::Disabled,
+            CacheLimit::Auto,
+        ] {
+            cache.set_cache_limit(limit, crate::WorkloadProfile::ExtractMany);
+            assert!(cache.dirty_offsets.contains(&16384));
+            assert_eq!(
+                cache.get_page(16384).unwrap().objects[0]
+                    .with_payload(|bytes| bytes.to_vec())
+                    .unwrap(),
+                vec![73; 8192]
+            );
+            assert_eq!(
+                retained.objects[0]
+                    .with_payload(|bytes| bytes.to_vec())
+                    .unwrap(),
+                vec![41; 8192]
+            );
+        }
+        drop(retained);
+        assert!(weak.upgrade().is_none());
     }
 
     #[test]

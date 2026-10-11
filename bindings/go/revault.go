@@ -697,6 +697,11 @@ func (box *Lockbox) SetWorkloadProfile(profile string) error {
 	return require(bool(C.lockbox_set_workload_profile(box.handle, charPointer(profile), C.size_t(len(profile)))))
 }
 
+// SetCacheLimit sets a soft cache limit (auto, disabled, or bytes).
+func (box *Lockbox) SetCacheLimit(mode string, bytes uint64) error {
+	return require(bool(C.lockbox_set_cache_limit(box.handle, charPointer(mode), C.size_t(len(mode)), C.uint64_t(bytes))))
+}
+
 // SetWorkerPolicy sets worker policy.
 func (box *Lockbox) SetWorkerPolicy(mode string, jobs uint) error {
 	return require(bool(C.lockbox_set_worker_policy(box.handle, charPointer(mode), C.size_t(len(mode)), C.size_t(jobs))))

@@ -1,0 +1,13 @@
+/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/bindings/wasm/generated/revault_wasm_bindings.cjs:751
+        const ret = wasm.wasmlockbox_set_cache_limit(this.__wbg_ptr, ptr0, len0, bytes);
+                         ^
+
+TypeError: Cannot convert 8192 to a BigInt
+    at WasmLockbox.set_cache_limit (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/bindings/wasm/generated/revault_wasm_bindings.cjs:751:26)
+    at file:///home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/[eval1]:1:453
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at async node:internal/modules/esm/loader:224:26
+    at async ModuleLoader.executeModuleJob (node:internal/modules/esm/loader:221:20)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+
+Node.js v24.19.0

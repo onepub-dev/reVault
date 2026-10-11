@@ -459,6 +459,11 @@ export class Lockbox extends OwnedHandle {
     return this.operations.lockboxSetWorkloadProfile(this.nativeHandle, profile);
   }
 
+  /** Sets a soft cache limit (auto, disabled, or bytes). */
+  setCacheLimit(mode, bytes) {
+    return this.operations.lockboxSetCacheLimit(this.nativeHandle, mode, bytes);
+  }
+
   /** Sets worker policy. */
   setWorkerPolicy(mode, jobs) {
     return this.operations.lockboxSetWorkerPolicy(this.nativeHandle, mode, jobs);

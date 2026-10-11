@@ -3129,6 +3129,7 @@ fn add_can_default_destination_and_list_recursively() {
     );
     assert_success(&first_add);
     assert!(String::from_utf8_lossy(&first_add.stdout).contains("Added 1 file to"));
+    fs::write(&source_file, "refused replacement").unwrap();
     let protected_existing = run_output(
         bin,
         &[
@@ -3139,6 +3140,9 @@ fn add_can_default_destination_and_list_recursively() {
     );
     assert!(!protected_existing.status.success());
     assert!(String::from_utf8_lossy(&protected_existing.stderr).contains("already exists"));
+    let preserved = run_output(bin, &[lockbox.to_str().unwrap(), "cat", "alpha.txt"]);
+    assert_success(&preserved);
+    assert_eq!(preserved.stdout, b"alpha");
     fs::write(&source_file, "alpha updated").unwrap();
     let overwritten = run_output(
         bin,

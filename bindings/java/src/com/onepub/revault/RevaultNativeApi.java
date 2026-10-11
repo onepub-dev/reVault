@@ -47,6 +47,7 @@ final class RevaultNativeApi {
   public final MethodHandle lockbox_recovery_scan_path;
   public final MethodHandle lockbox_storage_len;
   public final MethodHandle lockbox_set_workload_profile;
+  public final MethodHandle lockbox_set_cache_limit;
   public final MethodHandle lockbox_set_worker_policy;
   public final MethodHandle lockbox_runtime_options;
   public final MethodHandle lockbox_commit;
@@ -274,6 +275,7 @@ final class RevaultNativeApi {
     lockbox_recovery_scan_path = linker.downcallHandle(symbols.find("lockbox_recovery_scan_path").orElseThrow(), FunctionDescriptor.of(BUFFER, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
     lockbox_storage_len = linker.downcallHandle(symbols.find("lockbox_storage_len").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_LONG, ValueLayout.ADDRESS));
     lockbox_set_workload_profile = linker.downcallHandle(symbols.find("lockbox_set_workload_profile").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_BOOLEAN, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
+    lockbox_set_cache_limit = linker.downcallHandle(symbols.find("lockbox_set_cache_limit").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_BOOLEAN, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.JAVA_LONG));
     lockbox_set_worker_policy = linker.downcallHandle(symbols.find("lockbox_set_worker_policy").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_BOOLEAN, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.JAVA_LONG));
     lockbox_runtime_options = linker.downcallHandle(symbols.find("lockbox_runtime_options").orElseThrow(), FunctionDescriptor.of(BUFFER, ValueLayout.ADDRESS));
     lockbox_commit = linker.downcallHandle(symbols.find("lockbox_commit").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_BOOLEAN, ValueLayout.ADDRESS));

@@ -113,6 +113,8 @@ public final class Conformance {
       pass("lockbox_list", 2); pass("lockbox_stat", 2);
       box.setWorkloadProfile("read-mostly"); box.setWorkerPolicy("single", 1);
       check(!box.runtimeOptions().workloadProfile().isEmpty(), "runtime");
+      box.setCacheLimit("bytes", 8192); check(box.cacheStats().limitBytes() == 8192, "cache limit");
+      box.setCacheLimit("auto", 0); pass("lockbox_set_cache_limit");
       pass("lockbox_set_workload_profile"); pass("lockbox_set_worker_policy"); pass("lockbox_runtime_options");
       box.commit(); check(box.storageLength() > 0, "storage");
       pass("lockbox_commit"); pass("lockbox_storage_len");

@@ -1,0 +1,57 @@
+diff --git a/rust/revault_cli/src/commands/files.rs b/rust/revault_cli/src/commands/files.rs
+index 99284f9a..f5abe94f 100644
+--- a/rust/revault_cli/src/commands/files.rs
++++ b/rust/revault_cli/src/commands/files.rs
+@@ -277,6 +277,10 @@ fn add(request: AddRequest, access: &Access, worker_policy: WorkerPolicy) -> Cli
+         || request.sources.iter().any(|source| source.is_directory)
+     {
+         lb.set_workload_profile(WorkloadProfile::BulkImport);
++    } else {
++        // A single-file import does not need to retain all prior file pages.
++        // Keep its existing profile, compression and worker policy unchanged.
++        lb.set_cache_limit(revault_lockbox_api::CacheLimit::Bytes(32 * 1024 * 1024));
+     }
+     for source in &request.sources {
+         if !request.overwrite && !source.is_directory && lb.stat(&source.destination).is_some() {
+diff --git a/rust/revault_lockbox_api/src/lockbox.rs b/rust/revault_lockbox_api/src/lockbox.rs
+index 158bad0e..cf01ef78 100644
+--- a/rust/revault_lockbox_api/src/lockbox.rs
++++ b/rust/revault_lockbox_api/src/lockbox.rs
+@@ -1316,6 +1316,21 @@ impl<State> Lockbox<State> {
+         self.read_only = self.storage.is_read_only();
+     }
+ 
++    /// Change the page/native-frame cache retention target.
++    ///
++    /// This is not a total-memory limit. Dirty pages and active shared owners
++    /// remain valid; reducing the target does not flush or discard pending writes.
++    /// Auto resolves using the current workload profile and platform defaults.
++    /// Separate decoded-frame retention is reconciled with the selected policy.
++    pub fn set_cache_limit(&mut self, limit: crate::CacheLimit) {
++        {
++            self.page_manager
++                .borrow_mut()
++                .set_cache_limit(limit, self.workload_profile);
++        }
++        self.trim_decoded_compression_frame_cache();
++    }
++
+     /// Set cache behavior tuned for the caller's expected access pattern.
+     pub fn set_workload_profile(&mut self, profile: WorkloadProfile) {
+         let previous = self.workload_profile;
+diff --git a/rust/revault_lockbox_api/src/storage/page_cache.rs b/rust/revault_lockbox_api/src/storage/page_cache.rs
+index c40ddf50..65eb0c17 100644
+--- a/rust/revault_lockbox_api/src/storage/page_cache.rs
++++ b/rust/revault_lockbox_api/src/storage/page_cache.rs
+@@ -238,6 +238,11 @@ impl PageCache {
+         self.limit
+     }
+ 
++    pub(crate) fn set_cache_limit(&mut self, limit: CacheLimit, profile: WorkloadProfile) {
++        self.limit = limit;
++        self.set_workload_profile(profile);
++    }
++
+     pub(crate) fn set_workload_profile(&mut self, profile: WorkloadProfile) {
+         // Streaming extraction needs a small reuse window, not all prior pages.
+         // Keep the original policy so changing profiles restores Auto capacity.

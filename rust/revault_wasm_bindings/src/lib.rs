@@ -303,6 +303,23 @@ impl WasmLockbox {
             .map_err(error)
     }
 
+    /// Sets a soft page/native-frame cache target: `auto`, `disabled`, or `bytes`.
+    /// Pending writes and active shared owners remain valid; this is not a total-memory limit.
+    pub fn set_cache_limit(&mut self, mode: &str, bytes: u64) -> Result<(), JsValue> {
+        let limit = match mode {
+            "auto" => revault_lockbox_api::CacheLimit::Auto,
+            "disabled" => revault_lockbox_api::CacheLimit::Disabled,
+            "bytes" => revault_lockbox_api::CacheLimit::Bytes(bytes),
+            _ => {
+                return Err(JsValue::from_str(
+                    "cache mode must be auto, disabled, or bytes",
+                ))
+            }
+        };
+        self.0.set_cache_limit(limit);
+        Ok(())
+    }
+
     /// Selects an `interactive`, `bulk-import`, `read-mostly`, or `extract-many` profile.
     pub fn set_workload_profile(&mut self, profile: &str) -> Result<(), JsValue> {
         let profile = match profile {

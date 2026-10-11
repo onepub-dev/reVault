@@ -273,6 +273,13 @@ internal sealed class BindingOperations
         { return Require(RevaultNative.lockbox_set_workload_profile(handle, (IntPtr)profileBytesPointer, (nuint)profileBytes.Length)); }
     }
 
+    public unsafe bool LockboxSetCacheLimit(IntPtr handle, string mode, ulong bytes)
+    {
+        var modeBytes = Encoding.UTF8.GetBytes(mode);
+        fixed (byte* modeBytesPointer = modeBytes)
+        { return Require(RevaultNative.lockbox_set_cache_limit(handle, (IntPtr)modeBytesPointer, (nuint)modeBytes.Length, bytes)); }
+    }
+
     public unsafe bool LockboxSetWorkerPolicy(IntPtr handle, string mode, nuint jobs)
     {
         var modeBytes = Encoding.UTF8.GetBytes(mode);

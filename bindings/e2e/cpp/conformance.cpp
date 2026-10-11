@@ -180,6 +180,8 @@ static void archive_lifecycle() {
   box.set_workload_profile("read-mostly");
   box.set_worker_policy("single", 1);
   check(!box.runtime_options().workload_profile.empty(), "runtime options");
+  box.set_cache_limit("bytes", 8192); check(box.cache_stats().limit_bytes == 8192, "cache limit");
+  box.set_cache_limit("auto", 0); pass("lockbox_set_cache_limit");
   pass("lockbox_set_workload_profile");
   pass("lockbox_set_worker_policy");
   pass("lockbox_runtime_options");

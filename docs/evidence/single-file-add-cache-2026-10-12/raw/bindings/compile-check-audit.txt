@@ -1,0 +1,15 @@
+Focused compile/syntax checks; commands were executed once and each listed command returned exit code 0. The per-check stdout/stderr logs are empty because successful compiler invocations produced no diagnostics.
+
+C11 syntax:
+`gcc -std=c11 -fsyntax-only -I rust/revault_bindings bindings/e2e/c/conformance.c`
+Exit: 0. Source identities are in `compile-check-source-sha256.txt`.
+
+C++20 syntax:
+`g++ -std=c++20 -fsyntax-only -I rust/revault_bindings -I bindings/cpp bindings/e2e/cpp/conformance.cpp`
+Exit: 0. Source identities are in `compile-check-source-sha256.txt`.
+
+Java full source compile:
+`find src generated -name '*.java' -print0 | xargs -0 javac --release 22 -Xlint:all,-restricted -Werror -cp /home/bsutton/.gradle/caches/modules-2/files-2.1/com.google.flatbuffers/flatbuffers-java/25.2.10/9bb1a149ec48588fc04a3d00a3cc4e0135273b4e/flatbuffers-java-25.2.10.jar -d build/direct-compile`
+Working directory: `bindings/java`. Exit: 0. Source identities are in `compile-check-source-sha256.txt`.
+
+The Gradle `compileJava` attempt is separately recorded in `java-compile.log`; system Gradle 7.6 fails while applying Maven Publish plugin 0.35.0 (`org/gradle/api/configuration/BuildFeatures` absent), before source compilation. Direct javac used project-equivalent release and lint-as-error flags.

@@ -1,0 +1,12 @@
+b69cdbb5de64ffd4115bda49adbb47d354ff9026
+ M rust/revault_cli/src/commands/files.rs
+ M rust/revault_lockbox_api/src/lockbox.rs
+ M rust/revault_lockbox_api/src/storage/page_cache.rs
+?? docs/evidence/single-file-add-cache-2026-10-12/
+5b831735bdf736506ad9cf0de3b85b90181f7036f3e7adb046e201672dbd712f  target/parallel-encoder-reuse-202612/bin/lockbox-new
+fcca5f5a64a3a993bbed443d14a24d35b948093bd0db585e08ebb1fc2dee742f  target/single-file-add-cache-20261012/bin/lockbox-new
+76525885f7355fba797660b4ce1f206a71e884290839befc9a5c8753da777a0d  revault_lockbox_api/src/storage/page_cache.rs
+8ca5b134111bd8c6c9ec1f0159015c8a46d16124d7c0ab0c3816ec97f0a08be5  revault_lockbox_api/src/lockbox.rs
+67928ad33ddd199d8339a9845dea392ab3967d5ae1be459c6303d2987ec1e9af  revault_cli/src/commands/files.rs
+8b3444bf2390acec1150d9840bfc3f0bfc02b7f42d4b34df926ce7974b36cdd2  revault_cli/Cargo.toml
+beab5d20edb8c69e95f2f330abdbe38e08f11cfc3ea81adc87eadbc557e8167f  revault_lockbox_api/Cargo.toml

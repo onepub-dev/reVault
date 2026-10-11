@@ -554,6 +554,12 @@ class Lockbox extends OwnedHandle
         return $this->operations->lockboxSetWorkloadProfile($this->handle, $profile);
     }
 
+    /** Sets a soft cache limit without discarding pending writes. */
+    public function setCacheLimit(string $mode, int $bytes): bool
+    {
+        return $this->operations->lockboxSetCacheLimit($this->handle, $mode, $bytes);
+    }
+
     /** Selects worker scheduling and the maximum job count. */
     public function setWorkerPolicy(string $mode, int $jobs): bool
     {

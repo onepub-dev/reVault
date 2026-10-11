@@ -1915,6 +1915,45 @@ pub unsafe extern "C" fn lockbox_storage_len(handle: *const c_void) -> u64 {
 }
 
 #[no_mangle]
+/// Sets the page/native-frame cache retention target without discarding pending writes.
+///
+/// `mode` is `auto`, `disabled`, or `bytes`; `bytes` is used only by `bytes` mode.
+/// This is a soft cache target, not a total-memory limit.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length. Callers must prevent
+/// overlapping access that aliases mutable state and release each handle once.
+pub unsafe extern "C" fn lockbox_set_cache_limit(
+    handle: *mut c_void,
+    mode: *const c_char,
+    mode_len: usize,
+    bytes: u64,
+) -> bool {
+    let Some(handle) = (unsafe { lockbox_settings_mut(handle) }) else {
+        set_error("lockbox handle is null");
+        return false;
+    };
+    let Some(mode) = (unsafe { input_str(mode, mode_len) }) else {
+        set_error("invalid cache mode");
+        return false;
+    };
+    let limit = match mode {
+        "auto" => revault_lockbox_api::CacheLimit::Auto,
+        "disabled" => revault_lockbox_api::CacheLimit::Disabled,
+        "bytes" => revault_lockbox_api::CacheLimit::Bytes(bytes),
+        _ => {
+            set_error("cache mode must be auto, disabled, or bytes");
+            return false;
+        }
+    };
+    handle.set_cache_limit(limit);
+    clear_error();
+    true
+}
+
+#[no_mangle]
 /// Sets workload profile.
 ///
 /// # Safety
@@ -8206,6 +8245,92 @@ pub extern "C" fn vault_forget_all() -> bool {
 mod tests {
     use super::*;
     use std::ffi::CStr;
+
+    #[test]
+    fn cache_limit_abi_validates_policy_and_preserves_pending_content() {
+        let key = [31u8; 32];
+        unsafe {
+            assert!(!lockbox_set_cache_limit(
+                ptr::null_mut(),
+                b"auto".as_ptr().cast(),
+                4,
+                0
+            ));
+            let handle = lockbox_create(key.as_ptr(), key.len());
+            assert!(!handle.is_null());
+            let path = b"/pending";
+            let data = vec![71u8; 1024 * 1024];
+            assert!(lockbox_add_file(
+                handle,
+                path.as_ptr().cast(),
+                path.len(),
+                data.as_ptr(),
+                data.len(),
+                false
+            ));
+            assert!(lockbox_set_cache_limit(
+                handle,
+                b"bytes".as_ptr().cast(),
+                5,
+                0
+            ));
+            assert_eq!(
+                lockbox_ref(handle)
+                    .unwrap()
+                    .inspector()
+                    .cache_stats()
+                    .limit_bytes,
+                0
+            );
+            assert!(!lockbox_set_cache_limit(
+                handle,
+                b"invalid".as_ptr().cast(),
+                7,
+                999
+            ));
+            assert_eq!(
+                lockbox_ref(handle)
+                    .unwrap()
+                    .inspector()
+                    .cache_stats()
+                    .limit_bytes,
+                0
+            );
+            assert!(!lockbox_set_cache_limit(handle, ptr::null(), 4, 0));
+            assert_eq!(
+                lockbox_ref(handle)
+                    .unwrap()
+                    .inspector()
+                    .cache_stats()
+                    .limit_bytes,
+                0
+            );
+            assert!(lockbox_set_cache_limit(
+                handle,
+                b"disabled".as_ptr().cast(),
+                8,
+                999
+            ));
+            assert!(lockbox_commit(handle));
+            let archive = lockbox_to_bytes(handle);
+            assert!(!archive.ptr.is_null());
+            lockbox_free(handle);
+            let reopened = lockbox_open(archive.ptr, archive.len, key.as_ptr(), key.len());
+            buffer_free(archive);
+            assert!(!reopened.is_null());
+            assert!(lockbox_set_cache_limit(
+                reopened,
+                b"auto".as_ptr().cast(),
+                4,
+                0
+            ));
+            let output = lockbox_get_file(reopened, path.as_ptr().cast(), path.len());
+            assert!(!output.ptr.is_null());
+            assert_eq!(std::slice::from_raw_parts(output.ptr, output.len), data);
+            buffer_free(output);
+            lockbox_free(reopened);
+        }
+    }
 
     #[test]
     fn last_error_storage_is_nul_terminated_and_utf8_safe() {
