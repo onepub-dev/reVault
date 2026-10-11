@@ -1,0 +1,7 @@
+Unhandled exception:
+Bad state: Unknown fixture shape prefix
+#0      _sourceUnitCount (file:///home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/tools/adaptive-workers.dart:180:14)
+#1      prepareCases (file:///home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/tools/adaptive-workers.dart:134:38)
+#2      main (file:///home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/tools/adaptive-workers.dart:51:33)
+#3      _delayEntrypointInvocation.<anonymous closure> (dart:isolate-patch/isolate_patch.dart:311:33)
+#4      _RawReceivePort._handleMessage (dart:isolate-patch/isolate_patch.dart:192:12)

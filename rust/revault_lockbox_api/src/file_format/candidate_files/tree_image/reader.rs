@@ -29,6 +29,7 @@ pub(in crate::file_format::candidate_files) struct ReadImage<S: Storage> {
     codec: Codec,
     key: Option<Zeroizing<Vec<u8>>>,
     parallel: Option<parallel::Parallel>,
+    automatic_workers: bool,
 }
 impl<S: Storage> TreeImage<S> {
     pub fn open(
@@ -63,6 +64,7 @@ impl<S: Storage> TreeImage<S> {
             codec: Codec::shared_packed(archive, mode, key)?,
             key: key.map(|v| Zeroizing::new(v.to_vec())),
             parallel: None,
+            automatic_workers: false,
         };
         let format = image.required(5, b"format")?;
         if !matches!(
@@ -105,22 +107,32 @@ impl<S: Storage> TreeImage<S> {
     }
 }
 impl<S: Storage> ReadImage<S> {
-    /// Test-only policy: one means the unchanged serial path and no thread pool.
+    /// Test-only policy: zero selects lazy automatic workers; one means the
+    /// unchanged serial path and no thread pool.
     /// Reuse this session across files; even configured parallel sessions keep
     /// single-chunk ranges and requests below 128 KiB serial. The coordinator
     /// is additional to N workers.
     pub fn set_read_workers(&mut self, workers: usize) -> Result<()> {
-        self.parallel = match workers {
-            1 => None,
+        let parallel = match workers {
+            0 | 1 => None,
             2 | 4 => Some(parallel::Parallel::new(
                 self.anchor.archive,
                 self.anchor.mode,
                 self.key.as_deref().map(Vec::as_slice),
                 workers,
             )?),
-            _ => return Err(Error::InvalidInput("read workers must be 1, 2 or 4".into())),
+            _ => {
+                return Err(Error::InvalidInput(
+                    "read workers must be 0, 1, 2 or 4".into(),
+                ))
+            }
         };
+        self.parallel = parallel;
+        self.automatic_workers = workers == 0;
         Ok(())
+    }
+    pub(in crate::file_format::candidate_files) fn read_pool_workers(&self) -> usize {
+        self.parallel.as_ref().map_or(0, |pool| pool.capacity() / 8)
     }
     fn get(&self, namespace: u8, key: &[u8]) -> Result<Option<Entry>> {
         self.index.get_cached(
@@ -196,6 +208,9 @@ impl<S: Storage> ReadImage<S> {
         }
         let first_ordinal = offset / info.unit as u64;
         let limit = end.div_ceil(info.unit as u64);
+        if self.automatic_workers {
+            return self.read_automatic(&info, first_ordinal, limit, offset, end, &mut visitor);
+        }
         if self.parallel.is_some() && len >= 128 * 1024 && limit - first_ordinal > 1 {
             let capacity = self.parallel.as_ref().unwrap().capacity();
             let mut next = first_ordinal;
@@ -249,6 +264,106 @@ impl<S: Storage> ReadImage<S> {
             }
         }
         Ok(())
+    }
+
+    fn read_automatic(
+        &mut self,
+        info: &FileInfo,
+        mut next: u64,
+        limit: u64,
+        offset: u64,
+        end: u64,
+        visitor: &mut impl FnMut(&[u8]) -> Result<()>,
+    ) -> Result<()> {
+        // Qualification is per request, even when a prior request left a pool.
+        // A raw chunk resets the run. No upfront file scan or mode-flag guess.
+        const QUALIFY_BYTES: u64 = 16 * 1024 * 1024;
+        const BATCH_CHUNKS: usize = 32;
+        let mut compressed_run = 0u64;
+        let mut pending = None;
+        while next < limit || pending.is_some() {
+            let selected = match pending.take() {
+                Some(selected) => selected,
+                None => {
+                    let selected = self.select_chunk(info, next, offset, end)?;
+                    next += 1;
+                    selected
+                }
+            };
+            let compressed = selected.descriptor.is_compressed();
+            if !compressed || compressed_run < QUALIFY_BYTES {
+                self.visit_selected(&selected, visitor)?;
+                compressed_run = if compressed {
+                    compressed_run + (selected.last - selected.first) as u64
+                } else {
+                    0
+                };
+                continue;
+            }
+            let mut selected_batch = Vec::with_capacity(BATCH_CHUNKS);
+            selected_batch.push(selected);
+            while next < limit && selected_batch.len() < BATCH_CHUNKS {
+                let selected = self.select_chunk(info, next, offset, end)?;
+                next += 1;
+                if !selected.descriptor.is_compressed() {
+                    pending = Some(selected);
+                    break;
+                }
+                selected_batch.push(selected);
+            }
+            if selected_batch.len() == 1 {
+                self.visit_selected(&selected_batch[0], visitor)?;
+                continue;
+            }
+            if self.parallel.is_none() {
+                self.parallel = Some(parallel::Parallel::new(
+                    self.anchor.archive,
+                    self.anchor.mode,
+                    self.key.as_deref().map(Vec::as_slice),
+                    4,
+                )?);
+            }
+            let mut jobs = Vec::with_capacity(selected_batch.len());
+            for selected in selected_batch {
+                self.codec.validate_extent(
+                    selected.extent,
+                    self.anchor.sealed_len,
+                    &selected.descriptor,
+                )?;
+                let mut stored =
+                    crate::page_buffer::ZeroizingBytes::new(vec![0; selected.extent.len as usize]);
+                self.storage
+                    .read_at_into(selected.extent.start, &mut stored)?;
+                jobs.push(parallel::Job {
+                    selected,
+                    stored,
+                    decoded: None,
+                });
+            }
+            self.parallel
+                .as_mut()
+                .unwrap()
+                .decode(&mut jobs, self.anchor.sealed_len);
+            for mut job in jobs {
+                let bytes = job.decoded.take().ok_or(Error::CorruptRecord)??;
+                visitor(&bytes[job.selected.first..job.selected.last])?;
+            }
+        }
+        Ok(())
+    }
+
+    fn visit_selected(
+        &mut self,
+        selected: &Selected,
+        visitor: &mut impl FnMut(&[u8]) -> Result<()>,
+    ) -> Result<()> {
+        self.codec.with_loaded(
+            &self.storage,
+            selected.extent,
+            self.anchor.sealed_len,
+            &selected.descriptor,
+            |bytes| visitor(&bytes[selected.first..selected.last]),
+        )
     }
 
     fn select_chunk(

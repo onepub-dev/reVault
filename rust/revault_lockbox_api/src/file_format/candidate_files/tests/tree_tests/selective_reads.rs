@@ -56,6 +56,14 @@ fn files_with_len(
     len: usize,
 ) -> (StorageBackend, Vec<u8>) {
     let bytes = content(len);
+    files_with_bytes(mode, authority, owner, bytes)
+}
+fn files_with_bytes(
+    mode: FormatMode,
+    authority: &Authority<'_>,
+    owner: &OwnerSigningKeyPair,
+    bytes: Vec<u8>,
+) -> (StorageBackend, Vec<u8>) {
     let names = ["/file-a", "/file-z"];
     let signer = mode.signed().then_some(owner);
     let source = Files::create(

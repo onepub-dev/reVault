@@ -18,8 +18,14 @@ records a fresh bounded source epoch and crossover matrix. The earlier pause
 below is historical; this resume does not close candidate or release gates.
 The completed 640-sample matrix favors four workers for compressed-source files
 at 16–1024 MiB and serial reads for 1 MiB files and all raw/plain fallback cases.
-The serial default remains; mixed-encoding descriptor-aware selection is the next
-bounded experiment, not an accepted automatic policy.
+The subsequent [adaptive trial](evidence/adaptive-workers-2026-10-11/README.md)
+completed 720 verified samples and passes its frozen gates: retain the policy as
+opt-in, with serial still the default. Useful compressed/mixed elapsed gains are
+9.4–20.2%; the 17 MiB control has a 3.35% mean penalty and a parity-zero interval
+that does not establish 5% non-inferiority. Next compare current native A/B,
+candidate C and ZIP, plus separately measured public CLI extraction. The user
+goal continues until remaining usage is below 10% or above 99% after a reset;
+the current checkpoint reading is 96% remaining.
 
 At the historical checkpoint, performance experiments were paused at `0de2dd4a` by user direction. The
 [security-first handoff](evidence/password-integrity-audit-2026-10-11/handoff.txt)
@@ -81,7 +87,7 @@ by this reconciliation; earlier failures and proposed experimental controls rema
 
 | Candidate | Control/prototype | Eligibility |
 | --- | --- | --- |
-| A | Current default data pages plus v4 transactions | Baseline; default library suite passes. Release migration matrix fails |
+| A | Current default data pages plus v4 transactions | Repaired native baseline; scoped integration and historical v3/v4 migration checks pass. Complete release interoperability remains unqualified |
 | B | Same source with `native-block-layout` | Experimental; two reproducible recovery failures. Not eligible for activation |
 | C | Authenticated index, publication and allocator prototype | Independent fragments, atomic file updates and read-only salvage pass internal tests; packed comparison still fails read/space targets. Public paths and full qualification remain |
 
@@ -431,7 +437,7 @@ September 27 file-only timing baselines.
 | A2 | C fresh read-only salvage preserves intact neighbours, uses metadata mirrors and reports lost proofs; production integration and two native recovery failures remain | Production gate failed; candidate integration incomplete |
 | A3/A4 | Packed C fails ZIP parity. Shared-control reader after 100 metadata cycles is 0.626× ZIP for small plaintext (upper 95% 0.654), but large plaintext remains 2.85–3.36× ZIP and raw range 3.18×. Bounded A has one passing 30-pair raw-create result; full write/production comparison remains | Small-read subcase passed; full A3 failed; A4 not qualified |
 | A5 | Packed C has descriptive 14.5 MiB GB creation / 66–67 MiB 100k-file creation RSS; 100k reads take 41–61 s. After compaction: small archive 6.08× ZIP (failed), raw 64 MiB 1.016× (space subcase passed). Historical unpadded aging grows 128 KiB at cycle 421; October 2 bounded map banks stabilize by cycle 100 but retain 1,507,859 bytes, above the old final 1,376,256; full matrix incomplete | Full resource/space gate incomplete |
-| A6 | Historical reader routing repaired locally; owner identity and missing v4/current Vault fixtures block the full matrix; CLI/binding interoperability still required | Failed |
+| A6 | Security checkpoint passes historical v3 import and pinned experimental-v4 archive/Vault migration with persisted byte checks; available binding lifecycle checks pass. Complete supported-version bidirectional CLI/binding/Vault certification remains | Incomplete |
 | A7 | Canonical goals, current plan/scorecard and proposed decisions exist; history is separated; new test-only pack vector exists; complete normative wire spec remains pending | In progress |
 | A8 | Separate #322 branch `d8dfa6cf`: clean release install, installed headless lifecycle, private logind, locked/denied/hung Secret Service and existing-keyring interoperability pass | Actual macOS/Windows credential services, binding packages and remote CI remain unqualified |
 

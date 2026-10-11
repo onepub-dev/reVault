@@ -28,6 +28,11 @@ pub(crate) struct Descriptor {
 }
 impl Descriptor {
     #[cfg(test)]
+    pub(crate) fn is_compressed(&self) -> bool {
+        self.codec == COMPRESSION_ZSTD
+    }
+
+    #[cfg(test)]
     pub(crate) fn benchmark_encoding(&self) -> (bool, u32) {
         (self.codec == COMPRESSION_NONE, self.encoded_len)
     }

@@ -129,7 +129,7 @@ pub(super) fn run(
         .unwrap_or_else(|_| "1".into())
         .parse()
         .unwrap();
-    assert!(matches!(workers, 1 | 2 | 4));
+    assert!(matches!(workers, 0 | 1 | 2 | 4));
     let public = OwnerSigningPublicKey::from_bytes(&std::fs::read(&public_path).unwrap()).unwrap();
     let authority = if mode.signed() {
         Authority::Owner(&public)
@@ -151,6 +151,7 @@ pub(super) fn run(
         image
     };
     if phase == "tree-extract" {
+        let observed_workers = std::cell::Cell::new(0usize);
         let output = std::path::PathBuf::from(std::env::var_os("REVAULT_EXTRACT_OUTPUT").unwrap());
         let before = Resources::now();
         let mut result = extraction::measure(
@@ -173,6 +174,7 @@ pub(super) fn run(
                         Ok(())
                     })
                     .unwrap();
+                observed_workers.set(observed_workers.get().max(image.image.read_pool_workers()));
                 copied
             },
             || {
@@ -182,10 +184,20 @@ pub(super) fn run(
         );
         result["backend"] = json!("typed-tree");
         result["configured_cpu_workers"] = json!(workers);
-        result["worker_threads"] = json!(if workers == 1 { 0 } else { workers });
-        result["max_queued_chunks"] = json!(if workers == 1 { 1 } else { workers * 8 });
+        result["worker_threads"] = json!(observed_workers.get());
+        result["max_queued_chunks"] = json!(if observed_workers.get() == 0 {
+            1
+        } else {
+            observed_workers.get() * 8
+        });
+        result["automatic_workers"] = json!(workers == 0);
+        result["automatic_contiguous_compressed_qualification_bytes"] = json!(16 * 1024 * 1024);
         result["single_chunk_serial_fallback"] = json!(true);
-        result["parallel_min_requested_bytes"] = json!(128 * 1024);
+        result["parallel_min_requested_bytes"] = json!(if workers == 0 {
+            16 * 1024 * 1024
+        } else {
+            128 * 1024
+        });
         println!("CANDIDATE_SAMPLE {result}");
         return;
     }

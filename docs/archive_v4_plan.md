@@ -22,6 +22,31 @@ or erase failures.
 
 ## Current position and next work
 
+### Persistent optimisation goal — 2026-10-11
+
+Brett now requests continued performance optimisation until usage remaining is
+below 10%, or above 99% after a reset. This supersedes the earlier 50%-remaining
+cutoff. The fresh reading at this resume is 2% used (98% remaining). Check the
+actual account window at bounded milestones; do not infer a reset from elapsed
+time. Keep working through worthwhile improvements rather than stopping after
+each measurement checkpoint. No release or main-worktree changes are authorized.
+
+The [adaptive worker trial](evidence/adaptive-workers-2026-10-11/README.md)
+completed 720 verified samples. Lazy authenticated-descriptor selection passes
+the frozen aggregate control and useful-profile gates; retain it as opt-in while
+keeping the serial default. The 17 MiB boundary has a 3.35% mean penalty and
+does not establish parity-wise non-inferiority. No threshold revision is planned.
+The latest reading is 4% used (96% remaining), so the optimisation goal continues.
+
+Next compare current default native (A), explicitly enabled native-block layout
+(B), typed-tree candidate (C) and ZIP through an identical extraction sink, with
+separate public CLI extraction measurements. Create native fixtures through the
+public CLI and verify persisted bytes independently. Keep source epochs, feature
+flags, credential/startup costs and whole-process RSS explicit. Use this evidence
+to choose the next bottleneck rather than continuing isolated threshold tuning.
+No architecture is selected; PGP/write, public semantics, candidate security and
+cross-version release qualification remain open.
+
 ### Optimisation resumed after security checkpoint — 2026-10-11
 
 Brett explicitly instructed: "if the password fix is in resume optimisation".
