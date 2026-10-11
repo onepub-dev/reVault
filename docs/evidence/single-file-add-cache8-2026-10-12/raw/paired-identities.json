@@ -1,0 +1,40 @@
+{
+  "hashes": {
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api/src/storage/page_cache.rs": "5312d4492be935d79a65a16ba1f76b36c70544e8e60f456a3b379fea92b3f903",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api/src/lockbox.rs": "a5c1e5011f56471f5a4fd2719b1b75acfdc86d1254b5270cdb0198d66ca68b84",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_cli/src/commands/files.rs": "fcf5f8bcc83f987cc5b9b9ed760a9d85ce55747a07dd1e60ba38ba62fbcb216b",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api/src/compression.rs": "e48b68885f95008698045e72286269529de47d5b8c67cc65ebde299a0a7fc936",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api/src/compression/encode_workspace.rs": "d559b08183cf04715176cdfa951bfe05134af3d496f8e443a61dec38403e1ee8",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api/src/lockbox/file_import_pipeline.rs": "a4b4a24149ec859ee6981927627290db89ca7f6915469e2e767b9b98d430afad",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/Cargo.toml": "28f46f7a64ed0eb9e13abf0a5596385c16e6773f2d505f4ae385f697cb4aacc6",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/Cargo.lock": "c2f9e9ce9b8fe9ea54c6781ce39d696ae88d7972d886342d03299cff60ce6dd8",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api/Cargo.toml": "beab5d20edb8c69e95f2f330abdbe38e08f11cfc3ea81adc87eadbc557e8167f",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_cli/Cargo.toml": "8b3444bf2390acec1150d9840bfc3f0bfc02b7f42d4b34df926ce7974b36cdd2",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/raw-frame-ownership-20261012/bin/lockbox-new": "641924c2ee6a760cfccc051eea7fcbbde580bc083da5c517e1362ebb06ccf1f6",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/single-file-add-cache8-20261012/bin/lockbox-new": "cccc2f00ac09d7c46b98621f782143897d063f543d527eaf0325041fe7a1de36",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/tools/single-file-add-cache8.dart": "3d06b2c0d50dd23dab0f7feea58d67a29a58f12071ee6a7cea3420cb7762280e",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/docs/evidence/single-file-add-cache8-2026-10-12/README.md": "77a6354231ed98c11958c3a545d0ca74e275e726681764377207c188293d47ae",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/docs/evidence/single-file-add-cache8-2026-10-12/raw/cases.json": "f8dd42dcef77b80edbf299f40372147aad3d61ceba5de128add827651ef0257b",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/docs/evidence/single-file-add-cache8-2026-10-12/raw/build-new/sha256sums.txt": "32294c3fa072e1e89de668eeb72d896657df441c2f4a4a81489959a232f99c1b",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/docs/evidence/single-file-add-cache8-2026-10-12/raw/build-new/base-revision.txt": "1e04f93bc8400c97eb78022445a52f08ea296c8374fee602ce82dd6c7b11c0ff",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/docs/evidence/single-file-add-cache8-2026-10-12/raw/build-new/source.diff": "fb95750724ee7f5855f8aa4185b2b0b49011a3ff0b4d679d0f1fac35013e6ee8",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/docs/evidence/single-file-add-cache8-2026-10-12/raw/build-new/command.txt": "e15715aa7695e85dbfe48b7538e6b607df522ce20d6e6731ebaedcb8e2697149",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/docs/evidence/raw-frame-ownership-2026-10-12/raw/build-new/manifest.txt": "e22391aca0338acafdf73cb270d154d7f5bb800043fd00f9e6a2f6574c576d37",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/tools/summarize-single-file-add-cache8.dart": "e8de36d7bcdce212c645c7083b4e88a8f59dad1d62b740618870e3ce1f60e5ce",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/tools/summarize-adaptive-workers.dart": "44a33381aaa2e00a4c8913e9b5cb0c264dada5b67c3be0157f4861a40b6e89fb",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/docs/evidence/public-add-2026-10-12/raw/baseline-identities.json": "5fcfa8f56a72631ba6cf24e3636b9f43282c01f28de31b0ebb02e52512dc8da9",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/docs/evidence/public-add-2026-10-12/raw/baseline-complete.json": "dbeeff0d02b05d69d3cdb73995824404783ffae1dbb5997f7f2a28f2ae67bf65",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/docs/evidence/public-add-serial-2026-10-12/raw/baseline-identities.json": "87445b258150da5b050136165a80e0aa7b681bf52676a1879b63863ccb001c39",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/docs/evidence/public-add-serial-2026-10-12/raw/baseline-complete.json": "59dd638164e31ececd7dc1dfa009eb6d801a7697bd688614355c362afc0d1c71",
+    "/home/bsutton/.cache/revault-native-public-20261011/fixtures-v2/source-zstd-1gib/A/source/file-000000.bin": "a90cac77289634f3369065f9037ce2d2f48490e967efaf59d78c3c51508ee77d",
+    "/home/bsutton/.cache/revault-native-public-20261011/fixtures-v2/random-raw-1gib/A/source/file-000000.bin": "abefe2d07b94a4f7e266b7df41ed7694856b9d7fc707bbf4d6b2fb4c4e54de96"
+  },
+  "planned_processes": 56,
+  "preparation": 8,
+  "measured": 48,
+  "variants": {
+    "old": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/raw-frame-ownership-20261012/bin/lockbox-new",
+    "new": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/single-file-add-cache8-20261012/bin/lockbox-new"
+  },
+  "settings": "Auto workers/cache; affinity0-4; plaintext unsigned Zstd3 defaultpadding; two single-file Interactive source cohorts; new pagecache8MiB, old32MiB; create/verify outside timed add"
+}

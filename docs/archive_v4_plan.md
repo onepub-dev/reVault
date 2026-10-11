@@ -36,7 +36,7 @@ completed 720 verified samples. Lazy authenticated-descriptor selection passes
 the frozen aggregate control and useful-profile gates; retain it as opt-in while
 keeping the serial default. The 17 MiB boundary has a 3.35% mean penalty and
 does not establish parity-wise non-inferiority. No threshold revision is planned.
-The latest completed milestone reading is 31% used (69% remaining), so the goal continues.
+The latest completed milestone reading is 33% used (67% remaining), so the goal continues.
 
 The [native/public comparison](evidence/native-public-extraction-2026-10-11/README.md)
 completed 480 component and 64 public CLI samples. All archive variants remain
@@ -122,6 +122,15 @@ Compressed maxima 148.62/108.90 MB and raw Interactive 129.84 MB leave the overa
 100 MB write target open. All 30 focused release test executions and both
 portable WASM lifecycles passed; generated WASM is current. No broad suite was
 rerun for this experiment; prior integration timeout limits remain.
+
+The [8 MiB single-file add trial](evidence/single-file-add-cache8-2026-10-12/README.md)
+completed 56 verified processes and met every frozen gate. Retain the command-local
+32→8 MiB target reduction without profile/compression/worker changes. Median RSS
+fell 21.2% for source Zstd and 14.2% for raw fallback; maxima fell to 122.47 and
+108.81 MB. Elapsed ratios 1.0134 [0.9963, 1.0315] and 1.0013 [0.9898, 1.0123]
+meet the 5% guard but establish no speedup. Both maxima still exceed 100 MB.
+BulkImport was unchanged and not retimed. All seven focused release API/CLI
+lifecycle checks passed; no broad suite was rerun for this one-line policy change.
 
 The explicit CLI password-unlock path was already bounded; no CLI-unlock or
 contact-performance gain is claimed. The worker-budget trial is no longer enabled.

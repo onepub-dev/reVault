@@ -46,7 +46,7 @@ They recorded 283 and 287 observed passes respectively, 11 ignored each and no
 observed failures, but no complete-suite result. All 35 CLI creation/password
 and Vault consumer tests passed. The subsequent raw-data worker-cache trial is recorded below.
 The continuing goal stops below 10% remaining or above 99% after a reset;
-the current checkpoint reading is 69% remaining.
+the current checkpoint reading is 67% remaining.
 
 The [raw many-file trial](evidence/parallel-extraction-2026-10-12/README.md)
 passed its fixed 56-process gate and all 33 focused test executions, but the
@@ -109,6 +109,15 @@ Compressed maxima 148.62/108.90 MB and raw Interactive 129.84 MB leave the overa
 100 MB write target open. All 30 focused release test executions and both
 portable WASM lifecycles passed; generated WASM is current. No broad suite was
 rerun for this experiment; prior integration timeout limits remain.
+
+The [8 MiB single-file add trial](evidence/single-file-add-cache8-2026-10-12/README.md)
+completed 56 verified processes and met every frozen gate. Retain the command-local
+32→8 MiB target reduction without profile/compression/worker changes. Median RSS
+fell 21.2% for source Zstd and 14.2% for raw fallback; maxima fell to 122.47 and
+108.81 MB. Elapsed ratios 1.0134 [0.9963, 1.0315] and 1.0013 [0.9898, 1.0123]
+meet the 5% guard but establish no speedup. Both maxima still exceed 100 MB.
+BulkImport was unchanged and not retimed. All seven focused release API/CLI
+lifecycle checks passed; no broad suite was rerun for this one-line policy change.
 
 At the historical checkpoint, performance experiments were paused at `0de2dd4a` by user direction. The
 [security-first handoff](evidence/password-integrity-audit-2026-10-11/handoff.txt)

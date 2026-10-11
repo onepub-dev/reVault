@@ -1,0 +1,15 @@
+warning: revault_key_server@0.0.37: reVault key/topology server production operation requires a separate commercial license from OnePub IP Pty Ltd; see revault_key_server/LICENSE
+    Finished `release` profile [optimized] target(s) in 0.16s
+     Running tests/cli_flow.rs (target/release/deps/cli_flow-a494ce2937cf1fad)
+
+running 1 test
+test add_accepts_jobs_option_for_large_files ... CLI start: test=add_accepts_jobs_option_for_large_files pid=617033
+CLI end: test=add_accepts_jobs_option_for_large_files pid=617033 elapsed=2.033526077s status=exit status: 0
+CLI start: test=add_accepts_jobs_option_for_large_files pid=617051
+CLI end: test=add_accepts_jobs_option_for_large_files pid=617051 elapsed=401.72054ms status=exit status: 0
+CLI start: test=add_accepts_jobs_option_for_large_files pid=617055
+CLI end: test=add_accepts_jobs_option_for_large_files pid=617055 elapsed=401.411535ms status=exit status: 0
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 77 filtered out; finished in 2.85s
+
