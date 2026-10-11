@@ -1,0 +1,3 @@
+Pre/post page.rs digest: ef89d2ad0daee86b9ecc2193aa9adead92818d8538dca30a1298f8d5cb2ed1a9 (equal).
+Baseline CLI hash verified unchanged.
+Release build exit status: 0; Cargo reported 48.82s.

@@ -1,0 +1,1 @@
+Test filters are run individually in order with release profile, Rust 1.88.0, locked/offline dependencies, and TMPDIR=/home/bsutton/.cache/rv4-security-20261011. Stop on first nonzero status. These are focused filtered test invocations, not full package suites.

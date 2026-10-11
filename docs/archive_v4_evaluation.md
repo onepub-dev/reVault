@@ -10,6 +10,14 @@ and [delivery plan](archive_v4_plan.md) define purpose, guarantees and sequence.
 [Baseline evidence](evidence/v4-baseline-2026-09-26.md) records newly run checks.
 Historical microbenchmarks remain evidence about their own revisions.
 
+The [direct raw cleartext final-page trial](evidence/direct-clear-page-2026-10-12/RESULTS.md)
+passed all fixed gates across 112 verified adds: measured elapsed fell 24–52%
+and median RSS fell 17–25%. All measured candidate peaks in these four plaintext
+one-GiB cohorts were below 100 MB (maximum 89.69 MB). This is not a general
+encrypted/many-file memory guarantee. The implementation is retained after 37 passing focused test executions and
+current-source portable WASM lifecycle checks. Broader integration follows;
+no full-suite pass is claimed.
+
 The [direct raw-body trial](evidence/direct-page-body-2026-10-12/RESULTS.md)
 completed 112 verified imports and was rejected despite 9.7–14.4% elapsed gains
 and a 6.2% compressed Interactive median RSS reduction. Raw Interactive and

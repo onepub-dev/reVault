@@ -1,0 +1,2 @@
+base=9229f2fc52664c71168168449e43241ae3069bd5
+command=TMPDIR=/home/bsutton/.cache/rv4-security-20261011 cargo +1.88.0 build --locked --offline --release -p revault_cli

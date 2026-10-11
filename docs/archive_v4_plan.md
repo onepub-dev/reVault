@@ -21,6 +21,14 @@ the separate component checkpoint below. This merge does not qualify the format
 or erase failures.
 
 ## Current position and next work
+The [direct raw cleartext final-page trial](evidence/direct-clear-page-2026-10-12/RESULTS.md)
+passed all fixed gates across 112 verified adds: measured elapsed fell 24–52%
+and median RSS fell 17–25%. All measured candidate peaks in these four plaintext
+one-GiB cohorts were below 100 MB (maximum 89.69 MB). This is not a general
+encrypted/many-file memory guarantee. The implementation is retained after 37 passing focused test executions and
+current-source portable WASM lifecycle checks. Broader integration follows;
+no full-suite pass is claimed.
+
 The [direct raw-body trial](evidence/direct-page-body-2026-10-12/RESULTS.md)
 completed 112 verified imports and was rejected despite 9.7–14.4% elapsed gains
 and a 6.2% compressed Interactive median RSS reduction. Raw Interactive and
@@ -65,7 +73,7 @@ completed 720 verified samples. Lazy authenticated-descriptor selection passes
 the frozen aggregate control and useful-profile gates; retain it as opt-in while
 keeping the serial default. The 17 MiB boundary has a 3.35% mean penalty and
 does not establish parity-wise non-inferiority. No threshold revision is planned.
-The latest completed milestone reading is 49% used (51% remaining), so the goal continues.
+The latest completed milestone reading is 50% used (50% remaining), so the goal continues.
 
 The [native/public comparison](evidence/native-public-extraction-2026-10-11/README.md)
 completed 480 component and 64 public CLI samples. All archive variants remain
