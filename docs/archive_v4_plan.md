@@ -36,7 +36,7 @@ completed 720 verified samples. Lazy authenticated-descriptor selection passes
 the frozen aggregate control and useful-profile gates; retain it as opt-in while
 keeping the serial default. The 17 MiB boundary has a 3.35% mean penalty and
 does not establish parity-wise non-inferiority. No threshold revision is planned.
-The latest completed milestone reading is 29% used (71% remaining), so the goal continues.
+The latest completed milestone reading is 31% used (69% remaining), so the goal continues.
 
 The [native/public comparison](evidence/native-public-extraction-2026-10-11/README.md)
 completed 480 component and 64 public CLI samples. All archive variants remain
@@ -110,6 +110,18 @@ above the 100 MB target. Aggregate elapsed ratios 0.9992 [0.9786, 1.0172] and 0.
 small slowdown. All 51 focused test executions and representative Dart/JavaScript/WASM lifecycles
 passed; binding-check baseline debt and unavailable runtime coverage remain explicit;
 no architecture or release acceptance follows from this intermediate improvement.
+
+The [raw-frame ownership trial](evidence/raw-frame-ownership-2026-10-12/README.md)
+completed 112 verified processes and passed all frozen aggregate guards. Retain
+owned raw-buffer transfer: raw Interactive median RSS fell 8.9% and maximum RSS
+fell from 149.81 to 129.84 MB; raw BulkImport median fell 13.6% and maximum fell
+from 116.44 to 87.79 MB. All aggregate elapsed upper bounds were below 1.05,
+but raw BulkImport even-round upper 1.0534 does not establish that stratum's bound.
+Compressed Interactive modestly improved elapsed time, not median memory.
+Compressed maxima 148.62/108.90 MB and raw Interactive 129.84 MB leave the overall
+100 MB write target open. All 30 focused release test executions and both
+portable WASM lifecycles passed; generated WASM is current. No broad suite was
+rerun for this experiment; prior integration timeout limits remain.
 
 The explicit CLI password-unlock path was already bounded; no CLI-unlock or
 contact-performance gain is claimed. The worker-budget trial is no longer enabled.

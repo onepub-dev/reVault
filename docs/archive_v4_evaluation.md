@@ -46,7 +46,7 @@ They recorded 283 and 287 observed passes respectively, 11 ignored each and no
 observed failures, but no complete-suite result. All 35 CLI creation/password
 and Vault consumer tests passed. The subsequent raw-data worker-cache trial is recorded below.
 The continuing goal stops below 10% remaining or above 99% after a reset;
-the current checkpoint reading is 71% remaining.
+the current checkpoint reading is 69% remaining.
 
 The [raw many-file trial](evidence/parallel-extraction-2026-10-12/README.md)
 passed its fixed 56-process gate and all 33 focused test executions, but the
@@ -97,6 +97,18 @@ above the 100 MB target. Aggregate elapsed ratios 0.9992 [0.9786, 1.0172] and 0.
 small slowdown. All 51 focused test executions and representative Dart/JavaScript/WASM lifecycles
 passed; binding-check baseline debt and unavailable runtime coverage remain explicit;
 no architecture or release acceptance follows from this intermediate improvement.
+
+The [raw-frame ownership trial](evidence/raw-frame-ownership-2026-10-12/README.md)
+completed 112 verified processes and passed all frozen aggregate guards. Retain
+owned raw-buffer transfer: raw Interactive median RSS fell 8.9% and maximum RSS
+fell from 149.81 to 129.84 MB; raw BulkImport median fell 13.6% and maximum fell
+from 116.44 to 87.79 MB. All aggregate elapsed upper bounds were below 1.05,
+but raw BulkImport even-round upper 1.0534 does not establish that stratum's bound.
+Compressed Interactive modestly improved elapsed time, not median memory.
+Compressed maxima 148.62/108.90 MB and raw Interactive 129.84 MB leave the overall
+100 MB write target open. All 30 focused release test executions and both
+portable WASM lifecycles passed; generated WASM is current. No broad suite was
+rerun for this experiment; prior integration timeout limits remain.
 
 At the historical checkpoint, performance experiments were paused at `0de2dd4a` by user direction. The
 [security-first handoff](evidence/password-integrity-audit-2026-10-11/handoff.txt)

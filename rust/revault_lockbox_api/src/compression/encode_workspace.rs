@@ -71,15 +71,27 @@ impl EncoderFrame {
     }
 }
 
-pub(crate) fn with_encoder<R>(
+#[cfg(test)]
+fn with_encoder<R>(
     first_frame: EncoderFrame,
     compression: Option<crate::Compression>,
     default_level: i32,
     operation: impl FnOnce(&mut dyn FnMut(&[u8]) -> (u8, Vec<u8>)) -> R,
 ) -> R {
+    with_frame_encoder(first_frame, compression, default_level, |encode| {
+        operation(&mut |input| encode(input).into_encoded(input))
+    })
+}
+
+pub(crate) fn with_frame_encoder<R>(
+    first_frame: EncoderFrame,
+    compression: Option<crate::Compression>,
+    default_level: i32,
+    operation: impl FnOnce(&mut dyn FnMut(&[u8]) -> super::FrameEncoding) -> R,
+) -> R {
     let mut fallback = |input: &[u8]| match compression {
-        Some(compression) => super::encode_with_compression(input, compression),
-        None => super::encode_compression_frame_with_level(input, default_level),
+        Some(compression) => super::encode_with_compression_outcome(input, compression),
+        None => super::encode_frame_outcome(input, default_level),
     };
     let Some(crate::Compression::Zstd { level }) = compression else {
         return operation(&mut fallback);
@@ -121,9 +133,9 @@ pub(crate) fn with_encoder<R>(
         }
         match encoder.encode_into(input, output) {
             Ok(encoded) if encoded.len() < input.len() => {
-                (super::COMPRESSION_ZSTD, encoded.to_vec())
+                super::FrameEncoding::Compressed(ZeroizingBytes::new(encoded.to_vec()))
             }
-            Ok(_) => (super::COMPRESSION_NONE, input.to_vec()),
+            Ok(_) => super::FrameEncoding::Raw,
             Err(_) => fallback(input),
         }
     })

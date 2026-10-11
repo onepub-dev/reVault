@@ -1,0 +1,28 @@
+warning: field `payload` is never read
+  --> revault_lockbox_api/src/model/record.rs:26:16
+   |
+22 | pub(crate) struct DecodedRecord {
+   |                   ------------- field in this struct
+...
+26 |     pub(crate) payload: Vec<u8>,
+   |                ^^^^^^^
+   |
+   = note: `DecodedRecord` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` on by default
+
+warning: `revault_lockbox_api` (lib test) generated 1 warning
+    Finished `release` profile [optimized] target(s) in 0.10s
+     Running unittests src/lib.rs (target/release/deps/revault_lockbox_api-4fb36609fe9bd9c0)
+
+running 4 tests
+test compression::encode_workspace::tests::full_sized_frames_preserve_numeric_bytes_across_reuse ... ok
+test compression::encode_workspace::tests::pool_reentry_and_unavailable_borrow_preserve_encoding_and_cleanup ... ok
+test compression::encode_workspace::tests::pooled_buffers_are_wiped_and_reused_after_success_error_and_unwind ... 
+thread 'compression::encode_workspace::tests::pooled_buffers_are_wiped_and_reused_after_success_error_and_unwind' panicked at revault_lockbox_api/src/compression/encode_workspace.rs:172:34:
+injected callback failure
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+ok
+test compression::encode_workspace::tests::retained_state_matches_fresh_numeric_encoding_including_size_changes ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 706 filtered out; finished in 0.27s
+

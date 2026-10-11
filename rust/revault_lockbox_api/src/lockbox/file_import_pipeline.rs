@@ -1,13 +1,34 @@
 use super::metric_timer::MetricTimer as Instant;
 use std::borrow::Cow;
-type FrameEncoder<'a> = dyn FnMut(&[u8]) -> (u8, Vec<u8>) + 'a;
+type FrameEncoder<'a> = dyn FnMut(&[u8]) -> crate::compression::FrameEncoding + 'a;
 
 use crate::page_buffer::{zeroize_bytes, ZeroizingBytes};
 
-use crate::compression::encode_compression_frame_with_level;
+use crate::compression::{encode_frame_outcome, FrameEncoding};
 use crate::compression_frame_manifest::CompressionFrameSlice;
 use crate::crypto::strong_checksum;
 use crate::lockbox_path::LockboxPath;
+
+enum FrameInput<'a> {
+    Borrowed(&'a [u8]),
+    Owned(ZeroizingBytes),
+}
+
+impl FrameInput<'_> {
+    fn as_slice(&self) -> &[u8] {
+        match self {
+            Self::Borrowed(bytes) => bytes,
+            Self::Owned(bytes) => bytes.as_slice(),
+        }
+    }
+
+    fn into_raw(self) -> ZeroizingBytes {
+        match self {
+            Self::Borrowed(bytes) => ZeroizingBytes::new(bytes.to_vec()),
+            Self::Owned(bytes) => bytes,
+        }
+    }
+}
 
 #[derive(Clone, Copy)]
 pub(super) struct CompressionFrameWrite<'a> {
@@ -127,9 +148,9 @@ impl FileImportPipeline {
     pub(super) fn with_encoder<R>(
         self,
         first: crate::compression::EncoderFrame,
-        operation: impl FnOnce(&mut dyn FnMut(&[u8]) -> (u8, Vec<u8>)) -> R,
+        operation: impl FnOnce(&mut dyn FnMut(&[u8]) -> FrameEncoding) -> R,
     ) -> R {
-        crate::compression::with_encoder(first, self.compression, self.zstd_level, operation)
+        crate::compression::with_frame_encoder(first, self.compression, self.zstd_level, operation)
     }
 
     pub(super) fn prepare_with_encoder(
@@ -241,10 +262,12 @@ impl FileImportPipeline {
         ParallelCompressionResult { index, frame }
     }
 
-    fn encode(self, payload: &[u8]) -> (u8, Vec<u8>) {
+    fn encode(self, payload: &[u8]) -> FrameEncoding {
         match self.compression {
-            Some(compression) => crate::compression::encode_with_compression(payload, compression),
-            None => encode_compression_frame_with_level(payload, self.zstd_level),
+            Some(compression) => {
+                crate::compression::encode_with_compression_outcome(payload, compression)
+            }
+            None => encode_frame_outcome(payload, self.zstd_level),
         }
     }
 
@@ -255,12 +278,19 @@ impl FileImportPipeline {
         prepare_start: Instant,
         encode: &mut FrameEncoder<'_>,
     ) -> PreparedCompressionFrame {
-        let compression_frame_len = payload.len() as u64;
-        let (compression, stored) = encode(&payload);
-        if let Cow::Owned(mut payload) = payload {
-            zeroize_bytes(&mut payload);
-        }
-        let stored = ZeroizingBytes::new(stored);
+        // Own input under a wiping guard before calling an encoder that may unwind.
+        let payload = match payload {
+            Cow::Borrowed(bytes) => FrameInput::Borrowed(bytes),
+            Cow::Owned(bytes) => FrameInput::Owned(ZeroizingBytes::new(bytes)),
+        };
+        let compression_frame_len = payload.as_slice().len() as u64;
+        let (compression, stored) = match encode(payload.as_slice()) {
+            FrameEncoding::Raw => (crate::compression::COMPRESSION_NONE, payload.into_raw()),
+            FrameEncoding::Compressed(stored) => {
+                drop(payload);
+                (crate::compression::COMPRESSION_ZSTD, stored)
+            }
+        };
         let integrity = if self.native_blocks {
             PreparedFrameIntegrity::NativeBlocksPending
         } else {
@@ -286,6 +316,95 @@ mod tests {
     use crate::{
         Compression, EncryptionMode, LockboxFormatOptions, LockboxId, SigningMode, SizePadding,
     };
+
+    #[test]
+    fn raw_parallel_frames_transfer_owned_allocation_including_spare_capacity() {
+        for compression in [Compression::None, Compression::default()] {
+            for len in [0, 31, 128 * 1024] {
+                let mut input = Vec::with_capacity(len + 4096);
+                let mut random = 0xa1b2_c3d4_u32;
+                for _ in 0..len {
+                    random ^= random << 13;
+                    random ^= random >> 17;
+                    random ^= random << 5;
+                    input.push(random as u8);
+                }
+                let expected = input.clone();
+                let pointer = input.as_ptr();
+                let capacity = input.capacity();
+                let pipeline = FileImportPipeline::new(3, 4).with_compression(Some(compression));
+                let first = pipeline.encoder_frame(&input);
+                let job = ParallelCompressionJob {
+                    index: 7,
+                    path: LockboxPath::new("/raw").unwrap(),
+                    permissions: 0o640,
+                    total_len: len as u64 + 19,
+                    file_offset: 19,
+                    data: input,
+                };
+                let result = pipeline.with_encoder(first, |encode| {
+                    pipeline.prepare_parallel_job_with_encoder(job, encode)
+                });
+                assert_eq!(result.index, 7);
+                let frame = result.frame;
+                assert_eq!(frame.compression, crate::compression::COMPRESSION_NONE);
+                assert_eq!(frame.stored.as_slice(), expected);
+                assert_eq!(frame.stored.as_ptr(), pointer);
+                assert_eq!(frame.stored.capacity(), capacity);
+                assert_eq!(frame.compression_frame_len, len as u64);
+                assert_eq!(frame.compressed_len, len as u64);
+                assert_eq!(frame.slices[0].file_offset, 19);
+                assert_eq!(
+                    frame.integrity.legacy_checksum().unwrap(),
+                    strong_checksum(&expected)
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn raw_borrowed_and_packed_frames_keep_independent_content_and_slice_offsets() {
+        let first = b"borrowed short frame";
+        let second = b"packed final tail";
+        let first_path = LockboxPath::new("/first").unwrap();
+        let second_path = LockboxPath::new("/second").unwrap();
+        let frames = [
+            CompressionFrameWrite {
+                path: &first_path,
+                permissions: 0o640,
+                total_len: first.len() as u64,
+                file_offset: 0,
+                data: first,
+            },
+            CompressionFrameWrite {
+                path: &second_path,
+                permissions: 0o600,
+                total_len: second.len() as u64 + 9,
+                file_offset: 9,
+                data: second,
+            },
+        ];
+        let pipeline = FileImportPipeline::new(3, 1).with_compression(Some(Compression::None));
+        let single = pipeline.prepare(&frames[..1]);
+        assert_eq!(single.stored.as_slice(), first);
+        assert_ne!(single.stored.as_ptr(), first.as_ptr());
+        let packed = pipeline.prepare(&frames);
+        assert_eq!(packed.compression, crate::compression::COMPRESSION_NONE);
+        assert_eq!(
+            packed.stored.as_slice(),
+            [first.as_slice(), second.as_slice()].concat()
+        );
+        assert_eq!(packed.slices.len(), 2);
+        assert_eq!(packed.slices[0].compression_frame_offset, 0);
+        assert_eq!(
+            packed.slices[1].compression_frame_offset,
+            first.len() as u64
+        );
+        assert_eq!(packed.slices[1].file_offset, 9);
+        assert_eq!(packed.slices[1].permissions, 0o600);
+        assert_eq!(first, b"borrowed short frame");
+        assert_eq!(second, b"packed final tail");
+    }
 
     #[test]
     fn prepared_native_pages_reject_inconsistent_lengths_codecs_and_identity() {

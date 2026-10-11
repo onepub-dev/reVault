@@ -8,7 +8,22 @@ use zstd_complete::encoding::{compress_to_vec, CompressionLevel};
 mod decode_workspace;
 mod encode_workspace;
 pub(crate) use decode_workspace::scoped as with_decode_workspace;
-pub(crate) use encode_workspace::{with_encoder, EncoderFrame};
+pub(crate) use encode_workspace::{with_frame_encoder, EncoderFrame};
+
+/// Raw output may reuse an owned input; compressed output owns wiped storage.
+pub(crate) enum FrameEncoding {
+    Raw,
+    Compressed(crate::page_buffer::ZeroizingBytes),
+}
+
+impl FrameEncoding {
+    fn into_encoded(self, input: &[u8]) -> (u8, Vec<u8>) {
+        match self {
+            Self::Raw => (COMPRESSION_NONE, input.to_vec()),
+            Self::Compressed(mut bytes) => (COMPRESSION_ZSTD, std::mem::take(&mut *bytes)),
+        }
+    }
+}
 
 pub(crate) const COMPRESSION_NONE: u8 = 0;
 pub(crate) const COMPRESSION_ZSTD: u8 = 1;
@@ -118,14 +133,19 @@ pub(crate) fn encode_compression_frame(payload: &[u8]) -> (u8, Vec<u8>) {
 }
 
 pub(crate) fn encode_compression_frame_with_level(payload: &[u8], level: i32) -> (u8, Vec<u8>) {
+    encode_frame_outcome(payload, level).into_encoded(payload)
+}
+
+pub(crate) fn encode_frame_outcome(payload: &[u8], level: i32) -> FrameEncoding {
     if looks_incompressible(payload) {
-        return (COMPRESSION_NONE, payload.to_vec());
+        return FrameEncoding::Raw;
     }
-    let compressed = zstd_encode_compression_frame(payload, level);
+    let compressed =
+        crate::page_buffer::ZeroizingBytes::new(zstd_encode_compression_frame(payload, level));
     if compressed.len() < payload.len() {
-        (COMPRESSION_ZSTD, compressed)
+        FrameEncoding::Compressed(compressed)
     } else {
-        (COMPRESSION_NONE, payload.to_vec())
+        FrameEncoding::Raw
     }
 }
 
@@ -133,21 +153,27 @@ pub(crate) fn encode_with_compression(
     payload: &[u8],
     compression: crate::Compression,
 ) -> (u8, Vec<u8>) {
+    encode_with_compression_outcome(payload, compression).into_encoded(payload)
+}
+
+pub(crate) fn encode_with_compression_outcome(
+    payload: &[u8],
+    compression: crate::Compression,
+) -> FrameEncoding {
     match compression {
-        crate::Compression::None => (COMPRESSION_NONE, payload.to_vec()),
+        crate::Compression::None => FrameEncoding::Raw,
         crate::Compression::Zstd { level } => {
             if looks_incompressible(payload) {
-                return (COMPRESSION_NONE, payload.to_vec());
+                return FrameEncoding::Raw;
             }
-            // Keep the requested numeric encoder single-pass. Trying a second
-            // complete encoder for a smaller result measurably slowed writes;
-            // reader optimizations do not depend on that experiment.
-            let compressed =
-                zstd_complete::encoding::compress_slice_c_level(payload, i32::from(level.get()));
+            // Preserve the existing single-pass numeric encoder and decision.
+            let compressed = crate::page_buffer::ZeroizingBytes::new(
+                zstd_complete::encoding::compress_slice_c_level(payload, i32::from(level.get())),
+            );
             if compressed.len() < payload.len() {
-                (COMPRESSION_ZSTD, compressed)
+                FrameEncoding::Compressed(compressed)
             } else {
-                (COMPRESSION_NONE, payload.to_vec())
+                FrameEncoding::Raw
             }
         }
     }
