@@ -7,8 +7,7 @@ use crate::compression::validate_compression_frame_lengths;
 use crate::constants::DEFAULT_MAX_FILE_BYTES;
 use crate::crypto::strong_checksum;
 use crate::file_format::{
-    decode_compression_frame_segment_payload_view, decode_index_records, decode_symlink_payload,
-    decode_toc_node, read_header,
+    decode_compression_frame_segment_payload_view, decode_symlink_payload, decode_toc_node,
 };
 use crate::form_btree::{decode_form_node_secure, FormEntryValue, FormNode};
 use crate::key_directory::{best_key_directory, scan_key_directories};
@@ -16,7 +15,6 @@ use crate::lockbox_id::LockboxId;
 use crate::node_kind::NodeKind;
 use crate::page::PageObjectKind;
 use crate::page_scanner::PageScanner;
-use crate::record::{DecodedRecord, RecordKind};
 use crate::signing::verify_commit_signatures;
 use crate::toc_entry::TocEntry;
 use crate::variable_btree::{decode_variable_node_secure, VariableNode, VariableValue};
@@ -118,76 +116,43 @@ impl<'a> RecoverySession<'a> {
     fn report(&self) -> RecoveryReport {
         let mut toc_entries = BTreeMap::new();
         let mut toc_recovered = false;
-        #[cfg(any(test, feature = "native-block-layout"))]
-        let mut native_toc_available = false;
         let mut metadata = RecoveredMetadata::default();
-
-        if let Some((commit_root, public_header_root)) =
-            header_commit_root_for_recovery(&self.scanner, self.bytes)
-        {
-            metadata = recover_metadata_from_commit_root(&self.scanner, &commit_root);
-            if let Ok(decoded) =
-                decode_toc_btree_from_offset(&self.scanner, commit_root.toc_root_offset, 0)
-            {
-                toc_entries = decoded;
-                toc_recovered = public_header_root;
-                #[cfg(any(test, feature = "native-block-layout"))]
-                {
-                    native_toc_available = true;
+        let mut corrupt_records = 0;
+        if let Some((root, _)) = header_commit_root_for_recovery(&self.scanner, self.bytes) {
+            metadata = recover_metadata_from_commit_root(&self.scanner, &root);
+            match decode_toc_btree_from_offset(
+                &self.scanner,
+                root.toc_root_offset,
+                root.toc_root_commitment,
+                0,
+            ) {
+                Ok(entries) => {
+                    toc_entries = entries;
+                    toc_recovered = true;
                 }
+                Err(_) => corrupt_records += 1,
             }
+        } else {
+            corrupt_records += 1;
         }
-
-        let scan = self.scanner.scan_records();
-        let scanned_segments = collect_scanned_file_segments(&scan.records);
-        let mut corrupt_records = scan.corrupt_records;
-        if toc_entries.is_empty() {
-            for record in &scan.records {
-                match decode_index_records(record) {
-                    Ok(entries) => {
-                        for entry in entries {
-                            apply_scanned_entry(&mut toc_entries, entry);
-                        }
-                    }
-                    Err(_) => corrupt_records += 1,
-                }
-            }
-        }
-        #[cfg(any(test, feature = "native-block-layout"))]
-        if !native_toc_available {
-            attach_native_manifest_entries(&mut toc_entries, &scan.native_pages);
-        }
-        attach_scanned_file_segments(&mut toc_entries, &scanned_segments);
-
-        #[cfg(any(test, feature = "native-block-layout"))]
-        let native_signed_snapshot = self.native_signed_snapshot(&toc_entries);
-
+        // An authenticated empty TOC is authoritative. Scanned historical
+        // records cannot establish membership in the selected publication.
         let mut intact_files = Vec::new();
         let mut intact_file_count = 0;
         let mut partial_files = 0;
         for entry in toc_entries.values().filter(|entry| !entry.deleted) {
-            let native_authorized = {
-                #[cfg(any(test, feature = "native-block-layout"))]
-                {
-                    self.native_entry_authorized(entry, native_signed_snapshot.as_ref())
-                }
-                #[cfg(not(any(test, feature = "native-block-layout")))]
-                {
-                    true
-                }
+            let complete = match entry.node_kind {
+                NodeKind::File => read_page_file_bytes(&self.scanner, entry)
+                    .map(crate::page_buffer::ZeroizingBytes::new)
+                    .is_ok(),
+                NodeKind::Symlink => recover_symlink_target(&self.scanner, entry).is_ok(),
+                NodeKind::Directory => true,
             };
-            let complete = native_authorized
-                && match entry.node_kind {
-                    NodeKind::File => read_page_file_bytes(&self.scanner, entry)
-                        .map(crate::page_buffer::ZeroizingBytes::new)
-                        .is_ok(),
-                    NodeKind::Symlink => recover_symlink_target(&self.scanner, entry).is_ok(),
-                    NodeKind::Directory => true,
-                };
             if complete {
                 intact_file_count += 1;
             } else {
                 partial_files += 1;
+                corrupt_records += 1;
             }
             intact_files.push(LockboxEntry {
                 path: entry.path.clone(),
@@ -218,11 +183,15 @@ impl<'a> RecoverySession<'a> {
     }
 
     fn salvage(&self, signing_key: &OwnerSigningKeyPair) -> Result<Lockbox> {
-        let metadata = header_commit_root_for_recovery(&self.scanner, self.bytes)
-            .map(|(commit_root, _)| recover_metadata_from_commit_root(&self.scanner, &commit_root))
-            .unwrap_or_default();
-        let scan = self.scanner.scan_records();
-        let scanned_segments = collect_scanned_file_segments(&scan.records);
+        let (root, _) = header_commit_root_for_recovery(&self.scanner, self.bytes)
+            .ok_or(Error::CorruptRecord)?;
+        let metadata = recover_metadata_from_commit_root(&self.scanner, &root);
+        let latest_paths = decode_toc_btree_from_offset(
+            &self.scanner,
+            root.toc_root_offset,
+            root.toc_root_commitment,
+            0,
+        )?;
         let mut recovered = Lockbox::create_with_secret_key_and_options(
             crate::SecretVec::try_from_slice(self.key)?,
             self.lockbox_id,
@@ -230,32 +199,6 @@ impl<'a> RecoverySession<'a> {
         );
         recovered.set_owner_signing_key(signing_key.try_clone()?);
         recovered.set_creation_format(self.scanner.format_mode);
-        let mut latest_paths = BTreeMap::new();
-        for record in &scan.records {
-            if let Ok(entries) = decode_index_records(record) {
-                for entry in entries {
-                    apply_scanned_entry(&mut latest_paths, entry);
-                }
-            }
-        }
-        #[cfg(any(test, feature = "native-block-layout"))]
-        if let Some(entries) =
-            header_commit_root_for_recovery(&self.scanner, self.bytes).and_then(|(root, _)| {
-                decode_toc_btree_from_offset(&self.scanner, root.toc_root_offset, 0).ok()
-            })
-        {
-            latest_paths.extend(
-                entries.into_iter().filter(|(_, entry)| {
-                    entry.chunks.iter().any(|chunk| chunk.block_frame.is_some())
-                }),
-            );
-        } else {
-            attach_native_manifest_entries(&mut latest_paths, &scan.native_pages);
-        }
-        attach_scanned_file_segments(&mut latest_paths, &scanned_segments);
-        #[cfg(any(test, feature = "native-block-layout"))]
-        let native_signed_snapshot = self.native_signed_snapshot(&latest_paths);
-
         for entry in latest_paths
             .values()
             .filter(|entry| !entry.deleted && entry.node_kind == NodeKind::Directory)
@@ -267,52 +210,27 @@ impl<'a> RecoverySession<'a> {
             .values()
             .filter(|entry| !entry.deleted && entry.node_kind != NodeKind::Directory)
         {
-            #[cfg(any(test, feature = "native-block-layout"))]
-            if entry.node_kind == NodeKind::File
-                && entry.chunks.iter().any(|chunk| chunk.block_frame.is_some())
-            {
-                if self.native_entry_authorized(entry, native_signed_snapshot.as_ref()) {
-                    if let Ok(file_bytes) = read_page_file_bytes(&self.scanner, entry) {
-                        let file_bytes = crate::page_buffer::ZeroizingBytes::new(file_bytes);
+            match entry.node_kind {
+                NodeKind::File => {
+                    if let Ok(bytes) = read_page_file_bytes(&self.scanner, entry) {
+                        let bytes = crate::page_buffer::ZeroizingBytes::new(bytes);
                         recovered.create_parent_dirs_for(&entry.path)?;
                         recovered.add_file_with_permissions(
                             &entry.path,
-                            &file_bytes,
+                            &bytes,
                             entry.permissions,
                             false,
                         )?;
                     }
                 }
-                continue;
-            }
-            let record = if entry.record_object_id == 0 {
-                self.scanner.record_at(entry.record_offset)
-            } else {
-                self.scanner
-                    .record_object_at(entry.record_offset, entry.record_object_id)
-            };
-            if let Ok(record) = record {
-                match record.header.kind {
-                    RecordKind::FilePage => {
-                        if let Ok(file_bytes) = read_page_file_bytes(&self.scanner, entry) {
-                            let file_bytes = crate::page_buffer::ZeroizingBytes::new(file_bytes);
-                            recovered.create_parent_dirs_for(&entry.path)?;
-                            recovered.add_file_with_permissions(
-                                &entry.path,
-                                &file_bytes,
-                                entry.permissions,
-                                false,
-                            )?;
-                        }
+                NodeKind::Symlink => {
+                    if let Ok(target) = recover_symlink_target(&self.scanner, entry) {
+                        recovered.create_parent_dirs_for(&entry.path)?;
+                        recovered.add_symlink(&entry.path, &target, false)?;
+                        recovered.set_permissions(&entry.path, entry.permissions)?;
                     }
-                    RecordKind::Symlink => {
-                        if let Ok((path, target)) = decode_symlink_payload(&record.payload) {
-                            recovered.create_parent_dirs_for(&path)?;
-                            recovered.add_symlink(&path, &target, false)?;
-                        }
-                    }
-                    _ => {}
                 }
+                NodeKind::Directory => {}
             }
         }
         if let Some(variables) = metadata.variables {
@@ -332,96 +250,30 @@ impl<'a> RecoverySession<'a> {
         recovered.commit()?;
         Ok(recovered)
     }
-
-    #[cfg(any(test, feature = "native-block-layout"))]
-    fn native_signed_snapshot(&self, entries: &BTreeMap<LockboxPath, TocEntry>) -> Option<Lockbox> {
-        if !self.scanner.format_mode.signed()
-            || !entries
-                .values()
-                .any(|entry| entry.chunks.iter().any(|chunk| chunk.block_frame.is_some()))
-        {
-            return None;
-        }
-        let key = crate::SecretVec::try_from_slice(self.key).ok()?;
-        let mut snapshot = self.bytes.to_vec();
-        if read_header(&snapshot).is_err() {
-            let repaired = crate::file_format::current_header::recover_header_magic(&snapshot)?;
-            snapshot[..repaired.len()].copy_from_slice(&repaired);
-        }
-        // Recovery may encounter stale or interrupted writes past the published
-        // archive. Authenticate only that publication in a private copy: normal
-        // open still validates the header tag (including sealed_len), commit
-        // chain, owner signatures and content. Never repair the source or extend
-        // a truncated archive to satisfy an untrusted length.
-        let mut header = read_header(&snapshot).ok()?;
-        if header.commit_root_offset == 0 && header.commit_auth_offset != 0 {
-            // The auth record supplies a candidate only. Keep the original header
-            // tag and require normal open below to authenticate the repaired
-            // publication, owner signatures, TOC and content together.
-            let payload = self
-                .scanner
-                .commit_auth_payload_at(header.commit_auth_offset)
-                .ok()?;
-            let auth = decode_commit_auth(&payload).ok()?;
-            let repaired = crate::file_format::current_header::recover_header_root_pointer(
-                &snapshot,
-                auth.commit_root_offset,
-            )?;
-            snapshot[..repaired.len()].copy_from_slice(&repaired);
-            header = read_header(&snapshot).ok()?;
-        }
-        let sealed_len = usize::try_from(header.sealed_len).ok()?;
-        if sealed_len < crate::file_format::current_header::HEADER_LEN
-            || sealed_len > snapshot.len()
-        {
-            return None;
-        }
-        snapshot.truncate(sealed_len);
-        // Metadata-page length damage can leave both the original checksum and
-        // signed root payload intact. Repair only a checksum-matching candidate
-        // inside the sealed publication; normal open below validates everything.
-        let root_offset = usize::try_from(header.commit_root_offset).ok()?;
-        if let Some(repaired) = snapshot
-            .get(root_offset..)
-            .and_then(crate::page::recover_physical_length_header)
-        {
-            snapshot[root_offset..root_offset + repaired.len()].copy_from_slice(&repaired);
-        }
-        Lockbox::open_storage_with_secret_key_mode(
-            crate::storage::StorageBackend::memory(snapshot),
-            key,
-            crate::LockboxOptions::default(),
-            false,
-        )
-        .ok()
-    }
-
-    #[cfg(any(test, feature = "native-block-layout"))]
-    fn native_entry_authorized(&self, entry: &TocEntry, snapshot: Option<&Lockbox>) -> bool {
-        !self.scanner.format_mode.signed()
-            || !entry.chunks.iter().any(|chunk| chunk.block_frame.is_some())
-            || snapshot
-                .and_then(|snapshot| snapshot.toc_entries.get(&entry.path))
-                .is_some_and(|trusted| {
-                    crate::toc_codec::TocEncoder::new([trusted]).encode()
-                        == crate::toc_codec::TocEncoder::new([entry]).encode()
-                })
-    }
 }
 
 fn header_commit_root_for_recovery(
     scanner: &PageScanner<'_>,
-    bytes: &[u8],
+    _bytes: &[u8],
 ) -> Option<(crate::commit_root::CommitRoot, bool)> {
-    let header = read_header(bytes).ok()?;
-    if header.commit_auth_offset == 0 {
-        return (header.commit_root_offset > 0)
-            .then(|| scanner.commit_root_at(header.commit_root_offset).ok())
-            .flatten()
-            .map(|root| (root, true));
+    let header = scanner.authenticated_header().ok()?;
+    if header.commit_auth_offset == 0 || header.commit_root_offset == 0 || header.sequence == 0 {
+        return None;
+    }
+    let auth = decode_commit_auth(
+        &scanner
+            .commit_auth_payload_at(header.commit_auth_offset)
+            .ok()?,
+    )
+    .ok()?;
+    if auth.commit_root_offset != header.commit_root_offset {
+        return None;
     }
     let root =
         valid_commit_root_from_auth_chain(scanner, header.commit_auth_offset, header.lockbox_id)?;
+    if root.sequence != header.sequence {
+        return None;
+    }
     let public_header_root = (header.commit_root_offset > 0)
         .then(|| scanner.commit_root_at(header.commit_root_offset).ok())
         .flatten()
@@ -435,6 +287,8 @@ fn valid_commit_root_from_auth_chain(
     lockbox_id: LockboxId,
 ) -> Option<crate::commit_root::CommitRoot> {
     let mut expected_digest = None;
+    let mut selected = None;
+    let mut newer_signatures: Option<Vec<crate::commit_auth::CommitSignature>> = None;
     while auth_offset != 0 {
         let auth_payload = scanner.commit_auth_payload_at(auth_offset).ok()?;
         let digest = commit_auth_digest(&auth_payload);
@@ -451,16 +305,27 @@ fn valid_commit_root_from_auth_chain(
         }
         if scanner.format_mode.signed() {
             verify_commit_signatures(&message, &auth.signatures).ok()?;
+            if newer_signatures.as_ref().is_some_and(|newer| {
+                !crate::signing::commit_signature_keys_match(&auth.signatures, newer)
+            }) {
+                return None;
+            }
         } else if !auth.signatures.is_empty() {
             return None;
         }
-        if let Some(root) = verified_commit_root_from_auth(scanner, &auth) {
-            return Some(root);
+        if selected.is_none() {
+            // A previous publication is historical state, never a substitute
+            // for a damaged selected root. Validate the selected root first.
+            selected = Some(verified_commit_root_from_auth(scanner, &auth)?);
+        }
+        if auth.previous_auth_offset >= auth_offset {
+            return None;
         }
         expected_digest = Some(auth.previous_auth_digest);
+        newer_signatures = Some(auth.signatures);
         auth_offset = auth.previous_auth_offset;
     }
-    None
+    selected
 }
 
 fn verified_commit_root_from_auth(
@@ -494,38 +359,51 @@ fn recover_metadata_from_commit_root(
     commit_root: &crate::commit_root::CommitRoot,
 ) -> RecoveredMetadata {
     RecoveredMetadata {
-        variables: recover_variables_from_root(scanner, commit_root.variable_root_offset).ok(),
-        forms: recover_forms_from_root(scanner, commit_root.form_root_offset).ok(),
+        variables: recover_variables_from_root(
+            scanner,
+            commit_root.variable_root_offset,
+            commit_root.variable_root_commitment,
+        )
+        .ok(),
+        forms: recover_forms_from_root(
+            scanner,
+            commit_root.form_root_offset,
+            commit_root.form_root_commitment,
+        )
+        .ok(),
     }
 }
 
 fn recover_variables_from_root(
     scanner: &PageScanner<'_>,
     root_offset: u64,
+    commitment: crate::file_format::page_commitment::PageCommitment,
 ) -> Result<BTreeMap<VariableName, VariableValue>> {
     if root_offset == 0 {
         return Ok(BTreeMap::new());
     }
     let mut variables = BTreeMap::new();
-    decode_variable_node_into(scanner, root_offset, &mut variables, 0)?;
+    decode_variable_node_into(scanner, root_offset, commitment, &mut variables, 0)?;
     Ok(variables)
 }
 
 fn decode_variable_node_into(
     scanner: &PageScanner<'_>,
     offset: u64,
+    commitment: crate::file_format::page_commitment::PageCommitment,
     variables: &mut BTreeMap<VariableName, VariableValue>,
     depth: usize,
 ) -> Result<()> {
     if depth > 8 {
         return Err(Error::CorruptRecord);
     }
-    let payload = scanner.secure_object_payload_at(
+    let payload = scanner.authenticated_secure_object_payload_at(
         offset,
         &[
             PageObjectKind::VariableLeaf,
             PageObjectKind::VariableInternal,
         ],
+        commitment,
     )?;
     match decode_variable_node_secure(&payload)? {
         VariableNode::Leaf(entries) => {
@@ -536,14 +414,24 @@ fn decode_variable_node_into(
         VariableNode::Internal(children) => {
             drop(payload);
             for child in children {
-                decode_variable_node_into(scanner, child.offset, variables, depth + 1)?;
+                decode_variable_node_into(
+                    scanner,
+                    child.offset,
+                    child.commitment,
+                    variables,
+                    depth + 1,
+                )?;
             }
         }
     }
     Ok(())
 }
 
-fn recover_forms_from_root(scanner: &PageScanner<'_>, root_offset: u64) -> Result<RecoveredForms> {
+fn recover_forms_from_root(
+    scanner: &PageScanner<'_>,
+    root_offset: u64,
+    commitment: crate::file_format::page_commitment::PageCommitment,
+) -> Result<RecoveredForms> {
     if root_offset == 0 {
         return Ok(RecoveredForms {
             definitions: BTreeMap::new(),
@@ -552,7 +440,14 @@ fn recover_forms_from_root(scanner: &PageScanner<'_>, root_offset: u64) -> Resul
     }
     let mut definitions = BTreeMap::new();
     let mut records = BTreeMap::new();
-    decode_form_node_into(scanner, root_offset, &mut definitions, &mut records, 0)?;
+    decode_form_node_into(
+        scanner,
+        root_offset,
+        commitment,
+        &mut definitions,
+        &mut records,
+        0,
+    )?;
     Ok(RecoveredForms {
         definitions,
         records,
@@ -562,6 +457,7 @@ fn recover_forms_from_root(scanner: &PageScanner<'_>, root_offset: u64) -> Resul
 fn decode_form_node_into(
     scanner: &PageScanner<'_>,
     offset: u64,
+    commitment: crate::file_format::page_commitment::PageCommitment,
     definitions: &mut BTreeMap<String, FormDefinition>,
     records: &mut BTreeMap<LockboxPath, FormRecord>,
     depth: usize,
@@ -569,9 +465,10 @@ fn decode_form_node_into(
     if depth > 8 {
         return Err(Error::CorruptRecord);
     }
-    let payload = scanner.secure_object_payload_at(
+    let payload = scanner.authenticated_secure_object_payload_at(
         offset,
         &[PageObjectKind::FormLeaf, PageObjectKind::FormInternal],
+        commitment,
     )?;
     match decode_form_node_secure(&payload)? {
         FormNode::Leaf(entries) => {
@@ -589,7 +486,14 @@ fn decode_form_node_into(
         FormNode::Internal(children) => {
             drop(payload);
             for child in children {
-                decode_form_node_into(scanner, child.offset, definitions, records, depth + 1)?;
+                decode_form_node_into(
+                    scanner,
+                    child.offset,
+                    child.commitment,
+                    definitions,
+                    records,
+                    depth + 1,
+                )?;
             }
         }
     }
@@ -608,12 +512,13 @@ fn latest_form_definition_count(definitions: &BTreeMap<String, FormDefinition>) 
 fn decode_toc_btree_from_offset(
     scanner: &PageScanner<'_>,
     offset: u64,
+    commitment: crate::file_format::page_commitment::PageCommitment,
     depth: usize,
 ) -> Result<BTreeMap<LockboxPath, TocEntry>> {
     if depth > 8 {
         return Err(crate::Error::CorruptRecord);
     }
-    let payload = scanner.toc_node_payload_at(offset)?;
+    let payload = scanner.toc_node_payload_at(offset, commitment)?;
 
     let mut toc_entries = BTreeMap::new();
     match decode_toc_node(&payload)? {
@@ -624,8 +529,12 @@ fn decode_toc_btree_from_offset(
         }
         crate::file_format::TocNode::Internal(children) => {
             for child in children {
-                let child_toc_entries =
-                    decode_toc_btree_from_offset(scanner, child.offset, depth + 1)?;
+                let child_toc_entries = decode_toc_btree_from_offset(
+                    scanner,
+                    child.offset,
+                    child.commitment,
+                    depth + 1,
+                )?;
                 toc_entries.extend(child_toc_entries);
             }
         }
@@ -639,17 +548,7 @@ fn read_page_file_bytes(
 ) -> Result<Vec<u8>> {
     let mut chunks = entry.chunks.clone();
     chunks.sort_by_key(|chunk| chunk.file_offset);
-    let expected_len = if entry.len == 0 && chunks.iter().any(|chunk| chunk.len > 0) {
-        chunks.iter().try_fold(0u64, |max_end, chunk| {
-            let end = chunk
-                .file_offset
-                .checked_add(chunk.len)
-                .ok_or(Error::CorruptRecord)?;
-            Ok::<u64, Error>(max_end.max(end))
-        })?
-    } else {
-        entry.len
-    };
+    let expected_len = entry.len;
     if expected_len > DEFAULT_MAX_FILE_BYTES {
         return Err(Error::SecurityLimitExceeded(
             "recovered file exceeds default safety limit".to_string(),
@@ -664,9 +563,13 @@ fn read_page_file_bytes(
                 "compressed compression-frame exceeds safety limit".to_string(),
             ));
         }
-        if chunk.file_offset != out.len() as u64 {
+        if chunk.file_offset < out.len() as u64 || chunk.file_offset > expected_len {
             return Err(Error::CorruptRecord);
         }
+        out.resize(
+            usize::try_from(chunk.file_offset).map_err(|_| Error::CorruptRecord)?,
+            0,
+        );
         #[cfg(any(test, feature = "native-block-layout"))]
         if chunk.block_frame.is_some() {
             let decoded = crate::page_buffer::ZeroizingBytes::new(
@@ -682,8 +585,12 @@ fn read_page_file_bytes(
             usize::try_from(chunk.compressed_len).map_err(|_| Error::CorruptRecord)?;
         let mut stored = Zeroizing::new(vec![0u8; compressed_len]);
         for segment in &chunk.segments {
-            let record = scanner.record_object_at(segment.page_offset, segment.object_id)?;
-            let decoded = decode_compression_frame_segment_payload_view(&record.payload)?;
+            let payload = scanner.file_segment_payload_at(
+                segment.page_offset,
+                segment.object_id,
+                segment.page_len,
+            )?;
+            let decoded = decode_compression_frame_segment_payload_view(&payload)?;
             let manifest_slice_missing = decoded.manifest.as_ref().is_some_and(|manifest| {
                 manifest
                     .slice_for(
@@ -736,9 +643,10 @@ fn read_page_file_bytes(
             return Err(Error::CorruptRecord);
         }
     }
-    if out.len() as u64 != expected_len {
+    if out.len() as u64 > expected_len {
         return Err(Error::CorruptRecord);
     }
+    out.resize(capacity, 0);
     Ok(std::mem::take(&mut *out))
 }
 
@@ -746,240 +654,16 @@ fn recover_symlink_target(scanner: &PageScanner<'_>, entry: &TocEntry) -> Result
     if entry.record_offset == 0 || entry.record_object_id == 0 {
         return Err(Error::CorruptRecord);
     }
-    let record = scanner.record_object_at(entry.record_offset, entry.record_object_id)?;
-    if record.header.kind != RecordKind::Symlink {
-        return Err(Error::CorruptRecord);
-    }
-    let (path, target) = decode_symlink_payload(&record.payload)?;
+    let payload = scanner.authenticated_entry_object_payload(entry)?;
+    let (path, target) = decode_symlink_payload(&payload)?;
     if path != entry.path {
         return Err(Error::CorruptRecord);
     }
     Ok(target)
 }
 
-#[derive(Debug, Clone)]
-struct ScannedCompressionFrameSegment {
-    compression_frame_id: u64,
-    compression_frame_len: u64,
-    compressed_len: u64,
-    compression: u8,
-    compression_frame_digest: [u8; 32],
-    segment: crate::file_chunk::CompressionFrameSegment,
-}
-
-fn collect_scanned_file_segments(
-    records: &[DecodedRecord],
-) -> BTreeMap<u64, Vec<ScannedCompressionFrameSegment>> {
-    let mut segments: BTreeMap<u64, Vec<ScannedCompressionFrameSegment>> = BTreeMap::new();
-    for record in records {
-        if record.header.kind != RecordKind::FilePage {
-            continue;
-        }
-        let Ok(decoded) = decode_compression_frame_segment_payload_view(&record.payload) else {
-            continue;
-        };
-        segments
-            .entry(decoded.compression_frame_id)
-            .or_default()
-            .push(ScannedCompressionFrameSegment {
-                compression_frame_id: decoded.compression_frame_id,
-                compression_frame_len: decoded.compression_frame_len,
-                compressed_len: decoded.compressed_len,
-                compression: decoded.compression,
-                compression_frame_digest: decoded.compression_frame_digest,
-                segment: crate::file_chunk::CompressionFrameSegment {
-                    page_offset: record.offset,
-                    page_len: record.header.total_len,
-                    object_id: record.object_id,
-                    segment_offset: decoded.segment_offset,
-                    segment_len: decoded.data.len() as u64,
-                },
-            });
-    }
-    segments
-}
-
-fn attach_scanned_file_segments(
-    toc_entries: &mut BTreeMap<LockboxPath, TocEntry>,
-    scanned_segments: &BTreeMap<u64, Vec<ScannedCompressionFrameSegment>>,
-) {
-    for entry in toc_entries.values_mut() {
-        if entry.deleted || entry.node_kind != NodeKind::File {
-            continue;
-        }
-        for chunk in &mut entry.chunks {
-            // Native references bind one physical page through their descriptor.
-            // Legacy scan candidates must never extend that typed reference.
-            #[cfg(any(test, feature = "native-block-layout"))]
-            if chunk.block_frame.is_some() {
-                continue;
-            }
-            let Some(frame_segments) = scanned_segments.get(&chunk.compression_frame_id) else {
-                continue;
-            };
-            for scanned in frame_segments {
-                if scanned.compression_frame_id != chunk.compression_frame_id
-                    || scanned.compression_frame_len != chunk.compression_frame_len
-                    || scanned.compressed_len != chunk.compressed_len
-                    || scanned.compression != chunk.compression
-                    || scanned.compression_frame_digest != chunk.compression_frame_digest
-                {
-                    continue;
-                }
-                if !chunk.segments.iter().any(|existing| {
-                    existing.page_offset == scanned.segment.page_offset
-                        && existing.object_id == scanned.segment.object_id
-                        && existing.segment_offset == scanned.segment.segment_offset
-                }) {
-                    chunk.segments.push(scanned.segment.clone());
-                }
-            }
-            chunk.segments.sort_by_key(|segment| segment.segment_offset);
-        }
-    }
-}
-
-/// Manifest-only reconstruction is a recovery candidate, not evidence of a
-/// committed file or owner authorization. Conflicting versions are omitted
-/// instead of splicing unrelated generations into an apparently intact file.
-#[cfg(any(test, feature = "native-block-layout"))]
-fn attach_native_manifest_entries(
-    entries: &mut BTreeMap<LockboxPath, TocEntry>,
-    pages: &[crate::file_format::indexed_frame::block_page::ScannedBlockPage],
-) {
-    use crate::file_chunk::{BlockFrameReference, CompressionFrameSegment, FileChunk};
-    let mut candidates: BTreeMap<LockboxPath, TocEntry> = BTreeMap::new();
-    let mut conflicts = std::collections::BTreeSet::new();
-    for page in pages {
-        let reference = std::sync::Arc::new(BlockFrameReference {
-            descriptor: page.descriptor.clone(),
-            sequence: page.sequence,
-        });
-        for slice in &page.manifest.slices {
-            if entries.contains_key(&slice.path) || conflicts.contains(&slice.path) {
-                continue;
-            }
-            let chunk = FileChunk {
-                block_frame: Some(reference.clone()),
-                stored_path: slice.path.clone(),
-                file_offset: slice.file_offset,
-                len: slice.len,
-                compression_frame_offset: slice.compression_frame_offset,
-                compression_frame_len: page.descriptor.logical_len,
-                compressed_len: page.descriptor.stored_len,
-                compression: page.descriptor.compression,
-                compression_frame_id: page.descriptor.frame_id,
-                compression_frame_digest: page.descriptor.index_commitment,
-                segments: vec![CompressionFrameSegment {
-                    page_offset: page.offset,
-                    page_len: page.physical_len as u64,
-                    object_id: page.page_id,
-                    segment_offset: 0,
-                    segment_len: page.descriptor.stored_len,
-                }],
-            };
-            let entry = candidates
-                .entry(slice.path.clone())
-                .or_insert_with(|| TocEntry {
-                    path: slice.path.clone(),
-                    len: slice.total_len,
-                    record_offset: page.offset,
-                    record_len: page.physical_len as u64,
-                    record_object_id: page.page_id,
-                    deleted: false,
-                    node_kind: NodeKind::File,
-                    permissions: slice.permissions,
-                    chunks: Vec::new(),
-                });
-            if entry.len != slice.total_len
-                || entry.permissions != slice.permissions
-                || entry.chunks.iter().any(|old| {
-                    old.file_offset == chunk.file_offset
-                        || (old.file_offset < chunk.file_offset.saturating_add(chunk.len)
-                            && chunk.file_offset < old.file_offset.saturating_add(old.len))
-                })
-            {
-                conflicts.insert(slice.path.clone());
-                continue;
-            }
-            entry.chunks.push(chunk);
-        }
-    }
-    entries.extend(
-        candidates
-            .into_iter()
-            .filter(|(path, _)| !conflicts.contains(path))
-            .filter_map(|(path, mut entry)| {
-                // Streaming writers cannot know the final length when they emit
-                // a frame. Infer only the candidate length; signed recovery still
-                // requires an exact match with the authenticated TOC, and reads
-                // below validate contiguous coverage and every chunk.
-                if entry.len == 0 {
-                    entry.len = recovered_len_from_chunks(&entry).ok()?;
-                }
-                Some((path, entry))
-            }),
-    );
-}
-
-fn apply_scanned_entry(toc_entries: &mut BTreeMap<LockboxPath, TocEntry>, mut entry: TocEntry) {
-    if entry.deleted || entry.node_kind != NodeKind::File {
-        toc_entries.insert(entry.path.clone(), entry);
-        return;
-    }
-    if entry.len == 0 {
-        entry.len = recovered_len_from_chunks(&entry).unwrap_or(0);
-    }
-    toc_entries
-        .entry(entry.path.clone())
-        .and_modify(|existing| {
-            if existing.deleted || existing.node_kind != NodeKind::File {
-                *existing = entry.clone();
-                return;
-            }
-            existing.len = existing.len.max(entry.len);
-            existing.record_offset = existing.record_offset.min(entry.record_offset);
-            existing.record_len = existing.record_len.max(entry.record_len);
-            for chunk in &entry.chunks {
-                merge_recovered_chunk(existing, chunk.clone());
-            }
-        })
-        .or_insert(entry);
-}
-
-fn merge_recovered_chunk(entry: &mut TocEntry, chunk: crate::file_chunk::FileChunk) {
-    if let Some(existing) = entry.chunks.iter_mut().find(|existing| {
-        existing.compression_frame_id == chunk.compression_frame_id
-            && existing.file_offset == chunk.file_offset
-            && existing.compression_frame_offset == chunk.compression_frame_offset
-            && existing.len == chunk.len
-    }) {
-        for segment in chunk.segments {
-            if !existing.segments.iter().any(|existing_segment| {
-                existing_segment.page_offset == segment.page_offset
-                    && existing_segment.object_id == segment.object_id
-                    && existing_segment.segment_offset == segment.segment_offset
-            }) {
-                existing.segments.push(segment);
-            }
-        }
-    } else {
-        entry.chunks.push(chunk);
-    }
-}
-
-fn recovered_len_from_chunks(entry: &TocEntry) -> Result<u64> {
-    entry.chunks.iter().try_fold(0u64, |max_end, chunk| {
-        let end = chunk
-            .file_offset
-            .checked_add(chunk.len)
-            .ok_or(Error::CorruptRecord)?;
-        Ok(max_end.max(end))
-    })
-}
-
 fn lockbox_id_from_bytes_unchecked(bytes: &[u8]) -> LockboxId {
-    if let Ok(header) = read_header(bytes) {
+    if let Ok(header) = crate::file_format::current_header::read_header_for_scan(bytes) {
         return header.lockbox_id;
     }
     if let Some(directory) = best_key_directory(scan_key_directories(bytes, None)) {
@@ -993,6 +677,76 @@ fn lockbox_id_from_bytes_unchecked(bytes: &[u8]) -> LockboxId {
         return id;
     }
     LockboxId::from_bytes([0; 16])
+}
+
+#[cfg(test)]
+mod committed_membership_tests {
+    use super::*;
+    use crate::{CacheLimit, LockboxOptions};
+
+    #[test]
+    fn recovery_and_symlink_lifecycle_follow_current_membership_with_and_without_cache() {
+        let key = b"committed recovery lifecycle";
+        let signer = OwnerSigningKeyPair::generate().unwrap();
+        let path = |name: &str| LockboxPath::new(name).unwrap();
+        for cache_limit in [CacheLimit::Bytes(0), CacheLimit::Bytes(1024 * 1024)] {
+            let options = LockboxOptions {
+                cache_limit,
+                ..LockboxOptions::default()
+            };
+            let mut archive = Lockbox::create(key);
+            archive.set_owner_signing_key(signer.try_clone().unwrap());
+            archive.add_file(&path("/a"), b"first", false).unwrap();
+            archive.add_file(&path("/b"), b"second", false).unwrap();
+            archive
+                .add_symlink(&path("/x"), &path("/a"), false)
+                .unwrap();
+            archive
+                .add_symlink(&path("/y"), &path("/a"), false)
+                .unwrap();
+            archive.commit().unwrap();
+            let mut archive =
+                Lockbox::open_bytes_with_key_options(archive.to_bytes(), key, options.clone())
+                    .unwrap();
+            archive.set_owner_signing_key(signer.try_clone().unwrap());
+            archive.add_file(&path("/b"), b"replacement", true).unwrap();
+            archive.delete(&path("/a")).unwrap();
+            archive.add_symlink(&path("/x"), &path("/b"), true).unwrap();
+            archive.delete(&path("/y")).unwrap();
+            archive.commit().unwrap();
+            let bytes = archive.to_bytes();
+            let reopened =
+                Lockbox::open_bytes_with_key_options(bytes.clone(), key, options).unwrap();
+            assert_eq!(reopened.get_file(&path("/b")).unwrap(), b"replacement");
+            assert_eq!(
+                reopened.get_symlink_target(&path("/x")).unwrap(),
+                path("/b")
+            );
+            assert!(reopened.get_file(&path("/a")).is_err());
+            assert!(reopened.get_symlink_target(&path("/y")).is_err());
+            let report = RecoveryScanner::scan_bytes(bytes.clone(), key);
+            assert!(report.toc_recovered);
+            assert_eq!(report.partial_files, 0);
+            assert_eq!(report.intact_file_count, 2);
+            let recovered = RecoveryScanner::salvage_bytes(bytes, key, &signer).unwrap();
+            assert_eq!(recovered.get_file(&path("/b")).unwrap(), b"replacement");
+            assert_eq!(
+                recovered.get_symlink_target(&path("/x")).unwrap(),
+                path("/b")
+            );
+            archive.delete(&path("/x")).unwrap();
+            archive.delete(&path("/b")).unwrap();
+            archive.commit().unwrap();
+            let empty = archive.to_bytes();
+            let report = RecoveryScanner::scan_bytes(empty.clone(), key);
+            assert!(report.toc_recovered);
+            assert_eq!(report.intact_file_count, 0);
+            assert!(report.intact_files.is_empty());
+            let recovered = RecoveryScanner::salvage_bytes(empty, key, &signer).unwrap();
+            assert!(recovered.get_file(&path("/b")).is_err());
+            assert!(recovered.get_symlink_target(&path("/x")).is_err());
+        }
+    }
 }
 
 #[cfg(test)]

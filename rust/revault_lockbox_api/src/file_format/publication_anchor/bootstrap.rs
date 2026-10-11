@@ -63,7 +63,18 @@ pub(super) fn read_directory_in(
         Layout::Separated => anchor.keys.read_verified(storage)?,
         Layout::Shared => super::shared::read_root(storage, anchor, RootRole::PublicKeys)?,
     };
-    let decoded = read_key_directory_backup(&encoded)?;
+    // The candidate bootstrap has a fixed-size envelope; the native directory
+    // decoder deliberately accepts only the exact logical payload. Canonical
+    // re-encoding below also checks that the envelope's remainder is all zero.
+    let length = usize::try_from(u64::from_le_bytes(
+        encoded
+            .get(16..24)
+            .ok_or(Error::CorruptHeader)?
+            .try_into()
+            .map_err(|_| Error::CorruptHeader)?,
+    ))
+    .map_err(|_| Error::CorruptHeader)?;
+    let decoded = read_key_directory_backup(encoded.get(..length).ok_or(Error::CorruptHeader)?)?;
     if decoded.lockbox_id != anchor.archive
         || decoded.generation == 0
         || decoded.generation > anchor.generation

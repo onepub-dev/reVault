@@ -66,8 +66,8 @@ pub enum SigningMode {
     /// Commits do not carry owner signatures.
     None,
     /// Commits require the established owner's hybrid signatures.
-    /// For plaintext archives, creation, commit, and open also hash all current
-    /// content to authenticate it without relying on page encryption.
+    /// Signatures bind the authenticated metadata graph. Each referenced page
+    /// or file range is verified before its contents are returned.
     Owner,
 }
 

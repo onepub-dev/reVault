@@ -1,4 +1,5 @@
-use std::{borrow::Cow, time::Instant};
+use super::metric_timer::MetricTimer as Instant;
+use std::borrow::Cow;
 type FrameEncoder<'a> = dyn FnMut(&[u8]) -> (u8, Vec<u8>) + 'a;
 
 use crate::page_buffer::{zeroize_bytes, ZeroizingBytes};

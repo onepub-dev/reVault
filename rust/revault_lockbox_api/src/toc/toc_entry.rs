@@ -10,6 +10,7 @@ pub(crate) struct TocEntry {
     pub(crate) record_offset: u64,
     pub(crate) record_len: u64,
     pub(crate) record_object_id: u64,
+    pub(crate) record_digest: [u8; 32],
     pub(crate) deleted: bool,
     pub(crate) node_kind: NodeKind,
     pub(crate) permissions: u32,

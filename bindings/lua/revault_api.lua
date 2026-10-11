@@ -2770,7 +2770,9 @@ end
 --- Opens with a shared lock; supply signing_key for exclusive write access.
 --- Example: local box = Lockbox.open(path, {password=password}); print(box:get_file('/hello')); box:close()
 function Lockbox.open(path, options)
-  return file_handle(path, 'open', options)
+  local mode = 'open'
+  if options and options.writable ~= nil then mode = options.writable and 'write' or 'read' end
+  return file_handle(path, mode, options)
 end
 
 Lockbox.close = Lockbox.free

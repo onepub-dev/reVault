@@ -15,14 +15,23 @@ Historical microbenchmarks remain evidence about their own revisions.
 Performance experiments are paused at `0de2dd4a` by user direction. The
 [security-first handoff](evidence/password-integrity-audit-2026-10-11/handoff.txt)
 and [implementation sequence](archive_v4_plan.md#security-prerequisite-and-performance-pause--2026-10-11)
-take priority over further worker selection or throughput tuning. This is a
-planning checkpoint; no security fix or creation-default change is completed.
+take priority over further worker selection or throughput tuning. Security work
+has resumed. Native graph/control/access repairs and password-default changes are
+implemented; scoped native integration and exact failure follow-ups are complete.
+The [implementation evidence](evidence/password-integrity-audit-2026-10-11/security-implementation.md)
+separates passing checks, superseded attempts and remaining qualification limits.
 
 | Audit finding | Format-3 evidence from main `7193946b` plus audit tests | Current/native v4 and candidate status |
 | --- | --- | --- |
-| Header reset hides committed contents | Confirmed in encrypted signed and unsigned modes | Equivalent attacks untested |
-| Old ciphertext replaces current variable state | Confirmed in encrypted signed and unsigned modes | Equivalent attacks untested |
-| Public slot IDs changed with repaired checksums | Confirmed in encrypted signed and unsigned modes | Equivalent attacks untested |
+| Header reset hides committed contents | Confirmed in encrypted signed and unsigned modes | Native authenticated empty/nonempty state implemented; post-fix refusal checks pass |
+| Old ciphertext replaces current variable state | Confirmed in encrypted signed and unsigned modes | Native referenced-page commitments implemented; post-fix refusal checks pass |
+| Public slot IDs changed with repaired checksums | Confirmed in encrypted signed and unsigned modes | Native access commitment checked after bootstrap; post-fix refusal checks pass |
+
+The [native pre-fix run](evidence/password-integrity-audit-2026-10-11/native-v4-before-fixes.log)
+passes four audit tests by reproducing the three unwanted acceptances and verifying
+bitflip/mode rejection controls. Passing reproductions are not security acceptance.
+Independent candidate code review identifies authentication-invalid newer-slot
+fallback as a separate regression target; full-reader consequences remain untested.
 
 Before resuming tuning, require authenticated empty/nonempty state, expected
 object/version and byte commitments throughout the graph, authenticated access
@@ -35,13 +44,15 @@ the handoff. Existing component results do not establish this expanded coverage.
 
 New password archives are to default to unsigned after the integrity gates pass;
 password holders are authorized writers. Existing signed archives and explicit
-signed creation retain their requirements. Mixed-access and conversion policy
-must be resolved explicitly. Whole-archive rollback remains outside self-contained
+signed creation retain their requirements. The user chose signed defaults for new
+mixed password/contact archives; access changes on existing archives preserve mode.
+Conversion remains an explicit, separately verified operation. Whole-archive rollback remains outside self-contained
 freshness guarantees; plaintext unsigned mode offers no adversarial integrity.
 Retain old benchmark guarantees and epochs, checkpoint the accepted security
-implementation, then establish new comparable baselines. The 50%-remaining usage
-limit remains applicable; no release or performance resumption is authorized by
-this documentation update.
+implementation. The later instruction to finish security supersedes the prior
+usage cutoff for this task. New comparable performance baselines require a new
+user instruction; performance remains paused even after security checkpointing.
+No release is authorized.
 
 ## Current goal reconciliation — 2026-10-09
 

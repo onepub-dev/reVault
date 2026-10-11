@@ -431,15 +431,9 @@ fn forged_unsigned_generation_never_grants_old_credentials_fallback() {
     let checksum = strong_checksum(&forged[..CHECKSUM_START]);
     forged[CHECKSUM_START..].copy_from_slice(&checksum);
     storage.write_at(0, &forged).unwrap();
-    // Ordinary explicit-key selection can authenticate the old slot. Bootstrap
-    // deliberately refuses: the newer structural slot may represent a rekey.
-    assert_eq!(
-        select(&storage, archive(), mode, &Authority::Symmetric(&KEY))
-            .unwrap()
-            .anchor
-            .generation,
-        1
-    );
+    // Both explicit-key selection and bootstrap refuse silent fallback: the
+    // newer checksum-valid structural publication may represent a rekey.
+    assert!(select(&storage, archive(), mode, &Authority::Symmetric(&KEY)).is_err());
     assert!(open(
         &storage,
         archive(),
@@ -466,5 +460,51 @@ fn directory_identity_generation_and_slot_ids_are_checked() {
     ] {
         anchor.keys = roots(&mut storage, &bytes);
         assert!(read_directory(&storage, &anchor).is_err());
+    }
+}
+
+#[test]
+fn password_integrity_public_slot_id_changes_reject_after_bootstrap() {
+    let owner = OwnerSigningKeyPair::generate().unwrap();
+    let public = owner.public_key();
+    let password = password();
+    for signed in [false, true] {
+        let mode = mode(signed);
+        let slots = [slot(&KEY)];
+        let mut storage = StorageBackend::memory(vec![0; REGION_LEN]);
+        let anchor = stage(&mut storage, mode, &KEY, &slots, None);
+        publish(&mut storage, &anchor, &KEY, &owner, true);
+        let mut changed = slots.clone();
+        if let KeySlot::Password { id, .. } = &mut changed[0] {
+            *id += 100;
+        }
+        // Canonical public re-encoding repairs all directory-local checksums;
+        // the selected publication's authenticated commitment stays unchanged.
+        let replacement = directory(archive(), 1, &changed).unwrap();
+        storage.write_at(anchor.keys.primary, &replacement).unwrap();
+        let survivor = open(
+            &storage,
+            archive(),
+            mode,
+            signed.then_some(&public),
+            Credential::Password(&password),
+            None,
+        )
+        .unwrap();
+        verify_private(&storage, &survivor, &KEY);
+        assert_eq!(
+            read_directory(&storage, &survivor.anchor).unwrap()[0].id(),
+            1
+        );
+        storage.write_at(anchor.keys.mirror, &replacement).unwrap();
+        assert!(open(
+            &storage,
+            archive(),
+            mode,
+            signed.then_some(&public),
+            Credential::Password(&password),
+            None
+        )
+        .is_err());
     }
 }

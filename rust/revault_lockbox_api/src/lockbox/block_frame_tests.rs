@@ -86,6 +86,7 @@ fn native_file_writer_commits_and_reopens_multiframe_files_in_all_modes() {
                             record_offset: first.page_offset,
                             record_len: first.page_len,
                             record_object_id: first.object_id,
+                            record_digest: [0; 32],
                             deleted: false,
                             node_kind: crate::node_kind::NodeKind::File,
                             permissions: 0o640,
@@ -255,10 +256,7 @@ fn native_file_writer_commits_and_reopens_multiframe_files_in_all_modes() {
                     let manifest_report =
                         crate::RecoveryScanner::scan_bytes(missing_toc.clone(), &*recovery_key);
                     assert!(!manifest_report.toc_recovered);
-                    assert!(manifest_report
-                        .intact_files
-                        .iter()
-                        .any(|entry| entry.path == path));
+                    assert!(manifest_report.intact_files.is_empty());
                     // A valid duplicate page is not a second authenticated
                     // generation: ambiguous overlapping candidates are omitted.
                     let first_native = native_pages[0];
@@ -272,45 +270,30 @@ fn native_file_writer_commits_and_reopens_multiframe_files_in_all_modes() {
                         .intact_files
                         .iter()
                         .any(|entry| entry.path == path));
-                    let duplicate_salvage =
-                        crate::RecoveryScanner::salvage_bytes(duplicate, &*recovery_key, &signer)
-                            .unwrap();
-                    assert!(duplicate_salvage.get_file(&path).is_err());
+                    assert!(crate::RecoveryScanner::salvage_bytes(
+                        duplicate,
+                        &*recovery_key,
+                        &signer,
+                    )
+                    .is_err());
                     let mut gap = missing_toc.clone();
                     gap[start..end].fill(0);
                     let gap_report =
                         crate::RecoveryScanner::scan_bytes(gap.clone(), &*recovery_key);
-                    assert!(gap_report.partial_files > 0);
-                    let gap_salvage =
-                        crate::RecoveryScanner::salvage_bytes(gap, &*recovery_key, &signer)
-                            .unwrap();
-                    assert!(gap_salvage.get_file(&path).is_err());
-                    let manifest_salvage = crate::RecoveryScanner::salvage_bytes(
-                        missing_toc.clone(),
+                    assert!(gap_report.intact_files.is_empty());
+                    assert!(gap_report.corrupt_records > 0);
+                    assert!(
+                        crate::RecoveryScanner::salvage_bytes(gap, &*recovery_key, &signer,)
+                            .is_err()
+                    );
+                    // Frame manifests alone do not establish current membership,
+                    // regardless of whether the archive has an owner signer.
+                    assert!(crate::RecoveryScanner::salvage_bytes(
+                        missing_toc,
                         &*recovery_key,
                         &signer,
                     )
-                    .unwrap();
-                    if signed {
-                        assert!(manifest_report.partial_files > 0);
-                        assert!(manifest_salvage.get_file(&path).is_err());
-                    } else {
-                        assert_eq!(manifest_report.partial_files, 0);
-                        assert_eq!(manifest_salvage.get_file(&path).unwrap(), input);
-                        assert_eq!(manifest_salvage.format_options(), archive.format_options());
-                        let reopened = Lockbox::open_bytes(
-                            manifest_salvage.to_bytes(),
-                            if encrypted {
-                                LockboxOpen::ContentKey(
-                                    SecretVec::try_from_slice(&[67; 32]).unwrap(),
-                                )
-                            } else {
-                                LockboxOpen::Unencrypted
-                            },
-                        )
-                        .unwrap();
-                        assert_eq!(reopened.get_file(&path).unwrap(), input);
-                    }
+                    .is_err());
                     let damaged_report =
                         crate::RecoveryScanner::scan_bytes(damaged.clone(), &*recovery_key);
                     assert!(damaged_report.corrupt_records > 0);
@@ -379,20 +362,17 @@ fn native_file_writer_commits_and_reopens_multiframe_files_in_all_modes() {
                         let report =
                             crate::RecoveryScanner::scan_bytes(forged.clone(), &*recovery_key);
                         assert!(report.intact_file_count <= 1);
-                        let salvaged = crate::RecoveryScanner::salvage_bytes(
+                        assert!(crate::RecoveryScanner::salvage_bytes(
                             forged.clone(),
                             &*recovery_key,
                             &signer,
                         )
-                        .unwrap();
-                        assert!(salvaged.get_file(&path).is_err());
+                        .is_err());
                         forged[0] ^= 0xff;
                         forged[192] ^= 0xff;
-                        let salvaged =
-                            crate::RecoveryScanner::salvage_bytes(forged, &*recovery_key, &signer)
-                                .unwrap();
                         assert!(
-                            salvaged.get_file(&path).is_err(),
+                            crate::RecoveryScanner::salvage_bytes(forged, &*recovery_key, &signer)
+                                .is_err(),
                             "header magic repair cannot authorize a bad signature"
                         );
                     }
@@ -604,6 +584,7 @@ fn native_file_writer_packed_deletion_preserves_survivors_in_all_modes() {
                                 record_offset: segment.page_offset,
                                 record_len: segment.page_len,
                                 record_object_id: segment.object_id,
+                                record_digest: [0; 32],
                                 deleted: false,
                                 node_kind: crate::node_kind::NodeKind::File,
                                 permissions: 0o640,
@@ -646,16 +627,12 @@ fn native_file_writer_packed_deletion_preserves_survivors_in_all_modes() {
                             missing_toc[start..start + record.header.total_len as usize].fill(0);
                         }
                     }
-                    let manifest_salvage =
-                        crate::RecoveryScanner::salvage_bytes(missing_toc, &*recovery_key, &signer)
-                            .unwrap();
-                    for (path, data) in paths.iter().zip(&contents) {
-                        if signed {
-                            assert!(manifest_salvage.get_file(path).is_err());
-                        } else {
-                            assert_eq!(manifest_salvage.get_file(path).unwrap(), *data);
-                        }
-                    }
+                    assert!(crate::RecoveryScanner::salvage_bytes(
+                        missing_toc,
+                        &*recovery_key,
+                        &signer,
+                    )
+                    .is_err());
                     let mut damaged = reopened.to_bytes();
                     let offset = old_segment.page_offset as usize;
                     let used = crate::page::PAGE_HEADER_LEN
@@ -710,13 +687,12 @@ fn native_file_writer_packed_deletion_preserves_survivors_in_all_modes() {
                             let report =
                                 crate::RecoveryScanner::scan_bytes(forged.clone(), &*recovery_key);
                             assert_eq!(report.intact_file_count, 0);
-                            let salvage = crate::RecoveryScanner::salvage_bytes(
+                            assert!(crate::RecoveryScanner::salvage_bytes(
                                 forged,
                                 &*recovery_key,
                                 &signer,
                             )
-                            .unwrap();
-                            assert!(salvage.get_file(&paths[1]).is_err());
+                            .is_err());
                         }
                     }
                     let stale_salvage =
@@ -781,6 +757,7 @@ pub(crate) fn install(archive: &mut Lockbox, input: &[u8]) -> Vec<LockboxPath> {
                 record_offset: offset,
                 record_len: page.len() as u64,
                 record_object_id: identity.page_id,
+                record_digest: [0; 32],
                 deleted: false,
                 node_kind: crate::node_kind::NodeKind::File,
                 permissions: slice.permissions,

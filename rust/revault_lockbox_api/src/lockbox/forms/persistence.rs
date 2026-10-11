@@ -1,4 +1,5 @@
 use super::*;
+use crate::file_format::page_commitment::PageCommitment;
 
 impl<State> Lockbox<State> {
     pub(crate) fn clone_all_form_state(
@@ -64,6 +65,7 @@ impl<State> Lockbox<State> {
             .clone();
         if definitions.is_empty() && records.is_empty() {
             self.forms.tree.clear();
+            self.form_root_commitment = PageCommitment::default();
             self.forms.dirty = false;
             return Ok(0);
         }
@@ -84,7 +86,12 @@ impl<State> Lockbox<State> {
         let mut redactions = Vec::new();
         if !self.forms.tree.dirty_keys.is_empty() {
             let Some(root) = self.forms.tree.root.clone() else {
-                self.collect_form_tree_redactions(self.forms.tree.root_offset, 0, &mut redactions)?;
+                self.collect_form_tree_redactions(
+                    self.forms.tree.root_offset,
+                    self.form_root_commitment,
+                    0,
+                    &mut redactions,
+                )?;
                 return self.write_form_redactions(redactions);
             };
             collect_dirty_form_tree_redactions_from_node(
@@ -93,16 +100,20 @@ impl<State> Lockbox<State> {
                 &mut redactions,
             );
         } else {
-            self.collect_form_tree_redactions(self.forms.tree.root_offset, 0, &mut redactions)?;
+            self.collect_form_tree_redactions(
+                self.forms.tree.root_offset,
+                self.form_root_commitment,
+                0,
+                &mut redactions,
+            )?;
         }
         self.write_form_redactions(redactions)
     }
 
     fn write_form_redactions(&mut self, redactions: Vec<(u64, u64)>) -> Result<()> {
-        for (offset, _object_id) in redactions {
+        for (offset, page_size) in redactions {
             // Preserve the original physical extent so cleanup erases the
             // complete retired form page, including its unused tail.
-            let page_size = self.secure_page_len_at(offset)?;
             self.record_ref_counts.remove(&offset);
             self.redacted_free_slots.push(FreeSlot {
                 offset,
@@ -120,15 +131,16 @@ impl<State> Lockbox<State> {
         let entries = form_entries_from_maps(&definitions, &records);
         let mut leaves = Vec::new();
         for chunk in form_leaf_groups(&entries)? {
-            let (offset, object_id) = self.write_form_leaf(chunk)?;
+            let (offset, _object_id, commitment) = self.write_form_leaf(chunk)?;
             leaves.push(FormLeaf {
                 offset,
-                object_id,
+                commitment,
                 entries: chunk.to_vec(),
             });
         }
         let root_node = self.write_form_tree_for_leaves(&leaves)?;
         let root = root_node.offset();
+        self.form_root_commitment = root_node.commitment();
         self.forms.tree.replace_topology(root_node, leaves);
         Ok(root)
     }
@@ -148,10 +160,10 @@ impl<State> Lockbox<State> {
                 LeafRewrite::Reuse(leaf) => rebuilt_leaves.push(leaf),
                 LeafRewrite::Write(entries) => {
                     for chunk in form_leaf_groups(&entries)? {
-                        let (offset, object_id) = self.write_form_leaf(chunk)?;
+                        let (offset, _object_id, commitment) = self.write_form_leaf(chunk)?;
                         rebuilt_leaves.push(FormLeaf {
                             offset,
-                            object_id,
+                            commitment,
                             entries: chunk.to_vec(),
                         });
                     }
@@ -166,6 +178,7 @@ impl<State> Lockbox<State> {
             self.write_form_tree_for_leaves(&rebuilt_leaves)?
         };
         let root = root_node.offset();
+        self.form_root_commitment = root_node.commitment();
         self.forms.tree.replace_topology(root_node, rebuilt_leaves);
         Ok(root)
     }
@@ -225,7 +238,13 @@ impl<State> Lockbox<State> {
     fn decode_form_btree(&self, root_offset: u64) -> Result<FormTreeDecodeResult> {
         let mut definitions = BTreeMap::new();
         let mut records = BTreeMap::new();
-        let root = self.decode_form_node_into(root_offset, &mut definitions, &mut records, 0)?;
+        let root = self.decode_form_node_into(
+            root_offset,
+            self.form_root_commitment,
+            &mut definitions,
+            &mut records,
+            0,
+        )?;
         let mut leaves = Vec::new();
         root.collect_leaves(&mut leaves);
         leaves.sort_by(|left, right| {
@@ -247,6 +266,7 @@ impl<State> Lockbox<State> {
     fn decode_form_node_into(
         &self,
         offset: u64,
+        commitment: PageCommitment,
         definitions: &mut BTreeMap<String, FormDefinition>,
         records: &mut BTreeMap<LockboxPath, FormRecord>,
         depth: usize,
@@ -254,7 +274,7 @@ impl<State> Lockbox<State> {
         if depth > 8 {
             return Err(Error::CorruptRecord);
         }
-        let (node, object_id) = self.read_form_node(offset)?;
+        let (node, object_id) = self.read_form_node(offset, commitment)?;
         match node {
             FormNode::Leaf(entries) => {
                 let leaf_entries = entries.clone();
@@ -270,7 +290,7 @@ impl<State> Lockbox<State> {
                 }
                 Ok(FormTreeNode::Leaf(FormLeaf {
                     offset,
-                    object_id,
+                    commitment,
                     entries: leaf_entries,
                 }))
             }
@@ -279,6 +299,7 @@ impl<State> Lockbox<State> {
                 for child in children {
                     nodes.push(self.decode_form_node_into(
                         child.offset,
+                        child.commitment,
                         definitions,
                         records,
                         depth + 1,
@@ -287,14 +308,15 @@ impl<State> Lockbox<State> {
                 Ok(FormTreeNode::Internal(FormInternal {
                     offset,
                     object_id,
+                    commitment,
                     children: nodes,
                 }))
             }
         }
     }
 
-    fn read_form_node(&self, offset: u64) -> Result<(FormNode, u64)> {
-        let form_object = self.read_form_object_secure(offset)?;
+    fn read_form_node(&self, offset: u64, commitment: PageCommitment) -> Result<(FormNode, u64)> {
+        let form_object = self.read_form_object_secure(offset, commitment)?;
         if !matches!(
             form_object.kind,
             PageObjectKind::FormLeaf | PageObjectKind::FormInternal
@@ -305,8 +327,12 @@ impl<State> Lockbox<State> {
         Ok((decode_form_node_secure(payload)?, form_object.id))
     }
 
-    fn read_form_object_secure(&self, offset: u64) -> Result<PageObject> {
-        self.with_secure_page(offset, |page| {
+    fn read_form_object_secure(
+        &self,
+        offset: u64,
+        commitment: PageCommitment,
+    ) -> Result<PageObject> {
+        self.with_authenticated_secure_page(offset, commitment, |page| {
             if page.objects.len() != 1 {
                 return Err(Error::CorruptRecord);
             }
@@ -317,27 +343,33 @@ impl<State> Lockbox<State> {
     fn collect_form_tree_redactions(
         &self,
         offset: u64,
+        commitment: PageCommitment,
         depth: usize,
         redactions: &mut Vec<(u64, u64)>,
     ) -> Result<()> {
         if depth > 8 {
             return Err(Error::CorruptRecord);
         }
-        let form_object = self.read_form_object_secure(offset)?;
+        let form_object = self.read_form_object_secure(offset, commitment)?;
         if !matches!(
             form_object.kind,
             PageObjectKind::FormLeaf | PageObjectKind::FormInternal
         ) {
             return Err(Error::CorruptRecord);
         }
-        redactions.push((offset, form_object.id));
+        redactions.push((offset, commitment.physical_len));
         if form_object.kind == PageObjectKind::FormInternal {
             let payload = form_object.secure_payload().ok_or(Error::CorruptRecord)?;
             let FormNode::Internal(children) = decode_form_node_secure(payload)? else {
                 return Err(Error::CorruptRecord);
             };
             for child in children {
-                self.collect_form_tree_redactions(child.offset, depth + 1, redactions)?;
+                self.collect_form_tree_redactions(
+                    child.offset,
+                    child.commitment,
+                    depth + 1,
+                    redactions,
+                )?;
             }
         }
         Ok(())
@@ -360,10 +392,11 @@ impl<State> Lockbox<State> {
                 .map(|node| FormChild {
                     first_key: node.first_key().to_string(),
                     offset: node.offset(),
+                    commitment: node.commitment(),
                 })
                 .collect::<Vec<_>>();
             for chunk in form_child_groups(&children)? {
-                let (offset, object_id) = self.write_form_internal(chunk)?;
+                let (offset, object_id, commitment) = self.write_form_internal(chunk)?;
                 let start = child_cursor;
                 let end = start + chunk.len();
                 child_cursor = end;
@@ -371,6 +404,7 @@ impl<State> Lockbox<State> {
                 next_level.push(FormTreeNode::Internal(FormInternal {
                     offset,
                     object_id,
+                    commitment,
                     children: child_nodes,
                 }));
             }
@@ -398,6 +432,7 @@ impl<State> Lockbox<State> {
             FormTreeNode::Internal(old_internal) => {
                 let old_offset = old_internal.offset;
                 let old_object_id = old_internal.object_id;
+                let old_commitment = old_internal.commitment;
                 let mut changed = false;
                 let mut children = Vec::with_capacity(old_internal.children.len());
                 for child in old_internal.children {
@@ -415,6 +450,7 @@ impl<State> Lockbox<State> {
                     return Ok(FormTreeNode::Internal(FormInternal {
                         offset: old_offset,
                         object_id: old_object_id,
+                        commitment: old_commitment,
                         children,
                     }));
                 }
@@ -423,47 +459,63 @@ impl<State> Lockbox<State> {
                     .map(|child| FormChild {
                         first_key: child.first_key().to_string(),
                         offset: child.offset(),
+                        commitment: child.commitment(),
                     })
                     .collect::<Vec<_>>();
-                let (offset, object_id) = self.write_form_internal(&form_children)?;
+                let (offset, object_id, commitment) = self.write_form_internal(&form_children)?;
                 Ok(FormTreeNode::Internal(FormInternal {
                     offset,
                     object_id,
+                    commitment,
                     children,
                 }))
             }
         }
     }
 
-    fn write_form_leaf(&mut self, entries: &[crate::form_btree::FormEntry]) -> Result<(u64, u64)> {
+    fn write_form_leaf(
+        &mut self,
+        entries: &[crate::form_btree::FormEntry],
+    ) -> Result<(u64, u64, PageCommitment)> {
         let payload = encode_form_leaf_secure(entries)?;
         self.sequence += 1;
         let object_id = self.sequence;
-        Ok((
-            self.append_form_page_secure(PageObjectKind::FormLeaf, payload)?,
-            object_id,
-        ))
+        let (offset, commitment) =
+            self.append_form_page_secure(PageObjectKind::FormLeaf, payload)?;
+        Ok((offset, object_id, commitment))
     }
 
-    fn write_form_internal(&mut self, children: &[FormChild]) -> Result<(u64, u64)> {
+    fn write_form_internal(
+        &mut self,
+        children: &[FormChild],
+    ) -> Result<(u64, u64, PageCommitment)> {
         let payload = SecureVec::try_from_vec(encode_form_internal(children)?)?;
         self.sequence += 1;
         let object_id = self.sequence;
-        Ok((
-            self.append_form_page_secure(PageObjectKind::FormInternal, payload)?,
-            object_id,
-        ))
+        let (offset, commitment) =
+            self.append_form_page_secure(PageObjectKind::FormInternal, payload)?;
+        Ok((offset, object_id, commitment))
     }
 
     fn append_form_page_secure(
         &mut self,
         kind: PageObjectKind,
         mut payload: SecureVec,
-    ) -> Result<u64> {
+    ) -> Result<(u64, PageCommitment)> {
         let sequence = self.staged.sequence;
         // Size from the length only; never materialize secret fields on the plain heap.
         let page_size = crate::page::secure_page_size(payload.len(), self.format_mode)? as u64;
         let page_offset = self.allocate_page_offset(page_size)?;
+        let commitment = PageCommitment::from_page(
+            self.lockbox_id,
+            self.format_mode,
+            page_size,
+            &crate::page::DecodedPage {
+                page_id: page_offset,
+                sequence,
+                objects: vec![PageObject::new_secure(kind, sequence, payload.try_clone()?)],
+            },
+        )?;
         self.begin_preparation()?;
         let mut content_key = self.key.with_bytes(derive_page_content_key)?;
         let result = self
@@ -483,7 +535,7 @@ impl<State> Lockbox<State> {
             );
         content_key.zeroize();
         payload.zeroize()?;
-        result
+        result.map(|offset| (offset, commitment))
     }
 }
 
@@ -524,7 +576,7 @@ fn collect_dirty_form_tree_redactions_from_node(
         FormTreeNode::Leaf(leaf) => {
             let overlaps = form_entries_overlap_dirty(&leaf.entries, dirty_keys);
             if overlaps {
-                redactions.push((leaf.offset, leaf.object_id));
+                redactions.push((leaf.offset, leaf.commitment.physical_len));
             }
             overlaps
         }
@@ -535,7 +587,7 @@ fn collect_dirty_form_tree_redactions_from_node(
                     collect_dirty_form_tree_redactions_from_node(child, dirty_keys, redactions);
             }
             if changed {
-                redactions.push((internal.offset, internal.object_id));
+                redactions.push((internal.offset, internal.commitment.physical_len));
             }
             changed
         }

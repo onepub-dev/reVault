@@ -101,7 +101,9 @@ pub(crate) fn create_matches(matches: &ArgMatches, access: &Access) -> CliResult
 }
 
 fn configured_creation(matches: &ArgMatches) -> bool {
-    matches.get_flag("no-size-padding")
+    matches.get_flag("password")
+        || matches.contains_id("for")
+        || matches.get_flag("no-size-padding")
         || ["encryption", "signing", "compression", "compression-level"]
             .iter()
             .any(|name| matches.contains_id(name))
@@ -110,7 +112,7 @@ fn configured_creation(matches: &ArgMatches) -> bool {
 fn configured_creation_needs_vault(matches: &ArgMatches, access: &Access) -> bool {
     let signed = matches
         .get_one::<String>("signing")
-        .is_none_or(|mode| mode == "owner");
+        .map_or(!matches.get_flag("password"), |mode| mode == "owner");
     let plaintext = matches
         .get_one::<String>("encryption")
         .is_some_and(|mode| mode == "none");
@@ -178,9 +180,6 @@ fn create_configured(
     let plaintext = matches
         .get_one::<String>("encryption")
         .is_some_and(|mode| mode == "none");
-    let signed = matches
-        .get_one::<String>("signing")
-        .is_none_or(|mode| mode == "owner");
     let compression = if matches
         .get_one::<String>("compression")
         .is_some_and(|mode| mode == "none")
@@ -193,20 +192,6 @@ fn create_configured(
     };
     let path = create_path(&command_lockbox().ok_or_else(|| cli_error("missing lockbox"))?)?;
     ensure_new_lockbox_path(&path)?;
-    // The caller opens a Vault only when required or already unlocked.
-    let signing_key = if signed {
-        Some(
-            vault
-                .unwrap()
-                .load_owner_signing_key(VaultDirectory::DEFAULT_KEY_NAME)?,
-        )
-    } else {
-        None
-    };
-    let signing = signing_key
-        .as_ref()
-        .map(Signing::Owner)
-        .unwrap_or(Signing::None);
     let mut password = None;
     let mut cache_key = None;
     let encryption = if plaintext {
@@ -239,6 +224,19 @@ fn create_configured(
         };
         Encryption::Encrypted(protection)
     };
+    let signed = matches
+        .get_one::<String>("signing")
+        .map_or(password.is_none(), |mode| mode == "owner");
+    let signing_key = if signed {
+        Some(
+            vault
+                .ok_or_else(|| cli_error("owner signing requires an unlocked Vault"))?
+                .load_owner_signing_key(VaultDirectory::DEFAULT_KEY_NAME)?,
+        )
+    } else {
+        None
+    };
+    let signing = signing_key.as_ref().map_or(Signing::None, Signing::Owner);
     let mut lb = Lockbox::create_file_with_options(
         &path,
         LockboxCreateOptions {
@@ -256,6 +254,16 @@ fn create_configured(
         matches.get_one::<String>("description").map(String::as_str),
     )?;
     if let Some(password) = password.as_ref() {
+        if let Some(profile) = matches.get_one::<String>("for") {
+            let slot = lb
+                .list_key_slots()
+                .into_iter()
+                .find(|slot| slot.protection == LockboxKeySlotProtection::Password)
+                .ok_or_else(|| cli_error("created password slot is missing"))?;
+            vault
+                .ok_or_else(|| cli_error("password profile requires an unlocked Vault"))?
+                .remember_access_slot_label(lb.lockbox_id(), slot.id, profile)?;
+        }
         let backup = VaultOpen::export_key_directory_backup(&lb)?;
         let opened = VaultOpen::key_directory_backup_with_password(&backup, password)?;
         cache_key = Some(opened.try_clone_key()?);

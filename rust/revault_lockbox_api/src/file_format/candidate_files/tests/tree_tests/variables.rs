@@ -1020,3 +1020,69 @@ mod resource;
 mod moves;
 
 mod prepared;
+
+#[test]
+fn password_integrity_selected_variable_rejects_historical_ciphertext_all_protected_modes() {
+    let owner = OwnerSigningKeyPair::generate().unwrap();
+    let public = owner.public_key();
+    let name = VariableName::new("VALUE").unwrap();
+    for bits in 0..16 {
+        let mode = mode(bits & 1 != 0, bits & 2 != 0, bits & 4 != 0, bits & 8 != 0);
+        if mode.plaintext() && !mode.signed() {
+            continue;
+        }
+        let authority = authority(mode, &public);
+        let signer = mode.signed().then_some(&owner);
+        let mut storage = super::mutation::seed(mode, &authority, &owner);
+        set_variable(
+            &mut storage,
+            archive(),
+            mode,
+            &authority,
+            signer,
+            key(mode),
+            &name,
+            "alpha",
+        )
+        .unwrap();
+        let old = AuditedTreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
+            .unwrap();
+        let old_extent = &old.image.catalogue.variables[0].layout.extents[0];
+        let historical = storage
+            .read_at(old_extent.start, old_extent.len as usize)
+            .unwrap();
+        set_variable(
+            &mut storage,
+            archive(),
+            mode,
+            &authority,
+            signer,
+            key(mode),
+            &name,
+            "bravo",
+        )
+        .unwrap();
+        let latest =
+            AuditedTreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
+                .unwrap();
+        let extent = latest.image.catalogue.variables[0].layout.extents[0].clone();
+        let valid =
+            tree_image::TreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
+                .unwrap();
+        assert_eq!(valid.get_variable(&name).unwrap().as_deref(), Some("bravo"));
+        assert_eq!(extent.len as usize, historical.len());
+        // Synthetic retained historical bytes, already carrying valid old
+        // checksums/AEAD, are spliced over the currently referenced allocation.
+        storage.write_at(extent.start, &historical).unwrap();
+        let selected =
+            tree_image::TreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
+                .unwrap();
+        assert!(selected.get_variable(&name).is_err());
+        // Inventory admission is lazy about referenced variable payloads too.
+        // Both reader surfaces must refuse the payload before exposing its value.
+        match AuditedTreeImage::open(storage, archive(), mode, &authority, key(mode)) {
+            Err(_) => {}
+            Ok(audited) => assert!(audited.get_variable(&name).is_err()),
+        }
+    }
+}

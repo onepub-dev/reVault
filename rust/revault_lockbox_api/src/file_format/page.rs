@@ -7,7 +7,9 @@ use crate::crypto::{
 use crate::lockbox_id::LockboxId;
 use crate::page_buffer::{zeroize_bytes, PageBuffer, ZeroizingBytes};
 use crate::page_inspection::{PageInspection, PageObjectInspection};
+#[cfg(test)]
 use crate::record::{DecodedRecord, RecordHeader, RecordKind};
+#[cfg(test)]
 use crate::scan::Scan;
 use crate::secret_vec::{secure_read_access, SecureVec};
 use crate::{Error, Result};
@@ -106,12 +108,7 @@ pub(crate) fn page_size_for_encoded_objects_with_format(
     let max_page_size = max_page_size_for_objects(objects);
     let mut object_stream = encode_object_stream(objects)?;
     page_size_for_object_stream_len(object_stream.len(), max_page_size)?;
-    let compress_body = !objects.iter().any(|object| {
-        matches!(
-            object.kind,
-            PageObjectKind::FileData | PageObjectKind::PackedFileData
-        )
-    });
+    let compress_body = objects_allow_body_compression(objects, mode);
     let body = encode_page_body_plaintext(&object_stream, compress_body);
     object_stream.zeroize();
     let stored_body_len = if page_objects_are_clear_text(objects)? {
@@ -168,10 +165,73 @@ pub(crate) fn page_size_for_stored_len(stored_len: usize, max_page_size: usize) 
     Ok(page_size)
 }
 
+pub(crate) fn is_canonical_control_kind(kind: PageObjectKind) -> bool {
+    matches!(
+        kind,
+        PageObjectKind::CommitRoot | PageObjectKind::CommitAuth | PageObjectKind::KeyDirectory
+    )
+}
+
+/// Fixed raw framing, with no compression or encoder-version dependency.
+pub(crate) fn canonical_control_page_len(
+    payload_len: usize,
+    kind: PageObjectKind,
+    mode: crate::creation_options::FormatMode,
+) -> Result<u64> {
+    if !is_canonical_control_kind(kind) {
+        return Err(Error::CorruptRecord);
+    }
+    Ok(canonical_control_page_len_from_flags(
+        payload_len,
+        mode.unpadded(),
+        mode.plaintext() || kind == PageObjectKind::KeyDirectory,
+    )? as u64)
+}
+
+fn canonical_control_page_len_from_flags(
+    payload_len: usize,
+    unpadded: bool,
+    clear: bool,
+) -> Result<usize> {
+    let len = payload_len
+        .checked_add(PAGE_HEADER_LEN + 16 + 4 + 20 + if clear { 32 } else { 16 })
+        .ok_or(Error::CorruptRecord)?;
+    if unpadded {
+        checked_unpadded_len(len, DEFAULT_METADATA_PAGE_BYTES)
+    } else {
+        page_size_for_stored_len(len, DEFAULT_METADATA_PAGE_BYTES)
+    }
+}
+
+pub(crate) fn validate_control_model(
+    page: &DecodedPage,
+    offset: u64,
+    kind: PageObjectKind,
+) -> Result<()> {
+    let [object] = page.objects.as_slice() else {
+        return Err(Error::CorruptRecord);
+    };
+    if object.kind != kind || page.page_id != offset || object.id != page.sequence {
+        return Err(Error::CorruptRecord);
+    }
+    let sequence = object.with_payload(|payload| match kind {
+        PageObjectKind::CommitRoot => {
+            crate::commit_root::decode_commit_root(payload).map(|root| root.sequence)
+        }
+        PageObjectKind::CommitAuth => {
+            crate::commit_auth::decode_commit_auth(payload).map(|auth| auth.sequence)
+        }
+        _ => Err(Error::CorruptRecord),
+    })??;
+    if page.sequence != sequence {
+        return Err(Error::CorruptRecord);
+    }
+    Ok(())
+}
+
 /// Recover only a damaged physical-length field using the retained header
 /// checksum. The search is bounded by the format maximum and surviving bytes;
 /// callers must still authenticate the page body and its owning publication.
-#[cfg(any(test, feature = "native-block-layout"))]
 pub(crate) fn recover_physical_length_header(bytes: &[u8]) -> Option<[u8; PAGE_HEADER_LEN]> {
     let mut header: [u8; PAGE_HEADER_LEN] = bytes.get(..PAGE_HEADER_LEN)?.try_into().ok()?;
     if &header[..8] != PAGE_MAGIC
@@ -478,7 +538,11 @@ fn objects_allow_body_compression(
     !objects.iter().any(|object| {
         matches!(
             object.kind,
-            PageObjectKind::FileData | PageObjectKind::PackedFileData
+            PageObjectKind::FileData
+                | PageObjectKind::PackedFileData
+                | PageObjectKind::CommitRoot
+                | PageObjectKind::CommitAuth
+                | PageObjectKind::KeyDirectory
         ) || (mode.0 != 0
             && matches!(
                 object.kind,
@@ -669,6 +733,27 @@ pub(crate) fn decode_page_with_format(
         Cow::Borrowed(bytes) => decode_object_stream(bytes)?,
         Cow::Owned(bytes) => decode_object_stream(&ZeroizingBytes::new(bytes))?,
     };
+    if objects
+        .iter()
+        .any(|object| is_canonical_control_kind(object.kind))
+    {
+        let [object] = objects.as_slice() else {
+            return Err(Error::CorruptRecord);
+        };
+        if body.get(1) != Some(&COMPRESSION_NONE)
+            || body[2..4] != [0; 2]
+            || body[12..16] != [0; 4]
+            || object.id != sequence
+            || physical_page_size_from_page_slice(page)?
+                != canonical_control_page_len_from_flags(
+                    object.payload_len(),
+                    flags & PAGE_FLAG_UNPADDED != 0,
+                    flags & PAGE_FLAG_CLEAR_TEXT != 0,
+                )?
+        {
+            return Err(Error::CorruptRecord);
+        }
+    }
     // Key-directory bootstrap/recovery can run before a trustworthy archive
     // header is available. Its public, self-describing page extent is checked
     // above; every private/content page must match the persisted archive policy.
@@ -956,6 +1041,7 @@ fn decode_single_object_stream_in_place<B: PageBuffer>(
     Ok((kind, id, payload))
 }
 
+#[cfg(test)]
 pub(crate) fn scan_page_records(bytes: &[u8], lockbox_id: LockboxId, key: &[u8]) -> Scan {
     #[cfg(any(test, feature = "native-block-layout"))]
     let mut native_pages = Vec::new();
@@ -1227,6 +1313,7 @@ fn page_objects_are_clear_text(objects: &[PageObject]) -> Result<bool> {
     Ok(clear_text)
 }
 
+#[cfg(test)]
 fn record_kind_from_object_kind(kind: PageObjectKind) -> Option<RecordKind> {
     match kind {
         PageObjectKind::PackedFileData | PageObjectKind::FileData => Some(RecordKind::FilePage),
@@ -1390,6 +1477,86 @@ mod tests {
     use super::*;
 
     #[test]
+    fn canonical_control_extent_matches_writer_across_modes_and_boundaries() {
+        use crate::{Compression, EncryptionMode, LockboxFormatOptions, SigningMode, SizePadding};
+        let archive = LockboxId::from_bytes([31; 16]);
+        let mut modes = vec![crate::creation_options::FormatMode::default()];
+        for encryption in [EncryptionMode::None, EncryptionMode::ChaCha20Poly1305] {
+            for size_padding in [SizePadding::Default, SizePadding::None] {
+                for compression in [Compression::None, Compression::default()] {
+                    modes.push(crate::creation_options::FormatMode::new(
+                        LockboxFormatOptions {
+                            encryption,
+                            signing: SigningMode::Owner,
+                            compression,
+                            size_padding,
+                        },
+                    ));
+                }
+            }
+        }
+        for mode in modes {
+            for kind in [
+                PageObjectKind::CommitRoot,
+                PageObjectKind::CommitAuth,
+                PageObjectKind::KeyDirectory,
+            ] {
+                for payload_len in [0, 1, 850, 851, 856, 872, 1024, 4097, 8192] {
+                    let objects = vec![PageObject::new(kind, 7, vec![37; payload_len])];
+                    let actual = page_size_for_encoded_objects_with_format(&objects, mode).unwrap();
+                    assert_eq!(
+                        canonical_control_page_len(payload_len, kind, mode).unwrap(),
+                        actual as u64
+                    );
+                    let encoded = encode_page_with_format(
+                        actual,
+                        archive,
+                        512,
+                        7,
+                        b"controls",
+                        &objects,
+                        mode,
+                    )
+                    .unwrap();
+                    assert_eq!(encoded.len(), actual);
+                    assert!(decode_page_with_format(&encoded, archive, b"controls", mode).is_ok());
+                    if !mode.unpadded() {
+                        let noncanonical = encode_page_with_format(
+                            actual + 1024,
+                            archive,
+                            512,
+                            7,
+                            b"controls",
+                            &objects,
+                            mode,
+                        )
+                        .unwrap();
+                        assert!(
+                            decode_page_with_format(&noncanonical, archive, b"controls", mode)
+                                .is_err()
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn canonical_control_decoder_requires_one_object_and_matching_identity() {
+        let archive = LockboxId::from_bytes([41; 16]);
+        for objects in [
+            vec![PageObject::new(PageObjectKind::CommitRoot, 8, vec![1; 32])],
+            vec![
+                PageObject::new(PageObjectKind::CommitRoot, 7, vec![1; 32]),
+                PageObject::new(PageObjectKind::CommitAuth, 7, vec![2; 32]),
+            ],
+        ] {
+            let encoded = encode_page(1024, archive, 512, 7, b"controls", &objects).unwrap();
+            assert!(decode_page(&encoded, archive, b"controls").is_err());
+        }
+    }
+
+    #[test]
     fn arithmetic_page_sizes_match_serialized_bodies_in_every_explicit_mode() {
         use crate::creation_options::FormatMode;
         use crate::{
@@ -1424,10 +1591,8 @@ mod tests {
                                 let body = encode_objects_body(&objects, mode).unwrap();
                                 // Bind the codec decision as well as its length: file frames
                                 // and private tree bodies must not acquire page compression.
-                                let eligible = matches!(
-                                    kind,
-                                    PageObjectKind::TocLeaf | PageObjectKind::KeyDirectory
-                                ) && compression != Compression::None;
+                                let eligible = matches!(kind, PageObjectKind::TocLeaf)
+                                    && compression != Compression::None;
                                 assert_eq!(
                                     body[1],
                                     if eligible {
@@ -1515,7 +1680,7 @@ mod tests {
         use crate::creation_options::FormatMode;
         use crate::{Compression, EncryptionMode, LockboxFormatOptions, SigningMode, SizePadding};
         let id = LockboxId::new_random().unwrap();
-        let objects = [PageObject::new(PageObjectKind::CommitRoot, 10, vec![7; 88])];
+        let objects = [PageObject::new(PageObjectKind::CommitRoot, 7, vec![7; 88])];
         for encryption in [EncryptionMode::None, EncryptionMode::ChaCha20Poly1305] {
             for size_padding in [SizePadding::Default, SizePadding::None] {
                 let mode = FormatMode::new(LockboxFormatOptions {
@@ -1524,11 +1689,12 @@ mod tests {
                     signing: SigningMode::Owner,
                     compression: Compression::None,
                 });
-                let size = if mode.unpadded() {
-                    page_size_for_encoded_objects_with_format(&objects, mode).unwrap()
-                } else {
-                    128 * 1024
-                };
+                let size = canonical_control_page_len(
+                    objects[0].payload_len(),
+                    PageObjectKind::CommitRoot,
+                    mode,
+                )
+                .unwrap() as usize;
                 let page =
                     encode_page_with_format(size, id, 3, 7, b"secret", &objects, mode).unwrap();
                 assert!(recover_physical_length_header(&page).is_none());
@@ -1614,11 +1780,17 @@ mod tests {
         let lockbox_id = LockboxId::new_random().unwrap();
         let objects = vec![PageObject::new(
             PageObjectKind::KeyDirectory,
-            10,
+            7,
             b"keys".to_vec(),
         )];
 
-        let mut page = encode_page(128 * 1024, lockbox_id, 3, 7, b"", &objects).unwrap();
+        let size = canonical_control_page_len(
+            objects[0].payload_len(),
+            PageObjectKind::KeyDirectory,
+            crate::creation_options::FormatMode::default(),
+        )
+        .unwrap() as usize;
+        let mut page = encode_page(size, lockbox_id, 3, 7, b"", &objects).unwrap();
         assert_eq!(
             u16::from_le_bytes(page[10..12].try_into().unwrap()),
             PAGE_FLAG_CLEAR_TEXT

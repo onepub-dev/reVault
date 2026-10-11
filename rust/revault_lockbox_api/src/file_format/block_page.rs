@@ -260,11 +260,13 @@ struct Metadata {
 /// or authorized by the archive owner. Recovery must retain commit validation.
 #[derive(Debug)]
 pub(crate) struct ScannedBlockPage {
+    #[cfg(test)]
     pub(crate) offset: u64,
     pub(crate) page_id: u64,
     pub(crate) sequence: u64,
     pub(crate) physical_len: usize,
     pub(crate) descriptor: BlockFrameDescriptor,
+    #[cfg(test)]
     pub(crate) manifest: CompressionFrameManifest,
 }
 
@@ -317,11 +319,13 @@ pub(crate) fn scan(
     )?;
     let _verified = ZeroizingBytes::new(frame.read(0..metadata.descriptor.logical_len)?);
     Ok(ScannedBlockPage {
+        #[cfg(test)]
         offset: offset as u64,
         page_id: identity.page_id,
         sequence: identity.sequence,
         physical_len,
         descriptor: metadata.descriptor,
+        #[cfg(test)]
         manifest: metadata.manifest,
     })
 }

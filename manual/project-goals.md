@@ -34,7 +34,8 @@ to archives rather than exporting 'rustisms' up through the stack.
 The lockbox archive format is safe by default: encrypted and compressed, with
 authenticated contents and private metadata. New password archives are to be
 unsigned by default: possession of the password grants read/write access without
-the creator's signing key. Other creation modes retain their signing policy.
+the creator's signing key. New mixed password/contact archives remain signed;
+other creation modes retain their signing policy.
 This approved goal is pending implementation and security qualification in the
 v4 plan; it is not a claim about released defaults.
 

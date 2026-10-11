@@ -1,0 +1,12 @@
+{
+  "source_revision": "a7a9f4d85b0fa716bf9e402de5f29ff5a6f61e9b",
+  "adapter_sha256": {
+    "archive": "a9e8e0f9085382a173a46b5e12625e036fc1c208cf1bf0191b94f6abc2af8858",
+    "vault": "845bba7979dd1e70b701d061fffc10400ba832173217f9827c2cc04b5a28a12e"
+  },
+  "cargo_lock_sha256": "ffa26f5ec8fa134fbeada8b803f9e4376befbe9fd851856f818011537a01f20f",
+  "binary_sha256": {
+    "revault-migrate-archive-experimental-v4": "e5e8a68510b9e5540bd0fbb6889374515c0c6dd1d320d6b8e58738cf678ab1b6",
+    "revault-migrate-vault-experimental-v4": "777235294821d4fefabe33605fcf7cb145593900d1ed746b0790f2d15d5743ce"
+  }
+}

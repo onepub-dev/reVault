@@ -374,7 +374,11 @@ export class Lockbox extends OwnedHandle {
    * Close existing readers before opening a writer. Attaching a signer later cannot upgrade a reader.
    * @example const box = Lockbox.open(path, {password}); try { console.log(box.getFile('/hello')); } finally { box.close(); }
    */
-  static open(path, options = {}) { return Lockbox._file(path, 'open', options); }
+  static open(path, options = {}) {
+    // Explicit writable selects access independently of signingKey; omission preserves legacy behavior.
+    const mode = options.writable == null ? 'open' : (options.writable ? 'write' : 'read');
+    return Lockbox._file(path, mode, options);
+  }
 
   /** @internal Marshals file credentials and runtime tuning to Rust. */
   static _file(path, mode, {password, contentKey, contact, signingKey, options = {}}) {

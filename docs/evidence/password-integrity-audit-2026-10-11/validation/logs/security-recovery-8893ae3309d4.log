@@ -1,0 +1,39 @@
+warning: field `payload` is never read
+  --> revault_lockbox_api/src/model/record.rs:26:16
+   |
+22 | pub(crate) struct DecodedRecord {
+   |                   ------------- field in this struct
+...
+26 |     pub(crate) payload: Vec<u8>,
+   |                ^^^^^^^
+   |
+   = note: `DecodedRecord` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` on by default
+
+warning: `revault_lockbox_api` (lib test) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.11s
+     Running unittests src/lib.rs (target/debug/deps/revault_lockbox_api-6637e4b482e7344a)
+
+running 48 tests
+test api_tests::native_pointer_recovery_retains_header_authentication ... ok
+test api_tests::path_backed_recovery_preserves_variable_paths_and_forms_from_commit_root ... ok
+test api_tests::path_backed_recovery_report_counts_variables_after_multiple_commits ... ok
+test api_tests::recovery_preserves_variable_paths_and_forms_from_commit_root ... ok
+test api_tests::recovery_refuses_current_membership_without_authenticated_toc ... FAILED
+test api_tests::recovery_report_default_summarizes_intact_files_without_listing_them ... ok
+test api_tests::recovery_report_verbose_lists_intact_files_with_optional_limit ... ok
+test api_tests::recovery_reports_corrupt_records_for_damaged_frame_header ... FAILED
+test api_tests::recovery_reports_partial_when_file_record_is_corrupt_but_toc_survives ... ok
+test api_tests::recovery_skips_truncated_tail_and_keeps_prior_intact_files ... FAILED
+test api_tests::recovery_survives_corrupt_header ... FAILED
+test api_tests::recovery_survives_corrupt_toc_record ... FAILED
+test api_tests::recovery_survives_header_toc_pointer_zeroed ... FAILED
+test api_tests::symlink_recovery_records_are_packed_into_metadata_pages ... ok
+test api_tests::large_file_recovery_reassembles_segments_after_toc_loss ... FAILED
+test file_format::allocation_map::tests::recovery_audits_descendant_ownership_before_any_erasure ... ok
+test api_tests::symlink_recovery_records_spill_across_metadata_pages ... ok
+test file_format::candidate_files::tests::dense_filesystem_metadata_recovery_selects_complete_old_or_typed_new_state ... ok
+test file_format::candidate_files::tests::dense_recovery_refuses_forged_cleanup_of_live_or_fixed_bytes ... ok
+test file_format::candidate_files::tests::dense_recovery_itself_survives_interruption_in_abort_and_commit_cleanup ... ok
+test file_format::candidate_files::tests::tree_tests::forms::definitions::typed_form_definition_and_empty_record_atomic_recovery_faults has been running for over 60 seconds
+test file_format::candidate_files::tests::tree_tests::forms::fields::typed_form_field_upgrade_guarded_atomic_recovery_faults has been running for over 60 seconds

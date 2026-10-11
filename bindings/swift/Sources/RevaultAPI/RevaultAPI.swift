@@ -1512,8 +1512,8 @@ public final class Revault {
     /// Opens a native file with a shared lock; supply signer for exclusive write access.
     /// Close readers before opening a writer. The caller retains its key and signer.
     /// Example: let box = try api.openLockboxFile(path, contentKey: key); defer { box.free() }; let payload = try box.getFile("/hello")
-    public func openLockboxFile(_ path: String, contentKey: Data, signer: ProfileSigningKeyPair? = nil) throws -> Lockbox {
-        return Lockbox(operations, try operations.lockboxFile(path, "open", "content-key", contentKey, nil, signer?.handle, "bytes", 64 << 20, "interactive", "auto", 0))
+    public func openLockboxFile(_ path: String, contentKey: Data, signer: ProfileSigningKeyPair? = nil, writable: Bool? = nil) throws -> Lockbox {
+        return Lockbox(operations, try operations.lockboxFile(path, writable.map { $0 ? "write" : "read" } ?? "open", "content-key", contentKey, nil, signer?.handle, "bytes", 64 << 20, "interactive", "auto", 0))
     }
 
     /// Creates an in-memory archive with a caller-owned content key.

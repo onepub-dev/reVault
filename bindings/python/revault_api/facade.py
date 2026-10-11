@@ -237,14 +237,16 @@ class Lockbox(_OwnedHandle):
         return Lockbox._file(path, 'replace' if overwrite else 'create', password, content_key, contact, signing_key, options)
 
     @staticmethod
-    def open(path, *, password=None, content_key=None, contact=None, signing_key=None, options=None):
+    def open(path, *, password=None, content_key=None, contact=None, signing_key=None, options=None, writable=None):
         """Open with a shared lock, or exclusive write access when signing_key is supplied.
 
+        Set writable=True or False to select access independently of signing_key.
+        Unsigned archives need no signer to write. None preserves legacy selection.
         Close existing readers before opening a writer; a shared reader cannot be upgraded.
         Example: with Lockbox.open(path, password=password) as box:
             assert box.get_file('/hello') == b'hello'
         """
-        return Lockbox._file(path, 'open', password, content_key, contact, signing_key, options)
+        return Lockbox._file(path, 'open' if writable is None else ('write' if writable else 'read'), password, content_key, contact, signing_key, options)
 
     @staticmethod
     def _file(path, mode, password, content_key, contact, signing_key, options):

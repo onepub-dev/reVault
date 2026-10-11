@@ -53,7 +53,15 @@ fn adversarial_page_oversized_body_header_is_rejected_before_body_read() {
 
 #[test]
 fn adversarial_commit_auth_oversized_key_count_is_rejected_before_allocating() {
-    let bytes = read_fixture("adversarial/v1/commit_auth/oversized_key_count.bin.hex");
+    let mut bytes = read_fixture("adversarial/v1/commit_auth/oversized_key_count.bin.hex");
+    // Historical auth revisions reject before their fields are interpreted.
+    assert!(matches!(
+        decode_commit_auth(&bytes),
+        Err(Error::CorruptRecord)
+    ));
+    // The current revision retains this field layout and must enforce the
+    // count bound before allocating key/signature storage.
+    bytes[8] = 3;
 
     assert!(matches!(
         decode_commit_auth(&bytes),
@@ -186,6 +194,7 @@ fn adversarial_toc_compressed_len_gt_frame() -> Vec<u8> {
         record_offset: 4096,
         record_len: 4096,
         record_object_id: 10,
+        record_digest: [0; 32],
         deleted: false,
         node_kind: NodeKind::File,
         permissions: DEFAULT_FILE_PERMISSIONS,

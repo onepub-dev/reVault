@@ -3,14 +3,16 @@ use super::*;
 
 /// Opens, creates, or atomically replaces a native lockbox and retains its lock.
 ///
-/// `mode` is UTF-8 `open`, `create`, or `replace`. `credential` is `password`,
+/// `mode` is UTF-8 `open`, `read`, `write`, `create`, or `replace`. `credential` is `password`,
 /// `content-key`, `contact`, or `vault`. `secret` contains UTF-8 password bytes or the raw
 /// content key, and is empty for contact credentials. `contact` is a public key
 /// for creation, a private keypair for contact opening, or an open VaultDirectory
 /// for vault credential resolution. Otherwise it must be null. Vault resolution
 /// is process-local, uses remembered passwords/profile keys, and never uses the agent.
 /// A null signer on open selects shared read-only access; a supplied signer
-/// selects exclusive write access. Creation generates a signer when null.
+/// selects exclusive write access. Explicit `read` and `write` select access
+/// independently of the signer; signed archives still require a signer to write.
+/// Password creation without a signer is unsigned. Other creation generates one.
 /// Runtime tuning has the same contract as `lockbox_open_with_options`.
 /// Close with `lockbox_free`; mutations persist through `lockbox_commit`.
 ///
@@ -46,13 +48,15 @@ pub unsafe extern "C" fn lockbox_file(
         let mode = unsafe { input_str(mode, mode_len) }.ok_or_else(invalid)?;
         let credential = unsafe { input_str(credential, credential_len) }.ok_or_else(invalid)?;
         let secret = unsafe { input(secret, secret_len) }.ok_or_else(invalid)?;
-        if path.is_empty() || path.contains('\0') || !matches!(mode, "open" | "create" | "replace")
+        if path.is_empty()
+            || path.contains('\0')
+            || !matches!(mode, "open" | "read" | "write" | "create" | "replace")
         {
             return Err(invalid());
         }
         if matches!(credential, "contact" | "vault") == contact.is_null()
             || (matches!(credential, "contact" | "vault") && !secret.is_empty())
-            || (credential == "vault" && mode != "open")
+            || (credential == "vault" && !matches!(mode, "open" | "read" | "write"))
         {
             return Err(invalid());
         }
@@ -78,13 +82,15 @@ pub unsafe extern "C" fn lockbox_file(
             None
         };
         let path = std::path::Path::new(path);
-        if mode == "open" {
+        let writable = mode == "write" || (mode == "open" && signer.is_some());
+        if matches!(mode, "open" | "read" | "write") {
             if credential == "vault" {
                 return open_from_vault(
                     path,
                     unsafe { &*contact.cast::<VaultDirectoryHandle>() },
                     signer,
                     options,
+                    writable,
                 );
             }
             let open = match credential {
@@ -97,7 +103,7 @@ pub unsafe extern "C" fn lockbox_file(
                 )?),
                 _ => return Err(invalid()),
             };
-            Lockbox::open_file_handle(path, open, signer, options)
+            Lockbox::open_file_handle_with_access(path, open, signer, options, writable)
         } else {
             let protection = match credential {
                 "password" => LockboxProtection::Password(password.as_ref().unwrap()),
@@ -111,14 +117,21 @@ pub unsafe extern "C" fn lockbox_file(
                 _ => return Err(invalid()),
             };
             let generated;
-            let signer = match signer {
-                Some(signer) => signer,
+            let signing = match signer {
+                Some(signer) => revault_lockbox_api::Signing::Owner(signer),
+                None if credential == "password" => revault_lockbox_api::Signing::None,
                 None => {
                     generated = OwnerSigningKeyPair::generate()?;
-                    &generated
+                    revault_lockbox_api::Signing::Owner(&generated)
                 }
             };
-            Lockbox::create_file_handle(path, protection, signer, options, mode == "replace")
+            Lockbox::create_file_handle_with_signing(
+                path,
+                protection,
+                signing,
+                options,
+                mode == "replace",
+            )
         }
     })();
     match result {
@@ -140,6 +153,7 @@ fn open_from_vault(
     vault: &VaultDirectoryHandle,
     signer: Option<&OwnerSigningKeyPair>,
     options: revault_lockbox_api::LockboxOptions,
+    writable: bool,
 ) -> LockboxResult<Lockbox> {
     let id = Lockbox::inspect_file(path)?.lockbox_id;
     let verify_identity = |result: LockboxResult<Lockbox>| {
@@ -153,11 +167,12 @@ fn open_from_vault(
         })
     };
     if let Some(password) = vault.remembered_lockbox_password(id)? {
-        match verify_identity(Lockbox::open_file_handle(
+        match verify_identity(Lockbox::open_file_handle_with_access(
             path,
             LockboxOpen::Password(&password),
             signer,
             options,
+            writable,
         )) {
             Err(revault_lockbox_api::Error::InvalidKey) => {}
             result => return result,
@@ -165,11 +180,12 @@ fn open_from_vault(
     }
     for profile in vault.list_private_keys()? {
         let contact = vault.load_private_key(&profile)?;
-        match verify_identity(Lockbox::open_file_handle(
+        match verify_identity(Lockbox::open_file_handle_with_access(
             path,
             LockboxOpen::ContactKeyPair(contact),
             signer,
             options,
+            writable,
         )) {
             Err(revault_lockbox_api::Error::InvalidKey) => {}
             result => return result,
@@ -195,6 +211,21 @@ mod tests {
             .into_owned()
     }
     fn file(path: &Path, mode: &str, signer: *const c_void) -> *mut c_void {
+        credential_file(
+            path,
+            mode,
+            signer,
+            "content-key",
+            b"KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK",
+        )
+    }
+    fn credential_file(
+        path: &Path,
+        mode: &str,
+        signer: *const c_void,
+        credential: &str,
+        secret: &[u8],
+    ) -> *mut c_void {
         let path = path.to_str().unwrap();
         unsafe {
             lockbox_file(
@@ -202,10 +233,10 @@ mod tests {
                 path.len(),
                 mode.as_ptr().cast(),
                 mode.len(),
-                b"content-key".as_ptr().cast(),
-                11,
-                b"KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK".as_ptr(),
-                32,
+                credential.as_ptr().cast(),
+                credential.len(),
+                secret.as_ptr(),
+                secret.len(),
                 ptr::null(),
                 signer,
                 b"disabled".as_ptr().cast(),
@@ -249,6 +280,81 @@ mod tests {
             String::from_utf8_lossy(&output.stdout),
             String::from_utf8_lossy(&output.stderr)
         );
+    }
+
+    #[test]
+    fn password_file_defaults_and_explicit_access_survive_reopen() {
+        let root = std::env::temp_dir().join(format!(
+            "revault-ffi-password-access-{}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&root).unwrap();
+        let signer = key_signing_generate();
+        for signed in [false, true] {
+            let path = root.join(if signed {
+                "signed.lbox"
+            } else {
+                "unsigned.lbox"
+            });
+            let key = if signed { signer } else { ptr::null_mut() };
+            let open = |mode, signing| {
+                let raw = credential_file(&path, mode, signing, "password", b"test password");
+                assert!(!raw.is_null(), "{}", diagnostic());
+                Handle(raw)
+            };
+            let writer = open("replace", key);
+            assert_eq!(
+                unsafe { &*writer.0.cast::<Lockbox>() }
+                    .format_options()
+                    .signing,
+                if signed {
+                    revault_lockbox_api::SigningMode::Owner
+                } else {
+                    revault_lockbox_api::SigningMode::None
+                }
+            );
+            let payload = b"password archive bytes";
+            assert!(unsafe {
+                lockbox_add_file(
+                    writer.0,
+                    b"/hello".as_ptr().cast(),
+                    6,
+                    payload.as_ptr(),
+                    payload.len(),
+                    false,
+                )
+            });
+            assert!(unsafe { lockbox_commit(writer.0) });
+            drop(writer);
+            for mode in ["read", "open"] {
+                let reader = open(
+                    mode,
+                    if mode == "read" {
+                        signer
+                    } else {
+                        ptr::null_mut()
+                    },
+                );
+                contents(&reader, payload);
+                assert!(!unsafe { lockbox_commit(reader.0) });
+                assert!(unsafe { &*reader.0.cast::<Lockbox>() }.is_file_read_only());
+            }
+            if signed {
+                assert!(
+                    credential_file(&path, "write", ptr::null(), "password", b"test password")
+                        .is_null()
+                );
+            }
+            let writer = open("write", key);
+            assert!(!unsafe { &*writer.0.cast::<Lockbox>() }.is_file_read_only());
+            contents(&writer, payload);
+            assert!(unsafe { lockbox_commit(writer.0) });
+            drop(writer);
+            contents(&open("read", ptr::null_mut()), payload);
+            std::fs::remove_file(path).unwrap();
+        }
+        unsafe { key_signing_free(signer) };
+        std::fs::remove_dir(root).unwrap();
     }
 
     #[test]

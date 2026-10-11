@@ -83,6 +83,64 @@ impl Drop for Fixture {
 }
 
 #[test]
+fn password_profile_default_allows_recipient_writes_without_owner_vault() {
+    let f = Fixture::new();
+    f.ok(false, &["vault", "init"]);
+    f.ok(
+        false,
+        &["vault", "profile", "create", "recipient", "--password"],
+    );
+    f.ok(
+        false,
+        &[
+            "vault",
+            "profile",
+            "password",
+            "recipient",
+            "--output",
+            "credential",
+        ],
+    );
+    f.ok(false, &["shared.lbox", "create", "--for", "recipient"]);
+    let status = f.ok(false, &["shared.lbox", "doctor"]);
+    assert!(String::from_utf8_lossy(&status).contains("signing: none"));
+    let access = f.ok(
+        false,
+        &["shared.lbox", "access", "list", "--format", "json"],
+    );
+    assert!(String::from_utf8_lossy(&access).contains("recipient"));
+    f.open_server("credential");
+    assert!(!f.root.path().join("server-vault/local-vault.lbox").exists());
+    std::fs::write(
+        f.root.path().join("recipient-input"),
+        b"recipient-written bytes",
+    )
+    .unwrap();
+    f.ok(
+        true,
+        &["shared.lbox", "add", "recipient-input", "--to", "/shared"],
+    );
+    assert_eq!(
+        f.ok(false, &["shared.lbox", "cat", "/shared"]),
+        b"recipient-written bytes"
+    );
+    f.ok(
+        true,
+        &["shared.lbox", "variable", "set", "/recipient", "persisted"],
+    );
+    assert!(String::from_utf8_lossy(
+        &f.ok(false, &["shared.lbox", "variable", "get", "/recipient"])
+    )
+    .contains("persisted"));
+    f.ok(true, &["shared.lbox", "close"]);
+    f.open_server("credential");
+    assert_eq!(
+        f.ok(true, &["shared.lbox", "cat", "/shared"]),
+        b"recipient-written bytes"
+    );
+}
+
+#[test]
 fn password_profile_lifecycle_and_vaultless_server_access() {
     let f = Fixture::new();
     f.ok(false, &["vault", "init"]);

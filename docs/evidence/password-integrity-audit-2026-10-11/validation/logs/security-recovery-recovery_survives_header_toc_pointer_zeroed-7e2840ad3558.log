@@ -1,0 +1,31 @@
+warning: field `payload` is never read
+  --> revault_lockbox_api/src/model/record.rs:26:16
+   |
+22 | pub(crate) struct DecodedRecord {
+   |                   ------------- field in this struct
+...
+26 |     pub(crate) payload: Vec<u8>,
+   |                ^^^^^^^
+   |
+   = note: `DecodedRecord` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` on by default
+
+warning: `revault_lockbox_api` (lib test) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.10s
+     Running unittests src/lib.rs (target/debug/deps/revault_lockbox_api-6637e4b482e7344a)
+
+running 1 test
+test api_tests::recovery_survives_header_toc_pointer_zeroed ... 
+thread 'api_tests::recovery_survives_header_toc_pointer_zeroed' panicked at revault_lockbox_api/src/api_tests.rs:3284:5:
+assertion failed: !report.toc_recovered
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    api_tests::recovery_survives_header_toc_pointer_zeroed
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 705 filtered out; finished in 0.04s
+
+error: test failed, to rerun pass `-p revault_lockbox_api --lib`

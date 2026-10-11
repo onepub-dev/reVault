@@ -355,8 +355,8 @@ module Revault
     # Opens with a shared lock; supply signing_key for exclusive write access.
     # Close readers before opening a writer. Example:
     # box = Lockbox.open(path, password: password); begin; puts box.get_file('/hello'); ensure; box.close; end
-    def self.open(path, **options)
-      file_handle(path, 'open', **options)
+    def self.open(path, writable: nil, **options)
+      file_handle(path, writable.nil? ? 'open' : (writable ? 'write' : 'read'), **options)
     end
 
     # Internal credential and option marshalling for native file operations.

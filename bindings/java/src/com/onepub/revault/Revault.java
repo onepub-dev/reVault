@@ -245,7 +245,11 @@ public final class Revault {
    * <pre>try (var box = api.openLockboxFile(path, key, null)) { byte[] payload = box.getFile("/hello"); }</pre>
    */
   public Lockbox openLockboxFile(String path, byte[] contentKey, ProfileSigningKeyPair signer) {
-    return new Lockbox(operations.lockboxFile(path, "open", "content-key", contentKey, MemorySegment.NULL, signer == null ? MemorySegment.NULL : signer.handle, "bytes", 64L << 20, "interactive", "auto", 0));
+    return openLockboxFile(path, contentKey, signer, null);
+  }
+  /** Select read or write access independently of signing; null preserves legacy selection. */
+  public Lockbox openLockboxFile(String path, byte[] contentKey, ProfileSigningKeyPair signer, Boolean writable) {
+    return new Lockbox(operations.lockboxFile(path, writable == null ? "open" : (writable ? "write" : "read"), "content-key", contentKey, MemorySegment.NULL, signer == null ? MemorySegment.NULL : signer.handle, "bytes", 64L << 20, "interactive", "auto", 0));
   }
 
   /** Creates lockbox. */

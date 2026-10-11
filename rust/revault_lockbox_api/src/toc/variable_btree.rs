@@ -3,7 +3,8 @@ use std::sync::Arc;
 
 use crate::checked::{read_u16_le, read_u32_le};
 use crate::constants::DEFAULT_METADATA_MAX_PAGE_BODY_BYTES;
-use crate::page_tree::{PageTreeChild, PageTreeChildren, PageTreeLayout};
+use crate::file_format::page_commitment::PageCommitment;
+use crate::page_tree::{AuthenticatedPageTreeChildren, PageTreeChild, PageTreeLayout};
 use crate::secret_vec::{secure_read_access, SecureVec};
 use crate::security::{validate_variable_name, validate_variable_value_ref};
 use crate::{Error, Result, SecretString, VariableName, VariableSensitivity};
@@ -55,6 +56,7 @@ pub(crate) enum VariableNode {
 pub(crate) struct VariableChild {
     pub(crate) first_name: String,
     pub(crate) offset: u64,
+    pub(crate) commitment: PageCommitment,
 }
 
 impl VariableChild {
@@ -64,18 +66,21 @@ impl VariableChild {
             offset: self.offset,
         }
         .encoded_len()
+            + 40
     }
 }
 
 #[derive(Debug, Clone)]
 pub(crate) struct VariableLeaf {
     pub(crate) offset: u64,
+    pub(crate) commitment: PageCommitment,
     pub(crate) entries: Vec<VariableEntry>,
 }
 
 #[derive(Debug, Clone)]
 pub(crate) struct VariableInternal {
     pub(crate) offset: u64,
+    pub(crate) commitment: PageCommitment,
     pub(crate) children: Vec<VariableTreeNode>,
 }
 
@@ -86,6 +91,12 @@ pub(crate) enum VariableTreeNode {
 }
 
 impl VariableTreeNode {
+    pub(crate) fn commitment(&self) -> PageCommitment {
+        match self {
+            Self::Leaf(leaf) => leaf.commitment,
+            Self::Internal(internal) => internal.commitment,
+        }
+    }
     pub(crate) fn offset(&self) -> u64 {
         match self {
             Self::Leaf(leaf) => leaf.offset,
@@ -173,7 +184,13 @@ pub(crate) fn encode_variable_internal(children: &[VariableChild]) -> Result<Vec
     let mut out = Vec::new();
     out.push(VARIABLE_NODE_VERSION);
     out.push(VARIABLE_INTERNAL);
-    out.extend_from_slice(&PageTreeChildren::new(routing_children).encode());
+    out.extend_from_slice(
+        &AuthenticatedPageTreeChildren::new(
+            routing_children,
+            children.iter().map(|child| child.commitment).collect(),
+        )
+        .encode()?,
+    );
     if out.len() > DEFAULT_METADATA_MAX_PAGE_BODY_BYTES {
         return Err(Error::SecurityLimitExceeded(
             "variable internal node exceeds maximum page size".to_string(),
@@ -205,7 +222,7 @@ pub(crate) fn variable_leaf_groups(entries: &[VariableEntry]) -> Result<Vec<&[Va
 
 pub(crate) fn variable_child_groups(children: &[VariableChild]) -> Result<Vec<&[VariableChild]>> {
     PageTreeLayout::new(
-        VARIABLE_NODE_PREFIX_BYTES + CHILD_COUNT_BYTES,
+        VARIABLE_NODE_PREFIX_BYTES + CHILD_COUNT_BYTES + 4,
         "variable child",
     )
     .groups(children, VariableChild::encoded_len)
@@ -221,13 +238,14 @@ pub(crate) fn decode_variable_node_secure(payload: &SecureVec) -> Result<Variabl
                 VARIABLE_NODE_VERSION => match payload[1] {
                     VARIABLE_LEAF => decode_variable_leaf_secure_metadata(payload),
                     VARIABLE_INTERNAL => Ok(SecureVariableNodeMetadata::Internal(
-                        PageTreeChildren::decode(&payload[2..], |key| {
+                        AuthenticatedPageTreeChildren::decode(&payload[2..], |key| {
                             validate_internal_variable_name(key)
                         })?
-                        .into_iter()
-                        .map(|child| VariableChild {
+                        .into_pairs()
+                        .map(|(child, commitment)| VariableChild {
                             first_name: child.first_key,
                             offset: child.offset,
+                            commitment,
                         })
                         .collect(),
                     )),

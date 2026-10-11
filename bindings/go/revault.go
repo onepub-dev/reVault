@@ -498,6 +498,16 @@ func OpenFile(path string, contentKey []byte, signer *ProfileSigningKeyPair) (*L
 	return lockboxFile(path, "open", "content-key", contentKey, nil, signing, LockboxOptions{CacheMode: "bytes", CacheBytes: 64 << 20, Workload: "interactive", Worker: "auto"})
 }
 
+// OpenFileWithAccess selects shared read or exclusive write access independently of signer.
+// Unsigned archives accept a nil signer for writes; signed archives require their owner key.
+func OpenFileWithAccess(path string, contentKey []byte, signer *ProfileSigningKeyPair, writable bool) (*Lockbox, error) {
+	var signing unsafe.Pointer
+	if signer != nil { signing = signer.handle }
+	mode := "read"
+	if writable { mode = "write" }
+	return lockboxFile(path, mode, "content-key", contentKey, nil, signing, LockboxOptions{CacheMode: "bytes", CacheBytes: 64 << 20, Workload: "interactive", Worker: "auto"})
+}
+
 // Open opens open.
 // BEGIN generated file operation route
 func lockboxFile(path, mode, credential string, secret []byte, contact, signer unsafe.Pointer, options LockboxOptions) (*Lockbox, error) {

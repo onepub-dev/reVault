@@ -192,8 +192,8 @@ public sealed class Revault
         operations.LockboxFile(path, overwrite ? "replace" : "create", "content-key", contentKey, IntPtr.Zero, signer.Handle, "bytes", 64UL << 20, "interactive", "auto", 0));
     /// <summary>Opens a native file with a shared lock, or exclusive write access with signer. Dispose all readers before opening a writer. No Session Agent is used.</summary>
     /// <example>using (var box = api.OpenLockboxFile(path, key)) { var payload = box.GetFile("/hello"); }</example>
-    public Lockbox OpenLockboxFile(string path, byte[] contentKey, ProfileSigningKeyPair? signer = null) => new(this,
-        operations.LockboxFile(path, "open", "content-key", contentKey, IntPtr.Zero, signer?.Handle ?? IntPtr.Zero, "bytes", 64UL << 20, "interactive", "auto", 0));
+    public Lockbox OpenLockboxFile(string path, byte[] contentKey, ProfileSigningKeyPair? signer = null, bool? writable = null) => new(this,
+        operations.LockboxFile(path, writable.HasValue ? (writable.Value ? "write" : "read") : "open", "content-key", contentKey, IntPtr.Zero, signer?.Handle ?? IntPtr.Zero, "bytes", 64UL << 20, "interactive", "auto", 0));
 
     /// <summary>Creates lockbox.</summary>
     public Lockbox CreateLockbox(byte[] key) => new(this, operations.LockboxCreate(key));

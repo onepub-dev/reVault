@@ -3,12 +3,13 @@ use std::sync::Arc;
 
 use crate::checked::{read_u16_le, read_u32_le};
 use crate::constants::DEFAULT_METADATA_MAX_PAGE_BODY_BYTES;
+use crate::file_format::page_commitment::PageCommitment;
 use crate::form::{
     FormDefinition, FormFieldDefinition, FormFieldKind, FormFieldValue, FormRecord, FormTypeId,
     FormValue,
 };
 use crate::incremental_btree::{BTreeEntry, BTreeLeaf};
-use crate::page_tree::{PageTreeChild, PageTreeChildren, PageTreeLayout};
+use crate::page_tree::{AuthenticatedPageTreeChildren, PageTreeChild, PageTreeLayout};
 use crate::secret_vec::{secure_read_access, SecureVec};
 use crate::{Error, LockboxPath, Result, SecretString};
 
@@ -46,6 +47,7 @@ pub(crate) enum FormNode {
 pub(crate) struct FormChild {
     pub(crate) first_key: String,
     pub(crate) offset: u64,
+    pub(crate) commitment: PageCommitment,
 }
 
 impl FormChild {
@@ -55,13 +57,14 @@ impl FormChild {
             offset: self.offset,
         }
         .encoded_len()
+            + 40
     }
 }
 
 #[derive(Debug, Clone)]
 pub(crate) struct FormLeaf {
     pub(crate) offset: u64,
-    pub(crate) object_id: u64,
+    pub(crate) commitment: PageCommitment,
     pub(crate) entries: Vec<FormEntry>,
 }
 
@@ -82,6 +85,7 @@ impl BTreeLeaf<FormEntry> for FormLeaf {
 #[derive(Debug, Clone)]
 pub(crate) struct FormInternal {
     pub(crate) offset: u64,
+    pub(crate) commitment: PageCommitment,
     pub(crate) object_id: u64,
     pub(crate) children: Vec<FormTreeNode>,
 }
@@ -93,6 +97,12 @@ pub(crate) enum FormTreeNode {
 }
 
 impl FormTreeNode {
+    pub(crate) fn commitment(&self) -> PageCommitment {
+        match self {
+            Self::Leaf(leaf) => leaf.commitment,
+            Self::Internal(internal) => internal.commitment,
+        }
+    }
     pub(crate) fn offset(&self) -> u64 {
         match self {
             Self::Leaf(leaf) => leaf.offset,
@@ -190,7 +200,13 @@ pub(crate) fn encode_form_internal(children: &[FormChild]) -> Result<Vec<u8>> {
     let mut out = Vec::new();
     out.push(FORM_NODE_VERSION);
     out.push(FORM_INTERNAL);
-    out.extend_from_slice(&PageTreeChildren::new(routing_children).encode());
+    out.extend_from_slice(
+        &AuthenticatedPageTreeChildren::new(
+            routing_children,
+            children.iter().map(|child| child.commitment).collect(),
+        )
+        .encode()?,
+    );
     if out.len() > DEFAULT_METADATA_MAX_PAGE_BODY_BYTES {
         return Err(Error::SecurityLimitExceeded(
             "form internal node exceeds maximum page size".to_string(),
@@ -205,7 +221,7 @@ pub(crate) fn form_leaf_groups(entries: &[FormEntry]) -> Result<Vec<&[FormEntry]
 }
 
 pub(crate) fn form_child_groups(children: &[FormChild]) -> Result<Vec<&[FormChild]>> {
-    PageTreeLayout::new(FORM_NODE_PREFIX_BYTES + CHILD_COUNT_BYTES, "form child")
+    PageTreeLayout::new(FORM_NODE_PREFIX_BYTES + CHILD_COUNT_BYTES + 4, "form child")
         .groups(children, FormChild::encoded_len)
 }
 
@@ -218,11 +234,12 @@ pub(crate) fn decode_form_node_secure(payload: &SecureVec) -> Result<FormNode> {
             match payload[1] {
                 FORM_LEAF => decode_form_leaf_metadata(payload),
                 FORM_INTERNAL => Ok(ParsedFormNode::Internal(
-                    PageTreeChildren::decode(&payload[2..], validate_form_tree_key)?
-                        .into_iter()
-                        .map(|child| FormChild {
+                    AuthenticatedPageTreeChildren::decode(&payload[2..], validate_form_tree_key)?
+                        .into_pairs()
+                        .map(|(child, commitment)| FormChild {
                             first_key: child.first_key,
                             offset: child.offset,
+                            commitment,
                         })
                         .collect(),
                 )),

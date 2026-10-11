@@ -70,10 +70,24 @@ pub(crate) fn write_header(
     .expect("header initialization buffer is valid");
 }
 
+/// Authenticate the initial empty state using the same header domain as every
+/// later publication. Sequence zero is a real state, never an authentication opt-out.
+pub(crate) fn authenticated_initial_header(
+    lockbox_id: LockboxId,
+    key: &crate::SecretVec,
+) -> Result<Vec<u8>> {
+    let mut bytes = Vec::new();
+    write_header(&mut bytes, 0, 0, 0, lockbox_id, 0);
+    let tag = key.with_bytes(|key| crate::crypto::metadata_auth_tag(key, &bytes[..128]))?;
+    bytes[128..152].copy_from_slice(&tag);
+    let digest = strong_checksum(&bytes[..160]);
+    bytes[160..192].copy_from_slice(&digest);
+    Ok(bytes)
+}
+
 /// Recovery-only repair of damaged slot magics. All remaining bytes, including
 /// checksums and authentication tags, are preserved. A checksum-valid candidate
 /// still requires normal publication/owner authentication before it is trusted.
-#[cfg(any(test, feature = "native-block-layout"))]
 pub(crate) fn recover_header_magic(bytes: &[u8]) -> Option<[u8; HEADER_LEN]> {
     let mut header: [u8; HEADER_LEN] = bytes.get(..HEADER_LEN)?.try_into().ok()?;
     for slot in header.chunks_exact_mut(header_v2::SLOT_LEN) {
@@ -86,7 +100,6 @@ pub(crate) fn recover_header_magic(bytes: &[u8]) -> Option<[u8; HEADER_LEN]> {
 /// Construct a recovery candidate for a lost root pointer. Preserve the original
 /// metadata authentication tag: normal open must authenticate the restored bytes
 /// before any entry is trusted. This does not authorize the supplied pointer.
-#[cfg(any(test, feature = "native-block-layout"))]
 pub(crate) fn recover_header_root_pointer(
     bytes: &[u8],
     commit_root_offset: u64,
@@ -108,7 +121,6 @@ pub(crate) fn recover_header_root_pointer(
 
 pub(crate) fn read_header_for_scan(bytes: &[u8]) -> Result<LockboxHeader> {
     let header = read_header(bytes);
-    #[cfg(any(test, feature = "native-block-layout"))]
     if header.is_err() {
         if let Some(repaired) = recover_header_magic(bytes) {
             return read_header(&repaired);

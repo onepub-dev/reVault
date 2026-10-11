@@ -779,14 +779,10 @@ pub unsafe extern "C" fn lockbox_create_password(password: *const u8, len: usize
             return ptr::null_mut();
         }
     };
-    let signing = match OwnerSigningKeyPair::generate() {
-        Ok(value) => value,
-        Err(error) => {
-            set_error(error);
-            return ptr::null_mut();
-        }
-    };
-    match Lockbox::create_in_memory(LockboxProtection::Password(&password), &signing) {
+    match Lockbox::create_in_memory_with_options(revault_lockbox_api::LockboxCreateOptions::new(
+        revault_lockbox_api::Encryption::Encrypted(LockboxProtection::Password(&password)),
+        revault_lockbox_api::Signing::None,
+    )) {
         Ok(value) => {
             clear_error();
             Box::into_raw(Box::new(value)).cast()

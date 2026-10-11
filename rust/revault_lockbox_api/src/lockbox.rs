@@ -12,7 +12,7 @@ use crate::file_format::redaction_manifest::{
     decode_page as decode_redaction_manifest_page, RedactionManifestPage,
 };
 use crate::file_format::{
-    decode_toc_node, read_header, write_header, TocInternal, TocLeaf, TocNode, TocTreeNode,
+    decode_toc_node, read_header, TocInternal, TocLeaf, TocNode, TocTreeNode,
 };
 use crate::free_index::{decode_free_index_internal, decode_free_index_leaf};
 use crate::free_slot::{FreeSlot, FreeSpace};
@@ -25,7 +25,6 @@ use crate::lockbox_id::LockboxId;
 use crate::lockbox_path::LockboxPath;
 use crate::page::{DecodedPage, PageObject, PageObjectKind};
 use crate::page_cache::{PageCache, PageReadKey, PageSecurity, PageWritePolicy};
-use crate::record::{DecodedRecord, RecordHeader, RecordKind};
 use crate::secret_vec::SecretVec;
 use crate::signing::{
     commit_signature_keys_match, commit_signatures_match_keypair, verify_commit_signatures,
@@ -57,12 +56,14 @@ mod key_directory_candidates;
 mod key_management;
 mod listing;
 mod lockbox_rewrite;
+mod metric_timer;
 mod mirrors;
 mod mutation;
 #[cfg(any(test, feature = "native-block-layout"))]
 mod native_file_reader;
 mod preparation;
 mod recovery;
+#[cfg(test)]
 mod signed_content;
 #[cfg(test)]
 mod size_padding_tests;
@@ -207,10 +208,16 @@ pub struct StagedLockboxState {
     cleanup_completed_pages: u32,
     cleanup_completed_bytes: u64,
     toc_tree: PersistedBTree<TocTreeNode, TocLeaf, LockboxPath>,
+    toc_root_commitment: crate::file_format::page_commitment::PageCommitment,
     variable_root_offset: u64,
+    variable_root_commitment: crate::file_format::page_commitment::PageCommitment,
+    form_root_commitment: crate::file_format::page_commitment::PageCommitment,
     free_index_offset: u64,
+    free_index_commitment: crate::file_format::page_commitment::PageCommitment,
     post_cleanup_free_index_offset: u64,
+    post_cleanup_free_index_commitment: crate::file_format::page_commitment::PageCommitment,
     redaction_manifest_offset: u64,
+    redaction_manifest_commitment: crate::file_format::page_commitment::PageCommitment,
     redaction_range_count: u32,
     redaction_total_bytes: u64,
     key_directory: KeyDirectoryCopies,
@@ -248,6 +255,7 @@ pub struct CommitChain {
 /// Coordinates of the redundant key-directory pages.
 #[derive(Debug, Clone, Copy)]
 struct KeyDirectoryCopies {
+    physical_len: u64,
     primary_offset: u64,
     mirror_offset: u64,
     generation: u64,
@@ -260,6 +268,7 @@ impl KeyDirectoryCopies {
     }
 
     fn clear(&mut self) {
+        self.physical_len = 0;
         self.primary_offset = 0;
         self.mirror_offset = 0;
         self.dirty = false;
@@ -342,22 +351,13 @@ impl<State> Lockbox<State> {
         Ok(())
     }
 
+    #[cfg(test)]
     pub(crate) fn page_len_at(&self, offset: u64) -> Result<u64> {
         let header = self.storage.read_at(offset, crate::page::PAGE_HEADER_LEN)?;
         if header.get(0..8) != Some(crate::page::PAGE_MAGIC.as_slice()) {
             return Err(Error::CorruptRecord);
         }
         self.read_page(offset)?; // Authenticate the extent before using it for retirement.
-        Ok(crate::page::physical_page_size_from_page_slice(&header)? as u64)
-    }
-
-    pub(crate) fn secure_page_len_at(&self, offset: u64) -> Result<u64> {
-        if !self.format_mode.unpadded() {
-            return Ok(crate::constants::DEFAULT_METADATA_PAGE_BYTES as u64);
-        }
-        // Authenticate through the secure decoder before retiring the physical extent.
-        self.with_secure_page(offset, |_| Ok(()))?;
-        let header = self.storage.read_at(offset, crate::page::PAGE_HEADER_LEN)?;
         Ok(crate::page::physical_page_size_from_page_slice(&header)? as u64)
     }
 
@@ -447,8 +447,12 @@ impl<State> Lockbox<State> {
             })
     }
 
-    fn read_redaction_manifest_page_at(&self, offset: u64) -> Result<RedactionManifestPage> {
-        let decoded = self.read_page(offset)?;
+    fn read_redaction_manifest_page_at(
+        &self,
+        offset: u64,
+        commitment: crate::file_format::page_commitment::PageCommitment,
+    ) -> Result<RedactionManifestPage> {
+        let decoded = self.with_authenticated_page(offset, commitment, |page| Ok(page.clone()))?;
         if decoded.sequence != self.sequence {
             return Err(Error::CorruptRecord);
         }
@@ -557,7 +561,11 @@ impl Lockbox<Writable> {
         // a subsequent fresh open would; otherwise erased ranges remain
         // unaccounted in RAM and unavailable for reuse until another reopen.
         let reclaimed = if status.phase == TransactionRecoveryPhase::Cleanup {
-            Some(self.read_free_index_slots(self.post_cleanup_free_index_offset, 0)?)
+            Some(self.read_free_index_slots(
+                self.post_cleanup_free_index_offset,
+                self.post_cleanup_free_index_commitment,
+                0,
+            )?)
         } else {
             None
         };
@@ -566,6 +574,7 @@ impl Lockbox<Writable> {
         if let Some(slots) = reclaimed {
             self.free_space.replace_slots(slots);
             self.free_index_offset = self.post_cleanup_free_index_offset;
+            self.free_index_commitment = self.post_cleanup_free_index_commitment;
         }
         Ok(true)
     }
@@ -600,8 +609,11 @@ impl Lockbox<Writable> {
         if self.post_cleanup_free_index_offset == 0 {
             return Err(Error::CorruptRecord);
         }
-        let post_cleanup_slots =
-            self.read_free_index_slots(self.post_cleanup_free_index_offset, 0)?;
+        let post_cleanup_slots = self.read_free_index_slots(
+            self.post_cleanup_free_index_offset,
+            self.post_cleanup_free_index_commitment,
+            0,
+        )?;
         self.validate_cleanup_free_slots(&post_cleanup_slots)?;
         let mut post_cleanup_space = FreeSpace::default();
         post_cleanup_space.replace_slots(post_cleanup_slots);
@@ -612,6 +624,7 @@ impl Lockbox<Writable> {
         self.publish_transaction_header(self.cleanup_sequence)?;
         let zeroes = [0u8; 64 * 1024];
         let mut offset = self.redaction_manifest_offset;
+        let mut commitment = self.redaction_manifest_commitment;
         let mut completed_ranges = 0u32;
         let mut completed_bytes = 0u64;
         let mut manifest_pages = 0usize;
@@ -620,7 +633,7 @@ impl Lockbox<Writable> {
             if manifest_pages > crate::file_format::redaction_manifest::MAX_REDACTION_PAGES {
                 return Err(Error::CorruptRecord);
             }
-            let page = self.read_redaction_manifest_page_at(offset)?;
+            let page = self.read_redaction_manifest_page_at(offset, commitment)?;
             let skip_page = manifest_pages <= status.completed_pages as usize;
             for range in &page.ranges {
                 if self.free_space.overlaps(*range) || !post_cleanup_space.contains(*range) {
@@ -661,6 +674,7 @@ impl Lockbox<Writable> {
                 }
             }
             offset = page.next_page_offset;
+            commitment = page.next_page_commitment;
             if skip_page {
                 if manifest_pages == status.completed_pages as usize
                     && (completed_ranges != status.completed_ranges
@@ -760,8 +774,9 @@ impl Lockbox<Writable> {
         lockbox_id: LockboxId,
         options: LockboxOptions,
     ) -> Self {
-        let mut bytes = vec![0; HEADER_LEN];
-        write_header(&mut bytes, 0, 0, 0, lockbox_id, 0);
+        let bytes =
+            crate::file_format::current_header::authenticated_initial_header(lockbox_id, &key)
+                .expect("secure key access failed while authenticating initial lockbox");
         Self {
             format_mode: Default::default(),
             storage: StorageBackend::memory(bytes),
@@ -782,13 +797,20 @@ impl Lockbox<Writable> {
                 cleanup_completed_pages: 0,
                 cleanup_completed_bytes: 0,
                 toc_tree: PersistedBTree::default(),
+                toc_root_commitment: Default::default(),
                 variable_root_offset: 0,
+                variable_root_commitment: Default::default(),
+                form_root_commitment: Default::default(),
                 free_index_offset: 0,
+                free_index_commitment: Default::default(),
                 post_cleanup_free_index_offset: 0,
+                post_cleanup_free_index_commitment: Default::default(),
                 redaction_manifest_offset: 0,
+                redaction_manifest_commitment: Default::default(),
                 redaction_range_count: 0,
                 redaction_total_bytes: 0,
                 key_directory: KeyDirectoryCopies {
+                    physical_len: 0,
                     primary_offset: 0,
                     mirror_offset: 0,
                     generation: 0,
@@ -918,10 +940,16 @@ impl Lockbox<Writable> {
             ),
             Err(error) => return Err(error),
         };
-        if sequence > 0 && format_mode.0 != 0 && header_auth_offset == 0 {
+        if (header_root_offset == 0) != (header_auth_offset == 0)
+            || (sequence == 0) != (header_root_offset == 0)
+            || (sequence == 0
+                && (header_key_directory_offset != 0 || header_key_directory_mirror_offset != 0))
+        {
             return Err(Error::CorruptHeader);
         }
-        if sequence > 0 || parsed_header.preparing {
+        // Untrusted sequence/preparation fields must never disable authentication.
+        // This includes genuine empty archives before their first commit.
+        {
             let publication = crate::file_format::header_v2::Publication {
                 sealed_len: parsed_header.sealed_len,
                 trim_origin_len: parsed_header.trim_origin_len,
@@ -979,13 +1007,20 @@ impl Lockbox<Writable> {
                 cleanup_completed_pages,
                 cleanup_completed_bytes,
                 toc_tree: PersistedBTree::default(),
+                toc_root_commitment: Default::default(),
                 variable_root_offset: 0,
+                variable_root_commitment: Default::default(),
+                form_root_commitment: Default::default(),
                 free_index_offset: 0,
+                free_index_commitment: Default::default(),
                 post_cleanup_free_index_offset: 0,
+                post_cleanup_free_index_commitment: Default::default(),
                 redaction_manifest_offset: 0,
+                redaction_manifest_commitment: Default::default(),
                 redaction_range_count: 0,
                 redaction_total_bytes: 0,
                 key_directory: KeyDirectoryCopies {
+                    physical_len: 0,
                     primary_offset: header_key_directory_offset,
                     mirror_offset: header_key_directory_mirror_offset,
                     generation: 0,
@@ -1029,6 +1064,7 @@ impl Lockbox<Writable> {
         };
 
         let mut toc_root_offset = header_root_offset;
+        let mut access_digest = None;
         if header_auth_offset > 0 {
             let Some((auth_offset, auth_digest, auth, commit_root)) =
                 lockbox.find_valid_commit_from_auth_chain(header_auth_offset)?
@@ -1048,42 +1084,42 @@ impl Lockbox<Writable> {
             lockbox.key_directory.primary_offset = commit_root.key_directory_offset;
             lockbox.key_directory.mirror_offset = commit_root.key_directory_mirror_offset;
             lockbox.key_directory.generation = commit_root.key_directory_generation;
+            access_digest = Some(commit_root.key_directory_digest);
             lockbox.free_index_offset = commit_root.free_index_root_offset;
+            lockbox.free_index_commitment = commit_root.free_index_root_commitment;
             lockbox.post_cleanup_free_index_offset =
                 commit_root.post_cleanup_free_index_root_offset;
+            lockbox.post_cleanup_free_index_commitment =
+                commit_root.post_cleanup_free_index_root_commitment;
             lockbox.redaction_manifest_offset = commit_root.redaction_manifest_offset;
+            lockbox.redaction_manifest_commitment = commit_root.redaction_manifest_commitment;
             lockbox.redaction_range_count = commit_root
                 .redaction_range_count
                 .try_into()
                 .map_err(|_| Error::CorruptRecord)?;
             lockbox.redaction_total_bytes = commit_root.redaction_total_bytes;
             lockbox.variable_root_offset = commit_root.variable_root_offset;
+            lockbox.variable_root_commitment = commit_root.variable_root_commitment;
             lockbox.forms.tree.root_offset = commit_root.form_root_offset;
+            lockbox.form_root_commitment = commit_root.form_root_commitment;
             toc_root_offset = commit_root.toc_root_offset;
-        } else if header_root_offset > 0 {
-            let commit_root = match lockbox.read_commit_root_at(header_root_offset) {
-                Ok(commit_root) => {
-                    lockbox.commit_root_offset = header_root_offset;
-                    commit_root
-                }
-                Err(_) => {
-                    return Err(Error::CorruptHeader);
-                }
-            };
-            lockbox.sequence = commit_root.sequence;
-            lockbox.key_directory.primary_offset = commit_root.key_directory_offset;
-            lockbox.key_directory.mirror_offset = commit_root.key_directory_mirror_offset;
-            lockbox.key_directory.generation = commit_root.key_directory_generation;
-            lockbox.free_index_offset = commit_root.free_index_root_offset;
-            lockbox.variable_root_offset = commit_root.variable_root_offset;
-            lockbox.forms.tree.root_offset = commit_root.form_root_offset;
-            toc_root_offset = commit_root.toc_root_offset;
+            lockbox.toc_root_commitment = commit_root.toc_root_commitment;
         }
-        if let Some(directory) = lockbox
-            .read_best_key_directory(scanned_key_directory.as_ref())
-            .unwrap_or(None)
+        if let Some(directory) =
+            lockbox.read_best_key_directory(scanned_key_directory.as_ref(), access_digest)?
         {
             lockbox.key_directory.generation = directory.generation;
+            lockbox.key_directory.physical_len = crate::page::canonical_control_page_len(
+                crate::key_directory::encode_key_directory(
+                    &directory.slots,
+                    directory.lockbox_id,
+                    directory.generation,
+                    0,
+                )?
+                .len(),
+                PageObjectKind::KeyDirectory,
+                format_mode,
+            )?;
             lockbox.key_slots = directory.slots;
         }
         if format_mode.plaintext() && !lockbox.key_slots.is_empty() {
@@ -1115,9 +1151,14 @@ impl Lockbox<Writable> {
                 && lockbox.post_cleanup_free_index_offset != 0
             {
                 lockbox.free_index_offset = lockbox.post_cleanup_free_index_offset;
+                lockbox.free_index_commitment = lockbox.post_cleanup_free_index_commitment;
             }
             if lockbox.free_index_offset > 0 {
-                let slots = lockbox.read_free_index_slots(lockbox.free_index_offset, 0)?;
+                let slots = lockbox.read_free_index_slots(
+                    lockbox.free_index_offset,
+                    lockbox.free_index_commitment,
+                    0,
+                )?;
                 let slots = lockbox.clip_trimmed_free_slots(slots)?;
                 let mut end = HEADER_LEN as u64;
                 for slot in &slots {
@@ -1150,13 +1191,11 @@ impl Lockbox<Writable> {
                     });
                 }
             }
-            lockbox.verify_signed_content()?;
             Ok(lockbox)
         } else {
             if !allow_recovery && lockbox.rollback_required {
                 lockbox.require_clean_transaction()?;
             }
-            lockbox.verify_signed_content()?;
             Ok(lockbox)
         }
     }
@@ -1329,51 +1368,81 @@ impl<State> Lockbox<State> {
 
     fn read_best_key_directory(
         &self,
-        scanned_fallback: Option<&DecodedKeyDirectory>,
+        _scanned_fallback: Option<&DecodedKeyDirectory>,
+        expected_digest: Option<[u8; 32]>,
     ) -> Result<Option<DecodedKeyDirectory>> {
-        let mut directories = Vec::new();
-        for offset in [
-            self.key_directory.primary_offset,
-            self.key_directory.mirror_offset,
-        ] {
+        let offsets = self.key_directory.offsets();
+        let Some(expected) = expected_digest else {
+            if offsets != [0, 0] {
+                return Err(Error::CorruptRecord);
+            }
+            return Ok(None);
+        };
+        let mut accepted = Vec::new();
+        for (copy_index, offset) in offsets.into_iter().enumerate() {
             if offset == 0 {
                 continue;
             }
-            if let Ok(page) = self.read_page(offset) {
-                let Ok(directory) =
-                    decode_key_directory_decoded_page(&page, offset, Some(self.lockbox_id))
-                else {
-                    continue;
-                };
-                directories.push(directory);
+            let read = self.key.with_bytes(|key| {
+                self.page_manager.borrow_mut().read_page_with_extent(
+                    &self.storage,
+                    offset,
+                    self.lockbox_id,
+                    PageSecurity::Normal,
+                    PageReadKey::Normal(key),
+                )
+            })?;
+            let Ok((page, extent)) = read else {
+                continue;
+            };
+            let Ok(directory) =
+                decode_key_directory_decoded_page(&page, offset, Some(self.lockbox_id))
+            else {
+                continue;
+            };
+            if directory.copy_index as usize != copy_index
+                || directory.generation != self.key_directory.generation
+            {
+                continue;
             }
-        }
-        if let Some(directory) = scanned_fallback {
-            if directory.lockbox_id == self.lockbox_id {
-                directories.push(directory.clone());
+            if crate::key_directory::key_directory_digest(
+                &directory.slots,
+                directory.lockbox_id,
+                directory.generation,
+            )? != expected
+            {
+                continue;
             }
+            let encoded = crate::key_directory::encode_key_directory(
+                &directory.slots,
+                directory.lockbox_id,
+                directory.generation,
+                directory.copy_index,
+            )?;
+            if extent
+                != crate::page::canonical_control_page_len(
+                    encoded.len(),
+                    PageObjectKind::KeyDirectory,
+                    self.format_mode,
+                )?
+            {
+                continue;
+            }
+            accepted.push(directory);
         }
-        Ok(best_key_directory(directories))
-    }
-
-    pub(crate) fn read_record(&self, offset: u64) -> Result<DecodedRecord> {
-        let decoded = self.read_page(offset)?;
-        let Some(object) = decoded.objects.first() else {
-            return Err(Error::CorruptRecord);
-        };
-        let kind = record_kind_from_object_kind(object.kind)?;
-        Ok(DecodedRecord {
-            header: RecordHeader {
-                kind,
-                sequence: decoded.sequence,
-                // Read the persisted allocation, never recompress a decoded
-                // payload to guess its physical size.
-                total_len: self.page_len_at(offset)?,
-            },
-            offset,
-            object_id: object.id,
-            payload: object.with_payload(|payload| payload.to_vec())?,
-        })
+        if let Some(directory) = best_key_directory(accepted) {
+            return Ok(Some(directory));
+        }
+        if offsets == [0, 0]
+            && crate::key_directory::key_directory_digest(
+                &[],
+                self.lockbox_id,
+                self.key_directory.generation,
+            )? == expected
+        {
+            return Ok(None);
+        }
+        Err(Error::CorruptRecord)
     }
 
     pub(crate) fn read_and_verify_commit_auth_at(
@@ -1388,11 +1457,6 @@ impl<State> Lockbox<State> {
         }
         let message = commit_auth_message(&auth)?;
         if auth.flags != u64::from(self.format_mode.0) {
-            return Err(Error::CorruptRecord);
-        }
-        if auth.content_digest.is_some()
-            != (self.format_mode.plaintext() && self.format_mode.signed())
-        {
             return Err(Error::CorruptRecord);
         }
         if self.format_mode.signed() {
@@ -1427,12 +1491,14 @@ impl<State> Lockbox<State> {
                 }
             }
             if candidate.is_none() {
-                if let Ok(root) = self.read_verified_commit_root_from_auth(&auth) {
-                    candidate = Some((offset, digest, auth.clone(), root));
-                }
+                let root = self.read_verified_commit_root_from_auth(&auth)?;
+                candidate = Some((offset, digest, auth.clone(), root));
             }
             if auth.previous_auth_offset == 0 {
                 return Ok(candidate);
+            }
+            if auth.previous_auth_offset >= offset {
+                return Err(Error::CorruptRecord);
             }
             expected_digest = Some(auth.previous_auth_digest);
             newer_signatures = Some(auth.signatures);
@@ -1456,26 +1522,38 @@ impl<State> Lockbox<State> {
         Ok(root)
     }
 
+    pub(crate) fn read_control_payload_at(
+        &self,
+        offset: u64,
+        kind: PageObjectKind,
+    ) -> Result<(Vec<u8>, u64)> {
+        let (page, extent) = self.key.with_bytes(|key| {
+            self.page_manager.borrow_mut().read_page_with_extent(
+                &self.storage,
+                offset,
+                self.lockbox_id,
+                PageSecurity::Normal,
+                PageReadKey::Normal(key),
+            )
+        })??;
+        crate::page::validate_control_model(&page, offset, kind)?;
+        let object = &page.objects[0];
+        let canonical =
+            crate::page::canonical_control_page_len(object.payload_len(), kind, self.format_mode)?;
+        if extent != canonical {
+            return Err(Error::CorruptRecord);
+        }
+        Ok((object.with_payload(|payload| payload.to_vec())?, canonical))
+    }
+
     pub(crate) fn read_commit_root_payload_at(&self, offset: u64) -> Result<Vec<u8>> {
-        self.with_page(offset, |page| {
-            let object = page
-                .objects
-                .iter()
-                .find(|object| object.kind == PageObjectKind::CommitRoot)
-                .ok_or(Error::CorruptRecord)?;
-            object.with_payload(|payload| payload.to_vec())
-        })
+        self.read_control_payload_at(offset, PageObjectKind::CommitRoot)
+            .map(|(payload, _)| payload)
     }
 
     pub(crate) fn read_commit_auth_payload_at(&self, offset: u64) -> Result<Vec<u8>> {
-        self.with_page(offset, |page| {
-            let object = page
-                .objects
-                .iter()
-                .find(|object| object.kind == PageObjectKind::CommitAuth)
-                .ok_or(Error::CorruptRecord)?;
-            object.with_payload(|payload| payload.to_vec())
-        })
+        self.read_control_payload_at(offset, PageObjectKind::CommitAuth)
+            .map(|(payload, _)| payload)
     }
 
     pub(crate) fn require_owner_signing_key(&self) -> Result<&OwnerSigningKeyPair> {
@@ -1504,6 +1582,7 @@ impl<State> Lockbox<State> {
         }
     }
 
+    #[cfg(test)]
     pub(crate) fn read_page(&self, offset: u64) -> Result<crate::page::DecodedPage> {
         self.with_page(offset, |page| Ok(page.clone()))
     }
@@ -1514,6 +1593,25 @@ impl<State> Lockbox<State> {
         f: impl FnOnce(&crate::page::DecodedPage) -> Result<R>,
     ) -> Result<R> {
         let page = self.read_shared_page(offset)?;
+        f(&page)
+    }
+
+    pub(crate) fn with_authenticated_page<R>(
+        &self,
+        offset: u64,
+        expected: crate::file_format::page_commitment::PageCommitment,
+        f: impl FnOnce(&crate::page::DecodedPage) -> Result<R>,
+    ) -> Result<R> {
+        let page = self.key.with_bytes(|key| {
+            self.page_manager.borrow_mut().read_authenticated_page(
+                &self.storage,
+                offset,
+                self.lockbox_id,
+                PageSecurity::Normal,
+                PageReadKey::Normal(key),
+                expected,
+            )
+        })??;
         f(&page)
     }
 
@@ -1542,31 +1640,55 @@ impl<State> Lockbox<State> {
         Ok(page)
     }
 
-    pub(crate) fn with_secure_page<R>(
+    pub(crate) fn with_authenticated_secure_page<R>(
         &self,
         offset: u64,
+        expected: crate::file_format::page_commitment::PageCommitment,
         f: impl FnOnce(&crate::page::DecodedPage) -> Result<R>,
     ) -> Result<R> {
-        let cached = self
-            .page_manager
-            .borrow_mut()
-            .cached_page(offset, PageSecurity::Secure)?;
-        if let Some(page) = cached {
-            return f(&page);
-        }
         let mut content_key = self
             .key
             .with_bytes(crate::crypto::derive_page_content_key)?;
-        let page = self.page_manager.borrow_mut().read_page(
+        let page = self.page_manager.borrow_mut().read_authenticated_page(
             &self.storage,
             offset,
             self.lockbox_id,
             PageSecurity::Secure,
             PageReadKey::Secure(&content_key),
+            expected,
         );
         content_key.zeroize();
         let page = page?;
         f(&page)
+    }
+
+    pub(crate) fn with_authenticated_entry_object<R>(
+        &self,
+        entry: &TocEntry,
+        f: impl FnOnce(&PageObject) -> Result<R>,
+    ) -> Result<R> {
+        let expected = crate::file_format::page_commitment::ObjectReference {
+            physical_len: entry.record_len,
+            object_id: entry.record_object_id,
+            digest: entry.record_digest,
+        };
+        let page = self.key.with_bytes(|key| {
+            self.page_manager
+                .borrow_mut()
+                .read_authenticated_object_page(
+                    &self.storage,
+                    entry.record_offset,
+                    self.lockbox_id,
+                    PageReadKey::Normal(key),
+                    expected,
+                )
+        })??;
+        let object = page
+            .objects
+            .iter()
+            .find(|object| object.id == entry.record_object_id)
+            .ok_or(Error::CorruptRecord)?;
+        f(object)
     }
 
     pub(crate) fn with_page_object<R>(
@@ -1767,16 +1889,20 @@ impl<State> Lockbox<State> {
         let pending = std::mem::take(&mut self.pending_redactions);
         self.pending_redaction_object_count = 0;
         for (offset, redaction) in pending {
-            let count = self
-                .record_ref_counts
-                .get(&offset)
-                .copied()
-                .or_else(|| self.read_page(offset).ok().map(|page| page.objects.len()))
-                .unwrap_or(0);
-            if count == 0 {
-                continue;
+            let mut remaining = 0usize;
+            for entry in self.toc_entries.values().filter(|entry| !entry.deleted) {
+                for reference in self.entry_record_refs(entry)? {
+                    if reference.offset != offset {
+                        continue;
+                    }
+                    if reference.len != redaction.len
+                        || redaction.object_ids.contains(&reference.object_id)
+                    {
+                        return Err(Error::CorruptRecord);
+                    }
+                    remaining = remaining.checked_add(1).ok_or(Error::CorruptRecord)?;
+                }
             }
-            let remaining = count.saturating_sub(redaction.object_ids.len());
             if remaining == 0 {
                 self.record_ref_counts.remove(&offset);
                 self.zero_page_and_free(FreeSlot {
@@ -1861,25 +1987,61 @@ impl<State> Lockbox<State> {
         removed_object_ids: &BTreeSet<u64>,
         remaining_refs: usize,
     ) -> Result<()> {
-        let decoded = self.read_page(old_offset)?;
-        let kept_object_ids = decoded
-            .objects
-            .iter()
-            .filter(|object| !removed_object_ids.contains(&object.id))
-            .map(|object| object.id)
-            .collect::<BTreeSet<_>>();
+        let (decoded, extent) = self.key.with_bytes(|key| {
+            self.page_manager.borrow_mut().read_page_with_extent(
+                &self.storage,
+                old_offset,
+                self.lockbox_id,
+                PageSecurity::Normal,
+                PageReadKey::Normal(key),
+            )
+        })??;
+        if extent != old_len {
+            return Err(Error::CorruptRecord);
+        }
+        let mut kept_object_ids = BTreeSet::new();
+        for entry in self.toc_entries.values().filter(|entry| !entry.deleted) {
+            if entry.chunks.is_empty() && entry.record_offset == old_offset {
+                if entry.node_kind != crate::node_kind::NodeKind::Symlink {
+                    return Err(Error::CorruptRecord);
+                }
+                crate::file_format::page_commitment::ObjectReference {
+                    physical_len: entry.record_len,
+                    object_id: entry.record_object_id,
+                    digest: entry.record_digest,
+                }
+                .verify(self.lockbox_id, self.format_mode, extent, &decoded)?;
+                kept_object_ids.insert(entry.record_object_id);
+            }
+            for chunk in &entry.chunks {
+                if chunk
+                    .segments
+                    .iter()
+                    .any(|segment| segment.page_offset == old_offset)
+                {
+                    self.verify_frame_for_relocation(entry.len, chunk, old_offset, &decoded)?;
+                    for segment in &chunk.segments {
+                        if segment.page_offset == old_offset {
+                            if segment.page_len != old_len {
+                                return Err(Error::CorruptRecord);
+                            }
+                            kept_object_ids.insert(segment.object_id);
+                        }
+                    }
+                }
+            }
+        }
+        if kept_object_ids.is_empty() || !kept_object_ids.is_disjoint(removed_object_ids) {
+            return Err(Error::CorruptRecord);
+        }
         let kept_objects = decoded
             .objects
-            .into_iter()
+            .iter()
             .filter(|object| kept_object_ids.contains(&object.id))
+            .cloned()
             .collect::<Vec<_>>();
-        if kept_objects.is_empty() {
-            self.record_ref_counts.remove(&old_offset);
-            self.zero_page_and_free(FreeSlot {
-                offset: old_offset,
-                len: old_len,
-            })?;
-            return Ok(());
+        if kept_objects.len() != kept_object_ids.len() {
+            return Err(Error::CorruptRecord);
         }
 
         self.sequence += 1;
@@ -1950,12 +2112,7 @@ impl<State> Lockbox<State> {
                     object_id: entry.record_object_id,
                 }]);
             }
-            let record = self.read_record(entry.record_offset)?;
-            return Ok(vec![RecordRef {
-                offset: entry.record_offset,
-                len: entry.record_len,
-                object_id: record.object_id,
-            }]);
+            return Err(Error::CorruptRecord);
         }
         Ok(entry
             .chunks
@@ -1975,7 +2132,8 @@ impl<State> Lockbox<State> {
         root_offset: u64,
     ) -> Result<(BTreeMap<LockboxPath, TocEntry>, TocTreeNode, Vec<TocLeaf>)> {
         let mut toc_entries = BTreeMap::new();
-        let root = self.decode_toc_node_into(root_offset, &mut toc_entries, 0)?;
+        let root =
+            self.decode_toc_node_into(root_offset, self.toc_root_commitment, &mut toc_entries, 0)?;
         let mut leaves = Vec::new();
         root.collect_leaves(&mut leaves);
         leaves.sort_by(|left, right| {
@@ -1997,13 +2155,14 @@ impl<State> Lockbox<State> {
     fn decode_toc_node_into(
         &self,
         offset: u64,
+        commitment: crate::file_format::page_commitment::PageCommitment,
         toc_entries: &mut BTreeMap<LockboxPath, TocEntry>,
         depth: usize,
     ) -> Result<TocTreeNode> {
         if depth > 8 {
             return Err(Error::CorruptRecord);
         }
-        match decode_toc_node(&self.read_toc_node_payload(offset)?)? {
+        match decode_toc_node(&self.read_toc_node_payload(offset, commitment)?)? {
             TocNode::Leaf(entries) => {
                 let leaf_entries = entries.clone();
                 for entry in entries {
@@ -2011,52 +2170,62 @@ impl<State> Lockbox<State> {
                 }
                 Ok(TocTreeNode::Leaf(TocLeaf {
                     offset,
+                    commitment,
                     entries: leaf_entries,
                 }))
             }
             TocNode::Internal(children) => {
                 let mut nodes = Vec::with_capacity(children.len());
                 for child in children {
-                    nodes.push(self.decode_toc_node_into(child.offset, toc_entries, depth + 1)?);
+                    nodes.push(self.decode_toc_node_into(
+                        child.offset,
+                        child.commitment,
+                        toc_entries,
+                        depth + 1,
+                    )?);
                 }
                 Ok(TocTreeNode::Internal(TocInternal {
                     offset,
+                    commitment,
                     children: nodes,
                 }))
             }
         }
     }
 
-    fn read_toc_node_payload(&self, offset: u64) -> Result<Vec<u8>> {
-        let decoded = self.read_page(offset)?;
-        let Some(toc_object) = decoded.objects.iter().find(|object| {
-            matches!(
-                object.kind,
-                PageObjectKind::TocLeaf | PageObjectKind::TocInternal
-            )
-        }) else {
-            return Err(Error::CorruptRecord);
-        };
-        toc_object.with_payload(|payload| payload.to_vec())
+    fn read_toc_node_payload(
+        &self,
+        offset: u64,
+        commitment: crate::file_format::page_commitment::PageCommitment,
+    ) -> Result<Vec<u8>> {
+        self.with_authenticated_page(offset, commitment, |decoded| {
+            let Some(toc_object) = decoded.objects.iter().find(|object| {
+                matches!(
+                    object.kind,
+                    PageObjectKind::TocLeaf | PageObjectKind::TocInternal
+                )
+            }) else {
+                return Err(Error::CorruptRecord);
+            };
+            toc_object.with_payload(|payload| payload.to_vec())
+        })
     }
 
+    #[cfg(test)]
     fn read_commit_root_at(&self, offset: u64) -> Result<crate::commit_root::CommitRoot> {
-        let decoded = self.read_page(offset)?;
-        let Some(commit_root_object) = decoded
-            .objects
-            .iter()
-            .find(|object| object.kind == PageObjectKind::CommitRoot)
-        else {
-            return Err(Error::CorruptHeader);
-        };
-        commit_root_object.with_payload(decode_commit_root)?
+        decode_commit_root(&self.read_commit_root_payload_at(offset)?)
     }
 
-    fn read_free_index_slots(&self, offset: u64, depth: usize) -> Result<Vec<FreeSlot>> {
+    fn read_free_index_slots(
+        &self,
+        offset: u64,
+        commitment: crate::file_format::page_commitment::PageCommitment,
+        depth: usize,
+    ) -> Result<Vec<FreeSlot>> {
         if depth > 8 {
             return Err(Error::CorruptRecord);
         }
-        let decoded = self.read_page(offset)?;
+        let decoded = self.with_authenticated_page(offset, commitment, |page| Ok(page.clone()))?;
         if let Some(leaf) = decoded
             .objects
             .iter()
@@ -2074,7 +2243,7 @@ impl<State> Lockbox<State> {
         let mut slots = Vec::new();
         let children = internal.with_payload(decode_free_index_internal)??;
         for child in children {
-            slots.extend(self.read_free_index_slots(child.offset, depth + 1)?);
+            slots.extend(self.read_free_index_slots(child.offset, child.commitment, depth + 1)?);
             if slots.len() > crate::file_format::redaction_manifest::MAX_REDACTION_RANGES {
                 return Err(Error::SecurityLimitExceeded(
                     "too many free-space reservations".into(),
@@ -2136,28 +2305,6 @@ fn corrupt_recovery_report() -> RecoveryReport {
         forms_recovered: false,
         form_definition_count: 0,
         form_record_count: 0,
-    }
-}
-
-fn record_kind_from_object_kind(kind: PageObjectKind) -> Result<RecordKind> {
-    match kind {
-        PageObjectKind::PackedFileData | PageObjectKind::FileData => Ok(RecordKind::FilePage),
-        PageObjectKind::Symlink => Ok(RecordKind::Symlink),
-        PageObjectKind::VariableSet => Ok(RecordKind::Variable),
-        PageObjectKind::VariableDelete => Ok(RecordKind::VariableDelete),
-        PageObjectKind::Delete => Ok(RecordKind::Delete),
-        PageObjectKind::TocLeaf | PageObjectKind::TocInternal => Ok(RecordKind::TocNode),
-        PageObjectKind::CommitRoot => Ok(RecordKind::CommitRoot),
-        PageObjectKind::CommitAuth => Ok(RecordKind::CommitAuth),
-        PageObjectKind::FreeIndexLeaf | PageObjectKind::FreeIndexInternal => {
-            Ok(RecordKind::FreeIndex)
-        }
-        PageObjectKind::KeyDirectory
-        | PageObjectKind::VariableLeaf
-        | PageObjectKind::VariableInternal
-        | PageObjectKind::FormLeaf
-        | PageObjectKind::FormInternal
-        | PageObjectKind::RedactionManifest => Err(Error::CorruptRecord),
     }
 }
 

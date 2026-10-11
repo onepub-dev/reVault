@@ -219,3 +219,127 @@ fn invalid_creation_combinations_are_rejected_before_creation() {
         assert!(!temp.path().join("invalid.lbox").exists());
     }
 }
+
+#[test]
+fn password_default_supports_vaultless_write_lifecycle() {
+    let root = tempfile::tempdir().unwrap();
+    let dir = root.path();
+    let run_context = |recipient: bool, password: &str, args: &[&str]| {
+        Command::new(env!("CARGO_BIN_EXE_lockbox"))
+            .current_dir(dir)
+            .args(args)
+            .env(
+                "LOCKBOX_VAULT_DIR",
+                dir.join(if recipient {
+                    "recipient-vault"
+                } else {
+                    "vault"
+                }),
+            )
+            .env_remove("LOCKBOX_VAULT_PASSWORD")
+            .env_remove("LOCKBOX_KEY")
+            .env("LOCKBOX_PASSWORD", password)
+            .env("LOCKBOX_PLATFORM_SECRET_STORE", "disabled")
+            .env(
+                "LOCKBOX_SESSION_AGENT_DIR",
+                common::agent_socket_dir(&dir.join(if recipient {
+                    "recipient-agent"
+                } else {
+                    "agent"
+                })),
+            )
+            .env("LOCKBOX_SESSION_AGENT_LOG", dir.join("agent.log"))
+            .env("LOCKBOX_ADD_PROGRESS", "off")
+            .test_output()
+            .unwrap()
+    };
+    let run_password = |args: &[&str]| run_context(false, "password default fixture", args);
+    success(run_password(&["password.lbox", "create", "--password"]));
+    assert!(!dir.join("vault/local-vault.lbox").exists());
+    assert!(!run_password(&["password.lbox", "create", "--password"])
+        .status
+        .success());
+    let status = String::from_utf8(success(run_password(&["password.lbox", "doctor"]))).unwrap();
+    assert!(status.contains("signing: none"));
+    fs::write(dir.join("input"), b"original bytes").unwrap();
+    success(run_password(&[
+        "password.lbox",
+        "add",
+        "input",
+        "--to",
+        "/kept",
+    ]));
+    assert_eq!(
+        success(run_password(&["password.lbox", "cat", "/kept"])),
+        b"original bytes"
+    );
+    assert!(
+        !run_password(&["password.lbox", "add", "input", "--to", "/kept"])
+            .status
+            .success()
+    );
+    assert_eq!(
+        success(run_password(&["password.lbox", "cat", "/kept"])),
+        b"original bytes"
+    );
+    success(run_password(&["session", "stop"]));
+    assert!(!run_context(
+        true,
+        "wrong password",
+        &[
+            "password.lbox",
+            "open",
+            "--password-env",
+            "LOCKBOX_PASSWORD"
+        ]
+    )
+    .status
+    .success());
+    let run_password = |args: &[&str]| run_context(true, "password default fixture", args);
+    success(run_password(&[
+        "password.lbox",
+        "open",
+        "--password-env",
+        "LOCKBOX_PASSWORD",
+    ]));
+    fs::write(dir.join("input"), b"replacement bytes").unwrap();
+    success(run_password(&[
+        "password.lbox",
+        "add",
+        "--overwrite",
+        "input",
+        "--to",
+        "/kept",
+    ]));
+    assert_eq!(
+        success(run_password(&["password.lbox", "cat", "/kept"])),
+        b"replacement bytes"
+    );
+    success(run_password(&[
+        "password.lbox",
+        "add",
+        "input",
+        "--to",
+        "/removed",
+    ]));
+    success(run_password(&["password.lbox", "remove", "/removed"]));
+    assert_eq!(
+        success(run_password(&["password.lbox", "cat", "/removed"])),
+        b"replacement bytes"
+    );
+    success(run_password(&[
+        "password.lbox",
+        "remove",
+        "--force",
+        "/removed",
+    ]));
+    assert!(!run_password(&["password.lbox", "cat", "/removed"])
+        .status
+        .success());
+    assert_eq!(
+        success(run_password(&["password.lbox", "cat", "/kept"])),
+        b"replacement bytes"
+    );
+    assert!(!dir.join("recipient-vault/local-vault.lbox").exists());
+    success(run_password(&["session", "stop"]));
+}

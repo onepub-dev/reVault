@@ -84,13 +84,16 @@ impl<State> Lockbox<State> {
         }
         digest.update(b"allocation-and-cleanup\0");
         let root = self.read_commit_root_at(self.commit_root_offset)?;
-        for offset in [
-            root.free_index_root_offset,
-            root.post_cleanup_free_index_root_offset,
+        for (offset, commitment) in [
+            (root.free_index_root_offset, root.free_index_root_commitment),
+            (
+                root.post_cleanup_free_index_root_offset,
+                root.post_cleanup_free_index_root_commitment,
+            ),
         ] {
             digest.update(offset.to_le_bytes());
             if offset != 0 {
-                let slots = self.read_free_index_slots(offset, 0)?;
+                let slots = self.read_free_index_slots(offset, commitment, 0)?;
                 digest.update((slots.len() as u64).to_le_bytes());
                 for slot in slots {
                     digest.update(slot.offset.to_le_bytes());
@@ -99,30 +102,22 @@ impl<State> Lockbox<State> {
             }
         }
         let mut offset = root.redaction_manifest_offset;
+        let mut commitment = root.redaction_manifest_commitment;
         let mut count = 0;
         while offset != 0 {
             count += 1;
             if count > crate::file_format::redaction_manifest::MAX_REDACTION_PAGES {
                 return Err(Error::CorruptRecord);
             }
-            let manifest = self.read_redaction_manifest_page_at(offset)?;
+            let manifest = self.read_redaction_manifest_page_at(offset, commitment)?;
             field(
                 &mut digest,
                 &crate::file_format::redaction_manifest::encode_page(&manifest)?,
             );
             offset = manifest.next_page_offset;
+            commitment = manifest.next_page_commitment;
         }
         Ok(digest.finalize().into())
-    }
-
-    pub(super) fn verify_signed_content(&self) -> Result<()> {
-        if self.format_mode.plaintext() && self.format_mode.signed() && self.sequence != 0 {
-            let (auth, _) = self.read_and_verify_commit_auth_at(self.commit_auth_offset)?;
-            if auth.content_digest != Some(self.signed_content_digest()?) {
-                return Err(Error::CorruptRecord);
-            }
-        }
-        Ok(())
     }
 }
 
@@ -271,7 +266,10 @@ mod tests {
             u32::from_le_bytes(bytes[page + 44..page + 48].try_into().unwrap()) as usize;
         let checksum = crate::crypto::strong_checksum(&bytes[body + 32..body + stored_len]);
         bytes[body..body + 32].copy_from_slice(&checksum);
-        assert!(Lockbox::open_bytes(bytes, LockboxOpen::Unencrypted).is_err());
+        let opened = Lockbox::open_bytes(bytes, LockboxOpen::Unencrypted).unwrap();
+        assert!(opened
+            .get_variable(&VariableName::new("signed").unwrap())
+            .is_err());
     }
 
     #[test]

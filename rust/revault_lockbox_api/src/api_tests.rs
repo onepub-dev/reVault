@@ -924,6 +924,112 @@ fn multiple_key_slots_are_tried_until_one_opens() {
 }
 
 #[test]
+fn password_wrapping_preserves_variable_length_content_keys() {
+    let password = password("wrapping shape fixture");
+    for length in [16, 32, 64] {
+        let key = vec![37; length];
+        let mut lb = Lockbox::create(&key);
+        lb.add_password(&password).unwrap();
+        add_file(&mut lb, &p("/kept"), b"wrapped-key contents", false).unwrap();
+        lb.commit().unwrap();
+        let reopened = Lockbox::open_with_password(lb.to_bytes(), &password).unwrap();
+        assert_eq!(
+            reopened.get_file(&p("/kept")).unwrap(),
+            b"wrapped-key contents"
+        );
+    }
+}
+
+#[test]
+fn password_directory_tolerates_either_missing_mirror_but_not_both() {
+    let password = password("mirror lifecycle fixture");
+    let mut lb = Lockbox::create_with_password(&password).unwrap();
+    add_file(&mut lb, &p("/kept"), b"mirrored access contents", false).unwrap();
+    lb.commit().unwrap();
+    let bytes = lb.to_bytes();
+    let header = crate::file_format::read_header(&bytes).unwrap();
+    let copies = [
+        header.key_directory_offset,
+        header.key_directory_mirror_offset,
+    ];
+    for missing in [0, 1] {
+        let mut damaged = bytes.clone();
+        damaged[copies[missing] as usize] = 0;
+        let reopened = Lockbox::open_with_password(damaged, &password).unwrap();
+        assert_eq!(
+            reopened.get_file(&p("/kept")).unwrap(),
+            b"mirrored access contents"
+        );
+    }
+    let mut damaged = bytes;
+    for offset in copies {
+        damaged[offset as usize] = 0;
+    }
+    assert!(Lockbox::open_with_password(damaged, &password).is_err());
+}
+
+#[test]
+fn password_access_rekey_preserves_signing_and_current_content() {
+    for cache in [CacheLimit::Bytes(0), CacheLimit::Bytes(4 * 1024 * 1024)] {
+        for signed in [false, true] {
+            let old = password("old access password");
+            let retained = password("retained access password");
+            let owner = signing_key();
+            let mut options = crate::LockboxCreateOptions::new(
+                crate::Encryption::Encrypted(LockboxProtection::Password(&old)),
+                if signed {
+                    crate::Signing::Owner(&owner)
+                } else {
+                    crate::Signing::None
+                },
+            );
+            options.runtime.cache_limit = cache;
+            let mut lb = Lockbox::create_in_memory_with_options(options).unwrap();
+            let contact = ContactKeyPair::generate().unwrap();
+            lb.add_contact(&contact.public_key()).unwrap();
+            add_file(&mut lb, &p("/kept"), b"current content", false).unwrap();
+            lb.commit().unwrap();
+            let mode = lb.format_options();
+            let old_key = Lockbox::open_bytes_with_password(&lb.to_bytes(), &old)
+                .unwrap()
+                .try_clone_key()
+                .unwrap();
+            lb.replace_content_key_with_access(&[], &[("retained".into(), retained)])
+                .unwrap();
+            assert_eq!(lb.format_options(), mode);
+            lb.compact().unwrap();
+            let bytes = lb.to_bytes();
+            assert!(Lockbox::open_with_password(bytes.clone(), &old).is_err());
+            assert!(Lockbox::open_with_contact(bytes.clone(), &contact).is_err());
+            assert!(Lockbox::open_bytes_with_key(
+                bytes.clone(),
+                old_key.with_bytes(|key| key.to_vec()).unwrap()
+            )
+            .is_err());
+            let retained = password("retained access password");
+            let retained_key = Lockbox::open_bytes_with_password(&bytes, &retained)
+                .unwrap()
+                .try_clone_key()
+                .unwrap();
+            let retained_key_bytes =
+                zeroize::Zeroizing::new(retained_key.with_bytes(|key| key.to_vec()).unwrap());
+            let reopened = Lockbox::open_bytes_with_key_options(
+                bytes,
+                retained_key_bytes.as_slice(),
+                LockboxOptions {
+                    cache_limit: cache,
+                    ..LockboxOptions::default()
+                },
+            )
+            .unwrap();
+            assert_eq!(reopened.format_options(), mode);
+            assert_eq!(reopened.get_file(&p("/kept")).unwrap(), b"current content");
+            assert_eq!(reopened.list_key_slots().len(), 1);
+        }
+    }
+}
+
+#[test]
 fn key_slots_can_be_removed_and_passwords_changed() {
     let old_password = password("old-password");
     let temporary_password = password("temporary-password");
@@ -1166,7 +1272,8 @@ fn many_small_files_are_packed_into_shared_pages_after_commit() {
     damaged[crate::file_format::header_v2::SLOT_LEN..crate::file_format::header_v2::SLOT_LEN + 8]
         .fill(0);
     let report = RecoveryScanner::scan_bytes(damaged, KEY);
-    assert_eq!(report.intact_file_count, 20);
+    assert_eq!(report.intact_file_count, 21);
+    assert!(report.toc_recovered);
 }
 
 #[test]
@@ -3163,13 +3270,13 @@ fn recovery_survives_corrupt_header() {
     assert!(Lockbox::open_bytes_with_key(damaged.clone(), KEY).is_err());
 
     let report = RecoveryScanner::scan_bytes(damaged.clone(), KEY);
-    assert_eq!(report.intact_file_count, 3);
+    assert_eq!(report.intact_file_count, 5);
     assert_eq!(report.partial_files, 0);
-    assert!(!report.toc_recovered);
+    assert!(report.toc_recovered);
     assert!(report.intact_files.iter().any(|e| e.path == "/docs/a.txt"));
 
-    // Both header slots are damaged, so recovery must reconstruct streamed
-    // lengths from manifests before checking signed native candidates.
+    // Repair the magic only when the original header authentication still
+    // validates; the selected TOC remains the membership authority.
     let salvaged = RecoveryScanner::salvage_bytes(damaged, KEY, &signing_key()).unwrap();
     let reopened = Lockbox::open_bytes_with_key(salvaged.to_bytes(), KEY).unwrap();
     assert_eq!(reopened.get_file(&p("/docs/a.txt")).unwrap(), b"alpha");
@@ -3209,7 +3316,7 @@ fn recovery_survives_header_toc_pointer_zeroed() {
 
     let report = RecoveryScanner::scan_bytes(damaged, KEY);
     assert_eq!(report.intact_file_count, 5);
-    assert!(!report.toc_recovered);
+    assert!(report.toc_recovered);
 }
 
 #[cfg(feature = "native-block-layout")]
@@ -3226,22 +3333,18 @@ fn native_pointer_recovery_retains_header_authentication() {
         update_test_header_checksum(&mut damaged, header.slot_index);
         assert!(Lockbox::open_bytes_with_key(damaged.clone(), KEY).is_err());
         let report = RecoveryScanner::scan_bytes(damaged.clone(), KEY);
+        if tamper_tag {
+            assert!(!report.toc_recovered);
+            assert_eq!(report.intact_file_count, 0);
+            assert!(RecoveryScanner::salvage_bytes(damaged, KEY, &signing_key()).is_err());
+            continue;
+        }
         let salvaged = RecoveryScanner::salvage_bytes(damaged, KEY, &signing_key()).unwrap();
         let reopened = Lockbox::open_bytes_with_key(salvaged.to_bytes(), KEY).unwrap();
-        if tamper_tag {
-            assert_eq!(report.partial_files, 3);
-            for path in ["/docs/a.txt", "/docs/b.txt", "/photos/c.jpg"] {
-                assert!(matches!(
-                    reopened.get_file(&p(path)),
-                    Err(Error::NotFound(_))
-                ));
-            }
-        } else {
-            assert_eq!(report.partial_files, 0);
-            assert_eq!(reopened.get_file(&p("/docs/a.txt")).unwrap(), b"alpha");
-            assert_eq!(reopened.get_file(&p("/docs/b.txt")).unwrap(), b"bravo");
-            assert_eq!(reopened.get_file(&p("/photos/c.jpg")).unwrap(), b"image");
-        }
+        assert_eq!(report.partial_files, 0);
+        assert_eq!(reopened.get_file(&p("/docs/a.txt")).unwrap(), b"alpha");
+        assert_eq!(reopened.get_file(&p("/docs/b.txt")).unwrap(), b"bravo");
+        assert_eq!(reopened.get_file(&p("/photos/c.jpg")).unwrap(), b"image");
     }
 }
 
@@ -3284,7 +3387,7 @@ fn replayed_header_after_retirement_fails_closed() {
 }
 
 #[test]
-fn recovery_survives_corrupt_toc_record() {
+fn recovery_repairs_control_extent_with_original_authentication() {
     let bytes = sample_lockbox();
     let lb = Lockbox::open_bytes_with_key(bytes.clone(), KEY).unwrap();
     let mut damaged = bytes;
@@ -3295,14 +3398,14 @@ fn recovery_survives_corrupt_toc_record() {
     assert!(Lockbox::open_bytes_with_key(damaged.clone(), KEY).is_err());
 
     let report = RecoveryScanner::scan_bytes(damaged, KEY);
-    assert_eq!(report.intact_file_count, 3);
+    assert_eq!(report.intact_file_count, 5);
     assert_eq!(report.partial_files, 0);
-    assert!(!report.toc_recovered);
+    assert!(report.toc_recovered);
     assert_eq!(lb.get_file(&p("/docs/a.txt")).unwrap(), b"alpha");
 }
 
 #[test]
-fn recovery_ignores_deleted_files_when_rebuilding_without_toc() {
+fn recovery_refuses_current_membership_without_authenticated_toc() {
     let mut lb = Lockbox::create(KEY);
     add_file(&mut lb, &p("/docs/a.txt"), b"alpha", false).unwrap();
     add_file(&mut lb, &p("/docs/delete-me.txt"), b"delete", false).unwrap();
@@ -3310,15 +3413,18 @@ fn recovery_ignores_deleted_files_when_rebuilding_without_toc() {
     lb.commit().unwrap();
 
     let mut damaged = lb.to_bytes();
-    let header_toc_root_offset = header_commit_root_offset(&damaged);
-    damaged[header_toc_root_offset + 55] ^= 0x55;
+    let header = crate::file_format::read_header(&damaged).unwrap();
+    let root = crate::page_scanner::PageScanner::new(&damaged, header.lockbox_id, KEY)
+        .commit_root_at(header.commit_root_offset)
+        .unwrap();
+    // Damage the selected TOC payload, rather than a repairable control header.
+    damaged[root.toc_root_offset as usize + crate::page::PAGE_HEADER_LEN + 4] ^= 0x55;
 
-    let report = RecoveryScanner::scan_bytes(damaged, KEY);
-    assert_eq!(report.intact_file_count, 1);
-    assert!(report
-        .intact_files
-        .iter()
-        .all(|entry| entry.path != "/docs/delete-me.txt"));
+    let report = RecoveryScanner::scan_bytes(damaged.clone(), KEY);
+    assert!(!report.toc_recovered);
+    assert_eq!(report.intact_file_count, 0);
+    assert!(report.intact_files.is_empty());
+    assert!(RecoveryScanner::salvage_bytes(damaged, KEY, &signing_key()).is_err());
 }
 
 #[test]
@@ -3351,7 +3457,7 @@ fn recovery_reports_corrupt_records_for_damaged_frame_header() {
 }
 
 #[test]
-fn recovery_skips_truncated_tail_and_keeps_prior_intact_files() {
+fn recovery_refuses_current_membership_when_selected_auth_is_truncated() {
     let mut damaged = sample_lockbox();
     let last_page = page_offsets(&damaged).into_iter().last().unwrap();
     let header_len =
@@ -3360,9 +3466,10 @@ fn recovery_skips_truncated_tail_and_keeps_prior_intact_files() {
         u32::from_le_bytes(damaged[last_page + 44..last_page + 48].try_into().unwrap()) as usize;
     damaged.truncate(last_page + header_len + encrypted_len - 1);
 
-    let report = RecoveryScanner::scan_bytes(damaged, KEY);
-    assert_eq!(report.intact_file_count, 3);
+    let report = RecoveryScanner::scan_bytes(damaged.clone(), KEY);
+    assert_eq!(report.intact_file_count, 0);
     assert!(!report.toc_recovered);
+    assert!(RecoveryScanner::salvage_bytes(damaged, KEY, &signing_key()).is_err());
 }
 
 #[test]
@@ -3420,7 +3527,7 @@ fn committed_file_names_and_content_are_not_visible_in_cleartext() {
 }
 
 #[test]
-fn many_files_round_trip_and_recover_after_toc_loss() {
+fn many_files_round_trip_and_recover_after_control_extent_repair() {
     let mut lb = Lockbox::create(KEY);
     for i in 0..100 {
         let path = format!("/many/file-{i:03}.txt");
@@ -3446,11 +3553,12 @@ fn many_files_round_trip_and_recover_after_toc_loss() {
     let header_toc_root_offset = header_commit_root_offset(&damaged);
     damaged[header_toc_root_offset + 55] ^= 0x55;
     let report = RecoveryScanner::scan_bytes(damaged, KEY);
-    assert_eq!(report.intact_file_count, 100);
+    assert_eq!(report.intact_file_count, 101);
+    assert!(report.toc_recovered);
 }
 
 #[test]
-fn large_file_recovery_reassembles_segments_after_toc_loss() {
+fn large_file_recovery_preserves_membership_after_control_extent_repair() {
     let mut payload = vec![0u8; 9 * 1024 * 1024];
     fill_randomish(&mut payload);
     let mut lb = Lockbox::create(KEY);
@@ -3468,8 +3576,9 @@ fn large_file_recovery_reassembles_segments_after_toc_loss() {
     damaged[header_toc_root_offset + 55] ^= 0x55;
 
     let report = RecoveryScanner::scan_bytes(damaged.clone(), KEY);
-    assert_eq!(report.intact_file_count, 1);
+    assert_eq!(report.intact_file_count, 2);
     assert_eq!(report.partial_files, 0);
+    assert!(report.toc_recovered);
 
     let salvaged = RecoveryScanner::salvage_bytes(damaged, KEY, &signing_key()).unwrap();
     assert_eq!(

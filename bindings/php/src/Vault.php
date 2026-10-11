@@ -465,9 +465,9 @@ class Lockbox extends OwnedHandle
     /** Open with a shared lock; supply signingKey for exclusive write access.
      * Example: $box = Lockbox::open($path, password: $password); try { echo $box->getFile('/hello'); } finally { $box->close(); }
      */
-    public static function open(string $path, ?string $password = null, ?string $contentKey = null, ?OwnedHandle $contact = null, ?array $options = null, ?OwnedHandle $signingKey = null): self
+    public static function open(string $path, ?string $password = null, ?string $contentKey = null, ?OwnedHandle $contact = null, ?array $options = null, ?OwnedHandle $signingKey = null, ?bool $writable = null): self
     {
-        return Revault::runtime()->lockboxFileInternal($path, 'open', $password, $contentKey, $contact, $signingKey, $options);
+        return Revault::runtime()->lockboxFileInternal($path, $writable === null ? 'open' : ($writable ? 'write' : 'read'), $password, $contentKey, $contact, $signingKey, $options);
     }
 
     /** Stages a file at the Lockbox path; replace controls an existing entry. */

@@ -920,3 +920,93 @@ fn old_adjacent_publication_geometry_is_not_selected_as_current_format() {
     }
     assert!(select(&storage, anchor.archive, mode, &Authority::Checksum).is_err());
 }
+
+// Internal synthetic publications model an interrupted first-slot publication;
+// the experimental layouts have no public CLI writer or corruption command.
+#[test]
+fn password_integrity_newer_checksum_valid_auth_failure_never_selects_old_state() {
+    let owner = OwnerSigningKeyPair::generate().unwrap();
+    let public = owner.public_key();
+    for layout in [Layout::Separated, Layout::Shared] {
+        for (encrypted, signed) in [(true, false), (true, true), (false, true)] {
+            let mode = mode(encrypted, signed);
+            let authority = if signed {
+                Authority::Owner(&public)
+            } else {
+                Authority::Symmetric(b"synthetic key")
+            };
+            let signer = signed.then_some(&owner);
+            let mut storage =
+                StorageBackend::memory(vec![0; REGION_LEN + 2 * FAILURE_REGION as usize]);
+            let payload = b"synthetic committed index";
+            storage.write_at(REGION_LEN as u64, payload).unwrap();
+            storage
+                .write_at(REGION_LEN as u64 + FAILURE_REGION, payload)
+                .unwrap();
+            let index = RootRef {
+                primary: REGION_LEN as u64,
+                mirror: REGION_LEN as u64 + FAILURE_REGION,
+                len: payload.len() as u64,
+                digest: strong_checksum(payload),
+            };
+            let old = Anchor {
+                archive: LockboxId::from_bytes([31; 16]),
+                generation: 1,
+                mode,
+                sealed_len: storage.len().unwrap(),
+                object_root: index.digest,
+                previous: [0; 32],
+                index,
+                allocation: RootRef::default(),
+                keys: RootRef::default(),
+            };
+            let old_bytes = encode_in(&old, &authority, signer, layout).unwrap();
+            storage.write_at(0, &old_bytes).unwrap();
+            storage.write_at(SLOT_STRIDE as u64, &old_bytes).unwrap();
+            let mut new = old.clone();
+            new.generation = 2;
+            new.previous = old.commitment_in(layout).unwrap();
+            let valid = encode_in(&new, &authority, signer, layout).unwrap();
+            storage.write_at(0, &valid).unwrap();
+            assert_eq!(
+                select_in(&storage, old.archive, mode, &authority, layout)
+                    .unwrap()
+                    .anchor
+                    .generation,
+                2
+            );
+            let mut damaged = valid.clone();
+            let auth_len = u32::from_le_bytes(damaged[288..292].try_into().unwrap()) as usize;
+            damaged[AUTH_START + auth_len - 1] ^= 1;
+            refresh_checksum(&mut damaged);
+            storage.write_at(0, &damaged).unwrap();
+            assert!(
+                select_in(&storage, old.archive, mode, &authority, layout).is_err(),
+                "must not silently present old generation as current"
+            );
+
+            // A valid peer with the identical commitment still establishes the
+            // current state when only the other copy's authenticator is damaged.
+            storage.write_at(SLOT_STRIDE as u64, &valid).unwrap();
+            assert_eq!(
+                select_in(&storage, old.archive, mode, &authority, layout)
+                    .unwrap()
+                    .anchor
+                    .generation,
+                2
+            );
+            // Checksum-invalid torn publication retains the protocol's old-state
+            // recovery boundary; a forged public checksum cannot claim that case.
+            storage.write_at(SLOT_STRIDE as u64, &old_bytes).unwrap();
+            damaged[CHECKSUM_START] ^= 1;
+            storage.write_at(0, &damaged).unwrap();
+            assert_eq!(
+                select_in(&storage, old.archive, mode, &authority, layout)
+                    .unwrap()
+                    .anchor
+                    .generation,
+                1
+            );
+        }
+    }
+}

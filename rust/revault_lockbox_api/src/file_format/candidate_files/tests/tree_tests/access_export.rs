@@ -91,9 +91,14 @@ fn dense_tree_export_preserves_wrappers_and_resets_directory_generation() {
         let original_directory = shared::retained_public_directory(&source, &source_anchor)
             .unwrap()
             .unwrap();
-        let decoded =
-            crate::file_format::key_directory::read_key_directory_backup(&original_directory)
-                .unwrap();
+        // The authenticated candidate directory has a padded fixed envelope;
+        // the native backup codec accepts its exact logical payload only.
+        let directory_len =
+            u64::from_le_bytes(original_directory[16..24].try_into().unwrap()) as usize;
+        let decoded = crate::file_format::key_directory::read_key_directory_backup(
+            &original_directory[..directory_len],
+        )
+        .unwrap();
         assert!(decoded.generation > 1);
         for damaged_bank in [
             None,

@@ -1,6 +1,7 @@
 use crate::constants::DEFAULT_METADATA_MAX_PAGE_BODY_BYTES;
+use crate::file_format::page_commitment::PageCommitment;
 use crate::incremental_btree::{BTreeEntry, BTreeLeaf};
-use crate::page_tree::{PageTreeChild, PageTreeChildren, PageTreeLayout};
+use crate::page_tree::{AuthenticatedPageTreeChildren, PageTreeChild, PageTreeLayout};
 use crate::toc_codec::{TocDecoder, TocEncoder, TocEntriesLenEstimator};
 use crate::toc_entry::TocEntry;
 use crate::{Error, LockboxPath, Result};
@@ -20,6 +21,7 @@ pub(crate) enum TocNode {
 pub(crate) struct TocChild {
     pub(crate) first_path: LockboxPath,
     pub(crate) offset: u64,
+    pub(crate) commitment: PageCommitment,
 }
 
 impl TocChild {
@@ -29,12 +31,14 @@ impl TocChild {
             offset: self.offset,
         }
         .encoded_len()
+            + 40
     }
 }
 
 #[derive(Debug, Clone)]
 pub(crate) struct TocLeaf {
     pub(crate) offset: u64,
+    pub(crate) commitment: PageCommitment,
     pub(crate) entries: Vec<TocEntry>,
 }
 
@@ -55,6 +59,7 @@ impl BTreeLeaf<TocEntry> for TocLeaf {
 #[derive(Debug, Clone)]
 pub(crate) struct TocInternal {
     pub(crate) offset: u64,
+    pub(crate) commitment: PageCommitment,
     pub(crate) children: Vec<TocTreeNode>,
 }
 
@@ -65,6 +70,12 @@ pub(crate) enum TocTreeNode {
 }
 
 impl TocTreeNode {
+    pub(crate) fn commitment(&self) -> PageCommitment {
+        match self {
+            Self::Leaf(leaf) => leaf.commitment,
+            Self::Internal(internal) => internal.commitment,
+        }
+    }
     pub(crate) fn offset(&self) -> u64 {
         match self {
             Self::Leaf(leaf) => leaf.offset,
@@ -124,7 +135,13 @@ pub(crate) fn encode_toc_internal(children: &[TocChild]) -> Result<Vec<u8>> {
             offset: child.offset,
         })
         .collect::<Vec<_>>();
-    out.extend_from_slice(&PageTreeChildren::new(routing_children).encode());
+    out.extend_from_slice(
+        &AuthenticatedPageTreeChildren::new(
+            routing_children,
+            children.iter().map(|child| child.commitment).collect(),
+        )
+        .encode()?,
+    );
     if out.len() > DEFAULT_METADATA_MAX_PAGE_BODY_BYTES {
         return Err(Error::SecurityLimitExceeded(
             "TOC internal node exceeds maximum page size".to_string(),
@@ -171,7 +188,7 @@ fn leaf_base_len() -> usize {
 }
 
 fn internal_base_len() -> usize {
-    TOC_NODE_PREFIX_BYTES + 4
+    TOC_NODE_PREFIX_BYTES + 8
 }
 
 pub(crate) fn decode_toc_node(payload: &[u8]) -> Result<TocNode> {
@@ -210,14 +227,15 @@ fn validate_leaf_entries(entries: &[TocEntry]) -> Result<()> {
 }
 
 fn decode_toc_internal(payload: &[u8]) -> Result<TocNode> {
-    let children = PageTreeChildren::decode(payload, |key| {
+    let children = AuthenticatedPageTreeChildren::decode(payload, |key| {
         LockboxPath::from_stored(key, false).map(|_| ())
     })?
-    .into_iter()
-    .map(|child| {
+    .into_pairs()
+    .map(|(child, commitment)| {
         Ok(TocChild {
             first_path: LockboxPath::from_stored(&child.first_key, false)?,
             offset: child.offset,
+            commitment,
         })
     })
     .collect::<Result<Vec<_>>>()?;
@@ -239,6 +257,7 @@ mod tests {
             record_offset: 64,
             record_len: 64,
             record_object_id: 1,
+            record_digest: [0; 32],
             deleted: false,
             node_kind: NodeKind::File,
             permissions: DEFAULT_FILE_PERMISSIONS,
@@ -256,6 +275,7 @@ mod tests {
         let payload = encode_toc_internal(&[TocChild {
             first_path: LockboxPath::from_unchecked_for_test("/C:/Users/evil.txt"),
             offset: 64,
+            commitment: Default::default(),
         }])
         .unwrap();
         assert!(matches!(
@@ -287,10 +307,12 @@ mod tests {
             TocChild {
                 first_path: LockboxPath::new("/b.txt").unwrap(),
                 offset: 128,
+                commitment: Default::default(),
             },
             TocChild {
                 first_path: LockboxPath::new("/a.txt").unwrap(),
                 offset: 256,
+                commitment: Default::default(),
             },
         ])
         .unwrap();
@@ -303,10 +325,12 @@ mod tests {
             TocChild {
                 first_path: LockboxPath::new("/a.txt").unwrap(),
                 offset: 128,
+                commitment: Default::default(),
             },
             TocChild {
                 first_path: LockboxPath::new("/a.txt").unwrap(),
                 offset: 256,
+                commitment: Default::default(),
             },
         ])
         .unwrap();
@@ -318,6 +342,7 @@ mod tests {
         let payload = encode_toc_internal(&[TocChild {
             first_path: LockboxPath::new("/a.txt").unwrap(),
             offset: 0,
+            commitment: Default::default(),
         }])
         .unwrap();
         assert!(matches!(
@@ -331,17 +356,24 @@ mod tests {
         let children = vec![TocChild {
             first_path: LockboxPath::new("/a").unwrap(),
             offset: 0x0102_0304_0506_0708,
+            commitment: crate::file_format::page_commitment::PageCommitment {
+                physical_len: 1024,
+                digest: [7; 32],
+            },
         }];
         let encoded = encode_toc_internal(&children).unwrap();
 
         assert_eq!(&encoded[0..2], &[TOC_NODE_VERSION, TOC_INTERNAL]);
-        assert_eq!(&encoded[2..6], &[0x01, 0x00, 0x00, 0x00]);
-        assert_eq!(&encoded[6..8], &[0x02, 0x00]);
-        assert_eq!(&encoded[8..10], b"/a");
+        assert_eq!(&encoded[2..6], &[0x10, 0x00, 0x00, 0x00]); // routing bytes
+        assert_eq!(&encoded[6..10], &[0x01, 0x00, 0x00, 0x00]);
+        assert_eq!(&encoded[10..12], &[0x02, 0x00]);
+        assert_eq!(&encoded[12..14], b"/a");
         assert_eq!(
-            &encoded[10..18],
+            &encoded[14..22],
             &[0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01]
         );
+        assert_eq!(&encoded[22..30], &1024_u64.to_le_bytes());
+        assert_eq!(&encoded[30..62], &[7; 32]);
 
         let TocNode::Internal(decoded) = decode_toc_node(&encoded).unwrap() else {
             panic!("expected internal node");
@@ -359,6 +391,7 @@ mod tests {
                 record_offset: 64,
                 record_len: 64,
                 record_object_id: 1,
+                record_digest: [0; 32],
                 deleted: false,
                 node_kind: NodeKind::File,
                 permissions: DEFAULT_FILE_PERMISSIONS,
@@ -380,6 +413,7 @@ mod tests {
             record_offset: 64,
             record_len: 64,
             record_object_id: 1,
+            record_digest: [0; 32],
             deleted: false,
             node_kind: NodeKind::File,
             permissions: DEFAULT_FILE_PERMISSIONS,

@@ -3678,7 +3678,7 @@ fn access_subcommands_manage_lockbox_access() {
 }
 
 #[test]
-fn password_create_requires_explicit_vault_init() {
+fn owner_signed_password_create_requires_explicit_vault_init() {
     let bin = env!("CARGO_BIN_EXE_lockbox");
     let dir = unique_dir_named("create-vault-init");
     let _ = fs::remove_dir_all(&dir);
@@ -3689,7 +3689,13 @@ fn password_create_requires_explicit_vault_init() {
 
     let create_without_vault = run_output_without_content_key(
         bin,
-        &[lockbox.to_str().unwrap(), "create", "--password"],
+        &[
+            lockbox.to_str().unwrap(),
+            "create",
+            "--password",
+            "--signing",
+            "owner",
+        ],
         &vault_root,
         &agent_root,
     );

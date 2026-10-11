@@ -131,6 +131,11 @@ impl KeySlot {
                 encrypted_key,
                 ..
             } => {
+                // Reject malformed wrapping inputs before the expensive KDF.
+                // Content-key APIs permit variable key lengths; the AEAD tag is fixed.
+                if salt.len() != 16 || encrypted_key.len() < 16 {
+                    return Err(Error::InvalidKey);
+                }
                 let mut wrapping_key = derive_key_from_password(password, salt)?;
                 let key = decrypt_wrapped_key(&wrapping_key, encrypted_key);
                 wrapping_key.zeroize();

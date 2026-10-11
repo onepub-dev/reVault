@@ -224,6 +224,8 @@ supported	vault_agent_sleep_support	returned in sleep-support result
 default_vault_dir	vault_default_directory	direct
 default_vault_path	vault_default_path	direct
 open_file_handle	lockbox_file	Rust file-handle boundary
+open_file_handle_with_access	lockbox_file	Explicit read/write modes separate access intent from optional signing authority
 create_file_handle	lockbox_file	Rust file-handle boundary
+create_file_handle_with_signing	lockbox_file	Password creation defaults unsigned while explicit owner signing remains available
 is_file_read_only	lockbox_file	Rust file-handle boundary
 open_with_signer	lockbox_file	Rust file-handle boundary

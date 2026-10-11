@@ -1,5 +1,4 @@
 use super::Lockbox;
-use crate::file_format::write_header;
 use crate::host_path::HostPath;
 use crate::storage::StorageBackend;
 #[cfg(any(test, feature = "migration"))]
@@ -110,8 +109,8 @@ impl Lockbox<crate::Writable> {
         options: LockboxOptions,
     ) -> Result<Self> {
         let path = HostPath::new(path);
-        let mut bytes = vec![0; crate::constants::HEADER_LEN];
-        write_header(&mut bytes, 0, 0, 0, lockbox_id, 0);
+        let bytes =
+            crate::file_format::current_header::authenticated_initial_header(lockbox_id, &key)?;
         let mut lockbox = Self::open_storage_with_secret_key(
             StorageBackend::create_file(path.as_path(), &bytes)?,
             key,

@@ -342,6 +342,7 @@ impl<'a> LockboxFileMut<'a> {
                     .as_ref()
                     .map(|entry| entry.record_object_id)
                     .unwrap_or(0),
+                record_digest: [0; 32],
                 deleted: false,
                 node_kind: NodeKind::File,
                 permissions: self.permissions,
@@ -422,6 +423,7 @@ impl<'a> LockboxFileMut<'a> {
             record_offset,
             record_len,
             record_object_id,
+            record_digest: [0; 32],
             deleted: false,
             node_kind: NodeKind::File,
             permissions: self.permissions,

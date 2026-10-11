@@ -254,8 +254,25 @@ impl PageCache {
         security: PageSecurity,
         key: PageReadKey<'_>,
     ) -> Result<Arc<DecodedPage>> {
+        self.read_page_with_extent(storage, offset, lockbox_id, security, key)
+            .map(|(page, _)| page)
+    }
+
+    pub(crate) fn read_page_with_extent(
+        &mut self,
+        storage: &impl Storage,
+        offset: u64,
+        lockbox_id: LockboxId,
+        security: PageSecurity,
+        key: PageReadKey<'_>,
+    ) -> Result<(Arc<DecodedPage>, u64)> {
         if let Some(page) = self.cached_page(offset, security)? {
-            return Ok(page);
+            let extent = self
+                .pages
+                .get(&offset)
+                .ok_or(Error::CorruptRecord)?
+                .physical_len();
+            return Ok((page, extent));
         }
         self.misses = self.misses.saturating_add(1);
         let (page, weight) = Self::read_decoded_page_from_storage(
@@ -268,6 +285,79 @@ impl PageCache {
         )?;
         let page = Arc::new(page);
         self.insert_page_with_security(offset, Arc::clone(&page), weight, security, false);
+        Ok((page, weight))
+    }
+
+    /// Verify the exact decoded page returned to the caller, including cache
+    /// hits. A separate storage checksum pass cannot establish this property.
+    pub(crate) fn read_authenticated_page(
+        &mut self,
+        storage: &impl Storage,
+        offset: u64,
+        lockbox_id: LockboxId,
+        security: PageSecurity,
+        key: PageReadKey<'_>,
+        expected: crate::file_format::page_commitment::PageCommitment,
+    ) -> Result<Arc<DecodedPage>> {
+        if let Some(page) = self.cached_page(offset, security)? {
+            let extent = self
+                .pages
+                .get(&offset)
+                .ok_or(Error::CorruptRecord)?
+                .physical_len();
+            expected.verify(lockbox_id, self.format_mode, extent, &page)?;
+            return Ok(page);
+        }
+        self.misses = self.misses.saturating_add(1);
+        let (page, extent) = Self::read_decoded_page_from_storage(
+            storage,
+            offset,
+            lockbox_id,
+            security,
+            key,
+            self.format_mode,
+        )?;
+        expected.verify(lockbox_id, self.format_mode, extent, &page)?;
+        let page = Arc::new(page);
+        self.insert_page_with_security(offset, Arc::clone(&page), extent, security, false);
+        Ok(page)
+    }
+
+    pub(crate) fn read_authenticated_object_page(
+        &mut self,
+        storage: &impl Storage,
+        offset: u64,
+        lockbox_id: LockboxId,
+        key: PageReadKey<'_>,
+        expected: crate::file_format::page_commitment::ObjectReference,
+    ) -> Result<Arc<DecodedPage>> {
+        if let Some(page) = self.cached_page(offset, PageSecurity::Normal)? {
+            let extent = self
+                .pages
+                .get(&offset)
+                .ok_or(Error::CorruptRecord)?
+                .physical_len();
+            expected.verify(lockbox_id, self.format_mode, extent, &page)?;
+            return Ok(page);
+        }
+        self.misses = self.misses.saturating_add(1);
+        let (page, extent) = Self::read_decoded_page_from_storage(
+            storage,
+            offset,
+            lockbox_id,
+            PageSecurity::Normal,
+            key,
+            self.format_mode,
+        )?;
+        expected.verify(lockbox_id, self.format_mode, extent, &page)?;
+        let page = Arc::new(page);
+        self.insert_page_with_security(
+            offset,
+            Arc::clone(&page),
+            extent,
+            PageSecurity::Normal,
+            false,
+        );
         Ok(page)
     }
 
@@ -304,10 +394,19 @@ impl PageCache {
         let page = match (security, key) {
             (PageSecurity::Normal, PageReadKey::Normal(key)) => {
                 let bytes = storage.read_at(offset, read_len)?;
+                if bytes.get(..PAGE_HEADER_LEN) != Some(header.as_slice()) {
+                    return Err(Error::CorruptRecord);
+                }
                 decode_page_with_format(&bytes, lockbox_id, key, mode)?
             }
             (PageSecurity::Secure, PageReadKey::Secure(content_key)) => {
                 let mut bytes = storage.read_at_secure(offset, read_len)?;
+                let same_header = bytes
+                    .with_bytes(|bytes| bytes.get(..PAGE_HEADER_LEN) == Some(header.as_slice()))?;
+                if !same_header {
+                    bytes.zeroize()?;
+                    return Err(Error::CorruptRecord);
+                }
                 let decoded = decode_single_object_page_secure_with_format(
                     &mut bytes,
                     lockbox_id,
@@ -1147,6 +1246,129 @@ mod tests {
     use crate::page::{encode_page, DecodedPage, PageObject, PageObjectKind};
     use crate::secret_vec::SecureVec;
     use crate::storage::StorageBackend;
+
+    #[test]
+    fn authenticated_cache_reads_verify_expected_reference_even_on_hits() {
+        let archive = LockboxId::from_bytes([19; 16]);
+        let key = b"cache reference test";
+        let page = DecodedPage {
+            page_id: 0,
+            sequence: 7,
+            objects: vec![PageObject::new(
+                PageObjectKind::TocLeaf,
+                7,
+                b"metadata".to_vec(),
+            )],
+        };
+        let mode = FormatMode::default();
+        let len =
+            crate::page::page_size_for_encoded_objects_with_format(&page.objects, mode).unwrap();
+        let expected = crate::file_format::page_commitment::PageCommitment::from_page(
+            archive, mode, len as u64, &page,
+        )
+        .unwrap();
+        let bytes = encode_page_with_format(
+            len,
+            archive,
+            page.page_id,
+            page.sequence,
+            key,
+            &page.objects,
+            mode,
+        )
+        .unwrap();
+        let storage = StorageBackend::memory(bytes);
+        for limit in [0, 1024 * 1024] {
+            let mut cache = PageCache::with_format(CacheLimit::Bytes(limit), mode);
+            let first = cache
+                .read_authenticated_page(
+                    &storage,
+                    0,
+                    archive,
+                    PageSecurity::Normal,
+                    PageReadKey::Normal(key),
+                    expected,
+                )
+                .unwrap();
+            let second = cache
+                .read_authenticated_page(
+                    &storage,
+                    0,
+                    archive,
+                    PageSecurity::Normal,
+                    PageReadKey::Normal(key),
+                    expected,
+                )
+                .unwrap();
+            if limit > 0 {
+                assert!(Arc::ptr_eq(&first, &second));
+            }
+            let mut different = expected;
+            different.digest[0] ^= 1;
+            assert!(cache
+                .read_authenticated_page(
+                    &storage,
+                    0,
+                    archive,
+                    PageSecurity::Normal,
+                    PageReadKey::Normal(key),
+                    different
+                )
+                .is_err());
+        }
+    }
+
+    #[test]
+    fn authenticated_secure_reads_work_without_cache_admission() {
+        let archive = LockboxId::from_bytes([29; 16]);
+        let key = b"secure cache reference test";
+        let content_key = derive_page_content_key(key);
+        let mode = FormatMode::default();
+        let payload = SecureVec::try_from_slice(b"scoped secret metadata").unwrap();
+        let page = DecodedPage {
+            page_id: 0,
+            sequence: 3,
+            objects: vec![PageObject::new_secure(
+                PageObjectKind::VariableLeaf,
+                3,
+                payload.try_clone().unwrap(),
+            )],
+        };
+        let len = DEFAULT_METADATA_PAGE_BYTES;
+        let expected = crate::file_format::page_commitment::PageCommitment::from_page(
+            archive, mode, len as u64, &page,
+        )
+        .unwrap();
+        let bytes = encode_single_object_page_secure(SecureSingleObjectPage {
+            format_mode: mode,
+            page_size: len,
+            lockbox_id: archive,
+            page_id: 0,
+            sequence: 3,
+            content_key: &content_key,
+            kind: PageObjectKind::VariableLeaf,
+            id: 3,
+            payload: &payload,
+        })
+        .unwrap();
+        let storage = StorageBackend::memory(bytes);
+        let mut cache = PageCache::with_format(CacheLimit::Bytes(0), mode);
+        let verified = cache
+            .read_authenticated_page(
+                &storage,
+                0,
+                archive,
+                PageSecurity::Secure,
+                PageReadKey::Secure(&content_key),
+                expected,
+            )
+            .unwrap();
+        assert!(verified.objects[0].secure_payload().is_some());
+        verified.objects[0]
+            .with_payload(|bytes| assert_eq!(bytes, b"scoped secret metadata"))
+            .unwrap();
+        assert_eq!(cache.stats().used_bytes, 0);
+    }
 
     #[test]
     fn native_block_cache_accounts_individual_allocations_and_evicts_lru() {

@@ -1,0 +1,11 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.11s
+     Running unittests src/lib.rs (target/debug/deps/revault_lockbox_api-78a9c28772c0dc65)
+
+running 4 tests
+test lockbox::commit::tests::signature_audit_public_key_slot_ids_can_be_changed_without_keys ... ok
+test lockbox::commit::tests::signature_audit_zero_sequence_header_can_hide_committed_content ... ok
+test lockbox::commit::tests::signature_audit_ciphertext_bitflips_and_mode_downgrades_are_rejected ... ok
+test lockbox::commit::tests::signature_audit_old_variable_ciphertext_can_be_replayed_without_keys ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 679 filtered out; finished in 2.90s
+

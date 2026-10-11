@@ -1,8 +1,8 @@
+use super::metric_timer::MetricTimer as Instant;
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::{self, Cursor, Read, SeekFrom, Write};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
-use std::time::Instant;
 
 use super::file_handles::LockboxFileReader;
 use super::file_import_pipeline::{
@@ -652,6 +652,7 @@ impl<State> Lockbox<State> {
                 .and_then(|chunk| chunk.segments.first())
                 .map(|segment| segment.object_id)
                 .unwrap_or(0),
+            record_digest: [0; 32],
             deleted: false,
             node_kind: NodeKind::File,
             permissions,
@@ -1122,6 +1123,66 @@ impl<State> Lockbox<State> {
         chunk: &FileChunk,
     ) -> Result<Vec<u8>> {
         self.read_file_chunk_range(expected_total_len, chunk, 0..chunk.len)
+    }
+
+    /// Authenticate precisely the retained objects that relocation will copy.
+    /// Other frame segments are streamed; the retained page is never reread.
+    pub(super) fn verify_frame_for_relocation(
+        &self,
+        total_len: u64,
+        chunk: &FileChunk,
+        retained_offset: u64,
+        retained: &crate::page::DecodedPage,
+    ) -> Result<()> {
+        #[cfg(any(test, feature = "native-block-layout"))]
+        if chunk.block_frame.is_some() {
+            return Err(Error::CorruptRecord);
+        }
+        validate_compression_frame_lengths(chunk.compression_frame_len, chunk.compressed_len)?;
+        if chunk.compressed_len > DEFAULT_MAX_PAGE_LOGICAL_BYTES as u64 {
+            return Err(Error::SecurityLimitExceeded(
+                "compressed frame exceeds relocation limit".into(),
+            ));
+        }
+        let mut hash = crate::crypto::strong_checksum_hasher(chunk.compressed_len);
+        let mut position = 0u64;
+        for segment in &chunk.segments {
+            if segment.segment_offset != position {
+                return Err(Error::CorruptRecord);
+            }
+            let mut verify = |object: &PageObject| -> Result<()> {
+                if object.kind != PageObjectKind::FileData {
+                    return Err(Error::CorruptRecord);
+                }
+                object.with_payload(|payload| {
+                    let decoded = decode_compression_frame_segment_payload_view(payload)?;
+                    validate_frame_segment(&decoded, chunk, segment, total_len)?;
+                    hash.update(decoded.data);
+                    Ok(())
+                })?
+            };
+            if segment.page_offset == retained_offset {
+                let mut objects = retained
+                    .objects
+                    .iter()
+                    .filter(|object| object.id == segment.object_id);
+                let object = objects.next().ok_or(Error::CorruptRecord)?;
+                if objects.next().is_some() {
+                    return Err(Error::CorruptRecord);
+                }
+                verify(object)?;
+            } else {
+                self.with_page_object(segment.page_offset, segment.object_id, verify)?;
+            }
+            position = position
+                .checked_add(segment.segment_len)
+                .ok_or(Error::CorruptRecord)?;
+        }
+        let digest: [u8; 32] = hash.finalize().into();
+        if position != chunk.compressed_len || digest != chunk.compression_frame_digest {
+            return Err(Error::CorruptRecord);
+        }
+        Ok(())
     }
 
     pub(super) fn verified_raw_file_range(
@@ -1602,6 +1663,7 @@ impl<State> Lockbox<State> {
                 record_offset: 0,
                 record_len: 0,
                 record_object_id: 0,
+                record_digest: [0; 32],
                 deleted: false,
                 node_kind: NodeKind::File,
                 permissions,

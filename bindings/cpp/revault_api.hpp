@@ -459,8 +459,8 @@ class Lockbox {
    * Close all readers before opening a writer. No Session Agent is used.
    * Example: { auto box = Lockbox::open_file(path, key); auto payload = box.get_file("/hello"); }
    */
-  static Lockbox open_file(const std::string& path, const std::vector<std::uint8_t>& content_key, const ProfileSigningKeyPair* signer = nullptr) {
-    return adopt(detail::file_handle(path, "open", "content-key", content_key, nullptr, signer ? signer->native_handle() : nullptr, "bytes", 64ULL << 20, "interactive", "auto", 0));
+  static Lockbox open_file(const std::string& path, const std::vector<std::uint8_t>& content_key, const ProfileSigningKeyPair* signer = nullptr, std::optional<bool> writable = std::nullopt) {
+    return adopt(detail::file_handle(path, writable ? (*writable ? "write" : "read") : "open", "content-key", content_key, nullptr, signer ? signer->native_handle() : nullptr, "bytes", 64ULL << 20, "interactive", "auto", 0));
   }
 
 // END generated file operation facade

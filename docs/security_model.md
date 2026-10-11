@@ -32,12 +32,15 @@ prove it is the latest copy without external freshness state.
 
 ## Protection modes
 
-The October 11 user direction makes unsigned creation the intended default for
-new password archives, pending the [security prerequisite](archive_v4_plan.md#security-prerequisite-and-performance-pause--2026-10-11).
+The October 11 security implementation makes unsigned creation the default for
+new password archives in native APIs, the CLI and bindings. Qualification is tracked
+in the [security prerequisite](archive_v4_plan.md#security-prerequisite-and-performance-pause--2026-10-11).
 Explicit signed creation and existing signed archives retain their requirements.
-Mixed password/contact creation and later protection changes require an explicit
-policy; password addition must never silently strip signing. This documents the
-required policy, not a completed implementation or security qualification.
+New mixed password/contact archives remain signed. Adding or removing access on
+an existing archive preserves its signing mode; password addition must never
+silently strip signing. Creation APIs choose one initial protection; adding another
+credential preserves that choice. Contact-created archives therefore stay signed
+when password access is added. This is not whole-format release qualification.
 
 | Mode | Confidentiality | Integrity / authorization required |
 | --- | --- | --- |
@@ -68,13 +71,30 @@ damage is detected on access or full audit. Owner-authorized membership remains
 mandatory; full audits and destructive operations retain their wider checks.
 Released format-3 behavior is unchanged. Recovery must preserve authorization.
 
-The previously evaluated native `CommitAuth` path signs a commit-root digest;
-the commit root includes metadata offsets. That eager path additionally checks
-a whole-content digest during signed-plaintext open. The selective shared-tree
-reader instead authenticates requested fragment commitments through its selected
-root, as specified in the decision above. For encrypted signed data, review how key-holder edits to
-metadata and payload are bound to owner authority: an AEAD tag alone cannot prove
-that authority. This is an explicit audit item, not an asserted exploit.
+The revised native `CommitAuth` V3 authenticates the selected root and its graph
+commitments. References bind physical extents and canonical page contents,
+including archive/mode, page identity and sequence, and ordered object identities,
+kinds, lengths and payloads. TOC, variable, form, free-space and redaction trees
+verify references before returning or using their contents. Cache hits and fresh
+reads verify the exact decoded page being used. Symlinks carry object commitments;
+file frames retain their authenticated TOC descriptors and frame digests.
+
+Control records use canonical raw framing with validated physical extents. Access
+metadata is authenticated after credential bootstrap. Bootstrap considers the two
+selected-header directory offsets, caps each directory at 1 MiB, uses fixed Argon2
+parameters and rejects malformed wrapping shapes before derivation. Total slot
+derivation attempts have no separate work budget; parsing bounds alone do not
+qualify the complete resource gate. Empty state is also
+authenticated. Signed plaintext no longer requires hashing all content on open:
+owner signatures authorize the graph, and requested content verifies against it.
+Cleanup uses authenticated extents and verifies retained packed objects before
+relocation. These changes do not provide freshness against whole-archive rollback.
+
+Earlier experimental native v4 commitments require the isolated, pinned
+[migration exporter](../tools/experimental-v4-exporter/README.md). The current
+reader does not downgrade to their weaker interpretation. Migration authenticates
+the imported state going forward; it cannot prove that historical source bytes
+were never tampered with. Released format-3 readers remain isolated and unchanged.
 
 ## Transaction recovery and physical reclamation
 
@@ -100,6 +120,13 @@ Recovery reports distinguish an intact authorized object, a partially recovered
 object with authenticated ranges, and an object whose authority cannot be proved.
 Never promote the latter to a successful authorized recovery. Do not infer a
 commit from the largest sequence in scanned, unauthenticated metadata.
+
+Native recovery uses the selected authenticated root and reachable TOC as current
+membership authority, including an empty TOC. Missing membership does not promote
+scanned historical records into current content. Bounded header repair must still
+verify the original authentication tag. Loss of the selected membership proof can
+therefore prevent native current-state salvage; candidate detached-proof recovery
+is a separate capability and does not establish native region-loss qualification.
 
 An intact object should survive unrelated payload damage when its publication
 and membership proofs survive. If the selected proof of commitment is destroyed,

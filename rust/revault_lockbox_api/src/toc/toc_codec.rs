@@ -79,6 +79,7 @@ impl<'a> TocEncoder<'a> {
             put_varint(entry.record_offset, &mut out);
             put_varint(entry.record_len, &mut out);
             put_varint(entry.record_object_id, &mut out);
+            out.extend_from_slice(&entry.record_digest);
             if flags & ENTRY_FLAG_CUSTOM_PERMISSIONS != 0 {
                 put_varint(entry.permissions as u64, &mut out);
             }
@@ -208,6 +209,7 @@ fn encoded_toc_entry_len(
         + varint_len(entry.record_offset)
         + varint_len(entry.record_len)
         + varint_len(entry.record_object_id)
+        + 32
         + if entry.permissions == default_permissions {
             0
         } else {
@@ -305,6 +307,12 @@ impl<'a> TocDecoder<'a> {
             let record_offset = take_varint(payload, &mut offset)?;
             let record_len = take_varint(payload, &mut offset)?;
             let record_object_id = take_varint(payload, &mut offset)?;
+            let record_digest = payload
+                .get(offset..offset.checked_add(32).ok_or(Error::CorruptRecord)?)
+                .ok_or(Error::CorruptRecord)?
+                .try_into()
+                .map_err(|_| Error::CorruptRecord)?;
+            offset += 32;
             let deleted = flags & ENTRY_FLAG_DELETED != 0;
             let node_kind = NodeKind::from_u8(if flags & ENTRY_FLAG_DIRECTORY != 0 {
                 3
@@ -388,6 +396,7 @@ impl<'a> TocDecoder<'a> {
                 record_offset,
                 record_len,
                 record_object_id,
+                record_digest,
                 deleted,
                 node_kind,
                 permissions,
@@ -864,6 +873,7 @@ mod tests {
                     record_offset: 4096,
                     record_len: page.len() as u64,
                     record_object_id: identity.page_id,
+                    record_digest: [0; 32],
                     deleted: false,
                     node_kind: NodeKind::File,
                     permissions: slice.permissions,
@@ -1069,6 +1079,7 @@ mod tests {
                 record_offset: 64,
                 record_len: 64,
                 record_object_id: 1,
+                record_digest: [0; 32],
                 deleted: false,
                 node_kind: NodeKind::File,
                 permissions: DEFAULT_FILE_PERMISSIONS,
@@ -1108,6 +1119,7 @@ mod tests {
                 record_offset: 96 + i * 1024,
                 record_len: 1024,
                 record_object_id: i + 1,
+                record_digest: [0; 32],
                 deleted: false,
                 node_kind: NodeKind::File,
                 permissions: DEFAULT_FILE_PERMISSIONS,
@@ -1138,6 +1150,7 @@ mod tests {
                 record_offset: 64,
                 record_len: 64,
                 record_object_id: 1,
+                record_digest: [0; 32],
                 deleted: false,
                 node_kind: NodeKind::File,
                 permissions: DEFAULT_FILE_PERMISSIONS,
@@ -1149,6 +1162,7 @@ mod tests {
                 record_offset: 64,
                 record_len: 64,
                 record_object_id: 1,
+                record_digest: [0; 32],
                 deleted: false,
                 node_kind: NodeKind::File,
                 permissions: DEFAULT_FILE_PERMISSIONS,
@@ -1172,6 +1186,7 @@ mod tests {
                 record_offset: 4096,
                 record_len: 4096,
                 record_object_id: 10,
+                record_digest: [0; 32],
                 deleted: false,
                 node_kind: NodeKind::File,
                 permissions: DEFAULT_FILE_PERMISSIONS,
@@ -1206,6 +1221,7 @@ mod tests {
             record_offset: 4096,
             record_len: 4096,
             record_object_id: 10,
+            record_digest: [0; 32],
             deleted: false,
             node_kind: NodeKind::File,
             permissions: DEFAULT_FILE_PERMISSIONS,
@@ -1229,6 +1245,7 @@ mod tests {
             record_offset: 4096,
             record_len: 4096,
             record_object_id: 10,
+            record_digest: [0; 32],
             deleted: false,
             node_kind: NodeKind::File,
             permissions: DEFAULT_FILE_PERMISSIONS,
@@ -1251,6 +1268,7 @@ mod tests {
             record_offset: 4096,
             record_len: 4096,
             record_object_id: 10,
+            record_digest: [0; 32],
             deleted: false,
             node_kind: NodeKind::File,
             permissions: DEFAULT_FILE_PERMISSIONS,
@@ -1277,6 +1295,7 @@ mod tests {
             record_offset,
             record_len,
             record_object_id,
+            record_digest: [0; 32],
             deleted: false,
             node_kind: NodeKind::Symlink,
             permissions: DEFAULT_SYMLINK_PERMISSIONS,

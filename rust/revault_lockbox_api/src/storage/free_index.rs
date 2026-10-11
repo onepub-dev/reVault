@@ -8,12 +8,14 @@ pub(crate) const FREE_INDEX_LEAF_SLOT_CAPACITY: usize = 4096;
 #[cfg(test)]
 pub(crate) const FREE_INDEX_LEAF_SLOT_CAPACITY: usize = 8;
 #[cfg(not(test))]
-pub(crate) const FREE_INDEX_INTERNAL_CHILD_CAPACITY: usize = 4096;
+pub(crate) const FREE_INDEX_INTERNAL_CHILD_CAPACITY: usize =
+    (crate::constants::DEFAULT_METADATA_MAX_PAGE_BODY_BYTES - 8) / 56;
 #[cfg(test)]
 pub(crate) const FREE_INDEX_INTERNAL_CHILD_CAPACITY: usize = 8;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct FreeIndexChild {
+    pub(crate) commitment: crate::file_format::page_commitment::PageCommitment,
     pub(crate) first_offset: u64,
     pub(crate) offset: u64,
 }
@@ -43,7 +45,7 @@ pub(crate) fn encode_free_index_leaf(slots: &[FreeSlot]) -> Vec<u8> {
 }
 
 pub(crate) fn encode_free_index_internal(children: &[FreeIndexChild]) -> Vec<u8> {
-    let mut out = Vec::with_capacity(8 + children.len() * 16);
+    let mut out = Vec::with_capacity(8 + children.len() * 56);
     out.push(FREE_INDEX_VERSION);
     out.push(1);
     out.extend_from_slice(&[0; 2]);
@@ -51,6 +53,8 @@ pub(crate) fn encode_free_index_internal(children: &[FreeIndexChild]) -> Vec<u8>
     for child in children {
         out.extend_from_slice(&child.first_offset.to_le_bytes());
         out.extend_from_slice(&child.offset.to_le_bytes());
+        out.extend_from_slice(&child.commitment.physical_len.to_le_bytes());
+        out.extend_from_slice(&child.commitment.digest);
     }
     out
 }
@@ -102,7 +106,7 @@ pub(crate) fn decode_free_index_internal(payload: &[u8]) -> Result<Vec<FreeIndex
     }
     let count = read_u32_le(&payload[4..8])? as usize;
     let expected_len = 8usize
-        .checked_add(count.checked_mul(16).ok_or(Error::CorruptRecord)?)
+        .checked_add(count.checked_mul(56).ok_or(Error::CorruptRecord)?)
         .ok_or(Error::CorruptRecord)?;
     if payload.len() != expected_len || count == 0 {
         return Err(Error::CorruptRecord);
@@ -113,7 +117,13 @@ pub(crate) fn decode_free_index_internal(payload: &[u8]) -> Result<Vec<FreeIndex
     for _ in 0..count {
         let first_offset = read_u64_le(&payload[offset..offset + 8])?;
         let child_offset = read_u64_le(&payload[offset + 8..offset + 16])?;
-        offset += 16;
+        let commitment = crate::file_format::page_commitment::PageCommitment {
+            physical_len: read_u64_le(&payload[offset + 16..offset + 24])?,
+            digest: payload[offset + 24..offset + 56]
+                .try_into()
+                .map_err(|_| Error::CorruptRecord)?,
+        };
+        offset += 56;
         if child_offset == 0 || previous_first.is_some_and(|previous| first_offset <= previous) {
             return Err(Error::CorruptRecord);
         }
@@ -121,6 +131,7 @@ pub(crate) fn decode_free_index_internal(payload: &[u8]) -> Result<Vec<FreeIndex
         children.push(FreeIndexChild {
             first_offset,
             offset: child_offset,
+            commitment,
         });
     }
     Ok(children)
@@ -172,10 +183,12 @@ mod tests {
     fn free_index_internal_round_trips_children() {
         let children = vec![
             FreeIndexChild {
+                commitment: Default::default(),
                 first_offset: 100,
                 offset: 1_000,
             },
             FreeIndexChild {
+                commitment: Default::default(),
                 first_offset: 200,
                 offset: 2_000,
             },

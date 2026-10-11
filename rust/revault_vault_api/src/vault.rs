@@ -96,6 +96,13 @@ impl<S: ContentKeyStore> Vault<S> {
         path: impl AsRef<Path>,
         protection: LockboxProtection<'_>,
     ) -> Result<Lockbox> {
+        if let LockboxProtection::Password(password) = protection {
+            return self.create_lockbox_with_signing(
+                path.as_ref(),
+                LockboxProtection::Password(password),
+                revault_lockbox_api::Signing::None,
+            );
+        }
         let signing_key = default_owner_signing_key()?.ok_or_else(|| {
             Error::VaultUnavailable(
                 "vault owner signing key is unavailable; open or initialize the vault first"
@@ -118,19 +125,38 @@ impl<S: ContentKeyStore> Vault<S> {
         protection: LockboxProtection<'_>,
         signing_key: &OwnerSigningKeyPair,
     ) -> Result<Lockbox> {
-        let path = path.as_ref();
+        self.create_lockbox_with_signing(
+            path.as_ref(),
+            protection,
+            revault_lockbox_api::Signing::Owner(signing_key),
+        )
+    }
+
+    fn create_lockbox_with_signing(
+        &self,
+        path: &Path,
+        protection: LockboxProtection<'_>,
+        signing: revault_lockbox_api::Signing<'_>,
+    ) -> Result<Lockbox> {
+        let create = |protection| {
+            Lockbox::create_file_with_options(
+                path,
+                revault_lockbox_api::LockboxCreateOptions::new(
+                    revault_lockbox_api::Encryption::Encrypted(protection),
+                    signing,
+                ),
+            )
+        };
         match protection {
             LockboxProtection::ContentKey(key) => {
                 let store_key = key.try_clone()?;
-                let lockbox =
-                    Lockbox::create_file(path, LockboxProtection::ContentKey(key), signing_key)?;
+                let lockbox = create(LockboxProtection::ContentKey(key))?;
                 self.store
                     .put_content_key_for_path(lockbox.lockbox_id(), store_key, path)?;
                 Ok(lockbox)
             }
             LockboxProtection::Password(password) => {
-                let lockbox =
-                    Lockbox::create_file(path, LockboxProtection::Password(password), signing_key)?;
+                let lockbox = create(LockboxProtection::Password(password))?;
                 let backup = VaultOpen::export_key_directory_backup(&lockbox)?;
                 let opened = VaultOpen::key_directory_backup_with_password(&backup, password)?;
                 if let Err(err) = self.store.put_content_key_for_path(
@@ -144,11 +170,9 @@ impl<S: ContentKeyStore> Vault<S> {
                 }
                 Ok(lockbox)
             }
-            LockboxProtection::ContactPublicKey { name, contact } => Lockbox::create_file(
-                path,
-                LockboxProtection::ContactPublicKey { name, contact },
-                signing_key,
-            ),
+            LockboxProtection::ContactPublicKey { name, contact } => {
+                create(LockboxProtection::ContactPublicKey { name, contact })
+            }
         }
     }
 

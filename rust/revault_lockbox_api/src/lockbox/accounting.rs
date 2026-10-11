@@ -78,18 +78,126 @@ impl<State> Lockbox<State> {
                 }
             }
         }
-        let mut roots = vec![
-            (self.toc_tree.root_offset, 0u8, 0usize),
-            (self.variable_root_offset, 1, 0),
-            (self.forms.tree.root_offset, 2, 0),
+        let mut roots = Vec::new();
+        let mut toc_roots = vec![(self.toc_tree.root_offset, self.toc_root_commitment, 0usize)];
+        let mut toc_seen = BTreeSet::new();
+        while let Some((offset, commitment, depth)) = toc_roots.pop() {
+            if offset == 0 {
+                continue;
+            }
+            if depth > 8 || !toc_seen.insert(offset) {
+                return Err(Error::CorruptRecord);
+            }
+            let children = self.with_authenticated_page(offset, commitment, |page| {
+                let [object] = page.objects.as_slice() else {
+                    return Err(Error::CorruptRecord);
+                };
+                if !matches!(
+                    object.kind,
+                    PageObjectKind::TocLeaf | PageObjectKind::TocInternal
+                ) {
+                    return Err(Error::CorruptRecord);
+                }
+                object.with_payload(|payload| {
+                    match crate::file_format::decode_toc_node(payload)? {
+                        crate::file_format::TocNode::Internal(children) => Ok(children),
+                        crate::file_format::TocNode::Leaf(_) => Ok(Vec::new()),
+                    }
+                })?
+            })?;
+            inventory.add(offset, commitment.physical_len)?;
+            toc_roots.extend(
+                children
+                    .into_iter()
+                    .map(|child| (child.offset, child.commitment, depth + 1)),
+            );
+        }
+        let mut variable_roots = vec![
+            (
+                self.variable_root_offset,
+                self.variable_root_commitment,
+                0usize,
+                true,
+            ),
+            (
+                self.forms.tree.root_offset,
+                self.form_root_commitment,
+                0usize,
+                false,
+            ),
         ];
+        let mut variable_seen = BTreeSet::new();
+        while let Some((offset, commitment, depth, variable)) = variable_roots.pop() {
+            if offset == 0 {
+                continue;
+            }
+            if depth > 8 || !variable_seen.insert(offset) {
+                return Err(Error::CorruptRecord);
+            }
+            let children = self.with_authenticated_secure_page(offset, commitment, |page| {
+                let [object] = page.objects.as_slice() else {
+                    return Err(Error::CorruptRecord);
+                };
+                if (variable
+                    && !matches!(
+                        object.kind,
+                        PageObjectKind::VariableLeaf | PageObjectKind::VariableInternal
+                    ))
+                    || (!variable
+                        && !matches!(
+                            object.kind,
+                            PageObjectKind::FormLeaf | PageObjectKind::FormInternal
+                        ))
+                {
+                    return Err(Error::CorruptRecord);
+                }
+                let payload = object.secure_payload().ok_or(Error::CorruptRecord)?;
+                if variable {
+                    match crate::variable_btree::decode_variable_node_secure(payload)? {
+                        crate::variable_btree::VariableNode::Internal(children) => Ok(children
+                            .into_iter()
+                            .map(|child| (child.offset, child.commitment))
+                            .collect::<Vec<_>>()),
+                        crate::variable_btree::VariableNode::Leaf(_) => Ok(Vec::new()),
+                    }
+                } else {
+                    match crate::form_btree::decode_form_node_secure(payload)? {
+                        crate::form_btree::FormNode::Internal(children) => Ok(children
+                            .into_iter()
+                            .map(|child| (child.offset, child.commitment))
+                            .collect::<Vec<_>>()),
+                        crate::form_btree::FormNode::Leaf(_) => Ok(Vec::new()),
+                    }
+                }
+            })?;
+            inventory.add(offset, commitment.physical_len)?;
+            variable_roots.extend(
+                children
+                    .into_iter()
+                    .map(|(offset, commitment)| (offset, commitment, depth + 1, variable)),
+            );
+        }
         if include_current_control && self.commit_root_offset != 0 {
-            let root = self.read_commit_root_at(self.commit_root_offset)?;
-            roots.push((root.free_index_root_offset, 3, 0));
-            roots.push((root.post_cleanup_free_index_root_offset, 3, 0));
+            let (auth, digest) = self.read_and_verify_commit_auth_at(self.commit_auth_offset)?;
+            if digest != self.commit_auth_digest
+                || auth.commit_root_offset != self.commit_root_offset
+            {
+                return Err(Error::CorruptRecord);
+            }
+            let root = self.read_verified_commit_root_from_auth(&auth)?;
+            roots.push((
+                root.free_index_root_offset,
+                root.free_index_root_commitment,
+                0usize,
+            ));
+            roots.push((
+                root.post_cleanup_free_index_root_offset,
+                root.post_cleanup_free_index_root_commitment,
+                0usize,
+            ));
         }
         let mut visited = BTreeSet::new();
-        while let Some((offset, kind, depth)) = roots.pop() {
+        while let Some((offset, commitment, depth)) = roots.pop() {
             if offset == 0 {
                 continue;
             }
@@ -99,80 +207,54 @@ impl<State> Lockbox<State> {
             if !visited.insert(offset) {
                 continue;
             }
-            let children: Vec<u64> = if kind == 1 || kind == 2 {
-                self.with_secure_page(offset, |page| {
-                    if page.objects.len() != 1 {
-                        return Err(Error::CorruptRecord);
-                    }
-                    let object = &page.objects[0];
-                    let payload = object.secure_payload().ok_or(Error::CorruptRecord)?;
-                    if kind == 1 {
-                        match crate::variable_btree::decode_variable_node_secure(payload)? {
-                            crate::variable_btree::VariableNode::Internal(children) => {
-                                Ok(children.into_iter().map(|child| child.offset).collect())
-                            }
-                            crate::variable_btree::VariableNode::Leaf(_) => Ok(Vec::new()),
-                        }
-                    } else {
-                        match crate::form_btree::decode_form_node_secure(payload)? {
-                            crate::form_btree::FormNode::Internal(children) => {
-                                Ok(children.into_iter().map(|child| child.offset).collect())
-                            }
-                            crate::form_btree::FormNode::Leaf(_) => Ok(Vec::new()),
-                        }
-                    }
-                })?
-            } else {
-                let page = self.read_page(offset)?;
-                if page.objects.len() != 1 {
+            let children = self.with_authenticated_page(offset, commitment, |page| {
+                let [object] = page.objects.as_slice() else {
                     return Err(Error::CorruptRecord);
-                }
-                let object = &page.objects[0];
-                match (kind, object.kind) {
-                    (0, PageObjectKind::TocInternal) => {
-                        object.with_payload(
-                            |bytes| match crate::file_format::decode_toc_node(bytes)? {
-                                crate::file_format::TocNode::Internal(children) => {
-                                    Ok(children.into_iter().map(|child| child.offset).collect())
-                                }
-                                _ => Err(Error::CorruptRecord),
-                            },
-                        )??
+                };
+                match object.kind {
+                    PageObjectKind::FreeIndexInternal => {
+                        object.with_payload(crate::free_index::decode_free_index_internal)?
                     }
-                    (3, PageObjectKind::FreeIndexInternal) => object
-                        .with_payload(crate::free_index::decode_free_index_internal)??
-                        .into_iter()
-                        .map(|child| child.offset)
-                        .collect(),
-                    (0, PageObjectKind::TocLeaf) | (3, PageObjectKind::FreeIndexLeaf) => Vec::new(),
-                    _ => return Err(Error::CorruptRecord),
+                    PageObjectKind::FreeIndexLeaf => Ok(Vec::new()),
+                    _ => Err(Error::CorruptRecord),
                 }
-            };
-            let header = self.storage.read_at(offset, crate::page::PAGE_HEADER_LEN)?;
-            inventory.add(
-                offset,
-                crate::page::physical_page_size_from_page_slice(&header)? as u64,
-            )?;
-            roots.extend(children.into_iter().map(|child| (child, kind, depth + 1)));
+            })?;
+            inventory.add(offset, commitment.physical_len)?;
+            roots.extend(
+                children
+                    .into_iter()
+                    .map(|child| (child.offset, child.commitment, depth + 1)),
+            );
         }
         for offset in self.key_directory.offsets() {
             if offset != 0 {
-                inventory.add(offset, self.page_len_at(offset)?)?;
+                inventory.add(offset, self.key_directory.physical_len)?;
             }
         }
         let mut auth_offset = self.commit_auth_offset;
+        let mut expected_auth_digest = self.commit_auth_digest;
         let mut seen_auth = BTreeSet::new();
         while auth_offset != 0 {
             if !seen_auth.insert(auth_offset) || seen_auth.len() > 1_000_000 {
                 return Err(Error::CorruptRecord);
             }
-            // The publication's lineage was verified when opening this handle.
-            // Reading ownership must not repeat every hybrid signature check.
-            let auth = crate::commit_auth::decode_commit_auth(
-                &self.read_commit_auth_payload_at(auth_offset)?,
-            )?;
-            let auth_len = self.page_len_at(auth_offset)?;
-            let root_len = self.page_len_at(auth.commit_root_offset)?;
+            // Chain digests retain the already established owner authority;
+            // exact control buffers establish canonical allocation extents.
+            let (payload, auth_len) =
+                self.read_control_payload_at(auth_offset, PageObjectKind::CommitAuth)?;
+            if crate::commit_auth::commit_auth_digest(&payload) != expected_auth_digest {
+                return Err(Error::CorruptRecord);
+            }
+            let auth = crate::commit_auth::decode_commit_auth(&payload)?;
+            let (root_payload, root_len) =
+                self.read_control_payload_at(auth.commit_root_offset, PageObjectKind::CommitRoot)?;
+            if crate::crypto::strong_checksum(&root_payload) != auth.commit_root_digest {
+                return Err(Error::CorruptRecord);
+            }
+            if auth.previous_auth_offset >= auth_offset {
+                return Err(Error::CorruptRecord);
+            }
+            expected_auth_digest = auth.previous_auth_digest;
             inventory.add(auth_offset, auth_len)?;
             inventory.add(auth.commit_root_offset, root_len)?;
             inventory.history_bytes += auth_len + root_len;
@@ -180,6 +262,7 @@ impl<State> Lockbox<State> {
         }
         if include_current_control {
             let mut offset = self.redaction_manifest_offset;
+            let mut commitment = self.redaction_manifest_commitment;
             let mut seen = BTreeSet::new();
             while offset != 0 {
                 if !seen.insert(offset)
@@ -187,9 +270,10 @@ impl<State> Lockbox<State> {
                 {
                     return Err(Error::CorruptRecord);
                 }
-                let page = self.read_redaction_manifest_page_at(offset)?;
-                inventory.add(offset, self.page_len_at(offset)?)?;
+                let page = self.read_redaction_manifest_page_at(offset, commitment)?;
+                inventory.add(offset, commitment.physical_len)?;
                 offset = page.next_page_offset;
+                commitment = page.next_page_commitment;
             }
         }
         Ok(inventory)
@@ -337,7 +421,7 @@ impl Lockbox<crate::Writable> {
         &mut self,
         kind: PageObjectKind,
         payload: Vec<u8>,
-    ) -> Result<u64> {
+    ) -> Result<(u64, crate::file_format::page_commitment::PageCommitment)> {
         let reservation = self
             .control_reservations
             .pop_front()
@@ -352,18 +436,25 @@ impl Lockbox<crate::Writable> {
         } else {
             crate::constants::DEFAULT_METADATA_PAGE_BYTES
         };
+        let page = crate::page::DecodedPage {
+            page_id: offset,
+            sequence: self.sequence,
+            objects,
+        };
+        let commitment = crate::file_format::page_commitment::PageCommitment::from_page(
+            self.lockbox_id,
+            self.format_mode,
+            page_size as u64,
+            &page,
+        )?;
         self.page_manager
             .borrow_mut()
             .stage_decoded_page_with_policy(
                 offset,
                 page_size,
-                crate::page::DecodedPage {
-                    page_id: offset,
-                    sequence: self.sequence,
-                    objects,
-                },
+                page,
                 crate::page_cache::PageWritePolicy::RetainAfterFlush,
             )?;
-        Ok(offset)
+        Ok((offset, commitment))
     }
 }

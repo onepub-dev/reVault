@@ -80,7 +80,7 @@ impl OpenedContentKey {
     ///
     /// This lets vault integrations hand a copy to an external key cache
     /// without borrowing the original key under a secure read guard.
-    #[cfg(feature = "vault-integration")]
+    #[cfg(any(test, feature = "vault-integration"))]
     pub fn try_clone_key(&self) -> Result<SecretVec> {
         self.key.try_clone().map_err(Into::into)
     }
@@ -530,9 +530,27 @@ impl Lockbox {
         signer: Option<&OwnerSigningKeyPair>,
         options: LockboxOptions,
     ) -> Result<Self> {
-        let mut lockbox = match signer {
-            Some(signer) => Self::open_for_write(path, open, signer)?,
-            None => {
+        Self::open_file_handle_with_access(path, open, signer, options, signer.is_some())
+    }
+
+    /// Opens a foreign-language handle with access independent of signing.
+    /// Unsigned archives support exclusive writes without an owner signer.
+    /// Read access always retains a shared, permanently read-only descriptor.
+    #[cfg(feature = "bindings")]
+    pub fn open_file_handle_with_access(
+        path: &Path,
+        open: LockboxOpen<'_>,
+        signer: Option<&OwnerSigningKeyPair>,
+        options: LockboxOptions,
+        writable: bool,
+    ) -> Result<Self> {
+        let mut lockbox = match writable {
+            true => Self::open_for_write(
+                path,
+                open,
+                signer.map_or(crate::Signing::None, crate::Signing::Owner),
+            )?,
+            false => {
                 let mut lockbox = Self::open_file_opened(path, open)?;
                 lockbox.mark_read_only();
                 lockbox
@@ -560,7 +578,28 @@ impl Lockbox {
         options: LockboxOptions,
         overwrite: bool,
     ) -> Result<Self> {
-        let mut lockbox = Self::create_in_memory(protection, signer)?;
+        Self::create_file_handle_with_signing(
+            path,
+            protection,
+            crate::Signing::Owner(signer),
+            options,
+            overwrite,
+        )
+    }
+
+    /// Creates a file handle with an explicit signing choice.
+    #[cfg(feature = "bindings")]
+    pub fn create_file_handle_with_signing(
+        path: &Path,
+        protection: LockboxProtection<'_>,
+        signing: crate::Signing<'_>,
+        options: LockboxOptions,
+        overwrite: bool,
+    ) -> Result<Self> {
+        let mut lockbox = Self::create_in_memory_with_options(crate::LockboxCreateOptions::new(
+            crate::Encryption::Encrypted(protection),
+            signing,
+        ))?;
         lockbox.commit()?;
         lockbox.storage = StorageBackend::publish(path, &lockbox.bytes()?, overwrite)?;
         lockbox.page_manager = std::cell::RefCell::new(crate::page_cache::PageCache::with_format(
@@ -676,9 +715,14 @@ impl Lockbox {
     /// A random content key is generated and wrapped in a password key slot.
     /// Call [`Lockbox::commit`] before serializing the lockbox.
     pub fn create_with_password(password: &SecretString) -> Result<Self> {
-        let content_key = random_content_key()?;
-        let mut lockbox = Self::create(content_key);
-        lockbox.add_password(password)?;
+        let mut lockbox =
+            Self::create_in_memory_uncommitted(LockboxProtection::Password(password))?;
+        lockbox.set_creation_format(crate::creation_options::FormatMode::new(
+            crate::LockboxFormatOptions {
+                signing: crate::SigningMode::None,
+                ..lockbox.format_options()
+            },
+        ));
         Ok(lockbox)
     }
 

@@ -1,0 +1,41 @@
+   Compiling serde_core v1.0.229
+   Compiling smallvec v1.16.0
+   Compiling icu_normalizer v2.3.0
+   Compiling serde v1.0.229
+   Compiling serde_json v1.0.151
+   Compiling uuid v1.26.0
+   Compiling zvariant_utils v4.2.0
+   Compiling enumflags2 v0.7.12
+   Compiling zcheapstr v1.1.0
+   Compiling revault_migration_format v0.0.4
+   Compiling revault_archive_v3_reader v0.0.1 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_migrate_archive_v3/legacy)
+   Compiling revault_lockbox_api v0.0.41 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api)
+   Compiling revault_lockbox_api v0.0.9
+   Compiling revault_migration_format v0.0.35 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_migration_format)
+   Compiling revault_lockbox_api v0.0.6
+   Compiling zvariant_derive v5.15.0
+   Compiling zvariant v5.15.0
+   Compiling zbus_names v4.3.4
+   Compiling zbus_macros v5.19.0
+   Compiling zbus v5.19.0
+   Compiling secret-service v5.1.0
+   Compiling zbus-secret-service-keyring-store v1.0.1
+   Compiling revault_vault_v3_reader v0.0.1 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_migrate_archive_v3/legacy_vault)
+   Compiling revault_vault_api v0.0.42 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_vault_api)
+   Compiling keyring v4.2.0
+   Compiling revault_vault_api v0.0.10
+   Compiling revault_vault_api v0.0.6
+   Compiling revault_vault_api v0.0.2
+   Compiling revault_migrate_archive_v3 v0.0.1 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_migrate_archive_v3)
+   Compiling revault_migrate_vault_v2 v0.0.31 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_migrate_vault_v2)
+   Compiling revault_migration v0.0.39 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_migration)
+   Compiling revault_migrate_archive_v1 v0.0.35 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_migrate_archive_v1)
+   Compiling revault_migrate_vault_v1 v0.0.34 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_migrate_vault_v1)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 31s
+     Running tests/archive_v4.rs (target/debug/deps/archive_v4-e4672305af0f6d5b)
+
+running 1 test
+test migration_removes_abandoned_imports_preserves_owner_and_verifies_resumed_output ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 21.17s
+

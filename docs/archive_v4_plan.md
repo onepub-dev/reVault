@@ -28,15 +28,18 @@ Brett has paused performance tuning at checkpoint `0de2dd4a` until the
 [password-integrity handoff](evidence/password-integrity-audit-2026-10-11/handoff.txt)
 is incorporated and its acceptance gates pass. Preserve all previous benchmark
 evidence and source/executable epochs; do not start worker-selection experiments.
-The 50%-remaining usage cutoff continues to apply (last measurement checkpoint:
-27% used; this is not a fresh usage reading). No release is authorized.
+Brett subsequently instructed this session to finish the security work and not
+restart performance work. That instruction supersedes the earlier remaining-usage
+cutoff for this security task. Performance remains paused after security acceptance
+and checkpointing; resuming it requires a new instruction. No release is authorized.
 
 The format-3 audit confirms outsider header reset, partial ciphertext replay and
 public slot-ID manipulation in signed and unsigned encrypted archives. Equivalent
-v4 attacks are **untested**, not established vulnerabilities or completed fixes.
+v4 attacks were untested at the pause checkpoint; the resumed native results below
+now confirm the same acceptances. Candidate paths require independent qualification.
 The retained [reproduction patch](evidence/password-integrity-audit-2026-10-11/reproduction-tests.patch)
-contains tests only and has not been applied to v4. Main's unrelated edits remain
-untouched. This checkpoint records planning, not security implementation.
+contains tests only; selective adaptation uses v4 header offsets. Main's unrelated
+edits remain untouched. The pause checkpoint did not implement security fixes.
 
 The next work, in order, is:
 
@@ -54,15 +57,46 @@ The next work, in order, is:
 4. Validate migration and bidirectional compatibility. Incompatible commitments
    belong to format 4 / `0.5.x`, not a supposedly compatible `0.4.x` patch.
 5. Pass the handoff's adversarial, lifecycle, recovery, resource and compatibility
-   gates on one retained implementation; checkpoint it before resuming performance
-   work with fresh comparable baselines. Use focused tests during implementation
-   and broad integration validation at the completed security checkpoint.
+   gates on one retained implementation and checkpoint it. Keep performance work
+   paused. Use focused tests during implementation and broad integration validation
+   at the completed security checkpoint.
 
-Resolve mixed password/contact creation and protection-change policy explicitly
-before implementing those paths. Conversion of existing signed archives requires
+The user resolved mixed-access policy: new password-only archives default to
+unsigned; new mixed password/contact archives remain signed. Adding or removing
+access on existing archives preserves their signing mode. Conversion of signed archives requires
 an explicit, separately verified replacement preserving originals. Whole-archive
 rollback needs external freshness state; that limit does not excuse partial replay.
 No profile-renaming or configurable-default feature is authorized by this handoff.
+
+Implementation has resumed for this security plan, not performance tuning. The
+pre-fix native-v4 evidence confirmed all three attacks in both encrypted signing
+modes; the rejection control also passed. See the retained
+[pre-fix native output](evidence/password-integrity-audit-2026-10-11/native-v4-before-fixes.log).
+That evidence is historical and has not been rerun as an acceptance test.
+
+The security implementation now binds native TOC, variable, form, free-space and
+redaction references to canonical page commitments. It authenticates empty state,
+access metadata, control extents and symlink objects, and verifies exact returned
+pages on cache hits and fresh reads. Relocation verifies retained objects before
+copying; recovery uses selected authenticated membership, including empty state.
+Focused post-fix refusal and lifecycle checks precede the password-default change.
+The [security contract](security_model.md) records the resulting behavior and limits.
+
+New password creation defaults to unsigned across the CLI, native APIs and bindings;
+explicit signing remains available. File access intent is independent of signer
+presence through additive read/write modes; legacy open behavior is preserved.
+Separate sender/recipient CLI lifecycles and current Node/Dart binding lifecycles
+have passed. The isolated pinned historical-v4 exporter and public CLI migration
+test preserve original archive/Vault bytes and verify compressed content, variables
+and signing after import. See the [exporter workflow](../tools/experimental-v4-exporter/README.md).
+
+The completed native integration and exact passing follow-ups are recorded in the
+[evidence matrix](evidence/password-integrity-audit-2026-10-11/security-implementation.md)
+with retained logs and the tested source epoch.
+The first broad run was cancelled after temporary-directory quota failures and is
+not acceptance evidence. Remaining resource, complete-format recovery and release
+qualification limits must stay explicit; this checkpoint does not authorize release
+or performance work.
 
 ### Compressed and encrypted cold-disk extraction — 2026-10-11
 
@@ -70,8 +104,8 @@ The [six-case GiB comparison](evidence/protected-extraction-2026-10-11/README.md
 finds four workers reduce elapsed time by 8.6–22.5% in the tested compressed or
 encrypted cases, with 45.0–70.9% more CPU. Raw/plain source extraction regresses
 9.5%. The user accepts increased CPU as a reasonable trade-off for lower elapsed
-time; CPU growth alone does not reject these gains. After the security prerequisite,
-evaluate workload-aware
+time; CPU growth alone does not reject these gains. Only after a new user instruction
+resumes performance work following the security prerequisite, evaluate workload-aware
 worker selection, including size crossover and incompressible plaintext fallback,
 while retaining serial reads where they are faster. No automatic policy or native
 reader change is included in this measurement milestone.

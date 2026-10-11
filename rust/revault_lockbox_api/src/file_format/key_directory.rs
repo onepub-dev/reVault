@@ -49,6 +49,18 @@ pub(crate) fn encode_key_directory(
     Ok(out)
 }
 
+/// Commit the logical access directory independently of its redundant placement.
+/// The authenticated root binds the physical copy offsets separately.
+pub(crate) fn key_directory_digest(
+    slots: &[KeySlot],
+    lockbox_id: LockboxId,
+    generation: u64,
+) -> Result<[u8; 32]> {
+    let mut message = b"revault-v4-access-directory-v1\0".to_vec();
+    message.extend_from_slice(&encode_key_directory(slots, lockbox_id, generation, 0)?);
+    Ok(crate::crypto::strong_checksum(&message))
+}
+
 pub(crate) fn read_key_directory(
     bytes: &[u8],
     offset: u64,
@@ -180,14 +192,22 @@ pub(crate) fn decode_key_directory_decoded_page(
     offset: u64,
     expected_lockbox_id: Option<LockboxId>,
 ) -> Result<DecodedKeyDirectory> {
-    let object = page
-        .objects
-        .iter()
-        .find(|object| object.kind == PageObjectKind::KeyDirectory)
-        .ok_or(Error::CorruptHeader)?;
-    object.with_payload(|payload| {
+    let [object] = page.objects.as_slice() else {
+        return Err(Error::CorruptHeader);
+    };
+    if object.kind != PageObjectKind::KeyDirectory
+        || page.page_id != offset
+        || object.id != page.sequence
+    {
+        return Err(Error::CorruptHeader);
+    }
+    let directory = object.with_payload(|payload| {
         decode_key_directory_payload(payload, offset, expected_lockbox_id)
-    })?
+    })??;
+    if page.sequence != directory.generation {
+        return Err(Error::CorruptHeader);
+    }
+    Ok(directory)
 }
 
 fn decode_key_directory_payload(
@@ -200,7 +220,7 @@ fn decode_key_directory_payload(
     }
     let header = decode_key_directory_header(&bytes[0..KEY_DIR_HEADER_LEN], expected_lockbox_id)?;
     let total_len = header.total_len;
-    if total_len < KEY_DIR_HEADER_LEN || total_len > bytes.len() {
+    if total_len < KEY_DIR_HEADER_LEN || total_len != bytes.len() {
         return Err(Error::Truncated);
     }
     Ok(DecodedKeyDirectory {

@@ -1,0 +1,10 @@
+Running build hooks...Running build hooks...00:00 +0: loading test/file_lifecycle_test.dart
+00:00 +0: (setUpAll)
+00:00 +0: password default supports explicit writes and read intent
+00:01 +1: native file persistence, reader locks and atomic replacement
+01:01 +2: password file reads and writes
+01:01 +3: vault credentials are resolved by Rust and lock errors are preserved
+01:32 +4: Rust resolves a matching profile key from the vault
+01:32 +5: read-only bind mount
+01:32 +5 ~1: (tearDownAll)
+01:32 +5 ~1: All tests passed!

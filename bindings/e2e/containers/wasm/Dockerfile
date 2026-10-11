@@ -21,6 +21,7 @@ COPY . .
 COPY --from=native /tmp/native /tmp/native
 COPY --from=native /workspace/rust/target/release/revault-tool /usr/local/bin/revault-tool
 COPY --from=wasm /tmp/revault-wasm bindings/wasm/generated
+RUN node --test bindings/e2e/javascript/wasm_password_lifecycle.js
 RUN revault-tool internal stage-ecosystems --allow-partial --repository . \
       --version 0.2.0 --output /tmp/ecosystem /tmp/native/*.tar.gz \
     && revault-tool internal assemble-packages --allow-partial --version 0.2.0 \

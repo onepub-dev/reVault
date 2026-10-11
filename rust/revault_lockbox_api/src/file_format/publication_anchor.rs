@@ -519,6 +519,7 @@ fn select_in(
 ) -> Result<Selection> {
     let len = storage.len()?;
     let mut candidates = Vec::with_capacity(2);
+    let mut unauthenticated = Vec::with_capacity(2);
     for slot in 0..2 {
         let offset = (slot * SLOT_STRIDE) as u64;
         if offset + SLOT_LEN as u64 > len {
@@ -534,10 +535,26 @@ fn select_in(
                 copies: 1 << slot,
                 encoded,
             });
+        } else if let Ok(anchor) = parse_untrusted_in(&encoded, archive, mode, layout) {
+            // A complete, checksum-valid publication whose authenticator fails
+            // cannot silently turn a newer state into an old successful open.
+            // A checksum-invalid tear still follows the publication protocol's
+            // old-state boundary. Untrusted fields authorize no recovery writes.
+            unauthenticated.push(anchor);
         }
     }
     candidates.sort_by_key(|candidate| candidate.anchor.generation);
     let mut best = candidates.pop().ok_or(Error::CorruptHeader)?;
+    for rejected in unauthenticated {
+        if rejected.generation > best.anchor.generation
+            || (rejected.generation == best.anchor.generation
+                && rejected.commitment_in(layout)? != best.commitment)
+        {
+            return Err(Error::CorruptHeader);
+        }
+        // A surviving authenticated copy establishes the identical commitment,
+        // even if its peer's MAC/signature alone is damaged.
+    }
     if let Some(old) = candidates.pop() {
         if old.anchor.generation == best.anchor.generation {
             if old.commitment != best.commitment {

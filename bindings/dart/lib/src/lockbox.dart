@@ -215,8 +215,11 @@ final class Lockbox extends Owned implements ffi.Finalizable {
   ///   vault.close();
   /// }
   /// ```
+  /// Set [writable] to select access independently of [signingKey].
+  /// Unsigned archives need no signer for write access; null keeps legacy selection.
   static Lockbox open(
     String path, {
+    bool? writable,
     Vault? vault,
     SecretString? password,
     SecretBytes? contentKey,
@@ -224,6 +227,7 @@ final class Lockbox extends Owned implements ffi.Finalizable {
     ProfileSigningKeyPair? signingKey,
     LockboxOptions? options,
   }) {
+    final mode = writable == null ? 'open' : (writable ? 'write' : 'read');
     final explicit = [password, contentKey, contact].whereType<Object>().length;
     if (explicit > 1 || (explicit == 1 && vault != null)) {
       throw ArgumentError('Supply one explicit credential or a vault.');
@@ -231,7 +235,7 @@ final class Lockbox extends Owned implements ffi.Finalizable {
     if (explicit == 1) {
       return _file(
         path,
-        'open',
+        mode,
         password: password,
         contentKey: contentKey,
         contact: contact?.handle,
@@ -239,11 +243,11 @@ final class Lockbox extends Owned implements ffi.Finalizable {
         options: options,
       );
     }
-    if (vault != null) return _openUsingVault(path, vault, signingKey, options);
+    if (vault != null) return _openUsingVault(path, vault, signingKey, options, mode);
     Vault? defaultVault;
     try {
       defaultVault = Vault.open();
-      return _openUsingVault(path, defaultVault, signingKey, options);
+      return _openUsingVault(path, defaultVault, signingKey, options, mode);
     } on VaultPassphraseUnavailableException {
       throw LockboxCredentialUnavailableException(path);
     } finally {
@@ -323,9 +327,10 @@ final class Lockbox extends Owned implements ffi.Finalizable {
     Vault vault,
     ProfileSigningKeyPair? signingKey,
     LockboxOptions? options,
+    String mode,
   ) => _file(
     path,
-    'open',
+    mode,
     vault: vault,
     signingKey: signingKey,
     options: options,
