@@ -36,7 +36,7 @@ completed 720 verified samples. Lazy authenticated-descriptor selection passes
 the frozen aggregate control and useful-profile gates; retain it as opt-in while
 keeping the serial default. The 17 MiB boundary has a 3.35% mean penalty and
 does not establish parity-wise non-inferiority. No threshold revision is planned.
-The latest completed milestone reading is 15% used (85% remaining), so the goal continues.
+The latest completed milestone reading is 16% used (84% remaining), so the goal continues.
 
 The [native/public comparison](evidence/native-public-extraction-2026-10-11/README.md)
 completed 480 component and 64 public CLI samples. All archive variants remain
@@ -61,9 +61,19 @@ their 20-minute bounds during the same unchanged candidate recovery campaign
 each and no observed failures, but neither produced a complete-suite result.
 CLI creation/password consumers and the Vault library passed all 35 tests.
 Full candidate/release qualification remains open.
+The [public many-file trial](evidence/parallel-extraction-2026-10-12/README.md)
+completed an 8-process baseline and 56 fresh paired CLI processes. Retain
+worker-local Auto ExtractMany sharing: maximum RSS fell from 212/258 MB to
+74.8/87.6 MB for 256-file/64 MiB and 1,024-file/1 GiB raw plaintext cases,
+with paired elapsed ratios 0.908 [0.852, 0.972] and 0.913 [0.901, 0.928].
+The parent remains unchanged; actual worker jobs share an additional 8 MiB
+page/native and 8 MiB decoded-frame target. The sum of clean retention targets
+is at most 56 MiB, not a hard process-memory bound. Explicit policies and WASM
+remain unchanged. All 33 focused default/native test executions pass; next qualify compressed many-file
+extraction using the same frozen binaries before further policy changes.
+
 The explicit CLI password-unlock path was already bounded; no CLI-unlock or
-contact-performance gain is claimed. Next measure actual public many-file
-extraction memory before considering a combined parent/worker Auto cache budget.
+contact-performance gain is claimed. The measured raw-data worker budget does not establish compressed-data performance.
 Cached-content-key extraction is a different path. Many-file parallel cache
 multiplication, ReadMostly, PGP/write, candidate security, public semantics and
 cross-version qualification remain open; no architecture or release is selected.

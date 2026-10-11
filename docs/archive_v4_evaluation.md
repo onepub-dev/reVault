@@ -44,10 +44,20 @@ qualified. The complete default and native-layout library integration attempts e
 out after 20 minutes (exit 124) during the same candidate recovery campaign.
 They recorded 283 and 287 observed passes respectively, 11 ignored each and no
 observed failures, but no complete-suite result. All 35 CLI creation/password
-and Vault consumer tests passed. Next measure many-file extraction, including
-parent and worker caches.
+and Vault consumer tests passed. The subsequent raw-data worker-cache trial is recorded below.
 The continuing goal stops below 10% remaining or above 99% after a reset;
-the current checkpoint reading is 85% remaining.
+the current checkpoint reading is 84% remaining.
+
+The [public many-file trial](evidence/parallel-extraction-2026-10-12/README.md)
+completed an 8-process baseline and 56 fresh paired CLI processes. Retain
+worker-local Auto ExtractMany sharing: maximum RSS fell from 212/258 MB to
+74.8/87.6 MB for 256-file/64 MiB and 1,024-file/1 GiB raw plaintext cases,
+with paired elapsed ratios 0.908 [0.852, 0.972] and 0.913 [0.901, 0.928].
+The parent remains unchanged; actual worker jobs share an additional 8 MiB
+page/native and 8 MiB decoded-frame target. The sum of clean retention targets
+is at most 56 MiB, not a hard process-memory bound. Explicit policies and WASM
+remain unchanged. All 33 focused default/native test executions pass; next qualify compressed many-file
+extraction using the same frozen binaries before further policy changes.
 
 At the historical checkpoint, performance experiments were paused at `0de2dd4a` by user direction. The
 [security-first handoff](evidence/password-integrity-audit-2026-10-11/handoff.txt)

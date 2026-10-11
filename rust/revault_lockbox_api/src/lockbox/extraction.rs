@@ -269,11 +269,18 @@ impl<State: Send> Lockbox<State> {
             .clamp(1, 4)
             .min(file_entries.len().max(1));
         let worker_jobs = group_parallel_extraction_jobs(file_entries, workers);
+        let actual_workers = worker_jobs.len();
 
         let parallel_result = std::thread::scope(|scope| {
             let mut handles = Vec::new();
             for job in worker_jobs {
                 let worker = self.try_clone()?;
+                if matches!(self.workload_profile, crate::WorkloadProfile::ExtractMany) {
+                    worker
+                        .page_manager
+                        .borrow_mut()
+                        .limit_automatic_extraction_worker(actual_workers);
+                }
                 handles.push(scope.spawn(move || {
                     for (path_id, entry) in job {
                         let out_path = checked_destination(destination, &entry.path)?;
@@ -758,6 +765,94 @@ fn create_symlink(_target: &str, _path: &Path, _overwrite: bool) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn automatic_worker_caches_preserve_parent_and_frame_reads() {
+        use crate::{CacheLimit, LockboxOptions, LockboxPath, WorkloadProfile};
+        for count in [1usize, 3, 4] {
+            let mut source = Lockbox::create_with_options(
+                "worker-test",
+                LockboxOptions {
+                    workload_profile: WorkloadProfile::BulkImport,
+                    ..LockboxOptions::default()
+                },
+            );
+            for index in 0..count {
+                source
+                    .add_file(
+                        &LockboxPath::new(format!("/file-{index}")).unwrap(),
+                        &vec![index as u8; 2 * 1024 * 1024],
+                        false,
+                    )
+                    .unwrap();
+            }
+            source.commit().unwrap();
+            let parent = Lockbox::open_bytes_with_key_options(
+                source.to_bytes(),
+                "worker-test",
+                LockboxOptions {
+                    workload_profile: WorkloadProfile::ExtractMany,
+                    ..LockboxOptions::default()
+                },
+            )
+            .unwrap();
+            let entries = parent
+                .validate_extract_plan(&ExtractPolicy::default())
+                .unwrap();
+            let files = entries
+                .into_iter()
+                .filter(|entry| entry.node_kind == NodeKind::File)
+                .enumerate()
+                .collect();
+            let jobs = group_parallel_extraction_jobs(files, 4);
+            assert_eq!(
+                jobs.len(),
+                count,
+                "nonempty jobs, not requested pool capacity"
+            );
+            let parent_before = parent.inspector().cache_stats();
+            for job in jobs.iter() {
+                let mut worker = parent.try_clone().unwrap();
+                worker
+                    .page_manager
+                    .borrow_mut()
+                    .limit_automatic_extraction_worker(jobs.len());
+                assert_eq!(
+                    worker.inspector().cache_stats().limit_bytes,
+                    8 * 1024 * 1024 / count as u64
+                );
+                for (_, entry) in job {
+                    let first = worker.get_file(&entry.path).unwrap();
+                    assert_eq!(first.len(), 2 * 1024 * 1024);
+                    let expected: u8 = entry
+                        .path
+                        .as_str()
+                        .strip_prefix("/file-")
+                        .unwrap()
+                        .parse()
+                        .unwrap();
+                    assert!(first.iter().all(|byte| *byte == expected));
+                    assert_eq!(worker.get_file(&entry.path).unwrap(), first);
+                }
+                assert!(matches!(
+                    worker.page_manager.borrow().configured_limit(),
+                    CacheLimit::Auto
+                ));
+                worker.set_workload_profile(WorkloadProfile::ReadMostly);
+                assert_eq!(
+                    worker.inspector().cache_stats().limit_bytes,
+                    128 * 1024 * 1024
+                );
+                worker.set_workload_profile(WorkloadProfile::ExtractMany);
+                assert_eq!(
+                    worker.inspector().cache_stats().limit_bytes,
+                    32 * 1024 * 1024
+                );
+            }
+            assert_eq!(parent.inspector().cache_stats(), parent_before);
+        }
+    }
 
     fn unique_test_root(label: &str) -> PathBuf {
         let suffix = std::time::SystemTime::now()

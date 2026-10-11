@@ -1907,9 +1907,10 @@ impl<State> Lockbox<State> {
                         crate::CacheLimit::Auto
                     ) =>
             {
-                // Four ordinary 2 MiB frames retain adjacent packed-file reuse.
-                // Native frames share the page cache and its separate 32 MiB target.
-                8 * 1024 * 1024
+                // Ordinary handles retain four 2 MiB frames. Parallel worker
+                // clones share another 8 MiB target across their actual jobs,
+                // retaining at least one ordinary frame each (at most 4 jobs).
+                (8 * 1024 * 1024).min(self.page_manager.borrow().stats().limit_bytes as usize)
             }
             WorkloadProfile::ReadMostly | WorkloadProfile::ExtractMany => {
                 DECODED_COMPRESSION_FRAME_CACHE_BYTES

@@ -1,0 +1,9 @@
+{
+  "status": "passed",
+  "default_test_executions": 16,
+  "native_layout_test_executions": 17,
+  "failed": 0,
+  "scope": "Focused release checks only after retained measured improvement; no full API rerun. Prior broad candidate campaign timeouts remain incomplete.",
+  "expected_panic": "Synthetic sink unwind is caught and its existing automatic-worker test passes.",
+  "source_epoch": "pre-format tested source snapshot; tracked commit hook performs final formatting"
+}

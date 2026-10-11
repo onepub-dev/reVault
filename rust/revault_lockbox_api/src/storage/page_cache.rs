@@ -257,6 +257,17 @@ impl PageCache {
         }
     }
 
+    pub(crate) fn limit_automatic_extraction_worker(&mut self, workers: usize) {
+        if cfg!(target_arch = "wasm32") || !matches!(self.limit, CacheLimit::Auto) {
+            return;
+        }
+        debug_assert!((1..=4).contains(&workers));
+        // The parent keeps its own target. Worker clones together retain at most
+        // another 8 MiB of clean pages; keep dirty pages and active Arc owners.
+        self.limit_bytes = 8 * 1024 * 1024 / workers.clamp(1, 4) as u64;
+        self.trim_to_limit();
+    }
+
     pub(crate) fn set_format(&mut self, mode: FormatMode) {
         self.format_mode = mode;
     }
@@ -1480,6 +1491,40 @@ mod tests {
         );
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn automatic_worker_trim_preserves_active_native_owner() {
+        let mut parent = PageCache::with_profile(
+            CacheLimit::Auto,
+            Default::default(),
+            crate::WorkloadProfile::ExtractMany,
+        );
+        let frame = CachedCompressionFrame {
+            native_reference: None,
+            compression: 1,
+            compression_frame_len: 4 * 1024 * 1024,
+            compressed_len: 64,
+            compression_frame_digest: [3; 32],
+            slices: Vec::new(),
+            data: vec![7; 4 * 1024 * 1024],
+        };
+        let _ = parent.insert_native_decoded_page(192, 1024, frame, 0);
+        let retained = parent.native_decoded_page(192, 0).unwrap();
+        let weak = Arc::downgrade(&retained);
+        let before = parent.stats();
+        let mut worker = parent.clone();
+        worker.limit_automatic_extraction_worker(4);
+        assert_eq!(worker.native_decoded_entries(), 0);
+        assert_eq!(parent.stats(), before);
+        assert!(retained.data.iter().all(|byte| *byte == 7));
+        drop(worker);
+        drop(parent);
+        assert!(weak.upgrade().is_some());
+        assert_eq!(retained.data.len(), 4 * 1024 * 1024);
+        drop(retained);
+        assert!(weak.upgrade().is_none());
+    }
+
     #[test]
     fn native_decoded_cache_tracks_physical_extents_and_shared_ownership() {
         let frame = || CachedCompressionFrame {
@@ -2183,6 +2228,16 @@ mod tests {
                 .collect::<Vec<_>>()
         };
         let before_payloads = payloads(&cache);
+        let parent_stats = cache.stats();
+        for workers in [1, 3, 4] {
+            let mut worker = cache.clone();
+            worker.limit_automatic_extraction_worker(workers);
+            assert_eq!(worker.dirty_offsets, dirty);
+            assert_eq!(payloads(&worker), before_payloads);
+            assert_eq!(worker.stats().used_bytes, parent_stats.used_bytes);
+            assert!(matches!(worker.configured_limit(), CacheLimit::Auto));
+            assert_eq!(cache.stats(), parent_stats);
+        }
         let used = cache.stats().used_bytes;
         assert!(used > 32 * 1024 * 1024);
         cache.set_workload_profile(crate::WorkloadProfile::ExtractMany);
@@ -2207,6 +2262,7 @@ mod tests {
                 crate::WorkloadProfile::Interactive,
             ] {
                 explicit.set_workload_profile(profile);
+                explicit.limit_automatic_extraction_worker(4);
                 assert_eq!(explicit.stats(), before);
                 assert!(explicit.dirty_offsets.contains(&0));
             }
