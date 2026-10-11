@@ -1,0 +1,9 @@
+{
+  "restored_from": "7b7cb50ab89aca18f8c1293b72f50567a641c661",
+  "files": [
+    "rust/revault_lockbox_api/src/lockbox/files.rs"
+  ],
+  "byte_identical_to_restored_revision": true,
+  "new_full_suite": "not rerun for exact restoration",
+  "preserved": "Scoped parallel encoder reuse and earlier cache/credential improvements; complete rejected window evidence and binaries."
+}

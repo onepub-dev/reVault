@@ -1,0 +1,8 @@
+7b7cb50ab89aca18f8c1293b72f50567a641c661
+ M rust/revault_lockbox_api/src/lockbox/files.rs
+?? docs/evidence/import-window-2026-10-12/
+5b831735bdf736506ad9cf0de3b85b90181f7036f3e7adb046e201672dbd712f  target/parallel-encoder-reuse-202612/bin/lockbox-new
+daa6fb1b66d2efd6bec1b91a299378fdfaadd6c8c50d6da9a7b1e907de539769  target/import-window-20261012/bin/lockbox-new
+4de3c1d21071b85f4a1d0ff8ff86df6beaa16a9ad29105785bb65ac12568c561  revault_lockbox_api/src/lockbox/files.rs
+8b3444bf2390acec1150d9840bfc3f0bfc02b7f42d4b34df926ce7974b36cdd2  revault_cli/Cargo.toml
+beab5d20edb8c69e95f2f330abdbe38e08f11cfc3ea81adc87eadbc557e8167f  revault_lockbox_api/Cargo.toml

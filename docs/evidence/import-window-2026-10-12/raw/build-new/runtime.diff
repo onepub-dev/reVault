@@ -1,0 +1,20 @@
+diff --git a/rust/revault_lockbox_api/src/lockbox/files.rs b/rust/revault_lockbox_api/src/lockbox/files.rs
+index f9460350..48c9a91c 100644
+--- a/rust/revault_lockbox_api/src/lockbox/files.rs
++++ b/rust/revault_lockbox_api/src/lockbox/files.rs
+@@ -808,6 +808,15 @@ impl<State> Lockbox<State> {
+             let mut job_count = 0usize;
+             let mut buffer = vec![0; FILE_COMPRESSION_FRAME_BYTES];
+             loop {
++                // Bound queued, active and completed-but-not-written frames
++                // together. Receiving alone is not progress when an earlier
++                // frame is still missing: only contiguous writes free a slot.
++                while job_count.saturating_sub(frame_order.next_index) >= queue_bound {
++                    let result = result_rx.recv().map_err(|_| {
++                        Error::Io("compression worker stopped unexpectedly".to_string())
++                    })?;
++                    frame_order.accept(result, &mut writer, &mut chunks)?;
++                }
+                 let read_start = Instant::now();
+                 let read = read_next_chunk(&mut reader, &mut buffer)?;
+                 writer

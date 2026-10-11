@@ -46,7 +46,7 @@ They recorded 283 and 287 observed passes respectively, 11 ignored each and no
 observed failures, but no complete-suite result. All 35 CLI creation/password
 and Vault consumer tests passed. The subsequent raw-data worker-cache trial is recorded below.
 The continuing goal stops below 10% remaining or above 99% after a reset;
-the current checkpoint reading is 76% remaining.
+the current checkpoint reading is 74% remaining.
 
 The [raw many-file trial](evidence/parallel-extraction-2026-10-12/README.md)
 passed its fixed 56-process gate and all 33 focused test executions, but the
@@ -79,10 +79,16 @@ fell 27.3% and maximum RSS fell from 153.9 to 107.0 MB. All aggregate elapsed
 upper bounds were below 1.05. Raw BulkImport median RSS increased 13.3%, and
 its odd-round elapsed interval does not establish the same 5% bound. All new
 cohort maxima still exceed 100 MB; the whole-CLI write target remains open.
-Next assess command-local import retention or bounded in-flight ownership, keeping
-parallelism, durable preparation and authentication intact. All 15 focused
-default/native API and public CLI checks passed; no broad suite was rerun for
-this individual experiment. No architecture or
+The [submission-window trial](evidence/import-window-2026-10-12/README.md)
+completed 112 verified processes but failed its frozen rule: compressed Interactive
+elapsed upper bound 1.0579 exceeds 1.05 and raw BulkImport median RSS ratio 0.9765
+misses the required 0.95. Compressed BulkImport also had a small elapsed slowdown,
+ratio 1.0224 [1.0165, 1.0292]. Reverted only the nine-line window to `7b7cb50a`;
+no outcome-driven reruns or tests of the rejected runtime were added.
+Next assess command-local import cache retention while preserving profile semantics, keeping
+parallelism, durable preparation and authentication intact. The retained encoder
+reuse passed all 15 focused default/native API and public CLI checks; the rejected
+window received no additional tests. No broad suite was rerun. No architecture or
 release acceptance follows from this intermediate improvement.
 
 At the historical checkpoint, performance experiments were paused at `0de2dd4a` by user direction. The
