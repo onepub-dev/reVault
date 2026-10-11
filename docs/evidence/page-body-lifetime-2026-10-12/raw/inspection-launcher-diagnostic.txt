@@ -1,0 +1,8 @@
+Evidence inspection launcher diagnostic
+
+During read-only inspection of the completed trial artifacts, the tool/launcher emitted the following before command output. This is outside redirected trial logs and is not trial output:
+Failed to create stream fd: Operation not permitted
+Failed to create stream fd: Operation not permitted
+Failed to create stream fd: Operation not permitted
+
+The frozen summary exited 0 and reports `Page-body lifetime retention: false;112 audited.` The fixed run completed with 112 accepted (96 measured, 16 preparation), post-run identities verified, owned agents stopped, and 1146.681 seconds. No sample or summary rerun was performed.

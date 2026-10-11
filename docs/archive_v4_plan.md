@@ -36,7 +36,7 @@ completed 720 verified samples. Lazy authenticated-descriptor selection passes
 the frozen aggregate control and useful-profile gates; retain it as opt-in while
 keeping the serial default. The 17 MiB boundary has a 3.35% mean penalty and
 does not establish parity-wise non-inferiority. No threshold revision is planned.
-The latest completed milestone reading is 37% used (63% remaining), so the goal continues.
+The latest completed milestone reading is 39% used (61% remaining), so the goal continues.
 
 The [native/public comparison](evidence/native-public-extraction-2026-10-11/README.md)
 completed 480 component and 64 public CLI samples. All archive variants remain
@@ -149,6 +149,16 @@ intervals improve and maximum-RSS guards pass, compressed Interactive still
 peaks at 108.77 MB and raw median RSS rises 5.8%/1.8%. Reverted the two-expression
 trial exactly to `4957aa5a`; no extra samples, tests or WASM rebuild followed.
 The page-flush improvement remains current and the overall write target stays open.
+
+The [page-body lifetime trial](evidence/page-body-lifetime-2026-10-12/README.md)
+completed 112 verified processes but failed both its compressed Interactive
+usefulness gate (median RSS +1.44%) and compressed BulkImport maximum-RSS guard
+(+6.61%). All aggregate elapsed guards pass, without establishing an aggregate
+speedup. Reverted the one-line lifetime change exactly to `574ebafc`; no extra
+samples, qualification tests or WASM rebuild were run for the rejected change.
+The retained page-flush improvement
+remains current. Next, diagnose the prior incomplete integration campaign with
+an isolated bounded run before deciding the broader validation scope.
 
 The explicit CLI password-unlock path was already bounded; no CLI-unlock or
 contact-performance gain is claimed. The worker-budget trial is no longer enabled.

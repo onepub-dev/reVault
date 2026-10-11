@@ -46,7 +46,7 @@ They recorded 283 and 287 observed passes respectively, 11 ignored each and no
 observed failures, but no complete-suite result. All 35 CLI creation/password
 and Vault consumer tests passed. The subsequent raw-data worker-cache trial is recorded below.
 The continuing goal stops below 10% remaining or above 99% after a reset;
-the current checkpoint reading is 63% remaining.
+the current checkpoint reading is 61% remaining.
 
 The [raw many-file trial](evidence/parallel-extraction-2026-10-12/README.md)
 passed its fixed 56-process gate and all 33 focused test executions, but the
@@ -136,6 +136,16 @@ intervals improve and maximum-RSS guards pass, compressed Interactive still
 peaks at 108.77 MB and raw median RSS rises 5.8%/1.8%. Reverted the two-expression
 trial exactly to `4957aa5a`; no extra samples, tests or WASM rebuild followed.
 The page-flush improvement remains current and the overall write target stays open.
+
+The [page-body lifetime trial](evidence/page-body-lifetime-2026-10-12/README.md)
+completed 112 verified processes but failed both its compressed Interactive
+usefulness gate (median RSS +1.44%) and compressed BulkImport maximum-RSS guard
+(+6.61%). All aggregate elapsed guards pass, without establishing an aggregate
+speedup. Reverted the one-line lifetime change exactly to `574ebafc`; no extra
+samples, qualification tests or WASM rebuild were run for the rejected change.
+The retained page-flush improvement
+remains current. Next, diagnose the prior incomplete integration campaign with
+an isolated bounded run before deciding the broader validation scope.
 
 At the historical checkpoint, performance experiments were paused at `0de2dd4a` by user direction. The
 [security-first handoff](evidence/password-integrity-audit-2026-10-11/handoff.txt)

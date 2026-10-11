@@ -1,0 +1,12 @@
+diff --git a/rust/revault_lockbox_api/src/file_format/page.rs b/rust/revault_lockbox_api/src/file_format/page.rs
+index 3a8e6dda..9e1705e9 100644
+--- a/rust/revault_lockbox_api/src/file_format/page.rs
++++ b/rust/revault_lockbox_api/src/file_format/page.rs
+@@ -628,6 +628,7 @@ pub(crate) fn encode_page_with_format(
+         seal_with_random_nonce(&body, key, &aad)?
+     };
+     body.zeroize();
++    drop(body);
+     let stored_body_len = u32::try_from(stored_body.len())
+         .map_err(|_| Error::SecurityLimitExceeded("page body is too large".to_string()))?;
+     if PAGE_HEADER_LEN + stored_body.len() > page_size {
