@@ -21,6 +21,13 @@ the separate component checkpoint below. This merge does not qualify the format
 or erase failures.
 
 ## Current position and next work
+The requested [encrypted and signed public ZIP comparison](evidence/protected-zip-comparison-2026-10-12/RESULTS.md)
+completed 32 verified operations (24 measured, three repetitions per group).
+It times normal protected create + open + add and subsequent extraction against
+fresh compression-only Info-ZIP runs, with complete-command credential costs
+and unequal security/permission semantics explicitly recorded. This descriptive
+screen does not replace ZIP+PGP, many-file or full release qualification.
+
 
 ### Persistent optimisation goal — 2026-10-11
 

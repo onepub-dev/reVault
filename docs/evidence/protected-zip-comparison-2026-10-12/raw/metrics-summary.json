@@ -1,0 +1,348 @@
+{
+  "accepted": 32,
+  "measured": 24,
+  "preparation": 8,
+  "method": "three measured repetitions; medians and full ranges only; no inferential qualification",
+  "results": [
+    {
+      "case": "source-zstd-1gib",
+      "operation": "write",
+      "variants": {
+        "native": {
+          "cli_elapsed_seconds": {
+            "median": 3.8200000000000003,
+            "minimum": 3.8200000000000003,
+            "maximum": 3.9699999999999998
+          },
+          "drain_elapsed_seconds": {
+            "median": 0.0,
+            "minimum": 0.0,
+            "maximum": 0.0
+          },
+          "output_drained_elapsed_seconds": {
+            "median": 3.8200000000000003,
+            "minimum": 3.8200000000000003,
+            "maximum": 3.9699999999999998
+          },
+          "rss_bytes": {
+            "median": 103702528.0,
+            "minimum": 101666816.0,
+            "maximum": 110391296.0
+          },
+          "archive_bytes": {
+            "median": 183224704,
+            "minimum": 183224704,
+            "maximum": 183224704
+          },
+          "cpu_seconds": {
+            "median": 5.86,
+            "minimum": 5.81,
+            "maximum": 6.039999999999999
+          },
+          "observed_codecs": [
+            "ChaCha20-Poly1305 + owner signing; Zstd3 configured; per-frame raw fallback permitted"
+          ],
+          "output_modes": [
+            384
+          ]
+        },
+        "zip": {
+          "cli_elapsed_seconds": {
+            "median": 23.08,
+            "minimum": 22.98,
+            "maximum": 23.28
+          },
+          "drain_elapsed_seconds": {
+            "median": 0.11,
+            "minimum": 0.1,
+            "maximum": 0.11
+          },
+          "output_drained_elapsed_seconds": {
+            "median": 23.189999999999998,
+            "minimum": 23.09,
+            "maximum": 23.380000000000003
+          },
+          "rss_bytes": {
+            "median": 2797568.0,
+            "minimum": 2732032.0,
+            "maximum": 2863104.0
+          },
+          "archive_bytes": {
+            "median": 182405087,
+            "minimum": 182405087,
+            "maximum": 182405087
+          },
+          "cpu_seconds": {
+            "median": 23.07,
+            "minimum": 22.979999999999997,
+            "maximum": 23.259999999999998
+          },
+          "observed_codecs": [
+            "compression method:                             deflated"
+          ],
+          "output_modes": [
+            436
+          ]
+        }
+      },
+      "native_over_zip_cli_median_ratio": 0.16551126516464473,
+      "native_over_zip_drained_median_ratio": 0.16472617507546358
+    },
+    {
+      "case": "source-zstd-1gib",
+      "operation": "read",
+      "variants": {
+        "native": {
+          "cli_elapsed_seconds": {
+            "median": 4.29,
+            "minimum": 4.19,
+            "maximum": 4.3
+          },
+          "drain_elapsed_seconds": {
+            "median": 0.74,
+            "minimum": 0.73,
+            "maximum": 0.74
+          },
+          "output_drained_elapsed_seconds": {
+            "median": 5.02,
+            "minimum": 4.930000000000001,
+            "maximum": 5.04
+          },
+          "rss_bytes": {
+            "median": 86044672.0,
+            "minimum": 85970944.0,
+            "maximum": 86097920.0
+          },
+          "archive_bytes": {
+            "median": 183224704,
+            "minimum": 183224704,
+            "maximum": 183224704
+          },
+          "cpu_seconds": {
+            "median": 3.55,
+            "minimum": 3.44,
+            "maximum": 3.55
+          },
+          "observed_codecs": [
+            "ChaCha20-Poly1305 + owner signing; Zstd3 configured; per-frame raw fallback permitted"
+          ],
+          "output_modes": [
+            384
+          ]
+        },
+        "zip": {
+          "cli_elapsed_seconds": {
+            "median": 4.9,
+            "minimum": 4.88,
+            "maximum": 4.92
+          },
+          "drain_elapsed_seconds": {
+            "median": 0.73,
+            "minimum": 0.71,
+            "maximum": 0.76
+          },
+          "output_drained_elapsed_seconds": {
+            "median": 5.64,
+            "minimum": 5.61,
+            "maximum": 5.65
+          },
+          "rss_bytes": {
+            "median": 2920448.0,
+            "minimum": 2920448.0,
+            "maximum": 3051520.0
+          },
+          "archive_bytes": {
+            "median": 182405087,
+            "minimum": 182405087,
+            "maximum": 182405087
+          },
+          "cpu_seconds": {
+            "median": 4.9,
+            "minimum": 4.87,
+            "maximum": 4.92
+          },
+          "observed_codecs": [
+            "compression method:                             deflated"
+          ],
+          "output_modes": [
+            436
+          ]
+        }
+      },
+      "native_over_zip_cli_median_ratio": 0.8755102040816326,
+      "native_over_zip_drained_median_ratio": 0.8900709219858156
+    },
+    {
+      "case": "random-raw-1gib",
+      "operation": "write",
+      "variants": {
+        "native": {
+          "cli_elapsed_seconds": {
+            "median": 8.36,
+            "minimum": 8.34,
+            "maximum": 8.43
+          },
+          "drain_elapsed_seconds": {
+            "median": 0.0,
+            "minimum": 0.0,
+            "maximum": 0.0
+          },
+          "output_drained_elapsed_seconds": {
+            "median": 8.36,
+            "minimum": 8.34,
+            "maximum": 8.43
+          },
+          "rss_bytes": {
+            "median": 78999552.0,
+            "minimum": 78032896.0,
+            "maximum": 91639808.0
+          },
+          "archive_bytes": {
+            "median": 1074224512,
+            "minimum": 1074224512,
+            "maximum": 1074224512
+          },
+          "cpu_seconds": {
+            "median": 7.87,
+            "minimum": 7.78,
+            "maximum": 7.92
+          },
+          "observed_codecs": [
+            "ChaCha20-Poly1305 + owner signing; Zstd3 configured; per-frame raw fallback permitted"
+          ],
+          "output_modes": [
+            384
+          ]
+        },
+        "zip": {
+          "cli_elapsed_seconds": {
+            "median": 24.4,
+            "minimum": 24.37,
+            "maximum": 24.42
+          },
+          "drain_elapsed_seconds": {
+            "median": 0.56,
+            "minimum": 0.55,
+            "maximum": 0.6
+          },
+          "output_drained_elapsed_seconds": {
+            "median": 24.95,
+            "minimum": 24.93,
+            "maximum": 25.020000000000003
+          },
+          "rss_bytes": {
+            "median": 2797568.0,
+            "minimum": 2732032.0,
+            "maximum": 2863104.0
+          },
+          "archive_bytes": {
+            "median": 1073915836,
+            "minimum": 1073915836,
+            "maximum": 1073915836
+          },
+          "cpu_seconds": {
+            "median": 24.38,
+            "minimum": 24.36,
+            "maximum": 24.41
+          },
+          "observed_codecs": [
+            "compression method:                             deflated"
+          ],
+          "output_modes": [
+            436
+          ]
+        }
+      },
+      "native_over_zip_cli_median_ratio": 0.34262295081967215,
+      "native_over_zip_drained_median_ratio": 0.3350701402805611
+    },
+    {
+      "case": "random-raw-1gib",
+      "operation": "read",
+      "variants": {
+        "native": {
+          "cli_elapsed_seconds": {
+            "median": 3.6,
+            "minimum": 3.52,
+            "maximum": 3.62
+          },
+          "drain_elapsed_seconds": {
+            "median": 0.55,
+            "minimum": 0.54,
+            "maximum": 0.56
+          },
+          "output_drained_elapsed_seconds": {
+            "median": 4.140000000000001,
+            "minimum": 4.08,
+            "maximum": 4.17
+          },
+          "rss_bytes": {
+            "median": 83734528.0,
+            "minimum": 83734528.0,
+            "maximum": 83738624.0
+          },
+          "archive_bytes": {
+            "median": 1074224512,
+            "minimum": 1074224512,
+            "maximum": 1074224512
+          },
+          "cpu_seconds": {
+            "median": 2.8899999999999997,
+            "minimum": 2.88,
+            "maximum": 2.92
+          },
+          "observed_codecs": [
+            "ChaCha20-Poly1305 + owner signing; Zstd3 configured; per-frame raw fallback permitted"
+          ],
+          "output_modes": [
+            384
+          ]
+        },
+        "zip": {
+          "cli_elapsed_seconds": {
+            "median": 5.6,
+            "minimum": 5.58,
+            "maximum": 7.41
+          },
+          "drain_elapsed_seconds": {
+            "median": 0.55,
+            "minimum": 0.55,
+            "maximum": 0.56
+          },
+          "output_drained_elapsed_seconds": {
+            "median": 6.1499999999999995,
+            "minimum": 6.140000000000001,
+            "maximum": 7.96
+          },
+          "rss_bytes": {
+            "median": 2920448.0,
+            "minimum": 2920448.0,
+            "maximum": 2985984.0
+          },
+          "archive_bytes": {
+            "median": 1073915836,
+            "minimum": 1073915836,
+            "maximum": 1073915836
+          },
+          "cpu_seconds": {
+            "median": 5.59,
+            "minimum": 5.57,
+            "maximum": 7.41
+          },
+          "observed_codecs": [
+            "compression method:                             deflated"
+          ],
+          "output_modes": [
+            436
+          ]
+        }
+      },
+      "native_over_zip_cli_median_ratio": 0.6428571428571429,
+      "native_over_zip_drained_median_ratio": 0.6731707317073172
+    }
+  ],
+  "samples_sha256": "a96e78889dbce0ba18064018f11d9cb42acc3b46e90c8d365b3580ecc7b9ed19",
+  "identities_sha256": "fddd2c7beab2c4b6ff76e9a7d68b654ffd2bc7fd6fe8452e1e64cb9e61199664",
+  "analysis_sha256": "7a890299a64e4e75f3ebf16cd007b6b684707df9240be2faa8ea2d3278cd7495",
+  "scope": "Current default-layout native public CLI restoring stored0600 versus Info-ZIP restoring source0664; ChaCha20-Poly1305 + owner signatures + Zstd3/default padding with running owned agent and available synthetic Vault passphrase; Vault initialization excluded but normal per-command Vault opens/KDF and explicit archive open included in create+open+add, read after verified write versus Deflate6/observed fallback and CRC; unequal protection/recovery; single1GiB files only; process peak excludes helper agent."
+}

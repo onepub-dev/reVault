@@ -1,0 +1,6 @@
+{
+  "verified": true,
+  "bytes": 8192,
+  "codec": "ChaCha20-Poly1305 + owner signing; Zstd3 configured; per-frame raw fallback permitted",
+  "timed": false
+}

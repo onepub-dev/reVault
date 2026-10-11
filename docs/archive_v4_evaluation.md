@@ -10,6 +10,13 @@ and [delivery plan](archive_v4_plan.md) define purpose, guarantees and sequence.
 [Baseline evidence](evidence/v4-baseline-2026-09-26.md) records newly run checks.
 Historical microbenchmarks remain evidence about their own revisions.
 
+The requested [encrypted and signed public ZIP comparison](evidence/protected-zip-comparison-2026-10-12/RESULTS.md)
+completed 32 verified operations (24 measured, three repetitions per group).
+It times normal protected create + open + add and subsequent extraction against
+fresh compression-only Info-ZIP runs, with complete-command credential costs
+and unequal security/permission semantics explicitly recorded. This descriptive
+screen does not replace ZIP+PGP, many-file or full release qualification.
+
 ## Security prerequisite — 2026-10-11
 
 Following pushed security checkpoint `a191020a`, Brett explicitly resumed

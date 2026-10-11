@@ -1,0 +1,4 @@
+Preserved release binary built at 765e4ac243bc2991589e83dcab2636867dc8debf.
+Current checkpoint d635f33bd66a4e5e4c7514268010ceb5754c50da differs only in docs/tools/evidence.
+Runtime/bindings diff verified empty before this diagnostic-free reuse.
+No new build or protected measurements have run during installation.
