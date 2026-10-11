@@ -20,7 +20,7 @@ impl Drop for CachedCompressionFrame {
     }
 }
 
-use crate::cache_options::{cache_limit_bytes, CacheLimit, CacheStats};
+use crate::cache_options::{cache_limit_bytes, CacheLimit, CacheStats, WorkloadProfile};
 use crate::checked::read_u32_le;
 use crate::creation_options::FormatMode;
 use crate::fast_hash::FastBuildHasher;
@@ -222,6 +222,39 @@ impl PageCache {
         let mut cache = Self::new(limit);
         cache.format_mode = mode;
         cache
+    }
+
+    pub(crate) fn with_profile(
+        limit: CacheLimit,
+        mode: FormatMode,
+        profile: WorkloadProfile,
+    ) -> Self {
+        let mut cache = Self::with_format(limit, mode);
+        cache.set_workload_profile(profile);
+        cache
+    }
+
+    pub(crate) fn configured_limit(&self) -> CacheLimit {
+        self.limit
+    }
+
+    pub(crate) fn set_workload_profile(&mut self, profile: WorkloadProfile) {
+        // Streaming extraction needs a small reuse window, not all prior pages.
+        // Keep the original policy so changing profiles restores Auto capacity.
+        let limit_bytes = if !cfg!(target_arch = "wasm32")
+            && matches!(self.limit, CacheLimit::Auto)
+            && matches!(profile, WorkloadProfile::ExtractMany)
+        {
+            32 * 1024 * 1024
+        } else {
+            cache_limit_bytes(self.limit)
+        };
+        // Pending writes and outstanding shared owners retain their existing
+        // guarantees: this is a clean-cache retention target, not a total-RSS cap.
+        if limit_bytes != self.limit_bytes {
+            self.limit_bytes = limit_bytes;
+            self.trim_to_limit();
+        }
     }
 
     pub(crate) fn set_format(&mut self, mode: FormatMode) {
@@ -2107,6 +2140,77 @@ mod tests {
             .flush_dirty_pages(&mut storage, lockbox_id, key)
             .unwrap();
         assert_eq!(cache.stats().entries, 1);
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn extract_many_budget_preserves_dirty_pages_and_configured_policy() {
+        let mut cache = PageCache::with_profile(
+            CacheLimit::Auto,
+            Default::default(),
+            crate::WorkloadProfile::ReadMostly,
+        );
+        let size = 2 * 1024 * 1024;
+        for index in 0..17 {
+            let offset = (index * size) as u64;
+            cache
+                .stage_decoded_page_with_policy(
+                    offset,
+                    size,
+                    page(offset),
+                    PageWritePolicy::RetainAfterFlush,
+                )
+                .unwrap();
+        }
+        let dirty = cache.dirty_offsets.clone();
+        let payloads = |cache: &PageCache| {
+            dirty
+                .iter()
+                .map(|offset| {
+                    let CachedPagePayload::Decoded(page) = &cache.pages.get(offset).unwrap().page
+                    else {
+                        panic!("expected staged decoded page");
+                    };
+                    (
+                        page.page_id,
+                        page.sequence,
+                        page.objects
+                            .iter()
+                            .map(|object| object.with_payload(|bytes| bytes.to_vec()).unwrap())
+                            .collect::<Vec<_>>(),
+                    )
+                })
+                .collect::<Vec<_>>()
+        };
+        let before_payloads = payloads(&cache);
+        let used = cache.stats().used_bytes;
+        assert!(used > 32 * 1024 * 1024);
+        cache.set_workload_profile(crate::WorkloadProfile::ExtractMany);
+        assert_eq!(cache.stats().limit_bytes, 32 * 1024 * 1024);
+        assert_eq!(cache.dirty_offsets, dirty);
+        assert_eq!(cache.pages.len(), 17);
+        assert_eq!(cache.stats().used_bytes, used);
+        assert_eq!(payloads(&cache), before_payloads);
+        assert!(matches!(cache.configured_limit(), CacheLimit::Auto));
+        cache.set_workload_profile(crate::WorkloadProfile::ReadMostly);
+        assert_eq!(cache.stats().limit_bytes, 128 * 1024 * 1024);
+        assert_eq!(cache.dirty_offsets, dirty);
+        assert_eq!(payloads(&cache), before_payloads);
+        for limit in [CacheLimit::Disabled, CacheLimit::Bytes(8192)] {
+            let mut explicit = PageCache::new(limit);
+            explicit
+                .stage_decoded_page_with_policy(0, 4096, page(0), PageWritePolicy::RetainAfterFlush)
+                .unwrap();
+            let before = explicit.stats();
+            for profile in [
+                crate::WorkloadProfile::ExtractMany,
+                crate::WorkloadProfile::Interactive,
+            ] {
+                explicit.set_workload_profile(profile);
+                assert_eq!(explicit.stats(), before);
+                assert!(explicit.dirty_offsets.contains(&0));
+            }
+        }
     }
 
     #[test]

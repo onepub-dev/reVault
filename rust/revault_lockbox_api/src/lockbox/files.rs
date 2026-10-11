@@ -1900,10 +1900,35 @@ impl<State> Lockbox<State> {
 
     fn decoded_compression_frame_cache_limit(&self) -> usize {
         match self.workload_profile {
+            WorkloadProfile::ExtractMany
+                if !cfg!(target_arch = "wasm32")
+                    && matches!(
+                        self.page_manager.borrow().configured_limit(),
+                        crate::CacheLimit::Auto
+                    ) =>
+            {
+                // Four ordinary 2 MiB frames retain adjacent packed-file reuse.
+                // Native frames share the page cache and its separate 32 MiB target.
+                8 * 1024 * 1024
+            }
             WorkloadProfile::ReadMostly | WorkloadProfile::ExtractMany => {
                 DECODED_COMPRESSION_FRAME_CACHE_BYTES
             }
             _ => 0,
+        }
+    }
+
+    pub(super) fn trim_decoded_compression_frame_cache(&self) {
+        let limit = self.decoded_compression_frame_cache_limit();
+        let mut cache = self.compression_frame_cache.borrow_mut();
+        while cache.used_bytes > limit {
+            let Some(key) = cache.entries.keys().next().copied() else {
+                break;
+            };
+            if let Some(old) = cache.entries.remove(&key) {
+                cache.used_bytes = cache.used_bytes.saturating_sub(old.data.len());
+                // CachedCompressionFrame::drop wipes the decoded plaintext.
+            }
         }
     }
 

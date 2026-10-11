@@ -1,0 +1,1108 @@
+{
+  "accepted": 320,
+  "measured": 256,
+  "preparation": 64,
+  "all_fixed_matrix_identity_output_admission_checks_passed": true,
+  "retain_policy_by_frozen_rule": true,
+  "rss_limit_bytes": 100000000,
+  "elapsed_ratio_upper95_limit": 1.05,
+  "cases": [
+    {
+      "case": "source-zstd-64mib",
+      "payload_bytes": 67108864,
+      "metrics": {
+        "A-old": {
+          "measured_samples": 16,
+          "median_elapsed_seconds": 0.595,
+          "median_mib_per_second": 107.57062146892656,
+          "median_cpu_seconds": 0.27,
+          "peak_rss_kib_by_round": {
+            "4": 89076,
+            "5": 89296,
+            "6": 89328,
+            "7": 89436,
+            "8": 89536,
+            "9": 89532,
+            "10": 89012,
+            "11": 89252,
+            "12": 89488,
+            "13": 89532,
+            "14": 88964,
+            "15": 89136,
+            "16": 89400,
+            "17": 88948,
+            "18": 89236,
+            "19": 89256
+          },
+          "maximum_peak_rss_kib": 89536.0,
+          "maximum_peak_rss_bytes": 91684864.0,
+          "median_drain_seconds": 0.0867425
+        },
+        "A-trial": {
+          "measured_samples": 16,
+          "median_elapsed_seconds": 0.57,
+          "median_mib_per_second": 112.28070175438597,
+          "median_cpu_seconds": 0.24,
+          "peak_rss_kib_by_round": {
+            "4": 33520,
+            "5": 34004,
+            "6": 34120,
+            "7": 33748,
+            "8": 34104,
+            "9": 33988,
+            "10": 34144,
+            "11": 34028,
+            "12": 34064,
+            "13": 34060,
+            "14": 33984,
+            "15": 34464,
+            "16": 34084,
+            "17": 34008,
+            "18": 34036,
+            "19": 34088
+          },
+          "maximum_peak_rss_kib": 34464.0,
+          "maximum_peak_rss_bytes": 35291136.0,
+          "median_drain_seconds": 0.0853245
+        },
+        "B-old": {
+          "measured_samples": 16,
+          "median_elapsed_seconds": 0.6,
+          "median_mib_per_second": 106.66666666666667,
+          "median_cpu_seconds": 0.24,
+          "peak_rss_kib_by_round": {
+            "4": 78420,
+            "5": 78048,
+            "6": 78728,
+            "7": 78224,
+            "8": 78404,
+            "9": 78624,
+            "10": 78560,
+            "11": 78312,
+            "12": 78304,
+            "13": 78184,
+            "14": 78316,
+            "15": 78284,
+            "16": 78444,
+            "17": 78068,
+            "18": 78128,
+            "19": 78432
+          },
+          "maximum_peak_rss_kib": 78728.0,
+          "maximum_peak_rss_bytes": 80617472.0,
+          "median_drain_seconds": 0.0855735
+        },
+        "B-trial": {
+          "measured_samples": 16,
+          "median_elapsed_seconds": 0.57,
+          "median_mib_per_second": 112.28070175438597,
+          "median_cpu_seconds": 0.22999999999999998,
+          "peak_rss_kib_by_round": {
+            "4": 47752,
+            "5": 47640,
+            "6": 47672,
+            "7": 47472,
+            "8": 47516,
+            "9": 47656,
+            "10": 47720,
+            "11": 47852,
+            "12": 47628,
+            "13": 47724,
+            "14": 47700,
+            "15": 47760,
+            "16": 47500,
+            "17": 47720,
+            "18": 47580,
+            "19": 47444
+          },
+          "maximum_peak_rss_kib": 47852.0,
+          "maximum_peak_rss_bytes": 49000448.0,
+          "median_drain_seconds": 0.084753
+        }
+      },
+      "comparisons": {
+        "A": {
+          "elapsed_trial_over_old": {
+            "pairs": 16,
+            "rounds": [
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16,
+              17,
+              18,
+              19
+            ],
+            "geometric_mean_ratio": 0.9761199900265406,
+            "low95": 0.9578288992931971,
+            "high95": 1.0038417576650738,
+            "bootstrap_replicates": 10000,
+            "seed_xorshift32": 1206414907,
+            "method": "paired percentile bootstrap of eight adjacent balanced two-round log-ratio blocks",
+            "linear_percentile_interpolation": true
+          },
+          "round_strata": {
+            "0": {
+              "pairs": 8,
+              "rounds": [
+                4,
+                6,
+                8,
+                10,
+                12,
+                14,
+                16,
+                18
+              ],
+              "geometric_mean_ratio": 0.9788939927048327,
+              "low95": 0.9600260368975573,
+              "high95": 0.9980947818139159,
+              "bootstrap_replicates": 10000,
+              "seed_xorshift32": 684120767,
+              "method": "within-round-stratum paired percentile bootstrap of eight round log ratios",
+              "linear_percentile_interpolation": true
+            },
+            "1": {
+              "pairs": 8,
+              "rounds": [
+                5,
+                7,
+                9,
+                11,
+                13,
+                15,
+                17,
+                19
+              ],
+              "geometric_mean_ratio": 0.9733538483535429,
+              "low95": 0.9413084448135907,
+              "high95": 1.0174360974396297,
+              "bootstrap_replicates": 10000,
+              "seed_xorshift32": 667343148,
+              "method": "within-round-stratum paired percentile bootstrap of eight round log ratios",
+              "linear_percentile_interpolation": true
+            }
+          },
+          "all_measured_trial_processes_below_100000000_rss_bytes": true,
+          "aggregate_upper95_at_most_1_05": true,
+          "stratum_noninferiority_not_established": [],
+          "supported_slowdown_above_5_percent": false,
+          "retain_by_frozen_rule": true,
+          "maximum_rss_reduction_fraction": 0.6150822015725519
+        },
+        "B": {
+          "elapsed_trial_over_old": {
+            "pairs": 16,
+            "rounds": [
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16,
+              17,
+              18,
+              19
+            ],
+            "geometric_mean_ratio": 0.9679239001825783,
+            "low95": 0.941041214740842,
+            "high95": 0.9954639505427877,
+            "bootstrap_replicates": 10000,
+            "seed_xorshift32": 914074906,
+            "method": "paired percentile bootstrap of eight adjacent balanced two-round log-ratio blocks",
+            "linear_percentile_interpolation": true
+          },
+          "round_strata": {
+            "0": {
+              "pairs": 8,
+              "rounds": [
+                4,
+                6,
+                8,
+                10,
+                12,
+                14,
+                16,
+                18
+              ],
+              "geometric_mean_ratio": 0.9752953180552055,
+              "low95": 0.9434633816157096,
+              "high95": 1.0196858585346638,
+              "bootstrap_replicates": 10000,
+              "seed_xorshift32": 3943528864,
+              "method": "within-round-stratum paired percentile bootstrap of eight round log ratios",
+              "linear_percentile_interpolation": true
+            },
+            "1": {
+              "pairs": 8,
+              "rounds": [
+                5,
+                7,
+                9,
+                11,
+                13,
+                15,
+                17,
+                19
+              ],
+              "geometric_mean_ratio": 0.9606081965130719,
+              "low95": 0.9263705072753418,
+              "high95": 1.00947277486645,
+              "bootstrap_replicates": 10000,
+              "seed_xorshift32": 3960306483,
+              "method": "within-round-stratum paired percentile bootstrap of eight round log ratios",
+              "linear_percentile_interpolation": true
+            }
+          },
+          "all_measured_trial_processes_below_100000000_rss_bytes": true,
+          "aggregate_upper95_at_most_1_05": true,
+          "stratum_noninferiority_not_established": [],
+          "supported_slowdown_above_5_percent": false,
+          "retain_by_frozen_rule": true,
+          "maximum_rss_reduction_fraction": 0.39218575348033735
+        }
+      }
+    },
+    {
+      "case": "source-zstd-1gib",
+      "payload_bytes": 1073741824,
+      "metrics": {
+        "A-old": {
+          "measured_samples": 16,
+          "median_elapsed_seconds": 3.785,
+          "median_mib_per_second": 270.5420837346959,
+          "median_cpu_seconds": 3.46,
+          "peak_rss_kib_by_round": {
+            "4": 230124,
+            "5": 230248,
+            "6": 230248,
+            "7": 230256,
+            "8": 230264,
+            "9": 230804,
+            "10": 230612,
+            "11": 230164,
+            "12": 230348,
+            "13": 230256,
+            "14": 230332,
+            "15": 230080,
+            "16": 230676,
+            "17": 230032,
+            "18": 230172,
+            "19": 230108
+          },
+          "maximum_peak_rss_kib": 230804.0,
+          "maximum_peak_rss_bytes": 236343296.0,
+          "median_drain_seconds": 0.759261
+        },
+        "A-trial": {
+          "measured_samples": 16,
+          "median_elapsed_seconds": 3.685,
+          "median_mib_per_second": 277.88382231648404,
+          "median_cpu_seconds": 3.37,
+          "peak_rss_kib_by_round": {
+            "4": 75316,
+            "5": 75316,
+            "6": 75316,
+            "7": 75204,
+            "8": 75428,
+            "9": 75268,
+            "10": 75332,
+            "11": 75160,
+            "12": 74788,
+            "13": 75292,
+            "14": 74888,
+            "15": 75220,
+            "16": 75412,
+            "17": 75204,
+            "18": 75144,
+            "19": 75308
+          },
+          "maximum_peak_rss_kib": 75428.0,
+          "maximum_peak_rss_bytes": 77238272.0,
+          "median_drain_seconds": 0.7668695
+        },
+        "B-old": {
+          "measured_samples": 16,
+          "median_elapsed_seconds": 3.68,
+          "median_mib_per_second": 278.2608695652174,
+          "median_cpu_seconds": 3.365,
+          "peak_rss_kib_by_round": {
+            "4": 147596,
+            "5": 147364,
+            "6": 147424,
+            "7": 147412,
+            "8": 147332,
+            "9": 147484,
+            "10": 147352,
+            "11": 147448,
+            "12": 147452,
+            "13": 147516,
+            "14": 147232,
+            "15": 147336,
+            "16": 147588,
+            "17": 147444,
+            "18": 147272,
+            "19": 147180
+          },
+          "maximum_peak_rss_kib": 147596.0,
+          "maximum_peak_rss_bytes": 151138304.0,
+          "median_drain_seconds": 0.7641500000000001
+        },
+        "B-trial": {
+          "measured_samples": 16,
+          "median_elapsed_seconds": 3.675,
+          "median_mib_per_second": 278.63997156734985,
+          "median_cpu_seconds": 3.365,
+          "peak_rss_kib_by_round": {
+            "4": 47912,
+            "5": 47708,
+            "6": 47944,
+            "7": 47716,
+            "8": 47756,
+            "9": 47644,
+            "10": 48016,
+            "11": 47828,
+            "12": 47708,
+            "13": 47872,
+            "14": 47580,
+            "15": 47880,
+            "16": 47816,
+            "17": 47964,
+            "18": 47644,
+            "19": 47876
+          },
+          "maximum_peak_rss_kib": 48016.0,
+          "maximum_peak_rss_bytes": 49168384.0,
+          "median_drain_seconds": 0.7625795
+        }
+      },
+      "comparisons": {
+        "A": {
+          "elapsed_trial_over_old": {
+            "pairs": 16,
+            "rounds": [
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16,
+              17,
+              18,
+              19
+            ],
+            "geometric_mean_ratio": 0.9759347103886465,
+            "low95": 0.9688399881073928,
+            "high95": 0.9827938334747325,
+            "bootstrap_replicates": 10000,
+            "seed_xorshift32": 230008944,
+            "method": "paired percentile bootstrap of eight adjacent balanced two-round log-ratio blocks",
+            "linear_percentile_interpolation": true
+          },
+          "round_strata": {
+            "0": {
+              "pairs": 8,
+              "rounds": [
+                4,
+                6,
+                8,
+                10,
+                12,
+                14,
+                16,
+                18
+              ],
+              "geometric_mean_ratio": 0.9826689683180225,
+              "low95": 0.974494204813927,
+              "high95": 0.9922284727439871,
+              "bootstrap_replicates": 10000,
+              "seed_xorshift32": 4036330550,
+              "method": "within-round-stratum paired percentile bootstrap of eight round log ratios",
+              "linear_percentile_interpolation": true
+            },
+            "1": {
+              "pairs": 8,
+              "rounds": [
+                5,
+                7,
+                9,
+                11,
+                13,
+                15,
+                17,
+                19
+              ],
+              "geometric_mean_ratio": 0.9692466025172468,
+              "low95": 0.9595493425622597,
+              "high95": 0.9786720413013483,
+              "bootstrap_replicates": 10000,
+              "seed_xorshift32": 4053108169,
+              "method": "within-round-stratum paired percentile bootstrap of eight round log ratios",
+              "linear_percentile_interpolation": true
+            }
+          },
+          "all_measured_trial_processes_below_100000000_rss_bytes": true,
+          "aggregate_upper95_at_most_1_05": true,
+          "stratum_noninferiority_not_established": [],
+          "supported_slowdown_above_5_percent": false,
+          "retain_by_frozen_rule": true,
+          "maximum_rss_reduction_fraction": 0.673194572017816
+        },
+        "B": {
+          "elapsed_trial_over_old": {
+            "pairs": 16,
+            "rounds": [
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16,
+              17,
+              18,
+              19
+            ],
+            "geometric_mean_ratio": 0.994801511731499,
+            "low95": 0.9905681019674851,
+            "high95": 0.999197884946481,
+            "bootstrap_replicates": 10000,
+            "seed_xorshift32": 4114181373,
+            "method": "paired percentile bootstrap of eight adjacent balanced two-round log-ratio blocks",
+            "linear_percentile_interpolation": true
+          },
+          "round_strata": {
+            "0": {
+              "pairs": 8,
+              "rounds": [
+                4,
+                6,
+                8,
+                10,
+                12,
+                14,
+                16,
+                18
+              ],
+              "geometric_mean_ratio": 0.9925534896085411,
+              "low95": 0.9868843377360567,
+              "high95": 0.9986067787517987,
+              "bootstrap_replicates": 10000,
+              "seed_xorshift32": 899537329,
+              "method": "within-round-stratum paired percentile bootstrap of eight round log ratios",
+              "linear_percentile_interpolation": true
+            },
+            "1": {
+              "pairs": 8,
+              "rounds": [
+                5,
+                7,
+                9,
+                11,
+                13,
+                15,
+                17,
+                19
+              ],
+              "geometric_mean_ratio": 0.9970546253719603,
+              "low95": 0.9887917342149084,
+              "high95": 1.004503602563532,
+              "bootstrap_replicates": 10000,
+              "seed_xorshift32": 882759710,
+              "method": "within-round-stratum paired percentile bootstrap of eight round log ratios",
+              "linear_percentile_interpolation": true
+            }
+          },
+          "all_measured_trial_processes_below_100000000_rss_bytes": true,
+          "aggregate_upper95_at_most_1_05": true,
+          "stratum_noninferiority_not_established": [],
+          "supported_slowdown_above_5_percent": false,
+          "retain_by_frozen_rule": true,
+          "maximum_rss_reduction_fraction": 0.6746795306105857
+        }
+      }
+    },
+    {
+      "case": "random-raw-64mib",
+      "payload_bytes": 67108864,
+      "metrics": {
+        "A-old": {
+          "measured_samples": 16,
+          "median_elapsed_seconds": 0.52,
+          "median_mib_per_second": 123.07692307692307,
+          "median_cpu_seconds": 0.24,
+          "peak_rss_kib_by_round": {
+            "4": 141932,
+            "5": 141756,
+            "6": 142060,
+            "7": 142016,
+            "8": 142196,
+            "9": 142400,
+            "10": 142364,
+            "11": 142420,
+            "12": 141996,
+            "13": 142416,
+            "14": 142308,
+            "15": 142036,
+            "16": 141836,
+            "17": 142412,
+            "18": 142044,
+            "19": 142440
+          },
+          "maximum_peak_rss_kib": 142440.0,
+          "maximum_peak_rss_bytes": 145858560.0,
+          "median_drain_seconds": 0.070093
+        },
+        "A-trial": {
+          "measured_samples": 16,
+          "median_elapsed_seconds": 0.52,
+          "median_mib_per_second": 123.07692307692307,
+          "median_cpu_seconds": 0.21000000000000002,
+          "peak_rss_kib_by_round": {
+            "4": 66536,
+            "5": 66148,
+            "6": 66460,
+            "7": 66396,
+            "8": 66092,
+            "9": 66348,
+            "10": 66404,
+            "11": 66400,
+            "12": 66408,
+            "13": 66488,
+            "14": 66528,
+            "15": 66536,
+            "16": 66588,
+            "17": 66468,
+            "18": 66544,
+            "19": 66264
+          },
+          "maximum_peak_rss_kib": 66588.0,
+          "maximum_peak_rss_bytes": 68186112.0,
+          "median_drain_seconds": 0.070504
+        },
+        "B-old": {
+          "measured_samples": 16,
+          "median_elapsed_seconds": 0.48,
+          "median_mib_per_second": 133.33333333333334,
+          "median_cpu_seconds": 0.16999999999999998,
+          "peak_rss_kib_by_round": {
+            "4": 76792,
+            "5": 76880,
+            "6": 76980,
+            "7": 77092,
+            "8": 76972,
+            "9": 76660,
+            "10": 76848,
+            "11": 77132,
+            "12": 77024,
+            "13": 76672,
+            "14": 77064,
+            "15": 77164,
+            "16": 76896,
+            "17": 76656,
+            "18": 76752,
+            "19": 76952
+          },
+          "maximum_peak_rss_kib": 77164.0,
+          "maximum_peak_rss_bytes": 79015936.0,
+          "median_drain_seconds": 0.0694355
+        },
+        "B-trial": {
+          "measured_samples": 16,
+          "median_elapsed_seconds": 0.45499999999999996,
+          "median_mib_per_second": 141.08527131782947,
+          "median_cpu_seconds": 0.15,
+          "peak_rss_kib_by_round": {
+            "4": 41860,
+            "5": 42120,
+            "6": 42268,
+            "7": 42192,
+            "8": 42084,
+            "9": 41848,
+            "10": 42272,
+            "11": 42064,
+            "12": 41872,
+            "13": 41756,
+            "14": 42364,
+            "15": 41840,
+            "16": 42292,
+            "17": 42264,
+            "18": 42012,
+            "19": 42176
+          },
+          "maximum_peak_rss_kib": 42364.0,
+          "maximum_peak_rss_bytes": 43380736.0,
+          "median_drain_seconds": 0.06867000000000001
+        }
+      },
+      "comparisons": {
+        "A": {
+          "elapsed_trial_over_old": {
+            "pairs": 16,
+            "rounds": [
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16,
+              17,
+              18,
+              19
+            ],
+            "geometric_mean_ratio": 0.9656541869994179,
+            "low95": 0.911795879441082,
+            "high95": 1.023908503022917,
+            "bootstrap_replicates": 10000,
+            "seed_xorshift32": 2944895626,
+            "method": "paired percentile bootstrap of eight adjacent balanced two-round log-ratio blocks",
+            "linear_percentile_interpolation": true
+          },
+          "round_strata": {
+            "0": {
+              "pairs": 8,
+              "rounds": [
+                4,
+                6,
+                8,
+                10,
+                12,
+                14,
+                16,
+                18
+              ],
+              "geometric_mean_ratio": 0.9594297360521531,
+              "low95": 0.8583161869844391,
+              "high95": 1.0588503301464285,
+              "bootstrap_replicates": 10000,
+              "seed_xorshift32": 3167120496,
+              "method": "within-round-stratum paired percentile bootstrap of eight round log ratios",
+              "linear_percentile_interpolation": true
+            },
+            "1": {
+              "pairs": 8,
+              "rounds": [
+                5,
+                7,
+                9,
+                11,
+                13,
+                15,
+                17,
+                19
+              ],
+              "geometric_mean_ratio": 0.97191902004882,
+              "low95": 0.9058537891379858,
+              "high95": 1.0352010802399794,
+              "bootstrap_replicates": 10000,
+              "seed_xorshift32": 3183898115,
+              "method": "within-round-stratum paired percentile bootstrap of eight round log ratios",
+              "linear_percentile_interpolation": true
+            }
+          },
+          "all_measured_trial_processes_below_100000000_rss_bytes": true,
+          "aggregate_upper95_at_most_1_05": true,
+          "stratum_noninferiority_not_established": [
+            "0"
+          ],
+          "supported_slowdown_above_5_percent": false,
+          "retain_by_frozen_rule": true,
+          "maximum_rss_reduction_fraction": 0.5325189553496209
+        },
+        "B": {
+          "elapsed_trial_over_old": {
+            "pairs": 16,
+            "rounds": [
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16,
+              17,
+              18,
+              19
+            ],
+            "geometric_mean_ratio": 0.9748050054690737,
+            "low95": 0.9205094105742498,
+            "high95": 1.0329946807589978,
+            "bootstrap_replicates": 10000,
+            "seed_xorshift32": 1861454187,
+            "method": "paired percentile bootstrap of eight adjacent balanced two-round log-ratio blocks",
+            "linear_percentile_interpolation": true
+          },
+          "round_strata": {
+            "0": {
+              "pairs": 8,
+              "rounds": [
+                4,
+                6,
+                8,
+                10,
+                12,
+                14,
+                16,
+                18
+              ],
+              "geometric_mean_ratio": 0.9976331964718375,
+              "low95": 0.92144528749703,
+              "high95": 1.0772122538987356,
+              "bootstrap_replicates": 10000,
+              "seed_xorshift32": 590789135,
+              "method": "within-round-stratum paired percentile bootstrap of eight round log ratios",
+              "linear_percentile_interpolation": true
+            },
+            "1": {
+              "pairs": 8,
+              "rounds": [
+                5,
+                7,
+                9,
+                11,
+                13,
+                15,
+                17,
+                19
+              ],
+              "geometric_mean_ratio": 0.9524991771004941,
+              "low95": 0.8925355715285093,
+              "high95": 1.016491343670933,
+              "bootstrap_replicates": 10000,
+              "seed_xorshift32": 574011516,
+              "method": "within-round-stratum paired percentile bootstrap of eight round log ratios",
+              "linear_percentile_interpolation": true
+            }
+          },
+          "all_measured_trial_processes_below_100000000_rss_bytes": true,
+          "aggregate_upper95_at_most_1_05": true,
+          "stratum_noninferiority_not_established": [
+            "0"
+          ],
+          "supported_slowdown_above_5_percent": false,
+          "retain_by_frozen_rule": true,
+          "maximum_rss_reduction_fraction": 0.4509875071276761
+        }
+      }
+    },
+    {
+      "case": "random-raw-1gib",
+      "payload_bytes": 1073741824,
+      "metrics": {
+        "A-old": {
+          "measured_samples": 16,
+          "median_elapsed_seconds": 3.0300000000000002,
+          "median_mib_per_second": 337.9574764726386,
+          "median_cpu_seconds": 2.71,
+          "peak_rss_kib_by_round": {
+            "4": 230364,
+            "5": 230312,
+            "6": 230720,
+            "7": 230320,
+            "8": 230312,
+            "9": 230484,
+            "10": 231072,
+            "11": 230512,
+            "12": 230580,
+            "13": 230280,
+            "14": 230160,
+            "15": 230768,
+            "16": 230496,
+            "17": 230824,
+            "18": 230660,
+            "19": 230640
+          },
+          "maximum_peak_rss_kib": 231072.0,
+          "maximum_peak_rss_bytes": 236617728.0,
+          "median_drain_seconds": 0.5927235
+        },
+        "A-trial": {
+          "measured_samples": 16,
+          "median_elapsed_seconds": 2.965,
+          "median_mib_per_second": 345.3635453635453,
+          "median_cpu_seconds": 2.6399999999999997,
+          "peak_rss_kib_by_round": {
+            "4": 72644,
+            "5": 72996,
+            "6": 72988,
+            "7": 72972,
+            "8": 73124,
+            "9": 72880,
+            "10": 72876,
+            "11": 72868,
+            "12": 73016,
+            "13": 73308,
+            "14": 73468,
+            "15": 72676,
+            "16": 72980,
+            "17": 73092,
+            "18": 72924,
+            "19": 72992
+          },
+          "maximum_peak_rss_kib": 73468.0,
+          "maximum_peak_rss_bytes": 75231232.0,
+          "median_drain_seconds": 0.5739155
+        },
+        "B-old": {
+          "measured_samples": 16,
+          "median_elapsed_seconds": 2.25,
+          "median_mib_per_second": 455.12010113780025,
+          "median_cpu_seconds": 1.92,
+          "peak_rss_kib_by_round": {
+            "4": 140660,
+            "5": 141072,
+            "6": 140944,
+            "7": 140844,
+            "8": 140712,
+            "9": 140764,
+            "10": 140772,
+            "11": 140620,
+            "12": 140632,
+            "13": 140524,
+            "14": 140824,
+            "15": 140604,
+            "16": 140696,
+            "17": 140520,
+            "18": 140660,
+            "19": 141004
+          },
+          "maximum_peak_rss_kib": 141072.0,
+          "maximum_peak_rss_bytes": 144457728.0,
+          "median_drain_seconds": 0.579978
+        },
+        "B-trial": {
+          "measured_samples": 16,
+          "median_elapsed_seconds": 2.17,
+          "median_mib_per_second": 471.889400921659,
+          "median_cpu_seconds": 1.87,
+          "peak_rss_kib_by_round": {
+            "4": 42192,
+            "5": 42120,
+            "6": 42480,
+            "7": 42132,
+            "8": 42588,
+            "9": 42556,
+            "10": 42364,
+            "11": 42144,
+            "12": 42456,
+            "13": 42436,
+            "14": 41964,
+            "15": 42428,
+            "16": 42448,
+            "17": 42424,
+            "18": 42308,
+            "19": 42448
+          },
+          "maximum_peak_rss_kib": 42588.0,
+          "maximum_peak_rss_bytes": 43610112.0,
+          "median_drain_seconds": 0.5812915000000001
+        }
+      },
+      "comparisons": {
+        "A": {
+          "elapsed_trial_over_old": {
+            "pairs": 16,
+            "rounds": [
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16,
+              17,
+              18,
+              19
+            ],
+            "geometric_mean_ratio": 0.9821064272180946,
+            "low95": 0.9730319966746155,
+            "high95": 0.991645667103696,
+            "bootstrap_replicates": 10000,
+            "seed_xorshift32": 1128930663,
+            "method": "paired percentile bootstrap of eight adjacent balanced two-round log-ratio blocks",
+            "linear_percentile_interpolation": true
+          },
+          "round_strata": {
+            "0": {
+              "pairs": 8,
+              "rounds": [
+                4,
+                6,
+                8,
+                10,
+                12,
+                14,
+                16,
+                18
+              ],
+              "geometric_mean_ratio": 0.9855535585507523,
+              "low95": 0.970283968297325,
+              "high95": 1.0044739585620805,
+              "bootstrap_replicates": 10000,
+              "seed_xorshift32": 911083659,
+              "method": "within-round-stratum paired percentile bootstrap of eight round log ratios",
+              "linear_percentile_interpolation": true
+            },
+            "1": {
+              "pairs": 8,
+              "rounds": [
+                5,
+                7,
+                9,
+                11,
+                13,
+                15,
+                17,
+                19
+              ],
+              "geometric_mean_ratio": 0.9786713527790694,
+              "low95": 0.9691452210801687,
+              "high95": 0.988022925312567,
+              "bootstrap_replicates": 10000,
+              "seed_xorshift32": 894306040,
+              "method": "within-round-stratum paired percentile bootstrap of eight round log ratios",
+              "linear_percentile_interpolation": true
+            }
+          },
+          "all_measured_trial_processes_below_100000000_rss_bytes": true,
+          "aggregate_upper95_at_most_1_05": true,
+          "stratum_noninferiority_not_established": [],
+          "supported_slowdown_above_5_percent": false,
+          "retain_by_frozen_rule": true,
+          "maximum_rss_reduction_fraction": 0.6820558094446753
+        },
+        "B": {
+          "elapsed_trial_over_old": {
+            "pairs": 16,
+            "rounds": [
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16,
+              17,
+              18,
+              19
+            ],
+            "geometric_mean_ratio": 0.9688305146646149,
+            "low95": 0.9543304750470847,
+            "high95": 0.987781655789802,
+            "bootstrap_replicates": 10000,
+            "seed_xorshift32": 357535462,
+            "method": "paired percentile bootstrap of eight adjacent balanced two-round log-ratio blocks",
+            "linear_percentile_interpolation": true
+          },
+          "round_strata": {
+            "0": {
+              "pairs": 8,
+              "rounds": [
+                4,
+                6,
+                8,
+                10,
+                12,
+                14,
+                16,
+                18
+              ],
+              "geometric_mean_ratio": 0.9703896349705937,
+              "low95": 0.9522995091736633,
+              "high95": 0.9888234054383406,
+              "bootstrap_replicates": 10000,
+              "seed_xorshift32": 990478620,
+              "method": "within-round-stratum paired percentile bootstrap of eight round log ratios",
+              "linear_percentile_interpolation": true
+            },
+            "1": {
+              "pairs": 8,
+              "rounds": [
+                5,
+                7,
+                9,
+                11,
+                13,
+                15,
+                17,
+                19
+              ],
+              "geometric_mean_ratio": 0.9672738993896474,
+              "low95": 0.9503850783939429,
+              "high95": 0.9910724545546966,
+              "bootstrap_replicates": 10000,
+              "seed_xorshift32": 1007256239,
+              "method": "within-round-stratum paired percentile bootstrap of eight round log ratios",
+              "linear_percentile_interpolation": true
+            }
+          },
+          "all_measured_trial_processes_below_100000000_rss_bytes": true,
+          "aggregate_upper95_at_most_1_05": true,
+          "stratum_noninferiority_not_established": [],
+          "supported_slowdown_above_5_percent": false,
+          "retain_by_frozen_rule": true,
+          "maximum_rss_reduction_fraction": 0.6981116025859135
+        }
+      }
+    }
+  ],
+  "identities_sha256": "9f6d8ddff18cf71e29d63b19180feee006d36ce8b2da1a6612235f01f2a28e7a",
+  "rows_sha256": "b86e38073f313f7561477e59dda56eec78382a6bc7d9c41e3107241d36709f12",
+  "summarizer_sha256": "f987e7b11456cfebaf33c0f868ced8c4fe09baea41291aadfaa5ce9d56a8eaab",
+  "statistics_helper_sha256": "44a33381aaa2e00a4c8913e9b5cb0c264dada5b67c3be0157f4861a40b6e89fb",
+  "limitations": "single-file public ExtractMany, plaintext, isolated synthetic corpora; no actual CLI reader-TID/physical-byte gate, no multiplicity correction, no many-file/password/ReadMostly qualification"
+}

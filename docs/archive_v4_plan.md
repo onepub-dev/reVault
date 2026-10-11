@@ -36,16 +36,25 @@ completed 720 verified samples. Lazy authenticated-descriptor selection passes
 the frozen aggregate control and useful-profile gates; retain it as opt-in while
 keeping the serial default. The 17 MiB boundary has a 3.35% mean penalty and
 does not establish parity-wise non-inferiority. No threshold revision is planned.
-The latest reading is 4% used (96% remaining), so the optimisation goal continues.
+The latest completed milestone reading is 11% used (89% remaining), so the goal continues.
 
-Next compare current default native (A), explicitly enabled native-block layout
-(B), typed-tree candidate (C) and ZIP through an identical extraction sink, with
-separate public CLI extraction measurements. Create native fixtures through the
-public CLI and verify persisted bytes independently. Keep source epochs, feature
-flags, credential/startup costs and whole-process RSS explicit. Use this evidence
-to choose the next bottleneck rather than continuing isolated threshold tuning.
-No architecture is selected; PGP/write, public semantics, candidate security and
-cross-version release qualification remain open.
+The [native/public comparison](evidence/native-public-extraction-2026-10-11/README.md)
+completed 480 component and 64 public CLI samples. All archive variants remain
+slower than ZIP in that component screen; the public source64 elapsed result has
+an overlong-agent-socket confound, preserved explicitly in its evidence.
+The [corrected cache trial](evidence/native-extract-cache-budget-2026-10-11/README.md)
+completed 320 CLI processes and met its frozen aggregate timing/RSS gates.
+Retain native Auto ExtractMany targets of 32 MiB shared page/native-frame cache
+and 8 MiB separate decoded frames: measured 1 GiB maximum CLI RSS fell 67–70%,
+with every trial below 100 MB. Explicit policies and WASM are unchanged.
+Random64 even-round timing intervals remain uncertain above the 5% bound.
+
+Next baseline password/contact credential unlock plus a tiny persisted proof
+read, then replace demonstrated whole-archive credential buffering with bounded
+access-directory reads if measurements and authentication review support it.
+Cached-content-key extraction is a different path. Many-file parallel cache
+multiplication, ReadMostly, PGP/write, candidate security, public semantics and
+cross-version qualification remain open; no architecture or release is selected.
 
 ### Optimisation resumed after security checkpoint — 2026-10-11
 

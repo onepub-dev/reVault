@@ -1,0 +1,17 @@
+{
+  "status": "cancelled_incomplete_invalid_environment",
+  "exit_code": 130,
+  "accepted_rows_before_invalidation": 126,
+  "retention_decision": null,
+  "reason": "All declared agent socket paths117–121bytes exceed107-byte Linux pathname limit; 3-second failed-start delay confounds elapsed comparisons",
+  "runtime_changed_for_correction": false,
+  "same_fixed_matrix_repeated_in_new_epoch": true,
+  "last_progress": {
+    "case": "source-zstd-1gib",
+    "round": 11,
+    "position": 1,
+    "wall_seconds": 703.064
+  },
+  "owned_process_and_children_terminal": true,
+  "original_runner_gzip": "invalid-epoch1-runner.dart.gz"
+}

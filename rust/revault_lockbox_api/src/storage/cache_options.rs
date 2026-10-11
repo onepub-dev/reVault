@@ -80,8 +80,12 @@ impl WorkerPolicy {
 /// implementation uses the profile to decide how aggressively to retain staged
 /// file pages during writes, which compression-frame target and zstd level to
 /// use for bulk imports, and whether decoded compression frames may be retained
-/// during repeated read/extract workloads; decoded-page cache capacity is still
-/// controlled by `LockboxOptions::cache_limit`.
+/// during repeated read/extract workloads. On native targets, with
+/// `CacheLimit::Auto`, `ExtractMany`
+/// uses a 32 MiB clean page/native-frame retention target and an 8 MiB separate
+/// decoded-frame target. Explicit page-cache limits remain unchanged. These are
+/// retention targets, not total-memory caps; pending writes and active readers
+/// can hold additional data.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WorkloadProfile {
     /// Balanced defaults for interactive CLI/API use.

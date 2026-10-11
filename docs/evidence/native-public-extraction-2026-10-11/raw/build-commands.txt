@@ -1,0 +1,4 @@
+A default: cargo +1.88.0 build --locked --offline --release -p revault_cli --bin lockbox -p revault_lockbox_api@0.0.41 --bench archive_evaluation
+B native: cargo +1.88.0 build --locked --offline --release -p revault_cli --bin lockbox -p revault_lockbox_api@0.0.41 --bench archive_evaluation --features native-block-layout
+C external-source: cargo +1.88.0 test --locked --offline --release -p revault_lockbox_api@0.0.41 --features external-source --lib --no-run
+All used TMPDIR=/home/bsutton/.cache/rv4-security-20261011 and CARGO_TARGET_DIR=rust/target. A/B are separate sequential builds; each executable was copied into rust/target/native-public-20261011/bin before the next feature build.

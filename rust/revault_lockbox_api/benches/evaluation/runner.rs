@@ -227,7 +227,7 @@ fn create(root: &Path, backend: &str, case: &Case) -> Value {
     let seconds = started.elapsed().as_secs_f64();
     let after = Resources::now();
     let mut archive = Handle::open(root, backend, case);
-    archive.verify(case);
+    archive.verify(root, case);
     json!({"kind":"fixture_create","backend":backend,"wall_seconds":seconds,
         "resources":after.delta(before),"peak_rss_kib":after.peak_kib,
         "baseline_peak_rss_kib":before.peak_kib,"archive_bytes":fs::metadata(&path).unwrap().len(),
@@ -266,10 +266,13 @@ impl Handle {
             ))
         }
     }
-    fn verify(&mut self, case: &Case) {
+    fn verify(&mut self, root: &Path, case: &Case) {
         for index in 0..case.files {
             let name = Case::name(index);
             let verify = |reader: &mut dyn Read| {
+                // Independently reopen actual source bytes. This also supports
+                // pinned external corpora rather than only Case::payload.
+                let mut source = File::open(root.join("source").join(&name)).unwrap();
                 let mut buffer = [0; BUFFER];
                 let mut expected = [0; BUFFER];
                 let mut offset = 0;
@@ -279,11 +282,16 @@ impl Handle {
                         break;
                     }
                     assert!(offset + count as u64 <= case.bytes);
-                    case.payload(index, offset, &mut expected[..count]);
+                    source.read_exact(&mut expected[..count]).unwrap();
                     assert_eq!(&buffer[..count], &expected[..count], "{name} at {offset}");
                     offset += count as u64;
                 }
                 assert_eq!(offset, case.bytes, "{name}");
+                assert_eq!(
+                    source.read(&mut expected[..1]).unwrap(),
+                    0,
+                    "source has extra bytes"
+                );
             };
             match self {
                 Self::Lbx(archive) => verify(
@@ -393,7 +401,7 @@ fn sample(root: &Path, backend: &str, access: &str, passes: usize) -> Value {
     if access == "range" {
         Handle::open(root, backend, &case).read(&case, access, true);
     }
-    Handle::open(root, backend, &case).verify(&case);
+    Handle::open(root, backend, &case).verify(root, &case);
     json!({"kind":"sample","backend":backend,"layout":layout(),"access":access,
         "passes":passes,"open_seconds":open_seconds,"read_seconds":read_seconds,
         "total_seconds":seconds,"first_byte_seconds":first_byte,"logical_bytes_read":total,
@@ -429,10 +437,57 @@ fn write_record(file: &mut File, value: &Value) {
     file.flush().unwrap();
 }
 
+// Match the 64 KiB sink writes used by ZIP and the selected candidate unit.
+// Preserve partial-write/error semantics and count only successfully written bytes.
+struct CountedOutput<'a> {
+    output: &'a mut File,
+    bytes: u64,
+}
+impl Write for CountedOutput<'_> {
+    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+        let written = self.output.write(&bytes[..bytes.len().min(BUFFER)])?;
+        self.bytes = self
+            .bytes
+            .checked_add(written as u64)
+            .expect("byte count overflow");
+        Ok(written)
+    }
+    fn flush(&mut self) -> io::Result<()> {
+        self.output.flush()
+    }
+}
+
 pub fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let command = args.first().map(String::as_str).unwrap_or("");
     match command {
+        "extract-lockbox" => {
+            assert_eq!(args.len(), 3, "extract-lockbox ROOT NEW_OUTPUT");
+            let root = Path::new(&args[1]);
+            let output = Path::new(&args[2]);
+            let case = Case::read(root);
+            assert!(!case.encrypted(), "this matched CLI-created baseline is plaintext only");
+            let before = Resources::now();
+            let mut result = extraction::measure(root, output, case.files, case.bytes,
+                || Lockbox::open(&root.join("archive.lbox"), LockboxOpen::Unencrypted).unwrap(),
+                |archive, index, output| {
+                    let mut counted = CountedOutput { output, bytes: 0 };
+                    archive.extract_file_to_writer(
+                        &LockboxPath::new(format!("/{}", Case::name(index))).unwrap(),
+                        &mut counted,
+                    ).unwrap();
+                    counted.bytes
+                }, || {
+                    let after = Resources::now();
+                    json!({"cpu":after.delta(before),"peak_rss_kib":after.peak_kib})
+                });
+            result["backend"] = json!("lockbox");
+            result["layout"] = json!(layout());
+            result["native_block_layout_feature"] = json!(cfg!(feature = "native-block-layout"));
+            result["archive_open"] = json!("public read-only Lockbox::open; default cache/worker policy; no extra verify_all");
+            result["maximum_sink_write_bytes"] = json!(BUFFER);
+            println!("{result}");
+        }
         "extract-zip" => {
             assert_eq!(args.len(), 3, "extract-zip ROOT NEW_OUTPUT");
             let root = Path::new(&args[1]);

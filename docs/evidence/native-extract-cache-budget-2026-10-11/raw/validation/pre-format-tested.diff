@@ -1,0 +1,439 @@
+diff --git a/docs/archive_v4_evaluation.md b/docs/archive_v4_evaluation.md
+index e66ae102..68004b08 100644
+--- a/docs/archive_v4_evaluation.md
++++ b/docs/archive_v4_evaluation.md
+@@ -22,10 +22,21 @@ The subsequent [adaptive trial](evidence/adaptive-workers-2026-10-11/README.md)
+ completed 720 verified samples and passes its frozen gates: retain the policy as
+ opt-in, with serial still the default. Useful compressed/mixed elapsed gains are
+ 9.4–20.2%; the 17 MiB control has a 3.35% mean penalty and a parity-zero interval
+-that does not establish 5% non-inferiority. Next compare current native A/B,
+-candidate C and ZIP, plus separately measured public CLI extraction. The user
+-goal continues until remaining usage is below 10% or above 99% after a reset;
+-the current checkpoint reading is 96% remaining.
++that does not establish 5% non-inferiority.
++The [native/public baseline](evidence/native-public-extraction-2026-10-11/README.md)
++completed 480 component and 64 CLI samples; all variants remain slower than ZIP
++in the component screen. Its source64 public elapsed observations have an
++agent-path startup confound. A separately corrected
++[320-process cache trial](evidence/native-extract-cache-budget-2026-10-11/README.md)
++met the frozen aggregate 5% elapsed-regression gate and kept every measured trial
++CLI below 100 MB. Native Auto ExtractMany now retains 32 MiB of pages/native
++frames plus up to 8 MiB of separate decoded frames; 1 GiB process RSS fell 67–70%.
++Raw64 even-round intervals do not establish the same per-stratum timing bound.
++These single-file plaintext results do not close overall G11, parallel many-file
++memory, credential unlock or ReadMostly qualification. Next measure bounded
++password/contact unlock before changing its whole-archive buffering.
++The continuing goal stops below 10% remaining or above 99% after a reset;
++the current checkpoint reading is 89% remaining.
+ 
+ At the historical checkpoint, performance experiments were paused at `0de2dd4a` by user direction. The
+ [security-first handoff](evidence/password-integrity-audit-2026-10-11/handoff.txt)
+diff --git a/docs/archive_v4_plan.md b/docs/archive_v4_plan.md
+index 378ad91b..e9582efe 100644
+--- a/docs/archive_v4_plan.md
++++ b/docs/archive_v4_plan.md
+@@ -36,16 +36,25 @@ completed 720 verified samples. Lazy authenticated-descriptor selection passes
+ the frozen aggregate control and useful-profile gates; retain it as opt-in while
+ keeping the serial default. The 17 MiB boundary has a 3.35% mean penalty and
+ does not establish parity-wise non-inferiority. No threshold revision is planned.
+-The latest reading is 4% used (96% remaining), so the optimisation goal continues.
+-
+-Next compare current default native (A), explicitly enabled native-block layout
+-(B), typed-tree candidate (C) and ZIP through an identical extraction sink, with
+-separate public CLI extraction measurements. Create native fixtures through the
+-public CLI and verify persisted bytes independently. Keep source epochs, feature
+-flags, credential/startup costs and whole-process RSS explicit. Use this evidence
+-to choose the next bottleneck rather than continuing isolated threshold tuning.
+-No architecture is selected; PGP/write, public semantics, candidate security and
+-cross-version release qualification remain open.
++The latest completed milestone reading is 11% used (89% remaining), so the goal continues.
++
++The [native/public comparison](evidence/native-public-extraction-2026-10-11/README.md)
++completed 480 component and 64 public CLI samples. All archive variants remain
++slower than ZIP in that component screen; the public source64 elapsed result has
++an overlong-agent-socket confound, preserved explicitly in its evidence.
++The [corrected cache trial](evidence/native-extract-cache-budget-2026-10-11/README.md)
++completed 320 CLI processes and met its frozen aggregate timing/RSS gates.
++Retain native Auto ExtractMany targets of 32 MiB shared page/native-frame cache
++and 8 MiB separate decoded frames: measured 1 GiB maximum CLI RSS fell 67–70%,
++with every trial below 100 MB. Explicit policies and WASM are unchanged.
++Random64 even-round timing intervals remain uncertain above the 5% bound.
++
++Next baseline password/contact credential unlock plus a tiny persisted proof
++read, then replace demonstrated whole-archive credential buffering with bounded
++access-directory reads if measurements and authentication review support it.
++Cached-content-key extraction is a different path. Many-file parallel cache
++multiplication, ReadMostly, PGP/write, candidate security, public semantics and
++cross-version qualification remain open; no architecture or release is selected.
+ 
+ ### Optimisation resumed after security checkpoint — 2026-10-11
+ 
+diff --git a/rust/revault_lockbox_api/benches/evaluation/runner.rs b/rust/revault_lockbox_api/benches/evaluation/runner.rs
+index 22256281..e5950258 100644
+--- a/rust/revault_lockbox_api/benches/evaluation/runner.rs
++++ b/rust/revault_lockbox_api/benches/evaluation/runner.rs
+@@ -227,7 +227,7 @@ fn create(root: &Path, backend: &str, case: &Case) -> Value {
+     let seconds = started.elapsed().as_secs_f64();
+     let after = Resources::now();
+     let mut archive = Handle::open(root, backend, case);
+-    archive.verify(case);
++    archive.verify(root, case);
+     json!({"kind":"fixture_create","backend":backend,"wall_seconds":seconds,
+         "resources":after.delta(before),"peak_rss_kib":after.peak_kib,
+         "baseline_peak_rss_kib":before.peak_kib,"archive_bytes":fs::metadata(&path).unwrap().len(),
+@@ -266,10 +266,13 @@ impl Handle {
+             ))
+         }
+     }
+-    fn verify(&mut self, case: &Case) {
++    fn verify(&mut self, root: &Path, case: &Case) {
+         for index in 0..case.files {
+             let name = Case::name(index);
+             let verify = |reader: &mut dyn Read| {
++                // Independently reopen actual source bytes. This also supports
++                // pinned external corpora rather than only Case::payload.
++                let mut source = File::open(root.join("source").join(&name)).unwrap();
+                 let mut buffer = [0; BUFFER];
+                 let mut expected = [0; BUFFER];
+                 let mut offset = 0;
+@@ -279,11 +282,12 @@ impl Handle {
+                         break;
+                     }
+                     assert!(offset + count as u64 <= case.bytes);
+-                    case.payload(index, offset, &mut expected[..count]);
++                    source.read_exact(&mut expected[..count]).unwrap();
+                     assert_eq!(&buffer[..count], &expected[..count], "{name} at {offset}");
+                     offset += count as u64;
+                 }
+                 assert_eq!(offset, case.bytes, "{name}");
++                assert_eq!(source.read(&mut expected[..1]).unwrap(), 0, "source has extra bytes");
+             };
+             match self {
+                 Self::Lbx(archive) => verify(
+@@ -393,7 +397,7 @@ fn sample(root: &Path, backend: &str, access: &str, passes: usize) -> Value {
+     if access == "range" {
+         Handle::open(root, backend, &case).read(&case, access, true);
+     }
+-    Handle::open(root, backend, &case).verify(&case);
++    Handle::open(root, backend, &case).verify(root, &case);
+     json!({"kind":"sample","backend":backend,"layout":layout(),"access":access,
+         "passes":passes,"open_seconds":open_seconds,"read_seconds":read_seconds,
+         "total_seconds":seconds,"first_byte_seconds":first_byte,"logical_bytes_read":total,
+@@ -429,10 +433,52 @@ fn write_record(file: &mut File, value: &Value) {
+     file.flush().unwrap();
+ }
+ 
++// Match the 64 KiB sink writes used by ZIP and the selected candidate unit.
++// Preserve partial-write/error semantics and count only successfully written bytes.
++struct CountedOutput<'a> {
++    output: &'a mut File,
++    bytes: u64,
++}
++impl Write for CountedOutput<'_> {
++    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
++        let written = self.output.write(&bytes[..bytes.len().min(BUFFER)])?;
++        self.bytes = self.bytes.checked_add(written as u64).expect("byte count overflow");
++        Ok(written)
++    }
++    fn flush(&mut self) -> io::Result<()> { self.output.flush() }
++}
++
+ pub fn main() {
+     let args: Vec<String> = std::env::args().skip(1).collect();
+     let command = args.first().map(String::as_str).unwrap_or("");
+     match command {
++        "extract-lockbox" => {
++            assert_eq!(args.len(), 3, "extract-lockbox ROOT NEW_OUTPUT");
++            let root = Path::new(&args[1]);
++            let output = Path::new(&args[2]);
++            let case = Case::read(root);
++            assert!(!case.encrypted(), "this matched CLI-created baseline is plaintext only");
++            let before = Resources::now();
++            let mut result = extraction::measure(root, output, case.files, case.bytes,
++                || Lockbox::open(&root.join("archive.lbox"), LockboxOpen::Unencrypted).unwrap(),
++                |archive, index, output| {
++                    let mut counted = CountedOutput { output, bytes: 0 };
++                    archive.extract_file_to_writer(
++                        &LockboxPath::new(format!("/{}", Case::name(index))).unwrap(),
++                        &mut counted,
++                    ).unwrap();
++                    counted.bytes
++                }, || {
++                    let after = Resources::now();
++                    json!({"cpu":after.delta(before),"peak_rss_kib":after.peak_kib})
++                });
++            result["backend"] = json!("lockbox");
++            result["layout"] = json!(layout());
++            result["native_block_layout_feature"] = json!(cfg!(feature = "native-block-layout"));
++            result["archive_open"] = json!("public read-only Lockbox::open; default cache/worker policy; no extra verify_all");
++            result["maximum_sink_write_bytes"] = json!(BUFFER);
++            println!("{result}");
++        }
+         "extract-zip" => {
+             assert_eq!(args.len(), 3, "extract-zip ROOT NEW_OUTPUT");
+             let root = Path::new(&args[1]);
+diff --git a/rust/revault_lockbox_api/src/api_tests.rs b/rust/revault_lockbox_api/src/api_tests.rs
+index 59f81862..36eec333 100644
+--- a/rust/revault_lockbox_api/src/api_tests.rs
++++ b/rust/revault_lockbox_api/src/api_tests.rs
+@@ -2099,6 +2099,55 @@ fn import_stats_record_threaded_import_stages_and_can_be_reset() {
+     assert_eq!(lb.import_stats(), Default::default());
+ }
+ 
++#[cfg(not(target_arch = "wasm32"))]
++#[test]
++fn auto_extract_many_budget_restores_profiles_and_packed_reads() {
++    let mut source = Lockbox::create_with_options(
++        KEY,
++        LockboxOptions {
++            workload_profile: WorkloadProfile::BulkImport,
++            ..LockboxOptions::default()
++        },
++    );
++    add_file(&mut source, &p("/cache/a.txt"), b"alpha", false).unwrap();
++    add_file(&mut source, &p("/cache/b.txt"), b"bravo", false).unwrap();
++    source.commit().unwrap();
++    let bytes = source.to_bytes();
++    let mut reopened = Lockbox::open_bytes_with_key_options(
++        bytes.clone(),
++        KEY,
++        LockboxOptions {
++            workload_profile: WorkloadProfile::ExtractMany,
++            ..LockboxOptions::default()
++        },
++    ).unwrap();
++    assert_eq!(reopened.inspector().cache_stats().limit_bytes, 32 * 1024 * 1024);
++    assert_eq!(reopened.get_file(&p("/cache/a.txt")).unwrap(), b"alpha");
++    assert_eq!(reopened.decoded_compression_frame_cache_entries_for_tests(), 1);
++    assert_eq!(reopened.get_file(&p("/cache/b.txt")).unwrap(), b"bravo");
++    assert_eq!(reopened.decoded_compression_frame_cache_entries_for_tests(), 1);
++    for profile in [WorkloadProfile::ReadMostly, WorkloadProfile::Interactive, WorkloadProfile::ExtractMany] {
++        reopened.set_workload_profile(profile);
++        let expected = if matches!(profile, WorkloadProfile::ExtractMany) { 32 } else { 128 };
++        assert_eq!(reopened.inspector().cache_stats().limit_bytes, expected * 1024 * 1024);
++        assert_eq!(reopened.get_file(&p("/cache/a.txt")).unwrap(), b"alpha");
++        assert_eq!(reopened.get_file(&p("/cache/b.txt")).unwrap(), b"bravo");
++    }
++    for limit in [CacheLimit::Disabled, CacheLimit::Bytes(9 * 1024 * 1024)] {
++        let mut explicit = Lockbox::open_bytes_with_key_options(
++            bytes.clone(), KEY,
++            LockboxOptions { cache_limit: limit, ..LockboxOptions::default() },
++        ).unwrap();
++        let expected = explicit.inspector().cache_stats().limit_bytes;
++        for profile in [WorkloadProfile::ExtractMany, WorkloadProfile::ReadMostly, WorkloadProfile::Interactive] {
++            explicit.set_workload_profile(profile);
++            assert_eq!(explicit.inspector().cache_stats().limit_bytes, expected);
++            assert_eq!(explicit.get_file(&p("/cache/a.txt")).unwrap(), b"alpha");
++            assert_eq!(explicit.get_file(&p("/cache/b.txt")).unwrap(), b"bravo");
++        }
++    }
++}
++
+ #[test]
+ fn extract_many_caches_decoded_compression_frames() {
+     let mut lb = Lockbox::create_with_options(
+diff --git a/rust/revault_lockbox_api/src/lockbox.rs b/rust/revault_lockbox_api/src/lockbox.rs
+index 53684199..5715fdf8 100644
+--- a/rust/revault_lockbox_api/src/lockbox.rs
++++ b/rust/revault_lockbox_api/src/lockbox.rs
+@@ -841,7 +841,7 @@ impl Lockbox<Writable> {
+             lockbox_id,
+             read_only: false,
+             owner_signing_key: None,
+-            page_manager: RefCell::new(PageCache::new(options.cache_limit)),
++            page_manager: RefCell::new(PageCache::with_profile(options.cache_limit, Default::default(), options.workload_profile)),
+             compression_frame_cache: RefCell::new(CompressionFrameCache::default()),
+             import_stats: RefCell::new(ImportStats::default()),
+             workload_profile: options.workload_profile,
+@@ -1051,7 +1051,7 @@ impl Lockbox<Writable> {
+             lockbox_id,
+             read_only: false,
+             owner_signing_key: None,
+-            page_manager: RefCell::new(PageCache::with_format(options.cache_limit, format_mode)),
++            page_manager: RefCell::new(PageCache::with_profile(options.cache_limit, format_mode, options.workload_profile)),
+             compression_frame_cache: RefCell::new(CompressionFrameCache::default()),
+             import_stats: RefCell::new(ImportStats::default()),
+             workload_profile: options.workload_profile,
+@@ -1310,7 +1310,16 @@ impl<State> Lockbox<State> {
+ 
+     /// Set cache behavior tuned for the caller's expected access pattern.
+     pub fn set_workload_profile(&mut self, profile: WorkloadProfile) {
++        let previous = self.workload_profile;
+         self.workload_profile = profile;
++        self.page_manager.borrow_mut().set_workload_profile(profile);
++        if !cfg!(target_arch = "wasm32")
++            && matches!(self.page_manager.borrow().configured_limit(), crate::CacheLimit::Auto)
++            && (matches!(previous, WorkloadProfile::ExtractMany)
++                || matches!(profile, WorkloadProfile::ExtractMany))
++        {
++            self.trim_decoded_compression_frame_cache();
++        }
+     }
+ 
+     /// Return the currently selected workload profile.
+diff --git a/rust/revault_lockbox_api/src/lockbox/files.rs b/rust/revault_lockbox_api/src/lockbox/files.rs
+index 79c47148..6de9dbb6 100644
+--- a/rust/revault_lockbox_api/src/lockbox/files.rs
++++ b/rust/revault_lockbox_api/src/lockbox/files.rs
+@@ -1900,6 +1900,14 @@ impl<State> Lockbox<State> {
+ 
+     fn decoded_compression_frame_cache_limit(&self) -> usize {
+         match self.workload_profile {
++            WorkloadProfile::ExtractMany
++                if !cfg!(target_arch = "wasm32")
++                    && matches!(self.page_manager.borrow().configured_limit(), crate::CacheLimit::Auto) =>
++            {
++                // Four ordinary 2 MiB frames retain adjacent packed-file reuse.
++                // Native frames share the page cache and its separate 32 MiB target.
++                8 * 1024 * 1024
++            }
+             WorkloadProfile::ReadMostly | WorkloadProfile::ExtractMany => {
+                 DECODED_COMPRESSION_FRAME_CACHE_BYTES
+             }
+@@ -1907,6 +1915,20 @@ impl<State> Lockbox<State> {
+         }
+     }
+ 
++    pub(super) fn trim_decoded_compression_frame_cache(&self) {
++        let limit = self.decoded_compression_frame_cache_limit();
++        let mut cache = self.compression_frame_cache.borrow_mut();
++        while cache.used_bytes > limit {
++            let Some(key) = cache.entries.keys().next().copied() else {
++                break;
++            };
++            if let Some(old) = cache.entries.remove(&key) {
++                cache.used_bytes = cache.used_bytes.saturating_sub(old.data.len());
++                // CachedCompressionFrame::drop wipes the decoded plaintext.
++            }
++        }
++    }
++
+     fn read_cached_compression_frame_slice(
+         &self,
+         expected_total_len: u64,
+diff --git a/rust/revault_lockbox_api/src/storage/cache_options.rs b/rust/revault_lockbox_api/src/storage/cache_options.rs
+index 2373c925..37b4ea0e 100644
+--- a/rust/revault_lockbox_api/src/storage/cache_options.rs
++++ b/rust/revault_lockbox_api/src/storage/cache_options.rs
+@@ -80,8 +80,12 @@ impl WorkerPolicy {
+ /// implementation uses the profile to decide how aggressively to retain staged
+ /// file pages during writes, which compression-frame target and zstd level to
+ /// use for bulk imports, and whether decoded compression frames may be retained
+-/// during repeated read/extract workloads; decoded-page cache capacity is still
+-/// controlled by `LockboxOptions::cache_limit`.
++/// during repeated read/extract workloads. On native targets, with
++/// `CacheLimit::Auto`, `ExtractMany`
++/// uses a 32 MiB clean page/native-frame retention target and an 8 MiB separate
++/// decoded-frame target. Explicit page-cache limits remain unchanged. These are
++/// retention targets, not total-memory caps; pending writes and active readers
++/// can hold additional data.
+ #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+ pub enum WorkloadProfile {
+     /// Balanced defaults for interactive CLI/API use.
+diff --git a/rust/revault_lockbox_api/src/storage/page_cache.rs b/rust/revault_lockbox_api/src/storage/page_cache.rs
+index b39869af..ef95fd05 100644
+--- a/rust/revault_lockbox_api/src/storage/page_cache.rs
++++ b/rust/revault_lockbox_api/src/storage/page_cache.rs
+@@ -20,7 +20,7 @@ impl Drop for CachedCompressionFrame {
+     }
+ }
+ 
+-use crate::cache_options::{cache_limit_bytes, CacheLimit, CacheStats};
++use crate::cache_options::{cache_limit_bytes, CacheLimit, CacheStats, WorkloadProfile};
+ use crate::checked::read_u32_le;
+ use crate::creation_options::FormatMode;
+ use crate::fast_hash::FastBuildHasher;
+@@ -224,6 +224,34 @@ impl PageCache {
+         cache
+     }
+ 
++    pub(crate) fn with_profile(limit: CacheLimit, mode: FormatMode, profile: WorkloadProfile) -> Self {
++        let mut cache = Self::with_format(limit, mode);
++        cache.set_workload_profile(profile);
++        cache
++    }
++
++    pub(crate) fn configured_limit(&self) -> CacheLimit {
++        self.limit
++    }
++
++    pub(crate) fn set_workload_profile(&mut self, profile: WorkloadProfile) {
++        // Streaming extraction needs a small reuse window, not all prior pages.
++        // Keep the original policy so changing profiles restores Auto capacity.
++        let limit_bytes = if !cfg!(target_arch = "wasm32") && matches!(self.limit, CacheLimit::Auto)
++            && matches!(profile, WorkloadProfile::ExtractMany)
++        {
++            32 * 1024 * 1024
++        } else {
++            cache_limit_bytes(self.limit)
++        };
++        // Pending writes and outstanding shared owners retain their existing
++        // guarantees: this is a clean-cache retention target, not a total-RSS cap.
++        if limit_bytes != self.limit_bytes {
++            self.limit_bytes = limit_bytes;
++            self.trim_to_limit();
++        }
++    }
++
+     pub(crate) fn set_format(&mut self, mode: FormatMode) {
+         self.format_mode = mode;
+     }
+@@ -2109,6 +2137,58 @@ mod tests {
+         assert_eq!(cache.stats().entries, 1);
+     }
+ 
++    #[cfg(not(target_arch = "wasm32"))]
++    #[test]
++    fn extract_many_budget_preserves_dirty_pages_and_configured_policy() {
++        let mut cache = PageCache::with_profile(
++            CacheLimit::Auto, Default::default(), crate::WorkloadProfile::ReadMostly,
++        );
++        let size = 2 * 1024 * 1024;
++        for index in 0..17 {
++            let offset = (index * size) as u64;
++            cache.stage_decoded_page_with_policy(
++                offset, size, page(offset), PageWritePolicy::RetainAfterFlush,
++            ).unwrap();
++        }
++        let dirty = cache.dirty_offsets.clone();
++        let payloads = |cache: &PageCache| {
++            dirty.iter().map(|offset| {
++                let CachedPagePayload::Decoded(page) = &cache.pages.get(offset).unwrap().page else {
++                    panic!("expected staged decoded page");
++                };
++                (page.page_id, page.sequence, page.objects.iter().map(|object| {
++                    object.with_payload(|bytes| bytes.to_vec()).unwrap()
++                }).collect::<Vec<_>>())
++            }).collect::<Vec<_>>()
++        };
++        let before_payloads = payloads(&cache);
++        let used = cache.stats().used_bytes;
++        assert!(used > 32 * 1024 * 1024);
++        cache.set_workload_profile(crate::WorkloadProfile::ExtractMany);
++        assert_eq!(cache.stats().limit_bytes, 32 * 1024 * 1024);
++        assert_eq!(cache.dirty_offsets, dirty);
++        assert_eq!(cache.pages.len(), 17);
++        assert_eq!(cache.stats().used_bytes, used);
++        assert_eq!(payloads(&cache), before_payloads);
++        assert!(matches!(cache.configured_limit(), CacheLimit::Auto));
++        cache.set_workload_profile(crate::WorkloadProfile::ReadMostly);
++        assert_eq!(cache.stats().limit_bytes, 128 * 1024 * 1024);
++        assert_eq!(cache.dirty_offsets, dirty);
++        assert_eq!(payloads(&cache), before_payloads);
++        for limit in [CacheLimit::Disabled, CacheLimit::Bytes(8192)] {
++            let mut explicit = PageCache::new(limit);
++            explicit.stage_decoded_page_with_policy(
++                0, 4096, page(0), PageWritePolicy::RetainAfterFlush,
++            ).unwrap();
++            let before = explicit.stats();
++            for profile in [crate::WorkloadProfile::ExtractMany, crate::WorkloadProfile::Interactive] {
++                explicit.set_workload_profile(profile);
++                assert_eq!(explicit.stats(), before);
++                assert!(explicit.dirty_offsets.contains(&0));
++            }
++        }
++    }
++
+     #[test]
+     fn pressure_flush_preserves_dirty_metadata_and_pending_erasure() {
+         let archive = LockboxId::from_bytes([9; 16]);

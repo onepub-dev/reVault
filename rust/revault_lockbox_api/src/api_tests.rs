@@ -2099,6 +2099,85 @@ fn import_stats_record_threaded_import_stages_and_can_be_reset() {
     assert_eq!(lb.import_stats(), Default::default());
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+fn auto_extract_many_budget_restores_profiles_and_packed_reads() {
+    let mut source = Lockbox::create_with_options(
+        KEY,
+        LockboxOptions {
+            workload_profile: WorkloadProfile::BulkImport,
+            ..LockboxOptions::default()
+        },
+    );
+    add_file(&mut source, &p("/cache/a.txt"), b"alpha", false).unwrap();
+    add_file(&mut source, &p("/cache/b.txt"), b"bravo", false).unwrap();
+    source.commit().unwrap();
+    let bytes = source.to_bytes();
+    let mut reopened = Lockbox::open_bytes_with_key_options(
+        bytes.clone(),
+        KEY,
+        LockboxOptions {
+            workload_profile: WorkloadProfile::ExtractMany,
+            ..LockboxOptions::default()
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        reopened.inspector().cache_stats().limit_bytes,
+        32 * 1024 * 1024
+    );
+    assert_eq!(reopened.get_file(&p("/cache/a.txt")).unwrap(), b"alpha");
+    assert_eq!(
+        reopened.decoded_compression_frame_cache_entries_for_tests(),
+        1
+    );
+    assert_eq!(reopened.get_file(&p("/cache/b.txt")).unwrap(), b"bravo");
+    assert_eq!(
+        reopened.decoded_compression_frame_cache_entries_for_tests(),
+        1
+    );
+    for profile in [
+        WorkloadProfile::ReadMostly,
+        WorkloadProfile::Interactive,
+        WorkloadProfile::ExtractMany,
+    ] {
+        reopened.set_workload_profile(profile);
+        let expected = if matches!(profile, WorkloadProfile::ExtractMany) {
+            32
+        } else {
+            128
+        };
+        assert_eq!(
+            reopened.inspector().cache_stats().limit_bytes,
+            expected * 1024 * 1024
+        );
+        assert_eq!(reopened.get_file(&p("/cache/a.txt")).unwrap(), b"alpha");
+        assert_eq!(reopened.get_file(&p("/cache/b.txt")).unwrap(), b"bravo");
+    }
+    for limit in [CacheLimit::Disabled, CacheLimit::Bytes(9 * 1024 * 1024)] {
+        let mut explicit = Lockbox::open_bytes_with_key_options(
+            bytes.clone(),
+            KEY,
+            LockboxOptions {
+                cache_limit: limit,
+                ..LockboxOptions::default()
+            },
+        )
+        .unwrap();
+        let expected = explicit.inspector().cache_stats().limit_bytes;
+        for profile in [
+            WorkloadProfile::ExtractMany,
+            WorkloadProfile::ReadMostly,
+            WorkloadProfile::Interactive,
+        ] {
+            explicit.set_workload_profile(profile);
+            assert_eq!(explicit.inspector().cache_stats().limit_bytes, expected);
+            assert_eq!(explicit.get_file(&p("/cache/a.txt")).unwrap(), b"alpha");
+            assert_eq!(explicit.get_file(&p("/cache/b.txt")).unwrap(), b"bravo");
+        }
+    }
+}
+
 #[test]
 fn extract_many_caches_decoded_compression_frames() {
     let mut lb = Lockbox::create_with_options(

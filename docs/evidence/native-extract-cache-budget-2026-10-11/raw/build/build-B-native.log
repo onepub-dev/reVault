@@ -1,0 +1,2 @@
+error: the package 'revault_cli' does not contain this feature: native-block-layout
+help: package with the missing feature: revault_lockbox_api

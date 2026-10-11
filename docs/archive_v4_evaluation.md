@@ -22,10 +22,21 @@ The subsequent [adaptive trial](evidence/adaptive-workers-2026-10-11/README.md)
 completed 720 verified samples and passes its frozen gates: retain the policy as
 opt-in, with serial still the default. Useful compressed/mixed elapsed gains are
 9.4–20.2%; the 17 MiB control has a 3.35% mean penalty and a parity-zero interval
-that does not establish 5% non-inferiority. Next compare current native A/B,
-candidate C and ZIP, plus separately measured public CLI extraction. The user
-goal continues until remaining usage is below 10% or above 99% after a reset;
-the current checkpoint reading is 96% remaining.
+that does not establish 5% non-inferiority.
+The [native/public baseline](evidence/native-public-extraction-2026-10-11/README.md)
+completed 480 component and 64 CLI samples; all variants remain slower than ZIP
+in the component screen. Its source64 public elapsed observations have an
+agent-path startup confound. A separately corrected
+[320-process cache trial](evidence/native-extract-cache-budget-2026-10-11/README.md)
+met the frozen aggregate 5% elapsed-regression gate and kept every measured trial
+CLI below 100 MB. Native Auto ExtractMany now retains 32 MiB of pages/native
+frames plus up to 8 MiB of separate decoded frames; 1 GiB process RSS fell 67–70%.
+Raw64 even-round intervals do not establish the same per-stratum timing bound.
+These single-file plaintext results do not close overall G11, parallel many-file
+memory, credential unlock or ReadMostly qualification. Next measure bounded
+password/contact unlock before changing its whole-archive buffering.
+The continuing goal stops below 10% remaining or above 99% after a reset;
+the current checkpoint reading is 89% remaining.
 
 At the historical checkpoint, performance experiments were paused at `0de2dd4a` by user direction. The
 [security-first handoff](evidence/password-integrity-audit-2026-10-11/handoff.txt)

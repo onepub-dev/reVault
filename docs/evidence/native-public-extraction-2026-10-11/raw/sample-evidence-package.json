@@ -1,0 +1,8 @@
+{
+  "files": 1802,
+  "archive_sha256": "03be6ca0b5534206327335c6872cd12ab5c62cf47a21919a027c67543125ec3c",
+  "all_extracted_bytes_verified": true,
+  "originals_preserved_locally": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/evidence-original-native-public-extraction-2026-10-11",
+  "restore": "tar -xzf sample-evidence.tar.gz (from this raw directory)",
+  "note": "Timing and invalid partial-epoch logs are losslessly retained; summaries and manifests remain directly readable."
+}

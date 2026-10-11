@@ -1,0 +1,22 @@
+{
+  "case": "random-raw-1gib",
+  "actual_candidate_codec_census": {
+    "encoded_bytes": 1073741824,
+    "logical_bytes": 1073741824,
+    "raw_chunks": 16384,
+    "zstd_chunks": 0
+  },
+  "candidate_tree_sha256": "2fc3e52b702a67ffb48efc080cee85dd9a8aeaa890490ea5ff70f4426b3307a3",
+  "candidate_public_sha256": "bd3b8650e043d8522fdf13c0188f6e9b9d00a62f97ad87385d9b4ff157adf1f6",
+  "A_archive_sha256": "1bb763cc704db574a0fcfa3c27cb821006a4e9a375b75ac0932285030ca89cf2",
+  "B_archive_sha256": "f580b3aee5b6be0dc6e1c1b44215b71e82312a108f0992ce3b200638921da362",
+  "ZIP_archive_sha256": "f6d5258ad27006cde6bd8dcf3000c49905056cb1edcf9456421bc082b6489ab0",
+  "archive_sizes": {
+    "A": 1074222464,
+    "B": 1076735360,
+    "C": 1083703296,
+    "ZIP": 1073741952
+  },
+  "source_hashes_identical": true,
+  "verified": true
+}

@@ -1,0 +1,2 @@
+Initial default build launch (before source build; preserved as terminal capture reconstruction because its log path was reused by the corrected run): cargo +1.88.0 build --locked --offline --release -p revault_cli --bin lockbox -p revault_lockbox_api --bench archive_evaluation
+Observed result: exit 101 before compilation; Cargo reported ambiguous revault_lockbox_api packages (versions 0.0.2, 0.0.3, 0.0.6, 0.0.9, 0.0.41). Corrected all subsequent selectors to revault_lockbox_api@0.0.41.

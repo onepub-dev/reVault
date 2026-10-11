@@ -1,0 +1,38 @@
+{
+  "command": [
+    "taskset",
+    "-c",
+    "0-4",
+    "/usr/bin/time",
+    "-v",
+    "timeout",
+    "--kill-after=15s",
+    "1800",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/native-public-20261011/bin/revault_lockbox_api-C-external-source-test",
+    "--exact",
+    "file_format::candidate_files::resource_probe::candidate_file_resource_probe",
+    "--ignored",
+    "--nocapture"
+  ],
+  "environment": {
+    "HOME": "/home/bsutton/.cache/revault-native-public-20261011/fixtures-v2/source-zstd-1gib/C/private-home",
+    "XDG_CONFIG_HOME": "/home/bsutton/.cache/revault-native-public-20261011/fixtures-v2/source-zstd-1gib/C/private-config",
+    "XDG_CACHE_HOME": "/home/bsutton/.cache/revault-native-public-20261011/fixtures-v2/source-zstd-1gib/C/private-cache",
+    "XDG_STATE_HOME": "/home/bsutton/.cache/revault-native-public-20261011/fixtures-v2/source-zstd-1gib/C/private-state",
+    "XDG_DATA_HOME": "/home/bsutton/.cache/revault-native-public-20261011/fixtures-v2/source-zstd-1gib/C/private-data",
+    "LOCKBOX_SESSION_AGENT_DIR": "/home/bsutton/.cache/revault-native-public-20261011/fixtures-v2/source-zstd-1gib/C/private-agent",
+    "LOCKBOX_VAULT_DIR": "/home/bsutton/.cache/revault-native-public-20261011/fixtures-v2/source-zstd-1gib/C/private-vault",
+    "LOCKBOX_PLATFORM_SECRET_STORE": "disabled",
+    "TMPDIR": "/home/bsutton/.cache/rv4-security-20261011",
+    "PATH": "/usr/bin:/bin",
+    "REVAULT_CANDIDATE_ROOT": "/home/bsutton/.cache/revault-native-public-20261011/fixtures-v2/source-zstd-1gib/C",
+    "REVAULT_CANDIDATE_PHASE": "tree-create",
+    "REVAULT_CANDIDATE_UNIT": "65536"
+  },
+  "exit_code": 0,
+  "outer_runner_timeout": false,
+  "stdout_sha256": "53569d32a60463d3480a03bd6a8a65749c660d5c4d16257f33847ce8f7b527ad",
+  "stderr_sha256": "2f3764a39002cbd41f4b254a3dcc344df14d151ed9cfb3ea6ef1789646ee08e3",
+  "stdout_marker_required": "CANDIDATE_SAMPLE ",
+  "stdout_marker_present": true
+}

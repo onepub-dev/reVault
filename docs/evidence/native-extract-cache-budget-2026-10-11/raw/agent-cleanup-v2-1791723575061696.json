@@ -1,0 +1,217 @@
+{
+  "passed": true,
+  "agents": [
+    {
+      "socket": "/home/bsutton/.cache/revault-native-public-20261011/e2/c0v0/private-agent/agent.sock",
+      "already_absent": true,
+      "passed": true
+    },
+    {
+      "socket": "/home/bsutton/.cache/revault-native-public-20261011/e2/c0v1/private-agent/agent.sock",
+      "already_absent": true,
+      "passed": true
+    },
+    {
+      "socket": "/home/bsutton/.cache/revault-native-public-20261011/e2/c0v2/private-agent/agent.sock",
+      "already_absent": true,
+      "passed": true
+    },
+    {
+      "socket": "/home/bsutton/.cache/revault-native-public-20261011/e2/c0v3/private-agent/agent.sock",
+      "already_absent": true,
+      "passed": true
+    },
+    {
+      "socket": "/home/bsutton/.cache/revault-native-public-20261011/e2/c1v0/private-agent/agent.sock",
+      "command": [
+        "/usr/bin/timeout",
+        "--kill-after=5s",
+        "20",
+        "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/native-public-20261011/bin/lockbox-A-default",
+        "session",
+        "stop"
+      ],
+      "exit_code": 0,
+      "stdout": "Session Agent stopped.\n",
+      "stderr": "",
+      "socket_absent_after": true,
+      "passed": true
+    },
+    {
+      "socket": "/home/bsutton/.cache/revault-native-public-20261011/e2/c1v1/private-agent/agent.sock",
+      "command": [
+        "/usr/bin/timeout",
+        "--kill-after=5s",
+        "20",
+        "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/native-extract-cache-budget-20261011/bin/lockbox-A-trial",
+        "session",
+        "stop"
+      ],
+      "exit_code": 0,
+      "stdout": "Session Agent stopped.\n",
+      "stderr": "",
+      "socket_absent_after": true,
+      "passed": true
+    },
+    {
+      "socket": "/home/bsutton/.cache/revault-native-public-20261011/e2/c1v2/private-agent/agent.sock",
+      "command": [
+        "/usr/bin/timeout",
+        "--kill-after=5s",
+        "20",
+        "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/native-public-20261011/bin/lockbox-B-native",
+        "session",
+        "stop"
+      ],
+      "exit_code": 0,
+      "stdout": "Session Agent stopped.\n",
+      "stderr": "",
+      "socket_absent_after": true,
+      "passed": true
+    },
+    {
+      "socket": "/home/bsutton/.cache/revault-native-public-20261011/e2/c1v3/private-agent/agent.sock",
+      "command": [
+        "/usr/bin/timeout",
+        "--kill-after=5s",
+        "20",
+        "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/native-extract-cache-budget-20261011/bin/lockbox-B-native-trial",
+        "session",
+        "stop"
+      ],
+      "exit_code": 0,
+      "stdout": "Session Agent stopped.\n",
+      "stderr": "",
+      "socket_absent_after": true,
+      "passed": true
+    },
+    {
+      "socket": "/home/bsutton/.cache/revault-native-public-20261011/e2/c2v0/private-agent/agent.sock",
+      "command": [
+        "/usr/bin/timeout",
+        "--kill-after=5s",
+        "20",
+        "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/native-public-20261011/bin/lockbox-A-default",
+        "session",
+        "stop"
+      ],
+      "exit_code": 0,
+      "stdout": "Session Agent stopped.\n",
+      "stderr": "",
+      "socket_absent_after": true,
+      "passed": true
+    },
+    {
+      "socket": "/home/bsutton/.cache/revault-native-public-20261011/e2/c2v1/private-agent/agent.sock",
+      "command": [
+        "/usr/bin/timeout",
+        "--kill-after=5s",
+        "20",
+        "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/native-extract-cache-budget-20261011/bin/lockbox-A-trial",
+        "session",
+        "stop"
+      ],
+      "exit_code": 0,
+      "stdout": "Session Agent stopped.\n",
+      "stderr": "",
+      "socket_absent_after": true,
+      "passed": true
+    },
+    {
+      "socket": "/home/bsutton/.cache/revault-native-public-20261011/e2/c2v2/private-agent/agent.sock",
+      "command": [
+        "/usr/bin/timeout",
+        "--kill-after=5s",
+        "20",
+        "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/native-public-20261011/bin/lockbox-B-native",
+        "session",
+        "stop"
+      ],
+      "exit_code": 0,
+      "stdout": "Session Agent stopped.\n",
+      "stderr": "",
+      "socket_absent_after": true,
+      "passed": true
+    },
+    {
+      "socket": "/home/bsutton/.cache/revault-native-public-20261011/e2/c2v3/private-agent/agent.sock",
+      "command": [
+        "/usr/bin/timeout",
+        "--kill-after=5s",
+        "20",
+        "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/native-extract-cache-budget-20261011/bin/lockbox-B-native-trial",
+        "session",
+        "stop"
+      ],
+      "exit_code": 0,
+      "stdout": "Session Agent stopped.\n",
+      "stderr": "",
+      "socket_absent_after": true,
+      "passed": true
+    },
+    {
+      "socket": "/home/bsutton/.cache/revault-native-public-20261011/e2/c3v0/private-agent/agent.sock",
+      "command": [
+        "/usr/bin/timeout",
+        "--kill-after=5s",
+        "20",
+        "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/native-public-20261011/bin/lockbox-A-default",
+        "session",
+        "stop"
+      ],
+      "exit_code": 0,
+      "stdout": "Session Agent stopped.\n",
+      "stderr": "",
+      "socket_absent_after": true,
+      "passed": true
+    },
+    {
+      "socket": "/home/bsutton/.cache/revault-native-public-20261011/e2/c3v1/private-agent/agent.sock",
+      "command": [
+        "/usr/bin/timeout",
+        "--kill-after=5s",
+        "20",
+        "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/native-extract-cache-budget-20261011/bin/lockbox-A-trial",
+        "session",
+        "stop"
+      ],
+      "exit_code": 0,
+      "stdout": "Session Agent stopped.\n",
+      "stderr": "",
+      "socket_absent_after": true,
+      "passed": true
+    },
+    {
+      "socket": "/home/bsutton/.cache/revault-native-public-20261011/e2/c3v2/private-agent/agent.sock",
+      "command": [
+        "/usr/bin/timeout",
+        "--kill-after=5s",
+        "20",
+        "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/native-public-20261011/bin/lockbox-B-native",
+        "session",
+        "stop"
+      ],
+      "exit_code": 0,
+      "stdout": "Session Agent stopped.\n",
+      "stderr": "",
+      "socket_absent_after": true,
+      "passed": true
+    },
+    {
+      "socket": "/home/bsutton/.cache/revault-native-public-20261011/e2/c3v3/private-agent/agent.sock",
+      "command": [
+        "/usr/bin/timeout",
+        "--kill-after=5s",
+        "20",
+        "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/native-extract-cache-budget-20261011/bin/lockbox-B-native-trial",
+        "session",
+        "stop"
+      ],
+      "exit_code": 0,
+      "stdout": "Session Agent stopped.\n",
+      "stderr": "",
+      "socket_absent_after": true,
+      "passed": true
+    }
+  ]
+}

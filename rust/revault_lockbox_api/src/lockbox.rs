@@ -841,7 +841,11 @@ impl Lockbox<Writable> {
             lockbox_id,
             read_only: false,
             owner_signing_key: None,
-            page_manager: RefCell::new(PageCache::new(options.cache_limit)),
+            page_manager: RefCell::new(PageCache::with_profile(
+                options.cache_limit,
+                Default::default(),
+                options.workload_profile,
+            )),
             compression_frame_cache: RefCell::new(CompressionFrameCache::default()),
             import_stats: RefCell::new(ImportStats::default()),
             workload_profile: options.workload_profile,
@@ -1051,7 +1055,11 @@ impl Lockbox<Writable> {
             lockbox_id,
             read_only: false,
             owner_signing_key: None,
-            page_manager: RefCell::new(PageCache::with_format(options.cache_limit, format_mode)),
+            page_manager: RefCell::new(PageCache::with_profile(
+                options.cache_limit,
+                format_mode,
+                options.workload_profile,
+            )),
             compression_frame_cache: RefCell::new(CompressionFrameCache::default()),
             import_stats: RefCell::new(ImportStats::default()),
             workload_profile: options.workload_profile,
@@ -1310,7 +1318,19 @@ impl<State> Lockbox<State> {
 
     /// Set cache behavior tuned for the caller's expected access pattern.
     pub fn set_workload_profile(&mut self, profile: WorkloadProfile) {
+        let previous = self.workload_profile;
         self.workload_profile = profile;
+        self.page_manager.borrow_mut().set_workload_profile(profile);
+        if !cfg!(target_arch = "wasm32")
+            && matches!(
+                self.page_manager.borrow().configured_limit(),
+                crate::CacheLimit::Auto
+            )
+            && (matches!(previous, WorkloadProfile::ExtractMany)
+                || matches!(profile, WorkloadProfile::ExtractMany))
+        {
+            self.trim_decoded_compression_frame_cache();
+        }
     }
 
     /// Return the currently selected workload profile.
