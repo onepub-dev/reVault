@@ -10,6 +10,13 @@ and [delivery plan](archive_v4_plan.md) define purpose, guarantees and sequence.
 [Baseline evidence](evidence/v4-baseline-2026-09-26.md) records newly run checks.
 Historical microbenchmarks remain evidence about their own revisions.
 
+The [temporary import memory diagnostic](evidence/import-memory-attribution-2026-10-12/RESULTS.md)
+completed four independently verified public imports with balanced ownership
+ledgers and zero transient counters after worker joins. The temporary runtime
+was restored exactly. Object-stream excess capacity suggests a separate checked
+exact-reservation trial; instrumentation results establish no performance gain
+or 100 MB acceptance. All current release and integration limits remain open.
+
 The requested [encrypted and signed public ZIP comparison](evidence/protected-zip-comparison-2026-10-12/RESULTS.md)
 completed 32 verified operations (24 measured, three repetitions per group).
 It times normal protected create + open + add and subsequent extraction against

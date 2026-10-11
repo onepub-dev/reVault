@@ -1,0 +1,14 @@
+{
+  "argv": [
+    "/usr/bin/timeout",
+    "--kill-after=10s",
+    "60",
+    "/usr/bin/sync",
+    "-d",
+    "--",
+    "/home/bsutton/.cache/rv-memdiag-20261012/fixture1/c1-w1.out",
+    "/home/bsutton/.cache/rv-memdiag-20261012/fixture1"
+  ],
+  "exit_code": 0,
+  "timed_out": false
+}

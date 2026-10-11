@@ -1,0 +1,8 @@
+ M revault_lockbox_api/src/compression/encode_workspace.rs
+ M revault_lockbox_api/src/file_format/page.rs
+ M revault_lockbox_api/src/lib.rs
+ M revault_lockbox_api/src/lockbox/commit.rs
+ M revault_lockbox_api/src/lockbox/file_import_pipeline.rs
+ M revault_lockbox_api/src/lockbox/files.rs
+?? ../docs/evidence/import-memory-attribution-2026-10-12/
+?? revault_lockbox_api/src/import_memory_trace.rs

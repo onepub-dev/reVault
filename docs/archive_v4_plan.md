@@ -21,6 +21,13 @@ the separate component checkpoint below. This merge does not qualify the format
 or erase failures.
 
 ## Current position and next work
+The [temporary import memory diagnostic](evidence/import-memory-attribution-2026-10-12/RESULTS.md)
+completed four independently verified public imports with balanced ownership
+ledgers and zero transient counters after worker joins. The temporary runtime
+was restored exactly. Object-stream excess capacity suggests a separate checked
+exact-reservation trial; instrumentation results establish no performance gain
+or 100 MB acceptance. All current release and integration limits remain open.
+
 The requested [encrypted and signed public ZIP comparison](evidence/protected-zip-comparison-2026-10-12/RESULTS.md)
 completed 32 verified operations (24 measured, three repetitions per group).
 It times normal protected create + open + add and subsequent extraction against
@@ -43,7 +50,7 @@ completed 720 verified samples. Lazy authenticated-descriptor selection passes
 the frozen aggregate control and useful-profile gates; retain it as opt-in while
 keeping the serial default. The 17 MiB boundary has a 3.35% mean penalty and
 does not establish parity-wise non-inferiority. No threshold revision is planned.
-The latest completed milestone reading is 42% used (58% remaining), so the goal continues.
+The latest completed milestone reading is 46% used (54% remaining), so the goal continues.
 
 The [native/public comparison](evidence/native-public-extraction-2026-10-11/README.md)
 completed 480 component and 64 public CLI samples. All archive variants remain

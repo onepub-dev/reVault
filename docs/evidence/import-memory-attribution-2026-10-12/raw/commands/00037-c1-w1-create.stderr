@@ -1,0 +1,1 @@
+Warning: lockbox created, but no alias was created: no unlocked Vault is available. Register an alias later with `lbx vault lockbox alias set`.

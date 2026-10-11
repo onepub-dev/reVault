@@ -1,0 +1,26 @@
+{
+  "argv": [
+    "/usr/bin/timeout",
+    "--kill-after=10s",
+    "600",
+    "/usr/bin/time",
+    "-f",
+    "%e %U %S %M",
+    "-o",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/docs/evidence/import-memory-attribution-2026-10-12/raw/c1-w1.time",
+    "/usr/bin/taskset",
+    "-c",
+    "0-4",
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/import-memory-attribution-20261012/bin/lockbox-instrumented",
+    "/home/bsutton/.cache/rv-memdiag-20261012/fixture1/c1-w1.lbox",
+    "add",
+    "--recursive",
+    "/home/bsutton/.cache/revault-native-public-20261011/fixtures-v2/random-raw-1gib/A/source",
+    "--include",
+    "file-000000.bin",
+    "--to",
+    "/data"
+  ],
+  "exit_code": 0,
+  "timed_out": false
+}

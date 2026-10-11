@@ -1,0 +1,5 @@
+{"kind":"agent","state":"enabled","value":"yes","path":"","uuid":""}
+{"kind":"agent","state":"running","value":"yes","path":"","uuid":""}
+{"kind":"auto-open","state":"scope","value":"off","path":"","uuid":""}
+{"kind":"auto-open","state":"Vault passphrase stored","value":"no","path":"","uuid":""}
+{"kind":"lockbox","state":"default","value":"no","path":"","uuid":""}
