@@ -1,0 +1,11 @@
+# Last-use rejection attribution diagnostic
+
+Exactly eight fresh public extractions: raw and compressed 1 GiB/1,024-file cohorts, preserved old4142/new2f56 binaries, one untraced and one strace-summary extraction per variant/cohort. Within each cohort untraced old/new then traced new/old. No preparation or statistical comparison, calibration, extra samples or retention decision. Trace elapsed is perturbed and must not be compared as performance evidence.
+
+Reuse independently verified immutable fixture tree/mode expectations. Fresh private agents, CPU0–4, umask0022, archive cold admission, every output byte/tree/mode verified and drained outside command. Preserve full binary/source/build/helper/script/config/fixture hashes before and after. Restored current source differs from rejected executable by the frozen original patch; no new build.
+
+GNUtime fields: %e elapsed seconds, %U user CPU, %S system CPU, %M maximum RSS KiB, %R minor faults, %F major faults, %w voluntary and %c involuntary context switches, %I filesystem inputs, %O filesystem outputs. I/O fields count filesystem operations reported by the kernel, not bytes. For traced runs GNUtime observes tracer plus descendant accounting; do not interpret it as identical process RSS scope to untraced CLI.
+
+strace -f -c follows only the launched child and its threads/descendants, emitting aggregate summaries only for mmap,munmap,mremap,madvise,brk,read,pread64,write,pwrite64,futex. No syscall argument/content trace, external process attachment, perf settings or privileges changes. Persistent helper starts before tracing. Counts may distinguish mapping/allocation or I/O/scheduling hypotheses; no causal claim from one observation and no direct pagefault observation by strace.
+
+Inherited24GiB logical owned cap and2GiB headroom; reserve output plus256MiB. Each extraction cap180s plus10s kill grace, whole work cap30minutes with60seconds cleanup reserve; bounded owned cleanup may extend by its declared grace. Stop on failure, preserve partial evidence, no automatic rerun. Freeze once before eight commands.
