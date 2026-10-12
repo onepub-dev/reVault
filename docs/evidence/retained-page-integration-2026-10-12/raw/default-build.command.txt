@@ -1,0 +1,1 @@
+default build: TMPDIR=/home/bsutton/.cache/rv4-security-20261011 timeout --kill-after=30s 900s cargo +1.88.0 test --locked --offline --release -p revault_lockbox_api@0.0.41 --lib --no-run --message-format=json

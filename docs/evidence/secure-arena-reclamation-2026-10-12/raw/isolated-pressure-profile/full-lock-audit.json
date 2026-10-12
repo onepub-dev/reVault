@@ -1,0 +1,69 @@
+{
+  "original_workspace_lock": {
+    "path": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/docs/evidence/secure-arena-reclamation-2026-10-12/raw/isolated-pressure-profile/original-workspace.Cargo.lock",
+    "sha256": "c2f9e9ce9b8fe9ea54c6781ce39d696ae88d7972d886342d03299cff60ce6dd8",
+    "package_count": 411
+  },
+  "variants": {
+    "old": {
+      "lock_path": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/secure-arena-reclamation-20261012/old/rust/revault_page_api/Cargo.lock",
+      "sha256": "3e10c3e09d578a970c1f12da720ed4b200005e86513c404d1463a84c390cbc18",
+      "package_count": 20,
+      "package_identities": [
+        "bumpalo|3.20.3|registry+https://github.com/rust-lang/crates.io-index|72f5acc6cb2ba439de613abc23857ec3d78374d8ed5ac84e9d11336e87da8649",
+        "cfg-if|1.0.4|registry+https://github.com/rust-lang/crates.io-index|9330f8b2ff13f34540b44e946ef35111825727b38d33286ef986142615121801",
+        "getrandom|0.4.3|registry+https://github.com/rust-lang/crates.io-index|300e883d756b2e4ec94e02791f39b04b522276138852cfc41d9fb7e904106099",
+        "js-sys|0.3.105|registry+https://github.com/rust-lang/crates.io-index|ce57d20d1ea864ce2ac172ab472d409214f4fd359f0b2a2775abdf522e2af99e",
+        "libc|0.2.189|registry+https://github.com/rust-lang/crates.io-index|3eaf3ede3fee6db1a4c2ee091bf8a8b4dccdc6d17f656fb07896ee72867612f2",
+        "once_cell|1.21.4|registry+https://github.com/rust-lang/crates.io-index|9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50",
+        "proc-macro2|1.0.107|registry+https://github.com/rust-lang/crates.io-index|985e7ec9bb745e6ce6535b544d84d6cd6f7ad8bd711c398938ae983b91a766d9",
+        "quote|1.0.47|registry+https://github.com/rust-lang/crates.io-index|1fbf4db142a473a8d80c26bbf18454ed458bf8d26c8219c331daecfdbd079001",
+        "r-efi|6.0.0|registry+https://github.com/rust-lang/crates.io-index|f8dcc9c7d52a811697d2151c701e0d08956f92b0e24136cf4cf27b57a6a0d9bf",
+        "revault_page_api|0.0.34||",
+        "rustversion|1.0.23|registry+https://github.com/rust-lang/crates.io-index|cf54715a573b99ac80df0bc206da022bcd442c974952c7b9720069370852e21f",
+        "syn|3.0.5|registry+https://github.com/rust-lang/crates.io-index|12df2e0110f65b775f769bb17ef989067a1d931b2eb822bd4346631eeada89f9",
+        "unicode-ident|1.0.24|registry+https://github.com/rust-lang/crates.io-index|e6e4313cd5fcd3dad5cafa179702e2b244f760991f45397d14d4ebf38247da75",
+        "wasm-bindgen-macro-support|0.2.128|registry+https://github.com/rust-lang/crates.io-index|411e4887f0071ef2d2164a9d5fdf2d20efbef78fccd3a78b0c10a1dc5295e48a",
+        "wasm-bindgen-macro|0.2.128|registry+https://github.com/rust-lang/crates.io-index|a690d511e3c1a8b3a55e33511e3c2c00c78415cd23650f32b808627f5696b9ed",
+        "wasm-bindgen-shared|0.2.128|registry+https://github.com/rust-lang/crates.io-index|81941cd78d0c92026c33e5e01312845a4cb1e9af3407f9134b100dd03144103e",
+        "wasm-bindgen|0.2.128|registry+https://github.com/rust-lang/crates.io-index|aecb87a33d3b0c5e3b7aa46336eaf486cffafbd281b195e4c8b80d50df2351bf",
+        "windows-link|0.2.1|registry+https://github.com/rust-lang/crates.io-index|f0805222e57f7521d6a62e36fa9163bc891acd422f971defe97d64e70d0a4fe5",
+        "windows-sys|0.61.2|registry+https://github.com/rust-lang/crates.io-index|ae137229bcbd6cdf0f7b80a31df61766145077ddf49416a728b02cb3921ff3fc",
+        "zeroize|1.9.0|registry+https://github.com/rust-lang/crates.io-index|e13c156562582aa81c60cb29407084cdb54c4164760106ab78e6c5b0858cf64e"
+      ],
+      "not_in_original": []
+    },
+    "new": {
+      "lock_path": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/secure-arena-reclamation-20261012/new/rust/revault_page_api/Cargo.lock",
+      "sha256": "3e10c3e09d578a970c1f12da720ed4b200005e86513c404d1463a84c390cbc18",
+      "package_count": 20,
+      "package_identities": [
+        "bumpalo|3.20.3|registry+https://github.com/rust-lang/crates.io-index|72f5acc6cb2ba439de613abc23857ec3d78374d8ed5ac84e9d11336e87da8649",
+        "cfg-if|1.0.4|registry+https://github.com/rust-lang/crates.io-index|9330f8b2ff13f34540b44e946ef35111825727b38d33286ef986142615121801",
+        "getrandom|0.4.3|registry+https://github.com/rust-lang/crates.io-index|300e883d756b2e4ec94e02791f39b04b522276138852cfc41d9fb7e904106099",
+        "js-sys|0.3.105|registry+https://github.com/rust-lang/crates.io-index|ce57d20d1ea864ce2ac172ab472d409214f4fd359f0b2a2775abdf522e2af99e",
+        "libc|0.2.189|registry+https://github.com/rust-lang/crates.io-index|3eaf3ede3fee6db1a4c2ee091bf8a8b4dccdc6d17f656fb07896ee72867612f2",
+        "once_cell|1.21.4|registry+https://github.com/rust-lang/crates.io-index|9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50",
+        "proc-macro2|1.0.107|registry+https://github.com/rust-lang/crates.io-index|985e7ec9bb745e6ce6535b544d84d6cd6f7ad8bd711c398938ae983b91a766d9",
+        "quote|1.0.47|registry+https://github.com/rust-lang/crates.io-index|1fbf4db142a473a8d80c26bbf18454ed458bf8d26c8219c331daecfdbd079001",
+        "r-efi|6.0.0|registry+https://github.com/rust-lang/crates.io-index|f8dcc9c7d52a811697d2151c701e0d08956f92b0e24136cf4cf27b57a6a0d9bf",
+        "revault_page_api|0.0.34||",
+        "rustversion|1.0.23|registry+https://github.com/rust-lang/crates.io-index|cf54715a573b99ac80df0bc206da022bcd442c974952c7b9720069370852e21f",
+        "syn|3.0.5|registry+https://github.com/rust-lang/crates.io-index|12df2e0110f65b775f769bb17ef989067a1d931b2eb822bd4346631eeada89f9",
+        "unicode-ident|1.0.24|registry+https://github.com/rust-lang/crates.io-index|e6e4313cd5fcd3dad5cafa179702e2b244f760991f45397d14d4ebf38247da75",
+        "wasm-bindgen-macro-support|0.2.128|registry+https://github.com/rust-lang/crates.io-index|411e4887f0071ef2d2164a9d5fdf2d20efbef78fccd3a78b0c10a1dc5295e48a",
+        "wasm-bindgen-macro|0.2.128|registry+https://github.com/rust-lang/crates.io-index|a690d511e3c1a8b3a55e33511e3c2c00c78415cd23650f32b808627f5696b9ed",
+        "wasm-bindgen-shared|0.2.128|registry+https://github.com/rust-lang/crates.io-index|81941cd78d0c92026c33e5e01312845a4cb1e9af3407f9134b100dd03144103e",
+        "wasm-bindgen|0.2.128|registry+https://github.com/rust-lang/crates.io-index|aecb87a33d3b0c5e3b7aa46336eaf486cffafbd281b195e4c8b80d50df2351bf",
+        "windows-link|0.2.1|registry+https://github.com/rust-lang/crates.io-index|f0805222e57f7521d6a62e36fa9163bc891acd422f971defe97d64e70d0a4fe5",
+        "windows-sys|0.61.2|registry+https://github.com/rust-lang/crates.io-index|ae137229bcbd6cdf0f7b80a31df61766145077ddf49416a728b02cb3921ff3fc",
+        "zeroize|1.9.0|registry+https://github.com/rust-lang/crates.io-index|e13c156562582aa81c60cb29407084cdb54c4164760106ab78e6c5b0858cf64e"
+      ],
+      "not_in_original": []
+    }
+  },
+  "old_new_resolution_equal": true,
+  "only_old": [],
+  "only_new": [],
+  "scope": "all locked package name/version/source/checksum identities; no dependency upgrade or source drift accepted"
+}

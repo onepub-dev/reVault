@@ -1,0 +1,1 @@
+Dart analyze runner exit=0; Dart analyze analyzer exit=0. Both must be zero before timing. The final source and scripts use the approved baseline=0, prewarm=before=after>0 VmLck gate under 8388608 bytes. No samples have been launched yet.

@@ -1,0 +1,11 @@
+{
+  "pid": 869149,
+  "exit_code": -15,
+  "status": "interrupted_incomplete_after_failure_line",
+  "stop_cause": "individual_libtest_failure_result_line",
+  "detected_failure_line": "test file_format::form_segments::tests::form_segments_empty_utf8_boundary_and_one_mib_all_modes ... FAILED",
+  "elapsed_seconds": 3395.911,
+  "sample_count": 681,
+  "inventory": 713,
+  "complete_suite_pass": false
+}

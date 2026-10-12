@@ -1,0 +1,615 @@
+2026-10-12T01:20:45.079120Z [stdout] 
+2026-10-12T01:20:45.079950Z [stdout] running 713 tests
+2026-10-12T01:20:45.080019Z [stdout] test api_tests::add_file_requires_explicit_replace_intent ... ok
+2026-10-12T01:20:45.080039Z [stdout] test api_tests::add_file_stages_small_disk_files_until_commit ... ok
+2026-10-12T01:20:45.080051Z [stdout] test api_tests::auto_extract_many_budget_restores_profiles_and_packed_reads ... ok
+2026-10-12T01:20:45.080065Z [stdout] test api_tests::appending_after_commit_preserves_existing_files ... ok
+2026-10-12T01:20:45.100505Z [stdout] test api_tests::bulk_import_flushes_file_pages_without_retaining_them_in_cache ... ok
+2026-10-12T01:20:45.103149Z [stdout] test api_tests::bulk_import_drains_small_file_staging_before_commit ... ok
+2026-10-12T01:20:45.128134Z [stdout] test api_tests::changing_cache_limit_preserves_pending_commit_abort_and_packed_reads ... ok
+2026-10-12T01:20:45.130365Z [stdout] test api_tests::committed_file_names_and_content_are_not_visible_in_cleartext ... ok
+2026-10-12T01:20:45.133214Z [stdout] test api_tests::bulk_small_file_frames_keep_non_tail_pages_dense ... ok
+2026-10-12T01:20:45.138615Z [stdout] test api_tests::compact_preserves_form_state ... ok
+2026-10-12T01:20:45.187544Z [stdout] test api_tests::compact_preserves_large_file_after_streaming_rewrite ... ok
+2026-10-12T01:20:45.251112Z [stdout] test api_tests::compressible_page_content_uses_less_space_than_raw_chunks ... ok
+2026-10-12T01:20:45.256082Z [stdout] test api_tests::contact_slot_labels_are_not_persisted ... ok
+2026-10-12T01:20:45.257241Z [stdout] test api_tests::contact_slot_names_are_bounded ... ok
+2026-10-12T01:20:45.257921Z [stdout] test api_tests::content_keys_can_be_wrapped_with_hybrid_contact_key ... ok
+2026-10-12T01:20:45.271901Z [stdout] test api_tests::content_streaming_reports_logical_and_physical_chunks ... ok
+2026-10-12T01:20:45.277287Z [stdout] test api_tests::create_path_refuses_to_overwrite_existing_file ... ok
+2026-10-12T01:20:45.284558Z [stdout] test api_tests::compressible_large_file_uses_fewer_pages_than_incompressible_large_file ... ok
+2026-10-12T01:20:45.287066Z [stdout] test api_tests::create_put_get_list_stat_commit_open ... ok
+2026-10-12T01:20:45.289272Z [stdout] test api_tests::decoded_page_cache_can_be_disabled ... ok
+2026-10-12T01:20:45.291040Z [stdout] test api_tests::decoded_page_cache_records_hits_and_can_be_trimmed ... ok
+2026-10-12T01:20:45.291959Z [stdout] test api_tests::create_path_writes_file_backed_lockbox ... ok
+2026-10-12T01:20:45.292840Z [stdout] test api_tests::delete_and_rename_update_the_toc ... ok
+2026-10-12T01:20:45.297965Z [stdout] test api_tests::delete_removes_file_after_commit_and_reopen ... ok
+2026-10-12T01:20:45.300273Z [stdout] test api_tests::deleted_file_space_can_be_reused_by_appended_content ... ok
+2026-10-12T01:20:45.302494Z [stdout] test api_tests::dot_prefixed_variable_components_round_trip_as_hidden_metadata ... ok
+2026-10-12T01:20:45.304523Z [stdout] test api_tests::empty_and_large_files_round_trip ... ok
+2026-10-12T01:20:45.304894Z [stdout] test api_tests::deleting_packed_file_redacts_original_page_and_preserves_other_files ... ok
+2026-10-12T01:20:45.307257Z [stdout] test api_tests::extract_many_caches_decoded_compression_frames ... ok
+2026-10-12T01:20:45.308105Z [stdout] test api_tests::extract_to_directory_enforces_file_count_limit ... ok
+2026-10-12T01:20:45.308917Z [stdout] test api_tests::extract_to_directory_enforces_single_file_size_limit ... ok
+2026-10-12T01:20:45.309509Z [stdout] test api_tests::encrypted_lockbox_description_round_trips_and_clears ... ok
+2026-10-12T01:20:45.309747Z [stdout] test api_tests::extract_to_directory_enforces_total_size_limit ... ok
+2026-10-12T01:20:45.310397Z [stdout] test api_tests::extract_to_directory_preflights_limits_before_writing_files ... ok
+2026-10-12T01:20:45.310869Z [stdout] test api_tests::extract_to_directory_refuses_overwrite_by_default ... ok
+2026-10-12T01:20:45.324935Z [stdout] test api_tests::file_content_can_be_loaded_and_extracted_with_streaming_apis ... ok
+2026-10-12T01:20:45.325682Z [stdout] test api_tests::form_alias_conflicts_require_type_ids ... ok
+2026-10-12T01:20:45.326446Z [stdout] test api_tests::form_aliases_and_field_ids_are_case_sensitive ... ok
+2026-10-12T01:20:45.330411Z [stdout] test api_tests::form_records_can_be_moved_with_their_secret_values ... ok
+2026-10-12T01:20:45.333661Z [stdout] test api_tests::forms_persist_revisions_and_secret_values ... ok
+2026-10-12T01:20:45.334724Z [stdout] test api_tests::hybrid_wraps_for_same_contact_do_not_share_key_exchange_material ... ok
+2026-10-12T01:20:45.341998Z [stdout] test api_tests::import_stats_record_threaded_import_stages_and_can_be_reset ... ok
+2026-10-12T01:20:45.342750Z [stdout] test api_tests::invalid_paths_are_rejected ... ok
+2026-10-12T01:20:45.343486Z [stdout] test api_tests::invalid_permissions_are_rejected ... ok
+2026-10-12T01:20:45.915949Z [stdout] test api_tests::key_slot_removal_compacts_old_key_material ... ok
+2026-10-12T01:20:46.945848Z [stdout] test api_tests::key_slots_can_be_removed_and_passwords_changed ... ok
+2026-10-12T01:20:47.133463Z [stdout] test api_tests::large_file_recovery_preserves_membership_after_control_extent_repair ... ok
+2026-10-12T01:20:47.179001Z [stdout] test api_tests::large_file_rename_is_metadata_only_and_survives_reopen ... ok
+2026-10-12T01:20:47.259270Z [stdout] test api_tests::file_backed_mirror_recursive_removals_persist_after_reopen ... ok
+2026-10-12T01:20:47.262286Z [stdout] test api_tests::list_glob_filters_without_callback_bindings ... ok
+2026-10-12T01:20:47.263180Z [stdout] test api_tests::list_is_non_recursive ... ok
+2026-10-12T01:20:47.264597Z [stdout] test api_tests::list_iter_and_streaming_extract_return_regular_files_when_within_limits ... ok
+2026-10-12T01:20:47.265356Z [stdout] test api_tests::list_iter_streams_entries_and_supports_rust_side_filtering ... ok
+2026-10-12T01:20:47.266981Z [stdout] test api_tests::list_options_can_limit_and_filter_node_types ... ok
+2026-10-12T01:20:47.274400Z [stdout] test api_tests::many_files_round_trip_and_recover_after_control_extent_repair ... ok
+2026-10-12T01:20:47.282326Z [stdout] test api_tests::many_small_files_are_packed_into_shared_pages_after_commit ... ok
+2026-10-12T01:20:47.296985Z [stdout] test api_tests::many_variables_are_packed_into_leaf_pages ... ok
+2026-10-12T01:20:47.297685Z [stdout] test api_tests::moving_variables_cannot_create_variable_directory_collisions ... ok
+2026-10-12T01:20:47.540861Z [stdout] test api_tests::multiple_key_slots_are_tried_until_one_opens ... ok
+2026-10-12T01:20:47.542714Z [stdout] test api_tests::mutable_file_handle_can_create_and_truncate_files ... ok
+2026-10-12T01:20:47.544492Z [stdout] test api_tests::mutable_file_handle_overwrites_appends_flushes_and_closes ... ok
+2026-10-12T01:20:47.567949Z [stdout] test api_tests::mutable_file_handle_preserves_clean_chunks_around_dirty_page ... ok
+2026-10-12T01:20:47.573887Z [stdout] test api_tests::normal_form_fields_upgrade_to_secret_across_the_form_type ... ok
+2026-10-12T01:20:47.584656Z [stdout] test api_tests::normal_variables_upgrade_to_secret_but_do_not_downgrade_in_place ... ok
+2026-10-12T01:20:47.585405Z [stdout] test api_tests::open_file_reader_supports_read_and_seek ... ok
+2026-10-12T01:20:47.589109Z [stdout] test api_tests::open_rejects_a_rechecksummed_header_with_an_invalid_metadata_auth_tag ... ok
+2026-10-12T01:20:47.593123Z [stdout] test api_tests::open_uses_previous_commit_when_latest_commit_root_is_corrupt ... ok
+2026-10-12T01:20:47.707966Z [stdout] test api_tests::oversized_key_directories_are_rejected ... ok
+2026-10-12T01:20:48.074280Z [stdout] test api_tests::parallel_encoder_reuses_workspace_across_mixed_short_and_failed_streams ... ok
+2026-10-12T01:20:50.863323Z [stdout] test api_tests::password_access_rekey_preserves_signing_and_current_content ... ok
+2026-10-12T01:20:51.206732Z [stdout] test api_tests::password_directory_tolerates_either_missing_mirror_but_not_both ... ok
+2026-10-12T01:20:51.451984Z [stdout] test api_tests::password_open_recovers_when_header_is_corrupt ... ok
+2026-10-12T01:20:51.679356Z [stdout] test api_tests::password_open_recovers_when_primary_key_directory_is_corrupt ... ok
+2026-10-12T01:20:52.136665Z [stdout] test api_tests::password_slots_open_the_random_content_key ... ok
+2026-10-12T01:20:52.840456Z [stdout] test api_tests::password_wrapping_preserves_variable_length_content_keys ... ok
+2026-10-12T01:20:52.891159Z [stdout] test api_tests::path_backed_compact_logically_rewrites_live_state ... ok
+2026-10-12T01:20:52.942923Z [stdout] test api_tests::path_backed_content_key_replacement_true_revokes_removed_contact ... ok
+2026-10-12T01:20:53.210909Z [stdout] test api_tests::large_slice_and_reader_inputs_preserve_replacement_abort_and_reopen ... ok
+2026-10-12T01:20:55.416248Z [stdout] test api_tests::path_backed_key_slot_removal_compacts_and_remains_file_backed ... ok
+2026-10-12T01:20:55.444334Z [stdout] test api_tests::path_backed_recovery_preserves_variable_paths_and_forms_from_commit_root ... ok
+2026-10-12T01:20:56.621425Z [stdout] test api_tests::path_backed_credential_candidates_preserve_mirrors_and_authority ... ok
+2026-10-12T01:20:56.621514Z [stdout] test api_tests::path_depth_and_length_limits_are_enforced ... ok
+2026-10-12T01:20:56.622846Z [stdout] test api_tests::range_reads_are_clamped_to_file_bounds ... ok
+2026-10-12T01:20:56.630872Z [stdout] test api_tests::range_reads_only_return_requested_large_file_slice ... ok
+2026-10-12T01:20:56.641685Z [stdout] test api_tests::recovery_preserves_variable_paths_and_forms_from_commit_root ... ok
+2026-10-12T01:20:56.644256Z [stdout] test api_tests::recovery_refuses_current_membership_when_selected_auth_is_truncated ... ok
+2026-10-12T01:20:56.646866Z [stdout] test api_tests::recovery_refuses_current_membership_without_authenticated_toc ... ok
+2026-10-12T01:20:56.649340Z [stdout] test api_tests::path_backed_recovery_report_counts_variables_after_multiple_commits ... ok
+2026-10-12T01:20:56.650179Z [stdout] test api_tests::recovery_repairs_control_extent_with_original_authentication ... ok
+2026-10-12T01:20:56.652391Z [stdout] test api_tests::recovery_report_default_summarizes_intact_files_without_listing_them ... ok
+2026-10-12T01:20:56.653034Z [stdout] test api_tests::recovery_report_verbose_lists_intact_files_with_optional_limit ... ok
+2026-10-12T01:20:56.655204Z [stdout] test api_tests::recovery_reports_corrupt_records_for_damaged_frame_header ... ok
+2026-10-12T01:20:56.655950Z [stdout] test api_tests::recovery_reports_partial_when_file_record_is_corrupt_but_toc_survives ... ok
+2026-10-12T01:20:56.659052Z [stdout] test api_tests::recovery_survives_header_toc_pointer_zeroed ... ok
+2026-10-12T01:20:56.661675Z [stdout] test api_tests::recovery_survives_corrupt_header ... ok
+2026-10-12T01:20:56.663988Z [stdout] test api_tests::rename_moves_directory_prefixes ... ok
+2026-10-12T01:20:56.664812Z [stdout] test api_tests::rename_moves_symlinks_inside_directory_prefixes ... ok
+2026-10-12T01:20:56.665702Z [stdout] test api_tests::rename_rejects_missing_directory_prefix_and_self_nested_moves ... ok
+2026-10-12T01:20:56.666217Z [stdout] test api_tests::removing_variable_sanitizes_original_variable_page ... ok
+2026-10-12T01:20:56.670134Z [stdout] test api_tests::replayed_header_after_retirement_fails_closed ... ok
+2026-10-12T01:20:56.671274Z [stdout] test api_tests::replacing_a_file_updates_content_and_keeps_old_version_out_of_toc ... ok
+2026-10-12T01:20:56.673116Z [stdout] test api_tests::reused_space_does_not_leak_old_file_path_or_content ... ok
+2026-10-12T01:20:56.676972Z [stdout] test api_tests::reuses_deleted_record_space_when_possible ... ok
+2026-10-12T01:20:56.677273Z [stdout] test api_tests::salvage_omits_corrupt_file_records ... ok
+2026-10-12T01:20:56.681120Z [stdout] test api_tests::secret_variable_access_caches_secure_decoded_page ... ok
+2026-10-12T01:20:56.683144Z [stdout] test api_tests::seek_past_eof_then_read_does_not_extend_but_write_creates_sparse_gap ... ok
+2026-10-12T01:20:56.683695Z [stdout] test api_tests::salvage_writes_intact_files_to_a_clean_lockbox ... ok
+2026-10-12T01:20:56.684538Z [stdout] test api_tests::small_files_are_staged_until_commit_then_packed ... ok
+2026-10-12T01:20:56.687313Z [stdout] test api_tests::small_variable_pages_use_variable_page_quantum ... ok
+2026-10-12T01:20:56.741899Z [stdout] test api_tests::sparse_file_does_not_materialize_entire_gap_on_commit ... ok
+2026-10-12T01:20:56.744802Z [stdout] test api_tests::symlink_recovery_records_are_packed_into_metadata_pages ... ok
+2026-10-12T01:20:56.818354Z [stdout] test api_tests::streamed_encoder_handles_fragmented_reads_empty_input_and_midstream_errors ... ok
+2026-10-12T01:20:56.822414Z [stdout] test api_tests::symlink_support_round_trips_and_safe_extraction_skips_by_default ... ok
+2026-10-12T01:20:56.891260Z [stdout] test api_tests::threaded_bulk_small_file_batches_round_trip_after_reopen ... ok
+2026-10-12T01:20:56.939680Z [stdout] test api_tests::threaded_large_file_import_round_trips_multiframe_data ... ok
+2026-10-12T01:20:56.947499Z [stdout] test api_tests::toc_btree_append_round_trips_across_commits ... ok
+2026-10-12T01:20:56.952055Z [stdout] test api_tests::toc_btree_create_round_trips_multiple_leaves ... ok
+2026-10-12T01:20:57.002697Z [stdout] test api_tests::symlink_recovery_records_spill_across_metadata_pages ... ok
+2026-10-12T01:20:57.008967Z [stdout] test api_tests::toc_round_trips_when_toc_payload_exceeds_minimum_page_body ... ok
+2026-10-12T01:20:57.009083Z [stdout] test api_tests::unicode_bidi_and_invisible_controls_are_rejected ... ok
+2026-10-12T01:20:57.010987Z [stdout] test api_tests::unicode_normalization_collisions_replace_same_lockbox_path ... ok
+2026-10-12T01:20:57.012752Z [stdout] test api_tests::unicode_paths_are_canonicalized_to_nfc_for_storage_and_lookup ... ok
+2026-10-12T01:20:57.014945Z [stdout] test api_tests::unicode_paths_round_trip ... ok
+2026-10-12T01:20:57.015640Z [stdout] test api_tests::variable_names_and_patterns_are_case_sensitive ... ok
+2026-10-12T01:20:57.016355Z [stdout] test api_tests::variable_names_and_values_are_validated ... ok
+2026-10-12T01:20:57.017079Z [stdout] test api_tests::variable_names_cannot_also_be_variable_directories ... ok
+2026-10-12T01:20:57.019480Z [stdout] test api_tests::variable_scan_fails_closed_when_variable_page_is_corrupt ... ok
+2026-10-12T01:20:57.021514Z [stdout] test api_tests::variables_are_private_and_do_not_appear_in_listings ... ok
+2026-10-12T01:20:57.025376Z [stdout] test api_tests::variables_can_be_moved_atomically_without_exposing_secrets ... ok
+2026-10-12T01:20:57.027317Z [stdout] test api_tests::variables_can_be_removed_and_replaced ... ok
+2026-10-12T01:20:57.029728Z [stdout] test api_tests::variables_round_trip_and_are_returned_as_a_map ... ok
+2026-10-12T01:20:57.030559Z [stdout] test api_tests::verified_path_import_checks_the_exact_imported_bytes ... ok
+2026-10-12T01:20:57.030661Z [stdout] test api_tests::worker_policy_auto_uses_conservative_native_cap ... ok
+2026-10-12T01:20:57.225749Z [stdout] test api_tests::worker_policy_single_and_threads_have_same_logical_results ... ok
+2026-10-12T01:20:57.235900Z [stdout] test api_tests::write_to_path_and_open_path_round_trip ... ok
+2026-10-12T01:20:57.238633Z [stdout] test api_tests::wrong_key_cannot_open_or_recover_private_metadata ... ok
+2026-10-12T01:20:57.238896Z [stdout] test compression::decode_workspace::tests::checksum_failure_returns_no_decoded_content_and_releases_scoped_scratch ... ok
+2026-10-12T01:20:57.239408Z [stdout] test compression::decode_workspace::tests::declared_length_mismatch_fails_before_transferring_decoded_output ... ok
+2026-10-12T01:20:57.239627Z [stdout] test compression::decode_workspace::tests::decoding_from_a_later_thread_local_destructor_falls_back ... ok
+2026-10-12T01:20:57.240761Z [stdout] test compression::decode_workspace::tests::oversized_history_keeps_the_original_decoder_fallback ... ok
+2026-10-12T01:20:57.285140Z [stdout] test compression::decode_workspace::tests::scoped_decoder_matches_fresh_decoder_for_sizes_corruption_and_concatenation ... ok
+2026-10-12T01:20:57.293804Z [stdout] test compression::decode_workspace::tests::scoped_scratch_reuses_allocation_and_cleans_up_nested_and_panicking_calls ... ok
+2026-10-12T01:20:57.347910Z [stdout] test compression::encode_workspace::tests::full_sized_frames_preserve_numeric_bytes_across_reuse ... ok
+2026-10-12T01:20:57.349031Z [stdout] test compression::encode_workspace::tests::pool_reentry_and_unavailable_borrow_preserve_encoding_and_cleanup ... ok
+2026-10-12T01:20:57.353045Z [stdout] test compression::encode_workspace::tests::pooled_buffers_are_wiped_and_reused_after_success_error_and_unwind ... ok
+2026-10-12T01:20:57.541063Z [stdout] test compression::encode_workspace::tests::retained_state_matches_fresh_numeric_encoding_including_size_changes ... ok
+2026-10-12T01:20:57.541265Z [stdout] test compression::tests::archive_like_high_entropy_compression_frame_stays_uncompressed ... ok
+2026-10-12T01:20:57.541370Z [stdout] test compression::tests::compression_frame_rejects_declared_bomb_before_allocating ... ok
+2026-10-12T01:20:57.541400Z [stdout] test compression::tests::compression_frame_rejects_stored_len_larger_than_frame_len ... ok
+2026-10-12T01:20:57.541659Z [stdout] test compression::tests::high_entropy_random_payload_stays_uncompressed ... ok
+2026-10-12T01:20:57.541739Z [stdout] test compression::tests::rejects_declared_decompression_bomb_before_allocating ... ok
+2026-10-12T01:20:57.541766Z [stdout] test compression::tests::rejects_stored_len_past_buffer ... ok
+2026-10-12T01:20:57.541853Z [stdout] test compression::tests::rejects_uncompressed_len_mismatch ... ok
+2026-10-12T01:20:57.541951Z [stdout] test compression::tests::rejects_zstd_page_body_that_expands_beyond_declared_len ... ok
+2026-10-12T01:20:57.546577Z [stdout] test compression::tests::repeated_binary_sequences_are_not_mistaken_for_incompressible_data ... ok
+2026-10-12T01:20:57.546856Z [stdout] test compression::tests::repeated_payload_is_compressed ... ok
+2026-10-12T01:20:57.547006Z [stdout] test compression::tests::zstd_compression_frame_rejects_content_size_mismatch_before_decode ... ok
+2026-10-12T01:20:57.547378Z [stdout] test compression::tests::zstd_encoder_writes_standard_zstd_algorithm_id ... ok
+2026-10-12T01:20:57.582717Z [stdout] test compression_regression_tests::asymmetric_literal_files_survive_public_commit_and_independent_reopen ... ok
+2026-10-12T01:20:57.829969Z [stdout] test compression_regression_tests::asymmetric_literal_weights_preserve_bytes_across_numeric_compression_levels ... ok
+2026-10-12T01:20:57.830070Z [stdout] test compression_regression_tests::moderately_large_zero_file_uses_few_fixed_pages ... ignored, compression corpus regression; GitHub Actions runs this explicitly
+2026-10-12T01:20:57.830117Z [stdout] test compression_regression_tests::one_gib_high_entropy_file_avoids_excessive_expansion ... ignored, production-scale compression regression; GitHub Actions runs this explicitly
+2026-10-12T01:20:57.830156Z [stdout] test compression_regression_tests::one_gib_zero_file_compression_does_not_regress ... ignored, production-scale compression regression; GitHub Actions runs this explicitly
+2026-10-12T01:20:57.830194Z [stdout] test compression_regression_tests::repeated_small_files_keep_meaningful_compression ... ignored, compression corpus regression; GitHub Actions runs this explicitly
+2026-10-12T01:20:57.830275Z [stdout] test creation_options::tests::content_pages_must_match_the_archive_padding_policy ... ok
+2026-10-12T01:20:57.830299Z [stdout] test creation_options::tests::padding_bit_does_not_alias_codec_levels_or_legacy_mode ... ok
+2026-10-12T01:20:57.830347Z [stdout] test error::tests::display_errors_are_concise_and_guidance_is_explicit ... ok
+2026-10-12T01:20:57.830367Z [stdout] test file_format::allocation_map::tests::allocation_aging_resource_probe ... ignored, manual file-backed allocator lifecycle CPU/RSS and physical accounting
+2026-10-12T01:20:58.007983Z [stdout] test file_format::allocation_map::tests::allocation_arena_bound_covers_actual_bulk_geometry_and_branch_boundaries ... ok
+2026-10-12T01:20:59.220505Z [stdout] test api_tests::toc_btree_delete_round_trips_across_commits ... ok
+2026-10-12T01:21:00.052535Z [stdout] test file_format::allocation_map::tests::allocator_faults_preserve_complete_old_or_new_ownership_for_reuse_and_append ... ok
+2026-10-12T01:21:00.059969Z [stdout] test file_format::allocation_map::tests::audit_rejects_unowned_gaps_overlapping_payload_and_freed_descendant_pages ... ok
+2026-10-12T01:21:00.316640Z [stdout] test file_format::allocation_map::tests::bulk_replacement_accounts_fragmented_free_space_and_retires_allocation_descendants ... ok
+2026-10-12T01:21:00.557813Z [stdout] test file_format::allocation_map::tests::candidate_lifecycle_accounts_shared_payload_keys_reuse_retirement_and_no_change_all_modes ... ok
+2026-10-12T01:21:02.230909Z [stdout] test file_format::allocation_map::tests::every_single_aligned_region_loss_preserves_membership_and_intact_payloads ... ok
+2026-10-12T01:21:02.249530Z [stdout] test file_format::allocation_map::tests::loss_of_both_authority_copies_fails_closed_and_does_not_repair_from_history ... ok
+2026-10-12T01:21:03.078855Z [stdout] test file_format::allocation_map::tests::allocator_power_loss_preserves_ownership_and_reclamation ... ok
+2026-10-12T01:21:03.078901Z [stdout] test file_format::allocation_map::tests::ownership_envelope_rejects_unbounded_lengths_and_bad_physical_references ... ok
+2026-10-12T01:21:03.084644Z [stdout] test file_format::allocation_map::tests::recovery_audits_descendant_ownership_before_any_erasure ... ok
+2026-10-12T01:21:03.084716Z [stdout] test file_format::allocation_map::tests::separated_pair_geometry_rejects_shared_regions_and_crossing_nodes ... ok
+2026-10-12T01:21:03.086838Z [stdout] test file_format::allocation_map::tests::unused_control_arena_bytes_cannot_hide_payload ... ok
+2026-10-12T01:21:03.095505Z [stdout] test file_format::authenticated_index::cache::compact_leaf_preserves_binary_empty_and_boundary_records_all_modes ... ok
+2026-10-12T01:21:03.101163Z [stdout] test file_format::authenticated_index::cache::page_cache_evicts_at_its_fixed_bound_and_preserves_exact_lookups ... ok
+2026-10-12T01:21:03.101214Z [stdout] test file_format::authenticated_index::tests::authenticated_index_resource_observation ... ignored, 100,000-entry file-backed index resource observation; run explicitly in release mode
+2026-10-12T01:21:03.224539Z [stdout] test file_format::authenticated_index::tests::borrowed_walk_matches_owned_pages_records_and_failure_boundaries ... ok
+2026-10-12T01:21:03.237498Z [stdout] test file_format::authenticated_index::tests::borrowed_walk_refuses_parent_mismatches_before_child_callbacks ... ok
+2026-10-12T01:21:03.237663Z [stdout] test file_format::authenticated_index::tests::bounded_decoding_rejects_truncation_lengths_context_and_invalid_child_graphs ... ok
+2026-10-12T01:21:03.275796Z [stdout] test file_format::authenticated_index::tests::bulk_builder_orders_namespaces_without_intermediate_garbage_and_bounds_range_reads ... ok
+2026-10-12T01:21:03.276851Z [stdout] test file_format::authenticated_index::tests::bulk_input_errors_leave_old_publication_and_generated_tail_unselected ... ok
+2026-10-12T01:21:03.277020Z [stdout] test file_format::authenticated_index::tests::cached_lookup_binds_snapshot_mode_archive_and_key ... ok
+2026-10-12T01:21:03.292497Z [stdout] test file_format::authenticated_index::tests::every_bulk_append_and_publication_failure_retains_complete_selected_membership ... ok
+2026-10-12T01:21:03.364130Z [stdout] test file_format::authenticated_index::tests::file_reopen_all_modes_preserves_published_lifecycle_and_hides_preparation ... ok
+2026-10-12T01:21:03.715393Z [stdout] 2048-entry replacement: nodes=3 reads=3 bytes_read=32613 bytes_appended=65228
+2026-10-12T01:21:04.034322Z [stdout] test file_format::authenticated_index::tests::incremental_updates_share_subtrees_and_bound_reads_without_a_whole_index_clone ... ok
+2026-10-12T01:21:04.034412Z [stdout] test file_format::authenticated_index::tests::independently_encoded_packed_vectors_match_wire_bytes_and_ordered_membership ... ok
+2026-10-12T01:21:04.182476Z [stdout] test file_format::authenticated_index::tests::insertion_and_publication_faults_select_only_complete_old_or_new_membership ... ok
+2026-10-12T01:21:04.211980Z [stdout] test file_format::authenticated_index::tests::mixed_mutations_match_an_independent_map_and_maximum_records_round_trip ... ok
+2026-10-12T01:21:04.214450Z [stdout] test file_format::authenticated_index::tests::padding_policy_preserves_constant_node_lengths_and_rejects_noncanonical_padding ... ok
+2026-10-12T01:21:04.219275Z [stdout] test file_format::authenticated_index::tests::read_key_holder_cannot_replace_owner_authorized_nodes_or_reinstate_deleted_records ... ok
+2026-10-12T01:21:04.219385Z [stdout] test file_format::authenticated_index::tests::root_collapse_validates_the_promoted_child_before_returning_a_new_root ... ok
+2026-10-12T01:21:04.228498Z [stdout] test file_format::authenticated_index::tests::signed_membership_recovers_intact_content_without_reading_damaged_neighbor ... ok
+2026-10-12T01:21:04.563291Z [stdout] test file_format::authenticated_index::tests::variable_sized_splits_merges_and_root_shrink_preserve_every_live_record ... ok
+2026-10-12T01:21:04.563444Z [stdout] test file_format::candidate_files::dense_catalogue::forms::stored_form_validation_preserves_operational_errors ... ok
+2026-10-12T01:21:04.563481Z [stdout] test file_format::candidate_files::dense_catalogue::nodes::tests::typed_node_decoder_refuses_unknown_kinds_and_oversized_counts ... ok
+2026-10-12T01:21:04.563556Z [stdout] test file_format::candidate_files::packing::tests::independent_fragment_wire_vector_is_stable ... ok
+2026-10-12T01:21:04.563590Z [stdout] test file_format::candidate_files::resource_probe::candidate_file_resource_probe ... ignored, common-runner candidate C CPU/RSS and extent-size evaluation
+2026-10-12T01:21:04.563800Z [stdout] test file_format::candidate_files::resource_probe::extraction::observation::tests::device_names_and_counter_deltas_are_bounded ... ok
+2026-10-12T01:21:04.563842Z [stdout] test file_format::candidate_files::resource_probe::extraction::observation::tests::identity_and_strict_parity_are_checked ... ok
+2026-10-12T01:21:04.563868Z [stdout] test file_format::candidate_files::resource_probe::extraction::tests::durability_setting_is_explicit_and_io_counters_are_checked ... ok
+2026-10-12T01:21:04.571622Z [stdout] test file_format::candidate_files::resource_probe::extraction::tests::durable_extraction_syncs_files_and_directory_chain_before_verification ... ok
+2026-10-12T01:21:04.572285Z [stdout] test file_format::candidate_files::resource_probe::extraction::tests::extraction_checks_reopened_bytes_across_buffer_boundary ... ok
+2026-10-12T01:21:04.572702Z [stdout] test file_format::candidate_files::resource_probe::extraction::tests::extraction_refuses_existing_destination_before_opening_archive ... ok
+2026-10-12T01:21:04.573234Z [stdout] test file_format::candidate_files::resource_probe::extraction::tests::extraction_rejects_wrong_output_even_with_correct_reported_count ... ok
+2026-10-12T01:21:04.573481Z [stdout] test file_format::candidate_files::resource_probe::extraction::tests::wrong_parity_skips_before_archive_open_and_output_creation ... ok
+2026-10-12T01:21:04.573536Z [stdout] test file_format::candidate_files::tests::aging::mixed_file_aging_preserves_contents_and_bounds_physical_growth ... ignored, explicit 4-mode, 1000-cycle mixed file aging qualification
+2026-10-12T01:21:05.129774Z [stdout] test file_format::candidate_files::tests::compaction_preserves_identity_content_and_generation_in_every_mode ... ok
+2026-10-12T01:21:05.138255Z [stdout] test file_format::candidate_files::tests::compaction_refuses_nonempty_output_and_damaged_source_in_lazy_modes ... ok
+2026-10-12T01:21:05.138369Z [stdout] test file_format::candidate_files::tests::compaction_tests::compaction_process_child ... ok
+2026-10-12T01:21:06.136811Z [stdout] CANDIDATE_COMPACTION_PROCESS_DEATH_CASES 16
+2026-10-12T01:21:06.159731Z [stdout] test file_format::candidate_files::tests::compaction_tests::compaction_process_death_preserves_old_or_installs_complete_new_archive ... ok
+2026-10-12T01:21:06.218914Z [stdout] test file_format::candidate_files::tests::compaction_tests::file_compaction_cleans_failed_output_and_refuses_symlink ... ok
+2026-10-12T01:21:06.537804Z [stdout] test file_format::candidate_files::tests::compaction_tests::file_compaction_installs_verified_writable_archive ... ok
+2026-10-12T01:21:06.541934Z [stdout] test file_format::candidate_files::tests::compaction_tests::file_relocation_refuses_unimplemented_access_tree_before_writes ... ok
+2026-10-12T01:21:06.548577Z [stdout] test file_format::candidate_files::tests::conflicting_update_paths_fail_before_archive_mutation ... ok
+2026-10-12T01:21:06.739322Z [stdout] test file_format::candidate_files::tests::dense_catalogue_reconstructs_and_reads_relocated_fragments_in_all_modes ... ok
+2026-10-12T01:21:06.743854Z [stdout] test file_format::candidate_files::tests::dense_catalogue_sink_failure_preserves_source_and_propagates ... ok
+2026-10-12T01:21:07.590587Z [stdout] test file_format::candidate_files::tests::dense_filesystem_metadata_preserves_public_nodes_permissions_and_no_change_all_modes ... ok
+2026-10-12T01:21:11.635752Z [stdout] DENSE_FILESYSTEM_METADATA_POWER_LOSS_CASES 630
+2026-10-12T01:21:11.635809Z [stdout] test file_format::candidate_files::tests::dense_filesystem_metadata_recovery_selects_complete_old_or_typed_new_state ... ok
+2026-10-12T01:21:11.804431Z [stdout] test file_format::candidate_files::tests::dense_filesystem_metadata_refuses_ambiguous_or_incomplete_snapshots_before_writes ... ok
+2026-10-12T01:21:12.384916Z [stdout] test file_format::candidate_files::tests::dense_filesystem_salvage_preserves_nodes_even_when_payload_is_lost_all_modes ... ok
+2026-10-12T01:21:12.494497Z [stdout] DENSE_IMAGE_MUTATION_FAILURES 44
+2026-10-12T01:21:12.494566Z [stdout] test file_format::candidate_files::tests::dense_image_failures_clear_fresh_output_and_preserve_source ... ok
+2026-10-12T01:21:13.016703Z [stdout] test file_format::candidate_files::tests::dense_image_rejects_owner_substitution_and_reads_password_directory ... ok
+2026-10-12T01:21:13.391408Z [stdout] test file_format::candidate_files::tests::dense_image_reopens_files_ranges_and_separated_controls_in_all_modes ... ok
+2026-10-12T01:21:15.271245Z [stdout] DENSE_METADATA_RETURNED_FAILURES 209
+2026-10-12T01:21:15.271338Z [stdout] test file_format::candidate_files::tests::dense_metadata_edits_recover_every_returned_storage_failure ... ok
+2026-10-12T01:21:16.986081Z [stdout] test file_format::candidate_files::tests::dense_metadata_edits_reopen_with_bounded_control_growth_in_all_modes ... ok
+2026-10-12T01:21:21.401639Z [stdout] test file_format::allocation_map::tests::metadata_repair_survives_each_mutation_failure_and_power_loss ... ok
+2026-10-12T01:21:21.495103Z [stdout] test file_format::candidate_files::tests::dense_metadata_file_updates_close_and_reopen_with_persisted_permissions_and_contents ... ok
+2026-10-12T01:21:23.206246Z [stdout] DENSE_METADATA_TAIL_RECOVERY_INTERRUPTION_CASES 192; bank_loss=6
+2026-10-12T01:21:23.206591Z [stdout] test file_format::candidate_files::tests::dense_metadata_tail_cleanup_resumes_after_interruption_and_bank_loss ... ok
+2026-10-12T01:21:28.263804Z [stdout] DENSE_METADATA_POWER_LOSS_CASES 1254
+2026-10-12T01:21:28.263879Z [stdout] test file_format::candidate_files::tests::dense_metadata_edits_survive_volatile_writes_torn_records_and_failed_sync ... ok
+2026-10-12T01:21:29.669124Z [stdout] test file_format::candidate_files::tests::dense_metadata_tail_returns_to_original_size_and_preserves_bytes_all_modes ... ok
+2026-10-12T01:21:30.021127Z [stdout] DENSE_METADATA_SEPARATE_REGION_LOSS_CASES 32
+2026-10-12T01:21:30.021204Z [stdout] test file_format::candidate_files::tests::dense_metadata_updates_keep_authority_after_either_control_or_external_root_region_is_lost ... ok
+2026-10-12T01:21:30.087441Z [stdout] test file_format::candidate_files::tests::dense_normal_open_checks_unallocated_public_slots_without_blocking_salvage ... ok
+2026-10-12T01:21:30.172939Z [stdout] test file_format::candidate_files::tests::dense_ownership_catalogue_persists_canonical_states_and_preserves_file_bindings ... ok
+2026-10-12T01:21:30.332409Z [stdout] DENSE_REGION_LOSS old_incomplete=64 old_logical_bytes=262144 dense_incomplete=512 dense_logical_bytes=2097152 single_byte_incomplete=1
+2026-10-12T01:21:30.332722Z [stdout] test file_format::candidate_files::tests::dense_packing_exposes_the_larger_logical_loss_from_a_physical_region_failure ... ok
+2026-10-12T01:21:34.535097Z [stdout] DENSE_METADATA_TAIL_FAILURES returned=117 power_loss=702
+2026-10-12T01:21:34.535177Z [stdout] test file_format::candidate_files::tests::dense_metadata_tail_recovers_returned_failures_and_power_loss ... ok
+2026-10-12T01:21:34.602995Z [stdout] test file_format::candidate_files::tests::dense_recovery_refuses_forged_cleanup_of_live_or_fixed_bytes ... ok
+2026-10-12T01:21:34.632476Z [stdout] test file_format::candidate_files::tests::dense_salvage_discards_partial_files_and_propagates_fatal_errors ... ok
+2026-10-12T01:21:34.761537Z [stdout] test file_format::candidate_files::tests::dense_salvage_preserves_intact_neighbours_and_ignores_unrelated_controls ... ok
+2026-10-12T01:21:34.777898Z [stdout] test file_format::candidate_files::tests::encrypted_pack_padding_is_authenticated_ciphertext_and_cannot_hide_retired_bytes ... ok
+2026-10-12T01:21:35.113272Z [stdout] CANDIDATE_COMPACTION_FAILURE_CASES 90
+2026-10-12T01:21:35.113382Z [stdout] test file_format::candidate_files::tests::failed_compaction_clears_replacement_and_never_modifies_source ... ok
+2026-10-12T01:21:35.192287Z [stdout] test file_format::candidate_files::tests::fresh_read_only_salvage_isolates_shared_fragment_damage_in_all_modes ... ok
+2026-10-12T01:21:36.433830Z [stdout] DENSE_METADATA_RECOVERY_INTERRUPTION_CASES 942
+2026-10-12T01:21:36.433902Z [stdout] test file_format::candidate_files::tests::dense_recovery_itself_survives_interruption_in_abort_and_commit_cleanup ... ok
+2026-10-12T01:21:36.639498Z [stdout] test file_format::candidate_files::tests::one_file_can_exceed_the_ownership_envelopes_512_extent_limit ... ok
+2026-10-12T01:21:36.642971Z [stdout] test file_format::candidate_files::tests::packed_slice_version_and_bounds_fail_closed ... ok
+2026-10-12T01:21:36.701528Z [stdout] PACKED_FILE_UPDATE_FAILURE_CASES 174
+2026-10-12T01:21:36.701663Z [stdout] test file_format::candidate_files::tests::mixed_update_is_atomic_at_every_storage_failure ... ok
+2026-10-12T01:21:37.139585Z [stdout] test file_format::candidate_files::tests::packed_updates_cover_add_replace_delete_empty_and_no_change_in_every_mode ... ok
+2026-10-12T01:21:37.151098Z [stdout] test file_format::candidate_files::tests::paged_cost_model_handles_two_byte_leaf_counts ... ok
+2026-10-12T01:21:37.298608Z [stdout] test file_format::candidate_files::tests::paged_cost_model_keeps_large_pack_tables_out_of_the_embedded_root ... ok
+2026-10-12T01:21:37.449386Z [stdout] test file_format::candidate_files::tests::paged_cost_model_preserves_source_and_budgets_actual_hybrid_publication_bytes ... ok
+2026-10-12T01:21:37.465605Z [stdout] test file_format::candidate_files::tests::salvage_discards_partial_files_and_preserves_authenticated_empty_files ... ok
+2026-10-12T01:21:37.481250Z [stdout] test file_format::candidate_files::tests::salvage_ignores_damaged_padding_and_maps_but_requires_selected_membership_root ... ok
+2026-10-12T01:21:37.505029Z [stdout] test file_format::candidate_files::tests::salvage_never_resurrects_deleted_or_unpublished_membership ... ok
+2026-10-12T01:21:37.520702Z [stdout] test file_format::candidate_files::tests::salvage_propagates_sink_and_key_errors_without_finishing_active_file ... ok
+2026-10-12T01:21:37.536235Z [stdout] test file_format::candidate_files::tests::salvage_recovers_prior_intact_files_after_tail_truncation ... ok
+2026-10-12T01:21:37.584963Z [stdout] test file_format::candidate_files::tests::salvage_reports_missing_authenticated_subtrees_and_uses_intact_mirrors ... ok
+2026-10-12T01:21:37.591968Z [stdout] test file_format::candidate_files::tests::semantic_audit_rejects_missing_and_orphaned_chunk_membership ... ok
+2026-10-12T01:21:37.608507Z [stdout] test file_format::candidate_files::tests::shared_pack_audit_rejects_hidden_deleted_bytes_overlaps_and_conflicting_descriptors ... ok
+2026-10-12T01:21:37.994743Z [stdout] test file_format::candidate_files::tests::shared_pack_deletion_rewrites_survivor_and_erases_whole_old_allocation_all_modes ... ok
+2026-10-12T01:21:38.070183Z [stdout] test file_format::candidate_files::tests::shared_pack_keeps_intact_neighbor_readable_after_other_fragment_damage ... ok
+2026-10-12T01:21:39.492333Z [stdout] PACKED_FILE_REMOVAL_FAILURE_CASES 174
+2026-10-12T01:21:39.492490Z [stdout] test file_format::candidate_files::tests::shared_pack_removal_recovers_complete_old_or_new_files_at_every_storage_failure ... ok
+2026-10-12T01:21:39.530888Z [stdout] test file_format::candidate_files::tests::signed_plaintext_open_remains_eager_and_other_modes_verify_before_yield ... ok
+2026-10-12T01:21:39.562403Z [stdout] test file_format::candidate_files::tests::source_failure_aborts_real_file_allocations_and_reopens_empty ... ok
+2026-10-12T01:21:40.192220Z [stdout] test file_format::candidate_files::tests::streamed_files_and_ranges_round_trip_all_modes_and_units ... ok
+2026-10-12T01:21:40.477160Z [stdout] test file_format::candidate_files::tests::packed_update_aging_reclaims_bytes_and_no_change_never_accumulates ... ok
+2026-10-12T01:21:44.202026Z [stdout] DENSE_ACCESS_PARTIAL_WRITES cases=16
+2026-10-12T01:21:44.202173Z [stdout] test file_format::candidate_files::tests::tree_tests::access_export::dense_tree_export_discards_partial_credential_directories ... ok
+2026-10-12T01:21:49.687824Z [stdout] test file_format::candidate_files::tests::tree_tests::access_export::dense_tree_export_preserves_wrappers_and_resets_directory_generation ... ok
+2026-10-12T01:21:52.783337Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::admission::typed_form_metadata_byte_budget_refuses_before_publication ... ok
+2026-10-12T01:21:52.783491Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::aggregate::typed_form_aggregate_guarded_snapshot_probe ... ignored, fresh-process form aggregate endpoint probe
+2026-10-12T01:21:52.783545Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::aggregate::typed_form_selected_source_aggregate_probe ... ignored, fresh-process selected-source aggregate endpoint probe
+2026-10-12T01:21:53.267840Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::admission::typed_form_guarded_admission_and_semantic_page_substitution_all_modes ... ok
+2026-10-12T01:21:53.269647Z [stdout] WHOLE_TREE_COPY_FUNCTIONAL_DIRECTORY /home/bsutton/.cache/rv4-security-20261011/revault-whole-tree-copy-functional-869149-9001833936218544647
+2026-10-12T01:22:08.567861Z [stdout] WHOLE_TREE_COPY_FUNCTIONAL {"destination":"/home/bsutton/.cache/rv4-security-20261011/revault-whole-tree-copy-functional-869149-9001833936218544647/destination-0.lbox","destination_bytes":10813440,"destination_length_bound_sha256":[106,129,203,185,65,162,202,119,14,67,77,116,109,109,180,87,174,160,73,239,192,42,232,71,78,48,207,195,234,206,108,208],"large_logical_bytes":10485760,"mode":0,"payload_bytes":10533100,"source":"/home/bsutton/.cache/rv4-security-20261011/revault-whole-tree-copy-functional-869149-9001833936218544647/source-0.lbox","source_bytes":13041664,"source_length_bound_sha256":[78,144,200,45,81,62,101,203,139,120,113,172,160,136,32,219,90,228,248,32,86,15,81,183,153,38,172,149,211,236,213,170]}
+2026-10-12T01:22:18.606831Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::compaction::whole_tree_compaction_checks_extent_tail_and_reports_cleanup_failures ... ok
+2026-10-12T01:22:26.348093Z [stdout] WHOLE_TREE_COPY_FUNCTIONAL {"destination":"/home/bsutton/.cache/rv4-security-20261011/revault-whole-tree-copy-functional-869149-9001833936218544647/destination-1.lbox","destination_bytes":10813440,"destination_length_bound_sha256":[207,7,151,96,35,222,235,233,48,230,190,98,55,143,105,221,4,151,183,232,99,22,211,167,135,252,196,213,203,156,57,56],"large_logical_bytes":10485760,"mode":1,"payload_bytes":10533331,"source":"/home/bsutton/.cache/rv4-security-20261011/revault-whole-tree-copy-functional-869149-9001833936218544647/source-1.lbox","source_bytes":13041664,"source_length_bound_sha256":[177,136,251,26,176,187,53,148,67,197,241,105,161,180,207,95,165,21,236,15,143,203,167,122,127,13,138,253,122,208,16,216]}
+2026-10-12T01:22:53.267945Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::compaction::whole_tree_compaction_large_selected_state_file_store_all_modes has been running for over 60 seconds
+2026-10-12T01:22:54.759551Z [stdout] WHOLE_TREE_COPY_FUNCTIONAL {"destination":"/home/bsutton/.cache/rv4-security-20261011/revault-whole-tree-copy-functional-869149-9001833936218544647/destination-2.lbox","destination_bytes":10813440,"destination_length_bound_sha256":[88,66,47,159,199,97,144,8,32,186,118,153,122,195,134,103,111,236,40,105,236,241,13,97,192,6,77,250,58,104,46,156],"large_logical_bytes":10485760,"mode":2,"payload_bytes":10533100,"source":"/home/bsutton/.cache/rv4-security-20261011/revault-whole-tree-copy-functional-869149-9001833936218544647/source-2.lbox","source_bytes":13041664,"source_length_bound_sha256":[21,231,104,16,183,199,251,7,205,171,4,4,183,130,116,65,8,49,196,121,137,183,249,165,5,132,98,131,52,177,216,128]}
+2026-10-12T01:23:15.002429Z [stdout] WHOLE_TREE_COPY_FUNCTIONAL {"destination":"/home/bsutton/.cache/rv4-security-20261011/revault-whole-tree-copy-functional-869149-9001833936218544647/destination-3.lbox","destination_bytes":10813440,"destination_length_bound_sha256":[66,203,212,126,165,182,223,174,209,114,34,217,126,216,205,240,193,91,67,53,158,239,1,238,152,73,238,3,3,169,200,190],"large_logical_bytes":10485760,"mode":3,"payload_bytes":10533331,"source":"/home/bsutton/.cache/rv4-security-20261011/revault-whole-tree-copy-functional-869149-9001833936218544647/source-3.lbox","source_bytes":13041664,"source_length_bound_sha256":[74,59,177,188,235,234,45,175,114,28,190,217,71,240,38,247,95,66,50,30,126,143,121,234,165,167,23,86,106,54,143,179]}
+2026-10-12T01:23:16.222395Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::compaction::whole_tree_compaction_preserves_authenticated_access_root ... ok
+2026-10-12T01:23:20.316076Z [stdout] WHOLE_TREE_COPY mode=0 source=3080192 destination=2424832 payload_bytes=2113181
+2026-10-12T01:23:27.201003Z [stdout] WHOLE_TREE_COPY mode=1 source=3080192 destination=2424832 payload_bytes=2113292
+2026-10-12T01:23:32.510777Z [stdout] WHOLE_TREE_COPY_FUNCTIONAL {"destination":"/home/bsutton/.cache/rv4-security-20261011/revault-whole-tree-copy-functional-869149-9001833936218544647/destination-4.lbox","destination_bytes":10813440,"destination_length_bound_sha256":[107,191,225,201,170,108,206,57,63,254,120,127,86,118,112,52,254,194,181,9,115,175,6,4,10,52,94,162,150,190,118,245],"large_logical_bytes":10485760,"mode":4,"payload_bytes":10533100,"source":"/home/bsutton/.cache/rv4-security-20261011/revault-whole-tree-copy-functional-869149-9001833936218544647/source-4.lbox","source_bytes":13041664,"source_length_bound_sha256":[98,16,232,171,207,70,161,136,220,145,251,44,0,24,52,219,217,73,216,152,134,38,12,224,145,18,89,58,92,98,34,73]}
+2026-10-12T01:23:35.309222Z [stdout] WHOLE_TREE_COPY mode=2 source=3080192 destination=2424832 payload_bytes=2113181
+2026-10-12T01:23:40.766204Z [stdout] WHOLE_TREE_COPY mode=3 source=3080192 destination=2424832 payload_bytes=2113292
+2026-10-12T01:23:45.962126Z [stdout] WHOLE_TREE_COPY mode=4 source=3080192 destination=2424832 payload_bytes=2113181
+2026-10-12T01:23:51.571674Z [stdout] WHOLE_TREE_COPY_FUNCTIONAL {"destination":"/home/bsutton/.cache/rv4-security-20261011/revault-whole-tree-copy-functional-869149-9001833936218544647/destination-5.lbox","destination_bytes":10813440,"destination_length_bound_sha256":[38,116,243,8,199,140,28,177,73,156,51,210,250,253,86,192,80,85,212,182,128,23,77,6,86,9,197,223,175,182,96,76],"large_logical_bytes":10485760,"mode":5,"payload_bytes":10533331,"source":"/home/bsutton/.cache/rv4-security-20261011/revault-whole-tree-copy-functional-869149-9001833936218544647/source-5.lbox","source_bytes":13041664,"source_length_bound_sha256":[131,68,45,66,45,228,154,172,18,31,196,187,149,30,215,17,40,14,61,237,236,225,202,48,127,222,196,0,216,190,180,157]}
+2026-10-12T01:23:52.409413Z [stdout] WHOLE_TREE_COPY mode=5 source=3080192 destination=2424832 payload_bytes=2113292
+2026-10-12T01:23:58.905866Z [stdout] WHOLE_TREE_COPY mode=6 source=3080192 destination=2424832 payload_bytes=2113181
+2026-10-12T01:24:11.827282Z [stdout] WHOLE_TREE_COPY mode=7 source=3080192 destination=2424832 payload_bytes=2113292
+2026-10-12T01:24:16.222479Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::compaction::whole_tree_compaction_preserves_selected_history_and_lineage_all_modes has been running for over 60 seconds
+2026-10-12T01:24:21.656982Z [stdout] WHOLE_TREE_COPY_FUNCTIONAL {"destination":"/home/bsutton/.cache/rv4-security-20261011/revault-whole-tree-copy-functional-869149-9001833936218544647/destination-6.lbox","destination_bytes":10813440,"destination_length_bound_sha256":[214,188,191,26,218,98,247,31,220,118,36,225,113,3,72,81,157,5,215,217,151,33,112,13,220,24,118,203,242,73,236,217],"large_logical_bytes":10485760,"mode":6,"payload_bytes":10533100,"source":"/home/bsutton/.cache/rv4-security-20261011/revault-whole-tree-copy-functional-869149-9001833936218544647/source-6.lbox","source_bytes":13041664,"source_length_bound_sha256":[16,119,129,46,99,121,20,104,98,210,130,129,18,198,12,89,241,93,107,72,139,95,88,193,156,57,67,138,210,1,20,65]}
+2026-10-12T01:24:22.453916Z [stdout] WHOLE_TREE_COPY mode=8 source=8060928 destination=7536640 payload_bytes=7274496
+2026-10-12T01:24:26.721479Z [stdout] WHOLE_TREE_COPY mode=9 source=8060928 destination=7536640 payload_bytes=7274496
+2026-10-12T01:24:38.770555Z [stdout] WHOLE_TREE_COPY mode=10 source=8060928 destination=7536640 payload_bytes=7274496
+2026-10-12T01:24:41.841131Z [stdout] WHOLE_TREE_COPY_FUNCTIONAL {"destination":"/home/bsutton/.cache/rv4-security-20261011/revault-whole-tree-copy-functional-869149-9001833936218544647/destination-7.lbox","destination_bytes":10813440,"destination_length_bound_sha256":[14,48,67,156,113,174,68,146,60,100,219,37,55,9,106,86,189,86,99,104,233,203,103,205,49,114,20,130,138,176,197,197],"large_logical_bytes":10485760,"mode":7,"payload_bytes":10533331,"source":"/home/bsutton/.cache/rv4-security-20261011/revault-whole-tree-copy-functional-869149-9001833936218544647/source-7.lbox","source_bytes":13041664,"source_length_bound_sha256":[120,108,143,208,122,195,170,203,34,254,99,103,162,95,233,41,131,253,226,240,125,4,50,128,183,203,125,20,198,114,42,49]}
+2026-10-12T01:24:46.659275Z [stdout] WHOLE_TREE_COPY mode=11 source=8060928 destination=7536640 payload_bytes=7274496
+2026-10-12T01:24:54.179460Z [stdout] WHOLE_TREE_COPY mode=12 source=8060928 destination=7536640 payload_bytes=7274496
+2026-10-12T01:25:01.414450Z [stdout] WHOLE_TREE_COPY_FUNCTIONAL {"destination":"/home/bsutton/.cache/rv4-security-20261011/revault-whole-tree-copy-functional-869149-9001833936218544647/destination-8.lbox","destination_bytes":23265280,"destination_length_bound_sha256":[21,103,1,97,213,220,39,115,222,236,122,250,190,66,54,48,182,12,13,20,4,106,75,48,157,20,113,17,245,189,181,169],"large_logical_bytes":10485760,"mode":8,"payload_bytes":23003136,"source":"/home/bsutton/.cache/rv4-security-20261011/revault-whole-tree-copy-functional-869149-9001833936218544647/source-8.lbox","source_bytes":26017792,"source_length_bound_sha256":[174,183,57,139,124,184,148,250,89,240,184,34,129,37,172,67,157,80,51,148,46,97,29,164,150,55,167,214,125,167,39,185]}
+2026-10-12T01:25:03.462333Z [stdout] WHOLE_TREE_COPY mode=13 source=8060928 destination=7536640 payload_bytes=7274496
+2026-10-12T01:25:10.046640Z [stdout] WHOLE_TREE_COPY mode=14 source=8060928 destination=7536640 payload_bytes=7274496
+2026-10-12T01:25:18.550625Z [stdout] WHOLE_TREE_COPY mode=15 source=8060928 destination=7536640 payload_bytes=7274496
+2026-10-12T01:25:18.553681Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::compaction::whole_tree_compaction_preserves_selected_history_and_lineage_all_modes ... ok
+2026-10-12T01:25:24.499772Z [stdout] WHOLE_TREE_COPY_FUNCTIONAL {"destination":"/home/bsutton/.cache/rv4-security-20261011/revault-whole-tree-copy-functional-869149-9001833936218544647/destination-9.lbox","destination_bytes":23265280,"destination_length_bound_sha256":[237,204,211,9,151,250,36,63,147,29,146,213,233,96,132,102,48,67,153,89,88,118,87,229,14,8,228,46,208,35,84,95],"large_logical_bytes":10485760,"mode":9,"payload_bytes":23003136,"source":"/home/bsutton/.cache/rv4-security-20261011/revault-whole-tree-copy-functional-869149-9001833936218544647/source-9.lbox","source_bytes":26017792,"source_length_bound_sha256":[203,161,141,31,58,92,104,21,127,40,14,146,111,181,81,88,211,46,99,190,119,62,254,118,149,14,120,26,80,235,55,224]}
+2026-10-12T01:25:54.269873Z [stdout] WHOLE_TREE_COPY_FUNCTIONAL {"destination":"/home/bsutton/.cache/rv4-security-20261011/revault-whole-tree-copy-functional-869149-9001833936218544647/destination-10.lbox","destination_bytes":23265280,"destination_length_bound_sha256":[29,136,67,127,31,111,200,58,76,70,8,190,152,161,90,100,42,122,152,68,39,204,24,210,189,179,123,82,9,0,113,175],"large_logical_bytes":10485760,"mode":10,"payload_bytes":23003136,"source":"/home/bsutton/.cache/rv4-security-20261011/revault-whole-tree-copy-functional-869149-9001833936218544647/source-10.lbox","source_bytes":26017792,"source_length_bound_sha256":[33,174,129,238,176,19,152,206,169,39,66,135,31,93,146,7,180,83,62,156,14,242,190,93,84,110,41,236,201,227,174,24]}
+2026-10-12T01:25:54.508745Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::compaction::whole_tree_compaction_rechecks_source_before_and_after_publication ... ok
+2026-10-12T01:26:13.427435Z [stdout] WHOLE_TREE_COPY_FUNCTIONAL {"destination":"/home/bsutton/.cache/rv4-security-20261011/revault-whole-tree-copy-functional-869149-9001833936218544647/destination-11.lbox","destination_bytes":23265280,"destination_length_bound_sha256":[241,186,189,208,154,217,39,226,81,151,152,141,139,199,186,27,242,87,72,174,140,253,1,120,223,62,146,48,120,156,153,160],"large_logical_bytes":10485760,"mode":11,"payload_bytes":23003136,"source":"/home/bsutton/.cache/rv4-security-20261011/revault-whole-tree-copy-functional-869149-9001833936218544647/source-11.lbox","source_bytes":26017792,"source_length_bound_sha256":[25,77,103,82,142,90,50,120,170,112,187,46,160,101,83,160,118,25,124,139,173,57,237,144,187,75,128,175,85,83,12,211]}
+2026-10-12T01:26:25.928656Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::compaction::whole_tree_compaction_refusals_precede_destination_mutation_all_modes ... ok
+2026-10-12T01:26:30.801961Z [stdout] WHOLE_TREE_COPY_FUNCTIONAL {"destination":"/home/bsutton/.cache/rv4-security-20261011/revault-whole-tree-copy-functional-869149-9001833936218544647/destination-12.lbox","destination_bytes":23265280,"destination_length_bound_sha256":[185,228,216,13,9,218,99,9,89,73,119,230,135,237,68,236,150,110,63,81,136,64,180,68,211,69,28,171,19,53,78,167],"large_logical_bytes":10485760,"mode":12,"payload_bytes":23003136,"source":"/home/bsutton/.cache/rv4-security-20261011/revault-whole-tree-copy-functional-869149-9001833936218544647/source-12.lbox","source_bytes":26017792,"source_length_bound_sha256":[105,243,171,243,200,104,53,236,67,120,131,139,53,185,118,158,111,121,54,108,252,89,213,34,111,178,114,145,172,238,146,20]}
+2026-10-12T01:26:44.250657Z [stdout] WHOLE_TREE_COPY_FAULT_MODE mode=0 successful_mutations=32
+2026-10-12T01:26:48.494181Z [stdout] WHOLE_TREE_COPY_FUNCTIONAL {"destination":"/home/bsutton/.cache/rv4-security-20261011/revault-whole-tree-copy-functional-869149-9001833936218544647/destination-13.lbox","destination_bytes":23265280,"destination_length_bound_sha256":[64,245,7,30,168,48,83,19,30,225,14,226,166,149,80,15,36,136,234,8,11,201,210,68,122,219,54,40,76,56,17,162],"large_logical_bytes":10485760,"mode":13,"payload_bytes":23003136,"source":"/home/bsutton/.cache/rv4-security-20261011/revault-whole-tree-copy-functional-869149-9001833936218544647/source-13.lbox","source_bytes":26017792,"source_length_bound_sha256":[86,88,88,213,3,73,197,41,142,23,148,28,6,78,49,148,161,209,162,208,196,29,220,19,227,110,101,26,201,215,218,244]}
+2026-10-12T01:26:59.614290Z [stdout] WHOLE_TREE_COPY_FAULT_MODE mode=1 successful_mutations=32
+2026-10-12T01:27:18.116615Z [stdout] WHOLE_TREE_COPY_FUNCTIONAL {"destination":"/home/bsutton/.cache/rv4-security-20261011/revault-whole-tree-copy-functional-869149-9001833936218544647/destination-14.lbox","destination_bytes":23265280,"destination_length_bound_sha256":[250,129,123,241,166,75,84,84,68,209,18,141,108,184,160,43,69,150,64,236,57,179,162,2,207,190,186,152,56,15,129,69],"large_logical_bytes":10485760,"mode":14,"payload_bytes":23003136,"source":"/home/bsutton/.cache/rv4-security-20261011/revault-whole-tree-copy-functional-869149-9001833936218544647/source-14.lbox","source_bytes":26017792,"source_length_bound_sha256":[40,56,183,11,200,115,22,98,227,93,207,0,36,151,45,60,0,250,50,216,207,42,78,164,49,117,160,0,105,13,241,15]}
+2026-10-12T01:27:25.928747Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::compaction::whole_tree_compaction_returned_failures_durably_discard_owned_destination has been running for over 60 seconds
+2026-10-12T01:27:35.425744Z [stdout] WHOLE_TREE_COPY_FUNCTIONAL {"destination":"/home/bsutton/.cache/rv4-security-20261011/revault-whole-tree-copy-functional-869149-9001833936218544647/destination-15.lbox","destination_bytes":23265280,"destination_length_bound_sha256":[39,176,75,89,63,60,213,137,15,162,220,216,191,44,200,175,72,2,121,173,233,13,127,133,46,23,223,35,119,81,198,34],"large_logical_bytes":10485760,"mode":15,"payload_bytes":23003136,"source":"/home/bsutton/.cache/rv4-security-20261011/revault-whole-tree-copy-functional-869149-9001833936218544647/source-15.lbox","source_bytes":26017792,"source_length_bound_sha256":[162,186,93,85,201,198,196,58,149,93,216,33,206,225,181,251,242,197,196,33,249,184,241,204,143,213,76,55,213,221,179,59]}
+2026-10-12T01:27:35.427589Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::compaction::whole_tree_compaction_large_selected_state_file_store_all_modes ... ok
+2026-10-12T01:27:35.431440Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::compaction::whole_tree_compaction_streamed_checksum_matches_existing_wire_domain ... ok
+2026-10-12T01:27:35.701724Z [stdout] WHOLE_TREE_COPY_FAULT_MODE mode=2 successful_mutations=32
+2026-10-12T01:28:02.031368Z [stdout] WHOLE_TREE_COPY_FAULT_MODE mode=3 successful_mutations=32
+2026-10-12T01:28:35.431552Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::definitions::typed_form_definition_aggregate_normal_metadata_and_per_text_limits_all_modes has been running for over 60 seconds
+2026-10-12T01:28:54.867200Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::definitions::typed_form_definition_aggregate_normal_metadata_and_per_text_limits_all_modes ... ok
+2026-10-12T01:29:01.985201Z [stdout] WHOLE_TREE_COPY_FAULT_MODE mode=12 successful_mutations=47
+2026-10-12T01:29:33.162521Z [stdout] WHOLE_TREE_COPY_FAULT_MODE mode=13 successful_mutations=47
+2026-10-12T01:29:39.529011Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::definitions::typed_form_definition_alias_import_and_refusal_controls_all_modes ... ok
+2026-10-12T01:30:07.829881Z [stdout] WHOLE_TREE_COPY_FAULT_MODE mode=14 successful_mutations=47
+2026-10-12T01:30:31.787263Z [stdout] WHOLE_TREE_COPY_FAULT_MODE mode=15 successful_mutations=47
+2026-10-12T01:30:31.787536Z [stdout] WHOLE_TREE_COPY_RETURNED_FAILURES cases=1896
+2026-10-12T01:30:31.787766Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::compaction::whole_tree_compaction_returned_failures_durably_discard_owned_destination ... ok
+2026-10-12T01:30:39.529119Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::definitions::typed_form_definition_and_empty_record_atomic_recovery_faults has been running for over 60 seconds
+2026-10-12T01:30:46.053051Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::definitions::typed_form_definition_revision_resolver_and_empty_create_all_modes ... ok
+2026-10-12T01:30:46.307327Z [stdout] DEFINITION_STALE_ADMISSION mode=0 reader_control_selections=1 writer_switch_selection=2
+2026-10-12T01:30:46.593514Z [stdout] DEFINITION_STALE_ADMISSION mode=1 reader_control_selections=1 writer_switch_selection=2
+2026-10-12T01:30:46.893799Z [stdout] DEFINITION_STALE_ADMISSION mode=2 reader_control_selections=1 writer_switch_selection=2
+2026-10-12T01:30:47.181639Z [stdout] DEFINITION_STALE_ADMISSION mode=3 reader_control_selections=1 writer_switch_selection=2
+2026-10-12T01:30:47.415657Z [stdout] DEFINITION_STALE_ADMISSION mode=4 reader_control_selections=1 writer_switch_selection=2
+2026-10-12T01:30:47.684214Z [stdout] DEFINITION_STALE_ADMISSION mode=5 reader_control_selections=1 writer_switch_selection=2
+2026-10-12T01:30:48.000433Z [stdout] DEFINITION_STALE_ADMISSION mode=6 reader_control_selections=1 writer_switch_selection=2
+2026-10-12T01:30:48.302935Z [stdout] DEFINITION_STALE_ADMISSION mode=7 reader_control_selections=1 writer_switch_selection=2
+2026-10-12T01:30:48.613848Z [stdout] DEFINITION_STALE_ADMISSION mode=8 reader_control_selections=1 writer_switch_selection=2
+2026-10-12T01:30:49.025421Z [stdout] DEFINITION_STALE_ADMISSION mode=9 reader_control_selections=1 writer_switch_selection=2
+2026-10-12T01:30:49.588142Z [stdout] DEFINITION_STALE_ADMISSION mode=10 reader_control_selections=1 writer_switch_selection=2
+2026-10-12T01:30:49.976429Z [stdout] DEFINITION_STALE_ADMISSION mode=11 reader_control_selections=1 writer_switch_selection=2
+2026-10-12T01:30:50.367088Z [stdout] DEFINITION_STALE_ADMISSION mode=12 reader_control_selections=1 writer_switch_selection=2
+2026-10-12T01:30:50.743734Z [stdout] DEFINITION_STALE_ADMISSION mode=13 reader_control_selections=1 writer_switch_selection=2
+2026-10-12T01:30:51.207862Z [stdout] DEFINITION_STALE_ADMISSION mode=14 reader_control_selections=1 writer_switch_selection=2
+2026-10-12T01:30:51.672622Z [stdout] DEFINITION_STALE_ADMISSION mode=15 reader_control_selections=1 writer_switch_selection=2
+2026-10-12T01:30:51.673368Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::definitions::typed_form_definition_shared_staging_refuses_concurrent_selected_change_all_modes ... ok
+2026-10-12T01:31:00.025211Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::definitions::typed_form_empty_creation_preserves_file_namespace_and_name_limits_all_modes ... ok
+2026-10-12T01:31:00.025298Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::field_aggregate::typed_form_field_upgrade_aggregate_probe ... ignored, fixed fresh-process cross-record field upgrade aggregate probe
+2026-10-12T01:31:09.404031Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::fields::typed_form_field_checked_text_revision_all_modes ... ok
+2026-10-12T01:31:24.445902Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::fields::typed_form_field_label_reference_only_and_kind_validation_all_modes ... ok
+2026-10-12T01:31:58.884248Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::fields::typed_form_field_limits_refusals_and_verified_no_change_all_modes ... ok
+2026-10-12T01:32:09.549228Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::fields::typed_form_field_move_delete_and_selected_salvage_all_modes ... ok
+2026-10-12T01:33:09.549398Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::fields::typed_form_field_upgrade_guarded_atomic_recovery_faults has been running for over 60 seconds
+2026-10-12T01:45:18.976795Z [stdout] FORM_DEFINITION_CREATE_FAULTS cases=3168 interrupted_recovery=1164
+2026-10-12T01:45:18.976920Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::definitions::typed_form_definition_and_empty_record_atomic_recovery_faults ... ok
+2026-10-12T01:45:43.741677Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::fields::typed_form_field_upgrade_mixed_history_and_context_all_modes ... ok
+2026-10-12T01:45:43.741817Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::installation::credential_process::credential_install_process_child ... ok
+2026-10-12T01:46:43.741777Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::installation::credential_process::credential_install_process_death_preserves_password_contact_and_resume has been running for over 60 seconds
+2026-10-12T01:46:52.511939Z [stdout] CREDENTIAL_INSTALL_PROCESS_DEATH_CASES 72
+2026-10-12T01:46:52.592905Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::installation::credential_process::credential_install_process_death_preserves_password_contact_and_resume ... ok
+2026-10-12T01:47:03.272012Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::installation::typed_credential_open_reads_all_families_and_preserves_refusals ... ok
+2026-10-12T01:47:09.680685Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::installation::typed_credential_open_rejects_publication_switch_after_bootstrap ... ok
+2026-10-12T01:47:11.078473Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::installation::whole_tree_path_install_does_not_erase_replaced_temporary_path ... ok
+2026-10-12T01:47:11.078587Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::installation::whole_tree_path_install_process_child ... ok
+2026-10-12T01:48:11.078645Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::installation::whole_tree_path_install_process_death_reopens_old_or_complete_new has been running for over 60 seconds
+2026-10-12T01:48:15.895247Z [stdout] WHOLE_TREE_PATH_PROCESS_DEATH_CASES 96
+2026-10-12T01:48:16.002942Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::installation::whole_tree_path_install_process_death_reopens_old_or_complete_new ... ok
+2026-10-12T01:48:17.085034Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::installation::whole_tree_path_install_refuses_stale_source_and_symlinks ... ok
+2026-10-12T01:48:41.582333Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::installation::whole_tree_path_install_reopens_all_families_and_remains_writable ... ok
+2026-10-12T01:48:56.279718Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::installation::whole_tree_path_install_returned_errors_preserve_publication_boundary ... ok
+2026-10-12T01:49:15.152371Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::installation::whole_tree_resume_complete_copy_reopens_all_modes ... ok
+2026-10-12T01:49:23.636756Z [stdout] FORM_FIELD_UPGRADE_FAULTS cases=2232 interrupted_recovery=672
+2026-10-12T01:49:23.638554Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::fields::typed_form_field_upgrade_guarded_atomic_recovery_faults ... ok
+2026-10-12T01:49:23.638686Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::installation::whole_tree_resume_process_child ... ok
+2026-10-12T01:49:28.484048Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::installation::whole_tree_resume_preserves_credentials_and_rejects_changed_wrappers ... ok
+2026-10-12T01:49:38.721888Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::installation::whole_tree_resume_refuses_partial_stale_edited_and_corrupt_candidates ... ok
+2026-10-12T01:49:39.115629Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::installation::whole_tree_resume_refuses_same_file_links_and_foreign_directory ... ok
+2026-10-12T01:49:50.594803Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::lifecycle::typed_form_delete_and_stream_salvage_all_modes ... ok
+2026-10-12T01:50:02.974201Z [stdout] WHOLE_TREE_RESUME_PROCESS_CASES 48
+2026-10-12T01:50:03.036278Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::installation::whole_tree_resume_process_death_reopens_and_retries_before_rename ... ok
+2026-10-12T01:50:06.646853Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::lifecycle::typed_form_stream_delivery_errors_are_fatal_after_partial_events ... ok
+2026-10-12T01:50:50.594882Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::lifecycle::typed_form_deletion_guarded_atomic_recovery_faults has been running for over 60 seconds
+2026-10-12T01:51:06.646944Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::moves::typed_form_moves_atomic_parent_and_payload_recovery_faults has been running for over 60 seconds
+2026-10-12T01:56:10.161468Z [stdout] TYPED_FORM_DELETE_FAULTS cases=1704 interrupted_recovery=564
+2026-10-12T01:56:10.163046Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::lifecycle::typed_form_deletion_guarded_atomic_recovery_faults ... ok
+2026-10-12T01:56:43.110721Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::moves::typed_form_moves_metadata_only_all_modes ... ok
+2026-10-12T01:56:58.301050Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::selected_source::selected_source_capability_and_connected_replacement_all_modes ... ok
+2026-10-12T01:57:30.225677Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::selected_source::selected_source_empty_split_utf8_and_maximum_texts_all_modes ... ok
+2026-10-12T01:57:41.265495Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::selected_source::selected_source_rebinds_normal_name_into_secret_value_context_all_modes ... ok
+2026-10-12T01:58:41.265570Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::selected_source::selected_source_replacement_guarded_atomic_recovery_faults has been running for over 60 seconds
+2026-10-12T01:59:12.440826Z [stdout] TYPED_FORM_MOVE_FAULTS cases=1488 interrupted_recovery=504
+2026-10-12T01:59:12.440919Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::moves::typed_form_moves_atomic_parent_and_payload_recovery_faults ... ok
+2026-10-12T01:59:26.198452Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::selected_source::selected_source_stale_and_second_pass_failures_preserve_selection ... ok
+2026-10-12T01:59:42.021689Z [stdout] test file_format::candidate_files::tests::tree_tests::forms::typed_form_snapshots_large_metadata_history_and_retention_all_modes ... ok
+2026-10-12T01:59:44.831832Z [stdout] test file_format::candidate_files::tests::tree_tests::fresh::fresh_tree_export_beyond_dense_capacity_preserves_files_all_modes ... ok
+2026-10-12T01:59:46.397722Z [stdout] test file_format::candidate_files::tests::tree_tests::fresh::fresh_tree_export_exceeds_old_file_and_fragment_counts ... ok
+2026-10-12T01:59:47.037278Z [stdout] FRESH_TREE_EXPORT_FAILURES 93
+2026-10-12T01:59:47.038254Z [stdout] test file_format::candidate_files::tests::tree_tests::fresh::fresh_tree_export_failures_erase_destination_and_preserve_source ... ok
+2026-10-12T01:59:47.045900Z [stdout] test file_format::candidate_files::tests::tree_tests::fresh::fresh_tree_export_metadata_budget_refusal_cleans_destination ... ok
+2026-10-12T01:59:47.091759Z [stdout] test file_format::candidate_files::tests::tree_tests::fresh::fresh_tree_export_rechecks_source_before_and_after_publication ... ok
+2026-10-12T01:59:47.250003Z [stdout] test file_format::candidate_files::tests::tree_tests::fresh::fresh_tree_export_refuses_authenticated_existing_access_tree ... ok
+2026-10-12T01:59:47.300331Z [stdout] test file_format::candidate_files::tests::tree_tests::fresh::fresh_tree_export_refuses_metadata_mismatch_wrong_owner_and_corruption ... ok
+2026-10-12T01:59:47.327872Z [stdout] test file_format::candidate_files::tests::tree_tests::fresh::fresh_tree_export_reports_cleanup_failure_without_claiming_empty_output ... ok
+2026-10-12T01:59:47.327974Z [stdout] test file_format::candidate_files::tests::tree_tests::fresh::fresh_tree_export_streams_sixty_four_mib_without_dense_intermediate ... ignored, manual file-backed 64 MiB streaming export probe
+2026-10-12T01:59:48.534334Z [stdout] TYPED_DENSE_PAYLOAD_AGING mode=0 cycles=32 warmup_completed_peak=393216 final_bytes=205096
+2026-10-12T01:59:49.943860Z [stdout] TYPED_DENSE_PAYLOAD_AGING mode=1 cycles=32 warmup_completed_peak=395280 final_bytes=395280
+2026-10-12T01:59:52.745734Z [stdout] TYPED_DENSE_PAYLOAD_AGING mode=2 cycles=32 warmup_completed_peak=393216 final_bytes=205096
+2026-10-12T01:59:55.687760Z [stdout] TYPED_DENSE_PAYLOAD_AGING mode=3 cycles=32 warmup_completed_peak=395280 final_bytes=395280
+2026-10-12T01:59:57.228516Z [stdout] TYPED_DENSE_PAYLOAD_AGING mode=4 cycles=32 warmup_completed_peak=262193 final_bytes=262171
+2026-10-12T01:59:58.762676Z [stdout] TYPED_DENSE_PAYLOAD_AGING mode=5 cycles=32 warmup_completed_peak=262277 final_bytes=262227
+2026-10-12T02:00:01.813517Z [stdout] TYPED_DENSE_PAYLOAD_AGING mode=6 cycles=32 warmup_completed_peak=262193 final_bytes=262171
+2026-10-12T02:00:04.884577Z [stdout] TYPED_DENSE_PAYLOAD_AGING mode=7 cycles=32 warmup_completed_peak=262277 final_bytes=262227
+2026-10-12T02:00:06.211842Z [stdout] TYPED_DENSE_PAYLOAD_AGING mode=8 cycles=32 warmup_completed_peak=720896 final_bytes=524288
+2026-10-12T02:00:07.649280Z [stdout] TYPED_DENSE_PAYLOAD_AGING mode=9 cycles=32 warmup_completed_peak=720896 final_bytes=524288
+2026-10-12T02:00:10.398392Z [stdout] TYPED_DENSE_PAYLOAD_AGING mode=10 cycles=32 warmup_completed_peak=720896 final_bytes=524288
+2026-10-12T02:00:13.459674Z [stdout] TYPED_DENSE_PAYLOAD_AGING mode=11 cycles=32 warmup_completed_peak=720896 final_bytes=524288
+2026-10-12T02:00:14.940505Z [stdout] TYPED_DENSE_PAYLOAD_AGING mode=12 cycles=32 warmup_completed_peak=720896 final_bytes=524288
+2026-10-12T02:00:16.585449Z [stdout] TYPED_DENSE_PAYLOAD_AGING mode=13 cycles=32 warmup_completed_peak=720896 final_bytes=524288
+2026-10-12T02:00:19.552844Z [stdout] TYPED_DENSE_PAYLOAD_AGING mode=14 cycles=32 warmup_completed_peak=720896 final_bytes=524288
+2026-10-12T02:00:22.689678Z [stdout] TYPED_DENSE_PAYLOAD_AGING mode=15 cycles=32 warmup_completed_peak=720896 final_bytes=524288
+2026-10-12T02:00:22.689861Z [stdout] test file_format::candidate_files::tests::tree_tests::mutation::dense::typed_dense_payload_dispatch_retains_inline_and_bounded_aging_all_modes ... ok
+2026-10-12T02:00:57.735539Z [stdout] TYPED_DENSE_PAYLOAD_INTERRUPTION_CASES 1620
+2026-10-12T02:00:57.735678Z [stdout] test file_format::candidate_files::tests::tree_tests::mutation::dense::typed_dense_payload_interruptions_preserve_complete_selected_file_set ... ok
+2026-10-12T02:00:58.029734Z [stdout] test file_format::candidate_files::tests::tree_tests::mutation::dense::typed_dense_payload_return_capacity_refusals_do_not_relocate ... ok
+2026-10-12T02:00:58.029829Z [stdout] test file_format::candidate_files::tests::tree_tests::mutation::dense::typed_dense_payload_thousand_cycle_qualification ... ignored, bounded 1000-cycle qualification; set REVAULT_TYPED_AGING_GROUP=0..3
+2026-10-12T02:00:58.177174Z [stdout] TYPED_TREE_PAYLOAD_UPDATE mode=0 initial_bytes=327680 completed_bytes=720896 changed_logical_bytes=140008
+2026-10-12T02:00:58.332169Z [stdout] TYPED_TREE_PAYLOAD_UPDATE mode=1 initial_bytes=327680 completed_bytes=589824 changed_logical_bytes=140008
+2026-10-12T02:00:58.573934Z [stdout] TYPED_TREE_PAYLOAD_UPDATE mode=2 initial_bytes=327680 completed_bytes=720896 changed_logical_bytes=140008
+2026-10-12T02:00:58.800589Z [stdout] TYPED_TREE_PAYLOAD_UPDATE mode=3 initial_bytes=327680 completed_bytes=589824 changed_logical_bytes=140008
+2026-10-12T02:00:58.950732Z [stdout] TYPED_TREE_PAYLOAD_UPDATE mode=4 initial_bytes=327680 completed_bytes=589824 changed_logical_bytes=140008
+2026-10-12T02:00:59.150117Z [stdout] TYPED_TREE_PAYLOAD_UPDATE mode=5 initial_bytes=327680 completed_bytes=589824 changed_logical_bytes=140008
+2026-10-12T02:00:59.353386Z [stdout] TYPED_TREE_PAYLOAD_UPDATE mode=6 initial_bytes=327680 completed_bytes=589824 changed_logical_bytes=140008
+2026-10-12T02:00:59.571973Z [stdout] TYPED_TREE_PAYLOAD_UPDATE mode=7 initial_bytes=327680 completed_bytes=589824 changed_logical_bytes=140008
+2026-10-12T02:00:59.719114Z [stdout] TYPED_TREE_PAYLOAD_UPDATE mode=8 initial_bytes=327680 completed_bytes=851968 changed_logical_bytes=140008
+2026-10-12T02:00:59.904020Z [stdout] TYPED_TREE_PAYLOAD_UPDATE mode=9 initial_bytes=327680 completed_bytes=851968 changed_logical_bytes=140008
+2026-10-12T02:01:00.107157Z [stdout] TYPED_TREE_PAYLOAD_UPDATE mode=10 initial_bytes=327680 completed_bytes=851968 changed_logical_bytes=140008
+2026-10-12T02:01:00.341502Z [stdout] TYPED_TREE_PAYLOAD_UPDATE mode=11 initial_bytes=327680 completed_bytes=851968 changed_logical_bytes=140008
+2026-10-12T02:01:00.513419Z [stdout] TYPED_TREE_PAYLOAD_UPDATE mode=12 initial_bytes=327680 completed_bytes=851968 changed_logical_bytes=140008
+2026-10-12T02:01:00.677097Z [stdout] TYPED_TREE_PAYLOAD_UPDATE mode=13 initial_bytes=327680 completed_bytes=851968 changed_logical_bytes=140008
+2026-10-12T02:01:00.873690Z [stdout] TYPED_TREE_PAYLOAD_UPDATE mode=14 initial_bytes=327680 completed_bytes=851968 changed_logical_bytes=140008
+2026-10-12T02:01:01.094145Z [stdout] TYPED_TREE_PAYLOAD_UPDATE mode=15 initial_bytes=327680 completed_bytes=851968 changed_logical_bytes=140008
+2026-10-12T02:01:01.098062Z [stdout] test file_format::candidate_files::tests::tree_tests::mutation::typed_tree_payload_add_replace_no_change_and_invalid_plans_all_modes ... ok
+2026-10-12T02:02:01.098314Z [stdout] test file_format::candidate_files::tests::tree_tests::mutation::typed_tree_payload_overflow_preparation_recovers_sampled_interruptions has been running for over 60 seconds
+2026-10-12T02:02:33.741591Z [stdout] TYPED_TREE_PAYLOAD_OVERFLOW_SAMPLED_FAULTS 192 linked_arena_observations=104
+2026-10-12T02:02:33.756826Z [stdout] test file_format::candidate_files::tests::tree_tests::mutation::typed_tree_payload_overflow_preparation_recovers_sampled_interruptions ... ok
+2026-10-12T02:02:55.326835Z [stdout] TYPED_TREE_PAYLOAD_REMOVAL_FAULTS 888
+2026-10-12T02:02:55.328658Z [stdout] test file_format::candidate_files::tests::tree_tests::mutation::typed_tree_payload_removal_interruptions_keep_selected_membership ... ok
+2026-10-12T02:02:59.090122Z [stdout] test file_format::candidate_files::tests::tree_tests::mutation::typed_tree_payload_removal_preserves_neighbors_and_erases_old_pack_all_modes ... ok
+2026-10-12T02:03:00.213062Z [stdout] TYPED_TREE_PAYLOAD_REUSE mode=0 cycles=32 initial_bytes=327680 stable_bytes=917504 reused_pack_count=57
+2026-10-12T02:03:02.271128Z [stdout] TYPED_TREE_PAYLOAD_REUSE mode=1 cycles=32 initial_bytes=327680 stable_bytes=786432 reused_pack_count=59
+2026-10-12T02:03:03.916696Z [stdout] TYPED_TREE_PAYLOAD_REUSE mode=2 cycles=32 initial_bytes=327680 stable_bytes=917504 reused_pack_count=57
+2026-10-12T02:03:05.585403Z [stdout] TYPED_TREE_PAYLOAD_REUSE mode=3 cycles=32 initial_bytes=327680 stable_bytes=786432 reused_pack_count=59
+2026-10-12T02:03:06.712433Z [stdout] TYPED_TREE_PAYLOAD_REUSE mode=4 cycles=32 initial_bytes=327680 stable_bytes=720896 reused_pack_count=59
+2026-10-12T02:03:07.817191Z [stdout] TYPED_TREE_PAYLOAD_REUSE mode=5 cycles=32 initial_bytes=327680 stable_bytes=720896 reused_pack_count=59
+2026-10-12T02:03:09.374044Z [stdout] TYPED_TREE_PAYLOAD_REUSE mode=6 cycles=32 initial_bytes=327680 stable_bytes=720896 reused_pack_count=59
+2026-10-12T02:03:10.870241Z [stdout] TYPED_TREE_PAYLOAD_REUSE mode=7 cycles=32 initial_bytes=327680 stable_bytes=720896 reused_pack_count=59
+2026-10-12T02:03:11.797809Z [stdout] TYPED_TREE_PAYLOAD_REUSE mode=8 cycles=32 initial_bytes=327680 stable_bytes=983040 reused_pack_count=55
+2026-10-12T02:03:12.756524Z [stdout] TYPED_TREE_PAYLOAD_REUSE mode=9 cycles=32 initial_bytes=327680 stable_bytes=983040 reused_pack_count=55
+2026-10-12T02:03:14.112980Z [stdout] TYPED_TREE_PAYLOAD_REUSE mode=10 cycles=32 initial_bytes=327680 stable_bytes=983040 reused_pack_count=55
+2026-10-12T02:03:15.537154Z [stdout] TYPED_TREE_PAYLOAD_REUSE mode=11 cycles=32 initial_bytes=327680 stable_bytes=983040 reused_pack_count=55
+2026-10-12T02:03:16.475966Z [stdout] TYPED_TREE_PAYLOAD_REUSE mode=12 cycles=32 initial_bytes=327680 stable_bytes=983040 reused_pack_count=55
+2026-10-12T02:03:17.447569Z [stdout] TYPED_TREE_PAYLOAD_REUSE mode=13 cycles=32 initial_bytes=327680 stable_bytes=983040 reused_pack_count=55
+2026-10-12T02:03:18.859510Z [stdout] TYPED_TREE_PAYLOAD_REUSE mode=14 cycles=32 initial_bytes=327680 stable_bytes=983040 reused_pack_count=55
+2026-10-12T02:03:20.284295Z [stdout] TYPED_TREE_PAYLOAD_REUSE mode=15 cycles=32 initial_bytes=327680 stable_bytes=983040 reused_pack_count=55
+2026-10-12T02:03:20.285855Z [stdout] test file_format::candidate_files::tests::tree_tests::mutation::typed_tree_payload_reuse_stabilizes_bounded_lifecycle_all_modes ... ok
+2026-10-12T02:03:44.211040Z [stdout] TYPED_TREE_REUSED_PAYLOAD_FAULTS 792
+2026-10-12T02:03:44.211963Z [stdout] test file_format::candidate_files::tests::tree_tests::mutation::typed_tree_payload_reused_writes_recover_without_neighbor_loss ... ok
+2026-10-12T02:03:44.433547Z [stdout] test file_format::candidate_files::tests::tree_tests::mutation::typed_tree_payload_source_change_is_non_destructive ... ok
+2026-10-12T02:04:06.110225Z [stdout] TYPED_TREE_PAYLOAD_UPDATE_FAULTS 912
+2026-10-12T02:04:06.111214Z [stdout] test file_format::candidate_files::tests::tree_tests::mutation::typed_tree_payload_update_interruptions_keep_atomic_file_set ... ok
+2026-10-12T02:04:10.321731Z [stdout] test file_format::candidate_files::tests::tree_tests::mutation::typed_tree_payload_updates_preserve_large_typed_catalogues_all_modes ... ok
+2026-10-12T02:04:11.298116Z [stdout] test file_format::candidate_files::tests::tree_tests::open_reads::typed_tree_fragment_join_refuses_missing_duplicate_orphan_and_misbound_records ... ok
+2026-10-12T02:04:11.474843Z [stdout] TYPED_OPEN_READS mode=0 previous=12 single=11
+2026-10-12T02:04:11.500244Z [stdout] TYPED_OPEN_READS mode=1 previous=12 single=11
+2026-10-12T02:04:11.552185Z [stdout] TYPED_OPEN_READS mode=2 previous=13 single=12
+2026-10-12T02:04:11.602878Z [stdout] TYPED_OPEN_READS mode=3 previous=12 single=11
+2026-10-12T02:04:11.622506Z [stdout] TYPED_OPEN_READS mode=4 previous=12 single=11
+2026-10-12T02:04:11.648966Z [stdout] TYPED_OPEN_READS mode=5 previous=12 single=11
+2026-10-12T02:04:11.706063Z [stdout] TYPED_OPEN_READS mode=6 previous=13 single=12
+2026-10-12T02:04:11.757440Z [stdout] TYPED_OPEN_READS mode=7 previous=12 single=11
+2026-10-12T02:04:11.782265Z [stdout] TYPED_OPEN_READS mode=8 previous=10 single=9
+2026-10-12T02:04:11.807587Z [stdout] TYPED_OPEN_READS mode=9 previous=10 single=9
+2026-10-12T02:04:11.856174Z [stdout] TYPED_OPEN_READS mode=10 previous=11 single=10
+2026-10-12T02:04:11.908194Z [stdout] TYPED_OPEN_READS mode=11 previous=10 single=9
+2026-10-12T02:04:11.925083Z [stdout] TYPED_OPEN_READS mode=12 previous=10 single=9
+2026-10-12T02:04:11.951981Z [stdout] TYPED_OPEN_READS mode=13 previous=10 single=9
+2026-10-12T02:04:12.000220Z [stdout] TYPED_OPEN_READS mode=14 previous=11 single=10
+2026-10-12T02:04:12.057411Z [stdout] TYPED_OPEN_READS mode=15 previous=10 single=9
+2026-10-12T02:04:12.059379Z [stdout] test file_format::candidate_files::tests::tree_tests::open_reads::typed_tree_single_traversal_preserves_complete_open_all_modes ... ok
+2026-10-12T02:04:17.037838Z [stdout] test file_format::candidate_files::tests::tree_tests::selective_reads::parallel::automatic_workers_qualify_each_request_and_reuse_pool_after_errors ... ok
+2026-10-12T02:04:18.822653Z [stdout] test file_format::candidate_files::tests::tree_tests::selective_reads::parallel::automatic_workers_reset_on_raw_chunks_and_keep_serial_callbacks_bounded ... ok
+2026-10-12T02:04:18.911439Z [stdout] test file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_bound_input_batches_before_callbacks ... ok
+2026-10-12T02:04:19.516771Z [stdout] test file_format::candidate_files::tests::tree_tests::selective_reads::parallel::parallel_selected_reads_preserve_order_errors_and_pool_reuse_all_modes ... ok
+2026-10-12T02:04:19.607380Z [stdout] test file_format::candidate_files::tests::tree_tests::selective_reads::selective_reads_leave_spare_space_auditing_to_full_verification_and_writers ... ok
+2026-10-12T02:04:24.059322Z [stdout] test file_format::candidate_files::tests::tree_tests::selective_reads::selective_reads_refuse_authenticated_misbound_fragment_descriptors ... ok
+2026-10-12T02:04:24.445245Z [stdout] test file_format::candidate_files::tests::tree_tests::selective_reads::selective_reads_skip_damaged_unrelated_index_subtrees_and_authenticate_selected_pages ... ok
+2026-10-12T02:04:24.913917Z [stdout] test file_format::candidate_files::tests::tree_tests::selective_reads::selective_reads_skip_unrelated_payload_padding_and_free_space_all_modes ... ok
+2026-10-12T02:04:26.646837Z [stdout] test file_format::candidate_files::tests::tree_tests::typed_tree_automatic_growth_retains_small_dense_metadata_all_modes ... ok
+2026-10-12T02:04:26.877915Z [stdout] TYPED_TREE_LIFECYCLE mode=0 nodes=2504 completed_bytes=1114112
+2026-10-12T02:04:26.960427Z [stdout] TYPED_TREE_LIFECYCLE mode=1 nodes=2504 completed_bytes=1114112
+2026-10-12T02:04:27.090088Z [stdout] TYPED_TREE_LIFECYCLE mode=2 nodes=2504 completed_bytes=1114112
+2026-10-12T02:04:27.232450Z [stdout] TYPED_TREE_LIFECYCLE mode=3 nodes=2504 completed_bytes=1114112
+2026-10-12T02:04:27.318781Z [stdout] TYPED_TREE_LIFECYCLE mode=4 nodes=2504 completed_bytes=1114112
+2026-10-12T02:04:27.413247Z [stdout] TYPED_TREE_LIFECYCLE mode=5 nodes=2504 completed_bytes=1114112
+2026-10-12T02:04:27.543517Z [stdout] TYPED_TREE_LIFECYCLE mode=6 nodes=2504 completed_bytes=1114112
+2026-10-12T02:04:27.686283Z [stdout] TYPED_TREE_LIFECYCLE mode=7 nodes=2504 completed_bytes=1114112
+2026-10-12T02:04:27.768592Z [stdout] TYPED_TREE_LIFECYCLE mode=8 nodes=2504 completed_bytes=1114112
+2026-10-12T02:04:27.852554Z [stdout] TYPED_TREE_LIFECYCLE mode=9 nodes=2504 completed_bytes=1114112
+2026-10-12T02:04:27.980265Z [stdout] TYPED_TREE_LIFECYCLE mode=10 nodes=2504 completed_bytes=1114112
+2026-10-12T02:04:28.132635Z [stdout] TYPED_TREE_LIFECYCLE mode=11 nodes=2504 completed_bytes=1114112
+2026-10-12T02:04:28.208Z [stdout] TYPED_TREE_LIFECYCLE mode=12 nodes=2504 completed_bytes=1114112
+2026-10-12T02:04:28.285371Z [stdout] TYPED_TREE_LIFECYCLE mode=13 nodes=2504 completed_bytes=1114112
+2026-10-12T02:04:28.422852Z [stdout] TYPED_TREE_LIFECYCLE mode=14 nodes=2504 completed_bytes=1114112
+2026-10-12T02:04:28.635438Z [stdout] TYPED_TREE_LIFECYCLE mode=15 nodes=2504 completed_bytes=1114112
+2026-10-12T02:04:28.635685Z [stdout] test file_format::candidate_files::tests::tree_tests::typed_tree_filesystem_growth_deletion_permissions_and_copy_loss_all_modes ... ok
+2026-10-12T02:04:28.929572Z [stdout] TYPED_TREE_INLINE_TRANSITION mode=0 initial_bytes=131079 observed_completed_peak=1114112 returned_bytes=131079
+2026-10-12T02:04:29.114585Z [stdout] TYPED_TREE_INLINE_TRANSITION mode=1 initial_bytes=131107 observed_completed_peak=1114112 returned_bytes=131107
+2026-10-12T02:04:29.374295Z [stdout] TYPED_TREE_INLINE_TRANSITION mode=2 initial_bytes=131079 observed_completed_peak=1114112 returned_bytes=131079
+2026-10-12T02:04:29.662025Z [stdout] TYPED_TREE_INLINE_TRANSITION mode=3 initial_bytes=131107 observed_completed_peak=1114112 returned_bytes=131107
+2026-10-12T02:04:29.789408Z [stdout] TYPED_TREE_INLINE_TRANSITION mode=4 initial_bytes=131079 observed_completed_peak=1114112 returned_bytes=131079
+2026-10-12T02:04:29.923354Z [stdout] TYPED_TREE_INLINE_TRANSITION mode=5 initial_bytes=131107 observed_completed_peak=1114112 returned_bytes=131107
+2026-10-12T02:04:30.154998Z [stdout] TYPED_TREE_INLINE_TRANSITION mode=6 initial_bytes=131079 observed_completed_peak=1114112 returned_bytes=131079
+2026-10-12T02:04:30.387249Z [stdout] TYPED_TREE_INLINE_TRANSITION mode=7 initial_bytes=131107 observed_completed_peak=1114112 returned_bytes=131107
+2026-10-12T02:04:30.508423Z [stdout] TYPED_TREE_INLINE_TRANSITION mode=8 initial_bytes=196608 observed_completed_peak=1114112 returned_bytes=196608
+2026-10-12T02:04:30.634145Z [stdout] TYPED_TREE_INLINE_TRANSITION mode=9 initial_bytes=196608 observed_completed_peak=1114112 returned_bytes=196608
+2026-10-12T02:04:30.843416Z [stdout] TYPED_TREE_INLINE_TRANSITION mode=10 initial_bytes=196608 observed_completed_peak=1114112 returned_bytes=196608
+2026-10-12T02:04:31.053010Z [stdout] TYPED_TREE_INLINE_TRANSITION mode=11 initial_bytes=196608 observed_completed_peak=1114112 returned_bytes=196608
+2026-10-12T02:04:31.174662Z [stdout] TYPED_TREE_INLINE_TRANSITION mode=12 initial_bytes=196608 observed_completed_peak=1114112 returned_bytes=196608
+2026-10-12T02:04:31.304239Z [stdout] TYPED_TREE_INLINE_TRANSITION mode=13 initial_bytes=196608 observed_completed_peak=1114112 returned_bytes=196608
+2026-10-12T02:04:31.513122Z [stdout] TYPED_TREE_INLINE_TRANSITION mode=14 initial_bytes=196608 observed_completed_peak=1114112 returned_bytes=196608
+2026-10-12T02:04:31.726515Z [stdout] TYPED_TREE_INLINE_TRANSITION mode=15 initial_bytes=196608 observed_completed_peak=1114112 returned_bytes=196608
+2026-10-12T02:04:31.727538Z [stdout] test file_format::candidate_files::tests::tree_tests::typed_tree_inline_growth_and_return_reclaim_tail_all_modes ... ok
+2026-10-12T02:05:31.727775Z [stdout] test file_format::candidate_files::tests::tree_tests::typed_tree_inline_transition_interruptions_preserve_selected_filesystem has been running for over 60 seconds
+2026-10-12T02:07:35.670043Z [stdout] TYPED_TREE_INLINE_TRANSITION_FAULT_CASES 4572
+2026-10-12T02:07:35.670342Z [stdout] test file_format::candidate_files::tests::tree_tests::typed_tree_inline_transition_interruptions_preserve_selected_filesystem ... ok
+2026-10-12T02:08:01.061679Z [stdout] TYPED_TREE_INTERRUPTION_CASES 1128
+2026-10-12T02:08:01.062339Z [stdout] test file_format::candidate_files::tests::tree_tests::typed_tree_interrupted_growth_keeps_complete_selected_metadata ... ok
+2026-10-12T02:08:01.261185Z [stdout] test file_format::candidate_files::tests::tree_tests::typed_tree_invalid_metadata_refuses_before_writes ... ok
+2026-10-12T02:08:01.453158Z [stdout] test file_format::candidate_files::tests::tree_tests::typed_tree_rejects_selected_pack_claim_mismatch ... ok
+2026-10-12T02:08:02.460902Z [stdout] test file_format::candidate_files::tests::tree_tests::typed_tree_salvage_preserves_intact_neighbor_and_selected_membership_all_modes ... ok
+2026-10-12T02:09:02.460940Z [stdout] test file_format::candidate_files::tests::tree_tests::variables::moves::typed_tree_variable_moves_atomic_guarded_recovery_faults has been running for over 60 seconds
+2026-10-12T02:10:47.727905Z [stdout] TYPED_VARIABLE_MOVE_FAULTS cases=1512 interrupted_recovery=504
+2026-10-12T02:10:47.729628Z [stdout] test file_format::candidate_files::tests::tree_tests::variables::moves::typed_tree_variable_moves_atomic_guarded_recovery_faults ... ok
+2026-10-12T02:10:57.773741Z [stdout] test file_format::candidate_files::tests::tree_tests::variables::moves::typed_tree_variable_moves_lifecycle_and_refusals_all_modes ... ok
+2026-10-12T02:11:00.817032Z [stdout] test file_format::candidate_files::tests::tree_tests::variables::password_integrity_selected_variable_rejects_historical_ciphertext_all_protected_modes ... ok
+2026-10-12T02:11:00.817111Z [stdout] test file_format::candidate_files::tests::tree_tests::variables::prepared::prepared_staging_aggregate_guarded_source_probe ... ignored, fresh-process guarded aggregate staging probe
+2026-10-12T02:11:06.923408Z [stdout] test file_format::candidate_files::tests::tree_tests::variables::prepared::prepared_staging_preflight_and_second_pass_failures_preserve_selected_values_all_modes ... ok
+2026-10-12T02:11:06.923486Z [stdout] test file_format::candidate_files::tests::tree_tests::variables::resource::typed_variable_resource_probe ... ignored, fixed fresh-process variable resource runner only
+2026-10-12T02:11:07.174229Z [stdout] test file_format::candidate_files::tests::tree_tests::variables::typed_tree_variable_max_revision_can_be_deleted_but_not_replaced ... ok
+2026-10-12T02:12:07.174341Z [stdout] test file_format::candidate_files::tests::tree_tests::variables::typed_tree_variables_guarded_transaction_and_recovery_faults has been running for over 60 seconds
+2026-10-12T02:16:54.126291Z [stdout] TYPED_VARIABLE_FAULTS 3432 INTERRUPTED_RECOVERY 2724
+2026-10-12T02:16:54.128643Z [stdout] test file_format::candidate_files::tests::tree_tests::variables::typed_tree_variables_guarded_transaction_and_recovery_faults ... ok
+2026-10-12T02:17:04.000420Z [stdout] test file_format::candidate_files::tests::tree_tests::variables::typed_tree_variables_lifecycle_secure_read_and_file_coexistence_all_modes ... ok
+2026-10-12T02:17:13.659900Z [stdout] test file_format::candidate_files::tests::tree_tests::variables::typed_tree_variables_maximum_empty_and_one_over_all_modes ... ok
+2026-10-12T02:17:14.041006Z [stdout] TYPED_VARIABLE_REGION_LOSS mode=263 unavailable=2 retained=0
+2026-10-12T02:17:14.374613Z [stdout] TYPED_VARIABLE_REGION_LOSS mode=262 unavailable=2 retained=0
+2026-10-12T02:17:14.827034Z [stdout] TYPED_VARIABLE_REGION_LOSS mode=261 unavailable=2 retained=0
+2026-10-12T02:17:15.293653Z [stdout] TYPED_VARIABLE_REGION_LOSS mode=260 unavailable=2 retained=0
+2026-10-12T02:17:15.626551Z [stdout] TYPED_VARIABLE_REGION_LOSS mode=283 unavailable=2 retained=0
+2026-10-12T02:17:15.975933Z [stdout] TYPED_VARIABLE_REGION_LOSS mode=282 unavailable=2 retained=0
+2026-10-12T02:17:16.435740Z [stdout] TYPED_VARIABLE_REGION_LOSS mode=281 unavailable=2 retained=0
+2026-10-12T02:17:16.902443Z [stdout] TYPED_VARIABLE_REGION_LOSS mode=280 unavailable=2 retained=0
+2026-10-12T02:17:17.238077Z [stdout] TYPED_VARIABLE_REGION_LOSS mode=7 unavailable=1 retained=1
+2026-10-12T02:17:17.586235Z [stdout] TYPED_VARIABLE_REGION_LOSS mode=6 unavailable=1 retained=1
+2026-10-12T02:17:18.036946Z [stdout] TYPED_VARIABLE_REGION_LOSS mode=5 unavailable=1 retained=1
+2026-10-12T02:17:18.517020Z [stdout] TYPED_VARIABLE_REGION_LOSS mode=4 unavailable=1 retained=1
+2026-10-12T02:17:18.857395Z [stdout] TYPED_VARIABLE_REGION_LOSS mode=27 unavailable=1 retained=1
+2026-10-12T02:17:19.188231Z [stdout] TYPED_VARIABLE_REGION_LOSS mode=26 unavailable=1 retained=1
+2026-10-12T02:17:19.653155Z [stdout] TYPED_VARIABLE_REGION_LOSS mode=25 unavailable=1 retained=1
+2026-10-12T02:17:20.137550Z [stdout] TYPED_VARIABLE_REGION_LOSS mode=24 unavailable=1 retained=1
+2026-10-12T02:17:20.182260Z [stdout] test file_format::candidate_files::tests::tree_tests::variables::typed_tree_variables_selected_ownership_corruption_and_salvage_all_modes ... ok
+2026-10-12T02:17:20.217626Z [stdout] test file_format::candidate_files::tests::update_source_changes_and_failures_abort_staged_bytes_without_losing_old_files ... ok
+2026-10-12T02:17:20.420445Z [stdout] test file_format::candidate_files::tests::whole_layout_cost_model_preserves_source_and_descriptor_bindings ... ok
+2026-10-12T02:17:20.420516Z [stdout] test file_format::candidate_files::tree_image::forms::lifecycle::form_salvage_only_marks_stored_corruption_unavailable ... ok
+2026-10-12T02:17:20.420565Z [stdout] test file_format::commit_auth::tests::commit_auth_round_trips ... ok
+2026-10-12T02:17:20.420686Z [stdout] test file_format::commit_auth::tests::decode_commit_auth_rejects_oversized_key_before_allocating ... ok
+2026-10-12T02:17:20.420711Z [stdout] test file_format::commit_auth::tests::decode_commit_auth_rejects_oversized_key_count_before_allocating ... ok
+2026-10-12T02:17:20.420749Z [stdout] test file_format::commit_root::tests::commit_root_numeric_fields_are_little_endian ... ok
+2026-10-12T02:17:20.420818Z [stdout] test file_format::commit_root::tests::commit_root_rejects_zero_toc_root ... ok
+2026-10-12T02:17:20.420883Z [stdout] test file_format::commit_root::tests::commit_root_round_trips ... ok
+2026-10-12T02:17:20.420988Z [stdout] test file_format::current_header::tests::initialized_header_round_trips ... ok
+2026-10-12T02:17:20.421078Z [stdout] test file_format::current_header::tests::recovery_magic_repair_preserves_checksums_and_rejects_other_damage ... ok
+2026-10-12T02:17:20.421844Z [stdout] test file_format::data_extent::tests::malformed_descriptors_padding_and_oversized_codec_windows_are_rejected ... ok
+2026-10-12T02:17:20.423585Z [stdout] test file_format::data_extent::tests::packed_codec_and_padding_contexts_are_distinct_and_bounded ... ok
+2026-10-12T02:17:20.765374Z [stdout] test file_format::data_extent::tests::persisted_extents_round_trip_through_selected_ownership_all_modes_and_units ... ok
+2026-10-12T02:17:20.765469Z [stdout] test file_format::data_extent::tests::raw_extent_budget_includes_encryption_and_rejects_oversized_packs ... ok
+2026-10-12T02:17:20.794178Z [stdout] test file_format::data_extent::tests::raw_visit_reuses_only_wiped_bytes_and_recovers_from_failures ... ok
+2026-10-12T02:17:20.794555Z [stdout] test file_format::data_extent::tests::raw_visit_still_refuses_authenticated_nonzero_internal_padding ... ok
+2026-10-12T02:17:20.796498Z [stdout] test file_format::data_extent::tests::repeated_decoder_matches_fresh_decoder_for_independent_extent_streams ... ok
+2026-10-12T02:17:20.798301Z [stdout] test file_format::data_extent::tests::stored_commitment_and_encryption_context_prevent_substitution ... ok
+2026-10-12T02:17:20.887895Z [stdout] test file_format::form_segments::tests::form_segments_empty_utf8_boundary_and_one_mib_all_modes ... FAILED

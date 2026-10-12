@@ -1,0 +1,88 @@
+[32;1m{
+  "sample_count": 56,
+  "preparation_rounds_excluded": [
+    0,
+    1
+  ],
+  "measured_rounds": [
+    2,
+    13
+  ],
+  "adjacent_blocks": 6,
+  "bootstrap": "SplitMix64 mod 6, percentile index 9500",
+  "endpoints": [
+    {
+      "size_bytes": 64,
+      "metric": "inner",
+      "block_log_ratios": [
+        -0.017081879197356407,
+        0.010578214740690501,
+        -0.013675364794584508,
+        -0.003862291101787797,
+        -0.0008718032854102484,
+        -0.010774099036449197
+      ],
+      "seed": "000000494e4e6202",
+      "bootstrap_draws": 10000,
+      "upper95_percentile": 0.95,
+      "upper95_index": 9500,
+      "upper95_ratio": 1.0003125766776102,
+      "gate_pass": true
+    },
+    {
+      "size_bytes": 64,
+      "metric": "process",
+      "block_log_ratios": [
+        -0.01609831486914466,
+        0.009788485277847791,
+        -0.013215999925618931,
+        -0.004150963088293348,
+        -0.0002889481995286946,
+        -0.010586126154666853
+      ],
+      "seed": "0050524f43457403",
+      "bootstrap_draws": 10000,
+      "upper95_percentile": 0.95,
+      "upper95_index": 9500,
+      "upper95_ratio": 1.000398757250911,
+      "gate_pass": true
+    },
+    {
+      "size_bytes": 65536,
+      "metric": "inner",
+      "block_log_ratios": [
+        -0.0010599994602578933,
+        0.00425690511179971,
+        -0.027616207485365918,
+        0.021812361905322528,
+        -0.010720786296632517,
+        -0.0011533001324905885
+      ],
+      "seed": "000000494e4f6242",
+      "bootstrap_draws": 10000,
+      "upper95_percentile": 0.95,
+      "upper95_index": 9500,
+      "upper95_ratio": 1.00746242780785,
+      "gate_pass": true
+    },
+    {
+      "size_bytes": 65536,
+      "metric": "process",
+      "block_log_ratios": [
+        -0.0011854304381950153,
+        0.004549513457646804,
+        -0.027250567821090574,
+        0.021999561042895775,
+        -0.010468576327943074,
+        -0.000961613905063903
+      ],
+      "seed": "0050524f43447443",
+      "bootstrap_draws": 10000,
+      "upper95_percentile": 0.95,
+      "upper95_index": 9500,
+      "upper95_ratio": 1.0075644941088002,
+      "gate_pass": true
+    }
+  ],
+  "all_four_noninferiority_gates_pass": true
+}[0m

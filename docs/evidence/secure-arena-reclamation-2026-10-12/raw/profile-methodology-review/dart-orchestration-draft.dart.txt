@@ -1,0 +1,31 @@
+#! /usr/bin/env dcli
+import 'dart:convert';
+import 'package:dcli/dcli.dart';
+
+const repo='/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance';
+const rust='$repo/rust';
+const root='$rust/target/secure-arena-reclamation-20261012';
+const cargo='/home/bsutton/.cargo/bin/cargo';
+const toolchainBin='/home/bsutton/.rustup/toolchains/1.88.0-x86_64-unknown-linux-gnu/bin';
+const healthyTmp='/home/bsutton/.cache/rv4-security-20261011';
+const crateName='revault_page_api';
+
+void require(bool ok,String text){if(!ok)throw StateError(text);}
+String isolatedManifest(String variant)=>'$root/$variant/rust/revault_page_api/Cargo.toml';
+String targetDir(String variant)=>'$root/$variant/build-target';
+Map<String,String> env(String variant)=>{'PATH':'$toolchainBin:/home/bsutton/.cargo/bin:/usr/bin:/bin','TMPDIR':healthyTmp,'CARGO_TARGET_DIR':targetDir(variant)};
+List<String> treeArgs(String variant)=>[cargo,'+1.88.0','tree','--manifest-path',isolatedManifest(variant),'--locked','--offline','-e','normal'];
+List<String> buildArgs(String variant)=>[cargo,'+1.88.0','build','--manifest-path',isolatedManifest(variant),'--locked','--offline','--release','--example','securevec_pressure_profile'];
+String binary(String variant)=>'${targetDir(variant)}/release/examples/securevec_pressure_profile';
+List<String> pressureArgs(String variant)=>['/usr/bin/timeout','--kill-after=30s','900s',binary(variant),variant,'pressure'];
+List<String> hotArgs(String variant,int round,int size,int iterations)=>[
+ '/usr/bin/timeout','--kill-after=30s','120s','/usr/bin/taskset','-c','0-4','/usr/bin/time','-f','%e %U %S %M','-o','$root/timing-$round-$size-$variant.txt',binary(variant),variant,'hot','$size','$iterations'
+];
+List<Map<String,Object>> hotMatrix(){final rows=<Map<String,Object>>[];for(var round=0;round<14;round++){for(final size in [64,65536]){final order=round.isEven?['old','new']:['new','old'];for(final variant in order){rows.add({'round':round+1,'size_bytes':size,'variant':variant,'iterations':size==64?100000:10000,'excluded_warmup':round<2});}}}return rows;}
+
+Future<void> main(List<String> args)async{
+ require(args.isEmpty,'review draft only; no execution phases are wired');
+ final summary={'review_only':true,'execution_enabled':false,'variants':['old','new'],'isolation_root':root,'env':{'TMPDIR':healthyTmp,'toolchain':'1.88.0'},'dependency_audit':{'old':treeArgs('old'),'new':treeArgs('new'),'required_match':['getrandom','zeroize','libc']},'builds':{'old':buildArgs('old'),'new':buildArgs('new')},'pressure_sequence':[pressureArgs('old'),pressureArgs('new')],'pressure_limits':{'size_count':64,'first_size_bytes':8192,'step_bytes':4096,'last_size_bytes':266240,'passes':2,'one_live_securevec':true,'locked_limit_bytes':8388608,'old_refusal_must_be_recorded':true,'new_required_allocations':128},'hot_processes':hotMatrix(),'hot_process_count':56,'hot_cpu_affinity':'0-4','hot_inner_work':{'64B':100000,'65536B':10000,'prewarm':'one allocate/verify/drop before inner timer','inner_loop':'no output or proc sampling; allocate/scoped-verify/drop each iteration'},'analysis':{'warmup_rounds_excluded':2,'measured_rounds':12,'adjacent_blocks_per_size':6,'bootstrap_seed':10000,'separate_metrics':['overall process wall time','inner operation time'],'normal_path_noninferiority_gate':'upper 95% bound <=1.05 for each size and each timing metric'}};
+ print(green('Review-only draft; no build or profile process launched.'));
+ print(const JsonEncoder.withIndent('  ').convert(summary));
+}

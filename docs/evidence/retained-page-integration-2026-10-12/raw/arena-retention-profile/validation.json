@@ -1,0 +1,11 @@
+{
+  "samples": 97,
+  "live_samples": 32,
+  "pass2_live_samples": 16,
+  "max_observed_VmLck_bytes": 1060864,
+  "first_pass_live_plateau_bytes": 1060864,
+  "planned_locked_backing_bytes": 1060864,
+  "limit_bytes": 2097152,
+  "capacities": "inferred from source; not exposed by public API",
+  "all_checks_passed": true
+}

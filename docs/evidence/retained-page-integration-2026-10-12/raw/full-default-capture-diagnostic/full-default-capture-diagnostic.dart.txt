@@ -1,0 +1,66 @@
+#! /usr/bin/env dcli
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+import 'package:dcli/dcli.dart';
+
+const worktree='/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance';
+const rust='$worktree/rust';
+const executable='$rust/target/release/deps/revault_lockbox_api-4fb36609fe9bd9c0';
+const evidence='$worktree/docs/evidence/retained-page-integration-2026-10-12/raw/full-default-capture-diagnostic';
+const expectedHead='e08a1000a54b912e7050054469f7ce899ef979d7';
+const expectedBinary='a82cce02e60dc1c09ca46491a08a284fadbc7459967d76a82e916be3034effd4';
+const expectedInventory=713;
+const maxRuntime=Duration(seconds:3600),killGrace=Duration(seconds:30),samplePeriod=Duration(seconds:5);
+const maxSamples=740;
+void require(bool ok,String message){if(!ok)throw StateError(message);}
+void save(String p,Object v)=>File(p).writeAsStringSync('${const JsonEncoder.withIndent('  ').convert(v)}\n',flush:true);
+String hashFile(String path){final r=Process.runSync('/usr/bin/sha256sum',['--',path]);require(r.exitCode==0,'sha256sum failed for $path');return (r.stdout as String).split(RegExp(r'\s+')).first;}
+String currentSourceManifest(){final r=Process.runSync('/usr/bin/git',['ls-files','*.rs','Cargo.toml','Cargo.lock'],workingDirectory:rust);require(r.exitCode==0,'git ls-files failed');final paths=(r.stdout as String).split('\n').where((x)=>x.isNotEmpty).toList()..sort();return paths.map((p)=>'${hashFile('$rust/$p')}  $p\n').join();}
+String runText(String exe,List<String> args,{required String cwd,String? stdoutPath,String? stderrPath}){
+ final r=Process.runSync(exe,args,workingDirectory:cwd,environment:{'TMPDIR':'/home/bsutton/.cache/rv4-security-20261011','NO_COLOR':'1','TERM':'dumb'},includeParentEnvironment:true);
+ if(stdoutPath!=null)File(stdoutPath).writeAsStringSync(r.stdout as String,flush:true);
+ if(stderrPath!=null)File(stderrPath).writeAsStringSync(r.stderr as String,flush:true);
+ require(r.exitCode==0,'preflight command failed: $exe ${args.join(' ')}');return r.stdout as String;
+}
+void preflight(){
+ final head=runText('/usr/bin/git',['rev-parse','HEAD'],cwd:worktree).trim();require(head==expectedHead,'HEAD mismatch: $head');
+ final binary=hashFile(executable);require(binary==expectedBinary,'test executable SHA mismatch: $binary');
+ final manifest=File('$evidence/source-manifest-pre.sha256').readAsLinesSync();var checked=0;
+ for(final line in manifest){final m=RegExp(r'^([0-9a-f]{64})  (.+)$').firstMatch(line);require(m!=null,'malformed saved source manifest');final path='$rust/${m!.group(2)}';final actual=hashFile(path);require(actual==m.group(1),'runtime source changed: ${m.group(2)}');checked++;}
+ final listed=runText(executable,['--list'],cwd:rust,stdoutPath:'$evidence/preflight-list.log',stderrPath:'$evidence/preflight-list.stderr');
+ final count=listed.split('\n').where((line)=>line.endsWith(': test')).length;require(count==expectedInventory,'test inventory count $count != $expectedInventory');
+ final previous=File('$worktree/docs/evidence/retained-page-integration-2026-10-12/raw/default-list.log').readAsStringSync();require(listed==previous,'test inventory differs from preserved 713-test inventory');
+ save('$evidence/preflight.json',{'head':head,'binary_sha256':binary,'inventory_count':count,'inventory_matches_preserved_list':true,'source_manifest_entries_verified':checked,'source_manifest_sha256':hashFile('$evidence/source-manifest-pre.sha256'),'test_argv':[executable,'--nocapture','--test-threads=2'],'filters':[],'ignored_tests_changed':false,'read_only':true});
+}
+int? statusKiB(String status,String key){for(final line in status.split('\n')){if(line.startsWith('$key:')){final f=line.trim().split(RegExp(r'\s+'));if(f.length>=2)return int.tryParse(f[1]);}}return null;}
+Map<String,Object?> sample(int pid,int index){final now=DateTime.now().toUtc().toIso8601String();try{final s=File('/proc/$pid/status').readAsStringSync();final l=File('/proc/$pid/limits').readAsLinesSync().firstWhere((x)=>x.startsWith('Max locked memory'),orElse:()=> '');return {'sample':index,'time_utc':now,'pid':pid,'VmLck_kib':statusKiB(s,'VmLck'),'VmRSS_kib':statusKiB(s,'VmRSS'),'max_locked_memory_limit':l};}on FileSystemException{return {'sample':index,'time_utc':now,'pid':pid,'process_status':'exited'};}}
+Future<void> main()async{
+ require(Platform.isLinux,'Linux /proc required');Directory(evidence).createSync(recursive:true);preflight();
+ final rawOut=File('$evidence/stdout.raw').openWrite(),rawErr=File('$evidence/stderr.raw').openWrite();
+ final outLog=File('$evidence/stdout-timestamped.log').openWrite(),errLog=File('$evidence/stderr-timestamped.log').openWrite(),sampleLog=File('$evidence/resource-samples.jsonl').openWrite();
+ final started=DateTime.now().toUtc();
+ final p=await Process.start(executable,['--nocapture','--test-threads=2'],workingDirectory:rust,environment:{'TMPDIR':'/home/bsutton/.cache/rv4-security-20261011','NO_COLOR':'1','TERM':'dumb'},includeParentEnvironment:true);
+ File('$evidence/pid.txt').writeAsStringSync('${p.pid}\n',flush:true);
+ print(green('full-default diagnostic started; owned test PID=${p.pid}; 713 tests; 3600s runtime + 30s grace'));
+ final ring=<String>[];String? failedLine;var stopCause='';var sampleCount=0;var exited=false;Timer? graceTimer;
+ void event(String stream,String line){final stamped='${DateTime.now().toUtc().toIso8601String()} [$stream] $line';ring.add(stamped);if(ring.length>300)ring.removeAt(0);(stream=='stdout'?outLog:errLog).writeln(stamped);
+  final normalized=line.replaceAll(RegExp(r'\x1B\[[0-9;]*[A-Za-z]'),'').replaceAll('\r','').trimRight();
+  if(failedLine==null&&RegExp(r'^\s*test\s+.+\s+\.\.\.\s+FAILED\s*$').hasMatch(normalized)){
+   failedLine=normalized;stopCause='individual_libtest_failure_result_line';final immediate=sample(p.pid,sampleCount++);sampleLog.writeln(jsonEncode(immediate));
+   save('$evidence/failure-trigger.json',{'time_utc':DateTime.now().toUtc().toIso8601String(),'pid':p.pid,'line':normalized,'detection':'complete libtest result line only; panic text alone is not a trigger','immediate_resource_snapshot':immediate,'recent_timestamped_output':List<String>.from(ring)});
+   Process.killPid(p.pid,ProcessSignal.sigterm);graceTimer=Timer(killGrace,(){if(!exited){stopCause='failure_line_sigkill_after_grace';Process.killPid(p.pid,ProcessSignal.sigkill);}});
+  }
+ }
+ Future<void> drain(Stream<List<int>> stream,String name,IOSink raw){final done=Completer<void>();var pending='';stream.listen((b){raw.add(b);pending+=utf8.decode(b,allowMalformed:true);final lines=pending.split('\n');pending=lines.removeLast();for(final line in lines)event(name,line);},onDone:(){if(pending.isNotEmpty)event(name,pending);done.complete();},onError:done.completeError);return done.future;}
+ final drained=Future.wait([drain(p.stdout,'stdout',rawOut),drain(p.stderr,'stderr',rawErr)]);
+ void takeSample(){if(sampleCount<maxSamples)sampleLog.writeln(jsonEncode(sample(p.pid,sampleCount++)));}
+ takeSample();final observer=Timer.periodic(samplePeriod,(_)=>takeSample());
+ final timeout=Timer(maxRuntime,(){if(!exited){stopCause='runtime_timeout';Process.killPid(p.pid,ProcessSignal.sigterm);graceTimer=Timer(killGrace,(){if(!exited){stopCause='timeout_sigkill_after_grace';Process.killPid(p.pid,ProcessSignal.sigkill);}});}});
+ final code=await p.exitCode;exited=true;await drained;observer.cancel();timeout.cancel();graceTimer?.cancel();
+ await Future.wait([rawOut.flush(),rawErr.flush(),outLog.flush(),errLog.flush(),sampleLog.flush()]);await Future.wait([rawOut.close(),rawErr.close(),outLog.close(),errLog.close(),sampleLog.close()]);
+ final elapsed=DateTime.now().toUtc().difference(started).inMilliseconds/1000;final status=failedLine!=null?'interrupted_incomplete_after_failure_line':stopCause.contains('timeout')?'timed_out':code==0?'passed':'failed';
+ save('$evidence/terminal.json',{'pid':p.pid,'exit_code':code,'status':status,'stop_cause':stopCause,'detected_failure_line':failedLine,'elapsed_seconds':elapsed,'sample_count':sampleCount,'inventory':expectedInventory,'complete_suite_pass':status=='passed'});
+ final postHead=runText('/usr/bin/git',['rev-parse','HEAD'],cwd:worktree).trim();final postBinary=hashFile(executable);final postManifest=currentSourceManifest();File('$evidence/source-manifest-post.sha256').writeAsStringSync(postManifest,flush:true);final sourceStable=postManifest==File('$evidence/source-manifest-pre.sha256').readAsStringSync();save('$evidence/postterminal-identities.json',{'head':postHead,'binary_sha256':postBinary,'source_manifest_sha256':hashFile('$evidence/source-manifest-post.sha256'),'source_manifest_unchanged':sourceStable});require(postHead==expectedHead&&postBinary==expectedBinary&&sourceStable,'postterminal identity drift');
+ print(green('diagnostic terminal status=$status exit=$code elapsed=${elapsed}s samples=$sampleCount'));
+}

@@ -1,0 +1,9 @@
+4066ea04691a8f5b44315291944638c7d1b1a2237b590c2fa1b047cf663130ab  docs/evidence/secure-arena-reclamation-2026-10-12/raw/hot-reuse-methodology-review/run-hot-reuse.dart
+3945923221f48e2756367fc7bd345385ced7093ae2c70cc455e5a82d36f58b52  docs/evidence/secure-arena-reclamation-2026-10-12/raw/hot-reuse-methodology-review/analyze-hot-reuse.dart
+50c93df0d88d892270d5b69aa5244ff7443e41ae26d597f97d074fcc937d55fc  docs/evidence/secure-arena-reclamation-2026-10-12/raw/hot-reuse-methodology-review/securevec_hot_reuse.rs.txt
+0b0d66a0bfd270167970a8d236480e528200c06de8ec51176c4ab7385f744efb  docs/evidence/secure-arena-reclamation-2026-10-12/raw/hot-reuse-methodology-review/protocol.txt
+7a122ce7892ce912957a1a936eec1d1ff6a770ae57c84b082218c13a96b3b114  docs/evidence/secure-arena-reclamation-2026-10-12/raw/hot-reuse-methodology-review/build-commands.txt
+d192da0dd4b25bd35ac94bf6593823211f8962323a35ba28e9f808fd97518feb  docs/evidence/secure-arena-reclamation-2026-10-12/raw/hot-reuse-methodology-review/build-inputs.txt
+41d39a9fd7d4897f23c7603b4f53c9d3e8154fc57c1631428a2e08ceb635ee0b  docs/evidence/secure-arena-reclamation-2026-10-12/raw/hot-reuse-methodology-review/analyze-results.txt
+5fe7f29a28c191e9830257fd61b95d77333685e346080ecfb65fbafeba6a6976  docs/evidence/secure-arena-reclamation-2026-10-12/raw/hot-reuse-methodology-review/hot-old-isolated-manifest.sha256
+ef2ce7ed6ee56f704a4af1dc246e7cf475488cce731de988795b502e39d9f20d  docs/evidence/secure-arena-reclamation-2026-10-12/raw/hot-reuse-methodology-review/hot-new-isolated-manifest.sha256

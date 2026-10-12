@@ -1,0 +1,18 @@
+{
+  "head": "e08a1000a54b912e7050054469f7ce899ef979d7",
+  "binary_sha256": "2dbaf9bb504cb2e729d0ec4d812240788c282c9c648c168442296e2b0c50275c",
+  "inventory_count": 720,
+  "inventory_matches_preserved_list": true,
+  "source_manifest_entries_verified": 779,
+  "source_manifest_sha256": "f8eadc5e54158205f1cb3ff492bdba40b467d6ed9f795e25ea40d73ed99dec6e",
+  "test_argv": [
+    "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/release/deps/revault_lockbox_api-a596bb400f031d5b",
+    "--nocapture",
+    "--test-threads=2"
+  ],
+  "filters": [],
+  "ignored_tests_changed": false,
+  "read_only": true,
+  "max_runtime_seconds": 5400,
+  "kill_grace_seconds": 30
+}

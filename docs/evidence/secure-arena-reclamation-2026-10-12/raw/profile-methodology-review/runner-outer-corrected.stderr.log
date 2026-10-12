@@ -1,0 +1,8 @@
+Failed to build ../docs/evidence/secure-arena-reclamation-2026-10-12/raw/profile-methodology-review/run-pressure-once.dart:
+Error: Couldn't resolve the package 'dcli' in 'package:dcli/dcli.dart'.
+git/.codex.workspaces/revault-issue-310-zip-read-performance/docs/evidence/secure-arena-reclamation-2026-10-12/raw/profile-methodology-review/run-pressure-once.dart:4:8: Error: Not found: 'package:dcli/dcli.dart'
+import 'package:dcli/dcli.dart';
+       ^
+git/.codex.workspaces/revault-issue-310-zip-read-performance/docs/evidence/secure-arena-reclamation-2026-10-12/raw/profile-methodology-review/run-pressure-once.dart:37:479: Error: Method not found: 'green'.
+for(final v in ['old','new']){File('$raw/$v-isolated-manifest.sha256').writeAsStringSync(manifest(v),flush:true);save('$v-binary.json',{'path':bin(v),'sha256':sha(bin(v))});}save('host-gates.json',{'getconf_pagesize':page.stdout.toString().trim(),'memlock_expected_bytes':8388608,'profile_cap_seconds':30,'build_cap_seconds':300,'workspace_resolver':'2','same_dependency_tree':true,'profile_count':'old natural refusal + new 128 allocations','hot_timing_launched':false});print(green('Approved pressure profile completed; no hot timing was run.'));
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              ^^^^^

@@ -1,0 +1,4 @@
+completed_ok=380
+failed_lines=1
+ignored_lines=15
+total_terminal_result_lines=396

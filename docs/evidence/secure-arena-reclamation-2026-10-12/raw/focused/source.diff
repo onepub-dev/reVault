@@ -1,0 +1,265 @@
+diff --git a/rust/revault_page_api/src/arena.rs b/rust/revault_page_api/src/arena.rs
+index eb2f6e9c..fd82c7ef 100644
+--- a/rust/revault_page_api/src/arena.rs
++++ b/rust/revault_page_api/src/arena.rs
+@@ -1,13 +1,14 @@
+ use crate::{
+     allocation::Allocation,
+     canary::CANARY_LEN,
+-    error::Result,
++    error::{Error, Result},
+     memory_region::{MemoryRegion, Protection},
+     page_permission::PagePermission,
+ };
+ 
+ pub(crate) struct Arena {
+-    memory: MemoryRegion,
++    memory: Option<MemoryRegion>,
++    data_size: usize,
+     pub(crate) slot_size: usize,
+     slot_stride: usize,
+     slots: Vec<Slot>,
+@@ -15,8 +16,12 @@ pub(crate) struct Arena {
+ }
+ 
+ impl Arena {
+-    pub(crate) fn new(slot_size: usize, data_size: usize) -> Result<Self> {
+-        let memory = MemoryRegion::new(data_size)?;
++    pub(crate) fn new_with(
++        slot_size: usize,
++        data_size: usize,
++        create: &mut impl FnMut(usize) -> Result<MemoryRegion>,
++    ) -> Result<Self> {
++        let memory = create(data_size)?;
+         let slot_stride = Self::slot_stride(slot_size);
+         let slot_count = data_size / slot_stride;
+         let slots = (0..slot_count)
+@@ -27,7 +32,8 @@ impl Arena {
+             .collect::<Vec<_>>();
+         let free = (0..slot_count).rev().collect::<Vec<_>>();
+         Ok(Self {
+-            memory,
++            memory: Some(memory),
++            data_size,
+             slot_size,
+             slot_stride,
+             slots,
+@@ -40,6 +46,9 @@ impl Arena {
+     }
+ 
+     pub(crate) fn allocate(&mut self, arena_index: usize) -> Option<Allocation> {
++        if self.memory.is_none() {
++            return None;
++        }
+         let slot_index = self.free.pop()?;
+         let slot = &mut self.slots[slot_index];
+         slot.live = true;
+@@ -59,12 +68,37 @@ impl Arena {
+         self.free.push(slot_index);
+     }
+ 
++    pub(crate) fn has_backing(&self) -> bool {
++        self.memory.is_some()
++    }
++
++    // Keep positional arena IDs, slot generations and free-list metadata intact.
++    // Every free slot was wiped before being returned to this list.
++    pub(crate) fn release_empty_backing(&mut self) -> bool {
++        if self.free.len() == self.slots.len() {
++            return self.memory.take().is_some();
++        }
++        false
++    }
++
++    pub(crate) fn restore_backing(
++        &mut self,
++        create: &mut impl FnMut(usize) -> Result<MemoryRegion>,
++    ) -> Result<()> {
++        if self.memory.is_none() {
++            // Assign only after successful hardened allocation. A refusal leaves
++            // the empty arena and its generations available for a later attempt.
++            self.memory = Some(create(self.data_size)?);
++        }
++        Ok(())
++    }
++
+     pub(crate) fn ptr_for_offset(&self, offset: usize) -> *mut u8 {
+-        self.memory.data_ptr().wrapping_add(offset)
++        self.memory.as_ref().expect("live arena has backing").data_ptr().wrapping_add(offset)
+     }
+ 
+     pub(crate) fn is_live_generation(&self, slot_index: usize, generation: u64) -> bool {
+-        self.slots
++        self.memory.is_some() && self.slots
+             .get(slot_index)
+             .is_some_and(|slot| slot.live && slot.generation == generation)
+     }
+@@ -78,11 +112,11 @@ impl Arena {
+             PagePermission::Read => Protection::Read,
+             PagePermission::Write => Protection::ReadWrite,
+         };
+-        self.memory.protect_data_page(page_index, prot)
++        self.memory.as_mut().ok_or(Error::CorruptAllocation)?.protect_data_page(page_index, prot)
+     }
+ 
+     pub(crate) fn protect_page_none(&mut self, page_index: usize) -> Result<()> {
+-        self.memory.protect_data_page(page_index, Protection::None)
++        self.memory.as_mut().ok_or(Error::CorruptAllocation)?.protect_data_page(page_index, Protection::None)
+     }
+ 
+     fn slot_stride(slot_size: usize) -> usize {
+diff --git a/rust/revault_page_api/src/secure_heap.rs b/rust/revault_page_api/src/secure_heap.rs
+index 72c21fec..a8e77acb 100644
+--- a/rust/revault_page_api/src/secure_heap.rs
++++ b/rust/revault_page_api/src/secure_heap.rs
+@@ -27,6 +27,37 @@ impl SecureHeap {
+     }
+ 
+     pub(crate) fn allocate(&mut self, capacity: usize) -> Result<Allocation> {
++        self.allocate_with(capacity, &mut memory_region::MemoryRegion::new)
++    }
++
++    fn allocate_with(
++        &mut self,
++        capacity: usize,
++        create: &mut impl FnMut(usize) -> Result<memory_region::MemoryRegion>,
++    ) -> Result<Allocation> {
++        match self.allocate_once(capacity, create) {
++            Err(error @ (Error::AllocationFailed | Error::LockFailed | Error::WeakAllocationDisabled)) => {
++                let mut released = false;
++                for arena in &mut self.arenas {
++                    released |= arena.release_empty_backing();
++                }
++                if released {
++                    // One retry with the same allocator and security policy;
++                    // live arenas are never released and no weak fallback is added.
++                    self.allocate_once(capacity, create)
++                } else {
++                    Err(error)
++                }
++            }
++            result => result,
++        }
++    }
++
++    fn allocate_once(
++        &mut self,
++        capacity: usize,
++        create: &mut impl FnMut(usize) -> Result<memory_region::MemoryRegion>,
++    ) -> Result<Allocation> {
+         let slot_size = slot_size_for(capacity)?;
+         for (arena_index, arena) in self.arenas.iter_mut().enumerate() {
+             if arena.slot_size == slot_size {
+@@ -37,8 +68,19 @@ impl SecureHeap {
+             }
+         }
+ 
++        // Prefer existing backed free slots above before remapping an empty
++        // arena of the same class. Its stable slot generations are retained.
++        for (arena_index, arena) in self.arenas.iter_mut().enumerate() {
++            if arena.slot_size == slot_size && !arena.has_backing() {
++                arena.restore_backing(create)?;
++                let allocation = arena.allocate(arena_index).ok_or(Error::AllocationFailed)?;
++                self.write_canaries(allocation)?;
++                return Ok(allocation);
++            }
++        }
++
+         let data_size = allocation_chunk_bytes().max(Arena::required_data_size(slot_size));
+-        let mut arena = Arena::new(slot_size, data_size)?;
++        let mut arena = Arena::new_with(slot_size, data_size, create)?;
+         let arena_index = self.arenas.len();
+         let allocation = arena.allocate(arena_index).ok_or(Error::AllocationFailed)?;
+         self.arenas.push(arena);
+@@ -447,3 +489,91 @@ fn slot_size_for(capacity: usize) -> Result<usize> {
+         .map(|size| size / page_size * page_size)
+         .ok_or(Error::CapacityOverflow)
+ }
++
++#[cfg(test)]
++mod reclamation_tests {
++    use super::*;
++    use crate::memory_region::MemoryRegion;
++
++    #[test]
++    fn pressure_reclaims_only_empty_backing_and_preserves_live_and_stale_identity() {
++        let mut heap = SecureHeap::new();
++        let live = heap.allocate(64).unwrap();
++        heap.write(live, 0, b"retained").unwrap();
++        let stale = heap.allocate(8192).unwrap();
++        heap.write(stale, 0, b"old secret").unwrap();
++        heap.free(stale).unwrap();
++        let mut calls = 0;
++        let next = heap.allocate_with(16384, &mut |size| {
++            calls += 1;
++            if calls == 1 { Err(Error::WeakAllocationDisabled) } else { MemoryRegion::new(size) }
++        }).unwrap();
++        assert_eq!(calls, 2);
++        assert!(!heap.arenas[stale.arena].has_backing());
++        assert!(heap.arenas[live.arena].has_backing());
++        assert_eq!(heap.with_mut_slice(live, 8, |bytes| bytes.to_vec()).unwrap(), b"retained");
++        heap.check_canaries(live).unwrap();
++        assert_eq!(heap.validate_allocation(stale), Err(Error::CorruptAllocation));
++        let restored = heap.allocate(8192).unwrap();
++        assert_eq!(restored.arena, stale.arena);
++        assert_eq!(restored.slot, stale.slot);
++        assert_ne!(restored.generation, stale.generation);
++        assert_eq!(heap.validate_allocation(stale), Err(Error::CorruptAllocation));
++        assert!(heap.with_mut_slice(restored, 8192, |bytes| bytes.iter().all(|b| *b == 0)).unwrap());
++        heap.check_canaries(restored).unwrap();
++        heap.free(restored).unwrap();
++        heap.free(next).unwrap();
++        heap.free(live).unwrap();
++    }
++
++    #[test]
++    fn pressure_retry_is_bounded_and_failed_rehydration_keeps_metadata_reusable() {
++        let mut heap = SecureHeap::new();
++        let live = heap.allocate(64).unwrap();
++        heap.write(live, 0, b"alive").unwrap();
++        let stale = heap.allocate(8192).unwrap();
++        heap.free(stale).unwrap();
++        let mut calls = 0;
++        let error = heap.allocate_with(16384, &mut |_| {
++            calls += 1;
++            Err(Error::WeakAllocationDisabled)
++        }).unwrap_err();
++        assert_eq!(error, Error::WeakAllocationDisabled);
++        assert_eq!(calls, 2);
++        assert!(!heap.arenas[stale.arena].has_backing());
++        let mut attempts = 0;
++        assert_eq!(heap.allocate_with(8192, &mut |_| {
++            attempts += 1;
++            Err(Error::WeakAllocationDisabled)
++        }).unwrap_err(), Error::WeakAllocationDisabled);
++        assert_eq!(attempts, 1); // No empty backing remains to release.
++        assert_eq!(heap.validate_allocation(stale), Err(Error::CorruptAllocation));
++        let restored = heap.allocate(8192).unwrap();
++        assert_eq!(restored.arena, stale.arena);
++        assert_ne!(restored.generation, stale.generation);
++        assert_eq!(heap.with_mut_slice(live, 5, |bytes| bytes.to_vec()).unwrap(), b"alive");
++        heap.check_canaries(live).unwrap();
++        heap.free(restored).unwrap();
++        heap.free(live).unwrap();
++    }
++
++    #[test]
++    fn backed_reuse_precedes_remapping_and_other_errors_do_not_reclaim() {
++        let mut heap = SecureHeap::new();
++        let first = heap.allocate(65536).unwrap();
++        let second = heap.allocate(65536).unwrap();
++        heap.free(first).unwrap();
++        assert!(heap.arenas[first.arena].release_empty_backing());
++        heap.free(second).unwrap();
++        let reused = heap.allocate_with(65536, &mut |_| panic!("must reuse backed slot")).unwrap();
++        assert_eq!(reused.arena, second.arena);
++        heap.free(reused).unwrap();
++        let mut attempts = 0;
++        assert_eq!(heap.allocate_with(131072, &mut |_| {
++            attempts += 1;
++            Err(Error::ProtectionFailed)
++        }).unwrap_err(), Error::ProtectionFailed);
++        assert_eq!(attempts, 1);
++        assert!(heap.arenas[second.arena].has_backing());
++    }
++}

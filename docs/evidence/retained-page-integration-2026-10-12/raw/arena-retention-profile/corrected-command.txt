@@ -1,0 +1,1 @@
+/home/bsutton/.cargo/bin/cargo +1.88.0 build --locked --offline --release -p revault_page_api@0.0.34 --example securevec_arena_retention_profile

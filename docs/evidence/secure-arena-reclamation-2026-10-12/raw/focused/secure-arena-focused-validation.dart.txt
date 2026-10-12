@@ -1,0 +1,30 @@
+#! /usr/bin/env dcli
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+import 'package:dcli/dcli.dart';
+const worktree='/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance';
+const rust='$worktree/rust';
+const evidence='$worktree/docs/evidence/secure-arena-reclamation-2026-10-12/raw/focused';
+const cargo='/home/bsutton/.cargo/bin/cargo';
+const toolbin='/home/bsutton/.rustup/toolchains/1.88.0-x86_64-unknown-linux-gnu/bin';
+const cap=900;
+void save(String p,Object v)=>File(p).writeAsStringSync('${const JsonEncoder.withIndent('  ').convert(v)}\n',flush:true);
+Future<Map<String,Object?>> runPhase(String name,List<String> args)async{
+ final out=File('$evidence/$name.stdout').openWrite(),err=File('$evidence/$name.stderr').openWrite();final sw=Stopwatch()..start();
+ final env={'PATH':'$toolbin:/home/bsutton/.cargo/bin:/usr/bin:/bin','TMPDIR':'/home/bsutton/.cache/rv4-security-20261011'};
+ final p=await Process.start('/usr/bin/timeout',['--kill-after=30s','${cap}s',...args],workingDirectory:rust,environment:env,includeParentEnvironment:true);
+ File('$evidence/$name.pid').writeAsStringSync('${p.pid}\n',flush:true);print(green('$name started pid=${p.pid} cap=${cap}s'));
+ final a=p.stdout.listen(out.add).asFuture<void>(),b=p.stderr.listen(err.add).asFuture<void>();final code=await p.exitCode;await Future.wait([a,b]);await out.close();await err.close();sw.stop();
+ final m={'argv':['/usr/bin/timeout','--kill-after=30s','${cap}s',...args],'cwd':rust,'pid':p.pid,'exit_code':code,'elapsed_seconds':sw.elapsedMilliseconds/1000,'timeout':code==124||code==137};save('$evidence/$name.status.json',m);print(green('$name completed exit=$code elapsed=${sw.elapsedMilliseconds/1000}s'));return m;
+}
+String? passedCount(String p){final s=File(p).readAsStringSync();final m=RegExp(r'test result: ok\. (\d+) passed').firstMatch(s);return m?.group(1);}
+void post(){final r=Process.runSync('/usr/bin/git',['rev-parse','HEAD'],workingDirectory:worktree);final head=(r.stdout as String).trim();File('$evidence/head-post.txt').writeAsStringSync('$head\n');final files=Process.runSync('/usr/bin/git',['ls-files','*.rs','Cargo.toml','Cargo.lock'],workingDirectory:rust);if(files.exitCode!=0)throw StateError('git ls-files failed');final paths=(files.stdout as String).split('\n').where((x)=>x.isNotEmpty).toList()..sort();final lines=<String>[];for(final p in paths){final h=Process.runSync('/usr/bin/sha256sum',['--','$rust/$p']);if(h.exitCode!=0)throw StateError('hash failed $p');lines.add('${(h.stdout as String).split(RegExp(r'\s+')).first}  $p');}File('$evidence/source-manifest-post.sha256').writeAsStringSync('${lines.join('\n')}\n');save('$evidence/postterminal.json',{'head':head,'source_manifest_entries':lines.length,'source_manifest_unchanged':File('$evidence/source-manifest-pre.sha256').readAsStringSync()=='${lines.join('\n')}\n'});}
+Future<void> main()async{
+ Directory(evidence).createSync(recursive:true);
+ final first=await runPhase('page-api-lib',['${cargo}','+1.88.0','test','--locked','--offline','--release','-p','revault_page_api@0.0.34','--lib']);
+ if(first['exit_code']!=0){save('$evidence/terminal.json',{'stopped_after':'page-api-lib','first_suite_passed':false,'second_test_started':false});post();return;}
+ final exact='file_format::form_segments::tests::form_segments_empty_utf8_boundary_and_one_mib_all_modes';
+ final second=await runPhase('lockbox-api-exact-failure',['${cargo}','+1.88.0','test','--locked','--offline','--release','-p','revault_lockbox_api@0.0.41','--lib',exact,'--','--exact','--nocapture','--test-threads=1']);
+ save('$evidence/terminal.json',{'first_suite_exit':first['exit_code'],'first_suite_passed':true,'first_suite_tests_passed':passedCount('$evidence/page-api-lib.stdout'),'exact_test':exact,'exact_exit':second['exit_code'],'exact_test_passed':second['exit_code']==0,'exact_tests_passed':passedCount('$evidence/lockbox-api-exact-failure.stdout')});post();
+}

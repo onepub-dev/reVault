@@ -1,0 +1,1 @@
+Default suite stopped immediately after the first visible FAILED line. Test executable received SIGTERM from the parent-directed exact-PID stop; timeout wrapper exited 143. No native suite started.

@@ -1,0 +1,22 @@
+{
+  "argv": [
+    "/usr/bin/timeout",
+    "--kill-after=10s",
+    "300s",
+    "cargo",
+    "+1.88.0",
+    "build",
+    "--locked",
+    "--offline",
+    "--release",
+    "-p",
+    "revault_page_api@0.0.34",
+    "--example",
+    "securevec_arena_retention_profile"
+  ],
+  "cwd": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust",
+  "pid": 860542,
+  "exit_code": 127,
+  "elapsed_seconds": 0.035,
+  "timeout_exit": false
+}

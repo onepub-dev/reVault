@@ -1,0 +1,15 @@
+e24836f33a82ca0dfcd8b7544bb7bc4a7898952f93d5e46516d5eee3ef203e37  docs/evidence/secure-arena-reclamation-2026-10-12/raw/hot-reuse-methodology-review/run-hot-reuse.dart
+8e7eae120e2f4b5fcc01c18be6d08f0f468d10c7bfb331424f70bea760f5b519  docs/evidence/secure-arena-reclamation-2026-10-12/raw/hot-reuse-methodology-review/analyze-hot-reuse.dart
+4f32b9eff3677f456673ead51d8fbf5cd89f35d30c477d6986c045ac285f1cb0  docs/evidence/secure-arena-reclamation-2026-10-12/raw/hot-reuse-methodology-review/protocol.txt
+e96a48dc7891e439d3d97b7025aec88855bdc39b05aac8586d2160eb99c7dc4e  docs/evidence/secure-arena-reclamation-2026-10-12/raw/hot-reuse-methodology-review/securevec_hot_reuse.rs.txt
+4d5fcdef952c0ec7b91c0790d0a40da3cd29383e7b0950cc4bd9ec49df3d8a8d  docs/evidence/secure-arena-reclamation-2026-10-12/raw/hot-reuse-methodology-review/hot-old-isolated-manifest.sha256
+ba27a19a105718050a35d0f27d24975f31c65d76a2a7c9ca8f710b1f4491647a  docs/evidence/secure-arena-reclamation-2026-10-12/raw/hot-reuse-methodology-review/hot-new-isolated-manifest.sha256
+633f96a3aeaf93f6bb52d0ff8cf8736caaaf9b2a1c2d2d3f79be4e18cc7c48ee  docs/evidence/secure-arena-reclamation-2026-10-12/raw/hot-reuse-methodology-review/final-build-status.json
+e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  docs/evidence/secure-arena-reclamation-2026-10-12/raw/hot-reuse-methodology-review/old-build.stdout.log
+9b96c51c3d0e4b8ea17ff3c14a36be7de07093e9d2b65df5dccaec6c86575035  docs/evidence/secure-arena-reclamation-2026-10-12/raw/hot-reuse-methodology-review/old-build.stderr.log
+e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  docs/evidence/secure-arena-reclamation-2026-10-12/raw/hot-reuse-methodology-review/new-build.stdout.log
+82cfd844dca6426cb93e5b44f9810808e1bd1678e0f43f0c92671e71c68cbddf  docs/evidence/secure-arena-reclamation-2026-10-12/raw/hot-reuse-methodology-review/new-build.stderr.log
+129d3a37948a29a1ce620eaafbaa475539b7d600055297c38f671b13d2049ae4  rust/target/secure-arena-reclamation-20261012/old/build-target/release/examples/securevec_hot_reuse
+cea3324ff4122224431a7ca0320fc591482ae757b6a43ef711214ed51de5406e  rust/target/secure-arena-reclamation-20261012/new/build-target/release/examples/securevec_hot_reuse
+41aef6203064b597f982c5da5cbaff5bf5a6ea488c443cc48d9fe1e9fb8fffa2  rust/target/secure-arena-reclamation-20261012/old/build-target/release/examples/securevec_pressure_profile
+45b9aff04ae6e2c7e255cb09459e00036e033d1473828160b6aa4c68fb077fdf  rust/target/secure-arena-reclamation-20261012/new/build-target/release/examples/securevec_pressure_profile

@@ -1,13 +1,14 @@
 use crate::{
     allocation::Allocation,
     canary::CANARY_LEN,
-    error::Result,
+    error::{Error, Result},
     memory_region::{MemoryRegion, Protection},
     page_permission::PagePermission,
 };
 
 pub(crate) struct Arena {
-    memory: MemoryRegion,
+    memory: Option<MemoryRegion>,
+    data_size: usize,
     pub(crate) slot_size: usize,
     slot_stride: usize,
     slots: Vec<Slot>,
@@ -15,8 +16,12 @@ pub(crate) struct Arena {
 }
 
 impl Arena {
-    pub(crate) fn new(slot_size: usize, data_size: usize) -> Result<Self> {
-        let memory = MemoryRegion::new(data_size)?;
+    pub(crate) fn new_with(
+        slot_size: usize,
+        data_size: usize,
+        create: &mut impl FnMut(usize) -> Result<MemoryRegion>,
+    ) -> Result<Self> {
+        let memory = create(data_size)?;
         let slot_stride = Self::slot_stride(slot_size);
         let slot_count = data_size / slot_stride;
         let slots = (0..slot_count)
@@ -27,7 +32,8 @@ impl Arena {
             .collect::<Vec<_>>();
         let free = (0..slot_count).rev().collect::<Vec<_>>();
         Ok(Self {
-            memory,
+            memory: Some(memory),
+            data_size,
             slot_size,
             slot_stride,
             slots,
@@ -40,6 +46,9 @@ impl Arena {
     }
 
     pub(crate) fn allocate(&mut self, arena_index: usize) -> Option<Allocation> {
+        if self.memory.is_none() {
+            return None;
+        }
         let slot_index = self.free.pop()?;
         let slot = &mut self.slots[slot_index];
         slot.live = true;
@@ -59,14 +68,45 @@ impl Arena {
         self.free.push(slot_index);
     }
 
+    pub(crate) fn has_backing(&self) -> bool {
+        self.memory.is_some()
+    }
+
+    // Keep positional arena IDs, slot generations and free-list metadata intact.
+    // Every free slot was wiped before being returned to this list.
+    pub(crate) fn release_empty_backing(&mut self) -> bool {
+        if self.free.len() == self.slots.len() {
+            return self.memory.take().is_some();
+        }
+        false
+    }
+
+    pub(crate) fn restore_backing(
+        &mut self,
+        create: &mut impl FnMut(usize) -> Result<MemoryRegion>,
+    ) -> Result<()> {
+        if self.memory.is_none() {
+            // Assign only after successful hardened allocation. A refusal leaves
+            // the empty arena and its generations available for a later attempt.
+            self.memory = Some(create(self.data_size)?);
+        }
+        Ok(())
+    }
+
     pub(crate) fn ptr_for_offset(&self, offset: usize) -> *mut u8 {
-        self.memory.data_ptr().wrapping_add(offset)
+        self.memory
+            .as_ref()
+            .expect("live arena has backing")
+            .data_ptr()
+            .wrapping_add(offset)
     }
 
     pub(crate) fn is_live_generation(&self, slot_index: usize, generation: u64) -> bool {
-        self.slots
-            .get(slot_index)
-            .is_some_and(|slot| slot.live && slot.generation == generation)
+        self.memory.is_some()
+            && self
+                .slots
+                .get(slot_index)
+                .is_some_and(|slot| slot.live && slot.generation == generation)
     }
 
     pub(crate) fn protect_page(
@@ -78,11 +118,17 @@ impl Arena {
             PagePermission::Read => Protection::Read,
             PagePermission::Write => Protection::ReadWrite,
         };
-        self.memory.protect_data_page(page_index, prot)
+        self.memory
+            .as_mut()
+            .ok_or(Error::CorruptAllocation)?
+            .protect_data_page(page_index, prot)
     }
 
     pub(crate) fn protect_page_none(&mut self, page_index: usize) -> Result<()> {
-        self.memory.protect_data_page(page_index, Protection::None)
+        self.memory
+            .as_mut()
+            .ok_or(Error::CorruptAllocation)?
+            .protect_data_page(page_index, Protection::None)
     }
 
     fn slot_stride(slot_size: usize) -> usize {
