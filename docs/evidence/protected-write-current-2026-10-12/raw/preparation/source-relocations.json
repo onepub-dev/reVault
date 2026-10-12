@@ -1,0 +1,59 @@
+{
+  "reason": "Executed preparation helpers retained as immutable evidence, including failed attempts; these are not supported repeatable operational tools. Frozen references retain their original paths and hashes.",
+  "rows": [
+    {
+      "original_path": "tools/protected-write-baseline-draft/correct-attempt2-root.dart",
+      "preserved_path": "docs/evidence/protected-write-current-2026-10-12/raw/preparation/executed-sources/correct-attempt2-root.dart.txt",
+      "sha256": "de28b40eecb4733e88d339157a04bfe7e7bb3a9304b49c91f54690f7702fe55f",
+      "bytes": 1909
+    },
+    {
+      "original_path": "tools/protected-write-baseline-draft/prepare-attempt2.dart",
+      "preserved_path": "docs/evidence/protected-write-current-2026-10-12/raw/preparation/executed-sources/prepare-attempt2.dart.txt",
+      "sha256": "723090545d06ef3b189b6b099368cff5d6a13079af94e819b2fe3f9365ea526f",
+      "bytes": 3010
+    },
+    {
+      "original_path": "tools/protected-write-baseline-draft/finish-source-consolidation.dart",
+      "preserved_path": "docs/evidence/protected-write-current-2026-10-12/raw/preparation/executed-sources/finish-source-consolidation.dart.txt",
+      "sha256": "2526990d41aedc7b4a83399903272a15ef8a8f8387a899c46e47c7e60432508f",
+      "bytes": 4655
+    },
+    {
+      "original_path": "tools/protected-write-baseline-draft/retarget-fixtures-recovery.dart",
+      "preserved_path": "docs/evidence/protected-write-current-2026-10-12/raw/preparation/executed-sources/retarget-fixtures-recovery.dart.txt",
+      "sha256": "c920be0e76ca385ae6e00b7d4b92cd8aee408ccb80d4aed5306aec3e5f31047c",
+      "bytes": 6192
+    },
+    {
+      "original_path": "tools/protected-write-baseline-draft/retarget-fixtures.dart",
+      "preserved_path": "docs/evidence/protected-write-current-2026-10-12/raw/preparation/executed-sources/retarget-fixtures.dart.txt",
+      "sha256": "21a4e049419bd016ac791f40337ec4b5bee4cb18dfc969ed3e64d122376efa9f",
+      "bytes": 6549
+    },
+    {
+      "original_path": "tools/protected-write-baseline-draft/remove-obsolete-fixtures.dart",
+      "preserved_path": "docs/evidence/protected-write-current-2026-10-12/raw/preparation/executed-sources/remove-obsolete-fixtures.dart.txt",
+      "sha256": "02ee7084124310489f58bddc90a6de67b88e6abcaf8200d2237f10ac8b2c1abc",
+      "bytes": 1873
+    },
+    {
+      "original_path": "tools/protected-write-baseline-draft/inventory-removable-fixtures.dart",
+      "preserved_path": "docs/evidence/protected-write-current-2026-10-12/raw/preparation/executed-sources/inventory-removable-fixtures.dart.txt",
+      "sha256": "049e81192e421f859f709e5edb76af1d01aa248405c2c81084b41bdf14bf1927",
+      "bytes": 3485
+    },
+    {
+      "original_path": "tools/protected-write-baseline-draft/audit-roots.dart",
+      "preserved_path": "docs/evidence/protected-write-current-2026-10-12/raw/preparation/executed-sources/audit-roots.dart.txt",
+      "sha256": "05d11980a8a92e795db9576eea7059e1f5712dacb772b193b27a55c095f80ade",
+      "bytes": 3320
+    },
+    {
+      "original_path": "tools/protected-write-baseline-draft/freeze-build-inputs.dart",
+      "preserved_path": "docs/evidence/protected-write-current-2026-10-12/raw/preparation/executed-sources/freeze-build-inputs.dart.txt",
+      "sha256": "48ff4b7ce213117e5ab53eaebcdfe2a02166c562dc5f05b063bb039547d537d8",
+      "bytes": 4423
+    }
+  ]
+}

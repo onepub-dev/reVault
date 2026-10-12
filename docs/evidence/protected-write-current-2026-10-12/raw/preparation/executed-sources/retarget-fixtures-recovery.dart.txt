@@ -1,0 +1,92 @@
+#! /usr/bin/env dcli
+import 'dart:convert';
+import 'dart:io';
+
+const root = '/home/bsutton/.cache/revault-native-public-20261011';
+const evidence = '/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/docs/evidence/protected-write-current-2026-10-12/raw/preparation';
+const logPath = '$evidence/source-symlink-consolidation-recovery-20261012.log';
+
+void require(bool ok, String message) {
+  if (!ok) throw StateError(message);
+}
+
+String sha(String path) {
+  final result = Process.runSync('/usr/bin/sha256sum', ['--', path]);
+  require(result.exitCode == 0, 'sha256sum failed: $path');
+  return (result.stdout as String).split(RegExp(r'\s+')).first;
+}
+
+String readlink(String path) {
+  final result = Process.runSync('/usr/bin/readlink', [path]);
+  require(result.exitCode == 0, 'readlink failed: $path');
+  return (result.stdout as String).trim();
+}
+
+String realpath(String path) {
+  final result = Process.runSync('/usr/bin/realpath', ['-e', path]);
+  require(result.exitCode == 0, 'realpath failed: $path');
+  return (result.stdout as String).trim();
+}
+
+String inode(String path) {
+  final result = Process.runSync('/usr/bin/stat', ['-c', '%d:%i', path]);
+  require(result.exitCode == 0, 'stat failed: $path');
+  return (result.stdout as String).trim();
+}
+
+Map<String, dynamic> manifest(String path) => jsonDecode(File(path).readAsStringSync()) as Map<String, dynamic>;
+
+void append(String text) => File(logPath).writeAsStringSync('$text\n', mode: FileMode.append, flush: true);
+
+void main() {
+  require(!File(logPath).existsSync(), 'Refusing to overwrite the recovery log');
+  Directory(evidence).createSync(recursive: true);
+  append('Corrected recovery for initial logger-close failure. Source aliases are safely retargeted and content/mode reverified.');
+  for (final caseName in ['source-zstd-1gib', 'source-zstd-64mib', 'random-raw-1gib', 'random-raw-64mib']) {
+    final oldManifestPath = '$root/fixtures/$caseName/case-manifest.json';
+    final v2ManifestPath = '$root/fixtures-v2/$caseName/case-manifest.json';
+    final oldManifestHash = sha(oldManifestPath);
+    final v2ManifestHash = sha(v2ManifestPath);
+    final oldManifest = manifest(oldManifestPath);
+    final v2Manifest = manifest(v2ManifestPath);
+    require(oldManifest['bytes'] == v2Manifest['bytes'] && oldManifest['input_sha256'] == v2Manifest['input_sha256'], 'Corpus differs: $caseName');
+    final canonicalDir = '$root/fixtures/$caseName/A/source';
+    final canonicalFile = '$canonicalDir/file-000000.bin';
+    require(FileSystemEntity.typeSync(canonicalFile, followLinks: false) == FileSystemEntityType.file, 'Canonical A file missing');
+    final canonicalHash = sha(canonicalFile);
+    final canonicalBytes = File(canonicalFile).lengthSync();
+    final canonicalMode = File(canonicalFile).statSync().mode & 0x1ff;
+    require(canonicalBytes == oldManifest['bytes'] && canonicalMode == 0x1b4, 'Canonical A length/mode mismatch: $caseName');
+    final oldVariants = (oldManifest['variants'] as List).cast<Map<String, dynamic>>();
+    final v2Variants = (v2Manifest['variants'] as List).cast<Map<String, dynamic>>();
+    require(oldVariants.singleWhere((v) => v['variant'] == 'A')['source_sha256'] == canonicalHash, 'Canonical A hash mismatch: $caseName');
+    append('CASE\t$caseName\tcanonical=$canonicalFile\tinode=${inode(canonicalFile)}\tbytes=$canonicalBytes\tmode=${canonicalMode.toRadixString(8)}\tsha256=$canonicalHash\toldManifest=$oldManifestHash\tv2Manifest=$v2ManifestHash');
+    for (final variant in ['B', 'C', 'ZIP']) {
+      final oldFile = '$root/fixtures/$caseName/$variant/source/file-000000.bin';
+      final v2Source = '$root/fixtures-v2/$caseName/$variant/source';
+      require(FileSystemEntity.typeSync(oldFile, followLinks: false) == FileSystemEntityType.file, 'Old source is not a regular file: $oldFile');
+      final digest = sha(oldFile);
+      final bytes = File(oldFile).lengthSync();
+      final mode = File(oldFile).statSync().mode & 0x1ff;
+      require(digest == canonicalHash && bytes == canonicalBytes && mode == canonicalMode, 'Old source differs from canonical A: $oldFile');
+      require(oldVariants.singleWhere((v) => v['variant'] == variant)['source_sha256'] == digest && v2Variants.singleWhere((v) => v['variant'] == variant)['source_sha256'] == digest, 'Manifest identity mismatch: $oldFile');
+      require(FileSystemEntity.typeSync(v2Source, followLinks: false) == FileSystemEntityType.link, 'v2 source path is not a symlink: $v2Source');
+      final priorTarget = readlink(v2Source);
+      final oldTarget = '$root/fixtures/$caseName/$variant/source';
+      require(priorTarget == oldTarget || priorTarget == canonicalDir, 'Unexpected current v2 alias target: $v2Source -> $priorTarget');
+      if (priorTarget != canonicalDir) {
+        final tmpLink = '$root/fixtures-v2/$caseName/$variant/source.recovery-link';
+        require(FileSystemEntity.typeSync(tmpLink, followLinks: false) == FileSystemEntityType.notFound, 'Temporary link path already exists');
+        Link(tmpLink).createSync(canonicalDir);
+        final move = Process.runSync('/usr/bin/mv', ['-Tf', '--', tmpLink, v2Source]);
+        require(move.exitCode == 0, 'Atomic retarget failed: $v2Source ${move.stderr}');
+      }
+      require(readlink(v2Source) == canonicalDir, 'v2 source does not target A canonical path: $v2Source');
+      final v2File = '$v2Source/file-000000.bin';
+      require(realpath(v2File) == canonicalFile && FileSystemEntity.typeSync(v2File, followLinks: false) == FileSystemEntityType.file, 'v2 file path did not resolve as regular canonical file');
+      require(sha(v2File) == digest && File(v2File).lengthSync() == bytes && (File(v2File).statSync().mode & 0x1ff) == mode, 'v2 file content/mode changed');
+      append('ALIAS\t$caseName\t$variant\toriginalTarget=$oldTarget\tpriorTarget=$priorTarget\tnewTarget=$canonicalDir\toldPayload=$oldFile\toldInode=${inode(oldFile)}\tbytes=$bytes\tmode=${mode.toRadixString(8)}\tsha256=$digest\tv2Resolve=${realpath(v2File)}\tv2Inode=${inode(v2File)}');
+    }
+  }
+  append('All 12 v2 B/C/ZIP file paths verified byte-for-byte against their canonical A backing; source manifests remain unchanged.');
+}

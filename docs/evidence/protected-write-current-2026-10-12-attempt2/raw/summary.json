@@ -1,0 +1,64 @@
+{
+  "descriptive_only": true,
+  "rss_scope": "maximum sequential create/open/add subprocess peak; helper agent excluded",
+  "cases": [
+    {
+      "case": "source-zstd-1gib",
+      "measured_repetitions": 3,
+      "cli_elapsed_seconds": {
+        "minimum": 3.8200000000000003,
+        "median": 3.8899999999999997,
+        "maximum": 4.0
+      },
+      "drain_elapsed_seconds": {
+        "minimum": 0.0,
+        "median": 0.0,
+        "maximum": 0.0
+      },
+      "output_drained_elapsed_seconds": {
+        "minimum": 3.8200000000000003,
+        "median": 3.8899999999999997,
+        "maximum": 4.0
+      },
+      "rss_bytes": {
+        "minimum": 96256000.0,
+        "median": 98242560.0,
+        "maximum": 102912000.0
+      },
+      "archive_bytes": {
+        "minimum": 183224704,
+        "median": 183224704,
+        "maximum": 183224704
+      }
+    },
+    {
+      "case": "random-raw-1gib",
+      "measured_repetitions": 3,
+      "cli_elapsed_seconds": {
+        "minimum": 8.26,
+        "median": 8.31,
+        "maximum": 8.32
+      },
+      "drain_elapsed_seconds": {
+        "minimum": 0.0,
+        "median": 0.0,
+        "maximum": 0.0
+      },
+      "output_drained_elapsed_seconds": {
+        "minimum": 8.26,
+        "median": 8.31,
+        "maximum": 8.32
+      },
+      "rss_bytes": {
+        "minimum": 77963264.0,
+        "median": 85590016.0,
+        "maximum": 87584768.0
+      },
+      "archive_bytes": {
+        "minimum": 1074224512,
+        "median": 1074224512,
+        "maximum": 1074224512
+      }
+    }
+  ]
+}

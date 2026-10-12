@@ -25,6 +25,22 @@ pub(crate) fn seal_with_random_nonce(
     Ok((nonce, ciphertext))
 }
 
+pub(crate) fn seal_in_place_with_random_nonce(
+    payload: &mut [u8],
+    key: &[u8],
+    aad: &[u8],
+) -> Result<([u8; 12], [u8; 16])> {
+    let mut content_key = derive_content_key(key);
+    let cipher = ChaCha20Poly1305::new(&Key::from(content_key));
+    content_key.zeroize();
+    let mut nonce = [0u8; 12];
+    getrandom(&mut nonce).map_err(|err| Error::Io(err.to_string()))?;
+    let tag = cipher
+        .encrypt_inout_detached(&Nonce::from(nonce), aad, payload.into())
+        .map_err(|_| Error::SecurityLimitExceeded("encryption failed".to_string()))?;
+    Ok((nonce, tag.into()))
+}
+
 pub(crate) fn open_with_nonce(
     payload: &[u8],
     key: &[u8],

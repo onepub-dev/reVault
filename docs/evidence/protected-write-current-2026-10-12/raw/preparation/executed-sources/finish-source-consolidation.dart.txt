@@ -1,0 +1,61 @@
+#! /usr/bin/env dcli
+import 'dart:convert';
+import 'dart:io';
+import 'package:dcli/dcli.dart';
+const root='/home/bsutton/.cache/revault-native-public-20261011';
+const evidence='/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/docs/evidence/protected-write-current-2026-10-12/raw/preparation';
+const logPath='$evidence/final-consolidation-unlink.jsonl';
+const hashes=<String,String>{
+ 'source-zstd-1gib':'a90cac77289634f3369065f9037ce2d2f48490e967efaf59d78c3c51508ee77d',
+ 'source-zstd-64mib':'18d0a72115ed0bf4c9f329de52542cd1f5a7de42360bc7e00c28693aaa00daed',
+ 'random-raw-1gib':'abefe2d07b94a4f7e266b7df41ed7694856b9d7fc707bbf4d6b2fb4c4e54de96',
+ 'random-raw-64mib':'34bef3bb1ce80841f85d406982294557ae9221fb0f6e63ca9a28b6a5e6d8cf3a',
+};
+void require(bool ok,String message){if(!ok)throw StateError(message);}
+void record(Map<String,Object?> row)=>File(logPath).writeAsStringSync('${jsonEncode(row)}\n',mode:FileMode.append,flush:true);
+String command(String exe,List<String> args){final r=Process.runSync(exe,args);require(r.exitCode==0,'Command failed: $exe');return (r.stdout as String).trim();}
+String sha(String p)=>command('/usr/bin/sha256sum',['--',p]).split(' ').first;
+String inode(String p)=>command('/usr/bin/stat',['-c','%d:%i','--',p]);
+void singleFileDirectory(String dir){
+ require(FileSystemEntity.typeSync(dir,followLinks:false)==FileSystemEntityType.directory,'Expected real directory: $dir');
+ require(Directory(dir).resolveSymbolicLinksSync()==dir,'Unexpected parent alias: $dir');
+ final entries=Directory(dir).listSync(followLinks:false);
+ require(entries.length==1&&entries.single.path=='$dir/file-000000.bin'&&entries.single is File,'Directory contains additional or nonregular entries: $dir');
+}
+void verifyFile(String p,String digest,int bytes){require(FileSystemEntity.typeSync(p,followLinks:false)==FileSystemEntityType.file,'Regular file required: $p');final f=File(p);require(f.lengthSync()==bytes&&(f.statSync().mode&0x1ff)==0x1b4&&sha(p)==digest,'Identity mismatch: $p');}
+void verifyLogicalPaths(){
+ for(final entry in hashes.entries){
+  final name=entry.key,canonical='$root/fixtures/${entry.key}/A/source';final bytes=name.endsWith('1gib')?1073741824:67108864;
+  singleFileDirectory(canonical);verifyFile('$canonical/file-000000.bin',entry.value,bytes);
+  for(final variant in ['A','B','C','ZIP']){
+   final dir='$root/fixtures-v2/$name/$variant/source';
+   require(FileSystemEntity.typeSync(dir,followLinks:false)==FileSystemEntityType.link,'Expected v2 symlink');
+   require(Link(dir).targetSync()==canonical&&Directory(dir).resolveSymbolicLinksSync()==canonical,'v2 must target canonical A: $dir');
+   verifyFile('$dir/file-000000.bin',entry.value,bytes);
+  }
+ }
+}
+void main(){
+ require(!File(logPath).existsSync(),'Refuse replay; preserve journal and inspect state');
+ record({'phase':'start','scope':'Only12 obsolete B/C/ZIP backing files; no source symlink mutations or A deletions','earlier_retarget_directory_shape_checked_retrospectively':true});
+ final candidates=<Map<String,Object>>[];
+ for(final entry in hashes.entries){
+  final name=entry.key,canonical='$root/fixtures/${entry.key}/A/source/file-000000.bin';final bytes=name.endsWith('1gib')?1073741824:67108864;
+  for(final variant in ['B','C','ZIP']){
+   final dir='$root/fixtures/$name/$variant/source',path='$root/fixtures/$name/$variant/source/file-000000.bin';
+   singleFileDirectory(dir);verifyFile(path,entry.value,bytes);
+   require(File(path).resolveSymbolicLinksSync()!=File(canonical).resolveSymbolicLinksSync()&&inode(path)!=inode(canonical),'Candidate aliases retained A');
+   final row=<String,Object>{'path':path,'canonical':canonical,'sha256':entry.value,'bytes':bytes,'inode':inode(path),'retained_inode':inode(canonical)};candidates.add(row);record({'phase':'verified_candidate',...row});
+  }
+ }
+ verifyLogicalPaths();record({'phase':'all16_logical_paths_verified_before_unlink'});
+ var removed=0;
+ for(final row in candidates){
+  final path=row['path'] as String,canonical=row['canonical'] as String;
+  require(File(path).resolveSymbolicLinksSync()==path&&inode(path)==row['inode']&&inode(canonical)==row['retained_inode'],'Identity changed before unlink');
+  verifyFile(path,row['sha256'] as String,row['bytes'] as int);
+  record({'phase':'unlink_intent',...row});File(path).deleteSync();removed+=row['bytes'] as int;record({'phase':'unlinked','path':path});
+ }
+ verifyLogicalPaths();record({'phase':'complete','removed_files':candidates.length,'removed_logical_bytes':removed,'all16_logical_paths_verified_after':true});
+ print(green('Removed12 obsolete payload copies; all16 retained paths verified.'));
+}

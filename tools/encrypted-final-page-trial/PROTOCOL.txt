@@ -1,0 +1,57 @@
+Direct raw encrypted final-page assembly — fixed paired trial
+
+Baseline preserved CLI9ab29f4cf50054ed9c816ae6e1bc464b8ff053fb0a2e83775a2d8da5a85f9312
+was built from b5f82693. Candidate changes only page.rs and keys/crypto.rs:
+normal-security decoded-page flush with raw encrypted body. Cleartext, compressed
+metadata, secure single-object and native already-encoded paths remain unchanged.
+No format, signing, nonce, key derivation, cache, worker or compression changes.
+
+The fresh descriptive baseline8 measured compressed peak102,912,000B/median3.89s
+and random peak87,584,768B/median8.31s. Do not reuse these as paired samples.
+Preparation peaks remain separate; no ZIP or whole-process-tree claim.
+
+Exactly56 fresh write lifecycles (not56 OS processes): two pinned1GiB sources,14rounds each, two variants per
+round; alternate order by round+case index. Rounds0/1 excluded:48measured/8prep.
+Time public create + explicit open + add; sum elapsed/user/system and take MAX
+subprocess peakRSS across sequential commands. Synthetic Vault/agent initialization
+excluded, normal per-command Vault/KDF and open costs included. Agent RSS excluded.
+Separate variant contexts, synthetic credentials only; suppress CLI recovery/
+secret output. Stop owned agents and remove private Vault material in finally.
+
+ChaCha20-Poly1305 + owner signing, Zstd3/default padding, Auto jobs, CPU0–4,
+umask0022. Keep source bytes/0664 modes. Source cold gate sync/fadvise/fincore
+RES=0 (<=3attempts) outside timing. Fresh archives/outputs. Independently verify
+doctor options, recursive exact onefile listing/length, separate public extraction,
+regular exact output tree, default stored0600 mode, cmp bytes, and output drain.
+Record archive hash/length per sample; equal archive lengths across variants
+required although nonces/signatures change bytes. Delete exact sample outputs.
+Archive sync -d is separately timed; rounded0.00s is not zero work or a crash-
+durability guarantee.
+
+Freeze new full runtime manifest/build provenance, both preserved binaries,
+runner/analyzer/protocol/helper/source identities before timing; verify afterward.
+Represent old source via preserved baseline build manifests/logs, not mutable
+current Rust or rust/target/release/lockbox. Record deliberate rebuild transition.
+No builds/tests/edits during timing. Whole work budget90minutes with60seconds
+reserved cleanup, percommand<=600s clamped to remaining budget, kill-after10s.
+Cleanup grace may extend completion, excluded from timing. Stop first failure,
+preserve evidence, no replacement samples/calibration/outcome retries.
+Retained owned logical artifact cap24GiB, reserve3GiB+256MiB per sample and2GiB
+free headroom. Reaudit after build; no silent root omission or broad cleanup.
+
+Pair new/old log elapsed ratios for the complete three-command operation.
+12measured rounds form6adjacent two-round blocks. Established seeded10,000-draw
+paired block bootstrap with exact helper/seed method frozen before timing;
+Use seedFor("<case>/aggregate") and seedFor("<case>/stratum0|1") from the frozen
+summarize-adaptive-workers.dart helper (UTF8 label hashing, xorshift32 rejection-
+sampled block selection). Interpolate sorted bootstrap2.5%/97.5% percentiles;
+the aggregate97.5% endpoint is the upper95 guard. Report aggregate95% interval
+and even/odd strata, median/maxRSS, archive sizes,
+raw samples and separate drain times.
+
+Retain iff BOTH cases aggregate elapsed upper95<=1.05 AND maxRSS ratio<=1.05,
+AND compressed source-Zstd medianRSS ratio<=0.90. Absolute100,000,000B peak target
+is reported separately; median gain does not establish it. Preserve stratum
+uncertainty. Revert unsuccessful runtime without qualification tests/WASM.
+Retained changes get focused fullpage differential/AEAD/refusal, ownership/storage
+lifecycle and current WASM checks; no broad suite per experiment.

@@ -2,7 +2,8 @@ use crate::checked::{array_12, read_u16_le, read_u32_le, read_u64_le};
 use crate::compression::{decode_page_body_view, encode_page_body, COMPRESSION_NONE};
 use crate::crypto::{
     derive_page_content_key, open_with_content_key_secure, open_with_nonce,
-    seal_with_content_key_secure, seal_with_random_nonce, strong_checksum,
+    seal_in_place_with_random_nonce, seal_with_content_key_secure, seal_with_random_nonce,
+    strong_checksum,
 };
 use crate::lockbox_id::LockboxId;
 use crate::page_buffer::{zeroize_bytes, PageBuffer, ZeroizingBytes};
@@ -610,6 +611,14 @@ pub(crate) fn encode_page_with_format(
     {
         return encode_clear_raw_page(page_size, page_id, sequence, flags, objects);
     }
+    if !clear_text
+        && (!objects_allow_body_compression(objects, mode)
+            || (mode.0 != 0 && mode.options().compression == crate::Compression::None))
+    {
+        return encode_encrypted_raw_page(
+            page_size, lockbox_id, page_id, sequence, flags, key, objects,
+        );
+    }
     let mut body = encode_objects_body(objects, mode)?;
     let (nonce, mut stored_body) = if clear_text {
         let mut stored = Vec::with_capacity(32 + body.len());
@@ -672,6 +681,56 @@ fn write_page_header(
     page[48..56].copy_from_slice(&physical_len.to_le_bytes());
     let header_digest = strong_checksum(&page[0..PAGE_CHECKSUM_START]);
     page[PAGE_CHECKSUM_START..PAGE_HEADER_LEN].copy_from_slice(&header_digest);
+}
+
+fn encode_encrypted_raw_page(
+    page_size: usize,
+    lockbox_id: LockboxId,
+    page_id: u64,
+    sequence: u64,
+    flags: u16,
+    key: &[u8],
+    objects: &[PageObject],
+) -> Result<Vec<u8>> {
+    let stream_len = encoded_object_stream_len(objects)?;
+    let stored_len = stream_len
+        .checked_add(16 + 16)
+        .ok_or_else(|| Error::SecurityLimitExceeded("page body is too large".to_string()))?;
+    let stored_body_len = u32::try_from(stored_len)
+        .map_err(|_| Error::SecurityLimitExceeded("page body is too large".to_string()))?;
+    let used = PAGE_HEADER_LEN.checked_add(stored_len).ok_or_else(|| {
+        Error::SecurityLimitExceeded("page body exceeds physical page size".to_string())
+    })?;
+    if used > page_size {
+        return Err(Error::SecurityLimitExceeded(
+            "page body exceeds physical page size".to_string(),
+        ));
+    }
+    if flags & PAGE_FLAG_UNPADDED != 0 && used != page_size {
+        return Err(Error::CorruptRecord);
+    }
+    let mut page = ZeroizingBytes::new(Vec::with_capacity(page_size));
+    page.resize(PAGE_HEADER_LEN, 0);
+    page.extend_from_slice(&[PAGE_BODY_VERSION, COMPRESSION_NONE, 0, 0]);
+    page.extend_from_slice(&(stream_len as u64).to_le_bytes());
+    page.extend_from_slice(&0u32.to_le_bytes());
+    append_object_stream(&mut page, objects)?;
+    if page.len() != used - 16 {
+        return Err(Error::CorruptRecord);
+    }
+    let aad = page_aad(
+        lockbox_id,
+        page_id,
+        sequence,
+        flags,
+        stored_body_len,
+        page_size as u64,
+    );
+    let (nonce, tag) = seal_in_place_with_random_nonce(&mut page[PAGE_HEADER_LEN..], key, &aad)?;
+    page.extend_from_slice(&tag);
+    page.resize(page_size, 0);
+    write_page_header(&mut page, page_id, sequence, flags, &nonce, stored_body_len);
+    Ok(std::mem::take(&mut *page))
 }
 
 fn encode_clear_raw_page(
@@ -1624,6 +1683,230 @@ mod tests {
             let encoded = encode_page(1024, archive, 512, 7, b"controls", &objects).unwrap();
             assert!(decode_page(&encoded, archive, b"controls").is_err());
         }
+    }
+
+    #[test]
+    fn encrypted_raw_pages_match_legacy_full_bytes_with_fresh_nonces() {
+        use crate::creation_options::FormatMode;
+        use crate::{Compression, EncryptionMode, LockboxFormatOptions, SigningMode, SizePadding};
+        use chacha20poly1305::aead::{Aead, KeyInit, Payload};
+        use chacha20poly1305::{ChaCha20Poly1305, Key, Nonce};
+
+        fn legacy(
+            size: usize,
+            archive: LockboxId,
+            objects: &[PageObject],
+            mode: FormatMode,
+            nonce: [u8; 12],
+        ) -> Vec<u8> {
+            let body = ZeroizingBytes::new(encode_objects_body(objects, mode).unwrap());
+            let flags = if mode.unpadded() {
+                PAGE_FLAG_UNPADDED
+            } else {
+                0
+            };
+            let stored_len = u32::try_from(body.len() + 16).unwrap();
+            // Independently assemble authenticated context and legacy allocating AEAD.
+            let mut aad = b"LBX1PAGE".to_vec();
+            aad.extend_from_slice(&PAGE_VERSION.to_le_bytes());
+            aad.extend_from_slice(archive.as_bytes());
+            aad.extend_from_slice(&4096u64.to_le_bytes());
+            aad.extend_from_slice(&7u64.to_le_bytes());
+            aad.extend_from_slice(&flags.to_le_bytes());
+            aad.extend_from_slice(&stored_len.to_le_bytes());
+            aad.extend_from_slice(&(size as u64).to_le_bytes());
+            let mut key = derive_page_content_key(b"test-key");
+            let cipher = ChaCha20Poly1305::new(&Key::from(key));
+            key.zeroize();
+            let encrypted = ZeroizingBytes::new(
+                cipher
+                    .encrypt(
+                        &Nonce::from(nonce),
+                        Payload {
+                            msg: &body,
+                            aad: &aad,
+                        },
+                    )
+                    .unwrap(),
+            );
+            let mut page = vec![0; size];
+            page[..8].copy_from_slice(PAGE_MAGIC);
+            page[8..10].copy_from_slice(&PAGE_VERSION.to_le_bytes());
+            page[10..12].copy_from_slice(&flags.to_le_bytes());
+            page[12..16].copy_from_slice(&(PAGE_HEADER_LEN as u32).to_le_bytes());
+            page[16..24].copy_from_slice(&4096u64.to_le_bytes());
+            page[24..32].copy_from_slice(&7u64.to_le_bytes());
+            page[32..44].copy_from_slice(&nonce);
+            page[44..48].copy_from_slice(&stored_len.to_le_bytes());
+            page[48..56].copy_from_slice(&(size as u64).to_le_bytes());
+            let digest = strong_checksum(&page[..PAGE_CHECKSUM_START]);
+            page[PAGE_CHECKSUM_START..PAGE_HEADER_LEN].copy_from_slice(&digest);
+            page[PAGE_HEADER_LEN..PAGE_HEADER_LEN + encrypted.len()].copy_from_slice(&encrypted);
+            page
+        }
+
+        let archive = LockboxId::from_bytes([61; 16]);
+        let mut modes = vec![FormatMode::default()];
+        for signing in [SigningMode::None, SigningMode::Owner] {
+            for size_padding in [SizePadding::Default, SizePadding::None] {
+                for compression in [Compression::None, Compression::default()] {
+                    modes.push(FormatMode::new(LockboxFormatOptions {
+                        encryption: EncryptionMode::ChaCha20Poly1305,
+                        signing,
+                        size_padding,
+                        compression,
+                    }));
+                }
+            }
+        }
+        for mode in modes {
+            for kind in [
+                PageObjectKind::FileData,
+                PageObjectKind::PackedFileData,
+                PageObjectKind::VariableLeaf,
+            ] {
+                for length in [0, 1, 4096, 8193] {
+                    let expected = (0..length).map(|i| (i % 251) as u8).collect::<Vec<_>>();
+                    let objects = vec![
+                        PageObject::new(kind, 6, expected.clone()),
+                        PageObject::new_secure(
+                            kind,
+                            7,
+                            SecureVec::try_from_slice(&expected).unwrap(),
+                        ),
+                    ];
+                    let body = ZeroizingBytes::new(encode_objects_body(&objects, mode).unwrap());
+                    let used = PAGE_HEADER_LEN + body.len() + 16;
+                    let size = if mode.unpadded() {
+                        used
+                    } else {
+                        (used + 257).div_ceil(PAGE_SIZE_GRANULARITY) * PAGE_SIZE_GRANULARITY
+                    };
+                    let page = encode_page_with_format(
+                        size,
+                        archive,
+                        4096,
+                        7,
+                        b"test-key",
+                        &objects,
+                        mode,
+                    )
+                    .unwrap();
+                    let nonce: [u8; 12] = page[32..44].try_into().unwrap();
+                    assert_eq!(page, legacy(size, archive, &objects, mode, nonce));
+                    assert!(page[used..].iter().all(|b| *b == 0));
+                    assert_eq!(
+                        decode_page_with_format(&page, archive, b"test-key", mode)
+                            .unwrap()
+                            .objects,
+                        objects
+                    );
+                    let second = encode_page_with_format(
+                        size,
+                        archive,
+                        4096,
+                        7,
+                        b"test-key",
+                        &objects,
+                        mode,
+                    )
+                    .unwrap();
+                    assert_ne!(&page[32..44], &second[32..44]);
+                    assert_eq!(
+                        decode_page_with_format(&second, archive, b"test-key", mode)
+                            .unwrap()
+                            .objects,
+                        objects
+                    );
+                    for object in &objects {
+                        object
+                            .with_payload(|bytes| assert_eq!(bytes, expected))
+                            .unwrap();
+                    }
+                    assert!(encode_page_with_format(
+                        used - 1,
+                        archive,
+                        4096,
+                        7,
+                        b"test-key",
+                        &objects,
+                        mode
+                    )
+                    .is_err());
+                    if mode.unpadded() {
+                        assert!(matches!(
+                            encode_page_with_format(
+                                used + 1,
+                                archive,
+                                4096,
+                                7,
+                                b"test-key",
+                                &objects,
+                                mode
+                            ),
+                            Err(Error::CorruptRecord)
+                        ));
+                    }
+                }
+            }
+            if mode.0 != 0 && mode.options().compression == Compression::None {
+                let used = PAGE_HEADER_LEN + 16 + 4 + 16;
+                let size = if mode.unpadded() {
+                    used
+                } else {
+                    (used + 257).div_ceil(PAGE_SIZE_GRANULARITY) * PAGE_SIZE_GRANULARITY
+                };
+                let page = encode_page_with_format(size, archive, 4096, 7, b"test-key", &[], mode)
+                    .unwrap();
+                assert_eq!(
+                    page,
+                    legacy(size, archive, &[], mode, page[32..44].try_into().unwrap())
+                );
+                assert!(decode_page_with_format(&page, archive, b"test-key", mode)
+                    .unwrap()
+                    .objects
+                    .is_empty());
+            }
+        }
+    }
+
+    #[test]
+    fn encrypted_raw_pages_reject_authenticated_context_and_payload_changes() {
+        let archive = LockboxId::from_bytes([62; 16]);
+        let objects = vec![PageObject::new(
+            PageObjectKind::FileData,
+            7,
+            vec![0x5a; 128],
+        )];
+        let page = encode_page(4096, archive, 4096, 7, b"key", &objects).unwrap();
+        let stored = u32::from_le_bytes(page[44..48].try_into().unwrap()) as usize;
+        assert!(decode_page(&page, archive, b"wrong").is_err());
+        assert!(decode_page(&page, LockboxId::from_bytes([63; 16]), b"key").is_err());
+        for index in [PAGE_HEADER_LEN, PAGE_HEADER_LEN + stored - 1, 16, 24, 32] {
+            let mut changed = page.clone();
+            changed[index] ^= 1;
+            if index < PAGE_HEADER_LEN {
+                let digest = strong_checksum(&changed[..PAGE_CHECKSUM_START]);
+                changed[PAGE_CHECKSUM_START..PAGE_HEADER_LEN].copy_from_slice(&digest);
+            }
+            assert!(matches!(
+                decode_page(&changed, archive, b"key"),
+                Err(Error::InvalidKey)
+            ));
+        }
+        let mut enlarged = page.clone();
+        enlarged.resize(page.len() + 1024, 0);
+        let length = enlarged.len() as u64;
+        enlarged[48..56].copy_from_slice(&length.to_le_bytes());
+        let digest = strong_checksum(&enlarged[..PAGE_CHECKSUM_START]);
+        enlarged[PAGE_CHECKSUM_START..PAGE_HEADER_LEN].copy_from_slice(&digest);
+        assert!(matches!(
+            decode_page(&enlarged, archive, b"key"),
+            Err(Error::InvalidKey)
+        ));
+        // Refused extents and unchanged scoped inputs are covered above; full-capacity
+        // wiping primitive is covered by existing buffer tests. This is not
+        // an injected seal-failure or unwinding integration test.
     }
 
     #[test]

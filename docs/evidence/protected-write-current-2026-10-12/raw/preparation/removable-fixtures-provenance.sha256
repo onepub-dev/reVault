@@ -1,0 +1,15 @@
+049e81192e421f859f709e5edb76af1d01aa248405c2c81084b41bdf14bf1927  tools/protected-write-baseline-draft/inventory-removable-fixtures.dart
+7f12238be2968bbec66d1b7dd6f9b93317b1714c1128592ad7576d3db06e4467  docs/evidence/native-public-extraction-2026-10-11/raw/cases.json
+4d1ae0db5caed7dfc5436bedbadcacc7ae948bd5528cc101073e13ccc40890b4  docs/evidence/native-public-extraction-2026-10-11/raw/fixture-creation-v2-run.log
+6a5b7502581edff770da0a1ba4d143d99d11c7e5a5c7b3606270cd0c97b3334e  docs/evidence/native-public-extraction-2026-10-11/raw/fixture-creation-v2/random-raw-1gib.json
+2e07c3159942a936ec83cfd01400f176a48727ccc1098bf065e2e7c6733b75a7  docs/evidence/native-public-extraction-2026-10-11/raw/fixture-creation-v2/random-raw-64mib.json
+af28f88e785e98d752a31ef253fbe638e4ee5e1213fb06d8a17921cb32f6cd62  docs/evidence/native-public-extraction-2026-10-11/raw/fixture-creation-v2/source-zstd-1gib.json
+a939f45c313f1fb86daab94537686d8a3f15d23126f4aa261a40468beb52cdb0  docs/evidence/native-public-extraction-2026-10-11/raw/fixture-creation-v2/source-zstd-64mib.json
+f0f86dca1e97c442628a9ea06e1186864b2137456548b448c67682be6f853d8b  /home/bsutton/.cache/revault-native-public-20261011/fixtures/source-zstd-1gib/case-manifest.json
+2f55efec3e140a7c1ac1b8677afb22a9758388d891f93ec80e4e10e3b5aba650  /home/bsutton/.cache/revault-native-public-20261011/fixtures/source-zstd-64mib/case-manifest.json
+da7ab950fbc430aaf60b153c7d08c2b701f6e0f6e81c49ff22cab32cfd9ebd73  /home/bsutton/.cache/revault-native-public-20261011/fixtures/random-raw-1gib/case-manifest.json
+5aa6b8047a102b36bec6d366b00819b1dbd4121a9848bd409c767de5510a46c7  /home/bsutton/.cache/revault-native-public-20261011/fixtures/random-raw-64mib/case-manifest.json
+7991134d7d286a137051502cfb6b629d42607213cded759aec61198b9c79f90e  /home/bsutton/.cache/revault-native-public-20261011/fixtures-v2/source-zstd-1gib/case-manifest.json
+b34ac1f36fcccde28abf7693e21e4d548e616cec31b62b660cf6e778ceb456c7  /home/bsutton/.cache/revault-native-public-20261011/fixtures-v2/source-zstd-64mib/case-manifest.json
+471925484ba8b7c7f4cff0d552d7b987f5577a170cdd19e954efa4512952beff  /home/bsutton/.cache/revault-native-public-20261011/fixtures-v2/random-raw-1gib/case-manifest.json
+96abca4869e4fd1c2268ff07b284c8761af01c8ba63f30c73f91e17c574fd4cd  /home/bsutton/.cache/revault-native-public-20261011/fixtures-v2/random-raw-64mib/case-manifest.json

@@ -1,0 +1,179 @@
+{
+  "accepted": 56,
+  "measured": 48,
+  "preparation": 8,
+  "retain": true,
+  "all_nonregression_gates": true,
+  "compressed_median_memory_gate": true,
+  "results": [
+    {
+      "case": "source-zstd-1gib",
+      "aggregate": {
+        "geometric_mean_ratio": 0.861752109710517,
+        "low95": 0.852759318669104,
+        "high95": 0.8703319928841498,
+        "pairs": 12,
+        "blocks": 6,
+        "replicates": 10000,
+        "seed": 1899248312
+      },
+      "round_strata": [
+        {
+          "geometric_mean_ratio": 0.8723825077151132,
+          "low95": 0.8631717803887811,
+          "high95": 0.88126763985819,
+          "pairs": 6,
+          "blocks": 6,
+          "replicates": 10000,
+          "seed": 762943189
+        },
+        {
+          "geometric_mean_ratio": 0.8512512481887556,
+          "low95": 0.8406252036485423,
+          "high95": 0.8640383909431003,
+          "pairs": 6,
+          "blocks": 6,
+          "replicates": 10000,
+          "seed": 746165570
+        }
+      ],
+      "variants": {
+        "old": {
+          "median_seconds": 3.995,
+          "minimum_seconds": 3.9,
+          "maximum_seconds": 4.08,
+          "median_rss_bytes": 98592768.0,
+          "maximum_rss_bytes": 108277760.0,
+          "maximum_including_preparation_rss_bytes": 108277760.0,
+          "every_rss_bytes": [
+            94724096.0,
+            94941184.0,
+            95375360.0,
+            96309248.0,
+            97980416.0,
+            98070528.0,
+            99115008.0,
+            100814848.0,
+            102879232.0,
+            103387136.0,
+            107458560.0,
+            108277760.0
+          ]
+        },
+        "new": {
+          "median_seconds": 3.415,
+          "minimum_seconds": 3.36,
+          "maximum_seconds": 3.54,
+          "median_rss_bytes": 84531200.0,
+          "maximum_rss_bytes": 96727040.0,
+          "maximum_including_preparation_rss_bytes": 96727040.0,
+          "every_rss_bytes": [
+            80666624.0,
+            81551360.0,
+            83128320.0,
+            83828736.0,
+            83947520.0,
+            84496384.0,
+            84566016.0,
+            84594688.0,
+            86880256.0,
+            87625728.0,
+            95141888.0,
+            96727040.0
+          ]
+        }
+      },
+      "archive_bytes": 183224704.0,
+      "maximum_rss_ratio": 0.8933232456969926,
+      "median_rss_ratio": 0.8573772875511518,
+      "nonregression_gate": true
+    },
+    {
+      "case": "random-raw-1gib",
+      "aggregate": {
+        "geometric_mean_ratio": 0.6039339911095866,
+        "low95": 0.5991486905621674,
+        "high95": 0.6102253092433823,
+        "pairs": 12,
+        "blocks": 6,
+        "replicates": 10000,
+        "seed": 2365853323
+      },
+      "round_strata": [
+        {
+          "geometric_mean_ratio": 0.6036866270668464,
+          "low95": 0.5963961504823728,
+          "high95": 0.610379403226566,
+          "pairs": 6,
+          "blocks": 6,
+          "replicates": 10000,
+          "seed": 2155201352
+        },
+        {
+          "geometric_mean_ratio": 0.604181456511156,
+          "low95": 0.5966979442175336,
+          "high95": 0.6124080579002444,
+          "pairs": 6,
+          "blocks": 6,
+          "replicates": 10000,
+          "seed": 2171978971
+        }
+      ],
+      "variants": {
+        "old": {
+          "median_seconds": 8.34,
+          "minimum_seconds": 8.27,
+          "maximum_seconds": 8.59,
+          "median_rss_bytes": 78630912.0,
+          "maximum_rss_bytes": 93974528.0,
+          "maximum_including_preparation_rss_bytes": 93974528.0,
+          "every_rss_bytes": [
+            78004224.0,
+            78385152.0,
+            78426112.0,
+            78442496.0,
+            78532608.0,
+            78622720.0,
+            78639104.0,
+            78704640.0,
+            78786560.0,
+            81317888.0,
+            83804160.0,
+            93974528.0
+          ]
+        },
+        "new": {
+          "median_seconds": 5.0600000000000005,
+          "minimum_seconds": 4.97,
+          "maximum_seconds": 5.16,
+          "median_rss_bytes": 78456832.0,
+          "maximum_rss_bytes": 78733312.0,
+          "maximum_including_preparation_rss_bytes": 78733312.0,
+          "every_rss_bytes": [
+            78135296.0,
+            78139392.0,
+            78172160.0,
+            78340096.0,
+            78340096.0,
+            78454784.0,
+            78458880.0,
+            78532608.0,
+            78532608.0,
+            78565376.0,
+            78581760.0,
+            78733312.0
+          ]
+        }
+      },
+      "archive_bytes": 1074224512.0,
+      "maximum_rss_ratio": 0.8378154556945474,
+      "median_rss_ratio": 0.9977861124133979,
+      "nonregression_gate": true
+    }
+  ],
+  "samples_sha256": "06a0885f52ce1160d9ee420621a7b5338786b727f4b6682ceff8f84d4e343f3f",
+  "identities_sha256": "a4f4deabf453df127cedb9e57f173e110de372137e1cb39f5644f432dafc34bc",
+  "analysis_script_sha256": "da8f3759dbc4426e26f1c05318bbdafa64ce5e121f63be5cfaeae1acf8abfa63",
+  "statistics_helper_sha256": "44a33381aaa2e00a4c8913e9b5cb0c264dada5b67c3be0157f4861a40b6e89fb",
+  "scope": "Protected create+open+add, maximum sequential subprocess RSS excludes agent; drain separate; preparation peaks reported separately; no ZIP or universal100MB claim."
+}

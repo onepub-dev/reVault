@@ -1,0 +1,57 @@
+#! /usr/bin/env dcli
+import 'dart:convert';
+import 'dart:io';
+
+const worktree = '/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance';
+final draft = File(Platform.script.toFilePath()).parent.path;
+final inputPath = '$draft/build-inputs.json';
+const newEvidence = '$worktree/docs/evidence/protected-write-retry-2026-10-12';
+const newOwned = '/home/bsutton/.cache/rv-pw-20261012-attempt2';
+
+void require(bool ok, String message) {
+  if (!ok) throw StateError(message);
+}
+
+String sha(String path) {
+  final result = Process.runSync('/usr/bin/sha256sum', ['--', path]);
+  require(result.exitCode == 0, 'sha256sum failed: $path');
+  return (result.stdout as String).split(RegExp(r'\s+')).first;
+}
+
+void main() {
+  final inputFile = File(inputPath);
+  final originalText = inputFile.readAsStringSync();
+  final inputs = jsonDecode(originalText) as Map<String, dynamic>;
+  final oldEvidence = inputs['evidence_root'] as String;
+  final oldOwned = inputs['owned_root'] as String;
+  final oldRaw = '$oldEvidence/raw';
+  final identity = jsonDecode(File('$oldRaw/baseline-identities.json').readAsStringSync()) as Map<String, dynamic>;
+  final pinnedInputHash = ((identity['hashes'] as Map).cast<String, dynamic>())[inputPath] as String?;
+  require(pinnedInputHash != null && sha(inputPath) == pinnedInputHash, 'Attempt1 input does not match its frozen identity');
+  require(!Directory(newEvidence).existsSync() && !Directory(newOwned).existsSync(), 'Attempt2 namespaces already exist');
+  final preservedInput = File('$oldRaw/preparation/build-inputs-attempt1.json');
+  require(!preservedInput.existsSync(), 'Refuse overwrite of attempt1 config copy');
+  preservedInput.writeAsStringSync(originalText, flush: true);
+  require(sha(preservedInput.path) == pinnedInputHash, 'Preserved attempt1 input mismatch');
+  inputs['evidence_root'] = newEvidence;
+  inputs['owned_root'] = newOwned;
+  final roots = (inputs['additional_owned_roots'] as List).cast<String>();
+  for (final path in [oldEvidence, oldOwned]) {
+    if (!roots.contains(path)) roots.add(path);
+  }
+  inputs['additional_owned_roots'] = roots;
+  inputFile.writeAsStringSync('${const JsonEncoder.withIndent('  ').convert(inputs)}\n', flush: true);
+  File('$oldRaw/preparation/attempt2-namespace-change.json').writeAsStringSync('${const JsonEncoder.withIndent('  ').convert({
+    'old_evidence_root': oldEvidence,
+    'new_evidence_root': newEvidence,
+    'old_owned_root': oldOwned,
+    'new_owned_root': newOwned,
+    'attempt1_build_inputs_sha256': pinnedInputHash,
+    'preserved_attempt1_build_inputs_path': preservedInput.path,
+    'preserved_attempt1_build_inputs_sha256': sha(preservedInput.path),
+    'new_build_inputs_sha256': sha(inputPath),
+    'attempt1_evidence_included_in_owned_budget': true,
+    'created_utc': DateTime.now().toUtc().toIso8601String(),
+  })}\n', flush: true);
+  stdout.writeln('Attempt1 config preserved and pinned; configured fresh attempt2 evidence/owned roots and retained attempt1 in the budget.');
+}

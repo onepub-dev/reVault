@@ -1,0 +1,14 @@
+{
+  "argv": [
+    "/usr/bin/timeout",
+    "--kill-after=10s",
+    "180",
+    "/usr/bin/cmp",
+    "-s",
+    "--",
+    "/home/bsutton/.cache/revault-native-public-20261011/fixtures-v2/source-zstd-1gib/A/source/file-000000.bin",
+    "/home/bsutton/.cache/rv-pw-20261012-attempt2/case0/c0-r1-native-output/file-000000.bin"
+  ],
+  "exit_code": 0,
+  "timed_out": false
+}

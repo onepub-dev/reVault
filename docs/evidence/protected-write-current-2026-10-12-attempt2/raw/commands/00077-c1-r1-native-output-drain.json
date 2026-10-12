@@ -1,0 +1,14 @@
+{
+  "argv": [
+    "/usr/bin/timeout",
+    "--kill-after=10s",
+    "60",
+    "/usr/bin/sync",
+    "-d",
+    "--",
+    "/home/bsutton/.cache/rv-pw-20261012-attempt2/case1/c1-r1-native-output/file-000000.bin",
+    "/home/bsutton/.cache/rv-pw-20261012-attempt2/case1/c1-r1-native-output"
+  ],
+  "exit_code": 0,
+  "timed_out": false
+}
