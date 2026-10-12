@@ -1,0 +1,1 @@
+timeout --kill-after=5s 120s rustc +1.88.0 --crate-name workspace_size_a --edition=2021 --extern zstd_complete=rust/target/release/deps/libzstd_complete-45df8654fe3e1d3c.rlib -L dependency=rust/target/release/deps /tmp/extraction_workspace_size.rs.txt -o /tmp/extraction-workspace-size-probe-20261012/workspace-size-a

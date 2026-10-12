@@ -1,0 +1,10 @@
+{
+  "rows": [
+    {
+      "case": 23,
+      "stopped": true,
+      "private_context_removed": true
+    }
+  ],
+  "passed": true
+}

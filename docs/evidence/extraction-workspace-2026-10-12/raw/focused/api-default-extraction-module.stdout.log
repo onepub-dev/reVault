@@ -1,0 +1,12 @@
+
+running 7 tests
+test lockbox::extraction::tests::checked_destination_rejects_existing_symlink_parent ... ok
+test lockbox::extraction::tests::copy_directory_recursive_copies_nested_files ... ok
+test lockbox::extraction::tests::extract_directory_to_writes_only_the_selected_subtree ... ok
+test lockbox::extraction::tests::last_use_retirement_preserves_later_shared_frames_pages_and_parent ... ok
+test lockbox::extraction::tests::parallel_extraction_rejects_existing_symlink_parent ... ok
+test lockbox::extraction::tests::sequential_extraction_rejects_existing_symlink_parent ... ok
+test lockbox::extraction::tests::protected_compressed_parallel_extraction_preserves_all_file_bytes ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 711 filtered out; finished in 0.11s
+

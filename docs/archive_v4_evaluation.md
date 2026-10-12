@@ -10,6 +10,17 @@ and [delivery plan](archive_v4_plan.md) define purpose, guarantees and sequence.
 [Baseline evidence](evidence/v4-baseline-2026-09-26.md) records newly run checks.
 Historical microbenchmarks remain evidence about their own revisions.
 
+The [worker workspace and last-use trial](evidence/extraction-workspace-2026-10-12/RESULTS.md)
+passed its fixed 112-extraction aggregate gates. Candidate CLI peaks were
+43–68 MB across the four plaintext many-file cohorts. Large compressed extraction
+had a slower median and narrowly passed the aggregate 5% timing limit
+(upper bound 1.04986893); per-stratum noninferiority is not established.
+All 74 focused test executions and the WASM password/setter lifecycle checks
+passed. The observed conservative CLI-plus-agent bound was at most 76.60 MB,
+including preparation, within this limited plaintext workload scope. Work pauses
+at this checkpoint at the user's request; no further optimization or release is
+planned. The earlier full-suite pass does not qualify these subsequent changes.
+
 The [current many-file extraction screen](evidence/many-file-current-2026-10-12/RESULTS.md)
 completed 16 verified extractions across raw/compressed 256-file and 1,024-file
 cohorts. CLI peaks alone were 119.63–254.30 MB; every cohort fails the 100 MB
@@ -18,8 +29,8 @@ historical timing comparison or rejected worker-budget policy is used. The subse
 [last-use retirement trial](evidence/extraction-last-use-2026-10-12/RESULTS.md)
 reduced peak CLI RSS to 40–68 MB but slowed compressed extraction by 20–30%,
 failing its frozen timing guards. Its two runtime changes were reverted without
-qualification tests or a WASM rebuild. Next is bounded syscall/page-fault
-attribution using preserved binaries before revising the retention policy.
+qualification tests or a WASM rebuild. Subsequent bounded syscall/page-fault
+attribution informed the distinct workspace revision recorded above.
 
 The [helper-inclusive protected-write screen](evidence/protected-helper-memory-2026-10-12/RESULTS.md)
 completed eight verified writes. The largest conservative command-peak plus

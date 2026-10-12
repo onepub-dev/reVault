@@ -1,0 +1,15 @@
+{
+  "argv": [
+    "/usr/bin/timeout",
+    "--kill-after=10s",
+    "30",
+    "/usr/bin/fincore",
+    "--json",
+    "--bytes",
+    "--output",
+    "RES,FILE",
+    "/home/bsutton/.cache/rv-many-20261012/fixture1/archive.lbox"
+  ],
+  "exit_code": 0,
+  "timed_out": false
+}

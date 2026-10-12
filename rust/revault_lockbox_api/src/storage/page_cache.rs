@@ -1160,6 +1160,19 @@ impl PageCache {
         self.discard_after_flush.remove(&offset);
     }
 
+    /// Release only clean cache ownership after a worker's final planned use.
+    /// Pending writes, erasure bookkeeping and external shared owners survive.
+    pub(crate) fn retire_clean_file_page(&mut self, offset: u64) {
+        if self.dirty_offsets.contains(&offset)
+            || self.staged_file_offsets.contains(&offset)
+            || self.discard_after_flush.contains(&offset)
+            || self.zeroed_pages.contains_key(&offset)
+        {
+            return;
+        }
+        self.evict_cached(offset);
+    }
+
     /// Retire cached contents before an authenticated cleanup range is erased.
     /// A range can coalesce several old allocations or intersect part of a
     /// cached allocation. Pending writes must never be silently discarded.
@@ -2339,6 +2352,64 @@ mod tests {
             page_id,
             sequence: page_id,
             objects: Vec::new(),
+        }
+    }
+    // Conditional draft: insert in storage/page_cache.rs tests after retention.
+    #[test]
+    fn last_use_retirement_preserves_pending_markers_and_external_bytes() {
+        for guard in 0..5 {
+            let mut cache = PageCache::new(CacheLimit::Bytes(65536));
+            cache.insert_page(
+                0,
+                DecodedPage {
+                    page_id: 0,
+                    sequence: 1,
+                    objects: vec![PageObject::new(PageObjectKind::FileData, 1, vec![83; 8192])],
+                },
+                16384,
+            );
+            let held = Arc::clone(cache.pages.get(&0).unwrap().page.decoded().unwrap());
+            // Isolate each pending-state guard without relying on incidental overlap.
+            match guard {
+                0 => {}
+                1 => {
+                    cache.dirty_offsets.insert(0);
+                }
+                2 => {
+                    cache.staged_file_offsets.insert(0);
+                }
+                3 => {
+                    cache.discard_after_flush.insert(0);
+                }
+                4 => {
+                    cache.zeroed_pages.insert(0, 16384);
+                }
+                _ => unreachable!(),
+            }
+            let before = (
+                cache.dirty_offsets.clone(),
+                cache.staged_file_offsets.clone(),
+                cache.discard_after_flush.clone(),
+                cache.zeroed_pages.clone(),
+            );
+            cache.retire_clean_file_page(0);
+            assert_eq!(cache.pages.contains_key(&0), guard != 0);
+            assert_eq!(cache.stats().used_bytes, if guard == 0 { 0 } else { 16384 });
+            assert_eq!(
+                (
+                    cache.dirty_offsets.clone(),
+                    cache.staged_file_offsets.clone(),
+                    cache.discard_after_flush.clone(),
+                    cache.zeroed_pages.clone()
+                ),
+                before
+            );
+            assert_eq!(
+                held.objects[0].with_payload(|v| v.to_vec()).unwrap(),
+                vec![83; 8192]
+            );
+            cache.retire_clean_file_page(0);
+            assert_eq!(cache.pages.contains_key(&0), guard != 0);
         }
     }
 }

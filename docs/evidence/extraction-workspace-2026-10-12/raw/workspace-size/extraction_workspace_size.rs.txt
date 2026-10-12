@@ -1,0 +1,7 @@
+fn main() {
+    for window in [65536usize, 2097152, 4194304] {
+        let required = zstd_complete::decoding::StaticDecoderWorkspace::required_size(window, 0).unwrap();
+        assert_eq!(required, window + 1_593_527);
+        println!("window_bytes={window} required_bytes={required}");
+    }
+}

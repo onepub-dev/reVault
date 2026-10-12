@@ -1,0 +1,5 @@
+Build: env TMPDIR=/home/bsutton/.cache/rv4-security-20261011 cargo +1.88.0 build --release --locked --offline -p revault_wasm_bindings --target wasm32-unknown-unknown (cwd rust); exit 0.
+Generator: rust/target/security-wasm-tools/bin/wasm-bindgen --target nodejs --out-dir rust/target/extraction-workspace-wasm-generated rust/target/wasm32-unknown-unknown/release/revault_wasm_bindings.wasm; exit 0.
+Copied only revault_wasm_bindings_bg.wasm into bindings/wasm/generated; JS and declarations byte-identical.
+Password lifecycle: cached Node24 --test bindings/e2e/javascript/wasm_password_lifecycle.js; exit 0.
+Setter lifecycle: exact source saved in setter-lifecycle-source.txt; exit 0.

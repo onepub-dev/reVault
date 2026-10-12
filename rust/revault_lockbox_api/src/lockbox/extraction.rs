@@ -9,6 +9,50 @@ use std::fs::{self, File, OpenOptions};
 use std::io::Write;
 use std::path::{Component, Path, PathBuf};
 
+struct ExtractionLastUse {
+    frames: BTreeMap<u64, usize>,
+    pages: BTreeMap<u64, usize>,
+}
+
+impl ExtractionLastUse {
+    fn new(job: &[(usize, &TocEntry)]) -> Self {
+        let mut uses = Self {
+            frames: BTreeMap::new(),
+            pages: BTreeMap::new(),
+        };
+        for (index, (_, entry)) in job.iter().enumerate() {
+            for chunk in &entry.chunks {
+                uses.frames.insert(chunk.compression_frame_id, index);
+                for segment in &chunk.segments {
+                    uses.pages.insert(segment.page_offset, index);
+                }
+            }
+        }
+        uses
+    }
+
+    fn retire<State>(&mut self, worker: &Lockbox<State>, entry: &TocEntry, index: usize) {
+        for chunk in &entry.chunks {
+            if self.frames.get(&chunk.compression_frame_id) == Some(&index) {
+                self.frames.remove(&chunk.compression_frame_id);
+                let mut cache = worker.compression_frame_cache.borrow_mut();
+                if let Some(old) = cache.entries.remove(&chunk.compression_frame_id) {
+                    cache.used_bytes = cache.used_bytes.saturating_sub(old.data.len());
+                }
+            }
+            for segment in &chunk.segments {
+                if self.pages.get(&segment.page_offset) == Some(&index) {
+                    self.pages.remove(&segment.page_offset);
+                    worker
+                        .page_manager
+                        .borrow_mut()
+                        .retire_clean_file_page(segment.page_offset);
+                }
+            }
+        }
+    }
+}
+
 impl<State: Send> Lockbox<State> {
     /// Extract all permitted entries into a destination directory.
     ///
@@ -270,22 +314,41 @@ impl<State: Send> Lockbox<State> {
             .min(file_entries.len().max(1));
         let worker_jobs = group_parallel_extraction_jobs(file_entries, workers);
 
+        let retire_after_last_use = !cfg!(target_arch = "wasm32")
+            && self.workload_profile == crate::WorkloadProfile::ExtractMany
+            && matches!(
+                self.page_manager.borrow().configured_limit(),
+                crate::CacheLimit::Auto
+            );
+
         let parallel_result = std::thread::scope(|scope| {
             let mut handles = Vec::new();
             for job in worker_jobs {
                 let worker = self.try_clone()?;
                 handles.push(scope.spawn(move || {
-                    for (path_id, entry) in job {
-                        let out_path = checked_destination(destination, &entry.path)?;
-                        worker.extract_file_entry_to_path(
-                            entry,
-                            destination,
-                            &out_path,
-                            policy,
-                            path_id as u64,
-                        )?;
+                    let extract_job = || {
+                        let mut last_use =
+                            retire_after_last_use.then(|| ExtractionLastUse::new(&job));
+                        for (index, (path_id, entry)) in job.into_iter().enumerate() {
+                            let out_path = checked_destination(destination, &entry.path)?;
+                            worker.extract_file_entry_to_path(
+                                entry,
+                                destination,
+                                &out_path,
+                                policy,
+                                path_id as u64,
+                            )?;
+                            if let Some(last_use) = &mut last_use {
+                                last_use.retire(&worker, entry, index);
+                            }
+                        }
+                        Ok(())
+                    };
+                    if retire_after_last_use {
+                        crate::compression::with_decode_workspace(extract_job)
+                    } else {
+                        extract_job()
                     }
-                    Ok(())
                 }));
             }
 
@@ -891,5 +954,218 @@ mod tests {
 
         drop(lockbox);
         let _ = fs::remove_dir_all(&root);
+    }
+    // Conditional draft: insert in lockbox/extraction.rs tests only after retention.
+    #[test]
+    fn last_use_retirement_preserves_later_shared_frames_pages_and_parent() {
+        use crate::page::{DecodedPage, PageObject, PageObjectKind};
+        use crate::page_cache::PageSecurity;
+        use std::sync::Arc;
+        let mut parent = Lockbox::create("last use");
+        parent
+            .add_file(&crate::LockboxPath::new("/a").unwrap(), b"a", false)
+            .unwrap();
+        parent.commit().unwrap();
+        let template = parent.toc_entries.get("/a").unwrap().clone();
+        assert!(!template.chunks.is_empty());
+        // Synthetic references exercise planning only. Their page payload bytes are
+        // observed below; no synthetic metadata is used as an authenticated archive.
+        let chunk = |frame, page| {
+            let mut value = template.chunks[0].clone();
+            value.compression_frame_id = frame;
+            value.segments[0].page_offset = page;
+            value.segments.truncate(1);
+            value
+        };
+        let mut first = template.clone();
+        let mut second = template.clone();
+        let mut third = template.clone();
+        first.chunks = vec![chunk(10, 8192), chunk(12, 16384)];
+        // Duplicate references in one file must not release a later file's page.
+        let duplicate = first.chunks[1].segments[0].clone();
+        first.chunks[1].segments.push(duplicate);
+        second.chunks = vec![chunk(11, 8192)];
+        third.chunks = vec![chunk(12, 16384)];
+        parent.set_cache_limit(crate::CacheLimit::Bytes(1024 * 1024));
+        for (offset, byte) in [(8192, 41), (16384, 73)] {
+            parent.page_manager.borrow_mut().insert_page(
+                offset,
+                DecodedPage {
+                    page_id: offset,
+                    sequence: 1,
+                    objects: vec![PageObject::new(
+                        PageObjectKind::FileData,
+                        offset,
+                        vec![byte; 1024],
+                    )],
+                },
+                4096,
+            );
+        }
+        let worker = parent.try_clone().unwrap();
+        let held = worker
+            .page_manager
+            .borrow_mut()
+            .cached_page(8192, PageSecurity::Normal)
+            .unwrap()
+            .unwrap();
+        let weak = Arc::downgrade(&held);
+        for frame in [10, 11, 12] {
+            let data = vec![frame as u8; 32];
+            let mut cache = worker.compression_frame_cache.borrow_mut();
+            cache.used_bytes += data.len();
+            cache.entries.insert(
+                frame,
+                super::super::CachedCompressionFrame {
+                    native_reference: None,
+                    compression: crate::compression::COMPRESSION_NONE,
+                    compression_frame_len: 32,
+                    compressed_len: 32,
+                    compression_frame_digest: [0; 32],
+                    slices: vec![],
+                    data,
+                },
+            );
+        }
+        let parent_bytes = parent.page_manager.borrow().stats().used_bytes;
+        let job = vec![(0, &first), (1, &second), (2, &third)];
+        let mut uses = ExtractionLastUse::new(&job);
+        uses.retire(&worker, &first, 0);
+        assert_eq!(worker.compression_frame_cache.borrow().used_bytes, 64);
+        assert!(worker
+            .page_manager
+            .borrow_mut()
+            .cached_page(8192, PageSecurity::Normal)
+            .unwrap()
+            .is_some());
+        assert!(worker
+            .page_manager
+            .borrow_mut()
+            .cached_page(16384, PageSecurity::Normal)
+            .unwrap()
+            .is_some());
+        uses.retire(&worker, &second, 1);
+        assert_eq!(worker.compression_frame_cache.borrow().used_bytes, 32);
+        assert!(worker
+            .page_manager
+            .borrow_mut()
+            .cached_page(8192, PageSecurity::Normal)
+            .unwrap()
+            .is_none());
+        assert!(worker
+            .page_manager
+            .borrow_mut()
+            .cached_page(16384, PageSecurity::Normal)
+            .unwrap()
+            .is_some());
+        assert_eq!(
+            held.objects[0].with_payload(|v| v.to_vec()).unwrap(),
+            vec![41; 1024]
+        );
+        uses.retire(&worker, &third, 2);
+        assert!(uses.frames.is_empty() && uses.pages.is_empty());
+        assert_eq!(worker.compression_frame_cache.borrow().used_bytes, 0);
+        assert!(worker
+            .page_manager
+            .borrow_mut()
+            .cached_page(16384, PageSecurity::Normal)
+            .unwrap()
+            .is_none());
+        assert_eq!(
+            parent.page_manager.borrow().stats().used_bytes,
+            parent_bytes
+        );
+        assert!(parent
+            .page_manager
+            .borrow_mut()
+            .cached_page(8192, PageSecurity::Normal)
+            .unwrap()
+            .is_some());
+        drop(worker);
+        drop(parent);
+        assert!(weak.upgrade().is_some());
+        drop(held);
+        assert!(weak.upgrade().is_none());
+    }
+
+    // Retained-only integration draft for lockbox/extraction.rs tests.
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn protected_compressed_parallel_extraction_preserves_all_file_bytes() {
+        let root = unique_test_root("protected-parallel-workspace");
+        fs::create_dir_all(&root).unwrap();
+        let archive = root.join("source.lbox");
+        let destination = root.join("extracted");
+        let key = [71u8; 32];
+        let signer = crate::OwnerSigningKeyPair::generate().unwrap();
+        let mut writer = Lockbox::create_file_with_options(
+            &archive,
+            crate::LockboxCreateOptions::new(
+                crate::Encryption::Encrypted(crate::LockboxProtection::ContentKey(
+                    crate::SecretVec::try_from_slice(&key).unwrap(),
+                )),
+                crate::Signing::Owner(&signer),
+            ),
+        )
+        .unwrap();
+        for index in 0..256usize {
+            let mut data = vec![(index % 251) as u8; 65536];
+            data[..8].copy_from_slice(&(index as u64).to_le_bytes());
+            writer
+                .add_file(
+                    &crate::LockboxPath::new(format!("/file-{index:03}.bin")).unwrap(),
+                    &data,
+                    false,
+                )
+                .unwrap();
+        }
+        writer.commit().unwrap();
+        drop(writer);
+        let archive_before = fs::read(&archive).unwrap();
+        let mut reader = Lockbox::open(
+            &archive,
+            crate::LockboxOpen::ContentKey(crate::SecretVec::try_from_slice(&key).unwrap()),
+        )
+        .unwrap();
+        reader.set_workload_profile(crate::WorkloadProfile::ExtractMany);
+        reader.set_cache_limit(crate::CacheLimit::Auto);
+        let policy = ExtractPolicy::default();
+        let entries = reader.validate_extract_plan(&policy).unwrap();
+        assert!(reader.should_extract_files_in_parallel(&entries));
+        let files: Vec<_> = entries
+            .iter()
+            .copied()
+            .filter(|e| e.node_kind == NodeKind::File)
+            .enumerate()
+            .collect();
+        // This focused native test requires the same multicore host as the
+        // existing parallel-extraction tests; do not silently skip the path.
+        let workers = std::thread::available_parallelism()
+            .unwrap()
+            .get()
+            .clamp(1, 4);
+        assert!(workers > 1);
+        let jobs = group_parallel_extraction_jobs(files, workers);
+        assert!(jobs.iter().filter(|job| !job.is_empty()).count() > 1);
+        assert!(entries
+            .iter()
+            .flat_map(|entry| &entry.chunks)
+            .any(
+                |chunk| chunk.compression != crate::compression::COMPRESSION_NONE
+                    && chunk.compression_frame_len >= 65536
+            ));
+        reader.extract_to_directory(&destination, &policy).unwrap();
+        assert_eq!(fs::read_dir(&destination).unwrap().count(), 256);
+        for index in 0..256usize {
+            let mut expected = vec![(index % 251) as u8; 65536];
+            expected[..8].copy_from_slice(&(index as u64).to_le_bytes());
+            assert_eq!(
+                fs::read(destination.join(format!("file-{index:03}.bin"))).unwrap(),
+                expected
+            );
+        }
+        assert_eq!(fs::read(&archive).unwrap(), archive_before);
+        drop(reader);
+        fs::remove_dir_all(&root).unwrap();
     }
 }
