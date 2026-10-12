@@ -1,0 +1,74 @@
+{
+  "descriptive_only": true,
+  "rss_scope": "conservative command peak + persistent owned agent HWM, includes helper startup/Vault init; not observed concurrent peak or complete transient process-tree census",
+  "cases": [
+    {
+      "case": "source-zstd-1gib",
+      "measured_repetitions": 3,
+      "cli_elapsed_seconds": {
+        "minimum": 3.29,
+        "median": 3.3000000000000003,
+        "maximum": 3.3600000000000003
+      },
+      "drain_elapsed_seconds": {
+        "minimum": 0.0,
+        "median": 0.0,
+        "maximum": 0.0
+      },
+      "output_drained_elapsed_seconds": {
+        "minimum": 3.29,
+        "median": 3.3000000000000003,
+        "maximum": 3.3600000000000003
+      },
+      "rss_bytes": {
+        "minimum": 78254080.0,
+        "median": 86011904.0,
+        "maximum": 87310336.0
+      },
+      "helper_inclusive_peak_upper_bound_bytes": {
+        "minimum": 86626304.0,
+        "median": 94375936.0,
+        "maximum": 95604736.0
+      },
+      "archive_bytes": {
+        "minimum": 183224704,
+        "median": 183224704,
+        "maximum": 183224704
+      }
+    },
+    {
+      "case": "random-raw-1gib",
+      "measured_repetitions": 3,
+      "cli_elapsed_seconds": {
+        "minimum": 4.96,
+        "median": 5.06,
+        "maximum": 5.15
+      },
+      "drain_elapsed_seconds": {
+        "minimum": 0.0,
+        "median": 0.0,
+        "maximum": 0.0
+      },
+      "output_drained_elapsed_seconds": {
+        "minimum": 4.96,
+        "median": 5.06,
+        "maximum": 5.15
+      },
+      "rss_bytes": {
+        "minimum": 77869056.0,
+        "median": 77946880.0,
+        "maximum": 78159872.0
+      },
+      "helper_inclusive_peak_upper_bound_bytes": {
+        "minimum": 86126592.0,
+        "median": 86294528.0,
+        "maximum": 86630400.0
+      },
+      "archive_bytes": {
+        "minimum": 1074224512,
+        "median": 1074224512,
+        "maximum": 1074224512
+      }
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "accepted": 8,
+  "measured": 6,
+  "preparation": 2,
+  "identities_verified_after": true,
+  "owned_agents_stopped": true,
+  "private_contexts_removed": true,
+  "wall_seconds": 125.818
+}

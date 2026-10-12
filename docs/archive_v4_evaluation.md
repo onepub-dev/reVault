@@ -10,6 +10,13 @@ and [delivery plan](archive_v4_plan.md) define purpose, guarantees and sequence.
 [Baseline evidence](evidence/v4-baseline-2026-09-26.md) records newly run checks.
 Historical microbenchmarks remain evidence about their own revisions.
 
+The [helper-inclusive protected-write screen](evidence/protected-helper-memory-2026-10-12/RESULTS.md)
+completed eight verified writes. The largest conservative command-peak plus
+agent-HWM bound was 95.60 MB, including preparation. This covers the observed
+CLI and persistent helper, not a complete transient process census: child
+inventory checked only the agent's main thread. Current many-file extraction,
+including compressed input, is next; no global memory acceptance is claimed.
+
 The [direct encrypted final-page trial](evidence/encrypted-final-page-2026-10-12/RESULTS.md)
 passed its fixed 56-lifecycle gates: paired elapsed improved about 14% for
 compressed source and 40% for random input, with compressed median RSS down 14%.
@@ -32,8 +39,8 @@ retry. Natural-pressure and 56-process hot-reuse checks passed, followed by
 complete default API integration (695 passed, 18 ignored) and native integration
 (702 passed, 18 ignored), with exact inventory and source identities verified.
 That checkpoint's WASM checks also passed. The subsequent protected-write
-baseline and encrypted-page trial are recorded above. Next is a helper-inclusive
-memory screen; full workload and release qualification remain outstanding.
+baseline, encrypted-page trial and helper screen are recorded above.
+Full workload and release qualification remain outstanding.
 
 The [direct raw-body trial](evidence/direct-page-body-2026-10-12/RESULTS.md)
 completed 112 verified imports and was rejected despite 9.7–14.4% elapsed gains
@@ -100,7 +107,7 @@ They recorded 283 and 287 observed passes respectively, 11 ignored each and no
 observed failures, but no complete-suite result. All 35 CLI creation/password
 and Vault consumer tests passed. The subsequent raw-data worker-cache trial is recorded below.
 The continuing goal stops below 10% remaining or above 99% after a reset;
-the current checkpoint reading is 58% remaining.
+the latest checkpoint reading is 32% remaining (68% used).
 
 The [raw many-file trial](evidence/parallel-extraction-2026-10-12/README.md)
 passed its fixed 56-process gate and all 33 focused test executions, but the

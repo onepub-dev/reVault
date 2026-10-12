@@ -1,0 +1,43 @@
+# Protected write helper-inclusive memory screen
+
+Frozen descriptive scope: two pinned 1 GiB sources, source/Zstd and random,
+four fresh public create/open/add lifecycles each; round0 excluded preparation,
+rounds1–3 measured. Eight operations total, no replacement samples. Each sample
+gets a fresh private Vault and persistent agent. Retained CLI4142dd04 is reused
+with original b5+candidate build provenance; a9674d96 differs only by focused
+tests and formatting. It is not a fresh build of a9674d96.
+
+Use ChaCha20-Poly1305, owner signing, Zstd3/default padding/Auto write jobs,
+CPU0–4 affinity and umask0022. Setup/Vault init outside command timing; normal
+per-command credential work remains included. Cold source admission requires
+fincore RES0. Public doctor/list/extract independently verifies protection,
+exact one-file tree, bytes and stored/restored0600 mode. Source0664 unchanged.
+Archive/output sync drain is separate, not a crash-durability claim.
+
+Record GNUtime peak RSS for each create/open/add process. Identify the one
+persistent agent by exact private Unix socket inode, executable hash and PID
+start-time; no cmdline or environment is read or logged. Read VmRSS/VmHWM after
+setup and each command while that agent is still alive. Require stable PID
+generation and no agent child processes at each boundary. At each command,
+command peak + agent VmHWM is a conservative sum of per-process peaks; report
+the maximum of these three sums. Agent HWM includes startup and Vault init.
+This is not observed simultaneous RSS, nor unique physical memory: RSS may
+double-count shared pages. It is not a complete transient process census.
+Normal command source paths use threads; the Unix persistent helper is the
+observed extra process. Any unexpected persistent child refuses admission.
+
+Report all8 bounds and per-corpus three-measurement median/range, prep separately.
+If every bound<=100,000,000B, the bound supports only these observed process
+scopes/workloads; no universal/many-file acceptance. Any bound above100MB is
+inconclusive about concurrent peak and motivates a separately frozen concurrent
+trace. No comparative speedup, confidence interval or optimization retention
+decision from this descriptive screen.
+
+Freeze runner/analyzer/protocol/config, original/current source mapping,
+binary/build evidence, source and helper hashes. Verify before/after batch.
+Fresh evidence and owned roots. Preserve fixed30min work budget with60s cleanup
+reserve, command caps600s clamped to remaining time plus10s kill grace. Cleanup
+is independently bounded and only owned agent/socket/private Vault/outputs.
+Keep existing24GiB logical owned-artifact cap and3GiB+256MiB reservation,
+2GiB free headroom; deduplicate identical root paths without changing semantics.
+No builds/tests/runtime edits during the screen. No ZIP rerun.

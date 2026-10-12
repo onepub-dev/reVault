@@ -1,0 +1,20 @@
+[
+  {
+    "case": "source-zstd-1gib",
+    "source": "/home/bsutton/.cache/revault-native-public-20261011/fixtures-v2/source-zstd-1gib/A/source/file-000000.bin",
+    "source_sha256": "a90cac77289634f3369065f9037ce2d2f48490e967efaf59d78c3c51508ee77d",
+    "bytes": 1073741824,
+    "basename": "file-000000.bin",
+    "source_mode": 436,
+    "root": "/home/bsutton/.cache/rv-hm-20261012/case0"
+  },
+  {
+    "case": "random-raw-1gib",
+    "source": "/home/bsutton/.cache/revault-native-public-20261011/fixtures-v2/random-raw-1gib/A/source/file-000000.bin",
+    "source_sha256": "abefe2d07b94a4f7e266b7df41ed7694856b9d7fc707bbf4d6b2fb4c4e54de96",
+    "bytes": 1073741824,
+    "basename": "file-000000.bin",
+    "source_mode": 436,
+    "root": "/home/bsutton/.cache/rv-hm-20261012/case1"
+  }
+]
