@@ -21,12 +21,20 @@ the separate component checkpoint below. This merge does not qualify the format
 or erase failures.
 
 ## Current position and next work
+The [current many-file extraction screen](evidence/many-file-current-2026-10-12/RESULTS.md)
+completed 16 verified extractions across raw/compressed 256-file and 1,024-file
+cohorts. CLI peaks alone were 119.63–254.30 MB; every cohort fails the 100 MB
+target. The largest conservative CLI-plus-helper bound was 262.63 MB. No
+historical timing comparison or rejected worker-budget policy is used. Next
+work targets retained data lifetime across extraction workers, preserving shared
+packed-frame reuse and authentication.
+
 The [helper-inclusive protected-write screen](evidence/protected-helper-memory-2026-10-12/RESULTS.md)
 completed eight verified writes. The largest conservative command-peak plus
 agent-HWM bound was 95.60 MB, including preparation. This covers the observed
 CLI and persistent helper, not a complete transient process census: child
 inventory checked only the agent's main thread. Current many-file extraction,
-including compressed input, is next; no global memory acceptance is claimed.
+including compressed input, is recorded above; no global memory acceptance is claimed.
 
 The [direct encrypted final-page trial](evidence/encrypted-final-page-2026-10-12/RESULTS.md)
 passed its fixed 56-lifecycle gates: paired elapsed improved about 14% for

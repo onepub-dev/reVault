@@ -1,0 +1,41 @@
+# Current many-file extraction screen
+
+Four existing public-CLI-created plaintext unsigned default-padded archives:
+raw and compressed/Zstd source data, each256files×256KiB and1024files×1MiB.
+Reuse only after archive/source hashes and every split member match preserved
+historical manifests. No historical timing is reused as a current control.
+Use retained4142dd04 CLI with its original build provenance and source mapping
+to the current checkpoint; no runtime change or build. The rejected worker-cache
+budget policy remains absent. ExtractMany eligibility permits up to4 worker
+handles for these counts; actual worker count is not instrumented.
+
+Setup separately extracts each archive via explicit --restore-permissions,
+compares every file byte/tree to pinned split sources and records actual file
+and directory modes. Freeze these observable expectations; timed current default
+extraction must match them. Do not assume historical0644 output modes apply.
+Compressed archives must remain smaller than logical content. All reused input
+archives and sources stay unchanged.
+
+Fixed16 timed extractions: four cohorts×four rounds in raw-small/raw-large/
+compressed-small/compressed-large order. Round0 per cohort is excluded preparation;
+rounds1–3 are measured. Fresh owned agent per extraction, no Vault initialization
+needed for plaintext unsigned input. CPU0–4,umask0022,default workers/cache/profile.
+Before each sample sync/evict owned archive and require fincore RES0. Freshoutput
+directory. GNUtime elapsed/user/system/peakRSS. Agent private socket inode,
+executablehash andPIDstart-time verified; VmRSS/VmHWM before/after. Enumerate
+children of ALL agent task directories at each boundary, reject any. This still
+is not a transient process census. Sum CLI peak+post-command agentHWM is a
+conservative bound, not simultaneous peak or unique physical memory.
+
+Outside timing verify exact output names/types/count, every byte, frozenmodes,
+then drain outputfiles/directories before deleting onlyownedoutput. Agentstop
+and privatecontextcleanup finally with independent boundedreserve. Report all
+prepvalues and three-measurement median/ranges, no CI or historicalspeedupclaim.
+Above100MB CLI peak demonstrates scope failure; above100MB summedbound alone
+is inconclusive about simultaneous total. No promotion of wholeformat acceptance.
+
+Freeze scripts/protocol/config/source/build/executable/helpers/fixture identities;
+verify before/after. Thirtyminute workbudget with60scleanupreserve, commands
+clamped≤600s plus10skillgrace. Existing24GiBlogicalownedartifactcap and2GiBfree
+headroom; per-outputreservation logicalbytes+256MiB; no newarchive/corpus copies.
+No overlapping tests/builds/runtime edits. No extra samples on unfavorableresult.
