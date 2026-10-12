@@ -1,0 +1,15 @@
+{
+  "argv": [
+    "/usr/bin/timeout",
+    "--kill-after=10s",
+    "180",
+    "/usr/bin/diff",
+    "--brief",
+    "--recursive",
+    "--",
+    "/home/bsutton/.cache/rv-many-20261012/fixture1/source",
+    "/home/bsutton/.cache/rv-lu-20261012/output-c1-r5-p1-new/data"
+  ],
+  "exit_code": 0,
+  "timed_out": false
+}

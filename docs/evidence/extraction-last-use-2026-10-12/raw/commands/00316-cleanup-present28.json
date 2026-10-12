@@ -1,0 +1,12 @@
+{
+  "argv": [
+    "/usr/bin/timeout",
+    "--kill-after=10s",
+    "5",
+    "/usr/bin/test",
+    "-S",
+    "/home/bsutton/.cache/rv-lu-20261012/c28/agent/agent.sock"
+  ],
+  "exit_code": 0,
+  "timed_out": false
+}

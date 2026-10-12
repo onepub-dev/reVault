@@ -1,0 +1,102 @@
+diff --git a/rust/revault_lockbox_api/src/lockbox/extraction.rs b/rust/revault_lockbox_api/src/lockbox/extraction.rs
+index 33a92f76..417c0cfd 100644
+--- a/rust/revault_lockbox_api/src/lockbox/extraction.rs
++++ b/rust/revault_lockbox_api/src/lockbox/extraction.rs
+@@ -9,6 +9,44 @@ use std::fs::{self, File, OpenOptions};
+ use std::io::Write;
+ use std::path::{Component, Path, PathBuf};
+ 
++struct ExtractionLastUse {
++    frames: BTreeMap<u64, usize>,
++    pages: BTreeMap<u64, usize>,
++}
++
++impl ExtractionLastUse {
++    fn new(job: &[(usize, &TocEntry)]) -> Self {
++        let mut uses = Self { frames: BTreeMap::new(), pages: BTreeMap::new() };
++        for (index, (_, entry)) in job.iter().enumerate() {
++            for chunk in &entry.chunks {
++                uses.frames.insert(chunk.compression_frame_id, index);
++                for segment in &chunk.segments {
++                    uses.pages.insert(segment.page_offset, index);
++                }
++            }
++        }
++        uses
++    }
++
++    fn retire<State>(&mut self, worker: &Lockbox<State>, entry: &TocEntry, index: usize) {
++        for chunk in &entry.chunks {
++            if self.frames.get(&chunk.compression_frame_id) == Some(&index) {
++                self.frames.remove(&chunk.compression_frame_id);
++                let mut cache = worker.compression_frame_cache.borrow_mut();
++                if let Some(old) = cache.entries.remove(&chunk.compression_frame_id) {
++                    cache.used_bytes = cache.used_bytes.saturating_sub(old.data.len());
++                }
++            }
++            for segment in &chunk.segments {
++                if self.pages.get(&segment.page_offset) == Some(&index) {
++                    self.pages.remove(&segment.page_offset);
++                    worker.page_manager.borrow_mut().retire_clean_file_page(segment.page_offset);
++                }
++            }
++        }
++    }
++}
++
+ impl<State: Send> Lockbox<State> {
+     /// Extract all permitted entries into a destination directory.
+     ///
+@@ -270,12 +308,17 @@ impl<State: Send> Lockbox<State> {
+             .min(file_entries.len().max(1));
+         let worker_jobs = group_parallel_extraction_jobs(file_entries, workers);
+ 
++        let retire_after_last_use = !cfg!(target_arch = "wasm32")
++            && self.workload_profile == crate::WorkloadProfile::ExtractMany
++            && matches!(self.page_manager.borrow().configured_limit(), crate::CacheLimit::Auto);
++
+         let parallel_result = std::thread::scope(|scope| {
+             let mut handles = Vec::new();
+             for job in worker_jobs {
+                 let worker = self.try_clone()?;
+                 handles.push(scope.spawn(move || {
+-                    for (path_id, entry) in job {
++                    let mut last_use = retire_after_last_use.then(|| ExtractionLastUse::new(&job));
++                    for (index, (path_id, entry)) in job.into_iter().enumerate() {
+                         let out_path = checked_destination(destination, &entry.path)?;
+                         worker.extract_file_entry_to_path(
+                             entry,
+@@ -284,6 +327,9 @@ impl<State: Send> Lockbox<State> {
+                             policy,
+                             path_id as u64,
+                         )?;
++                        if let Some(last_use) = &mut last_use {
++                            last_use.retire(&worker, entry, index);
++                        }
+                     }
+                     Ok(())
+                 }));
+diff --git a/rust/revault_lockbox_api/src/storage/page_cache.rs b/rust/revault_lockbox_api/src/storage/page_cache.rs
+index 82e28e10..bb65677f 100644
+--- a/rust/revault_lockbox_api/src/storage/page_cache.rs
++++ b/rust/revault_lockbox_api/src/storage/page_cache.rs
+@@ -1160,6 +1160,19 @@ impl PageCache {
+         self.discard_after_flush.remove(&offset);
+     }
+ 
++    /// Release only clean cache ownership after a worker's final planned use.
++    /// Pending writes, erasure bookkeeping and external shared owners survive.
++    pub(crate) fn retire_clean_file_page(&mut self, offset: u64) {
++        if self.dirty_offsets.contains(&offset)
++            || self.staged_file_offsets.contains(&offset)
++            || self.discard_after_flush.contains(&offset)
++            || self.zeroed_pages.contains_key(&offset)
++        {
++            return;
++        }
++        self.evict_cached(offset);
++    }
++
+     /// Retire cached contents before an authenticated cleanup range is erased.
+     /// A range can coalesce several old allocations or intersect part of a
+     /// cached allocation. Pending writes must never be silently discarded.
