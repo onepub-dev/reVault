@@ -1,12 +1,12 @@
 use crate::checked::{array_12, read_u16_le, read_u32_le, read_u64_le};
-use crate::compression::{decode_page_body_view, encode_page_body, COMPRESSION_NONE};
+use crate::compression::{decode_page_body_view, COMPRESSION_NONE};
 use crate::crypto::{
     derive_page_content_key, open_with_content_key_secure, open_with_nonce,
     seal_in_place_with_random_nonce, seal_with_content_key_secure, seal_with_random_nonce,
     strong_checksum,
 };
 use crate::lockbox_id::LockboxId;
-use crate::page_buffer::{zeroize_bytes, PageBuffer, ZeroizingBytes};
+use crate::page_buffer::{zeroize_bytes, PageBuffer, SensitiveBytes, ZeroizingBytes};
 use crate::page_inspection::{PageInspection, PageObjectInspection};
 #[cfg(test)]
 use crate::record::{DecodedRecord, RecordHeader, RecordKind};
@@ -79,10 +79,8 @@ pub(crate) fn page_size_for_encoded_objects_with_format(
                 .checked_add(encoded_object_stream_len(objects)?)
                 .ok_or_else(|| Error::SecurityLimitExceeded("page body is too large".into()))?
         } else {
-            let mut body = encode_objects_body(objects, mode)?;
-            let len = body.len();
-            body.zeroize();
-            len
+            let body = encode_objects_body(objects, mode)?;
+            body.len()
         };
         let protection_len = if mode.plaintext() || page_objects_are_clear_text(objects)? {
             32
@@ -107,11 +105,11 @@ pub(crate) fn page_size_for_encoded_objects_with_format(
         return Ok(page_size_for_objects(objects));
     }
     let max_page_size = max_page_size_for_objects(objects);
-    let mut object_stream = encode_object_stream(objects)?;
+    let sensitive = !page_objects_are_clear_text(objects)?;
+    let object_stream = encode_object_stream_sensitive(objects, sensitive)?;
     page_size_for_object_stream_len(object_stream.len(), max_page_size)?;
     let compress_body = objects_allow_body_compression(objects, mode);
-    let body = encode_page_body_plaintext(&object_stream, compress_body);
-    object_stream.zeroize();
+    let body = encode_page_body_plaintext(&object_stream, compress_body, sensitive)?;
     let stored_body_len = if page_objects_are_clear_text(objects)? {
         body.len()
             .checked_add(32)
@@ -558,8 +556,9 @@ fn objects_allow_body_compression(
 fn encode_objects_body(
     objects: &[PageObject],
     mode: crate::creation_options::FormatMode,
-) -> Result<Vec<u8>> {
-    let mut object_stream = encode_object_stream(objects)?;
+) -> Result<SensitiveBytes> {
+    let sensitive = !mode.plaintext() && !page_objects_are_clear_text(objects)?;
+    let object_stream = encode_object_stream_sensitive(objects, sensitive)?;
     let compress_body = objects_allow_body_compression(objects, mode);
     let body = if mode.0 == 0
         || !compress_body
@@ -569,11 +568,20 @@ fn encode_objects_body(
             &object_stream,
             compress_body
                 && (mode.0 == 0 || mode.options().compression != crate::Compression::None),
-        )
+            sensitive,
+        )?
     } else {
-        let (algorithm, stored) =
-            crate::compression::encode_with_compression(&object_stream, mode.options().compression);
-        let mut body = vec![PAGE_BODY_VERSION, COMPRESSION_NORMAL, 0, 0];
+        let (algorithm, stored) = crate::compression::encode_with_compression_sensitive(
+            &object_stream,
+            mode.options().compression,
+            sensitive,
+        );
+        let stored = SensitiveBytes::new(stored, sensitive);
+        let capacity = 33usize
+            .checked_add(stored.len())
+            .ok_or_else(|| Error::SecurityLimitExceeded("page body is too large".into()))?;
+        let mut body = SensitiveBytes::new(Vec::with_capacity(capacity), sensitive);
+        body.extend_from_slice(&[PAGE_BODY_VERSION, COMPRESSION_NORMAL, 0, 0]);
         body.extend_from_slice(&(object_stream.len() as u64).to_le_bytes());
         body.extend_from_slice(&0u32.to_le_bytes());
         body.extend_from_slice(&(object_stream.len() as u64).to_le_bytes());
@@ -582,7 +590,6 @@ fn encode_objects_body(
         body.extend_from_slice(&stored);
         body
     };
-    object_stream.zeroize();
     Ok(body)
 }
 
@@ -619,7 +626,7 @@ pub(crate) fn encode_page_with_format(
             page_size, lockbox_id, page_id, sequence, flags, key, objects,
         );
     }
-    let mut body = encode_objects_body(objects, mode)?;
+    let body = encode_objects_body(objects, mode)?;
     let (nonce, mut stored_body) = if clear_text {
         let mut stored = Vec::with_capacity(32 + body.len());
         stored.extend_from_slice(&strong_checksum(&body));
@@ -642,7 +649,6 @@ pub(crate) fn encode_page_with_format(
         );
         seal_with_random_nonce(&body, key, &aad)?
     };
-    body.zeroize();
     let stored_body_len = u32::try_from(stored_body.len())
         .map_err(|_| Error::SecurityLimitExceeded("page body is too large".to_string()))?;
     if PAGE_HEADER_LEN + stored_body.len() > page_size {
@@ -853,9 +859,10 @@ pub(crate) fn decode_page_with_format(
     {
         return Err(Error::CorruptRecord);
     }
-    let objects = match decode_page_body_plaintext(body)? {
+    let sensitive = flags & PAGE_FLAG_CLEAR_TEXT == 0;
+    let objects = match decode_page_body_plaintext(body, sensitive)? {
         Cow::Borrowed(bytes) => decode_object_stream(bytes)?,
-        Cow::Owned(bytes) => decode_object_stream(&ZeroizingBytes::new(bytes))?,
+        Cow::Owned(bytes) => decode_object_stream(&SensitiveBytes::new(bytes, sensitive))?,
     };
     if objects
         .iter()
@@ -1211,8 +1218,7 @@ pub(crate) fn scan_page_records(bytes: &[u8], lockbox_id: LockboxId, key: &[u8])
                         .unwrap_or_else(|_| page_size_for_objects(&page.objects));
                     for object in page.objects {
                         if let Some(kind) = record_kind_from_object_kind(object.kind) {
-                            let Ok(payload) = object.with_payload(|payload| payload.to_vec())
-                            else {
+                            let Ok(()) = object.with_payload(|_| ()) else {
                                 corrupt_records += 1;
                                 continue;
                             };
@@ -1224,7 +1230,6 @@ pub(crate) fn scan_page_records(bytes: &[u8], lockbox_id: LockboxId, key: &[u8])
                                 },
                                 offset: i as u64,
                                 object_id: object.id,
-                                payload,
                             });
                         }
                     }
@@ -1483,13 +1488,21 @@ fn page_object_kind_name(kind: PageObjectKind) -> &'static str {
     }
 }
 
-fn encode_page_body_plaintext(object_stream: &[u8], compress: bool) -> Vec<u8> {
+fn encode_page_body_plaintext(
+    object_stream: &[u8],
+    compress: bool,
+    sensitive: bool,
+) -> Result<SensitiveBytes> {
     let stored = if compress {
-        encode_page_body(object_stream)
+        crate::compression::encode_page_body_sensitive(object_stream, sensitive).into_vec()
     } else {
         object_stream.to_vec()
     };
-    let mut body = Vec::with_capacity(16 + stored.len());
+    let stored = SensitiveBytes::new(stored, sensitive);
+    let capacity = 16usize
+        .checked_add(stored.len())
+        .ok_or_else(|| Error::SecurityLimitExceeded("page body is too large".into()))?;
+    let mut body = SensitiveBytes::new(Vec::with_capacity(capacity), sensitive);
     body.push(PAGE_BODY_VERSION);
     body.push(if compress {
         COMPRESSION_NORMAL
@@ -1501,10 +1514,10 @@ fn encode_page_body_plaintext(object_stream: &[u8], compress: bool) -> Vec<u8> {
     body.extend_from_slice(&(object_stream.len() as u64).to_le_bytes());
     body.extend_from_slice(&0u32.to_le_bytes());
     body.extend_from_slice(&stored);
-    body
+    Ok(body)
 }
 
-fn decode_page_body_plaintext(body: &[u8]) -> Result<Cow<'_, [u8]>> {
+fn decode_page_body_plaintext(body: &[u8], sensitive: bool) -> Result<Cow<'_, [u8]>> {
     if body.len() < 16 {
         return Err(Error::CorruptRecord);
     }
@@ -1512,19 +1525,37 @@ fn decode_page_body_plaintext(body: &[u8]) -> Result<Cow<'_, [u8]>> {
         return Err(Error::CorruptRecord);
     }
     let expected_len = read_u64_le(&body[4..12])?;
-    let decoded = match body[1] {
+    let mut decoded = match body[1] {
         COMPRESSION_NONE => Cow::Borrowed(&body[16..]),
         COMPRESSION_NORMAL => decode_page_body_view(&body[16..])?,
         _ => return Err(Error::CorruptRecord),
     };
     if decoded.len() as u64 != expected_len {
+        if sensitive {
+            if let Cow::Owned(bytes) = &mut decoded {
+                zeroize_bytes(bytes);
+            }
+        }
         return Err(Error::CorruptRecord);
     }
     Ok(decoded)
 }
 
+#[cfg(test)]
 fn encode_object_stream(objects: &[PageObject]) -> Result<Vec<u8>> {
-    let mut out = Vec::new();
+    Ok(encode_object_stream_sensitive(objects, false)?.into_vec())
+}
+
+fn encode_object_stream_sensitive(
+    objects: &[PageObject],
+    sensitive: bool,
+) -> Result<SensitiveBytes> {
+    let capacity = if sensitive {
+        encoded_object_stream_len(objects)?
+    } else {
+        0
+    };
+    let mut out = SensitiveBytes::new(Vec::with_capacity(capacity), sensitive);
     append_object_stream(&mut out, objects)?;
     Ok(out)
 }
@@ -1699,7 +1730,7 @@ mod tests {
             mode: FormatMode,
             nonce: [u8; 12],
         ) -> Vec<u8> {
-            let body = ZeroizingBytes::new(encode_objects_body(objects, mode).unwrap());
+            let body = encode_objects_body(objects, mode).unwrap();
             let flags = if mode.unpadded() {
                 PAGE_FLAG_UNPADDED
             } else {
@@ -1775,7 +1806,7 @@ mod tests {
                             SecureVec::try_from_slice(&expected).unwrap(),
                         ),
                     ];
-                    let body = ZeroizingBytes::new(encode_objects_body(&objects, mode).unwrap());
+                    let body = encode_objects_body(&objects, mode).unwrap();
                     let used = PAGE_HEADER_LEN + body.len() + 16;
                     let size = if mode.unpadded() {
                         used
@@ -1916,7 +1947,7 @@ mod tests {
 
         // Independent pre-change cleartext assembly, including the full header.
         fn legacy(page_size: usize, objects: &[PageObject], mode: FormatMode) -> Vec<u8> {
-            let body = ZeroizingBytes::new(encode_objects_body(objects, mode).unwrap());
+            let body = encode_objects_body(objects, mode).unwrap();
             let flags = PAGE_FLAG_CLEAR_TEXT
                 | if mode.unpadded() {
                     PAGE_FLAG_UNPADDED

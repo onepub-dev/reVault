@@ -24,15 +24,21 @@ pub(super) fn is_flat_distribution(counts: &[usize]) -> bool {
 pub(super) fn length_limited_code_lengths(counts: &[usize], max_bits: usize) -> Option<Vec<usize>> {
     let mut nodes = Vec::new();
     length_limited_code_lengths_with_nodes(counts, max_bits, &mut nodes)
+        .expect("owned Huffman allocation failed")
 }
 
 pub(super) fn length_limited_code_lengths_with_nodes(
     counts: &[usize],
     max_bits: usize,
-    nodes: &mut Vec<HuffmanNode>,
-) -> Option<Vec<usize>> {
-    let base = base_code_lengths_with_nodes(counts, nodes)?;
-    length_limited_code_lengths_from_base(base.lengths, base.symbols, max_bits)
+    nodes: &mut impl crate::workspace::Growable<HuffmanNode>,
+) -> Result<Option<Vec<usize>>, crate::workspace::CapacityError> {
+    Ok({
+        let base = match base_code_lengths_with_nodes(counts, nodes)? {
+            Some(value) => value,
+            None => return Ok(None),
+        };
+        length_limited_code_lengths_from_base(base.lengths, base.symbols, max_bits)
+    })
 }
 
 pub(super) fn length_limited_code_lengths_from_base(
@@ -45,37 +51,42 @@ pub(super) fn length_limited_code_lengths_from_base(
 
 pub(super) fn base_code_lengths(counts: &[usize]) -> Option<BaseCodeLengths> {
     let mut nodes = Vec::new();
-    base_code_lengths_with_nodes(counts, &mut nodes)
+    base_code_lengths_with_nodes(counts, &mut nodes).expect("owned Huffman allocation failed")
 }
 
 fn base_code_lengths_with_nodes(
     counts: &[usize],
-    nodes: &mut Vec<HuffmanNode>,
-) -> Option<BaseCodeLengths> {
-    let leaf_count = build_huffman_tree(counts, nodes)?;
+    nodes: &mut impl crate::workspace::Growable<HuffmanNode>,
+) -> Result<Option<BaseCodeLengths>, crate::workspace::CapacityError> {
+    Ok({
+        let leaf_count = match build_huffman_tree(counts, nodes)? {
+            Some(value) => value,
+            None => return Ok(None),
+        };
 
-    let mut lengths = alloc::vec![0; counts.len()];
-    let mut symbols = Vec::with_capacity(leaf_count);
-    let mut largest_bits = 0usize;
-    for idx in 1..=leaf_count {
-        let parent = huffman_parent(&nodes[idx]);
-        let len = nodes[parent].len + 1;
-        let symbol = huffman_symbol(&nodes[idx]);
-        nodes[idx].len = len;
-        let len = usize::from(len);
-        lengths[symbol] = len;
-        largest_bits = largest_bits.max(len);
-        symbols.push(LengthLimitedSymbol {
-            symbol,
-            count: usize::try_from(nodes[idx].count).expect("u32 count fits in usize"),
-            len,
-        });
-    }
+        let mut lengths = alloc::vec![0; counts.len()];
+        let mut symbols = Vec::with_capacity(leaf_count);
+        let mut largest_bits = 0usize;
+        for idx in 1..=leaf_count {
+            let parent = huffman_parent(&nodes[idx]);
+            let len = nodes[parent].len + 1;
+            let symbol = huffman_symbol(&nodes[idx]);
+            nodes[idx].len = len;
+            let len = usize::from(len);
+            lengths[symbol] = len;
+            largest_bits = largest_bits.max(len);
+            symbols.push(LengthLimitedSymbol {
+                symbol,
+                count: usize::try_from(nodes[idx].count).expect("u32 count fits in usize"),
+                len,
+            });
+        }
 
-    Some(BaseCodeLengths {
-        lengths,
-        symbols,
-        largest_bits,
+        Some(BaseCodeLengths {
+            lengths,
+            symbols,
+            largest_bits,
+        })
     })
 }
 
@@ -89,51 +100,56 @@ fn base_code_lengths_with_nodes(
     ),
     link_section = ".text.sorted.040.ruzstd.huffman.tree"
 )]
-pub(super) fn build_huffman_tree(counts: &[usize], nodes: &mut Vec<HuffmanNode>) -> Option<usize> {
-    c_sorted_huffman_nodes_into(counts, nodes);
+pub(super) fn build_huffman_tree(
+    counts: &[usize],
+    nodes: &mut impl crate::workspace::Growable<HuffmanNode>,
+) -> Result<Option<usize>, crate::workspace::CapacityError> {
+    Ok({
+        c_sorted_huffman_nodes_into(counts, nodes)?;
 
-    let leaf_count = nodes.len().saturating_sub(1);
-    if leaf_count <= 1 {
-        return None;
-    }
+        let leaf_count = nodes.len().saturating_sub(1);
+        if leaf_count <= 1 {
+            return Ok(None);
+        }
 
-    let first_parent = leaf_count + 1;
-    let root = 2 * leaf_count - 1;
-    nodes.resize(
-        2 * leaf_count,
-        HuffmanNode {
-            count: u32::MAX,
-            symbol: 0,
-            parent: HUFFMAN_NODE_NONE,
-            len: 0,
-        },
-    );
-    let mut smallest_leaf = leaf_count;
-    let mut smallest_parent = first_parent;
+        let first_parent = leaf_count + 1;
+        let root = 2 * leaf_count - 1;
+        nodes.resize(
+            2 * leaf_count,
+            HuffmanNode {
+                count: u32::MAX,
+                symbol: 0,
+                parent: HUFFMAN_NODE_NONE,
+                len: 0,
+            },
+        )?;
+        let mut smallest_leaf = leaf_count;
+        let mut smallest_parent = first_parent;
 
-    for parent in first_parent..=root {
-        let left = pop_smallest_huffman_node(nodes, &mut smallest_leaf, &mut smallest_parent);
-        let right = pop_smallest_huffman_node(nodes, &mut smallest_leaf, &mut smallest_parent);
-        let parent_index = u16::try_from(parent).expect("Huffman parent index fits in u16");
-        nodes[left].parent = parent_index;
-        nodes[right].parent = parent_index;
-        nodes[parent].count = nodes[left]
-            .count
-            .checked_add(nodes[right].count)
-            .unwrap_or_else(|| invalid_huffman_tree());
-    }
+        for parent in first_parent..=root {
+            let left = pop_smallest_huffman_node(nodes, &mut smallest_leaf, &mut smallest_parent);
+            let right = pop_smallest_huffman_node(nodes, &mut smallest_leaf, &mut smallest_parent);
+            let parent_index = u16::try_from(parent).expect("Huffman parent index fits in u16");
+            nodes[left].parent = parent_index;
+            nodes[right].parent = parent_index;
+            nodes[parent].count = nodes[left]
+                .count
+                .checked_add(nodes[right].count)
+                .unwrap_or_else(|| invalid_huffman_tree());
+        }
 
-    nodes[root].len = 0;
-    for idx in (first_parent..root).rev() {
-        let parent = huffman_parent(&nodes[idx]);
-        nodes[idx].len = nodes[parent].len + 1;
-    }
-    for idx in 1..=leaf_count {
-        let parent = huffman_parent(&nodes[idx]);
-        nodes[idx].len = nodes[parent].len + 1;
-    }
+        nodes[root].len = 0;
+        for idx in (first_parent..root).rev() {
+            let parent = huffman_parent(&nodes[idx]);
+            nodes[idx].len = nodes[parent].len + 1;
+        }
+        for idx in 1..=leaf_count {
+            let parent = huffman_parent(&nodes[idx]);
+            nodes[idx].len = nodes[parent].len + 1;
+        }
 
-    Some(leaf_count)
+        Some(leaf_count)
+    })
 }
 
 pub(super) fn limit_huffman_tree_height(
@@ -258,78 +274,85 @@ pub(super) struct BaseCodeLengths {
 #[cfg(test)]
 pub(super) fn c_sorted_huffman_nodes(counts: &[usize]) -> Vec<HuffmanNode> {
     let mut nodes = Vec::new();
-    c_sorted_huffman_nodes_into(counts, &mut nodes);
+    c_sorted_huffman_nodes_into(counts, &mut nodes).expect("test storage admission");
     nodes
 }
 
-fn c_sorted_huffman_nodes_into(counts: &[usize], nodes: &mut Vec<HuffmanNode>) {
-    const RANK_POSITION_TABLE_SIZE: usize = 192;
-    const RANK_POSITION_MAX_COUNT_LOG: usize = 32;
-    const RANK_POSITION_LOG_BUCKETS_BEGIN: usize =
-        (RANK_POSITION_TABLE_SIZE - 1) - RANK_POSITION_MAX_COUNT_LOG - 1;
-    const RANK_POSITION_DISTINCT_COUNT_CUTOFF: usize = RANK_POSITION_LOG_BUCKETS_BEGIN + 7;
+fn c_sorted_huffman_nodes_into(
+    counts: &[usize],
+    nodes: &mut impl crate::workspace::Growable<HuffmanNode>,
+) -> Result<(), crate::workspace::CapacityError> {
+    Ok({
+        const RANK_POSITION_TABLE_SIZE: usize = 192;
+        const RANK_POSITION_MAX_COUNT_LOG: usize = 32;
+        const RANK_POSITION_LOG_BUCKETS_BEGIN: usize =
+            (RANK_POSITION_TABLE_SIZE - 1) - RANK_POSITION_MAX_COUNT_LOG - 1;
+        const RANK_POSITION_DISTINCT_COUNT_CUTOFF: usize = RANK_POSITION_LOG_BUCKETS_BEGIN + 7;
 
-    #[derive(Clone, Copy, Default)]
-    struct RankPosition {
-        base: usize,
-        curr: usize,
-    }
-
-    fn rank_index(count: usize) -> usize {
-        if count < RANK_POSITION_DISTINCT_COUNT_CUTOFF {
-            count
-        } else {
-            high_bit(count) as usize + RANK_POSITION_LOG_BUCKETS_BEGIN
+        #[derive(Clone, Copy, Default)]
+        struct RankPosition {
+            base: usize,
+            curr: usize,
         }
-    }
 
-    let mut rank_position = [RankPosition::default(); RANK_POSITION_TABLE_SIZE];
-    let mut nonzero_count = 0usize;
-    for count in counts.iter().copied() {
-        nonzero_count += usize::from(count != 0);
-        let lower_rank = rank_index(count);
-        debug_assert!(lower_rank < RANK_POSITION_TABLE_SIZE - 1);
-        rank_position[lower_rank].base += 1;
-    }
-
-    for rank in (1..RANK_POSITION_TABLE_SIZE).rev() {
-        rank_position[rank - 1].base += rank_position[rank].base;
-        rank_position[rank - 1].curr = rank_position[rank - 1].base;
-    }
-
-    nodes.clear();
-    nodes.resize(
-        nonzero_count + 1,
-        HuffmanNode {
-            count: u32::MAX,
-            symbol: 0,
-            parent: HUFFMAN_NODE_NONE,
-            len: 0,
-        },
-    );
-    for (symbol, count) in counts.iter().copied().enumerate() {
-        if count == 0 {
-            continue;
+        fn rank_index(count: usize) -> usize {
+            if count < RANK_POSITION_DISTINCT_COUNT_CUTOFF {
+                count
+            } else {
+                high_bit(count) as usize + RANK_POSITION_LOG_BUCKETS_BEGIN
+            }
         }
-        let rank = rank_index(count) + 1;
-        let pos = rank_position[rank].curr;
-        rank_position[rank].curr += 1;
-        debug_assert!(pos < nonzero_count);
-        nodes[pos + 1] = HuffmanNode {
-            count: u32::try_from(count).unwrap_or_else(|_| invalid_huffman_tree()),
-            symbol: u8::try_from(symbol).expect("Huffman symbol fits in u8"),
-            parent: HUFFMAN_NODE_NONE,
-            len: 0,
-        };
-    }
 
-    for rank in &rank_position[RANK_POSITION_DISTINCT_COUNT_CUTOFF..RANK_POSITION_TABLE_SIZE - 1] {
-        let bucket_start = rank.base.min(nonzero_count) + 1;
-        let bucket_end = rank.curr.min(nonzero_count) + 1;
-        if bucket_end.saturating_sub(bucket_start) > 1 {
-            c_huf_simple_quick_sort(&mut nodes[bucket_start..bucket_end]);
+        let mut rank_position = [RankPosition::default(); RANK_POSITION_TABLE_SIZE];
+        let mut nonzero_count = 0usize;
+        for count in counts.iter().copied() {
+            nonzero_count += usize::from(count != 0);
+            let lower_rank = rank_index(count);
+            debug_assert!(lower_rank < RANK_POSITION_TABLE_SIZE - 1);
+            rank_position[lower_rank].base += 1;
         }
-    }
+
+        for rank in (1..RANK_POSITION_TABLE_SIZE).rev() {
+            rank_position[rank - 1].base += rank_position[rank].base;
+            rank_position[rank - 1].curr = rank_position[rank - 1].base;
+        }
+
+        nodes.clear();
+        nodes.resize(
+            nonzero_count + 1,
+            HuffmanNode {
+                count: u32::MAX,
+                symbol: 0,
+                parent: HUFFMAN_NODE_NONE,
+                len: 0,
+            },
+        )?;
+        for (symbol, count) in counts.iter().copied().enumerate() {
+            if count == 0 {
+                continue;
+            }
+            let rank = rank_index(count) + 1;
+            let pos = rank_position[rank].curr;
+            rank_position[rank].curr += 1;
+            debug_assert!(pos < nonzero_count);
+            nodes[pos + 1] = HuffmanNode {
+                count: u32::try_from(count).unwrap_or_else(|_| invalid_huffman_tree()),
+                symbol: u8::try_from(symbol).expect("Huffman symbol fits in u8"),
+                parent: HUFFMAN_NODE_NONE,
+                len: 0,
+            };
+        }
+
+        for rank in
+            &rank_position[RANK_POSITION_DISTINCT_COUNT_CUTOFF..RANK_POSITION_TABLE_SIZE - 1]
+        {
+            let bucket_start = rank.base.min(nonzero_count) + 1;
+            let bucket_end = rank.curr.min(nonzero_count) + 1;
+            if bucket_end.saturating_sub(bucket_start) > 1 {
+                c_huf_simple_quick_sort(&mut nodes[bucket_start..bucket_end]);
+            }
+        }
+    })
 }
 
 fn c_huf_simple_quick_sort(nodes: &mut [HuffmanNode]) {

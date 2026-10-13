@@ -22,17 +22,17 @@ pub(super) fn append_sub_block_sequences(
     sequences: &[PreparedSequence],
     _modes: SequenceEntropyModes,
     _write_entropy: bool,
-    output: &mut Vec<u8>,
-) -> Option<SubBlockSequenceEmission> {
+    output: &mut impl crate::workspace::Growable<u8>,
+) -> Result<Option<SubBlockSequenceEmission>, crate::workspace::CapacityError> {
     if !sequences.is_empty() {
-        return None;
+        return Ok(None);
     }
 
-    output.push(0);
-    Some(SubBlockSequenceEmission {
+    output.push(0)?;
+    Ok(Some(SubBlockSequenceEmission {
         byte_size: 1,
         entropy_written: false,
-    })
+    }))
 }
 
 pub(super) fn append_supported_sub_block_sequences(
@@ -41,11 +41,13 @@ pub(super) fn append_supported_sub_block_sequences(
     write_entropy: bool,
     fse_tables: &mut FseTables,
     offset_history: &mut OffsetHistory,
-    output: &mut Vec<u8>,
-) -> Option<SubBlockSequenceEmission> {
-    let compressed_tables = write_entropy
-        .then(|| build_compressed_sequence_tables_for_modes(sequences, modes, *offset_history))
-        .flatten();
+    output: &mut impl crate::workspace::Growable<u8>,
+) -> Result<Option<SubBlockSequenceEmission>, crate::workspace::CapacityError> {
+    let compressed_tables = if write_entropy {
+        build_compressed_sequence_tables_for_modes(sequences, modes, *offset_history)?
+    } else {
+        None
+    };
     append_supported_sub_block_sequences_with_tables(
         sequences,
         modes,
@@ -64,17 +66,19 @@ pub(super) fn append_supported_sub_block_sequences_with_tables(
     write_entropy: bool,
     fse_tables: &mut FseTables,
     offset_history: &mut OffsetHistory,
-    output: &mut Vec<u8>,
-) -> Option<SubBlockSequenceEmission> {
+    output: &mut impl crate::workspace::Growable<u8>,
+) -> Result<Option<SubBlockSequenceEmission>, crate::workspace::CapacityError> {
     if sequences.is_empty() {
         return append_sub_block_sequences(sequences, modes, write_entropy, output);
     }
     if !write_entropy {
-        return append_repeat_sequence_section(sequences, fse_tables, offset_history, output).map(
-            |byte_size| SubBlockSequenceEmission {
-                byte_size,
-                entropy_written: true,
-            },
+        return Ok(
+            append_repeat_sequence_section(sequences, fse_tables, offset_history, output)?.map(
+                |byte_size| SubBlockSequenceEmission {
+                    byte_size,
+                    entropy_written: true,
+                },
+            ),
         );
     }
 
@@ -99,7 +103,7 @@ pub(super) fn append_supported_sub_block_sequences_with_tables(
         }
     } else {
         if sequence_modes_need_compressed_tables(modes) && compressed_tables.is_none() {
-            return None;
+            return Ok(None);
         }
         append_sequence_section_with_table_modes(
             sequences,
@@ -110,19 +114,22 @@ pub(super) fn append_supported_sub_block_sequences_with_tables(
             output,
         )?
     };
-    Some(SubBlockSequenceEmission {
+    let Some(byte_size) = byte_size else {
+        return Ok(None);
+    };
+    Ok(Some(SubBlockSequenceEmission {
         byte_size,
         entropy_written: true,
-    })
+    }))
 }
 
 pub(super) fn build_compressed_sequence_tables_for_modes(
     sequences: &[PreparedSequence],
     modes: SequenceEntropyModes,
     offset_history: OffsetHistory,
-) -> Option<CompressedSequenceTables> {
+) -> Result<Option<CompressedSequenceTables>, crate::workspace::CapacityError> {
     if !sequence_modes_need_compressed_tables(modes) {
-        return None;
+        return Ok(None);
     }
     build_compressed_sequence_tables(sequences, offset_history)
 }

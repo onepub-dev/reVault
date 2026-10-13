@@ -1,5 +1,6 @@
 mod e2e;
 mod package_conformance;
+mod private_api_boundary;
 mod publication;
 mod release;
 mod release_candidate;

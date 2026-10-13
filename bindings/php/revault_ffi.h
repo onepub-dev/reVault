@@ -28,11 +28,15 @@ void *lockbox_file(const char *path, size_t path_len, const char *mode, size_t m
 /** Opens existing in-memory archive bytes. */
 void *lockbox_open(const uint8_t *archive, size_t archive_len, const uint8_t *key, size_t key_len);
 void *lockbox_open_with_options(const uint8_t *archive, size_t archive_len, const uint8_t *key, size_t key_len, const char *cache_mode, size_t cache_len, uint64_t cache_bytes, const char *workload, size_t workload_len, const char *worker, size_t worker_len, size_t jobs);
+void *lockbox_open_password_with_budget(const uint8_t *archive, size_t archive_len, const uint8_t *password, size_t password_len, uint32_t max_derivations);
+/** Opens an in-memory archive with the default per-credential password work budget. */
 void *lockbox_open_password(const uint8_t *archive, size_t archive_len, const uint8_t *password, size_t password_len);
 void *lockbox_open_contact(const uint8_t *archive, size_t archive_len, const void *contact);
 bool lockbox_add_file(void *handle, const char *path, size_t path_len, const uint8_t *data, size_t data_len, bool replace);
 bool lockbox_add_file_with_permissions(void *handle, const char *path, size_t path_len, const uint8_t *data, size_t data_len, uint32_t permissions, bool replace);
 RevaultBuffer lockbox_get_file(const void *handle, const char *path, size_t path_len);
+bool lockbox_extract_file_with_policy(const void *handle, const char *source, size_t source_len, const char *destination, size_t destination_len, uint64_t max_file_bytes, uint64_t max_total_bytes, size_t max_files, bool restore_permissions, bool overwrite);
+/** Extracts one file with the legacy permission policy and replacement option. */
 bool lockbox_extract_file(const void *handle, const char *source, size_t source_len, const char *destination, size_t destination_len, bool replace);
 bool lockbox_extract_directory(const void *handle, const char *destination, size_t destination_len, uint64_t max_file_bytes, uint64_t max_total_bytes, size_t max_files, bool restore_symlinks, bool restore_permissions, bool overwrite);
 RevaultBuffer lockbox_stream_content(const void *handle, bool physical);
@@ -231,4 +235,17 @@ void *vault_open_lockbox_content_key(const void *vault, const char *path, size_t
 bool vault_cache_lockbox_password(const void *vault, const char *path, size_t path_len, const uint8_t *password, size_t password_len, uint64_t ttl_seconds);
 bool vault_close_lockbox(const void *vault, const char *path, size_t path_len);
 bool vault_close_all(const void *vault);
+/** Manage persisted Vault aliases without opening target archives. */
+bool vault_directory_set_lockbox_alias(const void *handle, const char *name, size_t name_len, const uint8_t *id, size_t id_len);
+/** Lists persisted alias names and target identities without opening archives. */
+RevaultBuffer vault_directory_list_lockbox_aliases(const void *handle);
+/** Removes a persisted alias; a missing valid name is a successful no-op. */
+bool vault_directory_remove_lockbox_alias(const void *handle, const char *name, size_t name_len);
+/** Resolve metadata; verify the target identity when opening its path. */
+RevaultBuffer vault_directory_resolve_lockbox_alias(const void *handle, const char *name, size_t name_len);
+/** Lists aliases through a read-only Vault handle. */
+RevaultBuffer vault_read_only_list_lockbox_aliases(const void *handle);
+/** Resolve metadata; verify the target identity when opening its path. */
+RevaultBuffer vault_read_only_resolve_lockbox_alias(const void *handle, const char *name, size_t name_len);
+/** Releases an agent Vault client handle. */
 void vault_free(void *vault);

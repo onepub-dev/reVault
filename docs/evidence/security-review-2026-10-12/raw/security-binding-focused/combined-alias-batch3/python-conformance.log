@@ -1,0 +1,11 @@
+/usr/lib/python3/dist-packages/apt/__init__.py:37: Warning: W:Unable to read /etc/apt/apt.conf.d/99-ubuntu-mirror-esp - open (13: Permission denied)
+  apt_pkg.init_config()
+Traceback (most recent call last):
+  File "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/bindings/e2e/python/conformance.py", line 16, in <module>
+    import revault_api as binding  # noqa: E402
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/bindings/python/revault_api/__init__.py", line 20, in <module>
+    from ._domain import FormField, PathMove
+  File "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/bindings/python/revault_api/_domain.py", line 8, in <module>
+    import flatbuffers
+ModuleNotFoundError: No module named 'flatbuffers'

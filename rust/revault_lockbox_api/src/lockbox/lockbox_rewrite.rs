@@ -136,13 +136,6 @@ impl<'a> LockboxRewrite<'a> {
                 options,
             )?;
             owns_temporary = true;
-            std::fs::set_permissions(
-                replacement.temp_path(),
-                std::fs::metadata(&path)
-                    .map_err(|e| Error::Io(e.to_string()))?
-                    .permissions(),
-            )
-            .map_err(|e| Error::Io(e.to_string()))?;
             compacted.owner_signing_key = signing_key
                 .as_ref()
                 .map(crate::OwnerSigningKeyPair::try_clone)
@@ -156,6 +149,9 @@ impl<'a> LockboxRewrite<'a> {
             #[cfg(test)]
             compaction_tests::checkpoint("verified");
             source.storage.ensure_current()?;
+            source
+                .storage
+                .copy_file_permissions_to(&compacted.storage)?;
             replacement.publish()?;
             compacted.storage.relocate(&path);
             *source = compacted;
@@ -207,13 +203,6 @@ impl<'a> LockboxRewrite<'a> {
                 options,
             )?;
             owns_temporary = true;
-            std::fs::set_permissions(
-                replacement.temp_path(),
-                std::fs::metadata(&path)
-                    .map_err(|e| Error::Io(e.to_string()))?
-                    .permissions(),
-            )
-            .map_err(|e| Error::Io(e.to_string()))?;
             rekeyed.owner_signing_key = signing_key
                 .as_ref()
                 .map(crate::OwnerSigningKeyPair::try_clone)
@@ -225,6 +214,7 @@ impl<'a> LockboxRewrite<'a> {
             rekeyed.commit()?;
             Self::verify(source, &rekeyed, false)?;
             source.storage.ensure_current()?;
+            source.storage.copy_file_permissions_to(&rekeyed.storage)?;
             replacement.publish()?;
             rekeyed.storage.relocate(&path);
             *source = rekeyed;

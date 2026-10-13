@@ -216,6 +216,8 @@ public sealed class Revault
     public Lockbox OpenLockbox(byte[] archive, byte[] key, LockboxOptions options) => new(this,
         operations.LockboxOpenWithOptions(archive, key, options.CacheMode, options.CacheBytes, options.Workload, options.Worker, options.Jobs));
     /// <summary>Opens lockbox with password.</summary>
+    public Lockbox OpenLockboxWithPasswordBudget(byte[] archive, byte[] password, uint maxDerivations) => new(this, operations.LockboxOpenPasswordWithBudget(archive, password, maxDerivations));
+    /// <summary>Opens with the default per-credential password work budget.</summary>
     public Lockbox OpenLockboxWithPassword(byte[] archive, byte[] password) => new(this, operations.LockboxOpenPassword(archive, password));
     /// <summary>Opens lockbox for contact.</summary>
     public Lockbox OpenLockboxForContact(byte[] archive, ContactKeyPair contact) => new(this, operations.LockboxOpenContact(archive, contact.Handle));
@@ -241,6 +243,8 @@ public sealed class Revault
         /// <summary>Reads the complete file stored at the Lockbox path.</summary>
         public byte[] GetFile(string path) => owner.operations.LockboxGetFile(Handle, path);
         /// <summary>Writes one Lockbox file to the host filesystem.</summary>
+        public void ExtractFileWithPolicy(string source, string destination, ulong maxFileBytes, ulong maxTotalBytes, nuint maxFiles, bool restorePermissions, bool overwrite) => owner.operations.LockboxExtractFileWithPolicy(Handle, source, destination, maxFileBytes, maxTotalBytes, maxFiles, restorePermissions, overwrite);
+        /// <summary>Extracts one file using the legacy permission policy.</summary>
         public void ExtractFile(string source, string destination, bool replace = false) => owner.operations.LockboxExtractFile(Handle, source, destination, replace);
         /// <summary>Extracts the Lockbox with explicit size, count, link, and permission limits.</summary>
         public void ExtractDirectory(string destination, ulong maxFileBytes, ulong maxTotalBytes, nuint maxFiles,
@@ -465,6 +469,14 @@ public sealed class Revault
         public void RememberLockbox(byte[] id, string path) => owner.operations.VaultDirectoryRememberLockbox(Handle, id, path);
         /// <summary>Lists known lockboxes.</summary>
         public IReadOnlyList<KnownLockbox> ListKnownLockboxes() => owner.operations.VaultDirectoryListKnownLockboxes(Handle);
+        /// <summary>Resolves metadata; verify target identity before opening its path.</summary>
+        public KnownLockbox ResolveLockboxAlias(string name) => owner.operations.VaultDirectoryResolveLockboxAlias(Handle, name);
+        /// <summary>Removes only the alias, preserving the target.</summary>
+        public void RemoveLockboxAlias(string name) => owner.operations.VaultDirectoryRemoveLockboxAlias(Handle, name);
+        /// <summary>Lists aliases without opening their targets.</summary>
+        public IReadOnlyList<LockboxAlias> ListLockboxAliases() => owner.operations.VaultDirectoryListLockboxAliases(Handle);
+        /// <summary>Sets or replaces a normalized alias for a remembered identity.</summary>
+        public void SetLockboxAlias(string name, byte[] id) => owner.operations.VaultDirectorySetLockboxAlias(Handle, name, id);
         /// <summary>Removes lockbox.</summary>
         public void ForgetLockbox(string path) => owner.operations.VaultDirectoryForgetLockbox(Handle, path);
         /// <summary>Stores access slot label.</summary>
@@ -515,6 +527,10 @@ public sealed class Revault
         public IReadOnlyList<string> ListFormAliases() => owner.operations.VaultReadOnlyListFormAliases(handle);
         /// <summary>Lists known lockboxes.</summary>
         public IReadOnlyList<KnownLockbox> ListKnownLockboxes() => owner.operations.VaultReadOnlyListKnownLockboxes(handle);
+        /// <summary>Resolves metadata; verify target identity before opening its path.</summary>
+        public KnownLockbox ResolveLockboxAlias(string name) => owner.operations.VaultReadOnlyResolveLockboxAlias(handle, name);
+        /// <summary>Lists aliases without opening their targets.</summary>
+        public IReadOnlyList<LockboxAlias> ListLockboxAliases() => owner.operations.VaultReadOnlyListLockboxAliases(handle);
         /// <summary>Releases the native resources held by this object.</summary>
         public void Dispose() { if (handle != IntPtr.Zero) { owner.operations.VaultReadOnlyFree(handle); handle = IntPtr.Zero; } GC.SuppressFinalize(this); }
         /// <summary>Releases the read-only vault handle during finalization.</summary>

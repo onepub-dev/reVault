@@ -1,0 +1,1 @@
+cargo +1.88.0 run --locked --offline -p revault_tooling --bin revault-tool -- internal check-bindings

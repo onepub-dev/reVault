@@ -40,8 +40,6 @@ pub(in crate::file_format::candidate_files) fn compact_path_with(
     let mut cleanup = temporary.clone();
     let mut installed = false;
     let result = (|| {
-        std::fs::set_permissions(replacement.temp_path(), metadata.permissions())
-            .map_err(|e| Error::Io(e.to_string()))?;
         checkpoint("tree-created")?;
         let destination = compact(&source, temporary, archive, mode, authority, signer, key)?;
         let mut checked = AuditedTreeImage::open(destination, archive, mode, authority, key)?;
@@ -51,6 +49,7 @@ pub(in crate::file_format::candidate_files) fn compact_path_with(
         // Refuse stale source and temporary paths before crossing publication.
         source.ensure_current()?;
         checked.image.storage.ensure_current()?;
+        source.copy_file_permissions_to(&checked.image.storage)?;
         replacement.publish()?;
         installed = true;
         checked.image.storage.relocate(path);

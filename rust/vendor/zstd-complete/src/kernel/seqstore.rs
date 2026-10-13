@@ -64,16 +64,18 @@ pub unsafe fn prepare_stored_sequences(
     initial_repeat_offsets: [u32; 3],
     sequences: &[StoredSequenceWords],
     last_literals: u32,
-) -> PreparedStoreWords {
-    unsafe {
-        prepare_stored_sequences_in(
-            src,
-            initial_repeat_offsets,
-            sequences,
-            last_literals,
-            PreparedStoreWords::default(),
-        )
-    }
+) -> Result<PreparedStoreWords, crate::workspace::CapacityError> {
+    Ok({
+        unsafe {
+            prepare_stored_sequences_in(
+                src,
+                initial_repeat_offsets,
+                sequences,
+                last_literals,
+                PreparedStoreWords::default(),
+            )?
+        }
+    })
 }
 
 /// Reuses both owning allocations from `reuse` while rebuilding the complete
@@ -88,32 +90,36 @@ pub unsafe fn prepare_stored_sequences_in(
     sequences: &[StoredSequenceWords],
     last_literals: u32,
     reuse: PreparedStoreWords,
-) -> PreparedStoreWords {
-    let mut output = PreparedStoreWriter::new(
-        src.len().saturating_add(LITERAL_WILDCOPY_MAX),
-        sequences.len(),
-        reuse,
-    );
-    let mut repeat_offsets = initial_repeat_offsets;
-    let mut anchor = 0_usize;
+) -> Result<PreparedStoreWords, crate::workspace::CapacityError> {
+    Ok({
+        let mut output = PreparedStoreWriter::new(
+            src.len()
+                .checked_add(LITERAL_WILDCOPY_MAX)
+                .ok_or(crate::workspace::CapacityError::Overflow)?,
+            sequences.len(),
+            reuse,
+        )?;
+        let mut repeat_offsets = initial_repeat_offsets;
+        let mut anchor = 0_usize;
 
-    for &[lit_len, match_len, off_base] in sequences {
-        let literal_length = lit_len as usize;
-        let match_length = match_len as usize;
-        let lit_end = anchor + literal_length;
-        debug_assert!(lit_end <= src.len());
-        output.append_wildcopy_literals(src, anchor, literal_length);
+        for &[lit_len, match_len, off_base] in sequences {
+            let literal_length = lit_len as usize;
+            let match_length = match_len as usize;
+            let lit_end = anchor + literal_length;
+            debug_assert!(lit_end <= src.len());
+            output.append_wildcopy_literals(src, anchor, literal_length);
 
-        let raw_offset = resolve_and_update(&mut repeat_offsets, off_base, lit_len);
-        output.push_sequence([lit_len, match_len, raw_offset, off_base]);
-        anchor = lit_end + match_length;
-        debug_assert!(anchor <= src.len());
-    }
+            let raw_offset = resolve_and_update(&mut repeat_offsets, off_base, lit_len);
+            output.push_sequence([lit_len, match_len, raw_offset, off_base]);
+            anchor = lit_end + match_length;
+            debug_assert!(anchor <= src.len());
+        }
 
-    let tail_end = anchor + last_literals as usize;
-    debug_assert_eq!(tail_end, src.len());
-    output.append_exact_literals(&src[anchor..tail_end]);
-    output.finish()
+        let tail_end = anchor + last_literals as usize;
+        debug_assert_eq!(tail_end, src.len());
+        output.append_exact_literals(&src[anchor..tail_end]);
+        output.finish()?
+    })
 }
 
 /// Gathers the literal stream from C's native sequence store without
@@ -130,24 +136,31 @@ pub unsafe fn prepare_stored_literals_in(
     sequences: &[StoredSequenceWords],
     last_literals: u32,
     reuse: PreparedStoreWords,
-) -> PreparedStoreWords {
-    let mut output =
-        PreparedStoreWriter::new(src.len().saturating_add(LITERAL_WILDCOPY_MAX), 0, reuse);
-    let mut anchor = 0_usize;
+) -> Result<PreparedStoreWords, crate::workspace::CapacityError> {
+    Ok({
+        let mut output = PreparedStoreWriter::new(
+            src.len()
+                .checked_add(LITERAL_WILDCOPY_MAX)
+                .ok_or(crate::workspace::CapacityError::Overflow)?,
+            0,
+            reuse,
+        )?;
+        let mut anchor = 0_usize;
 
-    for &[lit_len, match_len, _off_base] in sequences {
-        let literal_length = lit_len as usize;
-        let lit_end = anchor + literal_length;
-        debug_assert!(lit_end <= src.len());
-        output.append_wildcopy_literals(src, anchor, literal_length);
-        anchor = lit_end + match_len as usize;
-        debug_assert!(anchor <= src.len());
-    }
+        for &[lit_len, match_len, _off_base] in sequences {
+            let literal_length = lit_len as usize;
+            let lit_end = anchor + literal_length;
+            debug_assert!(lit_end <= src.len());
+            output.append_wildcopy_literals(src, anchor, literal_length);
+            anchor = lit_end + match_len as usize;
+            debug_assert!(anchor <= src.len());
+        }
 
-    let tail_end = anchor + last_literals as usize;
-    debug_assert_eq!(tail_end, src.len());
-    output.append_exact_literals(&src[anchor..tail_end]);
-    output.finish()
+        let tail_end = anchor + last_literals as usize;
+        debug_assert_eq!(tail_end, src.len());
+        output.append_exact_literals(&src[anchor..tail_end]);
+        output.finish()?
+    })
 }
 
 #[inline(always)]
@@ -187,21 +200,27 @@ struct PreparedStoreWriter {
 }
 
 impl PreparedStoreWriter {
-    fn new(literal_capacity: usize, sequence_capacity: usize, reuse: PreparedStoreWords) -> Self {
-        let mut literals = into_uninit(reuse.literals);
-        if literals.capacity() < literal_capacity {
-            literals.reserve(literal_capacity);
-        }
-        let mut sequences = into_uninit(reuse.sequences);
-        if sequences.capacity() < sequence_capacity {
-            sequences.reserve(sequence_capacity);
-        }
-        Self {
-            literals,
-            literal_len: 0,
-            sequences,
-            sequence_len: 0,
-        }
+    fn new(
+        literal_capacity: usize,
+        sequence_capacity: usize,
+        reuse: PreparedStoreWords,
+    ) -> Result<Self, crate::workspace::CapacityError> {
+        Ok({
+            let mut literals = into_uninit(reuse.literals);
+            if literals.capacity() < literal_capacity {
+                literals.reserve(literal_capacity)?;
+            }
+            let mut sequences = into_uninit(reuse.sequences);
+            if sequences.capacity() < sequence_capacity {
+                sequences.reserve(sequence_capacity)?;
+            }
+            Self {
+                literals,
+                literal_len: 0,
+                sequences,
+                sequence_len: 0,
+            }
+        })
     }
 
     fn append_wildcopy_literals(&mut self, src: &[u8], start: usize, len: usize) {
@@ -267,13 +286,15 @@ impl PreparedStoreWriter {
         self.sequence_len += 1;
     }
 
-    fn finish(self) -> PreparedStoreWords {
-        PreparedStoreWords {
-            // SAFETY: literal writes cover the complete logical prefix.
-            literals: unsafe { assume_init_prefix(self.literals, self.literal_len) },
-            // SAFETY: `sequence_len` tracks the contiguous initialized prefix.
-            sequences: unsafe { assume_init_prefix(self.sequences, self.sequence_len) },
-        }
+    fn finish(self) -> Result<PreparedStoreWords, crate::workspace::CapacityError> {
+        Ok({
+            PreparedStoreWords {
+                // SAFETY: literal writes cover the complete logical prefix.
+                literals: unsafe { assume_init_prefix(self.literals, self.literal_len)? },
+                // SAFETY: `sequence_len` tracks the contiguous initialized prefix.
+                sequences: unsafe { assume_init_prefix(self.sequences, self.sequence_len)? },
+            }
+        })
     }
 }
 
@@ -285,12 +306,14 @@ fn into_uninit<T>(mut values: ReusableVec<T>) -> ReusableVec<MaybeUninit<T>> {
 unsafe fn assume_init_prefix<T>(
     mut values: ReusableVec<MaybeUninit<T>>,
     initialized_len: usize,
-) -> ReusableVec<T> {
-    debug_assert!(initialized_len <= values.capacity());
-    // SAFETY: the caller proves every exposed prefix element is initialized.
-    unsafe { values.set_len(initialized_len) };
-    // SAFETY: the initialized prefix invariant was established above.
-    unsafe { values.assume_init() }
+) -> Result<ReusableVec<T>, crate::workspace::CapacityError> {
+    Ok({
+        debug_assert!(initialized_len <= values.capacity());
+        // SAFETY: the caller proves every exposed prefix element is initialized.
+        unsafe { values.set_len(initialized_len)? };
+        // SAFETY: the initialized prefix invariant was established above.
+        unsafe { values.assume_init() }
+    })
 }
 
 #[cfg(test)]
@@ -306,6 +329,7 @@ mod tests {
             // SAFETY: the fixture sequence exactly partitions this source.
             let prepared = unsafe {
                 prepare_stored_sequences(&src[..len as usize + 4], [1, 4, 8], &sequences, 0)
+                    .expect("test storage admission")
             };
             assert_eq!(prepared.literals.as_slice(), &src[..len as usize]);
             assert_eq!(prepared.sequences, [[len, 4, 1, 4]]);
@@ -320,6 +344,7 @@ mod tests {
             // SAFETY: the literal-only fixture exactly partitions this source.
             let prepared = unsafe {
                 prepare_stored_sequences(&src[..len as usize], [1, 4, 8], &[[len, 0, 4]], 0)
+                    .expect("test storage admission")
             };
             assert_eq!(prepared.literals.as_slice(), &src[..len as usize]);
         }
@@ -328,12 +353,19 @@ mod tests {
     #[test]
     fn numeric_repeat_transition_matches_c_rules() {
         assert_eq!(
-            unsafe { prepare_stored_sequences(&[0; 12], [11, 22, 33], &[[0, 4, 1], [0, 4, 2]], 4) }
-                .sequences,
+            unsafe {
+                prepare_stored_sequences(&[0; 12], [11, 22, 33], &[[0, 4, 1], [0, 4, 2]], 4)
+                    .expect("test storage admission")
+            }
+            .sequences,
             [[0, 4, 22, 1], [0, 4, 33, 2]]
         );
         assert_eq!(
-            unsafe { prepare_stored_sequences(&[0; 4], [11, 22, 33], &[[0, 4, 3]], 0) }.sequences,
+            unsafe {
+                prepare_stored_sequences(&[0; 4], [11, 22, 33], &[[0, 4, 3]], 0)
+                    .expect("test storage admission")
+            }
+            .sequences,
             [[0, 4, 10, 3]]
         );
     }
@@ -342,14 +374,19 @@ mod tests {
     fn prepared_store_reuses_both_allocations() {
         let src = [0_u8; 128];
         // SAFETY: the fixture sequence plus tail exactly partitions `src`.
-        let first = unsafe { prepare_stored_sequences(&src, [1, 4, 8], &[[32, 32, 4]], 64) };
+        let first = unsafe {
+            prepare_stored_sequences(&src, [1, 4, 8], &[[32, 32, 4]], 64)
+                .expect("test storage admission")
+        };
         let allocation = first.allocation();
         assert!(allocation.0 .1 >= src.len());
         assert!(allocation.1 .1 >= 1);
 
         // SAFETY: the same validated fixture is reused.
-        let second =
-            unsafe { prepare_stored_sequences_in(&src, [1, 4, 8], &[[32, 32, 4]], 64, first) };
+        let second = unsafe {
+            prepare_stored_sequences_in(&src, [1, 4, 8], &[[32, 32, 4]], 64, first)
+                .expect("test storage admission")
+        };
 
         assert_eq!(second.allocation(), allocation);
         assert_eq!(second.literals.len(), 96);
@@ -361,12 +398,17 @@ mod tests {
         let src = (0usize..128).map(|value| value as u8).collect::<Vec<_>>();
         let sequences = [[12, 8, 4], [17, 16, 7], [0, 4, 1]];
         // SAFETY: the fixture sequences plus tail exactly partition `src`.
-        let full = unsafe { prepare_stored_sequences(&src, [1, 4, 8], &sequences, 71) };
+        let full = unsafe {
+            prepare_stored_sequences(&src, [1, 4, 8], &sequences, 71)
+                .expect("test storage admission")
+        };
         let expected_literals = full.literals.clone();
         let allocation = full.allocation();
 
         // SAFETY: the same validated fixture is reused.
-        let literals = unsafe { prepare_stored_literals_in(&src, &sequences, 71, full) };
+        let literals = unsafe {
+            prepare_stored_literals_in(&src, &sequences, 71, full).expect("test storage admission")
+        };
 
         assert_eq!(literals.literals, expected_literals);
         assert!(literals.sequences.is_empty());

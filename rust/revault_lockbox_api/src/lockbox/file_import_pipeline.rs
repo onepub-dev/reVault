@@ -114,6 +114,7 @@ pub(super) struct FileImportPipeline {
     compression: Option<crate::Compression>,
     jobs: usize,
     native_blocks: bool,
+    sensitive: bool,
 }
 
 impl FileImportPipeline {
@@ -123,11 +124,17 @@ impl FileImportPipeline {
             compression: None,
             jobs: jobs.max(1),
             native_blocks: false,
+            sensitive: false,
         }
     }
 
     pub(super) fn with_compression(mut self, compression: Option<crate::Compression>) -> Self {
         self.compression = compression;
+        self
+    }
+
+    pub(super) fn with_sensitive(mut self, sensitive: bool) -> Self {
+        self.sensitive = sensitive;
         self
     }
 
@@ -142,7 +149,7 @@ impl FileImportPipeline {
 
     pub(super) fn encoder_frame(self, input: &[u8]) -> crate::compression::EncoderFrame {
         let probe = matches!(self.compression, Some(crate::Compression::Zstd { level }) if level.get() < 18);
-        crate::compression::EncoderFrame::new(input, probe)
+        crate::compression::EncoderFrame::new_sensitive(input, probe, self.sensitive)
     }
 
     pub(super) fn with_encoder<R>(
@@ -150,7 +157,13 @@ impl FileImportPipeline {
         first: crate::compression::EncoderFrame,
         operation: impl FnOnce(&mut dyn FnMut(&[u8]) -> FrameEncoding) -> R,
     ) -> R {
-        crate::compression::with_frame_encoder(first, self.compression, self.zstd_level, operation)
+        crate::compression::with_frame_encoder(
+            first,
+            self.compression,
+            self.zstd_level,
+            self.sensitive,
+            operation,
+        )
     }
 
     pub(super) fn prepare_with_encoder(
@@ -160,7 +173,16 @@ impl FileImportPipeline {
     ) -> PreparedCompressionFrame {
         let prepare_start = Instant::now();
         let single_frame = frames.len() == 1;
-        let mut payload = Vec::new();
+        let capacity = if self.sensitive && !single_frame {
+            frames
+                .iter()
+                .try_fold(0usize, |sum, frame| sum.checked_add(frame.data.len()))
+                .expect("bounded packed frame size")
+        } else {
+            0
+        };
+        let mut payload =
+            crate::page_buffer::SensitiveBytes::new(Vec::with_capacity(capacity), self.sensitive);
         let mut slices = Vec::with_capacity(frames.len());
         for frame in frames {
             let compression_frame_offset = payload.len() as u64;
@@ -181,7 +203,7 @@ impl FileImportPipeline {
         let payload = if single_frame {
             Cow::Borrowed(frames[0].data)
         } else {
-            Cow::Owned(payload)
+            Cow::Owned(payload.into_vec())
         };
         self.prepare_payload_with_encoder(payload, slices, prepare_start, encode)
     }
@@ -263,6 +285,13 @@ impl FileImportPipeline {
     }
 
     fn encode(self, payload: &[u8]) -> FrameEncoding {
+        if self.sensitive {
+            return crate::compression::encode_sensitive_outcome(
+                payload,
+                self.compression,
+                self.zstd_level,
+            );
+        }
         match self.compression {
             Some(compression) => {
                 crate::compression::encode_with_compression_outcome(payload, compression)

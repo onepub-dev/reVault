@@ -1,0 +1,1 @@
+node node_modules/typescript/bin/tsc --noEmit --strict --target ES2022 --module NodeNext --moduleResolution NodeNext --typeRoots typescript/node_modules/@types --types node e2e/typescript/conformance.ts

@@ -16,11 +16,13 @@ lockbox_create_contact_with_signing_key	archive.lifecycle	void *	const void *con
 lockbox_create_with_signing_key	archive.lifecycle	void *	const uint8_t *content_key, size_t key_len, const void *signing_key
 lockbox_open	archive.lifecycle	void *	const uint8_t *archive, size_t archive_len, const uint8_t *key, size_t key_len
 lockbox_open_with_options	archive.lifecycle	void *	const uint8_t *archive, size_t archive_len, const uint8_t *key, size_t key_len, const char *cache_mode, size_t cache_len, uint64_t cache_bytes, const char *workload, size_t workload_len, const char *worker, size_t worker_len, size_t jobs
+lockbox_open_password_with_budget	archive.keys	void *	const uint8_t *archive, size_t archive_len, const uint8_t *password, size_t password_len, uint32_t max_derivations
 lockbox_open_password	archive.keys	void *	const uint8_t *archive, size_t archive_len, const uint8_t *password, size_t password_len
 lockbox_open_contact	archive.keys	void *	const uint8_t *archive, size_t archive_len, const void *contact
 lockbox_add_file	archive.lifecycle	bool	void *handle, const char *path, size_t path_len, const uint8_t *data, size_t data_len, bool replace
 lockbox_add_file_with_permissions	archive.lifecycle	bool	void *handle, const char *path, size_t path_len, const uint8_t *data, size_t data_len, uint32_t permissions, bool replace
 lockbox_get_file	archive.lifecycle	RevaultBuffer	const void *handle, const char *path, size_t path_len
+lockbox_extract_file_with_policy	archive.lifecycle	bool	const void *handle, const char *source, size_t source_len, const char *destination, size_t destination_len, uint64_t max_file_bytes, uint64_t max_total_bytes, size_t max_files, bool restore_permissions, bool overwrite
 lockbox_extract_file	archive.lifecycle	bool	const void *handle, const char *source, size_t source_len, const char *destination, size_t destination_len, bool replace
 lockbox_extract_directory	archive.lifecycle	bool	const void *handle, const char *destination, size_t destination_len, uint64_t max_file_bytes, uint64_t max_total_bytes, size_t max_files, bool restore_symlinks, bool restore_permissions, bool overwrite
 lockbox_stream_content	archive.diagnostics	RevaultBuffer	const void *handle, bool physical
@@ -220,3 +222,9 @@ vault_close_lockbox	vault.local	bool	const void *vault, const char *path, size_t
 vault_close_all	vault.local	bool	const void *vault
 vault_free	vault.local	void	void *vault
 lockbox_file	archive.lifecycle	void *	const char *path, size_t path_len, const char *mode, size_t mode_len, const char *credential, size_t credential_len, const uint8_t *secret, size_t secret_len, const void *contact, const void *signer, const char *cache_mode, size_t cache_len, uint64_t cache_bytes, const char *workload, size_t workload_len, const char *worker, size_t worker_len, size_t jobs
+vault_directory_set_lockbox_alias	vault.directory	bool	const void *handle, const char *name, size_t name_len, const uint8_t *id, size_t id_len
+vault_directory_list_lockbox_aliases	vault.directory	RevaultBuffer	const void *handle
+vault_directory_remove_lockbox_alias	vault.directory	bool	const void *handle, const char *name, size_t name_len
+vault_directory_resolve_lockbox_alias	vault.directory	RevaultBuffer	const void *handle, const char *name, size_t name_len
+vault_read_only_list_lockbox_aliases	vault.read-only	RevaultBuffer	const void *handle
+vault_read_only_resolve_lockbox_alias	vault.read-only	RevaultBuffer	const void *handle, const char *name, size_t name_len

@@ -93,18 +93,20 @@ impl FseTables {
         }
     }
 
-    pub(crate) fn new_in(scratch: &mut crate::fse::fse_encoder::FSETableBuildScratch) -> Self {
-        Self {
-            ll_default: crate::fse::fse_encoder::default_ll_table_with_scratch(scratch),
+    pub(crate) fn new_in(
+        scratch: &mut crate::fse::fse_encoder::FSETableBuildScratch,
+    ) -> Result<Self, crate::workspace::CapacityError> {
+        Ok(Self {
+            ll_default: crate::fse::fse_encoder::default_ll_table_with_scratch(scratch)?,
             ll_previous: None,
             ll_repeat_valid: false,
-            ml_default: crate::fse::fse_encoder::default_ml_table_with_scratch(scratch),
+            ml_default: crate::fse::fse_encoder::default_ml_table_with_scratch(scratch)?,
             ml_previous: None,
             ml_repeat_valid: false,
-            of_default: crate::fse::fse_encoder::default_of_table_with_scratch(scratch),
+            of_default: crate::fse::fse_encoder::default_of_table_with_scratch(scratch)?,
             of_previous: None,
             of_repeat_valid: false,
-        }
+        })
     }
 
     pub fn reset(&mut self) {
@@ -271,7 +273,9 @@ impl<R: Read, W: Write, M: Matcher> FrameCompressor<R, W, M> {
             dictionary_id: None,
             window_size: Some(self.state.matcher.window_size()),
         };
-        header.serialize(output);
+        header
+            .serialize(output)
+            .expect("owned legacy codec allocation failed");
         // Now compress block by block
         let mut pending_byte = None;
         loop {
@@ -316,7 +320,9 @@ impl<R: Read, W: Write, M: Matcher> FrameCompressor<R, W, M> {
                     block_size: 0,
                 };
                 // Write the header, then the block
-                header.serialize(output);
+                header
+                    .serialize(output)
+                    .expect("owned legacy codec allocation failed");
                 drain.write_all(output).unwrap();
                 output.clear();
                 break;
@@ -424,7 +430,9 @@ fn compress_with_level_policy<M: Matcher>(
             block_type: crate::blocks::block::BlockType::Raw,
             block_size: uncompressed_data.len().try_into().unwrap(),
         };
-        header.serialize(output);
+        header
+            .serialize(output)
+            .expect("owned legacy codec allocation failed");
         output.extend_from_slice(&uncompressed_data);
     } else if level.uses_fastest_legacy_profile() {
         compress_fastest(state, last_block, uncompressed_data, output);

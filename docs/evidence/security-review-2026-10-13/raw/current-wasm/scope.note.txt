@@ -1,0 +1,1 @@
+Fresh wasm binary and wasm-bindgen Node output stored under generated/. Existing tracked bindings/wasm/generated outputs were not replaced. Hosted alias facade was exercised in current-ABI JavaScript conformance; this portable WASM lifecycle covers password access, budget validation, and cache-limit setter.

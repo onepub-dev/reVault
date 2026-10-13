@@ -1,0 +1,76 @@
+    Checking zstd-complete v0.2.0 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/vendor/zstd-complete)
+warning: method `into_owned_vec` is never used
+   --> vendor/zstd-complete/src/workspace.rs:341:19
+    |
+318 | impl<T> ReusableVec<T> {
+    | ---------------------- method in this implementation
+...
+341 |     pub(crate) fn into_owned_vec(self) -> Vec<T> {
+    |                   ^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` on by default
+
+warning: `zstd-complete` (lib) generated 1 warning
+    Checking revault_lockbox_api v0.0.41 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api)
+warning: unused import: `encode_compression_frame_manifest`
+ --> revault_lockbox_api/src/file_format/payload.rs:6:40
+  |
+6 |     decode_compression_frame_manifest, encode_compression_frame_manifest, CompressionFrameManifest,
+  |                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: associated function `new` is never used
+  --> revault_lockbox_api/src/compression/encode_workspace.rs:63:19
+   |
+62 | impl EncoderFrame {
+   | ----------------- associated function in this implementation
+63 |     pub(crate) fn new(input: &[u8], probe: bool) -> Self {
+   |                   ^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: function `encode_compression_frame_manifest` is never used
+  --> revault_lockbox_api/src/model/compression_frame_manifest.rs:49:15
+   |
+49 | pub(crate) fn encode_compression_frame_manifest(
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: method `install` is never used
+  --> revault_lockbox_api/src/storage/atomic_file_replacement.rs:82:19
+   |
+12 | impl AtomicFileReplacement {
+   | -------------------------- method in this implementation
+...
+82 |     pub(crate) fn install(&self) -> Result<()> {
+   |                   ^^^^^^^
+
+warning: unused import: `encode_compression_frame_manifest`
+ --> revault_lockbox_api/src/file_format/block_page.rs:8:40
+  |
+8 |     decode_compression_frame_manifest, encode_compression_frame_manifest, CompressionFrameManifest,
+  |                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `encode_compression_frame_manifest`
+ --> revault_lockbox_api/src/file_format/payload.rs:6:40
+  |
+6 |     decode_compression_frame_manifest, encode_compression_frame_manifest, CompressionFrameManifest,
+  |                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: `revault_lockbox_api` (lib) generated 4 warnings (run `cargo fix --lib -p revault_lockbox_api` to apply 1 suggestion)
+warning: field `payload` is never read
+  --> revault_lockbox_api/src/model/record.rs:26:16
+   |
+22 | pub(crate) struct DecodedRecord {
+   |                   ------------- field in this struct
+...
+26 |     pub(crate) payload: Vec<u8>,
+   |                ^^^^^^^
+   |
+   = note: `DecodedRecord` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` on by default
+
+warning: `revault_lockbox_api` (lib test) generated 3 warnings (run `cargo fix --lib -p revault_lockbox_api --tests` to apply 2 suggestions)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.81s

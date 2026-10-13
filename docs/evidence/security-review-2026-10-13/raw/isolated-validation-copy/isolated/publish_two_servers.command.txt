@@ -1,0 +1,4 @@
+cwd=/tmp/rv-security-cli-isolated-20261013/source/rust
+command=/tmp/rv-security-cli-isolated-20261013/target/release/deps/publish_integration-f39d119fe7ac2b84 --ignored --exact --nocapture --test-threads=1
+tests=cli_publish_and_receive_with_two_servers
+timeout=1200s + 30s kill grace

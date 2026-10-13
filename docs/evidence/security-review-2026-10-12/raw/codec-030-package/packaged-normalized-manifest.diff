@@ -1,0 +1,16 @@
+--- /tmp/revault-zstd-030-security-package/vendor-Cargo.toml	2026-10-13 13:19:35.765306981 +1100
++++ /tmp/revault-zstd-030-security-package/unpacked/zstd-complete-0.3.0/Cargo.toml	1970-01-01 10:00:01.000000000 +1000
+@@ -13,11 +13,9 @@
+ edition = "2018"
+ rust-version = "1.87"
+ name = "zstd-complete"
+-version = "0.2.0"
++version = "0.3.0"
+ build = false
+-exclude = [
+-    "fuzz_decodecorpus/*",
+-]
++exclude = ["fuzz_decodecorpus/*"]
+ autolib = false
+ autobins = false
+ autoexamples = false

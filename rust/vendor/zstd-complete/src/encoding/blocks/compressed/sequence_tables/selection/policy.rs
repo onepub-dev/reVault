@@ -32,7 +32,7 @@ pub(super) fn choose_c_fast_table<'a>(
     predefined_max_sequences: usize,
     default_norm_log: u8,
     table_builder: TableBuilder,
-) -> FseTableMode<'a> {
+) -> Result<FseTableMode<'a>, crate::workspace::CapacityError> {
     choose_c_fast_table_impl(
         previous,
         previous_repeat_valid,
@@ -63,7 +63,7 @@ pub(super) fn choose_c_fast_table_with_scratch<'a>(
     default_norm_log: u8,
     table_builder: TableBuilder,
     scratch: &mut FSETableBuildScratch,
-) -> FseTableMode<'a> {
+) -> Result<FseTableMode<'a>, crate::workspace::CapacityError> {
     choose_c_fast_table_impl(
         previous,
         previous_repeat_valid,
@@ -94,14 +94,14 @@ fn choose_c_fast_table_impl<'a>(
     default_norm_log: u8,
     table_builder: TableBuilder,
     scratch: Option<&mut FSETableBuildScratch>,
-) -> FseTableMode<'a> {
+) -> Result<FseTableMode<'a>, crate::workspace::CapacityError> {
     if counts.most_frequent() == counts.total() {
         let first_code = counts.max_symbol() as u8;
         let default_allowed = default_table.can_encode_symbol(first_code);
         return if default_allowed && sequence_count <= 2 {
-            FseTableMode::Predefined(default_table)
+            Ok(FseTableMode::Predefined(default_table))
         } else {
-            FseTableMode::Rle(first_code)
+            Ok(FseTableMode::Rle(first_code))
         };
     }
 
@@ -113,27 +113,27 @@ fn choose_c_fast_table_impl<'a>(
                 && sequence_count < repeat_table_max_sequences
                 && counts.default_allowed(previous)
             {
-                return FseTableMode::RepeatLast(previous);
+                return Ok(FseTableMode::RepeatLast(previous));
             }
         }
 
         if sequence_count < predefined_max_sequences
             || counts.most_frequent() < (sequence_count >> (usize::from(default_norm_log) - 1))
         {
-            return FseTableMode::Predefined(default_table);
+            return Ok(FseTableMode::Predefined(default_table));
         }
     }
 
-    FseTableMode::Encoded(match scratch {
+    Ok(FseTableMode::Encoded(match scratch {
         Some(scratch) => build_sequence_table_from_counts_with_scratch(
             counts,
             last_code,
             max_log,
             table_builder,
             scratch,
-        ),
-        None => build_sequence_table_from_counts(counts, last_code, max_log, table_builder),
-    })
+        )?,
+        None => build_sequence_table_from_counts(counts, last_code, max_log, table_builder)?,
+    }))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -145,14 +145,14 @@ pub(super) fn choose_c_cost_table<'a>(
     counts: &CodeCounts,
     max_log: u8,
     table_builder: TableBuilder,
-) -> FseTableMode<'a> {
+) -> Result<FseTableMode<'a>, crate::workspace::CapacityError> {
     if counts.most_frequent() == counts.total() {
         let first_code = counts.max_symbol() as u8;
         let default_allowed = default_table.can_encode_symbol(first_code);
         return if default_allowed && sequence_count <= 2 {
-            FseTableMode::Predefined(default_table)
+            Ok(FseTableMode::Predefined(default_table))
         } else {
-            FseTableMode::Rle(first_code)
+            Ok(FseTableMode::Rle(first_code))
         };
     }
 
@@ -168,21 +168,21 @@ pub(super) fn choose_c_cost_table<'a>(
     if basic_cost.is_some_and(|basic_cost| {
         basic_cost <= repeat_cost.unwrap_or(usize::MAX) && basic_cost <= compressed_cost
     }) {
-        return FseTableMode::Predefined(default_table);
+        return Ok(FseTableMode::Predefined(default_table));
     }
 
     if let Some(previous) = previous {
         if repeat_cost.is_some_and(|repeat_cost| repeat_cost <= compressed_cost) {
-            return FseTableMode::RepeatLast(previous);
+            return Ok(FseTableMode::RepeatLast(previous));
         }
     }
 
     let encoded_table = if counts.counts()[usize::from(last_code)] > 1 {
-        build_sequence_table_from_counts(counts, last_code, max_log, table_builder)
+        build_sequence_table_from_counts(counts, last_code, max_log, table_builder)?
     } else {
-        build_table_from_probabilities_with_builder(&encoded_probs, encoded_acc_log, table_builder)
+        build_table_from_probabilities_with_builder(&encoded_probs, encoded_acc_log, table_builder)?
     };
-    FseTableMode::Encoded(encoded_table)
+    Ok(FseTableMode::Encoded(encoded_table))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -195,14 +195,14 @@ pub(super) fn choose_c_cost_table_with_scratch<'a>(
     max_log: u8,
     table_builder: TableBuilder,
     scratch: &mut FSETableBuildScratch,
-) -> FseTableMode<'a> {
+) -> Result<FseTableMode<'a>, crate::workspace::CapacityError> {
     if counts.most_frequent() == counts.total() {
         let first_code = counts.max_symbol() as u8;
         let default_allowed = default_table.can_encode_symbol(first_code);
         return if default_allowed && sequence_count <= 2 {
-            FseTableMode::Predefined(default_table)
+            Ok(FseTableMode::Predefined(default_table))
         } else {
-            FseTableMode::Rle(first_code)
+            Ok(FseTableMode::Rle(first_code))
         };
     }
 
@@ -221,12 +221,12 @@ pub(super) fn choose_c_cost_table_with_scratch<'a>(
     if basic_cost.is_some_and(|basic_cost| {
         basic_cost <= repeat_cost.unwrap_or(usize::MAX) && basic_cost <= compressed_cost
     }) {
-        return FseTableMode::Predefined(default_table);
+        return Ok(FseTableMode::Predefined(default_table));
     }
 
     if let Some(previous) = previous {
         if repeat_cost.is_some_and(|repeat_cost| repeat_cost <= compressed_cost) {
-            return FseTableMode::RepeatLast(previous);
+            return Ok(FseTableMode::RepeatLast(previous));
         }
     }
 
@@ -237,16 +237,16 @@ pub(super) fn choose_c_cost_table_with_scratch<'a>(
             max_log,
             table_builder,
             scratch,
-        )
+        )?
     } else {
         build_table_from_probabilities_with_builder_and_scratch(
             encoded_probs,
             encoded_acc_log,
             table_builder,
             Some(scratch),
-        )
+        )?
     };
-    FseTableMode::Encoded(encoded_table)
+    Ok(FseTableMode::Encoded(encoded_table))
 }
 
 pub(super) fn sequence_table_selection_policy(

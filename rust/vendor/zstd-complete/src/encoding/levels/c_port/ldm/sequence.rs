@@ -24,8 +24,8 @@ pub(crate) fn generate_sequences_no_dict(
     src: &[u8],
     params: LdmParameters,
     table: &mut LdmHashTable,
-) -> LdmSequenceResult {
-    generate_sequences_no_dict_in(src, params, table, ReusableVec::new())
+) -> Result<LdmSequenceResult, crate::workspace::CapacityError> {
+    Ok({ generate_sequences_no_dict_in(src, params, table, ReusableVec::new())? })
 }
 
 pub(crate) fn generate_sequences_no_dict_in(
@@ -33,8 +33,8 @@ pub(crate) fn generate_sequences_no_dict_in(
     params: LdmParameters,
     table: &mut LdmHashTable,
     sequences: ReusableVec<LdmRawSequence>,
-) -> LdmSequenceResult {
-    generate_sequences_in_range(src, 0..src.len(), 0, 0, 0, params, table, sequences)
+) -> Result<LdmSequenceResult, crate::workspace::CapacityError> {
+    Ok({ generate_sequences_in_range(src, 0..src.len(), 0, 0, 0, params, table, sequences)? })
 }
 
 pub(crate) fn fill_prefix_hash_table(
@@ -87,18 +87,20 @@ pub(crate) fn generate_sequences_with_prefix(
     source_range: Range<usize>,
     params: LdmParameters,
     table: &mut LdmHashTable,
-) -> LdmSequenceResult {
-    let dict_limit = source_range.start;
-    generate_sequences_in_range(
-        src,
-        source_range,
-        0,
-        dict_limit,
-        dict_limit,
-        params,
-        table,
-        ReusableVec::new(),
-    )
+) -> Result<LdmSequenceResult, crate::workspace::CapacityError> {
+    Ok({
+        let dict_limit = source_range.start;
+        generate_sequences_in_range(
+            src,
+            source_range,
+            0,
+            dict_limit,
+            dict_limit,
+            params,
+            table,
+            ReusableVec::new(),
+        )?
+    })
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -111,49 +113,51 @@ fn generate_sequences_in_range(
     params: LdmParameters,
     table: &mut LdmHashTable,
     mut sequences: ReusableVec<LdmRawSequence>,
-) -> LdmSequenceResult {
-    debug_assert!(source_range.start <= source_range.end);
-    debug_assert!(source_range.end <= src.len());
-    debug_assert!(dict_low_limit <= dict_limit);
-    debug_assert!(dict_limit <= source_range.start);
+) -> Result<LdmSequenceResult, crate::workspace::CapacityError> {
+    Ok({
+        debug_assert!(source_range.start <= source_range.end);
+        debug_assert!(source_range.end <= src.len());
+        debug_assert!(dict_low_limit <= dict_limit);
+        debug_assert!(dict_limit <= source_range.start);
 
-    sequences.clear();
-    let mut last_literals = 0;
-    let mut chunk_start = source_range.start;
-    while chunk_start < source_range.end {
-        let chunk_end = (chunk_start + LDM_MAX_CHUNK_SIZE).min(source_range.end);
-        let (chunk_dict_low_limit, chunk_dict_limit) = enforce_max_distance(
-            dict_low_limit,
-            dict_limit,
-            loaded_dict_end,
-            params,
-            chunk_end,
-        );
-        let sequence_start = sequences.len();
-        let chunk_last_literals = generate_sequences_in_chunk_into(
-            src,
-            chunk_start..chunk_end,
-            chunk_dict_low_limit,
-            chunk_dict_limit,
-            params,
-            table,
-            &mut sequences,
-        );
+        sequences.clear();
+        let mut last_literals = 0;
+        let mut chunk_start = source_range.start;
+        while chunk_start < source_range.end {
+            let chunk_end = (chunk_start + LDM_MAX_CHUNK_SIZE).min(source_range.end);
+            let (chunk_dict_low_limit, chunk_dict_limit) = enforce_max_distance(
+                dict_low_limit,
+                dict_limit,
+                loaded_dict_end,
+                params,
+                chunk_end,
+            );
+            let sequence_start = sequences.len();
+            let chunk_last_literals = generate_sequences_in_chunk_into(
+                src,
+                chunk_start..chunk_end,
+                chunk_dict_low_limit,
+                chunk_dict_limit,
+                params,
+                table,
+                &mut sequences,
+            )?;
 
-        if sequences.len() == sequence_start {
-            last_literals += chunk_last_literals;
-        } else {
-            sequences[sequence_start].lit_length += to_u32(last_literals);
-            last_literals = chunk_last_literals;
+            if sequences.len() == sequence_start {
+                last_literals += chunk_last_literals;
+            } else {
+                sequences[sequence_start].lit_length += to_u32(last_literals);
+                last_literals = chunk_last_literals;
+            }
+
+            chunk_start = chunk_end;
         }
 
-        chunk_start = chunk_end;
-    }
-
-    LdmSequenceResult {
-        sequences,
-        last_literals,
-    }
+        LdmSequenceResult {
+            sequences,
+            last_literals,
+        }
+    })
 }
 
 fn enforce_max_distance(
@@ -181,101 +185,103 @@ fn generate_sequences_in_chunk_into(
     params: LdmParameters,
     table: &mut LdmHashTable,
     sequences: &mut ReusableVec<LdmRawSequence>,
-) -> usize {
-    let min_match_length = params.min_match_length as usize;
-    let source_len = source_range.len();
-    if source_len < min_match_length || source_len <= HASH_READ_SIZE {
-        return source_len;
-    }
-
-    let hash_bits = (params.hash_log - params.bucket_size_log) as usize;
-    let hash_mask = (1_usize << hash_bits) - 1;
-    let ilimit = source_range.end - HASH_READ_SIZE;
-    let mut anchor = source_range.start;
-    let mut ip = source_range.start;
-    let mut hash_state = LdmRollingHashState::new(params);
-    let mut splits = [0_usize; LDM_BATCH_SIZE];
-
-    hash_state.reset(&src[source_range.start..], min_match_length);
-    ip += min_match_length;
-
-    while ip < ilimit {
-        let mut num_splits = 0;
-        let hashed = hash_state.feed(&src[ip..ilimit], &mut splits, &mut num_splits);
-
-        for &split_index in &splits[..num_splits] {
-            let split = ip + split_index - min_match_length;
-            let xxhash = xxh64(&src[split..split + min_match_length], 0);
-            let hash = (xxhash as usize) & hash_mask;
-            let checksum = (xxhash >> 32) as u32;
-            let new_entry = LdmEntry {
-                offset: to_u32(split),
-                checksum,
-            };
-
-            if split < anchor {
-                table.insert_entry(hash, new_entry);
-                continue;
-            }
-
-            let mut forward_match_length = 0;
-            let mut backward_match_length = 0;
-            let mut best_match_length = 0;
-            let mut best_entry_offset = None;
-
-            for entry in table.bucket(hash) {
-                let match_index = entry.offset as usize;
-                if entry.checksum != checksum || match_index <= dict_low_limit {
-                    continue;
-                }
-
-                let current_forward = count_match(src, split, match_index, source_range.end);
-                if current_forward < min_match_length {
-                    continue;
-                }
-
-                let match_low_prefix = if match_index < dict_limit {
-                    dict_low_limit
-                } else {
-                    dict_limit
-                };
-                let current_backward =
-                    count_backwards_match(src, split, anchor, match_index, match_low_prefix);
-                let current_total = current_forward + current_backward;
-                if current_total > best_match_length {
-                    best_match_length = current_total;
-                    forward_match_length = current_forward;
-                    backward_match_length = current_backward;
-                    best_entry_offset = Some(entry.offset);
-                }
-            }
-
-            let Some(best_entry_offset) = best_entry_offset else {
-                table.insert_entry(hash, new_entry);
-                continue;
-            };
-
-            let match_length = forward_match_length + backward_match_length;
-            sequences.push(LdmRawSequence {
-                offset: to_u32(split - best_entry_offset as usize),
-                lit_length: to_u32(split - backward_match_length - anchor),
-                match_length: to_u32(match_length),
-            });
-
-            table.insert_entry(hash, new_entry);
-            anchor = split + forward_match_length;
-
-            if anchor > ip + hashed {
-                hash_state.reset(&src[anchor - min_match_length..], min_match_length);
-                ip = anchor - hashed;
-                break;
-            }
+) -> Result<usize, crate::workspace::CapacityError> {
+    Ok({
+        let min_match_length = params.min_match_length as usize;
+        let source_len = source_range.len();
+        if source_len < min_match_length || source_len <= HASH_READ_SIZE {
+            return Ok(source_len);
         }
 
-        ip += hashed;
-    }
+        let hash_bits = (params.hash_log - params.bucket_size_log) as usize;
+        let hash_mask = (1_usize << hash_bits) - 1;
+        let ilimit = source_range.end - HASH_READ_SIZE;
+        let mut anchor = source_range.start;
+        let mut ip = source_range.start;
+        let mut hash_state = LdmRollingHashState::new(params);
+        let mut splits = [0_usize; LDM_BATCH_SIZE];
 
-    source_range.end - anchor
+        hash_state.reset(&src[source_range.start..], min_match_length);
+        ip += min_match_length;
+
+        while ip < ilimit {
+            let mut num_splits = 0;
+            let hashed = hash_state.feed(&src[ip..ilimit], &mut splits, &mut num_splits);
+
+            for &split_index in &splits[..num_splits] {
+                let split = ip + split_index - min_match_length;
+                let xxhash = xxh64(&src[split..split + min_match_length], 0);
+                let hash = (xxhash as usize) & hash_mask;
+                let checksum = (xxhash >> 32) as u32;
+                let new_entry = LdmEntry {
+                    offset: to_u32(split),
+                    checksum,
+                };
+
+                if split < anchor {
+                    table.insert_entry(hash, new_entry);
+                    continue;
+                }
+
+                let mut forward_match_length = 0;
+                let mut backward_match_length = 0;
+                let mut best_match_length = 0;
+                let mut best_entry_offset = None;
+
+                for entry in table.bucket(hash) {
+                    let match_index = entry.offset as usize;
+                    if entry.checksum != checksum || match_index <= dict_low_limit {
+                        continue;
+                    }
+
+                    let current_forward = count_match(src, split, match_index, source_range.end);
+                    if current_forward < min_match_length {
+                        continue;
+                    }
+
+                    let match_low_prefix = if match_index < dict_limit {
+                        dict_low_limit
+                    } else {
+                        dict_limit
+                    };
+                    let current_backward =
+                        count_backwards_match(src, split, anchor, match_index, match_low_prefix);
+                    let current_total = current_forward + current_backward;
+                    if current_total > best_match_length {
+                        best_match_length = current_total;
+                        forward_match_length = current_forward;
+                        backward_match_length = current_backward;
+                        best_entry_offset = Some(entry.offset);
+                    }
+                }
+
+                let Some(best_entry_offset) = best_entry_offset else {
+                    table.insert_entry(hash, new_entry);
+                    continue;
+                };
+
+                let match_length = forward_match_length + backward_match_length;
+                sequences.push(LdmRawSequence {
+                    offset: to_u32(split - best_entry_offset as usize),
+                    lit_length: to_u32(split - backward_match_length - anchor),
+                    match_length: to_u32(match_length),
+                })?;
+
+                table.insert_entry(hash, new_entry);
+                anchor = split + forward_match_length;
+
+                if anchor > ip + hashed {
+                    hash_state.reset(&src[anchor - min_match_length..], min_match_length);
+                    ip = anchor - hashed;
+                    break;
+                }
+            }
+
+            ip += hashed;
+        }
+
+        source_range.end - anchor
+    })
 }
 
 fn count_backwards_match(

@@ -39,13 +39,13 @@ fn stored_sequence_preserves_c_fields() {
 #[test]
 fn prepared_block_word_round_trip_preserves_ownership_and_records() {
     let prepared = PreparedBlock {
-        literals: vec![1, 2, 3, 4],
-        sequences: vec![PreparedSequence {
+        literals: crate::workspace::ReusableVec::from_owned(vec![1, 2, 3, 4]),
+        sequences: crate::workspace::ReusableVec::from_owned(vec![PreparedSequence {
             ll: 4,
             ml: 7,
             raw_offset: 11,
             encoded_offset_value: 14,
-        }],
+        }]),
     };
     let literal_allocation = prepared.literals.as_ptr();
     let sequence_allocation = prepared.sequences.as_ptr();

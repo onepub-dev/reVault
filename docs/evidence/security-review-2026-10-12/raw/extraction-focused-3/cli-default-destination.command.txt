@@ -1,0 +1,1 @@
+/usr/bin/timeout --kill-after=30s 900s cargo +1.88.0 test --locked --offline --release -p revault_cli --test cli_flow add_can_default_destination_and_list_recursively -- --test-threads=1

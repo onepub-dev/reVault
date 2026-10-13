@@ -191,12 +191,12 @@ impl GreedyMatchState {
             entropy_huffman_scratch: HuffmanBuildScratch::new_in(arena)?,
             entropy_fse_scratch: FSETableBuildScratch::new_in(arena)?,
         };
-        state.hash_table.resize(hash_size, 0);
-        state.hash_table3.resize(hash3_size, 0);
-        state.chain_table.resize(chain_size, 0);
+        state.hash_table.resize(hash_size, 0)?;
+        state.hash_table3.resize(hash3_size, 0)?;
+        state.chain_table.resize(chain_size, 0)?;
         state
             .tag_table
-            .resize(if row_enabled { hash_size } else { 0 }, 0);
+            .resize(if row_enabled { hash_size } else { 0 }, 0)?;
         Ok(state)
     }
 
@@ -253,63 +253,68 @@ impl GreedyMatchState {
         }
     }
 
-    pub(super) fn ensure_tables(&mut self, params: CompressionParameters) {
-        if self.hash_log != params.hash_log {
-            self.hash_log = params.hash_log;
-            self.hash_table.clear();
-            self.next_to_update = 0;
-            self.row_hash_cache = [0; 8];
-        }
-        let hash_log3 = if params.min_match == 3 {
-            params.window_log.min(17)
-        } else {
-            0
-        };
-        if self.hash_log3 != hash_log3 {
-            self.hash_log3 = hash_log3;
-            self.hash_table3.clear();
-            self.next_to_update3 = 0;
-        }
-        if self.chain_log != params.chain_log {
-            self.chain_log = params.chain_log;
-            self.chain_table.clear();
-            self.next_to_update = 0;
-        }
+    pub(super) fn ensure_tables(
+        &mut self,
+        params: CompressionParameters,
+    ) -> Result<(), crate::workspace::CapacityError> {
+        Ok({
+            if self.hash_log != params.hash_log {
+                self.hash_log = params.hash_log;
+                self.hash_table.clear();
+                self.next_to_update = 0;
+                self.row_hash_cache = [0; 8];
+            }
+            let hash_log3 = if params.min_match == 3 {
+                params.window_log.min(17)
+            } else {
+                0
+            };
+            if self.hash_log3 != hash_log3 {
+                self.hash_log3 = hash_log3;
+                self.hash_table3.clear();
+                self.next_to_update3 = 0;
+            }
+            if self.chain_log != params.chain_log {
+                self.chain_log = params.chain_log;
+                self.chain_table.clear();
+                self.next_to_update = 0;
+            }
 
-        let hash_size = 1_usize << params.hash_log;
-        if self.hash_table.len() != hash_size {
-            self.hash_table.resize(hash_size, 0);
-        }
+            let hash_size = 1_usize << params.hash_log;
+            if self.hash_table.len() != hash_size {
+                self.hash_table.resize(hash_size, 0)?;
+            }
 
-        let hash3_size = if self.hash_log3 > 0 {
-            1_usize << self.hash_log3
-        } else {
-            0
-        };
-        if self.hash_table3.len() != hash3_size {
-            self.hash_table3.resize(hash3_size, 0);
-        }
+            let hash3_size = if self.hash_log3 > 0 {
+                1_usize << self.hash_log3
+            } else {
+                0
+            };
+            if self.hash_table3.len() != hash3_size {
+                self.hash_table3.resize(hash3_size, 0)?;
+            }
 
-        let row_match_enabled = row_match_finder_enabled(params);
-        let chain_size = if row_match_enabled {
-            0
-        } else {
-            (1_usize << params.chain_log) + 1
-        };
-        if self.chain_table.len() != chain_size {
-            self.chain_table.resize(chain_size, 0);
-        }
+            let row_match_enabled = row_match_finder_enabled(params);
+            let chain_size = if row_match_enabled {
+                0
+            } else {
+                (1_usize << params.chain_log) + 1
+            };
+            if self.chain_table.len() != chain_size {
+                self.chain_table.resize(chain_size, 0)?;
+            }
 
-        let row_log = row_log(params);
-        if self.row_log != row_log {
-            self.row_log = row_log;
-            self.tag_table.clear();
-            self.next_to_update = 0;
-            self.row_hash_cache = [0; 8];
-        }
-        if row_match_enabled && self.tag_table.len() != hash_size {
-            self.tag_table.resize(hash_size, 0);
-        }
+            let row_log = row_log(params);
+            if self.row_log != row_log {
+                self.row_log = row_log;
+                self.tag_table.clear();
+                self.next_to_update = 0;
+                self.row_hash_cache = [0; 8];
+            }
+            if row_match_enabled && self.tag_table.len() != hash_size {
+                self.tag_table.resize(hash_size, 0)?;
+            }
+        })
     }
 
     pub(super) fn correct_after_long_match_gap(&mut self, block_start: usize) {
@@ -372,9 +377,12 @@ mod tests {
     fn reset_for_frame_clears_indexes_but_keeps_allocations() {
         let params = row_params();
         let mut state = GreedyMatchState::new();
-        state.ensure_tables(params);
+        state.ensure_tables(params).expect("test storage admission");
         state.hash_table[3] = 99;
-        state.hash_table3.resize(8, 7);
+        state
+            .hash_table3
+            .resize(8, 7)
+            .expect("test storage admission");
         state.next_to_update = 42;
         state.next_to_update3 = 24;
         let hash_capacity = state.hash_table.capacity();
@@ -434,7 +442,9 @@ mod tests {
     fn row_match_finder_does_not_allocate_chain_table() {
         let mut state = GreedyMatchState::new();
 
-        state.ensure_tables(row_params());
+        state
+            .ensure_tables(row_params())
+            .expect("test storage admission");
 
         assert!(state.chain_table.is_empty());
         assert!(!state.hash_table.is_empty());
@@ -447,7 +457,7 @@ mod tests {
         params.window_log = 14;
         let mut state = GreedyMatchState::new();
 
-        state.ensure_tables(params);
+        state.ensure_tables(params).expect("test storage admission");
 
         assert_eq!(state.chain_table.len(), (1_usize << params.chain_log) + 1);
         assert!(state.tag_table.is_empty());

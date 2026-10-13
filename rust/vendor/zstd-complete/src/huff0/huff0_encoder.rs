@@ -57,7 +57,7 @@ impl HuffmanBuildScratch {
                 codes: arena.allocate_reusable_vec(256)?,
                 max_num_bits: 0,
                 table_description: arena.allocate_reusable_vec(512)?,
-            });
+            })?;
         }
         Ok(Self {
             nodes: arena.allocate_reusable_vec(513)?,
@@ -142,12 +142,12 @@ fn reuses_huffman_weight_fse_scratch() -> bool {
     }
 }
 
-pub(crate) struct HuffmanEncoder<'output, 'table, V: AsMut<Vec<u8>>> {
+pub(crate) struct HuffmanEncoder<'output, 'table, V: crate::workspace::ByteBufferOwner> {
     table: &'table HuffmanTable,
     writer: &'output mut BitWriter<V>,
 }
 
-impl<V: AsMut<Vec<u8>>> HuffmanEncoder<'_, '_, V> {
+impl<V: crate::workspace::ByteBufferOwner> HuffmanEncoder<'_, '_, V> {
     pub fn new<'o, 't>(
         table: &'t HuffmanTable,
         writer: &'o mut BitWriter<V>,
@@ -160,16 +160,21 @@ impl<V: AsMut<Vec<u8>>> HuffmanEncoder<'_, '_, V> {
     /// * Table description
     /// * Encoded data
     /// * Padding bits to fill up last byte
-    pub fn encode(&mut self, data: &[u8], with_table: bool) {
+    pub fn encode(
+        &mut self,
+        data: &[u8],
+        with_table: bool,
+    ) -> Result<(), crate::workspace::CapacityError> {
         if with_table {
-            self.write_table();
+            self.write_table()?;
         }
         stream::encode_stream(
             self.writer,
             &self.table.codes,
             self.table.max_num_bits,
             data,
-        );
+        )?;
+        Ok(())
     }
 
     /// Encodes the data using the provided table in 4 concatenated streams
@@ -177,7 +182,11 @@ impl<V: AsMut<Vec<u8>>> HuffmanEncoder<'_, '_, V> {
     /// * Table description
     /// * Jumptable
     /// * Encoded data in 4 streams, each padded to fill the last byte
-    pub fn encode4x(&mut self, data: &[u8], with_table: bool) {
+    pub fn encode4x(
+        &mut self,
+        data: &[u8],
+        with_table: bool,
+    ) -> Result<(), crate::workspace::CapacityError> {
         assert!(data.len() >= 4);
 
         let split_size = data.len().div_ceil(4);
@@ -187,7 +196,7 @@ impl<V: AsMut<Vec<u8>>> HuffmanEncoder<'_, '_, V> {
         let src4 = &data[split_size * 3..];
 
         if with_table {
-            self.write_table();
+            self.write_table()?;
         }
 
         if let Ok(codes) = <&[(u32, u8); 256]>::try_from(self.table.codes.as_slice()) {
@@ -203,15 +212,15 @@ impl<V: AsMut<Vec<u8>>> HuffmanEncoder<'_, '_, V> {
                         data,
                         crate::cpu::bmi2_supported(),
                     )
-                };
-            });
-            return;
+                }
+            })?;
+            return Ok(());
         }
 
         let size_idx = self.writer.index();
-        self.writer.write_bits(0u16, 16);
-        self.writer.write_bits(0u16, 16);
-        self.writer.write_bits(0u16, 16);
+        self.writer.write_bits(0u16, 16)?;
+        self.writer.write_bits(0u16, 16)?;
+        self.writer.write_bits(0u16, 16)?;
 
         let index_before = self.writer.index();
         stream::encode_stream(
@@ -219,7 +228,7 @@ impl<V: AsMut<Vec<u8>>> HuffmanEncoder<'_, '_, V> {
             &self.table.codes,
             self.table.max_num_bits,
             src1,
-        );
+        )?;
         let size1 = (self.writer.index() - index_before) / 8;
 
         let index_before = self.writer.index();
@@ -228,7 +237,7 @@ impl<V: AsMut<Vec<u8>>> HuffmanEncoder<'_, '_, V> {
             &self.table.codes,
             self.table.max_num_bits,
             src2,
-        );
+        )?;
         let size2 = (self.writer.index() - index_before) / 8;
 
         let index_before = self.writer.index();
@@ -237,7 +246,7 @@ impl<V: AsMut<Vec<u8>>> HuffmanEncoder<'_, '_, V> {
             &self.table.codes,
             self.table.max_num_bits,
             src3,
-        );
+        )?;
         let size3 = (self.writer.index() - index_before) / 8;
 
         stream::encode_stream(
@@ -245,20 +254,22 @@ impl<V: AsMut<Vec<u8>>> HuffmanEncoder<'_, '_, V> {
             &self.table.codes,
             self.table.max_num_bits,
             src4,
-        );
+        )?;
 
         assert!(size1 <= u16::MAX as usize);
         assert!(size2 <= u16::MAX as usize);
         assert!(size3 <= u16::MAX as usize);
 
-        self.writer.change_bits(size_idx, size1 as u16, 16);
-        self.writer.change_bits(size_idx + 16, size2 as u16, 16);
-        self.writer.change_bits(size_idx + 32, size3 as u16, 16);
+        self.writer.change_bits(size_idx, size1 as u16, 16)?;
+        self.writer.change_bits(size_idx + 16, size2 as u16, 16)?;
+        self.writer.change_bits(size_idx + 32, size3 as u16, 16)?;
+        Ok(())
     }
 
-    fn write_table(&mut self) {
+    fn write_table(&mut self) -> Result<(), crate::workspace::CapacityError> {
         for byte in &self.table.table_description {
-            self.writer.write_bits(*byte, 8);
+            self.writer.write_bits(*byte, 8)?;
         }
+        Ok(())
     }
 }

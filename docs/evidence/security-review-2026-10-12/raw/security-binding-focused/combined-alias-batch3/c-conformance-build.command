@@ -1,0 +1,1 @@
+gcc -std=c11 -O2 -Wall -Wextra -Wpedantic -Werror -Irevault_bindings ../bindings/e2e/c/conformance.c -Ltarget/release -Wl,-rpath,/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/release -lrevault_api -o /tmp/revault-c-conformance-alias-batch3

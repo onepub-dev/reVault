@@ -1,0 +1,264 @@
+[
+  {
+    "step": "vault-init",
+    "args": [
+      "vault",
+      "init"
+    ],
+    "exit": 0
+  },
+  {
+    "step": "create",
+    "args": [
+      "/tmp/rv-codec-normal-life/current.lbox",
+      "create",
+      "--encryption",
+      "chacha20-poly1305",
+      "--signing",
+      "owner",
+      "--compression",
+      "zstd",
+      "--compression-level",
+      "3"
+    ],
+    "exit": 0
+  },
+  {
+    "step": "open",
+    "args": [
+      "/tmp/rv-codec-normal-life/current.lbox",
+      "open"
+    ],
+    "exit": 0
+  },
+  {
+    "step": "doctor",
+    "args": [
+      "/tmp/rv-codec-normal-life/current.lbox",
+      "doctor"
+    ],
+    "exit": 0
+  },
+  {
+    "step": "add-0",
+    "args": [
+      "/tmp/rv-codec-normal-life/current.lbox",
+      "add",
+      "/tmp/rv-codec-normal-life/input.bin",
+      "--to",
+      "/payload"
+    ],
+    "exit": 0
+  },
+  {
+    "step": "repeat-0",
+    "args": [
+      "/tmp/rv-codec-normal-life/current.lbox",
+      "add",
+      "/tmp/rv-codec-normal-life/input.bin",
+      "--to",
+      "/payload",
+      "--overwrite"
+    ],
+    "exit": 0
+  },
+  {
+    "step": "stop-0",
+    "args": [
+      "session",
+      "stop"
+    ],
+    "exit": 0
+  },
+  {
+    "step": "reopen-0",
+    "args": [
+      "/tmp/rv-codec-normal-life/current.lbox",
+      "open"
+    ],
+    "exit": 0
+  },
+  {
+    "step": "extract-0",
+    "args": [
+      "/tmp/rv-codec-normal-life/current.lbox",
+      "extract",
+      "/payload",
+      "/tmp/rv-codec-normal-life/extracted-0"
+    ],
+    "exit": 0
+  },
+  {
+    "step": "refuse-existing-0",
+    "args": [
+      "/tmp/rv-codec-normal-life/current.lbox",
+      "extract",
+      "/payload",
+      "/tmp/rv-codec-normal-life/extracted-0"
+    ],
+    "exit": 1
+  },
+  {
+    "step": "add-1",
+    "args": [
+      "/tmp/rv-codec-normal-life/current.lbox",
+      "add",
+      "/tmp/rv-codec-normal-life/input.bin",
+      "--to",
+      "/payload",
+      "--overwrite"
+    ],
+    "exit": 0
+  },
+  {
+    "step": "repeat-1",
+    "args": [
+      "/tmp/rv-codec-normal-life/current.lbox",
+      "add",
+      "/tmp/rv-codec-normal-life/input.bin",
+      "--to",
+      "/payload",
+      "--overwrite"
+    ],
+    "exit": 0
+  },
+  {
+    "step": "stop-1",
+    "args": [
+      "session",
+      "stop"
+    ],
+    "exit": 0
+  },
+  {
+    "step": "reopen-1",
+    "args": [
+      "/tmp/rv-codec-normal-life/current.lbox",
+      "open"
+    ],
+    "exit": 0
+  },
+  {
+    "step": "extract-1",
+    "args": [
+      "/tmp/rv-codec-normal-life/current.lbox",
+      "extract",
+      "/payload",
+      "/tmp/rv-codec-normal-life/extracted-1"
+    ],
+    "exit": 0
+  },
+  {
+    "step": "refuse-existing-1",
+    "args": [
+      "/tmp/rv-codec-normal-life/current.lbox",
+      "extract",
+      "/payload",
+      "/tmp/rv-codec-normal-life/extracted-1"
+    ],
+    "exit": 1
+  },
+  {
+    "step": "add-2",
+    "args": [
+      "/tmp/rv-codec-normal-life/current.lbox",
+      "add",
+      "/tmp/rv-codec-normal-life/input.bin",
+      "--to",
+      "/payload",
+      "--overwrite"
+    ],
+    "exit": 0
+  },
+  {
+    "step": "repeat-2",
+    "args": [
+      "/tmp/rv-codec-normal-life/current.lbox",
+      "add",
+      "/tmp/rv-codec-normal-life/input.bin",
+      "--to",
+      "/payload",
+      "--overwrite"
+    ],
+    "exit": 0
+  },
+  {
+    "step": "stop-2",
+    "args": [
+      "session",
+      "stop"
+    ],
+    "exit": 0
+  },
+  {
+    "step": "reopen-2",
+    "args": [
+      "/tmp/rv-codec-normal-life/current.lbox",
+      "open"
+    ],
+    "exit": 0
+  },
+  {
+    "step": "extract-2",
+    "args": [
+      "/tmp/rv-codec-normal-life/current.lbox",
+      "extract",
+      "/payload",
+      "/tmp/rv-codec-normal-life/extracted-2"
+    ],
+    "exit": 0
+  },
+  {
+    "step": "refuse-existing-2",
+    "args": [
+      "/tmp/rv-codec-normal-life/current.lbox",
+      "extract",
+      "/payload",
+      "/tmp/rv-codec-normal-life/extracted-2"
+    ],
+    "exit": 1
+  },
+  {
+    "step": "remove",
+    "args": [
+      "/tmp/rv-codec-normal-life/current.lbox",
+      "remove",
+      "--force",
+      "/payload"
+    ],
+    "exit": 0
+  },
+  {
+    "step": "stop-after-remove",
+    "args": [
+      "session",
+      "stop"
+    ],
+    "exit": 0
+  },
+  {
+    "step": "reopen-after-remove",
+    "args": [
+      "/tmp/rv-codec-normal-life/current.lbox",
+      "open"
+    ],
+    "exit": 0
+  },
+  {
+    "step": "removed-entry",
+    "args": [
+      "/tmp/rv-codec-normal-life/current.lbox",
+      "cat",
+      "/payload"
+    ],
+    "exit": 12
+  },
+  {
+    "step": "final-owned-agent-stop",
+    "args": [
+      "session",
+      "stop"
+    ],
+    "exit": 0
+  }
+]

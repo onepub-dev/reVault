@@ -30,14 +30,17 @@ impl FrameHeader {
     /// Writes the serialized frame header into the provided buffer.
     ///
     /// The returned header *does include* a frame header descriptor.
-    pub fn serialize(self, output: &mut Vec<u8>) {
+    pub fn serialize(
+        self,
+        output: &mut impl crate::workspace::Growable<u8>,
+    ) -> Result<(), crate::workspace::CapacityError> {
         vprintln!("Serializing frame with header: {self:?}");
         // https://github.com/facebook/zstd/blob/dev/doc/zstd_compression_format.md#frame_header
         // Magic Number:
-        output.extend_from_slice(&MAGIC_NUM.to_le_bytes());
+        output.extend_from_slice(&MAGIC_NUM.to_le_bytes())?;
 
         // `Frame_Header_Descriptor`:
-        output.push(self.descriptor());
+        output.push(self.descriptor())?;
 
         // `Window_Descriptor
         // TODO: https://github.com/facebook/zstd/blob/dev/doc/zstd_compression_format.md#window_descriptor
@@ -45,17 +48,18 @@ impl FrameHeader {
             if let Some(window_size) = self.window_size {
                 let log = window_size.next_power_of_two().ilog2();
                 let exponent = log.saturating_sub(10) as u8;
-                output.push(exponent << 3);
+                output.push(exponent << 3)?;
             }
         }
 
         if let Some(id) = self.dictionary_id {
-            output.extend(minify_val(id));
+            output.extend(minify_val(id))?;
         }
 
         if let Some(frame_content_size) = self.frame_content_size {
-            output.extend(minify_val_fcs(frame_content_size));
+            output.extend(minify_val_fcs(frame_content_size))?;
         }
+        Ok(())
     }
 
     /// Generate a serialized frame header descriptor for the frame header.
@@ -185,7 +189,9 @@ mod tests {
         };
 
         let mut serialized_header = Vec::new();
-        header.serialize(&mut serialized_header);
+        header
+            .serialize(&mut serialized_header)
+            .expect("test storage admission");
         let parsed_header = read_frame_header(serialized_header.as_slice()).unwrap().0;
         assert!(parsed_header.dictionary_id().is_none());
         assert_eq!(parsed_header.frame_content_size(), 1);
@@ -203,7 +209,9 @@ mod tests {
         };
 
         let mut serialized_header = Vec::new();
-        header.serialize(&mut serialized_header);
+        header
+            .serialize(&mut serialized_header)
+            .expect("test storage admission");
         let parsed_header = read_frame_header(serialized_header.as_slice()).unwrap().0;
 
         assert_eq!(parsed_header.frame_content_size(), content_size);
@@ -221,7 +229,9 @@ mod tests {
         };
 
         let mut serialized_header = Vec::new();
-        header.serialize(&mut serialized_header);
+        header
+            .serialize(&mut serialized_header)
+            .expect("test storage admission");
     }
 
     #[test]
@@ -236,6 +246,8 @@ mod tests {
         };
 
         let mut serialized_header = Vec::new();
-        header.serialize(&mut serialized_header);
+        header
+            .serialize(&mut serialized_header)
+            .expect("test storage admission");
     }
 }

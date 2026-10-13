@@ -39,8 +39,13 @@ supported():boolean {
   return offset ? !!this.bb!.readInt8(this.bb_pos + offset) : false;
 }
 
+cacheClearingActive():boolean {
+  const offset = this.bb!.__offset(this.bb_pos, 10);
+  return offset ? !!this.bb!.readInt8(this.bb_pos + offset) : false;
+}
+
 static startSleepSupport(builder:flatbuffers.Builder) {
-  builder.startObject(3);
+  builder.startObject(4);
 }
 
 static addSuspendNotifications(builder:flatbuffers.Builder, suspendNotifications:boolean) {
@@ -55,16 +60,21 @@ static addSupported(builder:flatbuffers.Builder, supported:boolean) {
   builder.addFieldInt8(2, +supported, +false);
 }
 
+static addCacheClearingActive(builder:flatbuffers.Builder, cacheClearingActive:boolean) {
+  builder.addFieldInt8(3, +cacheClearingActive, +false);
+}
+
 static endSleepSupport(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createSleepSupport(builder:flatbuffers.Builder, suspendNotifications:boolean, sleepInhibition:boolean, supported:boolean):flatbuffers.Offset {
+static createSleepSupport(builder:flatbuffers.Builder, suspendNotifications:boolean, sleepInhibition:boolean, supported:boolean, cacheClearingActive:boolean):flatbuffers.Offset {
   SleepSupport.startSleepSupport(builder);
   SleepSupport.addSuspendNotifications(builder, suspendNotifications);
   SleepSupport.addSleepInhibition(builder, sleepInhibition);
   SleepSupport.addSupported(builder, supported);
+  SleepSupport.addCacheClearingActive(builder, cacheClearingActive);
   return SleepSupport.endSleepSupport(builder);
 }
 
@@ -72,7 +82,8 @@ unpack(): SleepSupportT {
   return new SleepSupportT(
     this.suspendNotifications(),
     this.sleepInhibition(),
-    this.supported()
+    this.supported(),
+    this.cacheClearingActive()
   );
 }
 
@@ -81,6 +92,7 @@ unpackTo(_o: SleepSupportT): void {
   _o.suspendNotifications = this.suspendNotifications();
   _o.sleepInhibition = this.sleepInhibition();
   _o.supported = this.supported();
+  _o.cacheClearingActive = this.cacheClearingActive();
 }
 }
 
@@ -88,7 +100,8 @@ export class SleepSupportT implements flatbuffers.IGeneratedObject {
 constructor(
   public suspendNotifications: boolean = false,
   public sleepInhibition: boolean = false,
-  public supported: boolean = false
+  public supported: boolean = false,
+  public cacheClearingActive: boolean = false
 ){}
 
 
@@ -96,7 +109,8 @@ pack(builder:flatbuffers.Builder): flatbuffers.Offset {
   return SleepSupport.createSleepSupport(builder,
     this.suspendNotifications,
     this.sleepInhibition,
-    this.supported
+    this.supported,
+    this.cacheClearingActive
   );
 }
 }

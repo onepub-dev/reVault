@@ -216,6 +216,10 @@ export class WasmLockbox {
      */
     static open_with_password(bytes: Uint8Array, password: string): WasmLockbox;
     /**
+     * Opens using an explicit per-credential KDF budget for a trusted archive.
+     */
+    static open_with_password_budget(bytes: Uint8Array, password: string, max_derivations: number): WasmLockbox;
+    /**
      * Returns stored Unix permission bits, or `undefined` if absent.
      */
     permissions(path: string): number | undefined;

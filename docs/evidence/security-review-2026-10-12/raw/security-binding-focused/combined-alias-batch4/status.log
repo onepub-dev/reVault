@@ -1,0 +1,60 @@
+Generated bindings: current
+verified 342 unique public Rust function names have ABI mappings or reviewed Rust-only exclusions
+verified package overviews and repository README links for 16 language bindings
+verified registry quality metadata for 15 package surfaces
+verified the private FlatBuffers transport and stable field ids
+verified documentation for 2915 public binding declarations
+verified removed signing facade names are absent from all public bindings
+Binding API coverage: failed (result manifest mismatch; missing [vault_directory_list_lockbox_aliases, vault_directory_resolve_lockbox_alias, vault_read_only_list_lockbox_aliases, vault_read_only_resolve_lockbox_alias], extra [])
+Local release versions: CLI 0.5.0-dev.1, bindings 0.5.0-dev.1
+Registry versions (presence does not verify candidate provenance):
+  CLI / crates.io: 0.4.1
+  Rust / crates.io: 0.4.1
+  npm: 0.4.1
+  Python: 0.4.1
+  Dart: 0.4.1
+  Ruby: 0.4.1
+  NuGet: 0.4.1
+  Go Git tag: v0.4.1
+  Swift Git tag: v0.4.1
+  PHP Git tag: v0.4.1
+  Maven Java: 0.4.1
+  Maven Kotlin: 0.4.1
+LuaRocks, Homebrew and platform carriers: inspect candidate publication jobs; registry status not verified.
+38048557493  "success"  "77e54db59b680f30b5adec6a754ba0e6f06d3c98"  "https://github.com/onepub-dev/reVault/actions/runs/38048557493"
+38048121683  "cancelled"  "3e79d6a9d0520a264ef0df33cd3aa96337b0d46e"  "https://github.com/onepub-dev/reVault/actions/runs/38048121683"
+36234305415  "success"  "f1e6e67faf7b488c5f7f9c1ccc09b63605a22217"  "https://github.com/onepub-dev/reVault/actions/runs/36234305415"
+36234138926  "cancelled"  "f1e6e67faf7b488c5f7f9c1ccc09b63605a22217"  "https://github.com/onepub-dev/reVault/actions/runs/36234138926"
+36232871065  "failure"  "5702e1442fbb3abcd4555596e38add8ff02ccf72"  "https://github.com/onepub-dev/reVault/actions/runs/36232871065"
+36232828646  "cancelled"  "e1f4312987e7bd01d5ee3f58236b6b998c6d2e7b"  "https://github.com/onepub-dev/reVault/actions/runs/36232828646"
+36232199893  "cancelled"  "ca9a98964f96ea946eba5b3e4aecac418ba812bc"  "https://github.com/onepub-dev/reVault/actions/runs/36232199893"
+34730601547  "success"  "8c7e73e660542a95e722883887127ef3621bd998"  "https://github.com/onepub-dev/reVault/actions/runs/34730601547"
+34723785053  "success"  "122414e31f4544482f9aa17c3dcd444344cb23f0"  "https://github.com/onepub-dev/reVault/actions/runs/34723785053"
+34722496958  "failure"  "fa5ab2eebdd75ce42e531a0f26e7af57b9bcad6c"  "https://github.com/onepub-dev/reVault/actions/runs/34722496958"
+34721992724  "failure"  "7173a8df2d05c4a65a3d599092e55a55ee24f36b"  "https://github.com/onepub-dev/reVault/actions/runs/34721992724"
+34688936553  "failure"  "95ebe0cfda30a68c88d9e559007fba843cf9227a"  "https://github.com/onepub-dev/reVault/actions/runs/34688936553"
+34555702806  "success"  "54cbd379d1e0539d7144bb661cdb9fd05e1b640f"  "https://github.com/onepub-dev/reVault/actions/runs/34555702806"
+34551953354  "failure"  "3b334e57778ec36f7cc7dfaa71ad789b215af45c"  "https://github.com/onepub-dev/reVault/actions/runs/34551953354"
+34549691614  "failure"  "d58e7208ef4f339b44815b319b9b9a8683b2b0d8"  "https://github.com/onepub-dev/reVault/actions/runs/34549691614"
+34539845945  "failure"  "f5ea315af728f3299a3dc647e396a51f27934ae7"  "https://github.com/onepub-dev/reVault/actions/runs/34539845945"
+34538932420  "cancelled"  "0ce11386d144d02b0fd3fc079ecc1cf4cc7e61ef"  "https://github.com/onepub-dev/reVault/actions/runs/34538932420"
+34533698098  "failure"  "1671b0ac2c357826ce3d34f85a0c45434307f942"  "https://github.com/onepub-dev/reVault/actions/runs/34533698098"
+34478615896  "failure"  "301c34efad3f5ef3ae5e34ea47bfa8000e0c619c"  "https://github.com/onepub-dev/reVault/actions/runs/34478615896"
+34337256220  "success"  "2da87bb7039571ea1fe7ca72b470e07fd3bcebd9"  "https://github.com/onepub-dev/reVault/actions/runs/34337256220"
+34333653414  "failure"  "f1fb863a1bccfabff129d999a899c1b649198518"  "https://github.com/onepub-dev/reVault/actions/runs/34333653414"
+34319347027  "cancelled"  "f297459613491308fef9cc532d60e48e94e9b335"  "https://github.com/onepub-dev/reVault/actions/runs/34319347027"
+34317108111  "cancelled"  "5f8754c3edd8b8956973a6db343181d53c317592"  "https://github.com/onepub-dev/reVault/actions/runs/34317108111"
+34313242746  "cancelled"  "ec244c1041b6cf2fbdace996dbdad2b96cf187a1"  "https://github.com/onepub-dev/reVault/actions/runs/34313242746"
+34312796587  "cancelled"  "3963db363717d5a66ab1490d8e015a15e651f4a8"  "https://github.com/onepub-dev/reVault/actions/runs/34312796587"
+34308475044  "failure"  "fce1025d6691e21035ccc30ba39716092e6c848d"  "https://github.com/onepub-dev/reVault/actions/runs/34308475044"
+34303586015  "failure"  "61488e4f8db47dfb99ad190e1314849da88773bf"  "https://github.com/onepub-dev/reVault/actions/runs/34303586015"
+34302576116  "failure"  "02e5540d8bbafd7b022e3487a3caae126df4e972"  "https://github.com/onepub-dev/reVault/actions/runs/34302576116"
+34299164548  "failure"  "19d80486d6a6357706c922193ee1b9d4847fe358"  "https://github.com/onepub-dev/reVault/actions/runs/34299164548"
+34297967465  "failure"  "9819337665201287f4a0389d1f45ab703b7443ab"  "https://github.com/onepub-dev/reVault/actions/runs/34297967465"
+34295416361  "failure"  "ec0d8666db69161ee27fdc4255a47f621627add6"  "https://github.com/onepub-dev/reVault/actions/runs/34295416361"
+34294798826  "failure"  "544d89f7580f069d7d90923ecf7d22da28974a1b"  "https://github.com/onepub-dev/reVault/actions/runs/34294798826"
+34283789982  "failure"  "a4a9ee224e7e6fdd3e9d7133062a0e00e2db13ed"  "https://github.com/onepub-dev/reVault/actions/runs/34283789982"
+34280743237  "failure"  "f9e0146ed5c9b7f4491e498f99eef5855bd1f782"  "https://github.com/onepub-dev/reVault/actions/runs/34280743237"
+34215148335  "failure"  "d0f018462fc9c96dcfeab26947c4c1a6c77cd590"  "https://github.com/onepub-dev/reVault/actions/runs/34215148335"
+34213026659  "failure"  "2fdbd9379a573dbeedac3786bf00c6c3ed37fb1c"  "https://github.com/onepub-dev/reVault/actions/runs/34213026659"
+Select a candidate explicitly: revault-tool release publish --candidate <run-id>

@@ -504,7 +504,7 @@ fn dynamic_completion_reads_vault_names_without_exposing_signing_material() {
     let bin = env!("CARGO_BIN_EXE_lockbox");
     let temp = TestTempDir::new("completion-dynamic");
     let vault_dir = temp.path().join("vault");
-    let agent_dir = temp.path().join("agent");
+    let agent_dir = common::agent_socket_dir(&temp.path().join("agent"));
     let agent_log = temp.path().join("agent.log");
     let password = "completion-test-vault-password";
 

@@ -28,7 +28,7 @@ jobs:
   agent-ipc:
     name: ${{ matrix.os }} agent IPC smoke
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 8
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
@@ -57,16 +57,20 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config
 
-      - name: Build agent security checker
-        run: cargo build -p revault_cli --bin lockbox
+      - name: Build agent IPC tests and security checker
+        timeout-minutes: 30
+        run: cargo test --locked -p revault_cli --test agent_flow --no-run
 
       - name: Run agent IPC smoke
-        run: cargo test -p revault_cli --test agent_flow
+        timeout-minutes: 5
+        run: cargo test --locked -p revault_cli --test agent_flow
 
       - name: Verify agent transport security
+        timeout-minutes: 2
         if: runner.os != 'Windows'
         run: ./target/debug/lockbox __agent_security_check
 
       - name: Verify Windows agent transport security
+        timeout-minutes: 2
         if: runner.os == 'Windows'
         run: .\target\debug\lockbox.exe __agent_security_check

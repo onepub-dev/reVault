@@ -102,7 +102,7 @@ impl BlockDecoder {
     ) -> Result<(), DecompressBlockError> {
         workspace
             .block_content_buffer
-            .resize(header.content_size as usize, 0);
+            .resize(header.content_size as usize, 0)?;
 
         source.read_exact(workspace.block_content_buffer.as_mut_slice())?;
         let raw = workspace.block_content_buffer.as_slice();

@@ -1,5 +1,8 @@
 pub(crate) mod archive_lock;
 pub(crate) mod atomic_file_replacement;
+mod private_archive_file;
+#[cfg(all(test, windows))]
+pub(crate) use private_archive_file::test_assert_owner_only;
 pub(crate) mod cache_options;
 pub(crate) mod file_lock;
 pub(crate) mod free_index;
@@ -142,6 +145,37 @@ impl StorageBackend {
         })
     }
 
+    /// Preserve mode/DACL from the held source inode, never a fresh path lookup.
+    pub(crate) fn copy_file_permissions_to(&self, destination: &Self) -> Result<()> {
+        let (Self::File(source), Self::File(target)) = (self, destination) else {
+            return Err(Error::InvalidOperation(
+                "permission preservation requires file-backed storage".into(),
+            ));
+        };
+        if Arc::ptr_eq(&source.file, &target.file) {
+            return Ok(());
+        }
+        let source_file = source.lock_file()?;
+        source.ensure_current(&source_file)?;
+        let target_file = target.lock_file()?;
+        target.ensure_current(&target_file)?;
+        private_archive_file::copy_permissions(&source_file, &target_file)
+            .map_err(|e| Error::Io(e.to_string()))
+    }
+
+    #[cfg(any(test, feature = "migration", feature = "bindings"))]
+    fn copy_file_permissions_to_handle(&self, destination: &std::fs::File) -> Result<()> {
+        let Self::File(source) = self else {
+            return Err(Error::InvalidOperation(
+                "permission preservation requires file-backed storage".into(),
+            ));
+        };
+        let source_file = source.lock_file()?;
+        source.ensure_current(&source_file)?;
+        private_archive_file::copy_permissions(&source_file, destination)
+            .map_err(|e| Error::Io(e.to_string()))
+    }
+
     pub(crate) fn create_file(path: impl AsRef<Path>, initial_bytes: &[u8]) -> Result<Self> {
         Ok(Self::File(FileStore::create(path, initial_bytes)?))
     }
@@ -165,6 +199,7 @@ impl StorageBackend {
             file.write_all(bytes)
                 .map_err(|err| Error::Io(err.to_string()))?;
             file.sync_all().map_err(|err| Error::Io(err.to_string()))?;
+            _original.copy_file_permissions_to_handle(&file)?;
             replacement.install()
         })();
         replacement.discard();
@@ -206,6 +241,7 @@ impl StorageBackend {
             file.write_all(bytes)
                 .map_err(|err| Error::Io(err.to_string()))?;
             file.sync_all().map_err(|err| Error::Io(err.to_string()))?;
+            _original.copy_file_permissions_to_handle(&file)?;
             replacement.install()?;
             Ok(Self::File(FileStore {
                 path: path.to_path_buf(),
@@ -614,13 +650,15 @@ impl FileStore {
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent).map_err(|err| Error::Io(err.to_string()))?;
         }
-        // Initialize and lock privately before publishing the inode. hard_link
-        // atomically publishes without replacing an existing destination.
+        // Initialize and lock privately before exclusive publication. Native
+        // rename-without-replacement also supports filesystems without hard links.
+        // Other targets retain their existing hard-link publication behavior.
         let (replacement, mut file) =
             atomic_file_replacement::AtomicFileReplacement::create_unique(
                 &path,
                 ".lockbox-create",
             )?;
+        let mut temporary_moved = false;
         let result = (|| {
             archive_lock::acquire(&file, &path, true, std::time::Instant::now())?;
             #[cfg(unix)]
@@ -628,7 +666,27 @@ impl FileStore {
             file.write_all(initial_bytes)
                 .map_err(|err| Error::Io(err.to_string()))?;
             file.sync_all().map_err(|err| Error::Io(err.to_string()))?;
-            fs::hard_link(replacement.temp_path(), &path).map_err(|err| {
+            #[cfg(any(
+                target_os = "linux",
+                target_os = "android",
+                target_os = "macos",
+                target_os = "ios",
+                windows
+            ))]
+            let publication = crate::lockbox::secure_output::publish_file_noreplace(
+                replacement.temp_path(),
+                &path,
+            )
+            .map(|()| true);
+            #[cfg(not(any(
+                target_os = "linux",
+                target_os = "android",
+                target_os = "macos",
+                target_os = "ios",
+                windows
+            )))]
+            let publication = fs::hard_link(replacement.temp_path(), &path).map(|()| false);
+            temporary_moved = publication.map_err(|err| {
                 if err.kind() == std::io::ErrorKind::AlreadyExists {
                     Error::AlreadyExists(path.display().to_string())
                 } else {
@@ -645,7 +703,11 @@ impl FileStore {
                 writable: true,
             })
         })();
-        replacement.discard();
+        // After a successful rename the old name is no longer ours. Never
+        // unlink a name that another actor could now have reused.
+        if !temporary_moved {
+            replacement.discard();
+        }
         result
     }
 
@@ -794,6 +856,31 @@ mod archive_lock_tests {
             "revault-{label}-{}",
             crate::LockboxId::new_random().unwrap()
         ))
+    }
+
+    #[test]
+    fn private_archive_creation_and_replacement_preserve_selected_mode() {
+        use std::os::unix::fs::PermissionsExt;
+        let path = path("private-archive-mode");
+        let store = StorageBackend::create_file(&path, b"original").unwrap();
+        assert_eq!(fs::metadata(&path).unwrap().permissions().mode() & 0o077, 0);
+        drop(store);
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o640)).unwrap();
+        let (replacement, file) = atomic_file_replacement::AtomicFileReplacement::create_unique(
+            &path,
+            ".private-mode-test",
+        )
+        .unwrap();
+        assert_eq!(file.metadata().unwrap().permissions().mode() & 0o077, 0);
+        drop(file);
+        replacement.discard();
+        StorageBackend::write_file(&path, b"replacement").unwrap();
+        assert_eq!(fs::read(&path).unwrap(), b"replacement");
+        assert_eq!(
+            fs::metadata(&path).unwrap().permissions().mode() & 0o777,
+            0o640
+        );
+        fs::remove_file(path).unwrap();
     }
 
     #[test]

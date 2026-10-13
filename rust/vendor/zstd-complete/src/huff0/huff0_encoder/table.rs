@@ -52,25 +52,27 @@ impl HuffmanTable {
     pub fn build_from_counts(counts: &[usize]) -> Self {
         let mut scratch = HuffmanBuildScratch::new();
         Self::build_from_counts_with_scratch(counts, &mut scratch)
+            .expect("owned legacy codec allocation failed")
     }
 
     pub(crate) fn build_from_counts_with_scratch(
         counts: &[usize],
         scratch: &mut HuffmanBuildScratch,
-    ) -> Self {
+    ) -> Result<Self, crate::workspace::CapacityError> {
         Self::build_from_counts_with_max_bits_and_scratch(counts, MAX_HUFFMAN_BITS, scratch)
     }
 
     pub(crate) fn build_from_counts_with_max_bits(counts: &[usize], max_bits: usize) -> Self {
         let mut scratch = HuffmanBuildScratch::new();
         Self::build_from_counts_with_max_bits_and_scratch(counts, max_bits, &mut scratch)
+            .expect("owned legacy codec allocation failed")
     }
 
     pub(crate) fn build_from_counts_with_max_bits_and_scratch(
         counts: &[usize],
         max_bits: usize,
         scratch: &mut HuffmanBuildScratch,
-    ) -> Self {
+    ) -> Result<Self, crate::workspace::CapacityError> {
         Self::build_from_counts_with_max_bits_and_workspaces_impl(counts, max_bits, scratch, None)
     }
 
@@ -79,7 +81,7 @@ impl HuffmanTable {
         max_bits: usize,
         scratch: &mut HuffmanBuildScratch,
         fse_scratch: &mut FSETableBuildScratch,
-    ) -> Self {
+    ) -> Result<Self, crate::workspace::CapacityError> {
         Self::build_from_counts_with_max_bits_and_workspaces_impl(
             counts,
             max_bits,
@@ -93,7 +95,7 @@ impl HuffmanTable {
         max_bits: usize,
         scratch: &mut HuffmanBuildScratch,
         mut fse_scratch: Option<&mut FSETableBuildScratch>,
-    ) -> Self {
+    ) -> Result<Self, crate::workspace::CapacityError> {
         assert!(counts.len() <= 256);
         let max_bits = max_bits.clamp(1, MAX_HUFFMAN_BITS);
         let c_table = if scratch.workspace_backed
@@ -104,21 +106,21 @@ impl HuffmanTable {
                 max_bits,
                 scratch,
                 fse_scratch.as_deref_mut(),
-            )
+            )?
         } else if super::uses_generated_huffman_table() {
-            Self::build_c_table_generated(counts, max_bits, &mut scratch.generated)
+            Self::build_c_table_generated(counts, max_bits, &mut scratch.generated)?
         } else {
-            Self::build_c_table_with_nodes(counts, max_bits, &mut scratch.nodes)
+            Self::build_c_table_with_nodes(counts, max_bits, &mut scratch.nodes)?
         };
         if let Some(table) = c_table {
-            return table;
+            return Ok(table);
         }
         if scratch.workspace_backed {
             let mut weights = [0usize; 256];
             let weights = rank_limited_weights_into(counts, &mut weights);
             Self::build_from_weights_reusing(weights, scratch, fse_scratch)
         } else {
-            Self::build_from_weights(&rank_limited_weights(counts))
+            Ok(Self::build_from_weights(&rank_limited_weights(counts)))
         }
     }
 
@@ -300,7 +302,9 @@ impl HuffmanTable {
     pub fn build_from_weights(weights: &[usize]) -> Self {
         // Prepare huffman table with placeholders
         let mut codes = ReusableVec::with_capacity(weights.len());
-        codes.resize(weights.len(), (0, 0));
+        codes
+            .resize(weights.len(), (0, 0))
+            .expect("owned legacy codec allocation failed");
         let mut table = HuffmanTable {
             codes,
             max_num_bits: 0,
@@ -370,14 +374,10 @@ impl HuffmanTable {
         weights: &[usize],
         scratch: &mut HuffmanBuildScratch,
         fse_scratch: Option<&mut FSETableBuildScratch>,
-    ) -> Self {
-        let mut table = scratch.take_recycled_table().unwrap_or_else(|| Self {
-            codes: ReusableVec::new(),
-            max_num_bits: 0,
-            table_description: ReusableVec::new(),
-        });
+    ) -> Result<Self, crate::workspace::CapacityError> {
+        let mut table = scratch.table_for_build()?;
         table.codes.clear();
-        table.codes.resize(weights.len(), (0, 0));
+        table.codes.resize(weights.len(), (0, 0))?;
 
         let mut weight_sum = 0usize;
         let mut max_weight = 0usize;
@@ -440,20 +440,22 @@ impl HuffmanTable {
                 &byte_weights[..weights.len()],
                 &mut description,
                 fse_scratch,
-            );
+            )?;
         } else {
             table_description_bytes_from_weights_reusing(
                 &byte_weights[..weights.len()],
                 &mut description,
-            );
+            )?;
         }
         table.table_description = ReusableVec::recover_vec(description, lease);
-        table
+        Ok(table)
     }
 
     pub(super) fn build_from_code_lengths(lengths: &[usize], max_bits: usize) -> Self {
         let mut codes = ReusableVec::with_capacity(lengths.len());
-        codes.resize(lengths.len(), (0, 0));
+        codes
+            .resize(lengths.len(), (0, 0))
+            .expect("owned legacy codec allocation failed");
         let mut table = HuffmanTable {
             codes,
             max_num_bits: 0,
@@ -522,13 +524,19 @@ impl HuffmanTable {
     pub(super) fn build_c_table_with_nodes(
         counts: &[usize],
         max_bits: usize,
-        nodes: &mut Vec<HuffmanNode>,
-    ) -> Option<Self> {
-        let leaf_count = build_huffman_tree(counts, nodes)?;
-        let max_num_bits = limit_huffman_tree_height(nodes, leaf_count, max_bits)?;
+        nodes: &mut impl crate::workspace::Growable<HuffmanNode>,
+    ) -> Result<Option<Self>, crate::workspace::CapacityError> {
+        let leaf_count = match build_huffman_tree(counts, nodes)? {
+            Some(value) => value,
+            None => return Ok(None),
+        };
+        let max_num_bits = match limit_huffman_tree_height(nodes, leaf_count, max_bits) {
+            Some(value) => value,
+            None => return Ok(None),
+        };
 
         let mut codes = ReusableVec::with_capacity(counts.len());
-        codes.resize(counts.len(), (0, 0));
+        codes.resize(counts.len(), (0, 0))?;
         // C indexes compact rank tables after trusting the validated tree depth.
         // Covering every `u8` value makes the same access statically safe and
         // lets LLVM remove the per-node bounds checks without unchecked indexing.
@@ -556,29 +564,32 @@ impl HuffmanTable {
         let max_num_bits = u8::try_from(max_num_bits).expect("Huffman table log fits in u8");
         let table_description =
             table_description_bytes_from_weights(&weights_from_codes(&codes, max_num_bits));
-        Some(Self {
+        Ok(Some(Self {
             codes,
             max_num_bits,
             table_description: ReusableVec::from_owned(table_description),
-        })
+        }))
     }
 
     fn build_c_table_generated(
         counts: &[usize],
         max_bits: usize,
         scratch: &mut crate::kernel::huff0::HuffmanBuildScratch,
-    ) -> Option<Self> {
-        let generated = crate::kernel::huff0::build_described_huffman_table(
+    ) -> Result<Option<Self>, crate::workspace::CapacityError> {
+        let generated = match crate::kernel::huff0::build_described_huffman_table(
             counts,
             max_bits,
             scratch,
             table_description_bytes_from_weights,
-        )?;
-        Some(Self {
+        )? {
+            Some(value) => value,
+            None => return Ok(None),
+        };
+        Ok(Some(Self {
             codes: ReusableVec::from_owned(generated.codes),
             max_num_bits: generated.max_num_bits,
             table_description: ReusableVec::from_owned(generated.table_description),
-        })
+        }))
     }
 
     fn build_c_table_generated_reusing(
@@ -586,12 +597,8 @@ impl HuffmanTable {
         max_bits: usize,
         scratch: &mut HuffmanBuildScratch,
         fse_scratch: Option<&mut FSETableBuildScratch>,
-    ) -> Option<Self> {
-        let recycled = scratch.take_recycled_table().unwrap_or_else(|| Self {
-            codes: ReusableVec::new(),
-            max_num_bits: 0,
-            table_description: ReusableVec::new(),
-        });
+    ) -> Result<Option<Self>, crate::workspace::CapacityError> {
+        let recycled = scratch.table_for_build()?;
         let Self {
             codes,
             table_description,
@@ -633,30 +640,52 @@ impl HuffmanTable {
         };
         let codes = ReusableVec::recover_vec(codes, codes_lease);
         let table_description = ReusableVec::recover_vec(table_description, description_lease);
+        let max_num_bits = max_num_bits?;
         let table = Self {
             codes,
             max_num_bits: max_num_bits.unwrap_or(0),
             table_description,
         };
         if max_num_bits.is_some() {
-            Some(table)
+            Ok(Some(table))
         } else {
-            scratch.recycle_table(table);
-            None
+            scratch.recycle_table(table)?;
+            Ok(None)
         }
     }
 }
 
 impl HuffmanBuildScratch {
-    pub(crate) fn recycle_table(&mut self, table: HuffmanTable) {
+    pub(crate) fn recycle_table(
+        &mut self,
+        table: HuffmanTable,
+    ) -> Result<(), crate::workspace::CapacityError> {
         let retains_table = if self.workspace_backed {
             self.recycled_tables.len() < self.recycled_tables.capacity()
         } else {
             super::recycles_fast_huffman_tables() && self.recycled_tables.is_empty()
         };
         if retains_table {
-            self.recycled_tables.push(table);
+            self.recycled_tables.push(table)?;
         }
+        Ok(())
+    }
+
+    fn table_for_build(&mut self) -> Result<HuffmanTable, crate::workspace::CapacityError> {
+        if let Some(table) = self.take_recycled_table() {
+            return Ok(table);
+        }
+        if self.workspace_backed {
+            return Err(crate::workspace::CapacityError::Exhausted {
+                required: 1,
+                capacity: 0,
+            });
+        }
+        Ok(HuffmanTable {
+            codes: ReusableVec::new(),
+            max_num_bits: 0,
+            table_description: ReusableVec::new(),
+        })
     }
 
     fn take_recycled_table(&mut self) -> Option<HuffmanTable> {

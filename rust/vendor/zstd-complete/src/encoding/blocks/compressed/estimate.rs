@@ -98,8 +98,8 @@ pub(crate) fn estimate_prepared_block_size_with_sequences(
     previous_huff_table: Option<&huff0_encoder::HuffmanTable>,
     previous_huff_table_is_valid: bool,
     scratch: &mut EstimateScratch,
-) -> usize {
-    encode_sequences_for_estimate_into(prepared.sequences, offset_history, &mut scratch.sequences);
+) -> Result<usize, crate::workspace::CapacityError> {
+    encode_sequences_for_estimate_into(prepared.sequences, offset_history, &mut scratch.sequences)?;
     let literal_size = estimate_literal_section_size(
         prepared.literals,
         previous_huff_table,
@@ -108,7 +108,7 @@ pub(crate) fn estimate_prepared_block_size_with_sequences(
         scratch.sequences.len(),
         &mut scratch.huffman,
         &mut scratch.fse,
-    );
+    )?;
     let sequence_size = estimate_sequence_section_size(
         scratch.sequences.as_slice(),
         prepared.literals.len(),
@@ -116,8 +116,8 @@ pub(crate) fn estimate_prepared_block_size_with_sequences(
         fse_tables,
         &mut scratch.table_bytes,
         &mut scratch.fse,
-    );
-    ZSTD_BLOCK_HEADER_SIZE + literal_size + sequence_size
+    )?;
+    Ok(ZSTD_BLOCK_HEADER_SIZE + literal_size + sequence_size)
 }
 
 fn estimate_literal_section_size(
@@ -128,11 +128,11 @@ fn estimate_literal_section_size(
     sequence_count: usize,
     huffman_scratch: &mut huff0_encoder::HuffmanBuildScratch,
     fse_scratch: &mut FSETableBuildScratch,
-) -> usize {
+) -> Result<usize, crate::workspace::CapacityError> {
     if config.literal_compression_disabled
         || literals.len() <= estimate_min_literals_to_compress(previous_table_is_valid)
     {
-        return literals.len();
+        return Ok(literals.len());
     }
 
     let force_single_stream = config
@@ -148,13 +148,13 @@ fn estimate_literal_section_size(
     );
 
     if literal_stats.largest() == literals.len() {
-        return usize::from(!literals.is_empty());
+        return Ok(usize::from(!literals.is_empty()));
     }
     if literal_stats.likely_incompressible(literals.len())
         || suspect_uncompressible_literals(literals.len(), sequence_count)
             && sampled_literals_likely_incompressible(literals)
     {
-        return literals.len();
+        return Ok(literals.len());
     }
 
     let new_table = if search_smallest_table {
@@ -172,14 +172,14 @@ fn estimate_literal_section_size(
             table_log,
             huffman_scratch,
             fse_scratch,
-        )
+        )?
     } else {
         huff0_encoder::HuffmanTable::build_from_counts_with_max_bits_and_workspaces(
             literal_stats.counts(),
             11,
             huffman_scratch,
             fse_scratch,
-        )
+        )?
     };
     let new_content_size =
         estimate_huffman_content_size(&new_table, literal_stats.counts(), four_streams);
@@ -209,8 +209,8 @@ fn estimate_literal_section_size(
     } else {
         new_content_size + new_table_size + compressed_literals_header_len(size_format)
     };
-    huffman_scratch.recycle_table(new_table);
-    estimated_size
+    huffman_scratch.recycle_table(new_table)?;
+    Ok(estimated_size)
 }
 
 fn estimate_min_literals_to_compress(has_previous_table: bool) -> usize {
@@ -261,11 +261,11 @@ fn estimate_sequence_section_size(
     literal_len: usize,
     config: BlockCompressionConfig,
     fse_tables: &FseTables,
-    table_bytes: &mut Vec<u8>,
+    table_bytes: &mut impl crate::workspace::Growable<u8>,
     fse_scratch: &mut FSETableBuildScratch,
-) -> usize {
+) -> Result<usize, crate::workspace::CapacityError> {
     if sequences.is_empty() {
-        return 2;
+        return Ok(2);
     }
 
     let llml_predefined_max_sequences = if literal_len >= super::COMPRESS_LITERALS_SIZE_MIN {
@@ -295,7 +295,7 @@ fn estimate_sequence_section_size(
         c_cost_model: config.c_cost_sequence_table_selection,
     };
     let (ll_mode, ml_mode, of_mode) = if config.exact_sequence_mode_search {
-        choose_sequence_table_modes_for_estimate(sequences, search_config)
+        choose_sequence_table_modes_for_estimate(sequences, search_config)?
     } else {
         choose_sequence_table_modes_for_estimate_from_counts_with_scratch(
             sequences.len(),
@@ -307,24 +307,24 @@ fn estimate_sequence_section_size(
             of_estimate.last_code,
             search_config,
             fse_scratch,
-        )
+        )?
     };
 
     let estimated_size = sequence_header_size(sequences.len())
         + 1
-        + table_definition_size(&ll_mode, table_bytes)
-        + table_definition_size(&of_mode, table_bytes)
-        + table_definition_size(&ml_mode, table_bytes)
+        + table_definition_size(&ll_mode, table_bytes)?
+        + table_definition_size(&of_mode, table_bytes)?
+        + table_definition_size(&ml_mode, table_bytes)?
         + estimate_symbol_stream_size(&of_mode, &fse_tables.of_default, &of_estimate)
         + estimate_symbol_stream_size(&ll_mode, &fse_tables.ll_default, &ll_estimate)
         + estimate_symbol_stream_size(&ml_mode, &fse_tables.ml_default, &ml_estimate);
 
     for mode in [ll_mode, ml_mode, of_mode] {
         if let FseTableMode::Encoded(table) = mode {
-            fse_scratch.recycle_table(table);
+            fse_scratch.recycle_table(table)?;
         }
     }
-    estimated_size
+    Ok(estimated_size)
 }
 
 fn sequence_header_size(seqnum: usize) -> usize {
@@ -336,18 +336,21 @@ fn sequence_header_size(seqnum: usize) -> usize {
     }
 }
 
-fn table_definition_size(mode: &FseTableMode<'_>, bytes: &mut Vec<u8>) -> usize {
+fn table_definition_size(
+    mode: &FseTableMode<'_>,
+    bytes: &mut impl crate::workspace::Growable<u8>,
+) -> Result<usize, crate::workspace::CapacityError> {
     match mode {
-        FseTableMode::Predefined(_) | FseTableMode::RepeatLast(_) => return 0,
-        FseTableMode::Rle(_) => return 1,
+        FseTableMode::Predefined(_) | FseTableMode::RepeatLast(_) => return Ok(0),
+        FseTableMode::Rle(_) => return Ok(1),
         FseTableMode::Encoded(_) => {}
     }
 
     bytes.clear();
     let mut writer = BitWriter::from(&mut *bytes);
-    encode_table(mode, &mut writer);
-    writer.flush();
-    bytes.len()
+    encode_table(mode, &mut writer)?;
+    writer.flush()?;
+    Ok(bytes.len())
 }
 
 fn sequence_symbol_estimates(

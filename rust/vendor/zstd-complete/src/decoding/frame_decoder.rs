@@ -186,16 +186,22 @@ impl FrameDecoder {
         }
     }
 
-    pub(crate) fn prepare_workspace(&mut self, max_window_size: usize, max_dictionary_size: usize) {
-        let mut scratch = self
-            .state
-            .take()
-            .map(|state| state.decoder_scratch)
-            .or_else(|| self.prepared_scratch.take())
-            .unwrap_or_else(|| DecoderScratch::new(0));
-        scratch.reset(0);
-        scratch.reserve_workspace(max_window_size, max_dictionary_size);
-        self.prepared_scratch = Some(scratch);
+    pub(crate) fn prepare_workspace(
+        &mut self,
+        max_window_size: usize,
+        max_dictionary_size: usize,
+    ) -> Result<(), crate::workspace::CapacityError> {
+        Ok({
+            let mut scratch = self
+                .state
+                .take()
+                .map(|state| state.decoder_scratch)
+                .or_else(|| self.prepared_scratch.take())
+                .unwrap_or_else(|| DecoderScratch::new(0));
+            scratch.reset(0);
+            scratch.reserve_workspace(max_window_size, max_dictionary_size)?;
+            self.prepared_scratch = Some(scratch);
+        })
     }
 
     pub(crate) fn install_prepared_scratch(&mut self, scratch: DecoderScratch) {
@@ -276,11 +282,11 @@ impl FrameDecoder {
                     .dicts
                     .get(&dict_id)
                     .ok_or(err::DictNotProvided { dict_id })?;
-                state.decoder_scratch.init_from_dict(dict);
+                state.decoder_scratch.init_from_dict(dict)?;
             }
             state.using_dict = Some(dict_id);
         } else if let Some(PreparedDictionaryBytes::Raw(dictionary)) = dictionary {
-            state.decoder_scratch.init_from_raw_dictionary(dictionary);
+            state.decoder_scratch.init_from_raw_dictionary(dictionary)?;
         }
         Ok(())
     }
@@ -303,7 +309,7 @@ impl FrameDecoder {
             .dicts
             .get(&dict_id)
             .ok_or(err::DictNotProvided { dict_id })?;
-        state.decoder_scratch.init_from_dict(dict);
+        state.decoder_scratch.init_from_dict(dict)?;
         state.using_dict = Some(dict_id);
 
         Ok(())

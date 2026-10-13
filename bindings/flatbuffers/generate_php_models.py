@@ -59,7 +59,7 @@ list_types = {
     "LockboxEntryList": "LockboxEntry", "FormFieldList": "FormField",
     "FormDefinitionList": "FormDefinition", "FormRecordList": "FormRecord",
     "KeySlotList": "KeySlot", "PageInspectionList": "PageInspection",
-    "KnownLockboxList": "KnownLockbox", "AccessSlotLabelList": "AccessSlotLabel",
+    "LockboxAliasList": "LockboxAlias", "KnownLockboxList": "KnownLockbox", "AccessSlotLabelList": "AccessSlotLabel",
     "StreamChunkList": "StreamChunk", "VariableList": "Variable",
     "ContactList": "Contact", "ProfileHistoryList": "ProfileHistory",
     "AgentEntryList": "AgentEntry",

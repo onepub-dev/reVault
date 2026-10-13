@@ -59,10 +59,7 @@ pub(crate) fn serve_agent() -> io::Result<()> {
         match listener.accept() {
             Ok((stream, _)) => {
                 last_activity = Instant::now();
-                let stop = {
-                    let mut cache = lock_cache(&cache)?;
-                    handle_client(stream, &mut cache, &active).unwrap_or(false)
-                };
+                let stop = handle_client(stream, &cache, &active).unwrap_or(false);
                 if stop {
                     let _ = fs::remove_file(&socket);
                     log_agent_event("agent stopped by request");
@@ -91,8 +88,12 @@ fn start_sleep_cache_clearer(
     cache: Arc<Mutex<BTreeMap<String, CacheEntry>>>,
     active: Arc<Mutex<ActiveSecretRegistry>>,
 ) {
+    crate::sleep_watcher::set_cache_monitor_active(true);
     let result = SleepWatcher::start_handler(move |event| match event {
-        SleepEvent::SuspendRequested => {
+        SleepEvent::SuspendRequested | SleepEvent::Unavailable => {
+            if event == SleepEvent::Unavailable {
+                crate::sleep_watcher::set_cache_monitor_active(false);
+            }
             if let Ok(mut cache) = cache.lock() {
                 let count = cache.len();
                 cache.clear();
@@ -106,11 +107,19 @@ fn start_sleep_cache_clearer(
         }
         SleepEvent::Resumed => {
             log_agent_event("resume observed");
+            if let Ok(mut active) = active.lock() {
+                if let Err(err) = active.resumed() {
+                    log_agent_event(format!("resume sleep inhibition unavailable: {err}"));
+                }
+            }
         }
     });
     match result {
         Ok(()) => log_agent_event("sleep watcher started"),
-        Err(err) => log_agent_event(format!("sleep watcher unavailable: {err}")),
+        Err(err) => {
+            crate::sleep_watcher::set_cache_monitor_active(false);
+            log_agent_event(format!("sleep watcher unavailable: {err}"));
+        }
     }
 }
 
@@ -139,6 +148,23 @@ fn sleep_watcher_has_suspend(watcher: &Option<SleepWatcher>) -> bool {
 
 pub(crate) fn verify_agent_transport_security() -> io::Result<()> {
     prepare_socket_dir()
+}
+
+pub(crate) fn suspend_cache_clearing_active() -> io::Result<bool> {
+    if !existing_agent_is_reachable()? {
+        return Ok(false);
+    }
+    let response = request_started_agent(&encode_info()?)?;
+    match response {
+        AgentResponse::Info(protocol, implementation, active)
+            if agent_is_compatible(protocol, &implementation) =>
+        {
+            Ok(active)
+        }
+        _ => Err(io::Error::other(
+            "Session Agent capability response unavailable or incompatible",
+        )),
+    }
 }
 
 pub(crate) fn get(lockbox_id: LockboxId) -> io::Result<Option<SecretVec>> {
@@ -246,9 +272,10 @@ pub(crate) fn list() -> io::Result<Vec<CachedLockbox>> {
     }
 }
 
-pub(crate) fn register_secret_activity(kind: SecretActivityKind) -> io::Result<u64> {
+pub(crate) fn register_secret_activity(kind: SecretActivityKind) -> io::Result<(u64, bool)> {
     match request_control(&encode_register_secret_activity(std::process::id(), kind)?)? {
-        ControlResponse::Registered(token) => Ok(token),
+        ControlResponse::Registered(token, terminate) => Ok((token, terminate)),
+        ControlResponse::Err(message) => Err(io::Error::other(message)),
         response => invalid_control_response(response),
     }
 }
@@ -275,7 +302,7 @@ fn existing_agent_is_reachable() -> io::Result<bool> {
         return Ok(false);
     }
     validate_socket_dir(&socket_dir())?;
-    Ok(UnixStream::connect(socket_path()).is_ok())
+    Ok(connect_socket().is_ok())
 }
 
 fn request(message: &SecretVec) -> io::Result<AgentResponse> {
@@ -284,24 +311,24 @@ fn request(message: &SecretVec) -> io::Result<AgentResponse> {
 }
 
 fn request_started_agent(message: &SecretVec) -> io::Result<AgentResponse> {
-    let mut stream = connect_started_agent()?;
+    let mut stream = DeadlineStream::new(connect_started_agent()?);
     message
         .with_bytes(|message| stream.write_all(message))
         .map_err(io::Error::other)??;
-    stream.shutdown(std::net::Shutdown::Write)?;
+    stream.stream.shutdown(std::net::Shutdown::Write)?;
     parse_response(read_secure_frame(stream, max_message_bytes())?)
 }
 
 fn request_control(message: &[u8]) -> io::Result<ControlResponse> {
     ensure_agent()?;
-    let mut stream = connect_started_agent()?;
+    let mut stream = DeadlineStream::new(connect_started_agent()?);
     stream.write_all(message)?;
-    stream.shutdown(std::net::Shutdown::Write)?;
+    stream.stream.shutdown(std::net::Shutdown::Write)?;
     parse_control_response(&read_plain_frame(stream, max_message_bytes())?)
 }
 
 fn connect_started_agent() -> io::Result<UnixStream> {
-    UnixStream::connect(socket_path()).map_err(|err| {
+    connect_socket().map_err(|err| {
         if matches!(
             err.kind(),
             io::ErrorKind::NotFound | io::ErrorKind::ConnectionRefused
@@ -313,9 +340,17 @@ fn connect_started_agent() -> io::Result<UnixStream> {
     })
 }
 
+fn connect_socket() -> io::Result<UnixStream> {
+    let address = socket2::SockAddr::unix(socket_path())?;
+    let socket = socket2::Socket::new(socket2::Domain::UNIX, socket2::Type::STREAM, None)?;
+    socket.connect_timeout(&address, Duration::from_secs(3))?;
+    let descriptor: std::os::fd::OwnedFd = socket.into();
+    Ok(descriptor.into())
+}
+
 fn ensure_agent() -> io::Result<()> {
     prepare_socket_dir()?;
-    if UnixStream::connect(socket_path()).is_ok() {
+    if connect_socket().is_ok() {
         if existing_agent_is_compatible()? {
             return Ok(());
         }
@@ -331,7 +366,7 @@ fn ensure_agent() -> io::Result<()> {
 
     let deadline = Instant::now() + Duration::from_secs(3);
     while Instant::now() < deadline {
-        if UnixStream::connect(socket_path()).is_ok() {
+        if connect_socket().is_ok() {
             return Ok(());
         }
         thread::sleep(Duration::from_millis(25));
@@ -346,7 +381,7 @@ fn existing_agent_is_compatible() -> io::Result<bool> {
     let request = encode_info()?;
     Ok(matches!(
         request_started_agent(&request),
-        Ok(AgentResponse::Info(protocol, implementation))
+        Ok(AgentResponse::Info(protocol, implementation, _))
             if agent_is_compatible(protocol, &implementation)
     ))
 }
@@ -371,22 +406,28 @@ fn agent_start_timeout_error() -> io::Error {
 }
 
 fn handle_client(
-    mut stream: UnixStream,
-    cache: &mut BTreeMap<String, CacheEntry>,
+    stream: UnixStream,
+    cache: &Arc<Mutex<BTreeMap<String, CacheEntry>>>,
     active: &Arc<Mutex<ActiveSecretRegistry>>,
 ) -> io::Result<bool> {
     if !client_matches_current_user(&stream)? {
         log_agent_event("rejected agent request from a different user or group");
         return Ok(false);
     }
-    let request = read_agent_frame(stream.try_clone()?, max_message_bytes())?;
+    let peer_pid = peer_credentials(&stream)?.pid;
+    let mut stream = DeadlineStream::new(stream);
+    let request = read_agent_frame(&mut stream, max_message_bytes())?;
     let (stop, response) = match request {
         AgentFrame::Cache(request) => {
-            let (stop, response) = handle_agent_request(&request, cache)?;
+            // Transport must never hold the cache lock needed by suspend wiping.
+            let (stop, response) = {
+                let mut cache = lock_cache(cache)?;
+                handle_agent_request(&request, &mut cache)?
+            };
             (stop, AgentReply::Cache(response))
         }
         AgentFrame::Control(request) => {
-            let response = handle_control_request(&request, active)?;
+            let response = handle_control_request(&request, active, peer_pid, &stream.stream)?;
             (false, AgentReply::Control(response))
         }
     };
@@ -403,6 +444,7 @@ fn client_matches_current_user(stream: &UnixStream) -> io::Result<bool> {
 struct PeerCredentials {
     uid: u32,
     gid: u32,
+    pid: Option<u32>,
 }
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
@@ -436,6 +478,7 @@ fn peer_credentials(stream: &UnixStream) -> io::Result<PeerCredentials> {
     Ok(PeerCredentials {
         uid: credential.uid,
         gid: credential.gid,
+        pid: u32::try_from(credential.pid).ok().filter(|pid| *pid != 0),
     })
 }
 
@@ -461,6 +504,7 @@ fn peer_credentials(stream: &UnixStream) -> io::Result<PeerCredentials> {
     Ok(PeerCredentials {
         uid: euid as u32,
         gid: egid as u32,
+        pid: None,
     })
 }
 
@@ -475,10 +519,10 @@ fn peer_credentials(stream: &UnixStream) -> io::Result<PeerCredentials> {
     target_os = "openbsd"
 )))]
 fn peer_credentials(_stream: &UnixStream) -> io::Result<PeerCredentials> {
-    Ok(PeerCredentials {
-        uid: current_effective_uid(),
-        gid: current_effective_gid(),
-    })
+    Err(io::Error::new(
+        io::ErrorKind::Unsupported,
+        "authenticated peer credentials unavailable",
+    ))
 }
 
 fn current_effective_uid() -> u32 {
@@ -512,6 +556,11 @@ fn handle_agent_request(
         }
         Ok(AgentRequest::Put(lockbox_id, key, path, ttl_seconds)) => {
             let ttl_seconds = ttl_seconds.unwrap_or(DEFAULT_TTL_SECONDS);
+            let expires_at = Instant::now()
+                .checked_add(Duration::from_secs(ttl_seconds))
+                .ok_or_else(|| {
+                    io::Error::new(io::ErrorKind::InvalidInput, "cache TTL exceeds clock range")
+                })?;
             log_agent_event(format!(
                 "cached lockbox {lockbox_id} ttl_seconds={ttl_seconds} path={}",
                 path.as_deref().unwrap_or("")
@@ -521,7 +570,7 @@ fn handle_agent_request(
                 CacheEntry {
                     key,
                     path,
-                    expires_at: Instant::now() + Duration::from_secs(ttl_seconds),
+                    expires_at,
                 },
             );
             encode_ok_response()?
@@ -566,13 +615,29 @@ fn handle_agent_request(
 fn handle_control_request(
     request: &[u8],
     active: &Arc<Mutex<ActiveSecretRegistry>>,
+    peer_pid: Option<u32>,
+    _stream: &UnixStream,
 ) -> io::Result<Vec<u8>> {
     match parse_control_request(request) {
         Ok(ControlRequest::RegisterSecretActivity(pid, kind)) => {
-            let token = lock_active(active)?.register(pid, kind)?;
-            encode_registered_response(token)
+            if peer_pid.is_some_and(|peer| peer != pid) {
+                return encode_control_err_response(
+                    "process identity does not match authenticated peer",
+                );
+            }
+            let mut registry = lock_active(active)?;
+            let token = match registry.register(pid, kind) {
+                Ok(token) => token,
+                Err(error) => return encode_control_err_response(&error.to_string()),
+            };
+            encode_registered_response(token, registry.terminate_on_suspend())
         }
         Ok(ControlRequest::UnregisterSecretActivity(pid, token)) => {
+            if peer_pid.is_some_and(|peer| peer != pid) {
+                return encode_control_err_response(
+                    "process identity does not match authenticated peer",
+                );
+            }
             lock_active(active)?.unregister(pid, token);
             encode_control_ok_response()
         }
@@ -622,7 +687,7 @@ fn invalid_agent_response<T>(response: AgentResponse) -> io::Result<T> {
         AgentResponse::Miss => "MISS",
         AgentResponse::Key(_) => "KEY",
         AgentResponse::List(_) => "LIST",
-        AgentResponse::Info(_, _) => "INFO",
+        AgentResponse::Info(_, _, _) => "INFO",
         AgentResponse::Err(_) => "ERR",
     };
     Err(io::Error::new(
@@ -634,7 +699,7 @@ fn invalid_agent_response<T>(response: AgentResponse) -> io::Result<T> {
 fn invalid_control_response<T>(response: ControlResponse) -> io::Result<T> {
     let label = match response {
         ControlResponse::Ok => "OK",
-        ControlResponse::Registered(_) => "REGISTERED",
+        ControlResponse::Registered(_, _) => "REGISTERED",
         ControlResponse::Err(_) => "ERR",
     };
     Err(io::Error::new(
@@ -711,7 +776,7 @@ fn checked_frame_len(header_len: usize, payload_len: usize, max_bytes: usize) ->
     Ok(frame_len)
 }
 
-fn write_agent_reply(stream: &mut UnixStream, response: AgentReply) -> io::Result<()> {
+fn write_agent_reply(stream: &mut impl Write, response: AgentReply) -> io::Result<()> {
     match response {
         AgentReply::Cache(response) => response
             .with_bytes(|response| stream.write_all(response))
@@ -720,12 +785,56 @@ fn write_agent_reply(stream: &mut UnixStream, response: AgentReply) -> io::Resul
     }
 }
 
+// One deadline covers both directions and every partial read/write. Socket
+// timeouts alone would restart the allowance whenever a peer makes progress.
+struct DeadlineStream {
+    stream: UnixStream,
+    deadline: Instant,
+}
+
+impl DeadlineStream {
+    fn new(stream: UnixStream) -> Self {
+        Self {
+            stream,
+            deadline: Instant::now() + Duration::from_secs(10),
+        }
+    }
+
+    fn remaining(&self) -> io::Result<Duration> {
+        self.deadline
+            .checked_duration_since(Instant::now())
+            .filter(|remaining| !remaining.is_zero())
+            .ok_or_else(|| {
+                io::Error::new(io::ErrorKind::TimedOut, "agent request deadline expired")
+            })
+    }
+}
+
+impl Read for DeadlineStream {
+    fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
+        self.stream.set_read_timeout(Some(self.remaining()?))?;
+        self.stream.read(buffer)
+    }
+}
+
+impl Write for DeadlineStream {
+    fn write(&mut self, buffer: &[u8]) -> io::Result<usize> {
+        self.stream.set_write_timeout(Some(self.remaining()?))?;
+        self.stream.write(buffer)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.remaining()?;
+        self.stream.flush()
+    }
+}
+
 fn read_secure_payload(
     mut reader: impl Read,
     mut remaining: usize,
     out: &mut SecretVec,
 ) -> io::Result<()> {
-    let mut buffer = [0u8; 4096];
+    let mut buffer = zeroize::Zeroizing::new([0u8; 4096]);
     while remaining != 0 {
         let read = reader.read(&mut buffer[..remaining.min(4096)])?;
         if read == 0 {
@@ -736,7 +845,7 @@ fn read_secure_payload(
         }
         out.try_extend_from_slice(&buffer[..read])
             .map_err(io::Error::other)?;
-        buffer[..read].fill(0);
+        zeroize::Zeroize::zeroize(&mut buffer[..read]);
         remaining -= read;
     }
     Ok(())
@@ -881,6 +990,45 @@ fn runtime_dir_belongs_to_current_user(path: &Path) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn request_deadline_is_shared_by_reads_and_writes() {
+        let (left, mut right) = UnixStream::pair().unwrap();
+        let mut stream = DeadlineStream::new(left);
+        right.write_all(b"a").unwrap();
+        let mut byte = [0];
+        stream.read_exact(&mut byte).unwrap();
+        assert_eq!(&byte, b"a");
+        stream.deadline = Instant::now() - Duration::from_secs(1);
+        assert_eq!(
+            stream.read(&mut byte).unwrap_err().kind(),
+            io::ErrorKind::TimedOut
+        );
+        assert_eq!(
+            stream.write(b"b").unwrap_err().kind(),
+            io::ErrorKind::TimedOut
+        );
+    }
+
+    #[test]
+    fn cache_ttl_admission_preserves_existing_entry() {
+        let mut cache = BTreeMap::new();
+        let id = LockboxId::from_bytes([19; 16]);
+        let key = SecretVec::try_from_slice(&[7u8; 32]).unwrap();
+        let valid = encode_put(id, &key, None, Some(60)).unwrap();
+        handle_agent_request(&valid, &mut cache).unwrap();
+        let old_expiry = cache.values().next().unwrap().expires_at;
+        let excessive = encode_put(id, &key, None, Some(u64::MAX)).unwrap();
+        assert_eq!(
+            handle_agent_request(&excessive, &mut cache)
+                .err()
+                .unwrap()
+                .kind(),
+            io::ErrorKind::InvalidInput
+        );
+        assert_eq!(cache.len(), 1);
+        assert_eq!(cache.values().next().unwrap().expires_at, old_expiry);
+    }
     use crate::agent_protocol::{
         encode_forget, encode_get, encode_put, AGENT_IMPLEMENTATION_VERSION, AGENT_PROTOCOL_VERSION,
     };
@@ -937,7 +1085,7 @@ mod tests {
         let (_, response) = round_trip(&mut cache, encode_info().unwrap());
         assert!(matches!(
             response,
-            AgentResponse::Info(AGENT_PROTOCOL_VERSION, ref implementation)
+            AgentResponse::Info(AGENT_PROTOCOL_VERSION, ref implementation, _)
                 if implementation == AGENT_IMPLEMENTATION_VERSION
         ));
 
@@ -1080,7 +1228,12 @@ mod tests {
             peer_credentials(&server).unwrap(),
             PeerCredentials {
                 uid: current_effective_uid(),
-                gid: current_effective_gid()
+                gid: current_effective_gid(),
+                pid: if cfg!(any(target_os = "linux", target_os = "android")) {
+                    Some(std::process::id())
+                } else {
+                    None
+                },
             }
         );
         assert!(client_matches_current_user(&server).unwrap());

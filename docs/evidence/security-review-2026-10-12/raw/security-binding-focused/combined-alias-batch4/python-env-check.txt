@@ -1,0 +1,2 @@
+25.2.10
+Environment contains flatbuffers 25.2.10; NumPy is absent.

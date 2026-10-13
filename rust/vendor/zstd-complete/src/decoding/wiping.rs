@@ -52,27 +52,37 @@ impl WipingBytes {
         Self { inner }
     }
 
-    pub(crate) fn reserve(&mut self, additional: usize) {
+    pub(crate) fn reserve(
+        &mut self,
+        additional: usize,
+    ) -> Result<(), crate::workspace::CapacityError> {
         let needed = self
             .inner
             .len()
             .checked_add(additional)
-            .expect("byte capacity overflow");
+            .ok_or(crate::workspace::CapacityError::Overflow)?;
         if needed <= self.inner.capacity() {
-            return;
+            return Ok(());
         }
-        assert!(
-            self.inner.is_owned(),
-            "prepared static decode workspace capacity was exceeded"
-        );
+        if !self.inner.is_owned() {
+            return Err(crate::workspace::CapacityError::Exhausted {
+                required: needed,
+                capacity: self.inner.capacity(),
+            });
+        }
         let capacity = needed.max(self.inner.capacity().saturating_mul(2)).max(8);
-        let mut next = ReusableVec::from_owned(Vec::with_capacity(capacity));
-        next.extend_from_slice(&self.inner);
+        let mut allocation = Vec::new();
+        allocation
+            .try_reserve_exact(capacity)
+            .map_err(|_| crate::workspace::CapacityError::AllocationFailed)?;
+        let mut next = ReusableVec::from_owned(allocation);
+        next.extend_from_slice(&self.inner)?;
         let mut old = core::mem::replace(&mut self.inner, next);
         #[cfg(all(test, feature = "std"))]
         note_initialized(&old);
         // SAFETY: the old owned Vec remains exclusively live until after wiping.
         unsafe { wipe_allocation(old.as_mut_ptr(), old.capacity()) };
+        Ok(())
     }
 
     pub(crate) fn clear(&mut self) {
@@ -85,19 +95,29 @@ impl WipingBytes {
         &mut self.inner
     }
 
-    pub(crate) fn resize(&mut self, length: usize, byte: u8) {
-        self.reserve(length.saturating_sub(self.len()));
-        self.inner.resize(length, byte);
+    pub(crate) fn resize(
+        &mut self,
+        length: usize,
+        byte: u8,
+    ) -> Result<(), crate::workspace::CapacityError> {
+        self.reserve(length.saturating_sub(self.len()))?;
+        self.inner.resize(length, byte)?;
+        Ok(())
     }
 
-    pub(crate) fn extend_from_slice(&mut self, bytes: &[u8]) {
-        self.reserve(bytes.len());
-        self.inner.extend_from_slice(bytes);
+    pub(crate) fn extend_from_slice(
+        &mut self,
+        bytes: &[u8],
+    ) -> Result<(), crate::workspace::CapacityError> {
+        self.reserve(bytes.len())?;
+        self.inner.extend_from_slice(bytes)?;
+        Ok(())
     }
 
-    pub(crate) fn push(&mut self, byte: u8) {
-        self.reserve(1);
-        self.inner.push(byte);
+    pub(crate) fn push(&mut self, byte: u8) -> Result<(), crate::workspace::CapacityError> {
+        self.reserve(1)?;
+        self.inner.push(byte)?;
+        Ok(())
     }
 }
 
@@ -216,9 +236,9 @@ mod tests {
     fn owned_bytes_wipe_growth_and_truncated_spare_capacity() {
         let events = audit(|| {
             let mut bytes = WipingBytes::new();
-            bytes.resize(257, 0xab);
-            bytes.resize(17, 0);
-            bytes.reserve(4096);
+            bytes.resize(257, 0xab).expect("test storage admission");
+            bytes.resize(17, 0).expect("test storage admission");
+            bytes.reserve(4096).expect("test storage admission");
             assert_eq!(&*bytes, &[0xab; 17]);
             bytes.clear();
         });

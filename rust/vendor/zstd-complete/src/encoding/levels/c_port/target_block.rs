@@ -1,7 +1,5 @@
 //! Target-compressed-block-size block adapter.
 
-use alloc::vec::Vec;
-
 use super::{
     block_emit::append_rle_block,
     greedy_block::{GreedyBlockEncodeContext, GreedyEncodedBlock, GreedyPreparedBlock},
@@ -46,19 +44,19 @@ pub(super) fn encode_target_block_with_superblock_fallback(
     options: TargetBlockOptions,
     prepared: &GreedyPreparedBlock,
     context: GreedyBlockEncodeContext<'_, '_>,
-    bytes: Vec<u8>,
-) -> GreedyEncodedBlock {
+    bytes: crate::workspace::ReusableVec<u8>,
+) -> Result<GreedyEncodedBlock, crate::workspace::CapacityError> {
     let repeat_offsets = options.repeat_offsets;
     let previous_fse = context.fse_tables.snapshot_previous();
     let previous_offsets = *context.offset_history;
     if options.allow_rle && target_maybe_rle(prepared) && literal_rle_byte(block).is_some() {
         let mut candidate = bytes;
-        if append_rle_block(block, last_block, &mut candidate) {
-            return GreedyEncodedBlock {
+        if append_rle_block(block, last_block, &mut candidate)? {
+            return Ok(GreedyEncodedBlock {
                 bytes: candidate,
                 repeat_offsets,
                 new_huffman_table: None,
-            };
+            });
         }
         unreachable!("literal_rle_byte and append_rle_block use the same predicate");
     }
@@ -75,7 +73,7 @@ pub(super) fn encode_target_block_with_superblock_fallback(
             false,
             false,
             &mut candidate,
-        ) {
+        )? {
             if should_commit_sub_block(emission.byte_size, block.len()) {
                 return accept_target_or_raw_fallback(
                     GreedyEncodedBlock {
@@ -111,7 +109,7 @@ pub(super) fn encode_target_block_with_superblock_fallback(
             &bytes,
             options.strategy,
             repeat_offsets,
-        ) {
+        )? {
             return accept_target_or_raw_fallback(
                 encoded,
                 TargetAcceptanceContext {
@@ -147,9 +145,12 @@ pub(super) fn encode_target_block_with_superblock_fallback(
             initial_repeat_offsets: repeat_offsets,
             bytes: &bytes,
         };
-        if let Some(encoded) =
-            try_huffman_literal_multi_sub_blocks(multi_target, prepared, fse_tables, offset_history)
-        {
+        if let Some(encoded) = try_huffman_literal_multi_sub_blocks(
+            multi_target,
+            prepared,
+            fse_tables,
+            offset_history,
+        )? {
             return accept_target_or_raw_fallback(
                 encoded,
                 TargetAcceptanceContext {
@@ -183,7 +184,7 @@ pub(super) fn encode_target_block_with_superblock_fallback(
                     HuffmanLiteralMode::Repeat,
                     options.strategy,
                     selected_sequence_modes,
-                ) {
+                )? {
                     return accept_target_or_raw_fallback(
                         encoded,
                         TargetAcceptanceContext {
@@ -211,7 +212,7 @@ pub(super) fn encode_target_block_with_superblock_fallback(
                 HuffmanLiteralMode::Repeat,
                 options.strategy,
                 repeat_sequence_modes(),
-            ) {
+            )? {
                 return accept_target_or_raw_fallback(
                     encoded,
                     TargetAcceptanceContext {
@@ -240,7 +241,7 @@ pub(super) fn encode_target_block_with_superblock_fallback(
                 HuffmanLiteralMode::Compressed,
                 options.strategy,
                 selected_sequence_modes,
-            ) {
+            )? {
                 return accept_target_or_raw_fallback(
                     encoded,
                     TargetAcceptanceContext {
@@ -268,7 +269,7 @@ pub(super) fn encode_target_block_with_superblock_fallback(
             HuffmanLiteralMode::Compressed,
             options.strategy,
             compressed_sequence_modes(),
-        ) {
+        )? {
             return accept_target_or_raw_fallback(
                 encoded,
                 TargetAcceptanceContext {
@@ -296,7 +297,7 @@ pub(super) fn encode_target_block_with_superblock_fallback(
                 HuffmanLiteralMode::Repeat,
                 options.strategy,
                 selected_sequence_modes,
-            ) {
+            )? {
                 return accept_target_or_raw_fallback(
                     encoded,
                     TargetAcceptanceContext {
@@ -325,7 +326,7 @@ pub(super) fn encode_target_block_with_superblock_fallback(
                 HuffmanLiteralMode::Repeat,
                 options.strategy,
                 repeat_sequence_modes(),
-            ) {
+            )? {
                 return accept_target_or_raw_fallback(
                     encoded,
                     TargetAcceptanceContext {
@@ -343,7 +344,7 @@ pub(super) fn encode_target_block_with_superblock_fallback(
             }
         }
         if let Some(encoded) =
-            try_basic_literal_multi_sub_blocks(multi_target, prepared, fse_tables, offset_history)
+            try_basic_literal_multi_sub_blocks(multi_target, prepared, fse_tables, offset_history)?
         {
             return accept_target_or_raw_fallback(
                 encoded,
@@ -369,7 +370,7 @@ pub(super) fn encode_target_block_with_superblock_fallback(
                 offset_history,
                 &bytes,
                 selected_sequence_modes,
-            ) {
+            )? {
                 return accept_target_or_raw_fallback(
                     encoded,
                     TargetAcceptanceContext {
@@ -394,7 +395,7 @@ pub(super) fn encode_target_block_with_superblock_fallback(
             offset_history,
             &bytes,
             repeat_sequence_modes(),
-        ) {
+        )? {
             return accept_target_or_raw_fallback(
                 encoded,
                 TargetAcceptanceContext {
@@ -419,7 +420,7 @@ pub(super) fn encode_target_block_with_superblock_fallback(
                 offset_history,
                 &bytes,
                 selected_sequence_modes,
-            ) {
+            )? {
                 return accept_target_or_raw_fallback(
                     encoded,
                     TargetAcceptanceContext {
@@ -444,7 +445,7 @@ pub(super) fn encode_target_block_with_superblock_fallback(
             offset_history,
             &bytes,
             rle_sequence_modes(),
-        ) {
+        )? {
             return accept_target_or_raw_fallback(
                 encoded,
                 TargetAcceptanceContext {
@@ -468,7 +469,7 @@ pub(super) fn encode_target_block_with_superblock_fallback(
             offset_history,
             &bytes,
             compressed_sequence_modes(),
-        ) {
+        )? {
             return accept_target_or_raw_fallback(
                 encoded,
                 TargetAcceptanceContext {
@@ -492,7 +493,7 @@ pub(super) fn encode_target_block_with_superblock_fallback(
             offset_history,
             &bytes,
             basic_sequence_modes(),
-        ) {
+        )? {
             return accept_target_or_raw_fallback(
                 encoded,
                 TargetAcceptanceContext {

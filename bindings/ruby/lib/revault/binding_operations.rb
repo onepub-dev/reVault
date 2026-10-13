@@ -28,6 +28,8 @@ module Revault
 # END generated file operation abi
     extern 'void * lockbox_open(void *, size_t, void *, size_t)'
     extern 'void * lockbox_open_with_options(void *, size_t, void *, size_t, void *, size_t, uint64_t, void *, size_t, void *, size_t, size_t)'
+    extern 'void * lockbox_open_password_with_budget(void *, size_t, void *, size_t, uint32_t)'
+    extern 'bool lockbox_extract_file_with_policy(void *, void *, size_t, void *, size_t, uint64_t, uint64_t, size_t, bool, bool)'
     extern 'void * lockbox_open_password(void *, size_t, void *, size_t)'
     extern 'void * lockbox_open_contact(void *, size_t, void *)'
     extern 'bool lockbox_add_file(void *, void *, size_t, void *, size_t, bool)'
@@ -214,6 +216,12 @@ module Revault
     extern 'void ruby_vault_directory_load_backup(void *, void *, size_t, void *)'
     extern 'void ruby_vault_directory_list_profile_generations(void *, void *, size_t, void *)'
     extern 'void ruby_vault_directory_rotate_private_key(void *, void *, size_t, void *)'
+    extern 'char vault_directory_set_lockbox_alias(void *, void *, size_t, void *, size_t)'
+    extern 'void ruby_vault_directory_list_lockbox_aliases(void *, void *)'
+    extern 'char vault_directory_remove_lockbox_alias(void *, void *, size_t)'
+    extern 'void ruby_vault_directory_resolve_lockbox_alias(void *, void *, size_t, void *)'
+    extern 'void ruby_vault_read_only_list_lockbox_aliases(void *, void *)'
+    extern 'void ruby_vault_read_only_resolve_lockbox_alias(void *, void *, size_t, void *)'
     extern 'void ruby_vault_directory_list_known_lockboxes(void *, void *)'
     extern 'void ruby_vault_directory_list_access_slot_labels(void *, void *, size_t, void *)'
     extern 'void ruby_vault_directory_find_access_slot_labels(void *, void *, size_t, void *, size_t, void *)'
@@ -339,6 +347,13 @@ module Revault
       require_handle(Native.lockbox_open_with_options(Fiddle::Pointer[archive], archive.bytesize, Fiddle::Pointer[key], key.bytesize, Fiddle::Pointer[cache_mode], cache_mode.bytesize, cache_bytes, Fiddle::Pointer[workload], workload.bytesize, Fiddle::Pointer[worker], worker.bytesize, jobs))
     end
 
+    def lockbox_open_password_with_budget(archive, password, max_derivations)
+      raise ArgumentError, 'max_derivations must be an unsigned 32-bit integer' unless max_derivations.is_a?(Integer) && max_derivations.between?(0, 0xffffffff)
+      require_handle(Native.lockbox_open_password_with_budget(Fiddle::Pointer[archive], archive.bytesize, Fiddle::Pointer[password], password.bytesize, max_derivations))
+    end
+    def lockbox_extract_file_with_policy(handle, source, destination, max_file_bytes, max_total_bytes, max_files, restore_permissions, overwrite)
+      require_value(Native.lockbox_extract_file_with_policy(handle, Fiddle::Pointer[source], source.bytesize, Fiddle::Pointer[destination], destination.bytesize, max_file_bytes, max_total_bytes, max_files, restore_permissions, overwrite))
+    end
     def lockbox_open_password(archive, password)
       require_handle(Native.lockbox_open_password(Fiddle::Pointer[archive], archive.bytesize, Fiddle::Pointer[password], password.bytesize))
     end
@@ -908,6 +923,30 @@ module Revault
 
     def vault_directory_remember_lockbox(handle, id, path)
       require_value(Native.vault_directory_remember_lockbox(handle, Fiddle::Pointer[id], id.bytesize, Fiddle::Pointer[path], path.bytesize))
+    end
+
+    def vault_directory_set_lockbox_alias(handle, name, id)
+      require_value(Native.vault_directory_set_lockbox_alias(handle, Fiddle::Pointer[name], name.bytesize, Fiddle::Pointer[id], id.bytesize))
+    end
+
+    def vault_directory_list_lockbox_aliases(handle)
+      Revault::Internal::DomainCodec.decode('LockboxAliasList', take(buffer_call(:vault_directory_list_lockbox_aliases, handle)))
+    end
+
+    def vault_directory_remove_lockbox_alias(handle, name)
+      require_value(Native.vault_directory_remove_lockbox_alias(handle, Fiddle::Pointer[name], name.bytesize))
+    end
+
+    def vault_directory_resolve_lockbox_alias(handle, name)
+      Revault::Internal::DomainCodec.decode('KnownLockbox', take(buffer_call(:vault_directory_resolve_lockbox_alias, handle, Fiddle::Pointer[name], name.bytesize)))
+    end
+
+    def vault_read_only_list_lockbox_aliases(handle)
+      Revault::Internal::DomainCodec.decode('LockboxAliasList', take(buffer_call(:vault_read_only_list_lockbox_aliases, handle)))
+    end
+
+    def vault_read_only_resolve_lockbox_alias(handle, name)
+      Revault::Internal::DomainCodec.decode('KnownLockbox', take(buffer_call(:vault_read_only_resolve_lockbox_alias, handle, Fiddle::Pointer[name], name.bytesize)))
     end
 
     def vault_directory_list_known_lockboxes(handle)

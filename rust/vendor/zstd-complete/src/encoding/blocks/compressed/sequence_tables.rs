@@ -70,22 +70,31 @@ pub(super) fn exact_sequence_section_size(
 ) -> usize {
     let mut encoded = Vec::new();
     let mut writer = BitWriter::from(&mut encoded);
-    writer.write_bits(encode_fse_table_modes(ll_mode, ml_mode, of_mode), 8);
-    encode_table(ll_mode, &mut writer);
-    encode_table(of_mode, &mut writer);
-    encode_table(ml_mode, &mut writer);
-    encode_sequences(sequences, &mut writer, ll_mode, ml_mode, of_mode);
-    writer.flush();
+    writer
+        .write_bits(encode_fse_table_modes(ll_mode, ml_mode, of_mode), 8)
+        .expect("owned legacy codec allocation failed");
+    encode_table(ll_mode, &mut writer).expect("owned legacy codec allocation failed");
+    encode_table(of_mode, &mut writer).expect("owned legacy codec allocation failed");
+    encode_table(ml_mode, &mut writer).expect("owned legacy codec allocation failed");
+    encode_sequences(sequences, &mut writer, ll_mode, ml_mode, of_mode)
+        .expect("owned legacy codec allocation failed");
+    writer
+        .flush()
+        .expect("owned legacy codec allocation failed");
     encoded.len()
 }
 
-pub(super) fn encode_table(mode: &FseTableMode<'_>, writer: &mut BitWriter<&mut Vec<u8>>) {
+pub(super) fn encode_table(
+    mode: &FseTableMode<'_>,
+    writer: &mut BitWriter<impl crate::workspace::ByteBufferOwner>,
+) -> Result<(), crate::workspace::CapacityError> {
     match mode {
         FseTableMode::Predefined(_) => {}
-        FseTableMode::Rle(symbol) => writer.write_bits(*symbol, 8),
+        FseTableMode::Rle(symbol) => writer.write_bits(*symbol, 8)?,
         FseTableMode::RepeatLast(_) => {}
-        FseTableMode::Encoded(table) => table.write_table(writer),
+        FseTableMode::Encoded(table) => table.write_table(writer)?,
     }
+    Ok(())
 }
 
 pub(super) fn encode_fse_table_modes(

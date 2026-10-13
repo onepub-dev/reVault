@@ -1,0 +1,288 @@
+    Checking typenum v1.20.1
+    Checking cfg-if v1.0.4
+   Compiling proc-macro2 v1.0.107
+   Compiling libc v0.2.189
+   Compiling quote v1.0.47
+   Compiling unicode-ident v1.0.24
+    Checking zeroize v1.9.0
+    Checking cmov v0.5.4
+   Compiling getrandom v0.4.3
+    Checking ctutils v0.4.2
+    Checking rand_core v0.10.1
+    Checking hybrid-array v0.4.15
+   Compiling serde_core v1.0.229
+   Compiling syn v3.0.5
+    Checking crypto-common v0.2.2
+   Compiling autocfg v1.5.1
+    Checking block-buffer v0.12.1
+    Checking const-oid v0.10.2
+   Compiling syn v2.0.119
+   Compiling serde v1.0.229
+   Compiling serde_derive v1.0.229
+    Checking pin-project-lite v0.2.17
+    Checking digest v0.11.3
+   Compiling version_check v0.9.5
+   Compiling num-traits v0.2.19
+    Checking parking v2.2.1
+   Compiling generic-array v0.14.7
+   Compiling winnow v1.0.4
+    Checking futures-core v0.3.34
+   Compiling equivalent v1.0.2
+   Compiling crossbeam-utils v0.8.23
+   Compiling hashbrown v0.17.1
+   Compiling indexmap v2.14.2
+   Compiling toml_parser v1.1.3+spec-1.1.0
+   Compiling toml_datetime v1.1.1+spec-1.1.0
+   Compiling toml_edit v0.25.13+spec-1.1.0
+   Compiling enumflags2_derive v0.7.12
+    Checking futures-io v0.3.34
+    Checking subtle v2.6.1
+    Checking fastrand v2.5.0
+    Checking cpufeatures v0.3.1
+   Compiling proc-macro-crate v3.5.0
+    Checking concurrent-queue v2.5.0
+   Compiling zvariant_utils v4.2.0
+    Checking crypto-common v0.1.7
+    Checking event-listener v5.4.2
+   Compiling rustix v1.1.4
+   Compiling zvariant_derive v5.15.0
+    Checking event-listener-strategy v0.5.4
+    Checking futures-lite v2.6.1
+    Checking linux-raw-sys v0.12.1
+    Checking bitflags v2.13.1
+   Compiling semver v1.0.28
+    Checking slab v0.4.12
+   Compiling rustc_version v0.4.1
+   Compiling async-io v2.6.0
+   Compiling curve25519-dalek v5.0.0
+   Compiling enumflags2 v0.7.12
+   Compiling zcheapstr v1.1.0
+    Checking num-integer v0.1.47
+    Checking polling v3.11.0
+    Checking block-padding v0.3.3
+    Checking block-buffer v0.10.4
+    Checking inout v0.2.2
+    Checking errno v0.3.14
+    Checking keccak v0.2.2
+   Compiling endi v1.1.1
+    Checking async-task v4.7.1
+   Compiling zvariant v5.15.0
+    Checking signal-hook-registry v1.4.8
+    Checking digest v0.10.7
+    Checking inout v0.1.4
+    Checking async-channel v2.5.0
+    Checking signature v3.0.0
+   Compiling curve25519-dalek-derive v0.1.1
+    Checking der v0.8.2
+    Checking base64ct v1.8.3
+   Compiling zmij v1.0.23
+    Checking once_cell v1.21.4
+    Checking atomic-waker v1.1.2
+    Checking piper v0.2.5
+    Checking tracing-core v0.1.36
+    Checking phc v0.6.1
+    Checking spki v0.8.0
+   Compiling zbus_names v4.3.4
+    Checking cipher v0.4.4
+    Checking async-signal v0.2.14
+    Checking cipher v0.5.2
+    Checking num-bigint v0.4.8
+    Checking async-lock v3.4.2
+    Checking module-lattice v0.2.3
+   Compiling tracing-attributes v0.1.31
+    Checking universal-hash v0.6.1
+    Checking cpufeatures v0.2.17
+   Compiling serde_json v1.0.151
+    Checking tinyvec_macros v0.1.1
+    Checking sponge-cursor v0.1.0
+    Checking shake v0.1.0
+    Checking tinyvec v1.13.2
+    Checking poly1305 v0.9.1
+    Checking num-rational v0.4.2
+    Checking async-process v2.5.0
+    Checking tracing v0.1.44
+    Checking chacha20 v0.10.2
+   Compiling zbus_macros v5.19.0
+    Checking pkcs8 v0.11.0
+    Checking password-hash v0.6.1
+    Checking blocking v1.7.0
+    Checking ed25519 v3.0.0
+    Checking hmac v0.12.1
+    Checking async-executor v1.14.0
+    Checking sha3 v0.11.0
+    Checking aead v0.6.1
+    Checking num-iter v0.1.46
+    Checking async-broadcast v0.7.2
+    Checking sha2 v0.11.0
+    Checking uuid v1.26.0
+    Checking num-complex v0.4.6
+    Checking ordered-stream v0.2.0
+    Checking hmac v0.13.0
+    Checking blake2 v0.11.0
+   Compiling async-recursion v1.1.1
+   Compiling futures-macro v0.3.34
+   Compiling serde_repr v0.1.21
+   Compiling async-trait v0.1.92
+    Checking kem v0.3.0
+    Checking itoa v1.0.18
+    Checking twox-hash v2.1.4
+    Checking futures-task v0.3.34
+    Checking hex v0.4.3
+    Checking memchr v2.8.3
+    Checking zbus v5.19.0
+    Checking futures-util v0.3.34
+    Checking zstd-complete v0.2.0 (/tmp/rv-security-cli-isolated-20261013/source/rust/vendor/zstd-complete)
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/bit_io/bit_writer.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `alloc::vec::Vec`
+  --> vendor/zstd-complete/src/decoding/sequence_section_decoder.rs:11:5
+   |
+11 | use alloc::vec::Vec;
+   |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/block_header.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/blocks/compressed/estimate.rs:7:5
+  |
+7 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/blocks/compressed/literals.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/frame_header.rs:4:5
+  |
+4 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:6:5
+  |
+6 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/c_frame_header.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/mode.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/target.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/mode.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/target.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_block/special.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/opt_path.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/superblock_sequences.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/kernel/huff0/mod.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/fse/fse_encoder.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder/stream.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder/table.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+    Checking ml-kem v0.3.2
+    Checking argon2 v0.6.0
+    Checking hkdf v0.13.0
+warning: method `len` is never used
+  --> vendor/zstd-complete/src/fixed_storage.rs:38:19
+   |
+23 | impl<T> FixedStorage<T> {
+   | ----------------------- method in this implementation
+...
+38 |     pub(crate) fn len(&self) -> usize { self.len }
+   |                   ^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+    Checking num v0.4.3
+    Checking ed25519-dalek v3.0.0
+    Checking chacha20poly1305 v0.11.0
+    Checking hkdf v0.12.4
+warning: `zstd-complete` (lib) generated 21 warnings (run `cargo fix --lib -p zstd-complete` to apply 20 suggestions)
+    Checking ml-dsa v0.1.1
+    Checking unicode-normalization v0.1.25
+    Checking sha2 v0.10.9
+    Checking aes v0.8.4
+    Checking cbc v0.1.2
+    Checking x25519-dalek v3.0.0
+    Checking revault_page_api v0.0.34 (/tmp/rv-security-cli-isolated-20261013/source/rust/revault_page_api)
+    Checking getrandom v0.2.17
+    Checking revault_archive_v3_reader v0.0.1 (/tmp/rv-security-cli-isolated-20261013/source/rust/revault_migrate_archive_v3/legacy)
+    Checking secret-service v5.1.0
+ Documenting revault_vault_v3_reader v0.0.1 (/tmp/rv-security-cli-isolated-20261013/source/rust/revault_migrate_archive_v3/legacy_vault)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 27.86s
+   Generated /tmp/rv-security-cli-isolated-20261013/target-doc-legacy-vault/doc/revault_vault_api/index.html

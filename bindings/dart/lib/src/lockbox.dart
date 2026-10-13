@@ -396,6 +396,9 @@ final class Lockbox extends Owned implements ffi.Finalizable {
   /// ```dart
   /// lockbox.extractFile('/docs/readme.txt', '/tmp/readme.txt');
   /// ```
+  void extractFileWithPolicy(String source, String destination, {required int maxFileBytes, required int maxTotalBytes, required int maxFiles, bool restorePermissions = false, bool overwrite = false}) => runtime.operations.lockboxExtractFileWithPolicy(handle, source, destination, maxFileBytes, maxTotalBytes, maxFiles, restorePermissions, overwrite);
+
+  /// Extracts using the existing replacement-only API semantics.
   void extractFile(String source, String destination, {bool replace = false}) =>
       runtime.operations.lockboxExtractFile(
         handle,

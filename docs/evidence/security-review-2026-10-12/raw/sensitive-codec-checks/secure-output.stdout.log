@@ -1,0 +1,8 @@
+
+running 3 tests
+test lockbox::secure_output::native::security_tests::abandoning_or_refusing_stage_preserves_existing_destination_and_cleans_private_files ... ok
+test lockbox::secure_output::native::security_tests::readonly_directory_modes_are_deferred_until_children_are_complete ... ok
+test lockbox::secure_output::native::security_tests::staged_payload_is_private_before_bytes_and_final_mode_precedes_publication ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 721 filtered out; finished in 0.00s
+

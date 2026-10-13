@@ -26,7 +26,7 @@ fn opt_match_collector_reports_repcodes_before_tree_matches() {
     let data = b"abcabcabcxyz";
     let params = params_for_min_match(4);
     let mut state = GreedyMatchState::new();
-    state.ensure_tables(params);
+    state.ensure_tables(params).expect("test storage admission");
     let mut matches = OptMatchTable::new();
 
     bt_get_all_matches_no_dict(
@@ -56,7 +56,7 @@ fn opt_match_collector_reports_increasing_tree_matches() {
     let data = b"xabcdefghijabcdefghij-tail";
     let params = params_for_min_match(4);
     let mut state = GreedyMatchState::new();
-    state.ensure_tables(params);
+    state.ensure_tables(params).expect("test storage admission");
     let mut matches = OptMatchTable::new();
 
     bt_get_all_matches_no_dict(
@@ -79,7 +79,7 @@ fn opt_match_collector_can_match_source_index_zero() {
     let data = b"abcd-----------------------abcd-tail";
     let params = params_for_min_match(4);
     let mut state = GreedyMatchState::new();
-    state.ensure_tables(params);
+    state.ensure_tables(params).expect("test storage admission");
     let mut matches = OptMatchTable::new();
 
     bt_get_all_matches_no_dict(
@@ -102,7 +102,7 @@ fn opt_match_collector_uses_hash3_for_min_match_three() {
     let data = b"xabc---abcXYZ";
     let params = params_for_min_match(3);
     let mut state = GreedyMatchState::new();
-    state.ensure_tables(params);
+    state.ensure_tables(params).expect("test storage admission");
     let mut matches = OptMatchTable::new();
 
     bt_get_all_matches_no_dict(
@@ -130,7 +130,9 @@ fn opt_match_collector_enumerates_attached_dictionary_tree_matches() {
     let params = params_for_min_match(4);
 
     let mut dictionary_state = GreedyMatchState::new();
-    dictionary_state.ensure_tables(params);
+    dictionary_state
+        .ensure_tables(params)
+        .expect("test storage admission");
     dictionary_state.next_to_update = INDEX_BASE;
     load_attached_dictionary_binary_tree(
         dictionary,
@@ -143,7 +145,9 @@ fn opt_match_collector_enumerates_attached_dictionary_tree_matches() {
     dictionary_state.next_to_update = dictionary.len() + INDEX_BASE;
 
     let mut active_state = GreedyMatchState::new();
-    active_state.ensure_tables(params);
+    active_state
+        .ensure_tables(params)
+        .expect("test storage admission");
     active_state.next_to_update = dictionary.len();
     let metadata = OptAttachedDictionary::new(
         0,

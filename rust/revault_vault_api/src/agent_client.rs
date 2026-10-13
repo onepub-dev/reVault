@@ -86,11 +86,15 @@ mod platform {
         Ok(Vec::new())
     }
 
+    pub(crate) fn suspend_cache_clearing_active() -> io::Result<bool> {
+        Ok(false)
+    }
+
     pub(crate) fn is_running() -> bool {
         false
     }
 
-    pub(crate) fn register_secret_activity(_kind: SecretActivityKind) -> io::Result<u64> {
+    pub(crate) fn register_secret_activity(_kind: SecretActivityKind) -> io::Result<(u64, bool)> {
         Err(io::Error::new(
             io::ErrorKind::Unsupported,
             "Session Agent is not supported on this platform",
@@ -303,6 +307,13 @@ pub fn list() -> io::Result<Vec<CachedLockbox>> {
     platform::list()
 }
 
+/// Returns whether the running agent has an initialized suspend cache watcher.
+/// Does not start an agent. This is current capability, not a guarantee that
+/// the operating system delivers every notification (including forced sleep).
+pub fn suspend_cache_clearing_active() -> io::Result<bool> {
+    platform::suspend_cache_clearing_active()
+}
+
 /// Returns true when the platform agent transport is currently reachable.
 pub fn is_running() -> bool {
     platform::is_running()
@@ -321,10 +332,12 @@ pub fn start() -> io::Result<()> {
 pub struct SecretActivityGuard {
     pid: u32,
     token: Option<u64>,
+    local: Option<crate::local_secret_activity::LocalSecretActivity>,
 }
 
 impl Drop for SecretActivityGuard {
     fn drop(&mut self) {
+        drop(self.local.take());
         let Some(token) = self.token.take() else {
             return;
         };
@@ -335,9 +348,25 @@ impl Drop for SecretActivityGuard {
 /// Registers the current process as running a high-level secret activity.
 ///
 /// While registered, the agent may hold a system sleep inhibitor and will
-/// terminate the process if a suspend request still arrives.
+/// request local process suspend protection. Requested but unavailable protection
+/// returns an error before the caller can enter the secret operation.
 pub fn begin_secret_activity(kind: SecretActivityKind) -> io::Result<SecretActivityGuard> {
     let pid = std::process::id();
-    let token = platform::register_secret_activity(kind).ok();
-    Ok(SecretActivityGuard { pid, token })
+    let (token, terminate) = platform::register_secret_activity(kind)?;
+    let local = if terminate {
+        match crate::local_secret_activity::LocalSecretActivity::begin() {
+            Ok(local) => Some(local),
+            Err(error) => {
+                let _ = platform::unregister_secret_activity(pid, token);
+                return Err(error);
+            }
+        }
+    } else {
+        None
+    };
+    Ok(SecretActivityGuard {
+        pid,
+        token: Some(token),
+        local,
+    })
 }

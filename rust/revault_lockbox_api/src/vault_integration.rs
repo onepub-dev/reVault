@@ -14,6 +14,22 @@ pub use crate::lockbox::OpenedContentKey;
 pub struct VaultOpen;
 
 impl VaultOpen {
+    /// Share one credential-bound work budget across primary and backup attempts.
+    pub fn path_with_password_budget(
+        path: &Path,
+        budget: &mut crate::PasswordWorkBudget<'_>,
+    ) -> Result<OpenedContentKey> {
+        Lockbox::open_path_with_password_budget(path, budget)
+    }
+
+    /// Reuse the primary attempt's budget when considering a recovery directory.
+    pub fn key_directory_backup_with_password_budget(
+        bytes: &[u8],
+        budget: &mut crate::PasswordWorkBudget<'_>,
+    ) -> Result<OpenedContentKey> {
+        Lockbox::open_key_directory_backup_with_password_budget(bytes, budget)
+    }
+
     /// Read the lockbox id from a lockbox file header for vault cache lookup.
     pub fn read_lockbox_id(path: &Path) -> Result<LockboxId> {
         Lockbox::read_lockbox_id(path)

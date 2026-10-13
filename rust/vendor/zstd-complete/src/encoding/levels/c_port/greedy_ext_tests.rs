@@ -63,7 +63,7 @@ fn greedy_ext_dict_rejects_overlap_repcode_like_c() {
 
     let params = chain_params(Strategy::Greedy);
     let mut state = GreedyMatchState::new();
-    load_prefix(&mut state, &combined, dict.len(), params);
+    load_prefix(&mut state, &combined, dict.len(), params).expect("test storage admission");
     let output = compress_block_greedy_ext_dict_with_state(
         &combined,
         dict.len()..combined.len(),
@@ -72,7 +72,8 @@ fn greedy_ext_dict_rejects_overlap_repcode_like_c() {
         RepeatOffsets::from_offsets(4, 3, 7),
         &mut state,
         dict.len(),
-    );
+    )
+    .expect("test storage admission");
 
     assert!(!output
         .sequences
@@ -111,11 +112,15 @@ fn greedy_attached_row_dict_finds_dictionary_offset_match() {
 
     let params = row_params();
     let mut dictionary_state = GreedyMatchState::new();
-    dictionary_state.ensure_tables(params);
+    dictionary_state
+        .ensure_tables(params)
+        .expect("test storage admission");
     load_dictionary_rows(dict, dict.len() - 8, params, 4, &mut dictionary_state);
 
     let mut active_state = GreedyMatchState::new();
-    active_state.ensure_tables(params);
+    active_state
+        .ensure_tables(params)
+        .expect("test storage admission");
     active_state.next_to_update = dict.len();
 
     let output = compress_block_greedy_attached_row_dict_with_state(
@@ -130,7 +135,8 @@ fn greedy_attached_row_dict_finds_dictionary_offset_match() {
         &dictionary_state,
         params,
         0,
-    );
+    )
+    .expect("test storage admission");
 
     assert_has_offset_match(&output);
 }
@@ -156,7 +162,9 @@ fn btlazy2_attached_dict_finds_dictionary_offset_match() {
 
     let params = btlazy2_params();
     let mut dictionary_state = GreedyMatchState::new();
-    dictionary_state.ensure_tables(params);
+    dictionary_state
+        .ensure_tables(params)
+        .expect("test storage admission");
     dictionary_state.next_to_update = INDEX_BASE;
     load_attached_dictionary_binary_tree(
         dict,
@@ -169,7 +177,9 @@ fn btlazy2_attached_dict_finds_dictionary_offset_match() {
     dictionary_state.next_to_update = dict.len() + INDEX_BASE;
 
     let mut active_state = GreedyMatchState::new();
-    active_state.ensure_tables(params);
+    active_state
+        .ensure_tables(params)
+        .expect("test storage admission");
     active_state.next_to_update = dict.len();
 
     let output = compress_block_btlazy2_attached_dict_with_state(
@@ -184,7 +194,8 @@ fn btlazy2_attached_dict_finds_dictionary_offset_match() {
         &dictionary_state,
         params,
         INDEX_BASE,
-    );
+    )
+    .expect("test storage admission");
 
     assert_has_offset_match(&output);
 }
@@ -201,11 +212,15 @@ fn run_attached_row_dictionary_match(strategy: Strategy, depth: u32) -> GreedyBl
         ..row_params()
     };
     let mut dictionary_state = GreedyMatchState::new();
-    dictionary_state.ensure_tables(params);
+    dictionary_state
+        .ensure_tables(params)
+        .expect("test storage admission");
     load_dictionary_rows(dict, dict.len() - 8, params, 4, &mut dictionary_state);
 
     let mut active_state = GreedyMatchState::new();
-    active_state.ensure_tables(params);
+    active_state
+        .ensure_tables(params)
+        .expect("test storage admission");
     active_state.next_to_update = dict.len();
 
     macro_rules! compress_at_depth {
@@ -223,6 +238,7 @@ fn run_attached_row_dictionary_match(strategy: Strategy, depth: u32) -> GreedyBl
                 params,
                 0,
             )
+            .expect("test storage admission")
         };
     }
 
@@ -244,7 +260,8 @@ fn btlazy2_ext_dict_finds_dictionary_offset_match() {
 
     let params = btlazy2_params();
     let mut state = GreedyMatchState::new();
-    load_binary_tree_prefix(&mut state, &combined, dict.len(), params);
+    load_binary_tree_prefix(&mut state, &combined, dict.len(), params)
+        .expect("test storage admission");
     let output = compress_block_btlazy2_ext_dict_with_state(
         &combined,
         dict.len()..combined.len(),
@@ -253,7 +270,8 @@ fn btlazy2_ext_dict_finds_dictionary_offset_match() {
         RepeatOffsets::new(),
         &mut state,
         dict.len(),
-    );
+    )
+    .expect("test storage admission");
 
     assert_has_offset_match(&output);
 }
@@ -267,7 +285,7 @@ fn run_dictionary_match(strategy: Strategy) -> GreedyBlockOutput {
 
     let params = chain_params(strategy);
     let mut state = GreedyMatchState::new();
-    load_prefix(&mut state, &combined, dict.len(), params);
+    load_prefix(&mut state, &combined, dict.len(), params).expect("test storage admission");
     match strategy {
         Strategy::Greedy => compress_block_greedy_ext_dict_with_state(
             &combined,
@@ -277,7 +295,8 @@ fn run_dictionary_match(strategy: Strategy) -> GreedyBlockOutput {
             RepeatOffsets::new(),
             &mut state,
             dict.len(),
-        ),
+        )
+        .expect("test storage admission"),
         Strategy::Lazy => compress_block_lazy_ext_dict_with_state(
             &combined,
             dict.len()..combined.len(),
@@ -286,7 +305,8 @@ fn run_dictionary_match(strategy: Strategy) -> GreedyBlockOutput {
             RepeatOffsets::new(),
             &mut state,
             dict.len(),
-        ),
+        )
+        .expect("test storage admission"),
         Strategy::Lazy2 => compress_block_lazy2_ext_dict_with_state(
             &combined,
             dict.len()..combined.len(),
@@ -295,7 +315,8 @@ fn run_dictionary_match(strategy: Strategy) -> GreedyBlockOutput {
             RepeatOffsets::new(),
             &mut state,
             dict.len(),
-        ),
+        )
+        .expect("test storage admission"),
         _ => unreachable!("test only covers hash-chain lazy strategies"),
     }
 }

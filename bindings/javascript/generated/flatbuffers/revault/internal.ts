@@ -23,6 +23,8 @@ export { KeySlot, KeySlotT } from './internal/key-slot.js';
 export { KeySlotList, KeySlotListT } from './internal/key-slot-list.js';
 export { KnownLockbox, KnownLockboxT } from './internal/known-lockbox.js';
 export { KnownLockboxList, KnownLockboxListT } from './internal/known-lockbox-list.js';
+export { LockboxAlias, LockboxAliasT } from './internal/lockbox-alias.js';
+export { LockboxAliasList, LockboxAliasListT } from './internal/lockbox-alias-list.js';
 export { LockboxEntry, LockboxEntryT } from './internal/lockbox-entry.js';
 export { LockboxEntryKind } from './internal/lockbox-entry-kind.js';
 export { LockboxEntryList, LockboxEntryListT } from './internal/lockbox-entry-list.js';

@@ -1,0 +1,245 @@
+diff --git a/rust/revault_cli/tests/aliases.rs b/rust/revault_cli/tests/aliases.rs
+index 62099562..2f27ca70 100644
+--- a/rust/revault_cli/tests/aliases.rs
++++ b/rust/revault_cli/tests/aliases.rs
+@@ -34,7 +34,7 @@ impl Fixture {
+             .current_dir(self.root.path())
+             .args(args)
+             .env("LOCKBOX_VAULT_DIR", self.root.path().join("vault"))
+-            .env("LOCKBOX_SESSION_AGENT_DIR", self.root.path().join("agent"))
++            .env("LOCKBOX_SESSION_AGENT_DIR", common::agent_socket_dir(&self.root.path().join("agent")))
+             .env(
+                 "LOCKBOX_SESSION_AGENT_LOG",
+                 self.root.path().join("agent.log"),
+diff --git a/rust/revault_cli/tests/compaction.rs b/rust/revault_cli/tests/compaction.rs
+index 1921275f..a2ad0664 100644
+--- a/rust/revault_cli/tests/compaction.rs
++++ b/rust/revault_cli/tests/compaction.rs
+@@ -173,7 +173,7 @@ fn compaction_preserves_secret_records_and_mirror_lifecycle() {
+         dir,
+         true,
+         &[
+-            "box.lbox", "form", "set", "--secret", "--stdin", "/account", "password",
++            "box.lbox", "form", "set", "--secret", "--stdin", "/account@password",
+         ],
+         b"form secret",
+     ));
+@@ -201,7 +201,7 @@ fn compaction_preserves_secret_records_and_mirror_lifecycle() {
+         b"variable secret\n"
+     );
+     assert_eq!(
+-        call(&["box.lbox", "form", "get", "--secret", "/account", "password"]),
++        call(&["box.lbox", "form", "get", "--secret", "/account@password"]),
+         b"form secret\n"
+     );
+     assert!(String::from_utf8(call(&["box.lbox", "description", "get"]))
+diff --git a/rust/revault_cli/tests/completion.rs b/rust/revault_cli/tests/completion.rs
+index 36ccb4ce..788f3f29 100644
+--- a/rust/revault_cli/tests/completion.rs
++++ b/rust/revault_cli/tests/completion.rs
+@@ -504,7 +504,7 @@ fn dynamic_completion_reads_vault_names_without_exposing_signing_material() {
+     let bin = env!("CARGO_BIN_EXE_lockbox");
+     let temp = TestTempDir::new("completion-dynamic");
+     let vault_dir = temp.path().join("vault");
+-    let agent_dir = temp.path().join("agent");
++    let agent_dir = common::agent_socket_dir(&temp.path().join("agent"));
+     let agent_log = temp.path().join("agent.log");
+     let password = "completion-test-vault-password";
+ 
+diff --git a/rust/revault_cli/tests/migration_cli.rs b/rust/revault_cli/tests/migration_cli.rs
+index 28691b70..2af6d4d4 100644
+--- a/rust/revault_cli/tests/migration_cli.rs
++++ b/rust/revault_cli/tests/migration_cli.rs
+@@ -618,7 +618,7 @@ impl Fixture {
+         let root = temp.path().to_path_buf();
+         Self {
+             vault: root.join("vault"),
+-            agent: root.join("agent"),
++            agent: common::agent_socket_dir(&root.join("agent")),
+             _temp: temp,
+             root,
+         }
+diff --git a/rust/revault_migration/tests/retained/generate.rs b/rust/revault_migration/tests/retained/generate.rs
+index 5979c598..4abb5d60 100644
+--- a/rust/revault_migration/tests/retained/generate.rs
++++ b/rust/revault_migration/tests/retained/generate.rs
+@@ -15,6 +15,8 @@ fn retain(kind: &str, version: u32, writer: &str, bytes: &[u8], coverage: &[&str
+     let container = revault_lockbox_api::probe_lockbox_format_version(bytes).unwrap();
+     let name = if kind == "vault" && version == 2 && container == 1 {
+         "vault-v2-container-v1".to_string()
++    } else if kind == "vault" && version == 3 && container == 4 {
++        "vault-v3-container-v4".to_string()
+     } else {
+         format!("{kind}-v{version}")
+     };
+@@ -161,6 +163,39 @@ archive_generator!(
+     true
+ );
+ 
++fn producer_package_version(manifest: &str) -> &str {
++    let mut in_package = false;
++    for line in manifest.lines().map(str::trim) {
++        if line.starts_with('[') {
++            in_package = line == "[package]";
++        } else if in_package {
++            if let Some((key, value)) = line.split_once('=') {
++                if key.trim() == "version" {
++                    let version = value.trim().strip_prefix('"')
++                        .and_then(|value| value.strip_suffix('"'))
++                        .expect("fixture producer requires a literal package version");
++                    assert!(!version.is_empty() && version.bytes().all(|b| b.is_ascii_alphanumeric() || b".-+".contains(&b)));
++                    return version;
++                }
++            }
++        }
++    }
++    panic!("fixture producer package version is missing");
++}
++
++fn current_writer() -> String {
++    // The runner preserves the producing source patch and manifest identity.
++    // Read versions from those compiled manifests, not release-sensitive literals.
++    let identity = std::env::var("REVAULT_FIXTURE_SOURCE_SHA256").expect("record the exact producing source manifest SHA-256");
++    assert!(identity.len() == 64 && identity.bytes().all(|b| b.is_ascii_hexdigit()));
++    let api_version = producer_package_version(include_str!("../../../revault_lockbox_api/Cargo.toml"));
++    let vault_version = producer_package_version(include_str!("../../../revault_vault_api/Cargo.toml"));
++    format!("revault_lockbox_api {api_version}; revault_vault_api {vault_version} (workspace); source-manifest SHA-256 {identity}")
++}
++
++
++archive_generator!(archive_v4, revault_lockbox_api, 4, &current_writer(), true);
++
+ macro_rules! vault_generator {
+     ($function:ident, $vault:ident, $api:ident, $version:expr, $writer:expr, $email:ident $(, $password_profile:ident)?) => {
+         fn $function() {
+@@ -228,11 +263,14 @@ vault_generator!(
+     store_profile_email
+ );
+ 
++vault_generator!(vault_v3_container_v4, revault_vault_api, revault_lockbox_api,
++    3, &current_writer(), store_profile_email, create_password_profile);
++
+ #[test]
+ #[ignore = "explicit fixture creation only; refuses to overwrite retained bytes"]
+ fn append_retained_fixture() {
+     let name =
+-        std::env::var("REVAULT_APPEND_FIXTURE").expect("select archive-v1..v3 or vault-v1..v3");
++        std::env::var("REVAULT_APPEND_FIXTURE").expect("select an explicitly registered archive/vault fixture");
+     assert!(
+         !root().join(&name).exists(),
+         "refusing to overwrite retained fixture directory"
+@@ -244,11 +282,21 @@ fn append_retained_fixture() {
+             assert_eq!(LOCKBOX_FORMAT_VERSION, 3);
+             archive_v3();
+         }
++        "archive-v4" => {
++            assert_eq!(LOCKBOX_FORMAT_VERSION, 4);
++            archive_v4();
++        }
++        "vault-v3-container-v4" => {
++            assert_eq!(CURRENT_VAULT_STRUCTURE_VERSION, 3);
++            assert_eq!(LOCKBOX_FORMAT_VERSION, 4);
++            vault_v3_container_v4();
++        }
+         "vault-v1" => vault_v1(),
+         "vault-v2" => vault_v2(),
+         "vault-v2-container-v1" => vault_v2_container_v1(),
+         "vault-v3" => {
+             assert_eq!(CURRENT_VAULT_STRUCTURE_VERSION, 3);
++            assert_eq!(LOCKBOX_FORMAT_VERSION, 3, "historical generator requires its original container writer");
+             vault_v3();
+         }
+         _ => panic!("add an explicit writer and coverage inventory for the new native version"),
+diff --git a/rust/vendor/zstd-complete/src/tests/mod.rs b/rust/vendor/zstd-complete/src/tests/mod.rs
+index 63fd891e..7bcf8d4f 100644
+--- a/rust/vendor/zstd-complete/src/tests/mod.rs
++++ b/rust/vendor/zstd-complete/src/tests/mod.rs
+@@ -44,6 +44,8 @@ fn assure_decoder_send_sync() {
+     // not a real test just there to throw an compiler error if FrameDecoder is Send + Sync
+ 
+     use crate::decoding::FrameDecoder;
++    fn assert_send<T: Send>() {}
++    assert_send::<FrameDecoder>();
+     let decoder = FrameDecoder::new();
+     std::thread::spawn(move || {
+         drop(decoder);
+@@ -240,64 +242,20 @@ fn test_decode_from_to() {
+ 
+ #[test]
+ fn test_specific_file() {
+-    use crate::decoding::BlockDecodingStrategy;
+-    use crate::decoding::FrameDecoder;
++    use crate::decoding::{BlockDecodingStrategy, FrameDecoder};
+     use std::fs;
+-    use std::io::BufReader;
+-    use std::io::Read;
+-
+-    let path = "./decodecorpus_files/z000068.zst";
+-    let mut content = fs::File::open(path).unwrap();
+-
+-    struct NullWriter(());
+-    impl std::io::Write for NullWriter {
+-        fn write(&mut self, buf: &[u8]) -> Result<usize, std::io::Error> {
+-            Ok(buf.len())
+-        }
+-        fn flush(&mut self) -> Result<(), std::io::Error> {
+-            Ok(())
+-        }
+-    }
+-    let mut _null_target = NullWriter(());
+ 
++    // The packaged ordinary fixture and its uncompressed sibling share the
++    // same stem. Compare bytes, rather than printing a different file's mismatch.
++    let mut content = fs::File::open("./decodecorpus_files/z000068.zst").unwrap();
+     let mut frame_dec = FrameDecoder::new();
+     frame_dec.reset(&mut content).unwrap();
+     frame_dec
+         .decode_blocks(&mut content, BlockDecodingStrategy::All)
+         .unwrap();
+     let result = frame_dec.collect().unwrap();
+-
+-    let original_f = BufReader::new(fs::File::open("./decodecorpus_files/z000088").unwrap());
+-    let original: Vec<u8> = original_f.bytes().map(|x| x.unwrap()).collect();
+-
+-    std::println!("Results for file: {path}");
+-
+-    if original.len() != result.len() {
+-        std::println!(
+-            "Result has wrong length: {}, should be: {}",
+-            result.len(),
+-            original.len()
+-        );
+-    }
+-
+-    let mut counter = 0;
+-    let min = if original.len() < result.len() {
+-        original.len()
+-    } else {
+-        result.len()
+-    };
+-    for idx in 0..min {
+-        if original[idx] != result[idx] {
+-            counter += 1;
+-            //std::println!(
+-            //    "Original {:3} not equal to result {:3} at byte: {}",
+-            //    original[idx], result[idx], idx,
+-            //);
+-        }
+-    }
+-    if counter > 0 {
+-        std::println!("Result differs in at least {counter} bytes from original");
+-    }
++    let original = fs::read("./decodecorpus_files/z000068").unwrap();
++    assert_eq!(result, original);
+ }
+ 
+ #[test]
+@@ -749,7 +707,7 @@ fn inspect_archive(path: &std::path::Path) {
+     let window_size = frame_header.window_size().unwrap() as usize;
+     let mut scratch = DecoderScratch::new(window_size);
+     if let Some(dictionary) = dictionary.as_ref() {
+-        scratch.init_from_dict(dictionary);
++        scratch.init_from_dict(dictionary).expect("test storage admission");
+     }
+     let mut block_decoder = crate::decoding::block_decoder::new();
+ 

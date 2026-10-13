@@ -101,18 +101,22 @@ fn run_global() -> CliResult<()> {
         }
     );
     println!(
-        "  suspend management: {}",
+        "  compiled suspend management: {}",
         yes_no(sleep_support.supported())
     );
     println!(
-        "  suspend notifications: {}",
+        "  compiled suspend notifications: {}",
         yes_no(sleep_support.suspend_notifications)
     );
     println!(
-        "  sleep prevention: {}",
+        "  compiled sleep prevention: {}",
         yes_no(sleep_support.sleep_inhibition)
     );
     println!("  running: {}", yes_no(is_running()));
+    match revault_vault_api::suspend_cache_clearing_active() {
+        Ok(active) => println!("  cache suspend clearing active: {}", yes_no(active)),
+        Err(err) => println!("  cache suspend clearing active: unknown: {err}"),
+    }
     match list() {
         Ok(lockboxes) => println!("  open lockboxes: {}", lockboxes.len()),
         Err(err) => println!("  open lockboxes: unknown: {err}"),

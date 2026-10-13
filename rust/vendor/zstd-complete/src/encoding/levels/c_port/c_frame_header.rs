@@ -6,19 +6,20 @@ use super::params::CompressionParameters;
 use crate::encoding::frame_header::FrameHeader;
 
 pub(super) fn write_frame_header_no_dict(
-    output: &mut Vec<u8>,
+    output: &mut impl crate::workspace::Growable<u8>,
     pledged_src_size: usize,
     params: CompressionParameters,
-) {
-    write_frame_header(output, pledged_src_size, params, None);
+) -> Result<(), crate::workspace::CapacityError> {
+    write_frame_header(output, pledged_src_size, params, None)?;
+    Ok(())
 }
 
 pub(super) fn write_frame_header(
-    output: &mut Vec<u8>,
+    output: &mut impl crate::workspace::Growable<u8>,
     pledged_src_size: usize,
     params: CompressionParameters,
     dictionary_id: Option<u32>,
-) {
+) -> Result<(), crate::workspace::CapacityError> {
     let window_size = 1_u64 << params.window_log;
     let pledged_src_size = pledged_src_size as u64;
     let single_segment = window_size >= pledged_src_size;
@@ -30,7 +31,8 @@ pub(super) fn write_frame_header(
         dictionary_id: dictionary_id.map(u64::from),
         window_size: (!single_segment).then_some(window_size),
     }
-    .serialize(output);
+    .serialize(output)?;
+    Ok(())
 }
 
 #[cfg(test)]
@@ -55,7 +57,8 @@ mod tests {
     fn frame_header_uses_single_segment_when_window_covers_source() {
         let mut output = Vec::new();
 
-        write_frame_header_no_dict(&mut output, 128 * 1024, params(17));
+        write_frame_header_no_dict(&mut output, 128 * 1024, params(17))
+            .expect("test storage admission");
         let (header, header_size) = read_frame_header(output.as_slice()).unwrap();
 
         assert!(header.descriptor.single_segment_flag());
@@ -67,7 +70,8 @@ mod tests {
     fn frame_header_writes_window_when_source_exceeds_window() {
         let mut output = Vec::new();
 
-        write_frame_header_no_dict(&mut output, 128 * 1024 + 1, params(17));
+        write_frame_header_no_dict(&mut output, 128 * 1024 + 1, params(17))
+            .expect("test storage admission");
         let (header, header_size) = read_frame_header(output.as_slice()).unwrap();
 
         assert!(!header.descriptor.single_segment_flag());
@@ -80,7 +84,8 @@ mod tests {
     fn frame_header_writes_dictionary_id_when_present() {
         let mut output = Vec::new();
 
-        write_frame_header(&mut output, 128 * 1024, params(17), Some(0x1234));
+        write_frame_header(&mut output, 128 * 1024, params(17), Some(0x1234))
+            .expect("test storage admission");
         let (header, header_size) = read_frame_header(output.as_slice()).unwrap();
 
         assert_eq!(header.dictionary_id(), Some(0x1234));

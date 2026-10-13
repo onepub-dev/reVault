@@ -38,7 +38,7 @@ pub(super) fn try_basic_literal_multi_sub_blocks(
     prepared: &GreedyPreparedBlock,
     fse_tables: &mut FseTables,
     offset_history: &mut OffsetHistory,
-) -> Option<GreedyEncodedBlock> {
+) -> Result<Option<GreedyEncodedBlock>, crate::workspace::CapacityError> {
     let sequence_modes = select_sequence_entropy_modes(
         prepared.prepared.sequences.as_slice(),
         fse_tables,
@@ -49,23 +49,29 @@ pub(super) fn try_basic_literal_multi_sub_blocks(
         prepared.prepared.sequences.as_slice(),
         sequence_modes,
         *offset_history,
-    );
-    let estimate = estimate_basic_literal_sequence_block(
+    )?;
+    let estimate = match estimate_basic_literal_sequence_block(
         prepared,
         sequence_modes,
         sequence_tables.as_ref(),
         fse_tables,
         *offset_history,
-    )?;
-    let plan = sub_block_budget_plan(
+    ) {
+        Some(value) => value,
+        None => return Ok(None),
+    };
+    let plan = match sub_block_budget_plan(
         estimate,
         prepared.prepared.literals.len(),
         prepared.prepared.sequences.len(),
         target.target_c_block_size,
         target.block.len(),
-    )?;
+    ) {
+        Some(value) => value,
+        None => return Ok(None),
+    };
     if plan.nb_sub_blocks <= 1 {
-        return None;
+        return Ok(None);
     }
 
     let previous_offsets = *offset_history;
@@ -124,7 +130,8 @@ pub(super) fn try_basic_literal_multi_sub_blocks(
             fse_tables,
             offset_history,
             &mut candidate,
-        ) else {
+        )?
+        else {
             candidate.truncate(output_start);
             fse_tables.restore_previous(fse_before_sub_block);
             *offset_history = offsets_before_sub_block;
@@ -163,12 +170,18 @@ pub(super) fn try_basic_literal_multi_sub_blocks(
     if start_sequence == 0 {
         fse_tables.restore_previous(previous_fse);
         *offset_history = previous_offsets;
-        return None;
+        return Ok(None);
     }
 
     let remaining_sequences = &prepared.prepared.sequences[start_sequence..];
-    let remaining_literals = prepared.prepared.literals.get(literal_pos..)?;
-    let remaining_decompressed = target.block.len().checked_sub(decompressed_pos)?;
+    let remaining_literals = match prepared.prepared.literals.get(literal_pos..) {
+        Some(value) => value,
+        None => return Ok(None),
+    };
+    let remaining_decompressed = match target.block.len().checked_sub(decompressed_pos) {
+        Some(value) => value,
+        None => return Ok(None),
+    };
     let write_sequence_entropy = !sequence_entropy_written;
     let sub_block_sequence_modes = if write_sequence_entropy {
         sequence_modes
@@ -188,66 +201,82 @@ pub(super) fn try_basic_literal_multi_sub_blocks(
         fse_tables,
         offset_history,
         &mut candidate,
-    ) else {
+    )?
+    else {
         candidate.truncate(output_start);
         fse_tables.restore_previous(fse_before_final);
         *offset_history = offsets_before_final;
         append_raw_block(
-            target.block.get(decompressed_pos..)?,
+            match target.block.get(decompressed_pos..) {
+                Some(value) => value,
+                None => return Ok(None),
+            },
             target.last_block,
             &mut candidate,
-        );
-        finish_sequence_entropy_tables_after_superblock(
+        )?;
+        match finish_sequence_entropy_tables_after_superblock(
             sequence_modes,
             sequence_tables.as_ref(),
             &previous_fse_tables,
             fse_tables,
-        )?;
-        return Some(GreedyEncodedBlock {
-            bytes: candidate,
+        ) {
+            Some(value) => value,
+            None => return Ok(None),
+        };
+        return Ok(Some(GreedyEncodedBlock {
+            bytes: crate::workspace::ReusableVec::from_owned(candidate),
             repeat_offsets: repeat_offsets_after_sequences(
                 target.initial_repeat_offsets,
                 &prepared.prepared.sequences[..start_sequence],
             ),
             new_huffman_table: None,
-        });
+        }));
     };
     if !should_commit_sub_block(emission.byte_size, remaining_decompressed) {
         candidate.truncate(output_start);
         fse_tables.restore_previous(fse_before_final);
         *offset_history = offsets_before_final;
         append_raw_block(
-            target.block.get(decompressed_pos..)?,
+            match target.block.get(decompressed_pos..) {
+                Some(value) => value,
+                None => return Ok(None),
+            },
             target.last_block,
             &mut candidate,
-        );
-        finish_sequence_entropy_tables_after_superblock(
+        )?;
+        match finish_sequence_entropy_tables_after_superblock(
             sequence_modes,
             sequence_tables.as_ref(),
             &previous_fse_tables,
             fse_tables,
-        )?;
-        return Some(GreedyEncodedBlock {
-            bytes: candidate,
+        ) {
+            Some(value) => value,
+            None => return Ok(None),
+        };
+        return Ok(Some(GreedyEncodedBlock {
+            bytes: crate::workspace::ReusableVec::from_owned(candidate),
             repeat_offsets: repeat_offsets_after_sequences(
                 target.initial_repeat_offsets,
                 &prepared.prepared.sequences[..start_sequence],
             ),
             new_huffman_table: None,
-        });
+        }));
     }
 
-    finish_sequence_entropy_tables_after_superblock(
+    match finish_sequence_entropy_tables_after_superblock(
         sequence_modes,
         sequence_tables.as_ref(),
         &previous_fse_tables,
         fse_tables,
-    )?;
-    Some(GreedyEncodedBlock {
-        bytes: candidate,
+    ) {
+        Some(value) => value,
+        None => return Ok(None),
+    };
+    Ok(Some(GreedyEncodedBlock {
+        bytes: crate::workspace::ReusableVec::from_owned(candidate),
         repeat_offsets: prepared.repeat_offsets,
         new_huffman_table: None,
-    })
+    }))
 }
 
 fn estimate_basic_literal_sequence_block(
@@ -282,16 +311,16 @@ fn append_basic_sequence_sub_block(
     fse_tables: &mut FseTables,
     offset_history: &mut OffsetHistory,
     output: &mut Vec<u8>,
-) -> Option<TargetBasicSubBlockEmission> {
+) -> Result<Option<TargetBasicSubBlockEmission>, crate::workspace::CapacityError> {
     let previous_offsets = *offset_history;
     let block_start = output.len();
     output.extend_from_slice(&[0; BLOCK_HEADER_SIZE]);
     let content_start = output.len();
     let Some(literal_emission) =
-        append_sub_block_literals(literals, EntropyTableMode::Basic, false, output)
+        append_sub_block_literals(literals, EntropyTableMode::Basic, false, output)?
     else {
         output.truncate(block_start);
-        return None;
+        return Ok(None);
     };
     let sequence_emission = if write_sequence_entropy {
         append_supported_sub_block_sequences_with_tables(
@@ -302,7 +331,7 @@ fn append_basic_sequence_sub_block(
             fse_tables,
             offset_history,
             output,
-        )
+        )?
     } else {
         append_supported_sub_block_sequences(
             sequences,
@@ -311,12 +340,12 @@ fn append_basic_sequence_sub_block(
             fse_tables,
             offset_history,
             output,
-        )
+        )?
     };
     let Some(sequence_emission) = sequence_emission else {
         *offset_history = previous_offsets;
         output.truncate(block_start);
-        return None;
+        return Ok(None);
     };
 
     let content_size = output.len() - content_start;
@@ -331,10 +360,10 @@ fn append_basic_sequence_sub_block(
     };
     output[block_start..content_start].copy_from_slice(&header.serialize_to_bytes());
 
-    Some(TargetBasicSubBlockEmission {
+    Ok(Some(TargetBasicSubBlockEmission {
         byte_size: BLOCK_HEADER_SIZE + content_size,
         sequence_entropy_written: sequence_emission.entropy_written,
-    })
+    }))
 }
 
 fn repeat_sequence_modes() -> SequenceEntropyModes {

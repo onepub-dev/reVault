@@ -110,7 +110,7 @@ list_types = {
     "LockboxEntryList": "LockboxEntry", "VariableList": "Variable",
     "KeySlotList": "KeySlot", "FormDefinitionList": "FormDefinition",
     "FormRecordList": "FormRecord", "ContactList": "Contact",
-    "KnownLockboxList": "KnownLockbox", "AccessSlotLabelList": "AccessSlotLabel",
+    "LockboxAliasList": "LockboxAlias", "KnownLockboxList": "KnownLockbox", "AccessSlotLabelList": "AccessSlotLabel",
     "AgentEntryList": "AgentEntry", "ProfileHistoryList": "ProfileHistory",
 }
 for wrapper, item in list_types.items():

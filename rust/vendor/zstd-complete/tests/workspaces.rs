@@ -775,3 +775,36 @@ fn huffman_literal_overproduction_returns_error_without_static_growth() {
         .chain(&storage[required + 16..])
         .all(|byte| *byte == 0x6d));
 }
+
+#[test]
+fn bounded_sensitive_workspace_construction_and_encoding_stay_in_caller_storage() {
+    for size in [0usize, 1, 1024, 65_536, 131_073, 2 * 1024 * 1024] {
+        let input = alternate_input(size, 0x59e3_29a1);
+        for numeric in 1..=22 {
+            let level = CompressionLevel::new(numeric).unwrap();
+            let required = EncoderWorkspace::required_size(level, size).unwrap();
+            let output_size = EncoderWorkspace::required_output_size(size).unwrap();
+            if required.checked_add(output_size).unwrap() > 64 * 1024 * 1024 {
+                continue; // The application deliberately uses a raw frame here.
+            }
+            let mut scratch = vec![0; required];
+            let mut output = vec![0; output_size];
+            let mut written = 0;
+            let allocations = allocation_count(|| {
+                let mut workspace = StaticEncoderWorkspace::new(&mut scratch, level, size).unwrap();
+                written = workspace.encode_into(&input, &mut output).unwrap().len();
+                drop(workspace);
+            });
+            assert_eq!(
+                allocations,
+                0,
+                "size={size} level={numeric} allocations={:?}",
+                recorded_allocation_sizes()
+            );
+            assert_eq!(
+                zstd::bulk::decompress(&output[..written], size).unwrap(),
+                input
+            );
+        }
+    }
+}

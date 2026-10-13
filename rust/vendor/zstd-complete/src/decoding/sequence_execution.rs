@@ -145,12 +145,18 @@ mod bound_tests {
         let maximum = crate::common::MAX_BLOCK_SIZE;
         for matches in [maximum - 1, maximum, u32::MAX] {
             scratch.reset(0);
-            scratch.literals_buffer.extend_from_slice(b"x");
-            scratch.sequences.push(Sequence {
-                ll: 1,
-                ml: matches,
-                of: 1,
-            });
+            scratch
+                .literals_buffer
+                .extend_from_slice(b"x")
+                .expect("test storage admission");
+            scratch
+                .sequences
+                .push(Sequence {
+                    ll: 1,
+                    ml: matches,
+                    of: 1,
+                })
+                .expect("test storage admission");
             let before_offsets = scratch.offset_hist;
             let result = execute_sequences(scratch);
             if matches == maximum - 1 {

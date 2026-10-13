@@ -1,0 +1,4 @@
+d8608ef36f3722783e458d73ffa5e0cac3634b6e8d60f29cc10e849dcf5508be  /home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/release/librevault_api.so
+e9c2c1b749f2cbed742719790cd1dc32df8c3db4b5f10152fd3ed5e59ed35b3c  /home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/bindings/e2e/java/Conformance.java
+ede6fa0348b253c49a8d8321301169a266f952da837da7a7f911d6535e3f6033  /tmp/revault-java-alias-batch5-classes/com/onepub/revault/e2e/Conformance.class
+587bd6c31cda747587493a113bec8602d3a0b0ca579b2b1b838ef71b19e6525d  /home/bsutton/.m2/repository/com/google/flatbuffers/flatbuffers-java/25.2.10/flatbuffers-java-25.2.10.jar

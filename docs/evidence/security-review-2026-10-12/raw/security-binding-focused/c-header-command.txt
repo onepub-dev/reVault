@@ -1,0 +1,1 @@
+gcc -std=c11 -Wall -Wextra -Werror -x c -fsyntax-only -I rust/revault_bindings -include revault_api.h /dev/null

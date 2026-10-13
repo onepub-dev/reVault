@@ -18,6 +18,9 @@ impl From<super::files::NativeReadBytes> for NativeWindow {
     fn from(bytes: super::files::NativeReadBytes) -> Self {
         match bytes {
             super::files::NativeReadBytes::Owned(bytes) => Self::Owned(ZeroizingBytes::new(bytes)),
+            super::files::NativeReadBytes::SensitiveOwned(bytes) => {
+                Self::Owned(ZeroizingBytes::new(bytes.into_vec()))
+            }
             super::files::NativeReadBytes::Shared { frame, range, .. } => {
                 // The handle retains its storage borrow and independently checks
                 // the same full extent and revision before every window copy.

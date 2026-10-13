@@ -21,9 +21,13 @@ pub struct BlockHeader {
 
 impl BlockHeader {
     /// Write encoded binary representation of this header into the provided buffer.
-    pub fn serialize(self, output: &mut Vec<u8>) {
+    pub fn serialize(
+        self,
+        output: &mut impl crate::workspace::Growable<u8>,
+    ) -> Result<(), crate::workspace::CapacityError> {
         vprintln!("Serializing block with the header: {self:?}");
-        output.extend_from_slice(&self.serialize_to_bytes());
+        output.extend_from_slice(&self.serialize_to_bytes())?;
+        Ok(())
     }
 
     pub(crate) fn serialize_to_bytes(self) -> [u8; 3] {
@@ -55,7 +59,9 @@ mod tests {
             block_size: 69,
         };
         let mut serialized_header = Vec::new();
-        header.serialize(&mut serialized_header);
+        header
+            .serialize(&mut serialized_header)
+            .expect("test storage admission");
         let mut decoder = block_decoder::new();
         let parsed_header = decoder
             .read_block_header(serialized_header.as_slice())

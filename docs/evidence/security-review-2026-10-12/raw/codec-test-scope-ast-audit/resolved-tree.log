@@ -1,0 +1,9 @@
+revault-test-scope-audit v0.0.0 (/tmp/revault-test-scope-audit)
+├── proc-macro2 v1.0.107
+│   └── unicode-ident v1.0.26
+├── quote v1.0.47
+│   └── proc-macro2 v1.0.107 (*)
+└── syn v2.0.119
+    ├── proc-macro2 v1.0.107 (*)
+    ├── quote v1.0.47 (*)
+    └── unicode-ident v1.0.26

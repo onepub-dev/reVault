@@ -1,0 +1,50 @@
+../bindings/swift/Sources/RevaultAPI/RevaultAPI.swift:1077:    func vaultDirectoryListLockboxAliases(_ handle: UnsafeMutableRawPointer) throws -> [LockboxAlias] {
+../bindings/swift/Sources/RevaultAPI/RevaultAPI.swift:1078:        return DomainCodec.lockboxAliasList(try take(vault_directory_list_lockbox_aliases(handle)))
+../bindings/swift/Sources/RevaultAPI/RevaultAPI.swift:1089:    func vaultReadOnlyListLockboxAliases(_ handle: UnsafeMutableRawPointer) throws -> [LockboxAlias] {
+../bindings/swift/Sources/RevaultAPI/RevaultAPI.swift:1090:        return DomainCodec.lockboxAliasList(try take(vault_read_only_list_lockbox_aliases(handle)))
+../bindings/swift/Sources/RevaultAPI/RevaultAPI.swift:2515:    public func listLockboxAliases() throws -> [LockboxAlias] {
+../bindings/swift/Sources/RevaultAPI/RevaultAPI.swift:2516:        return try operations.vaultDirectoryListLockboxAliases(handle!)
+../bindings/swift/Sources/RevaultAPI/RevaultAPI.swift:2625:    public func listLockboxAliases() throws -> [LockboxAlias] {
+../bindings/swift/Sources/RevaultAPI/RevaultAPI.swift:2626:        return try operations.vaultReadOnlyListLockboxAliases(handle!)
+../bindings/ruby/lib/revault/vault.rb:983:    def list_lockbox_aliases()
+../bindings/ruby/lib/revault/vault.rb:984:      @operations.vault_directory_list_lockbox_aliases(@native_handle)
+../bindings/ruby/lib/revault/vault.rb:1088:    def list_lockbox_aliases()
+../bindings/ruby/lib/revault/vault.rb:1089:      @operations.vault_read_only_list_lockbox_aliases(@native_handle)
+../bindings/javascript/index.d.ts:454:  listLockboxAliases(): ReadonlyArray<import('./domain.js').LockboxAlias>;
+../bindings/javascript/index.d.ts:501:  listLockboxAliases(): ReadonlyArray<import('./domain.js').LockboxAlias>;
+../bindings/lua/revault_api.lua:188:RevaultBuffer vault_directory_list_lockbox_aliases(const void *handle);
+../bindings/lua/revault_api.lua:191:RevaultBuffer vault_read_only_list_lockbox_aliases(const void *handle);
+../bindings/lua/revault_api.lua:1275:function Operations:vault_directory_list_lockbox_aliases(handle)
+../bindings/lua/revault_api.lua:1276:  return Models.LockboxAliasList.decode(take(native.vault_directory_list_lockbox_aliases(handle)))
+../bindings/lua/revault_api.lua:1288:function Operations:vault_read_only_list_lockbox_aliases(handle)
+../bindings/lua/revault_api.lua:1289:  return Models.LockboxAliasList.decode(take(native.vault_read_only_list_lockbox_aliases(handle)))
+../bindings/lua/revault_api.lua:2483:function VaultStore:list_lockbox_aliases()
+../bindings/lua/revault_api.lua:2484:  return self.operations:vault_directory_list_lockbox_aliases(self.handle)
+../bindings/lua/revault_api.lua:2584:function ReadOnlyVault:list_lockbox_aliases()
+../bindings/lua/revault_api.lua:2585:  return self.operations:vault_read_only_list_lockbox_aliases(self.handle)
+../bindings/python/revault_api/facade.py:1707:    'vault_directory_list_lockbox_aliases': (('handle',), 'message:LockboxAliasList', False),
+../bindings/python/revault_api/facade.py:1710:    'vault_read_only_list_lockbox_aliases': (('handle',), 'message:LockboxAliasList', False),
+../bindings/python/revault_api/facade.py:1794:def _VaultDirectory_list_lockbox_aliases(self):
+../bindings/python/revault_api/facade.py:1796:    return _call(self, 'vault_directory_list_lockbox_aliases', ())
+../bindings/python/revault_api/facade.py:1797:VaultDirectory.list_lockbox_aliases = _VaultDirectory_list_lockbox_aliases
+../bindings/python/revault_api/facade.py:1809:def _ReadOnlyVaultDirectory_list_lockbox_aliases(self):
+../bindings/python/revault_api/facade.py:1811:    return _call(self, 'vault_read_only_list_lockbox_aliases', ())
+../bindings/python/revault_api/facade.py:1812:ReadOnlyVaultDirectory.list_lockbox_aliases = _ReadOnlyVaultDirectory_list_lockbox_aliases
+../bindings/java/src/com/onepub/revault/Revault.java:608:    public java.util.List<LockboxAlias> listLockboxAliases() { return operations.vaultDirectoryListLockboxAliases(handle); }
+../bindings/java/src/com/onepub/revault/Revault.java:665:    public java.util.List<LockboxAlias> listLockboxAliases() { return operations.vaultReadOnlyListLockboxAliases(handle); }
+../bindings/dart/lib/src/read_only_vault.dart:55:  /// final aliases = vault.listLockboxAliases();
+../bindings/dart/lib/src/read_only_vault.dart:57:  List<LockboxAlias> listLockboxAliases() => runtime.operations.vaultReadOnlyListLockboxAliases(handle);
+../bindings/go/revault.go:1292:// ListLockboxAliases Lists aliases without opening their targets.
+../bindings/go/revault.go:1293:func (vault *vaultStore) ListLockboxAliases() ([]LockboxAlias, error) { return decodeResult(C.vault_directory_list_lockbox_aliases(vault.handle), decodeLockboxAliasList) }
+../bindings/go/revault.go:1399:// ListLockboxAliases Lists aliases without opening their targets.
+../bindings/go/revault.go:1400:func (vault *ReadOnlyVault) ListLockboxAliases() ([]LockboxAlias, error) { return decodeResult(C.vault_read_only_list_lockbox_aliases(vault.handle), decodeLockboxAliasList) }
+../bindings/dart/lib/src/vault.dart:704:  /// final aliases = vault.listLockboxAliases();
+../bindings/dart/lib/src/vault.dart:706:  List<LockboxAlias> listLockboxAliases() => runtime.operations.vaultDirectoryListLockboxAliases(handle);
+../bindings/php/src/Vault.php:1200:    public function listLockboxAliases(): \Revault\LockboxAliasList
+../bindings/php/src/Vault.php:1202:        return $this->operations->vaultDirectoryListLockboxAliases($this->handle);
+../bindings/php/src/Vault.php:1328:    public function listLockboxAliases(): \Revault\LockboxAliasList
+../bindings/php/src/Vault.php:1330:        return $this->operations->vaultReadOnlyListLockboxAliases($this->handle);
+../bindings/cpp/revault_api.hpp:1139:  bindings::LockboxAliasList list_lockbox_aliases() const { return detail::take_message<bindings::LockboxAliasList>(vault_directory_list_lockbox_aliases(handle_)); }
+../bindings/cpp/revault_api.hpp:1257:  bindings::LockboxAliasList list_lockbox_aliases() const { return detail::take_message<bindings::LockboxAliasList>(vault_read_only_list_lockbox_aliases(handle_)); }
+../bindings/csharp/Vault.cs:475:        public IReadOnlyList<LockboxAlias> ListLockboxAliases() => owner.operations.VaultDirectoryListLockboxAliases(Handle);
+../bindings/csharp/Vault.cs:531:        public IReadOnlyList<LockboxAlias> ListLockboxAliases() => owner.operations.VaultReadOnlyListLockboxAliases(handle);

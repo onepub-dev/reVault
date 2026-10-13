@@ -1,0 +1,1 @@
+Preserved the copied package-level resolver = "3". Removed only the resolver = "3" line from the appended standalone [workspace] section because Cargo rejected the same resolver being specified in both tables. Original vendor source files and dependencies are untouched.

@@ -1,0 +1,264 @@
+warning: associated function `new` is never used
+  --> revault_lockbox_api/src/compression/encode_workspace.rs:63:19
+   |
+62 | impl EncoderFrame {
+   | ----------------- associated function in this implementation
+63 |     pub(crate) fn new(input: &[u8], probe: bool) -> Self {
+   |                   ^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: associated function `open_bytes_with_password` is never used
+   --> revault_lockbox_api/src/lockbox/key_management.rs:749:19
+    |
+201 | impl Lockbox {
+    | ------------ associated function in this implementation
+...
+749 |     pub(crate) fn open_bytes_with_password(
+    |                   ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `encode_compression_frame_manifest` is never used
+  --> revault_lockbox_api/src/model/compression_frame_manifest.rs:49:15
+   |
+49 | pub(crate) fn encode_compression_frame_manifest(
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: `revault_lockbox_api` (lib) generated 3 warnings
+warning: revault_key_server@0.0.37: reVault key/topology server production operation requires a separate commercial license from OnePub IP Pty Ltd; see revault_key_server/LICENSE
+    Finished `release` profile [optimized] target(s) in 0.17s
+     Running unittests src/main.rs (target/release/deps/lockbox-b8134cfac1cb1280)
+commands::completion::tests::candidate_filter_is_static_and_secret_free: test
+commands::completion::tests::powershell_managed_block_preserves_user_profile_content: test
+commands::completion::tests::shell_detection_handles_unix_windows_and_ambiguity: test
+commands::completion::tests::shell_override_accepts_supported_names_and_aliases: test
+commands::error_output::tests::api_errors_have_labels_and_recovery_guidance: test
+commands::error_output::tests::colour_is_only_added_when_requested: test
+commands::error_output::tests::errors_have_stable_exit_codes: test
+commands::error_output::tests::low_level_prefixes_are_replaced_with_plain_language: test
+commands::error_output::tests::newer_api_format_errors_direct_upgrade_instead_of_migration: test
+commands::error_output::tests::newer_vault_format_errors_direct_upgrade_instead_of_migration: test
+commands::error_output::tests::structured_error_is_readable_without_colour: test
+commands::filters::tests::shared_rules_match_paths_and_globs: test
+commands::form::move_tests::root_glob_only_matches_root_records: test
+commands::form::move_tests::root_glob_preserves_form_record_names: test
+commands::help::migration_inventory_tests::batch_commands_accept_multiple_values_and_singletons_reject_them: test
+commands::help::migration_inventory_tests::conventional_command_aliases_are_consistent: test
+commands::help::migration_inventory_tests::create_usage_requires_an_explicit_lockbox_name: test
+commands::help::migration_inventory_tests::direct_migration_options_conflict_with_nested_commands: test
+commands::help::migration_inventory_tests::migration_command_and_option_inventory_is_explicit: test
+commands::help::migration_inventory_tests::print_complete_command_inventory: test
+commands::help::migration_inventory_tests::required_positionals_are_enforced_by_clap: test
+commands::help::migration_inventory_tests::secret_options_consistently_support_short_s: test
+commands::helpers::tests::selectors_and_environment_names: test
+commands::migrate::tests::direct_migration_identity_is_stable_and_destination_specific: test
+commands::migrate::tests::direct_migration_key_is_random_and_zeroizing: test
+commands::migrate::tests::exporter_registry_and_capability_contract_are_exact: test
+commands::migrate::tests::interrupted_replace_is_finished_from_the_encrypted_journal: test
+commands::migrate::tests::resume_rejects_a_changed_source: test
+commands::mirror::tests::source_inventory_is_disk_backed_and_tree_changes_are_rejected: test
+commands::mirror_index::tests::grows_and_resolves_binary_keys_without_loading_the_table: test
+commands::output::tests::human_sizes_use_compact_decimal_units: test
+commands::session::argument_tests::session_format_is_inherited_by_auto_open_status: test
+commands::session::argument_tests::session_format_is_rejected_for_non_output_commands: test
+commands::variables::move_tests::nested_glob_preserves_paths_below_its_fixed_prefix: test
+commands::variables::move_tests::root_glob_preserves_variable_names: test
+commands::vault::tests::contact_fingerprint_hex_uses_lowercase_pairs: test
+commands::vault::tests::contact_name_defaults_from_email: test
+commands::vault::tests::fingerprint_channel_requires_receiver_initiated_second_channel: test
+commands::vault::tests::fingerprint_code_uses_lowercase_crockford_and_accepts_uppercase: test
+commands::vault::tests::publish_defaults_to_redundant_topology_bootstrap: test
+commands::vault::tests::publish_expiry_uses_human_readable_utc_time: test
+commands::vault::tests::publish_rate_limit_error_is_short: test
+commands::vault::tests::publish_smtp_error_is_short: test
+commands::vault::tests::receive_publish_advice_requires_contact_initiated_trusted_channel: test
+
+44 tests, 0 benchmarks
+     Running tests/agent_flow.rs (target/release/deps/agent_flow-77c4e28230fbd886)
+open_and_open_key_complete_real_session_flows: test
+open_populates_cache_and_close_clears_it: test
+
+2 tests, 0 benchmarks
+     Running tests/aliases.rs (target/release/deps/aliases-5d849b7ac119140a)
+alias_destinations_are_refused_without_overwriting_existing_files: test
+alias_forget_handles_externally_removed_file_and_move_refusal_preserves_destination: test
+alias_lifecycle_persists_and_tracks_identity: test
+aliases_never_fall_back_and_reject_replaced_or_forgotten_targets: test
+aliases_survive_backup_and_restore_and_locked_helpers_do_not_prompt: test
+completion_exposes_names_only_and_retains_assignment_destination: test
+create_alias_collisions_warn_and_preserve_both_lockboxes: test
+create_registers_derived_and_explicit_aliases_with_readback: test
+create_rejects_invalid_aliases_and_does_not_register_failed_creations: test
+create_validates_options_and_vault_before_creating_an_archive: test
+environment_child: test
+format_three_reader_refuses_unicode_format_four_vault_without_mutation: test
+helpers_read_normal_and_secret_fields_and_reject_invalid_destinations: test
+lockbox_alias_creation_refuses_existing_target_including_extensionless_name: test
+migration_alias_selector_exports_and_imports_with_independent_readback: test
+new_names_reserve_at_but_host_paths_do_not: test
+representative_archive_routes_accept_alias_selector: test
+session_default_alias_reads_follow_lockbox_move: test
+unicode_alias_helpers_normalize_lookup_and_completion_prefixes: test
+unicode_alias_lifecycle_normalizes_and_preserves_persisted_values: test
+unicode_creation_derives_names_and_preserves_normalization_collisions: test
+
+21 tests, 0 benchmarks
+     Running tests/cli_flow.rs (target/release/deps/cli_flow-cb29573fe936d28c)
+access_subcommands_manage_lockbox_access: test
+add_accepts_jobs_option_for_large_files: test
+add_can_default_destination_and_list_recursively: test
+add_recursive_dot_imports_the_current_directory_contents: test
+auto_open_lockboxes_uses_remembered_password: test
+auto_open_lockboxes_with_vault_profile_allows_first_add: test
+auto_open_scope_commands_persist_without_a_platform_secret_store: test
+clap_errors_are_not_double_prefixed: test
+cli_env_rename_and_visualize_flow: test
+cli_secret_variables_require_explicit_source_and_redact_export: test
+command_first_lockbox_is_rejected_for_lockbox_scoped_commands: test
+content_key_create_registers_an_alias_for_the_empty_lockbox: test
+create_defaults_lbox_extension_and_reports_before_prompting: test
+create_refuses_to_overwrite_existing_lockbox: test
+description_commands_support_every_value_source_and_clear: test
+direct_migration_requires_an_output_or_explicit_replacement: test
+directory_remove_requires_recursive_flag: test
+doctor_and_session_report_agent_state: test
+doctor_lockbox_adds_open_checks_when_opened: test
+doctor_lockbox_reports_closed_metadata_and_open_guidance: test
+doctor_recover_detects_and_completes_interrupted_cleanup: test
+file_env_and_developer_aliases_execute_real_flows: test
+form_definitions_and_records_flow: test
+form_interactive_edit_handles_definition_history_and_mismatched_record: test
+form_set_secret_upgrades_a_normal_field: test
+help_is_grouped_and_commands_have_specific_help: test
+interactive_create_and_profile_open_reuse_the_prompted_vault: test
+interactive_password_open_distinguishes_vault_and_lockbox_passwords: test
+lbx_binary_is_alias_for_revault_cli: test
+list_commands_support_table_tsv_and_json_formats: test
+missing_lockbox_errors_are_cli_specific: test
+move_lockbox_file_attempt_points_to_vault_command: test
+negative_cli_errors_remain_specific: test
+open_accepts_password_sources_and_session_duration: test
+open_list_flag_is_not_supported: test
+open_requires_explicit_vault_init: test
+ordinary_write_capable_open_completes_interrupted_cleanup_automatically: test
+owner_signed_password_create_requires_explicit_vault_init: test
+plain_filesystem_move_reports_stale_session_default_clearly: test
+profile_only_open_never_falls_back_to_a_password_prompt: test
+read_only_archive_supports_cli_listing_and_byte_exact_extraction: test
+recover_reports_and_writes_recovered_lockbox: test
+remove_requires_confirmation_and_reports_count: test
+removing_last_lockbox_key_has_cli_guidance: test
+session_and_close_report_empty_cache_and_already_closed_state: test
+session_default_lockbox_applies_to_lockbox_argument_variants: test
+session_default_sets_default_lockbox_for_commands: test
+target_first_lockbox_is_rejected_for_global_commands: test
+top_level_help_pins_command_groups_and_hidden_commands: test
+unambiguous_misspelled_top_level_commands_are_not_treated_as_lockboxes: test
+variable_set_secret_upgrades_a_normal_variable: test
+vault_backup_and_restore_round_trip_encrypted_vault: test
+vault_beget_creates_an_independent_profile_and_local_contact: test
+vault_beget_supports_custom_output_contact_and_no_contact: test
+vault_commands_execute_real_flows: test
+vault_form_definitions_can_be_used_and_captured: test
+vault_init_existing_is_noop_unless_verify_is_requested: test
+vault_init_generated_pass_phrase_accepts_stored_confirmation: test
+vault_init_generated_pass_phrase_requires_stored_confirmation: test
+vault_init_overwrite_replaces_existing_vault_with_warning: test
+vault_init_prompt_mentions_minimum_pass_phrase_length: test
+vault_init_rejects_blank_pass_phrase: test
+vault_init_verify_wrong_password_reports_vault_specific_error: test
+vault_lockbox_list_reports_owner_size_and_path: test
+vault_lockbox_move_across_filesystems_preserves_content: test
+vault_lockbox_move_updates_file_vault_and_default_session: test
+vault_lockbox_remembers_an_existing_lockbox_by_absolute_path: test
+vault_passphrase_changes_password_and_creates_backup: test
+vault_profile_create_names_default_and_rejects_public_key_output: test
+vault_profile_export_reports_missing_output: test
+vault_profile_fingerprint_displays_publish_fingerprint: test
+vault_profile_fingerprint_without_email_is_actionable: test
+vault_profile_public_export_and_backup_restore_are_accepted_by_cli: test
+vault_profile_remove_requires_confirmation_and_force_bypasses_it: test
+vault_profile_restore_replaces_default_profile_and_signing_key: test
+vault_profile_rotate_history_and_access_refresh_flow: test
+vault_publish_without_profile_email_is_actionable: test
+version_is_available_for_installers_and_package_managers: test
+
+78 tests, 0 benchmarks
+     Running tests/compaction.rs (target/release/deps/compaction-6ab8befed53483c9)
+compaction_lifecycle_preserves_bytes_and_reclaims_space_in_every_format_mode: test
+compaction_preserves_secret_records_and_mirror_lifecycle: test
+
+2 tests, 0 benchmarks
+     Running tests/completion.rs (target/release/deps/completion-5517734d6bdbd21f)
+bash_completion_sources_and_registers_all_four_commands: test
+completion_default_install_refreshes_and_uninstalls_all_commands: test
+completion_generate_and_explicit_path_cover_all_commands_for_every_shell: test
+completion_generation_supports_shell_override_and_install_uninstall: test
+dynamic_completion_completes_target_lockboxes_and_add_sources: test
+dynamic_completion_navigates_open_lockbox_paths: test
+dynamic_completion_reads_vault_names_without_exposing_signing_material: test
+locked_vault_completion_falls_back_without_prompt_or_diagnostics: test
+
+8 tests, 0 benchmarks
+     Running tests/contact_receive_alias.rs (target/release/deps/contact_receive_alias-c1190443840f43da)
+contact_receive_rejects_legacy_fetch_command: test
+
+1 test, 0 benchmarks
+     Running tests/creation_options.rs (target/release/deps/creation_options-2fc68714de95ebf8)
+independent_creation_choices_persist_through_cli_lifecycle: test
+invalid_creation_combinations_are_rejected_before_creation: test
+password_default_supports_vaultless_write_lifecycle: test
+
+3 tests, 0 benchmarks
+     Running tests/experimental_v4_migration.rs (target/release/deps/experimental_v4_migration-a9905b260e812c3f)
+historical_v4_vault_and_password_archive_migrate_through_public_cli: test
+
+1 test, 0 benchmarks
+     Running tests/headless.rs (target/release/deps/headless-94c9c20dbedc97a8)
+explicit_credentials_work_without_desktop_or_bus_and_missing_credentials_fail: test
+requested_suspend_protection_is_not_silently_disabled_without_bus: test
+
+2 tests, 0 benchmarks
+     Running tests/help_open_key.rs (target/release/deps/help_open_key-eb6f0c7a44a21557)
+open_key_help_says_it_opens_a_lockbox: test
+
+1 test, 0 benchmarks
+     Running tests/migration_cli.rs (target/release/deps/migration_cli-c8a2ed1e0ad1509c)
+archive_migration_commands_and_options_execute_end_to_end: test
+archive_v1_contact_only_migration_uses_keys_from_the_current_vault: test
+archive_v1_migrates_end_to_end_with_the_historical_exporter: test
+automatic_historical_exporter_install_hides_cargo_output: test
+lockbox_v1_with_description_migrates_and_default_error_names_its_path: test
+migrated_mirror_preserves_configuration_and_update_lifecycle: test
+vault_migration_commands_and_options_execute_end_to_end: test
+vault_structure_v2_in_container_v1_migrates_end_to_end: test
+vault_v1_replace_uses_the_explicit_historical_exporter: test
+vault_v2_replace_preserves_profile_keys_and_supports_password_profiles: test
+vault_v3_container_upgrade_preserves_profiles_and_enables_compaction: test
+
+11 tests, 0 benchmarks
+     Running tests/mirror_cli.rs (target/release/deps/mirror_cli-0c893f8ea3b8dd5b)
+extraction_restores_stored_permissions_by_default_with_opt_out: test
+mirror_create_rules_status_update_and_ownership: test
+mirror_excludes_the_lockbox_and_its_active_lock_file_from_its_source: test
+mirror_file_commands_match_archive_file_command_shapes_and_destroy_removes_root: test
+mirror_large_delete_persists_after_reopen: test
+mirror_retain_forget_and_delete_have_distinct_results: test
+mirror_status_indexes_one_hundred_thousand_source_files: test
+multiple_mirrors_require_name_and_destinations_cannot_overlap: test
+populated_mirror_update_commits_without_recovery: test
+
+9 tests, 0 benchmarks
+     Running tests/password_profiles.rs (target/release/deps/password_profiles-2faa115ff802884e)
+password_profile_default_allows_recipient_writes_without_owner_vault: test
+password_profile_lifecycle_and_vaultless_server_access: test
+
+2 tests, 0 benchmarks
+     Running tests/publish_integration.rs (target/release/deps/publish_integration-f39d119fe7ac2b84)
+cli_publish_and_receive_with_two_servers: test
+cli_publish_can_be_received_from_failover_path: test
+
+2 tests, 0 benchmarks
+     Running tests/unicode_shell_cli.rs (target/release/deps/unicode_shell_cli-ade5a8bd568a606f)
+unicode_alias_roundtrips_and_completion_through_native_shells: test
+
+1 test, 0 benchmarks

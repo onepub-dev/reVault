@@ -1,0 +1,1 @@
+javac --release 22 -Xlint:all,-restricted -Werror -cp /home/bsutton/.m2/repository/com/google/flatbuffers/flatbuffers-java/25.2.10/flatbuffers-java-25.2.10.jar -d /tmp/revault-java-conformance-compile-20261013 $(find bindings/java/src bindings/java/generated -name *.java) bindings/e2e/java/Conformance.java

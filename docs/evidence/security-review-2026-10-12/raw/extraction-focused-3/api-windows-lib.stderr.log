@@ -1,0 +1,25 @@
+    Checking windows-sys v0.61.2
+   Compiling serde_core v1.0.229
+   Compiling curve25519-dalek-derive v0.1.1
+    Checking curve25519-dalek v5.0.0
+    Checking ed25519-dalek v3.0.0
+    Checking x25519-dalek v3.0.0
+    Checking serde_json v1.0.151
+    Checking cap-primitives v4.0.3
+    Checking revault_page_api v0.0.34 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_page_api)
+    Checking cap-std v4.0.3
+    Checking cap-fs-ext v4.0.3
+    Checking revault_lockbox_api v0.0.41 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api)
+warning: method `install` is never used
+  --> revault_lockbox_api/src/storage/atomic_file_replacement.rs:82:19
+   |
+12 | impl AtomicFileReplacement {
+   | -------------------------- method in this implementation
+...
+82 |     pub(crate) fn install(&self) -> Result<()> {
+   |                   ^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: `revault_lockbox_api` (lib) generated 1 warning
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.89s

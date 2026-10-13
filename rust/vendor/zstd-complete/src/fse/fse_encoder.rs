@@ -64,12 +64,12 @@ pub(crate) fn recycles_fast_fse_tables() -> bool {
     }
 }
 
-pub(crate) struct FSEEncoder<'output, V: AsMut<Vec<u8>>> {
+pub(crate) struct FSEEncoder<'output, V: crate::workspace::ByteBufferOwner> {
     pub(super) table: FSETable,
     writer: &'output mut BitWriter<V>,
 }
 
-impl<V: AsMut<Vec<u8>>> FSEEncoder<'_, V> {
+impl<V: crate::workspace::ByteBufferOwner> FSEEncoder<'_, V> {
     pub fn new(table: FSETable, writer: &mut BitWriter<V>) -> FSEEncoder<'_, V> {
         FSEEncoder { table, writer }
     }
@@ -80,27 +80,31 @@ impl<V: AsMut<Vec<u8>>> FSEEncoder<'_, V> {
 
     /// Encode data with the table and prepend its serialized description.
     #[cfg(any(test, feature = "fuzz_exports"))]
-    pub fn encode(&mut self, data: &[u8]) {
-        self.write_table();
+    pub fn encode(&mut self, data: &[u8]) -> Result<(), crate::workspace::CapacityError> {
+        self.write_table()?;
 
         let mut state_index = self.table.c_start_state_index(data[data.len() - 1]);
         for symbol in data[0..data.len() - 1].iter().rev().copied() {
             let (bits, num_bits, next_state) = self.table.encode_symbol(symbol, state_index);
             self.writer
-                .write_bits(u64::from(bits), usize::from(num_bits));
+                .write_bits(u64::from(bits), usize::from(num_bits))?;
             state_index = next_state;
         }
         self.writer.write_bits(
             u64::from(self.table.state_bits(state_index)),
             self.acc_log() as usize,
-        );
+        )?;
 
-        self.write_end_marker();
+        self.write_end_marker()?;
+        Ok(())
     }
 
     /// Encode data using two interleaved FSE states.
-    pub fn encode_interleaved(&mut self, data: &[u8]) {
-        self.write_table();
+    pub fn encode_interleaved(
+        &mut self,
+        data: &[u8],
+    ) -> Result<(), crate::workspace::CapacityError> {
+        self.write_table()?;
 
         let mut ip = data.len();
         let mut state_1;
@@ -112,7 +116,7 @@ impl<V: AsMut<Vec<u8>>> FSEEncoder<'_, V> {
             ip -= 1;
             state_2 = self.table.c_start_state_index(data[ip]);
             ip -= 1;
-            Self::encode_symbol(&self.table, self.writer, &mut state_1, data[ip]);
+            Self::encode_symbol(&self.table, self.writer, &mut state_1, data[ip])?;
         } else {
             ip -= 1;
             state_2 = self.table.c_start_state_index(data[ip]);
@@ -139,7 +143,7 @@ impl<V: AsMut<Vec<u8>>> FSEEncoder<'_, V> {
                 &mut bits,
                 &mut num_bits,
             );
-            self.writer.write_bits_64(bits, num_bits);
+            self.writer.write_bits_64(bits, num_bits)?;
         }
 
         while ip > 0 {
@@ -179,27 +183,29 @@ impl<V: AsMut<Vec<u8>>> FSEEncoder<'_, V> {
                 &mut num_bits,
             );
             debug_assert!(num_bits <= 48);
-            self.writer.write_bits_64(bits, num_bits);
+            self.writer.write_bits_64(bits, num_bits)?;
         }
 
         let acc_log = self.acc_log() as usize;
         let final_states = u64::from(self.table.state_bits(state_2))
             | (u64::from(self.table.state_bits(state_1)) << acc_log);
-        self.writer.write_bits_64(final_states, acc_log * 2);
+        self.writer.write_bits_64(final_states, acc_log * 2)?;
 
-        self.write_end_marker();
+        self.write_end_marker()?;
+        Ok(())
     }
 
     #[inline(always)]
-    fn encode_symbol<VV: AsMut<Vec<u8>>>(
+    fn encode_symbol<VV: crate::workspace::ByteBufferOwner>(
         table: &FSETable,
         writer: &mut BitWriter<VV>,
         state_index: &mut u32,
         symbol: u8,
-    ) {
+    ) -> Result<(), crate::workspace::CapacityError> {
         let (bits, num_bits, next_state) = table.encode_symbol(symbol, *state_index);
-        writer.write_bits(u64::from(bits), usize::from(num_bits));
+        writer.write_bits(u64::from(bits), usize::from(num_bits))?;
         *state_index = next_state;
+        Ok(())
     }
 
     #[inline(always)]
@@ -216,17 +222,19 @@ impl<V: AsMut<Vec<u8>>> FSEEncoder<'_, V> {
         *state_index = next_state;
     }
 
-    fn write_table(&mut self) {
-        self.table.write_table(self.writer);
+    fn write_table(&mut self) -> Result<(), crate::workspace::CapacityError> {
+        self.table.write_table(self.writer)?;
+        Ok(())
     }
 
-    fn write_end_marker(&mut self) {
+    fn write_end_marker(&mut self) -> Result<(), crate::workspace::CapacityError> {
         let bits_to_fill = self.writer.misaligned();
         if bits_to_fill == 0 {
-            self.writer.write_bits(1u32, 8);
+            self.writer.write_bits(1u32, 8)?;
         } else {
-            self.writer.write_bits(1u32, bits_to_fill);
+            self.writer.write_bits(1u32, bits_to_fill)?;
         }
+        Ok(())
     }
 
     pub(super) fn acc_log(&self) -> u8 {
@@ -234,14 +242,15 @@ impl<V: AsMut<Vec<u8>>> FSEEncoder<'_, V> {
     }
 }
 
-fn write_normalized_probabilities<V: AsMut<Vec<u8>>>(
+fn write_normalized_probabilities<V: crate::workspace::ByteBufferOwner>(
     probabilities: impl ExactSizeIterator<Item = i32>,
     acc_log: u8,
     writer: &mut BitWriter<V>,
-) {
+) -> Result<(), crate::workspace::CapacityError> {
     writer.append_aligned_with(|output| {
         write_normalized_probabilities_bytes(probabilities, acc_log, output)
-    });
+    })?;
+    Ok(())
 }
 
 /// Ports `FSE_writeNCount_generic()`'s safe-buffer path. The accumulator never
@@ -249,8 +258,8 @@ fn write_normalized_probabilities<V: AsMut<Vec<u8>>>(
 fn write_normalized_probabilities_bytes(
     probabilities: impl ExactSizeIterator<Item = i32>,
     acc_log: u8,
-    output: &mut Vec<u8>,
-) {
+    output: &mut impl crate::workspace::Growable<u8>,
+) -> Result<(), crate::workspace::CapacityError> {
     let alphabet_size = probabilities.len();
     let mut probabilities = probabilities.peekable();
     let mut bit_stream = u32::from(acc_log - 5);
@@ -275,7 +284,7 @@ fn write_normalized_probabilities_bytes(
             while symbol >= start + 24 {
                 start += 24;
                 bit_stream |= 0xffff << bit_count;
-                output.extend_from_slice(&(bit_stream as u16).to_le_bytes());
+                output.extend_from_slice(&(bit_stream as u16).to_le_bytes())?;
                 bit_stream >>= 16;
             }
             while symbol >= start + 3 {
@@ -286,7 +295,7 @@ fn write_normalized_probabilities_bytes(
             bit_stream |= ((symbol - start) as u32) << bit_count;
             bit_count += 2;
             if bit_count > 16 {
-                output.extend_from_slice(&(bit_stream as u16).to_le_bytes());
+                output.extend_from_slice(&(bit_stream as u16).to_le_bytes())?;
                 bit_stream >>= 16;
                 bit_count -= 16;
             }
@@ -316,7 +325,7 @@ fn write_normalized_probabilities_bytes(
         }
 
         if bit_count > 16 {
-            output.extend_from_slice(&(bit_stream as u16).to_le_bytes());
+            output.extend_from_slice(&(bit_stream as u16).to_le_bytes())?;
             bit_stream >>= 16;
             bit_count -= 16;
         }
@@ -327,7 +336,8 @@ fn write_normalized_probabilities_bytes(
         "normalized probabilities do not fill the table"
     );
     let final_bytes = bit_count.div_ceil(8) as usize;
-    output.extend_from_slice(&bit_stream.to_le_bytes()[..final_bytes]);
+    output.extend_from_slice(&bit_stream.to_le_bytes()[..final_bytes])?;
+    Ok(())
 }
 
 pub(crate) fn ncount_cost_from_probabilities(probs: &[i32], acc_log: u8) -> usize {

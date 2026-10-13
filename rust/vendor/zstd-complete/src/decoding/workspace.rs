@@ -30,7 +30,9 @@ impl DecoderWorkspace {
             return Err(DecoderWorkspaceError::InvalidWindowSize);
         }
         let mut decoder = FrameDecoder::new();
-        decoder.prepare_workspace(max_window_size, max_dictionary_size);
+        decoder
+            .prepare_workspace(max_window_size, max_dictionary_size)
+            .map_err(DecoderWorkspaceError::Capacity)?;
         Ok(Self {
             decoder,
             max_window_size,
@@ -104,6 +106,7 @@ impl DecoderWorkspace {
 /// Errors produced by a prepared decoder workspace.
 #[derive(Debug)]
 pub enum DecoderWorkspaceError {
+    Capacity(crate::workspace::CapacityError),
     InvalidWindowSize,
     InsufficientStorage { required: usize, provided: usize },
     SizeOverflow,
@@ -114,6 +117,9 @@ pub enum DecoderWorkspaceError {
 impl fmt::Display for DecoderWorkspaceError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::Capacity(error) => {
+                write!(formatter, "decoder storage admission failed: {error:?}")
+            }
             Self::InvalidWindowSize => formatter.write_str("maximum window size must be non-zero"),
             Self::InsufficientStorage { required, provided } => write!(
                 formatter,
@@ -134,7 +140,8 @@ impl std::error::Error for DecoderWorkspaceError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Self::Decode(error) => Some(error),
-            Self::InvalidWindowSize
+            Self::Capacity(_)
+            | Self::InvalidWindowSize
             | Self::InsufficientStorage { .. }
             | Self::SizeOverflow
             | Self::DictionaryTooLarge { .. } => None,
@@ -277,6 +284,7 @@ fn ensure_dictionary_size(provided: usize, maximum: usize) -> Result<(), Decoder
 
 fn map_arena_error(error: ArenaError) -> DecoderWorkspaceError {
     match error {
+        ArenaError::Capacity(error) => DecoderWorkspaceError::Capacity(error),
         ArenaError::InsufficientStorage { required, provided } => {
             DecoderWorkspaceError::InsufficientStorage { required, provided }
         }

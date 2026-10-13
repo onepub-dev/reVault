@@ -1,0 +1,1 @@
+Dart run from bindings/dart with existing package_config; staged exact current ABI at lib/src/native/linux-x86_64-gnu/librevault_api.so (absent before; matched ABI SHA), conformance.dart core runner; staged file and isolated temporary fixture roots removed after run.

@@ -1,0 +1,3 @@
+bb27fc5b64b825272af260372d305d91f951dcaf383c6ca139c1098648ededb9  ../bindings/e2e/c/conformance.c
+4a5008ae9ac75d56f61b67fff22899bda2fd4c7d034f0abe8a0857d456ffadaa  revault_bindings/revault_api.h
+009d16510363bb5ae25c5a7ca909bca16957dbcf42fee83abd82dcf281e0a0b0  target/release/librevault_api.so

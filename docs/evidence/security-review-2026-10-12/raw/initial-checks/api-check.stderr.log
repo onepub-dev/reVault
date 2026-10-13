@@ -1,0 +1,63 @@
+   Compiling serde_core v1.0.229
+   Compiling num-traits v0.2.19
+   Compiling thiserror v2.0.20
+    Checking subtle v2.6.1
+   Compiling syn v3.0.5
+   Compiling zerocopy-derive v0.8.57
+    Checking clap_builder v4.6.6
+    Checking crc32fast v1.5.1
+    Checking hashbrown v0.17.1
+    Checking simd-adler32 v0.3.10
+    Checking bumpalo v3.20.3
+    Checking equivalent v1.0.2
+    Checking zlib-rs v0.6.7
+    Checking revault_page_api v0.0.34 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_page_api)
+    Checking typed-path v0.12.3
+    Checking curve25519-dalek v5.0.0
+    Checking zopfli v0.8.3
+    Checking indexmap v2.14.2
+    Checking module-lattice v0.2.3
+    Checking plotters v0.3.7
+    Checking ed25519-dalek v3.0.0
+    Checking x25519-dalek v3.0.0
+    Checking flate2 v1.1.10
+    Checking ml-kem v0.3.2
+    Checking ml-dsa v0.1.1
+    Checking zip v8.6.0
+    Checking clap v4.6.6
+    Checking zerocopy v0.8.57
+   Compiling serde_derive v1.0.229
+   Compiling thiserror-impl v2.0.20
+    Checking serde_json v1.0.151
+    Checking revault_lockbox_api v0.0.41 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api)
+    Checking oxiarc-core v0.4.1
+    Checking oxiarc-zstd v0.4.1
+    Checking serde v1.0.229
+    Checking tinytemplate v1.2.1
+    Checking half v2.7.1
+    Checking ciborium-ll v0.2.2
+    Checking ciborium v0.2.2
+    Checking criterion v0.8.2
+error[E0004]: non-exhaustive patterns: `NativeReadBytes::SensitiveOwned(_)` not covered
+  --> revault_lockbox_api/src/lockbox/native_file_reader.rs:19:15
+   |
+19 |         match bytes {
+   |               ^^^^^ pattern `NativeReadBytes::SensitiveOwned(_)` not covered
+   |
+note: `NativeReadBytes` defined here
+  --> revault_lockbox_api/src/lockbox/files.rs:39:17
+   |
+39 | pub(super) enum NativeReadBytes {
+   |                 ^^^^^^^^^^^^^^^
+40 |     Owned(Vec<u8>),
+41 |     SensitiveOwned(SensitiveBytes),
+   |     -------------- not covered
+   = note: the matched value is of type `NativeReadBytes`
+help: ensure that all possible cases are being handled by adding a match arm with a wildcard pattern or an explicit pattern as shown
+   |
+32 ~             },
+33 +             NativeReadBytes::SensitiveOwned(_) => todo!()
+   |
+
+For more information about this error, try `rustc --explain E0004`.
+error: could not compile `revault_lockbox_api` (lib test) due to 1 previous error

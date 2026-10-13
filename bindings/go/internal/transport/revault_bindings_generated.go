@@ -38,10 +38,10 @@ func (v LockboxEntryKind) String() string {
 }
 
 type LockboxEntryT struct {
-	Path        string           `json:"path"`
-	Kind        LockboxEntryKind `json:"kind"`
-	Length      uint64           `json:"length"`
-	Permissions uint32           `json:"permissions"`
+	Path string `json:"path"`
+	Kind LockboxEntryKind `json:"kind"`
+	Length uint64 `json:"length"`
+	Permissions uint32 `json:"permissions"`
 }
 
 func (t *LockboxEntryT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
@@ -173,7 +173,6 @@ func LockboxEntryAddPermissions(builder *flatbuffers.Builder, permissions uint32
 func LockboxEntryEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()
 }
-
 type LockboxEntryListT struct {
 	Entries []*LockboxEntryT `json:"entries"`
 }
@@ -286,7 +285,6 @@ func LockboxEntryListStartEntriesVector(builder *flatbuffers.Builder, numElems i
 func LockboxEntryListEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()
 }
-
 type OptionalLockboxEntryT struct {
 	Value *LockboxEntryT `json:"value"`
 }
@@ -371,7 +369,6 @@ func OptionalLockboxEntryAddValue(builder *flatbuffers.Builder, value flatbuffer
 func OptionalLockboxEntryEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()
 }
-
 type StringListT struct {
 	Values []string `json:"values"`
 }
@@ -479,9 +476,8 @@ func StringListStartValuesVector(builder *flatbuffers.Builder, numElems int) fla
 func StringListEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()
 }
-
 type PathMoveT struct {
-	Source      string `json:"source"`
+	Source string `json:"source"`
 	Destination string `json:"destination"`
 }
 
@@ -580,7 +576,6 @@ func PathMoveAddDestination(builder *flatbuffers.Builder, destination flatbuffer
 func PathMoveEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()
 }
-
 type PathMoveListT struct {
 	Values []*PathMoveT `json:"values"`
 }
@@ -693,12 +688,11 @@ func PathMoveListStartValuesVector(builder *flatbuffers.Builder, numElems int) f
 func PathMoveListEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()
 }
-
 type FormFieldT struct {
-	Id       string `json:"id"`
-	Label    string `json:"label"`
-	Kind     string `json:"kind"`
-	Required bool   `json:"required"`
+	Id string `json:"id"`
+	Label string `json:"label"`
+	Kind string `json:"kind"`
+	Required bool `json:"required"`
 }
 
 func (t *FormFieldT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
@@ -830,7 +824,6 @@ func FormFieldAddRequired(builder *flatbuffers.Builder, required bool) {
 func FormFieldEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()
 }
-
 type FormFieldListT struct {
 	Values []*FormFieldT `json:"values"`
 }
@@ -943,14 +936,13 @@ func FormFieldListStartValuesVector(builder *flatbuffers.Builder, numElems int) 
 func FormFieldListEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()
 }
-
 type FormDefinitionT struct {
-	TypeId      string        `json:"type_id"`
-	Alias       string        `json:"alias"`
-	Revision    uint32        `json:"revision"`
-	Name        string        `json:"name"`
-	Description string        `json:"description"`
-	Fields      []*FormFieldT `json:"fields"`
+	TypeId string `json:"type_id"`
+	Alias string `json:"alias"`
+	Revision uint32 `json:"revision"`
+	Name string `json:"name"`
+	Description string `json:"description"`
+	Fields []*FormFieldT `json:"fields"`
 }
 
 func (t *FormDefinitionT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
@@ -1146,7 +1138,6 @@ func FormDefinitionStartFieldsVector(builder *flatbuffers.Builder, numElems int)
 func FormDefinitionEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()
 }
-
 type FormDefinitionListT struct {
 	Values []*FormDefinitionT `json:"values"`
 }
@@ -1259,13 +1250,12 @@ func FormDefinitionListStartValuesVector(builder *flatbuffers.Builder, numElems 
 func FormDefinitionListEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()
 }
-
 type FormValueT struct {
 	FieldId string `json:"field_id"`
-	Label   string `json:"label"`
-	Kind    string `json:"kind"`
-	Value   string `json:"value"`
-	Secret  bool   `json:"secret"`
+	Label string `json:"label"`
+	Kind string `json:"kind"`
+	Value string `json:"value"`
+	Secret bool `json:"secret"`
 }
 
 func (t *FormValueT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
@@ -1414,14 +1404,13 @@ func FormValueAddSecret(builder *flatbuffers.Builder, secret bool) {
 func FormValueEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()
 }
-
 type FormRecordT struct {
-	Path               string        `json:"path"`
-	Name               string        `json:"name"`
-	TypeId             string        `json:"type_id"`
-	DefinitionAlias    string        `json:"definition_alias"`
-	DefinitionRevision uint32        `json:"definition_revision"`
-	Values             []*FormValueT `json:"values"`
+	Path string `json:"path"`
+	Name string `json:"name"`
+	TypeId string `json:"type_id"`
+	DefinitionAlias string `json:"definition_alias"`
+	DefinitionRevision uint32 `json:"definition_revision"`
+	Values []*FormValueT `json:"values"`
 }
 
 func (t *FormRecordT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
@@ -1617,7 +1606,6 @@ func FormRecordStartValuesVector(builder *flatbuffers.Builder, numElems int) fla
 func FormRecordEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()
 }
-
 type FormRecordListT struct {
 	Values []*FormRecordT `json:"values"`
 }
@@ -1730,7 +1718,6 @@ func FormRecordListStartValuesVector(builder *flatbuffers.Builder, numElems int)
 func FormRecordListEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()
 }
-
 type OptionalFormRecordT struct {
 	Value *FormRecordT `json:"value"`
 }
@@ -1815,7 +1802,6 @@ func OptionalFormRecordAddValue(builder *flatbuffers.Builder, value flatbuffers.
 func OptionalFormRecordEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()
 }
-
 type OptionalFormValueT struct {
 	Value *FormValueT `json:"value"`
 }
@@ -1900,18 +1886,17 @@ func OptionalFormValueAddValue(builder *flatbuffers.Builder, value flatbuffers.U
 func OptionalFormValueEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()
 }
-
 type RecoveryReportT struct {
-	IntactFiles         []*LockboxEntryT `json:"intact_files"`
-	IntactFileCount     uint64           `json:"intact_file_count"`
-	PartialFiles        uint64           `json:"partial_files"`
-	CorruptRecords      uint64           `json:"corrupt_records"`
-	TocRecovered        bool             `json:"toc_recovered"`
-	VariablesRecovered  bool             `json:"variables_recovered"`
-	VariableCount       uint64           `json:"variable_count"`
-	FormsRecovered      bool             `json:"forms_recovered"`
-	FormDefinitionCount uint64           `json:"form_definition_count"`
-	FormRecordCount     uint64           `json:"form_record_count"`
+	IntactFiles []*LockboxEntryT `json:"intact_files"`
+	IntactFileCount uint64 `json:"intact_file_count"`
+	PartialFiles uint64 `json:"partial_files"`
+	CorruptRecords uint64 `json:"corrupt_records"`
+	TocRecovered bool `json:"toc_recovered"`
+	VariablesRecovered bool `json:"variables_recovered"`
+	VariableCount uint64 `json:"variable_count"`
+	FormsRecovered bool `json:"forms_recovered"`
+	FormDefinitionCount uint64 `json:"form_definition_count"`
+	FormRecordCount uint64 `json:"form_record_count"`
 }
 
 func (t *RecoveryReportT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
@@ -2175,11 +2160,10 @@ func RecoveryReportAddFormRecordCount(builder *flatbuffers.Builder, formRecordCo
 func RecoveryReportEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()
 }
-
 type KeySlotT struct {
-	Id         uint64 `json:"id"`
+	Id uint64 `json:"id"`
 	Protection string `json:"protection"`
-	Algorithm  string `json:"algorithm"`
+	Algorithm string `json:"algorithm"`
 }
 
 func (t *KeySlotT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
@@ -2294,7 +2278,6 @@ func KeySlotAddAlgorithm(builder *flatbuffers.Builder, algorithm flatbuffers.UOf
 func KeySlotEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()
 }
-
 type KeySlotListT struct {
 	Values []*KeySlotT `json:"values"`
 }
@@ -2407,13 +2390,12 @@ func KeySlotListStartValuesVector(builder *flatbuffers.Builder, numElems int) fl
 func KeySlotListEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()
 }
-
 type CacheStatsT struct {
 	LimitBytes uint64 `json:"limit_bytes"`
-	UsedBytes  uint64 `json:"used_bytes"`
-	Entries    uint64 `json:"entries"`
-	Hits       uint64 `json:"hits"`
-	Misses     uint64 `json:"misses"`
+	UsedBytes uint64 `json:"used_bytes"`
+	Entries uint64 `json:"entries"`
+	Hits uint64 `json:"hits"`
+	Misses uint64 `json:"misses"`
 }
 
 func (t *CacheStatsT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
@@ -2562,12 +2544,11 @@ func CacheStatsAddMisses(builder *flatbuffers.Builder, misses uint64) {
 func CacheStatsEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()
 }
-
 type ImportStatsT struct {
-	HostStatNanos     string `json:"host_stat_nanos"`
-	HostReadNanos     string `json:"host_read_nanos"`
+	HostStatNanos string `json:"host_stat_nanos"`
+	HostReadNanos string `json:"host_read_nanos"`
 	FramePrepareNanos string `json:"frame_prepare_nanos"`
-	PageWriteNanos    string `json:"page_write_nanos"`
+	PageWriteNanos string `json:"page_write_nanos"`
 }
 
 func (t *ImportStatsT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
@@ -2699,10 +2680,9 @@ func ImportStatsAddPageWriteNanos(builder *flatbuffers.Builder, pageWriteNanos f
 func ImportStatsEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()
 }
-
 type PageObjectT struct {
-	Id         uint64 `json:"id"`
-	Kind       string `json:"kind"`
+	Id uint64 `json:"id"`
+	Kind string `json:"kind"`
 	PayloadLen uint64 `json:"payload_len"`
 }
 
@@ -2818,16 +2798,15 @@ func PageObjectAddPayloadLen(builder *flatbuffers.Builder, payloadLen uint64) {
 func PageObjectEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()
 }
-
 type PageInspectionT struct {
-	Offset           uint64         `json:"offset"`
-	PageId           uint64         `json:"page_id"`
-	Sequence         uint64         `json:"sequence"`
-	PageSize         uint64         `json:"page_size"`
-	EncryptedBodyLen uint64         `json:"encrypted_body_len"`
-	UnusedBytes      uint64         `json:"unused_bytes"`
-	ObjectCount      uint64         `json:"object_count"`
-	Objects          []*PageObjectT `json:"objects"`
+	Offset uint64 `json:"offset"`
+	PageId uint64 `json:"page_id"`
+	Sequence uint64 `json:"sequence"`
+	PageSize uint64 `json:"page_size"`
+	EncryptedBodyLen uint64 `json:"encrypted_body_len"`
+	UnusedBytes uint64 `json:"unused_bytes"`
+	ObjectCount uint64 `json:"object_count"`
+	Objects []*PageObjectT `json:"objects"`
 }
 
 func (t *PageInspectionT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
@@ -3057,7 +3036,6 @@ func PageInspectionStartObjectsVector(builder *flatbuffers.Builder, numElems int
 func PageInspectionEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()
 }
-
 type PageInspectionListT struct {
 	Values []*PageInspectionT `json:"values"`
 }
@@ -3170,14 +3148,13 @@ func PageInspectionListStartValuesVector(builder *flatbuffers.Builder, numElems 
 func PageInspectionListEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()
 }
-
 type FileInspectionT struct {
-	LockboxId              []byte      `json:"lockbox_id"`
-	HeaderReadable         bool        `json:"header_readable"`
-	KeyDirectoryGeneration uint64      `json:"key_directory_generation"`
-	KeyDirectoryCopyCount  uint64      `json:"key_directory_copy_count"`
-	OwnerSigned            bool        `json:"owner_signed"`
-	KeySlots               []*KeySlotT `json:"key_slots"`
+	LockboxId []byte `json:"lockbox_id"`
+	HeaderReadable bool `json:"header_readable"`
+	KeyDirectoryGeneration uint64 `json:"key_directory_generation"`
+	KeyDirectoryCopyCount uint64 `json:"key_directory_copy_count"`
+	OwnerSigned bool `json:"owner_signed"`
+	KeySlots []*KeySlotT `json:"key_slots"`
 }
 
 func (t *FileInspectionT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
@@ -3402,14 +3379,13 @@ func FileInspectionStartKeySlotsVector(builder *flatbuffers.Builder, numElems in
 func FileInspectionEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()
 }
-
 type ProfileGenerationT struct {
-	Index              uint32 `json:"index"`
-	Status             string `json:"status"`
+	Index uint32 `json:"index"`
+	Status string `json:"status"`
 	ContactFingerprint []byte `json:"contact_fingerprint"`
-	CreatedAtUnixMs    uint64 `json:"created_at_unix_ms"`
-	RetiredAtUnixMs    uint64 `json:"retired_at_unix_ms"`
-	HasRetiredAt       bool   `json:"has_retired_at"`
+	CreatedAtUnixMs uint64 `json:"created_at_unix_ms"`
+	RetiredAtUnixMs uint64 `json:"retired_at_unix_ms"`
+	HasRetiredAt bool `json:"has_retired_at"`
 }
 
 func (t *ProfileGenerationT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
@@ -3604,11 +3580,10 @@ func ProfileGenerationAddHasRetiredAt(builder *flatbuffers.Builder, hasRetiredAt
 func ProfileGenerationEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()
 }
-
 type ProfileHistoryT struct {
-	Name             string                `json:"name"`
-	ActiveGeneration uint32                `json:"active_generation"`
-	Generations      []*ProfileGenerationT `json:"generations"`
+	Name string `json:"name"`
+	ActiveGeneration uint32 `json:"active_generation"`
+	Generations []*ProfileGenerationT `json:"generations"`
 }
 
 func (t *ProfileHistoryT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
@@ -3753,10 +3728,250 @@ func ProfileHistoryStartGenerationsVector(builder *flatbuffers.Builder, numElems
 func ProfileHistoryEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()
 }
+type LockboxAliasT struct {
+	Name string `json:"name"`
+	LockboxId []byte `json:"lockbox_id"`
+}
 
+func (t *LockboxAliasT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
+	if t == nil {
+		return 0
+	}
+	nameOffset := flatbuffers.UOffsetT(0)
+	if t.Name != "" {
+		nameOffset = builder.CreateString(t.Name)
+	}
+	lockboxIdOffset := flatbuffers.UOffsetT(0)
+	if t.LockboxId != nil {
+		lockboxIdOffset = builder.CreateByteString(t.LockboxId)
+	}
+	LockboxAliasStart(builder)
+	LockboxAliasAddName(builder, nameOffset)
+	LockboxAliasAddLockboxId(builder, lockboxIdOffset)
+	return LockboxAliasEnd(builder)
+}
+
+func (rcv *LockboxAlias) UnPackTo(t *LockboxAliasT) {
+	t.Name = string(rcv.Name())
+	t.LockboxId = rcv.LockboxIdBytes()
+}
+
+func (rcv *LockboxAlias) UnPack() *LockboxAliasT {
+	if rcv == nil {
+		return nil
+	}
+	t := &LockboxAliasT{}
+	rcv.UnPackTo(t)
+	return t
+}
+
+type LockboxAlias struct {
+	_tab flatbuffers.Table
+}
+
+func GetRootAsLockboxAlias(buf []byte, offset flatbuffers.UOffsetT) *LockboxAlias {
+	n := flatbuffers.GetUOffsetT(buf[offset:])
+	x := &LockboxAlias{}
+	x.Init(buf, n+offset)
+	return x
+}
+
+func FinishLockboxAliasBuffer(builder *flatbuffers.Builder, offset flatbuffers.UOffsetT) {
+	builder.Finish(offset)
+}
+
+func GetSizePrefixedRootAsLockboxAlias(buf []byte, offset flatbuffers.UOffsetT) *LockboxAlias {
+	n := flatbuffers.GetUOffsetT(buf[offset+flatbuffers.SizeUint32:])
+	x := &LockboxAlias{}
+	x.Init(buf, n+offset+flatbuffers.SizeUint32)
+	return x
+}
+
+func FinishSizePrefixedLockboxAliasBuffer(builder *flatbuffers.Builder, offset flatbuffers.UOffsetT) {
+	builder.FinishSizePrefixed(offset)
+}
+
+func (rcv *LockboxAlias) Init(buf []byte, i flatbuffers.UOffsetT) {
+	rcv._tab.Bytes = buf
+	rcv._tab.Pos = i
+}
+
+func (rcv *LockboxAlias) Table() flatbuffers.Table {
+	return rcv._tab
+}
+
+func (rcv *LockboxAlias) Name() []byte {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(4))
+	if o != 0 {
+		return rcv._tab.ByteVector(o + rcv._tab.Pos)
+	}
+	return nil
+}
+
+func (rcv *LockboxAlias) LockboxId(j int) byte {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(6))
+	if o != 0 {
+		a := rcv._tab.Vector(o)
+		return rcv._tab.GetByte(a + flatbuffers.UOffsetT(j*1))
+	}
+	return 0
+}
+
+func (rcv *LockboxAlias) LockboxIdLength() int {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(6))
+	if o != 0 {
+		return rcv._tab.VectorLen(o)
+	}
+	return 0
+}
+
+func (rcv *LockboxAlias) LockboxIdBytes() []byte {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(6))
+	if o != 0 {
+		return rcv._tab.ByteVector(o + rcv._tab.Pos)
+	}
+	return nil
+}
+
+func (rcv *LockboxAlias) MutateLockboxId(j int, n byte) bool {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(6))
+	if o != 0 {
+		a := rcv._tab.Vector(o)
+		return rcv._tab.MutateByte(a+flatbuffers.UOffsetT(j*1), n)
+	}
+	return false
+}
+
+func LockboxAliasStart(builder *flatbuffers.Builder) {
+	builder.StartObject(2)
+}
+func LockboxAliasAddName(builder *flatbuffers.Builder, name flatbuffers.UOffsetT) {
+	builder.PrependUOffsetTSlot(0, flatbuffers.UOffsetT(name), 0)
+}
+func LockboxAliasAddLockboxId(builder *flatbuffers.Builder, lockboxId flatbuffers.UOffsetT) {
+	builder.PrependUOffsetTSlot(1, flatbuffers.UOffsetT(lockboxId), 0)
+}
+func LockboxAliasStartLockboxIdVector(builder *flatbuffers.Builder, numElems int) flatbuffers.UOffsetT {
+	return builder.StartVector(1, numElems, 1)
+}
+func LockboxAliasEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
+	return builder.EndObject()
+}
+type LockboxAliasListT struct {
+	Values []*LockboxAliasT `json:"values"`
+}
+
+func (t *LockboxAliasListT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
+	if t == nil {
+		return 0
+	}
+	valuesOffset := flatbuffers.UOffsetT(0)
+	if t.Values != nil {
+		valuesLength := len(t.Values)
+		valuesOffsets := make([]flatbuffers.UOffsetT, valuesLength)
+		for j := 0; j < valuesLength; j++ {
+			valuesOffsets[j] = t.Values[j].Pack(builder)
+		}
+		LockboxAliasListStartValuesVector(builder, valuesLength)
+		for j := valuesLength - 1; j >= 0; j-- {
+			builder.PrependUOffsetT(valuesOffsets[j])
+		}
+		valuesOffset = builder.EndVector(valuesLength)
+	}
+	LockboxAliasListStart(builder)
+	LockboxAliasListAddValues(builder, valuesOffset)
+	return LockboxAliasListEnd(builder)
+}
+
+func (rcv *LockboxAliasList) UnPackTo(t *LockboxAliasListT) {
+	valuesLength := rcv.ValuesLength()
+	t.Values = make([]*LockboxAliasT, valuesLength)
+	for j := 0; j < valuesLength; j++ {
+		x := LockboxAlias{}
+		rcv.Values(&x, j)
+		t.Values[j] = x.UnPack()
+	}
+}
+
+func (rcv *LockboxAliasList) UnPack() *LockboxAliasListT {
+	if rcv == nil {
+		return nil
+	}
+	t := &LockboxAliasListT{}
+	rcv.UnPackTo(t)
+	return t
+}
+
+type LockboxAliasList struct {
+	_tab flatbuffers.Table
+}
+
+func GetRootAsLockboxAliasList(buf []byte, offset flatbuffers.UOffsetT) *LockboxAliasList {
+	n := flatbuffers.GetUOffsetT(buf[offset:])
+	x := &LockboxAliasList{}
+	x.Init(buf, n+offset)
+	return x
+}
+
+func FinishLockboxAliasListBuffer(builder *flatbuffers.Builder, offset flatbuffers.UOffsetT) {
+	builder.Finish(offset)
+}
+
+func GetSizePrefixedRootAsLockboxAliasList(buf []byte, offset flatbuffers.UOffsetT) *LockboxAliasList {
+	n := flatbuffers.GetUOffsetT(buf[offset+flatbuffers.SizeUint32:])
+	x := &LockboxAliasList{}
+	x.Init(buf, n+offset+flatbuffers.SizeUint32)
+	return x
+}
+
+func FinishSizePrefixedLockboxAliasListBuffer(builder *flatbuffers.Builder, offset flatbuffers.UOffsetT) {
+	builder.FinishSizePrefixed(offset)
+}
+
+func (rcv *LockboxAliasList) Init(buf []byte, i flatbuffers.UOffsetT) {
+	rcv._tab.Bytes = buf
+	rcv._tab.Pos = i
+}
+
+func (rcv *LockboxAliasList) Table() flatbuffers.Table {
+	return rcv._tab
+}
+
+func (rcv *LockboxAliasList) Values(obj *LockboxAlias, j int) bool {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(4))
+	if o != 0 {
+		x := rcv._tab.Vector(o)
+		x += flatbuffers.UOffsetT(j) * 4
+		x = rcv._tab.Indirect(x)
+		obj.Init(rcv._tab.Bytes, x)
+		return true
+	}
+	return false
+}
+
+func (rcv *LockboxAliasList) ValuesLength() int {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(4))
+	if o != 0 {
+		return rcv._tab.VectorLen(o)
+	}
+	return 0
+}
+
+func LockboxAliasListStart(builder *flatbuffers.Builder) {
+	builder.StartObject(1)
+}
+func LockboxAliasListAddValues(builder *flatbuffers.Builder, values flatbuffers.UOffsetT) {
+	builder.PrependUOffsetTSlot(0, flatbuffers.UOffsetT(values), 0)
+}
+func LockboxAliasListStartValuesVector(builder *flatbuffers.Builder, numElems int) flatbuffers.UOffsetT {
+	return builder.StartVector(4, numElems, 4)
+}
+func LockboxAliasListEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
+	return builder.EndObject()
+}
 type KnownLockboxT struct {
-	LockboxId      []byte `json:"lockbox_id"`
-	Path           string `json:"path"`
+	LockboxId []byte `json:"lockbox_id"`
+	Path string `json:"path"`
 	LastSeenUnixMs uint64 `json:"last_seen_unix_ms"`
 }
 
@@ -3901,7 +4116,6 @@ func KnownLockboxAddLastSeenUnixMs(builder *flatbuffers.Builder, lastSeenUnixMs 
 func KnownLockboxEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()
 }
-
 type KnownLockboxListT struct {
 	Values []*KnownLockboxT `json:"values"`
 }
@@ -4014,11 +4228,10 @@ func KnownLockboxListStartValuesVector(builder *flatbuffers.Builder, numElems in
 func KnownLockboxListEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()
 }
-
 type AccessSlotLabelT struct {
-	LockboxId       []byte `json:"lockbox_id"`
-	SlotId          uint64 `json:"slot_id"`
-	Name            string `json:"name"`
+	LockboxId []byte `json:"lockbox_id"`
+	SlotId uint64 `json:"slot_id"`
+	Name string `json:"name"`
 	UpdatedAtUnixMs uint64 `json:"updated_at_unix_ms"`
 }
 
@@ -4180,7 +4393,6 @@ func AccessSlotLabelAddUpdatedAtUnixMs(builder *flatbuffers.Builder, updatedAtUn
 func AccessSlotLabelEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()
 }
-
 type AccessSlotLabelListT struct {
 	Values []*AccessSlotLabelT `json:"values"`
 }
@@ -4293,14 +4505,13 @@ func AccessSlotLabelListStartValuesVector(builder *flatbuffers.Builder, numElems
 func AccessSlotLabelListEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()
 }
-
 type StreamChunkT struct {
-	Path           string `json:"path"`
-	FileOffset     uint64 `json:"file_offset"`
-	Length         uint64 `json:"length"`
+	Path string `json:"path"`
+	FileOffset uint64 `json:"file_offset"`
+	Length uint64 `json:"length"`
 	PhysicalOffset uint64 `json:"physical_offset"`
-	Sparse         bool   `json:"sparse"`
-	Data           []byte `json:"data"`
+	Sparse bool `json:"sparse"`
+	Data []byte `json:"data"`
 }
 
 func (t *StreamChunkT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
@@ -4495,7 +4706,6 @@ func StreamChunkStartDataVector(builder *flatbuffers.Builder, numElems int) flat
 func StreamChunkEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()
 }
-
 type StreamChunkListT struct {
 	Values []*StreamChunkT `json:"values"`
 }
@@ -4608,10 +4818,9 @@ func StreamChunkListStartValuesVector(builder *flatbuffers.Builder, numElems int
 func StreamChunkListEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()
 }
-
 type RuntimeOptionsT struct {
 	WorkloadProfile string `json:"workload_profile"`
-	WorkerPolicy    string `json:"worker_policy"`
+	WorkerPolicy string `json:"worker_policy"`
 }
 
 func (t *RuntimeOptionsT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
@@ -4709,9 +4918,8 @@ func RuntimeOptionsAddWorkerPolicy(builder *flatbuffers.Builder, workerPolicy fl
 func RuntimeOptionsEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()
 }
-
 type VariableT struct {
-	Name        string `json:"name"`
+	Name string `json:"name"`
 	Sensitivity string `json:"sensitivity"`
 }
 
@@ -4810,7 +5018,6 @@ func VariableAddSensitivity(builder *flatbuffers.Builder, sensitivity flatbuffer
 func VariableEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()
 }
-
 type VariableListT struct {
 	Values []*VariableT `json:"values"`
 }
@@ -4923,10 +5130,9 @@ func VariableListStartValuesVector(builder *flatbuffers.Builder, numElems int) f
 func VariableListEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()
 }
-
 type OptionalStringT struct {
-	Present bool   `json:"present"`
-	Value   string `json:"value"`
+	Present bool `json:"present"`
+	Value string `json:"value"`
 }
 
 func (t *OptionalStringT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
@@ -5024,11 +5230,10 @@ func OptionalStringAddValue(builder *flatbuffers.Builder, value flatbuffers.UOff
 func OptionalStringEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()
 }
-
 type OwnerInspectionT struct {
-	Signed         bool   `json:"signed"`
-	Fingerprint    string `json:"fingerprint"`
-	HasFingerprint bool   `json:"has_fingerprint"`
+	Signed bool `json:"signed"`
+	Fingerprint string `json:"fingerprint"`
+	HasFingerprint bool `json:"has_fingerprint"`
 }
 
 func (t *OwnerInspectionT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
@@ -5143,10 +5348,9 @@ func OwnerInspectionAddHasFingerprint(builder *flatbuffers.Builder, hasFingerpri
 func OwnerInspectionEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()
 }
-
 type ContactT struct {
 	Name string `json:"name"`
-	Key  []byte `json:"key"`
+	Key []byte `json:"key"`
 }
 
 func (t *ContactT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
@@ -5273,7 +5477,6 @@ func ContactStartKeyVector(builder *flatbuffers.Builder, numElems int) flatbuffe
 func ContactEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()
 }
-
 type ContactListT struct {
 	Values []*ContactT `json:"values"`
 }
@@ -5386,7 +5589,6 @@ func ContactListStartValuesVector(builder *flatbuffers.Builder, numElems int) fl
 func ContactListEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()
 }
-
 type ProfileHistoryListT struct {
 	Values []*ProfileHistoryT `json:"values"`
 }
@@ -5499,9 +5701,8 @@ func ProfileHistoryListStartValuesVector(builder *flatbuffers.Builder, numElems 
 func ProfileHistoryListEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()
 }
-
 type AgentEntryT struct {
-	Id   string `json:"id"`
+	Id string `json:"id"`
 	Path string `json:"path"`
 }
 
@@ -5600,7 +5801,6 @@ func AgentEntryAddPath(builder *flatbuffers.Builder, path flatbuffers.UOffsetT) 
 func AgentEntryEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()
 }
-
 type AgentEntryListT struct {
 	Values []*AgentEntryT `json:"values"`
 }
@@ -5713,11 +5913,11 @@ func AgentEntryListStartValuesVector(builder *flatbuffers.Builder, numElems int)
 func AgentEntryListEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()
 }
-
 type SleepSupportT struct {
 	SuspendNotifications bool `json:"suspend_notifications"`
-	SleepInhibition      bool `json:"sleep_inhibition"`
-	Supported            bool `json:"supported"`
+	SleepInhibition bool `json:"sleep_inhibition"`
+	Supported bool `json:"supported"`
+	CacheClearingActive bool `json:"cache_clearing_active"`
 }
 
 func (t *SleepSupportT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
@@ -5728,6 +5928,7 @@ func (t *SleepSupportT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT 
 	SleepSupportAddSuspendNotifications(builder, t.SuspendNotifications)
 	SleepSupportAddSleepInhibition(builder, t.SleepInhibition)
 	SleepSupportAddSupported(builder, t.Supported)
+	SleepSupportAddCacheClearingActive(builder, t.CacheClearingActive)
 	return SleepSupportEnd(builder)
 }
 
@@ -5735,6 +5936,7 @@ func (rcv *SleepSupport) UnPackTo(t *SleepSupportT) {
 	t.SuspendNotifications = rcv.SuspendNotifications()
 	t.SleepInhibition = rcv.SleepInhibition()
 	t.Supported = rcv.Supported()
+	t.CacheClearingActive = rcv.CacheClearingActive()
 }
 
 func (rcv *SleepSupport) UnPack() *SleepSupportT {
@@ -5817,8 +6019,20 @@ func (rcv *SleepSupport) MutateSupported(n bool) bool {
 	return rcv._tab.MutateBoolSlot(8, n)
 }
 
+func (rcv *SleepSupport) CacheClearingActive() bool {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(10))
+	if o != 0 {
+		return rcv._tab.GetBool(o + rcv._tab.Pos)
+	}
+	return false
+}
+
+func (rcv *SleepSupport) MutateCacheClearingActive(n bool) bool {
+	return rcv._tab.MutateBoolSlot(10, n)
+}
+
 func SleepSupportStart(builder *flatbuffers.Builder) {
-	builder.StartObject(3)
+	builder.StartObject(4)
 }
 func SleepSupportAddSuspendNotifications(builder *flatbuffers.Builder, suspendNotifications bool) {
 	builder.PrependBoolSlot(0, suspendNotifications, false)
@@ -5829,16 +6043,18 @@ func SleepSupportAddSleepInhibition(builder *flatbuffers.Builder, sleepInhibitio
 func SleepSupportAddSupported(builder *flatbuffers.Builder, supported bool) {
 	builder.PrependBoolSlot(2, supported, false)
 }
+func SleepSupportAddCacheClearingActive(builder *flatbuffers.Builder, cacheClearingActive bool) {
+	builder.PrependBoolSlot(3, cacheClearingActive, false)
+}
 func SleepSupportEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()
 }
-
 type PlatformStatusT struct {
-	Supported bool   `json:"supported"`
-	Disabled  bool   `json:"disabled"`
-	Scope     string `json:"scope"`
-	Backend   string `json:"backend"`
-	Item      string `json:"item"`
+	Supported bool `json:"supported"`
+	Disabled bool `json:"disabled"`
+	Scope string `json:"scope"`
+	Backend string `json:"backend"`
+	Item string `json:"item"`
 }
 
 func (t *PlatformStatusT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
@@ -5987,7 +6203,6 @@ func PlatformStatusAddItem(builder *flatbuffers.Builder, item flatbuffers.UOffse
 func PlatformStatusEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()
 }
-
 type StringValueT struct {
 	Value string `json:"value"`
 }
@@ -6070,13 +6285,12 @@ func StringValueAddValue(builder *flatbuffers.Builder, value flatbuffers.UOffset
 func StringValueEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()
 }
-
 type VaultBackupManifestT struct {
-	FormatVersion   uint32 `json:"format_version"`
+	FormatVersion uint32 `json:"format_version"`
 	CreatedAtUnixMs uint64 `json:"created_at_unix_ms"`
-	VaultFileName   string `json:"vault_file_name"`
-	VaultSize       uint64 `json:"vault_size"`
-	VaultSha256     string `json:"vault_sha256"`
+	VaultFileName string `json:"vault_file_name"`
+	VaultSize uint64 `json:"vault_size"`
+	VaultSha256 string `json:"vault_sha256"`
 }
 
 func (t *VaultBackupManifestT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
@@ -6225,14 +6439,13 @@ func VaultBackupManifestAddVaultSha256(builder *flatbuffers.Builder, vaultSha256
 func VaultBackupManifestEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()
 }
-
 type ErrorDetailsT struct {
-	Category         string `json:"category"`
-	ArtifactKind     string `json:"artifact_kind"`
-	FoundVersion     uint32 `json:"found_version"`
+	Category string `json:"category"`
+	ArtifactKind string `json:"artifact_kind"`
+	FoundVersion uint32 `json:"found_version"`
 	SupportedVersion uint32 `json:"supported_version"`
-	Message          string `json:"message"`
-	Guidance         string `json:"guidance"`
+	Message string `json:"message"`
+	Guidance string `json:"guidance"`
 }
 
 func (t *ErrorDetailsT) Pack(builder *flatbuffers.Builder) flatbuffers.UOffsetT {

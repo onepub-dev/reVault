@@ -268,8 +268,9 @@ fn public_api_recovery_scanner_reports_and_salvages_intact_files() {
     damaged[0] ^= 0xff;
 
     // A v4 commit seals both header slots. One damaged slot still permits TOC
-    // recovery, including directories. Destroy both slot magics to exercise
-    // the page-scanning salvage path this test is intended to cover.
+    // recovery, including directories. With both magics damaged, recovery may
+    // repair only the magic bytes before authenticating the selected header,
+    // publication chain and TOC; this does not authorize historical page scanning.
     let redundant = RecoveryScanner::scan_bytes(damaged.clone(), KEY);
     assert!(redundant.toc_recovered);
     assert_eq!(
@@ -284,12 +285,51 @@ fn public_api_recovery_scanner_reports_and_salvages_intact_files() {
     damaged[192] ^= 0xff;
 
     let report = RecoveryScanner::scan_bytes(damaged.clone(), KEY);
-    assert_eq!(report.intact_file_count, 3);
+    assert!(report.toc_recovered);
+    assert_eq!(report.intact_file_count, 5); // Three files and two directories.
+    let mut recovered_entries = report
+        .intact_files
+        .iter()
+        .map(|entry| (entry.path.as_str(), entry.kind.clone()))
+        .collect::<Vec<_>>();
+    recovered_entries.sort_by_key(|(path, _)| *path);
+    use revault_lockbox_api::LockboxEntryKind::{Directory, File};
+    assert_eq!(
+        recovered_entries,
+        vec![
+            ("/docs", Directory),
+            ("/docs/a.txt", File),
+            ("/docs/b.txt", File),
+            ("/photos", Directory),
+            ("/photos/c.jpg", File),
+        ]
+    );
     assert!(report
         .render(&RecoveryReportOptions::default())
         .contains("Intact files"));
 
     let salvaged = RecoveryScanner::salvage_bytes(damaged, KEY, &signing_key()).unwrap();
+    let mut salvaged_entries = salvaged
+        .list(ListOptions {
+            path: p("/"),
+            glob: None,
+            recursive: true,
+            include_files: true,
+            include_symlinks: true,
+            include_directories: true,
+            limit: None,
+        })
+        .unwrap()
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+    salvaged_entries.sort_by(|a, b| a.path.as_str().cmp(b.path.as_str()));
+    assert_eq!(
+        salvaged_entries
+            .iter()
+            .map(|entry| (entry.path.as_str(), entry.kind.clone()))
+            .collect::<Vec<_>>(),
+        recovered_entries
+    );
     assert_eq!(salvaged.get_file(&p("/docs/a.txt")).unwrap(), b"alpha");
     assert_eq!(salvaged.get_file(&p("/docs/b.txt")).unwrap(), b"bravo");
     assert_eq!(salvaged.get_file(&p("/photos/c.jpg")).unwrap(), b"image");

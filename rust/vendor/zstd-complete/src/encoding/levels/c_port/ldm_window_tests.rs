@@ -36,7 +36,8 @@ fn ldm_no_dict_rejects_matches_beyond_window_like_c() {
     data[3900..3964].copy_from_slice(&near_repeat);
     let mut table = LdmHashTable::new(params);
 
-    let result = generate_sequences_no_dict(&data, params, &mut table);
+    let result =
+        generate_sequences_no_dict(&data, params, &mut table).expect("test storage admission");
 
     assert!(!result.sequences.is_empty());
     assert!(
@@ -76,7 +77,8 @@ fn ldm_dictionary_match_can_exceed_window_until_dictionary_expires_like_c() {
 
     fill_prefix_hash_table(&combined, 0..source_start, params, &mut table);
     let result =
-        generate_sequences_with_prefix(&combined, source_start..combined.len(), params, &mut table);
+        generate_sequences_with_prefix(&combined, source_start..combined.len(), params, &mut table)
+            .expect("test storage admission");
 
     assert!(
         result

@@ -67,14 +67,17 @@ pub fn build_huffman_table(
     counts: &[usize],
     max_bits: usize,
     scratch: &mut HuffmanBuildScratch,
-) -> Option<BuiltHuffmanTable> {
-    let (codes, max_num_bits) = build_codes(counts, max_bits, scratch)?;
+) -> Result<Option<BuiltHuffmanTable>, crate::workspace::CapacityError> {
+    let (codes, max_num_bits) = match build_codes(counts, max_bits, scratch)? {
+        Some(value) => value,
+        None => return Ok(None),
+    };
     let weights = with_weights(&codes, max_num_bits, <[u8]>::to_vec);
-    Some(BuiltHuffmanTable {
+    Ok(Some(BuiltHuffmanTable {
         codes,
         max_num_bits,
         weights,
-    })
+    }))
 }
 
 /// Builds the complete canonical table and immediately consumes its bit
@@ -97,14 +100,17 @@ pub fn build_described_huffman_table(
     max_bits: usize,
     scratch: &mut HuffmanBuildScratch,
     describe_weights: fn(&[u8]) -> Vec<u8>,
-) -> Option<DescribedHuffmanTable> {
-    let (codes, max_num_bits) = build_codes(counts, max_bits, scratch)?;
+) -> Result<Option<DescribedHuffmanTable>, crate::workspace::CapacityError> {
+    let (codes, max_num_bits) = match build_codes(counts, max_bits, scratch)? {
+        Some(value) => value,
+        None => return Ok(None),
+    };
     let table_description = with_weights(&codes, max_num_bits, describe_weights);
-    Some(DescribedHuffmanTable {
+    Ok(Some(DescribedHuffmanTable {
         codes,
         max_num_bits,
         table_description,
-    })
+    }))
 }
 
 /// Builds the same complete described table while refilling caller-owned
@@ -121,19 +127,22 @@ pub fn build_described_huffman_table(
     ),
     link_section = ".text.sorted.012.ruzstd.huffman.build_described_reusing"
 )]
-pub fn build_described_huffman_table_reusing(
+pub fn build_described_huffman_table_reusing<B: crate::workspace::Growable<u8>>(
     counts: &[usize],
     max_bits: usize,
     scratch: &mut HuffmanBuildScratch,
-    codes: &mut Vec<HuffmanCode>,
-    table_description: &mut Vec<u8>,
-    describe_weights: fn(&[u8], &mut Vec<u8>),
-) -> Option<u8> {
-    let max_num_bits = build_codes_reusing(counts, max_bits, scratch, codes)?;
+    codes: &mut impl crate::workspace::Growable<HuffmanCode>,
+    table_description: &mut B,
+    describe_weights: fn(&[u8], &mut B) -> Result<(), crate::workspace::CapacityError>,
+) -> Result<Option<u8>, crate::workspace::CapacityError> {
+    let max_num_bits = match build_codes_reusing(counts, max_bits, scratch, codes)? {
+        Some(value) => value,
+        None => return Ok(None),
+    };
     with_weights(codes, max_num_bits, |weights| {
         describe_weights(weights, table_description)
-    });
-    Some(max_num_bits)
+    })?;
+    Ok(Some(max_num_bits))
 }
 
 /// Builds the same caller-owned table while allowing its description callback
@@ -150,40 +159,56 @@ pub fn build_described_huffman_table_reusing(
     ),
     link_section = ".text.sorted.013.ruzstd.huffman.build_described_reusing_context"
 )]
-pub fn build_described_huffman_table_reusing_with_context<Context>(
+pub fn build_described_huffman_table_reusing_with_context<
+    Context,
+    B: crate::workspace::Growable<u8>,
+>(
     counts: &[usize],
     max_bits: usize,
     scratch: &mut HuffmanBuildScratch,
-    codes: &mut Vec<HuffmanCode>,
-    table_description: &mut Vec<u8>,
+    codes: &mut impl crate::workspace::Growable<HuffmanCode>,
+    table_description: &mut B,
     context: &mut Context,
-    describe_weights: fn(&[u8], &mut Vec<u8>, &mut Context),
-) -> Option<u8> {
-    let max_num_bits = build_codes_reusing(counts, max_bits, scratch, codes)?;
+    describe_weights: fn(
+        &[u8],
+        &mut B,
+        &mut Context,
+    ) -> Result<(), crate::workspace::CapacityError>,
+) -> Result<Option<u8>, crate::workspace::CapacityError> {
+    let max_num_bits = match build_codes_reusing(counts, max_bits, scratch, codes)? {
+        Some(value) => value,
+        None => return Ok(None),
+    };
     with_weights(codes, max_num_bits, |weights| {
         describe_weights(weights, table_description, context)
-    });
-    Some(max_num_bits)
+    })?;
+    Ok(Some(max_num_bits))
 }
 
 fn build_codes_reusing(
     counts: &[usize],
     max_bits: usize,
     scratch: &mut HuffmanBuildScratch,
-    codes: &mut Vec<HuffmanCode>,
-) -> Option<u8> {
+    codes: &mut impl crate::workspace::Growable<HuffmanCode>,
+) -> Result<Option<u8>, crate::workspace::CapacityError> {
     if counts.len() > 256 {
-        return None;
+        return Ok(None);
     }
     let max_bits = max_bits.clamp(1, MAX_HUFFMAN_BITS);
     if counts.iter().filter(|count| **count != 0).count() > 1usize << max_bits {
-        return None;
+        return Ok(None);
     }
-    let leaf_count = build_tree(counts, &mut scratch.nodes)?;
-    let max_num_bits = limit_height(&mut scratch.nodes, leaf_count, max_bits)?;
+    let leaf_count = match build_tree(counts, &mut scratch.nodes)? {
+        Some(value) => value,
+        None => return Ok(None),
+    };
+    let max_num_bits = match limit_height(&mut scratch.nodes, leaf_count, max_bits) {
+        Some(value) => value,
+        None => return Ok(None),
+    };
 
     codes.clear();
-    codes.resize(counts.len(), (0, 0));
+    codes.resize(counts.len(), (0, 0))?;
     let mut counts_by_length = [0u16; 256];
     for node in &scratch.nodes[1..=leaf_count] {
         counts_by_length[usize::from(node.len)] += 1;
@@ -197,7 +222,7 @@ fn build_codes_reusing(
         min_value += u32::from(counts_by_length[len]);
         min_value >>= 1;
     }
-    for code in codes {
+    for code in codes.iter_mut() {
         let len = usize::from(code.1);
         if len != 0 {
             code.0 = values_by_length[len];
@@ -205,23 +230,29 @@ fn build_codes_reusing(
         }
     }
 
-    u8::try_from(max_num_bits).ok()
+    Ok(u8::try_from(max_num_bits).ok())
 }
 
 fn build_codes(
     counts: &[usize],
     max_bits: usize,
     scratch: &mut HuffmanBuildScratch,
-) -> Option<(Vec<HuffmanCode>, u8)> {
+) -> Result<Option<(Vec<HuffmanCode>, u8)>, crate::workspace::CapacityError> {
     if counts.len() > 256 {
-        return None;
+        return Ok(None);
     }
     let max_bits = max_bits.clamp(1, MAX_HUFFMAN_BITS);
     if counts.iter().filter(|count| **count != 0).count() > 1usize << max_bits {
-        return None;
+        return Ok(None);
     }
-    let leaf_count = build_tree(counts, &mut scratch.nodes)?;
-    let max_num_bits = limit_height(&mut scratch.nodes, leaf_count, max_bits)?;
+    let leaf_count = match build_tree(counts, &mut scratch.nodes)? {
+        Some(value) => value,
+        None => return Ok(None),
+    };
+    let max_num_bits = match limit_height(&mut scratch.nodes, leaf_count, max_bits) {
+        Some(value) => value,
+        None => return Ok(None),
+    };
 
     let mut codes = vec![(0, 0); counts.len()];
     let mut counts_by_length = [0u16; 256];
@@ -245,8 +276,11 @@ fn build_codes(
         }
     }
 
-    let max_num_bits = u8::try_from(max_num_bits).ok()?;
-    Some((codes, max_num_bits))
+    let max_num_bits = match u8::try_from(max_num_bits).ok() {
+        Some(value) => value,
+        None => return Ok(None),
+    };
+    Ok(Some((codes, max_num_bits)))
 }
 
 fn with_weights<R>(codes: &[HuffmanCode], max_num_bits: u8, consume: impl FnOnce(&[u8]) -> R) -> R {
@@ -263,25 +297,37 @@ fn with_weights<R>(codes: &[HuffmanCode], max_num_bits: u8, consume: impl FnOnce
     consume(&weights[..codes.len()])
 }
 
-fn build_tree(counts: &[usize], nodes: &mut Vec<Node>) -> Option<usize> {
-    sort_leaves(counts, nodes)?;
+fn build_tree(
+    counts: &[usize],
+    nodes: &mut impl crate::workspace::Growable<Node>,
+) -> Result<Option<usize>, crate::workspace::CapacityError> {
+    match sort_leaves(counts, nodes)? {
+        Some(value) => value,
+        None => return Ok(None),
+    };
     let leaf_count = nodes.len().saturating_sub(1);
     if leaf_count <= 1 {
-        return None;
+        return Ok(None);
     }
 
     let first_parent = leaf_count + 1;
     let root = 2 * leaf_count - 1;
-    nodes.resize(2 * leaf_count, Node::barrier());
+    nodes.resize(2 * leaf_count, Node::barrier())?;
     let mut smallest_leaf = leaf_count;
     let mut smallest_parent = first_parent;
     for parent in first_parent..=root {
         let left = pop_smallest(nodes, &mut smallest_leaf, &mut smallest_parent);
         let right = pop_smallest(nodes, &mut smallest_leaf, &mut smallest_parent);
-        let parent_index = u16::try_from(parent).ok()?;
+        let parent_index = match u16::try_from(parent).ok() {
+            Some(value) => value,
+            None => return Ok(None),
+        };
         nodes[left].parent = parent_index;
         nodes[right].parent = parent_index;
-        nodes[parent].count = nodes[left].count.checked_add(nodes[right].count)?;
+        nodes[parent].count = match nodes[left].count.checked_add(nodes[right].count) {
+            Some(value) => value,
+            None => return Ok(None),
+        };
     }
 
     nodes[root].len = 0;
@@ -291,7 +337,7 @@ fn build_tree(counts: &[usize], nodes: &mut Vec<Node>) -> Option<usize> {
     for index in 1..=leaf_count {
         nodes[index].len = nodes[parent(nodes[index])].len + 1;
     }
-    Some(leaf_count)
+    Ok(Some(leaf_count))
 }
 
 fn limit_height(nodes: &mut [Node], leaf_count: usize, target_bits: usize) -> Option<usize> {
@@ -392,7 +438,10 @@ fn limit_height(nodes: &mut [Node], leaf_count: usize, target_bits: usize) -> Op
     Some(target_bits)
 }
 
-fn sort_leaves(counts: &[usize], nodes: &mut Vec<Node>) -> Option<()> {
+fn sort_leaves(
+    counts: &[usize],
+    nodes: &mut impl crate::workspace::Growable<Node>,
+) -> Result<Option<()>, crate::workspace::CapacityError> {
     const TABLE_SIZE: usize = 192;
     const MAX_COUNT_LOG: usize = 32;
     const LOG_BUCKETS_BEGIN: usize = (TABLE_SIZE - 1) - MAX_COUNT_LOG - 1;
@@ -418,7 +467,7 @@ fn sort_leaves(counts: &[usize], nodes: &mut Vec<Node>) -> Option<()> {
         nonzero_count += usize::from(count != 0);
         let rank = rank_index(count);
         if rank >= TABLE_SIZE - 1 {
-            return None;
+            return Ok(None);
         }
         positions[rank].base += 1;
     }
@@ -428,7 +477,7 @@ fn sort_leaves(counts: &[usize], nodes: &mut Vec<Node>) -> Option<()> {
     }
 
     nodes.clear();
-    nodes.resize(nonzero_count + 1, Node::barrier());
+    nodes.resize(nonzero_count + 1, Node::barrier())?;
     for (symbol, &count) in counts.iter().enumerate() {
         if count == 0 {
             continue;
@@ -437,8 +486,14 @@ fn sort_leaves(counts: &[usize], nodes: &mut Vec<Node>) -> Option<()> {
         let position = positions[rank].current;
         positions[rank].current += 1;
         nodes[position + 1] = Node {
-            count: u32::try_from(count).ok()?,
-            symbol: u8::try_from(symbol).ok()?,
+            count: match u32::try_from(count).ok() {
+                Some(value) => value,
+                None => return Ok(None),
+            },
+            symbol: match u8::try_from(symbol).ok() {
+                Some(value) => value,
+                None => return Ok(None),
+            },
             parent: NODE_NONE,
             len: 0,
         };
@@ -450,7 +505,7 @@ fn sort_leaves(counts: &[usize], nodes: &mut Vec<Node>) -> Option<()> {
             quick_sort(&mut nodes[start..end]);
         }
     }
-    Some(())
+    Ok(Some(()))
 }
 
 fn quick_sort(nodes: &mut [Node]) {

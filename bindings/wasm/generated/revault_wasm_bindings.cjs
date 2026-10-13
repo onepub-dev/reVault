@@ -680,6 +680,24 @@ class WasmLockbox {
         return WasmLockbox.__wrap(ret[0]);
     }
     /**
+     * Opens using an explicit per-credential KDF budget for a trusted archive.
+     * @param {Uint8Array} bytes
+     * @param {string} password
+     * @param {number} max_derivations
+     * @returns {WasmLockbox}
+     */
+    static open_with_password_budget(bytes, password, max_derivations) {
+        const ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(password, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.wasmlockbox_open_with_password_budget(ptr0, len0, ptr1, len1, max_derivations);
+        if (ret[2]) {
+            throw takeFromExternrefTable0(ret[1]);
+        }
+        return WasmLockbox.__wrap(ret[0]);
+    }
+    /**
      * Returns stored Unix permission bits, or `undefined` if absent.
      * @param {string} path
      * @returns {number | undefined}

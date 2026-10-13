@@ -32,7 +32,8 @@ fn level1_params(src_len: usize) -> CompressionParameters {
 fn fast_no_dict_keeps_tiny_blocks_as_last_literals() {
     let data = b"abcdefgh";
 
-    let output = compress_block_fast_no_dict(data, level1_params(data.len()), RepeatOffsets::new());
+    let output = compress_block_fast_no_dict(data, level1_params(data.len()), RepeatOffsets::new())
+        .expect("test storage admission");
 
     assert!(output.sequences.is_empty());
     assert_eq!(output.last_literals, data.len() as u32);
@@ -43,7 +44,8 @@ fn fast_no_dict_keeps_tiny_blocks_as_last_literals() {
 fn fast_no_dict_emits_offset_one_run_like_c_fast() {
     let data = b"aaaaaaaaaaaaaaaa";
 
-    let output = compress_block_fast_no_dict(data, level1_params(data.len()), RepeatOffsets::new());
+    let output = compress_block_fast_no_dict(data, level1_params(data.len()), RepeatOffsets::new())
+        .expect("test storage admission");
 
     assert_eq!(
         output.sequences,
@@ -61,7 +63,8 @@ fn fast_no_dict_emits_offset_one_run_like_c_fast() {
 fn fast_no_dict_emits_repeated_pattern_match() {
     let data = b"abcdeabcdeabcde-tail";
 
-    let output = compress_block_fast_no_dict(data, level1_params(data.len()), RepeatOffsets::new());
+    let output = compress_block_fast_no_dict(data, level1_params(data.len()), RepeatOffsets::new())
+        .expect("test storage admission");
 
     assert_eq!(
         output.sequences,
@@ -74,7 +77,8 @@ fn fast_no_dict_emits_repeated_pattern_match() {
 fn fast_no_dict_extends_offset_match_before_immediate_repcode_probe() {
     let data = b"abcdabcdabcdabcdabcd";
 
-    let output = compress_block_fast_no_dict(data, level1_params(data.len()), RepeatOffsets::new());
+    let output = compress_block_fast_no_dict(data, level1_params(data.len()), RepeatOffsets::new())
+        .expect("test storage admission");
 
     assert_eq!(
         output.sequences,
@@ -102,14 +106,16 @@ fn fast_no_dict_state_finds_previous_block_prefix_match() {
         params,
         RepeatOffsets::new(),
         &mut state,
-    );
+    )
+    .expect("test storage admission");
     let second = compress_block_fast_no_dict_with_state(
         &data,
         second_block_start..data.len(),
         params,
         first.repeat_offsets,
         &mut state,
-    );
+    )
+    .expect("test storage admission");
 
     assert!(second.sequences.iter().any(|sequence| matches!(
         sequence.off_base(),
@@ -138,17 +144,22 @@ fn fast_loaded_dictionary_keeps_full_dictionary_valid_like_c() {
     let block_range = dictionary.len()..combined.len();
 
     let mut no_loaded_state = FastMatchState::new();
-    no_loaded_state.load_prefix(&combined, dictionary.len(), params);
+    no_loaded_state
+        .load_prefix(&combined, dictionary.len(), params)
+        .expect("test storage admission");
     let no_loaded = compress_block_fast_no_dict_with_state(
         &combined,
         block_range.clone(),
         params,
         RepeatOffsets::new(),
         &mut no_loaded_state,
-    );
+    )
+    .expect("test storage admission");
 
     let mut loaded_state = FastMatchState::new();
-    loaded_state.load_prefix(&combined, dictionary.len(), params);
+    loaded_state
+        .load_prefix(&combined, dictionary.len(), params)
+        .expect("test storage admission");
     let loaded = compress_block_fast_no_dict_with_state_and_loaded_dict(
         &combined,
         block_range,
@@ -156,7 +167,8 @@ fn fast_loaded_dictionary_keeps_full_dictionary_valid_like_c() {
         RepeatOffsets::new(),
         &mut loaded_state,
         dictionary.len(),
-    );
+    )
+    .expect("test storage admission");
 
     assert!(no_loaded.sequences.is_empty());
     assert!(loaded.sequences.iter().any(|sequence| {
@@ -172,7 +184,8 @@ fn fast_no_dict_prepared_block_keeps_tiny_block_as_literals() {
     let data = b"abcdefgh";
 
     let prepared =
-        prepare_block_fast_no_dict(data, level1_params(data.len()), RepeatOffsets::new());
+        prepare_block_fast_no_dict(data, level1_params(data.len()), RepeatOffsets::new())
+            .expect("test storage admission");
 
     assert_eq!(prepared.prepared.literals, data);
     assert!(prepared.prepared.sequences.is_empty());
@@ -184,7 +197,8 @@ fn fast_no_dict_prepared_block_resolves_repcode_raw_offset() {
     let data = b"aaaaaaaaaaaaaaaa";
 
     let prepared =
-        prepare_block_fast_no_dict(data, level1_params(data.len()), RepeatOffsets::new());
+        prepare_block_fast_no_dict(data, level1_params(data.len()), RepeatOffsets::new())
+            .expect("test storage admission");
 
     assert_eq!(prepared.prepared.literals, b"aa");
     assert_eq!(prepared.prepared.sequences.len(), 1);
@@ -200,7 +214,8 @@ fn fast_no_dict_prepared_block_reconstructs_literals_and_raw_offsets() {
     let data = b"abcdeabcdeabcde-tail";
 
     let prepared =
-        prepare_block_fast_no_dict(data, level1_params(data.len()), RepeatOffsets::new());
+        prepare_block_fast_no_dict(data, level1_params(data.len()), RepeatOffsets::new())
+            .expect("test storage admission");
 
     assert_eq!(prepared.prepared.literals, b"abcde-tail");
     assert_eq!(prepared.prepared.sequences.len(), 1);
@@ -230,7 +245,8 @@ fn fast_no_dict_hidden_block_emits_compressed_block() {
             fse_tables: &mut fse_tables,
             offset_history: &mut offset_history,
         },
-    );
+    )
+    .expect("test storage admission");
     let (last_block, block_type, block_size) = parse_block_header(&encoded.bytes);
 
     assert!(last_block);
@@ -258,7 +274,8 @@ fn fast_no_dict_hidden_block_falls_back_to_raw_when_not_smaller() {
             fse_tables: &mut fse_tables,
             offset_history: &mut offset_history,
         },
-    );
+    )
+    .expect("test storage admission");
     let (last_block, block_type, block_size) = parse_block_header(&encoded.bytes);
 
     assert!(!last_block);
@@ -301,7 +318,8 @@ fn fast_state_reuses_prepared_allocations_through_compressed_and_raw_blocks() {
             fse_tables: &mut fse_tables,
             offset_history: &mut offset_history,
         },
-    );
+    )
+    .expect("test storage admission");
     assert_eq!(parse_block_header(&first.bytes).1, BlockType::Compressed);
     let allocation = state.prepared_store_allocation();
     assert!(allocation.0 .1 >= raw_start);
@@ -325,7 +343,8 @@ fn fast_state_reuses_prepared_allocations_through_compressed_and_raw_blocks() {
             fse_tables: &mut fse_tables,
             offset_history: &mut offset_history,
         },
-    );
+    )
+    .expect("test storage admission");
 
     assert_eq!(parse_block_header(&second.bytes).1, BlockType::Raw);
     assert_eq!(state.prepared_store_allocation(), allocation);
@@ -350,7 +369,8 @@ fn fast_no_dict_hidden_block_emits_rle_for_single_byte_run() {
             fse_tables: &mut fse_tables,
             offset_history: &mut offset_history,
         },
-    );
+    )
+    .expect("test storage admission");
     let (last_block, block_type, block_size) = parse_block_header(&encoded.bytes);
 
     assert!(last_block);
@@ -379,7 +399,8 @@ fn fast_no_dict_hidden_tiny_rle_candidate_stays_raw_like_c() {
             fse_tables: &mut fse_tables,
             offset_history: &mut offset_history,
         },
-    );
+    )
+    .expect("test storage admission");
     let (last_block, block_type, block_size) = parse_block_header(&encoded.bytes);
 
     assert!(last_block);

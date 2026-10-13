@@ -56,7 +56,8 @@ impl DictionaryFrameContext {
         let dictionary_id = (dictionary.dict_id != 0).then_some(dictionary.dict_id);
         let opt_price_seeds = dictionary.initial_opt_price_seeds();
         let mut output = Vec::with_capacity(compress_bound(src.len()));
-        write_frame_header(&mut output, src.len(), params, dictionary_id);
+        write_frame_header(&mut output, src.len(), params, dictionary_id)
+            .expect("owned legacy codec allocation failed");
         let frame_state =
             FrameBlockState::with_dictionary(params, cctx.max_block_size, &dictionary);
 

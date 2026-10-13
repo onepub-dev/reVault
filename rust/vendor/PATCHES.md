@@ -79,6 +79,39 @@ full-capacity policy and fence. MaybeUninit partitions avoid reading spare
 capacity; guard coverage spans every offset 0–63 and length 0–192. The separate
 fixed comparison against the byte-wise correction is recorded with that evidence.
 
+## Static encoder ownership correction — October 2026 security review
+
+Static encoder buffers now keep their caller-storage ownership tag through
+prepared-block, literal-store and encoded-block transfers. `ReusableVec` leases
+and typed storage casts retain that tag rather than reconstructing an owning
+`Vec` over borrowed workspace memory. Checked alignment, element size and
+capacity remain required for casts. Ordinary owned buffers retain their normal
+ownership. This correction changes ownership bookkeeping, not the Zstd wire
+format, compression policy or archive authentication.
+
+Focused tests cover lease transfer and release, typed storage, normal owned
+storage, and construction/encoding in caller storage. The bounded workspace
+test covers all 22 supported numeric levels and six source sizes, including
+2 MiB, with an independent libzstd byte comparison in the consumer validation.
+These are bounded allocation and compatibility checks, not a proof that every
+possible codec input uses no hidden allocations.
+
+The reVault consumer separately routes plaintext destined for encryption through
+guarded, bounded static encoder storage. Combined scratch/output admission is
+64 MiB; an unavailable or oversized workspace uses the existing raw-frame
+representation, which is subsequently encrypted normally. Clear-only archive
+encoding is unchanged. Guarded scratch/output cleanup is a consumer change,
+not a claim that every ordinary vendor encoder allocation is wiped. Previously
+retained decoder-owned byte cleanup above remains in place.
+
+The isolated distributable preparation includes all local vendor corrections,
+not merely the latest ownership diff, and retains original license notices.
+Package validation must include the small decoder/dictionary fixtures used by
+distributed tests; an earlier candidate omitted eleven such fixtures and is
+preserved as a failed preparation attempt. Exact final artifact identities and
+consumer results belong in the security/release evidence; this document does
+not assert publication or completed cross-platform qualification.
+
 ## Release boundary
 
 This workspace patch is a local build dependency fix, not release qualification.

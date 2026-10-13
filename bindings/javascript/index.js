@@ -126,6 +126,12 @@ export class Revault {
   }
 
   /** Opens serialized Lockbox bytes with the supplied password. */
+  lockboxOpenPasswordWithBudget(archive, password, maxDerivations) {
+    if (!Number.isInteger(maxDerivations) || maxDerivations < 0 || maxDerivations > 0xffffffff) throw new RangeError("maxDerivations must be an unsigned 32-bit integer");
+    return new Lockbox(this.operations, this.operations.lockboxOpenPasswordWithBudget(archive, password, maxDerivations));
+  }
+
+  /** Opens with the default per-credential password work budget. */
   lockboxOpenPassword(archive, password) {
     return new Lockbox(this.operations, this.operations.lockboxOpenPassword(archive, password));
   }
@@ -405,6 +411,11 @@ export class Lockbox extends OwnedHandle {
   }
 
   /** Writes one Lockbox file to the host filesystem. */
+  extractFileWithPolicy(source, destination, maxFileBytes, maxTotalBytes, maxFiles, restorePermissions, overwrite) {
+    return this.operations.lockboxExtractFileWithPolicy(this.nativeHandle, source, destination, maxFileBytes, maxTotalBytes, maxFiles, restorePermissions, overwrite);
+  }
+
+  /** Extracts one file using the legacy permission policy. */
   extractFile(source, destination, replace) {
     return this.operations.lockboxExtractFile(this.nativeHandle, source, destination, replace);
   }
@@ -994,6 +1005,26 @@ export class Vault extends OwnedHandle {
     return this.operations.vaultDirectoryListKnownLockboxes(this.nativeHandle);
   }
 
+  /** Resolve metadata; verify target identity when opening its path. */
+  resolveLockboxAlias(name) {
+    return this.operations.vaultDirectoryResolveLockboxAlias(this.nativeHandle, name);
+  }
+
+  /** Manage persisted aliases using core validation. */
+  removeLockboxAlias(name) {
+    return this.operations.vaultDirectoryRemoveLockboxAlias(this.nativeHandle, name);
+  }
+
+  /** Manage persisted aliases using core validation. */
+  listLockboxAliases() {
+    return this.operations.vaultDirectoryListLockboxAliases(this.nativeHandle);
+  }
+
+  /** Manage persisted aliases using core validation. */
+  setLockboxAlias(name, id) {
+    return this.operations.vaultDirectorySetLockboxAlias(this.nativeHandle, name, id);
+  }
+
   /** Removes lockbox. */
   forgetLockbox(path) {
     return this.operations.vaultDirectoryForgetLockbox(this.nativeHandle, path);
@@ -1083,6 +1114,16 @@ export class ReadOnlyVault extends OwnedHandle {
   /** Lists known lockboxes. */
   listKnownLockboxes() {
     return this.operations.vaultReadOnlyListKnownLockboxes(this.nativeHandle);
+  }
+
+  /** Resolve metadata; verify target identity when opening its path. */
+  resolveLockboxAlias(name) {
+    return this.operations.vaultReadOnlyResolveLockboxAlias(this.nativeHandle, name);
+  }
+
+  /** Manage persisted aliases using core validation. */
+  listLockboxAliases() {
+    return this.operations.vaultReadOnlyListLockboxAliases(this.nativeHandle);
   }
 
   /** Releases the native resources held by this object. */

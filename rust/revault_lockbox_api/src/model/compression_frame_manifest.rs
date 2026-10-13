@@ -46,15 +46,62 @@ impl CompressionFrameManifest {
     }
 }
 
+#[cfg(test)]
 pub(crate) fn encode_compression_frame_manifest(
     manifest: &CompressionFrameManifest,
+) -> Result<Vec<u8>> {
+    encode_compression_frame_manifest_sensitive(manifest, false)
+}
+
+pub(crate) fn encode_compression_frame_manifest_sensitive(
+    manifest: &CompressionFrameManifest,
+    sensitive: bool,
 ) -> Result<Vec<u8>> {
     if manifest.slices.len() > MAX_SLICES {
         return Err(Error::SecurityLimitExceeded(
             "compression-frame manifest contains too many slices".to_string(),
         ));
     }
-    let mut out = Vec::new();
+    // Calculate the complete serialization size before copying encrypted-origin
+    // paths into an allocation. No growth may abandon those bytes unwiped.
+    let var_len = |n: u64| ((64 - n.leading_zeros()).max(1) as usize).div_ceil(7);
+    let mut len = 37usize;
+    for n in [
+        manifest.compression_frame_id,
+        manifest.compression as u64,
+        manifest.compression_frame_len,
+        manifest.compressed_len,
+        manifest.slices.len() as u64,
+    ] {
+        len = len.checked_add(var_len(n)).ok_or(Error::CorruptRecord)?;
+    }
+    for slice in &manifest.slices {
+        let path_len = slice.path.as_str().len();
+        len = len.checked_add(path_len).ok_or(Error::CorruptRecord)?;
+        for n in [
+            path_len as u64,
+            slice.permissions as u64,
+            slice.total_len,
+            slice.file_offset,
+            slice.compression_frame_offset,
+            slice.len,
+        ] {
+            len = len.checked_add(var_len(n)).ok_or(Error::CorruptRecord)?;
+        }
+    }
+    if len > MAX_MANIFEST_BYTES {
+        return Err(Error::SecurityLimitExceeded(
+            "compression-frame manifest exceeds safety limit".into(),
+        ));
+    }
+    let mut out = crate::page_buffer::SensitiveBytes::new(
+        if sensitive {
+            Vec::with_capacity(len)
+        } else {
+            Vec::new()
+        },
+        sensitive,
+    );
     out.extend_from_slice(MANIFEST_MAGIC);
     out.push(MANIFEST_VERSION);
     put_varint(manifest.compression_frame_id, &mut out);
@@ -78,7 +125,7 @@ pub(crate) fn encode_compression_frame_manifest(
             "compression-frame manifest exceeds safety limit".to_string(),
         ));
     }
-    Ok(out)
+    Ok(out.into_vec())
 }
 
 pub(crate) fn decode_compression_frame_manifest(

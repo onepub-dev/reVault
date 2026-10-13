@@ -1,0 +1,4 @@
+AST result: 0
+changed_files=40
+old_input_source_stable=0
+worktree_vendor_source_stable=0

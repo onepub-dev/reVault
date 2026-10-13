@@ -30,16 +30,16 @@ native-block-layout = []
 issue303-protocol = []
 
 [dependencies]
-argon2 = "0.6"
+argon2 = { version = "0.6", features = ["zeroize"] }
 chacha20poly1305 = "0.11"
 ed25519-dalek = "3"
 getrandom = "0.4"
 hkdf = "0.13"
-hmac = "0.13"
+hmac = { version = "0.13", features = ["zeroize"] }
 revault_page_api = { version = "0.0.34", path = "../revault_page_api" }
-ml-dsa = { version = "0.1", features = ["getrandom"] }
-ml-kem = { version = "0.3.2", features = ["getrandom"] }
-sha2 = "0.11"
+ml-dsa = { version = "0.1", features = ["getrandom", "zeroize"] }
+ml-kem = { version = "0.3.2", features = ["getrandom", "zeroize"] }
+sha2 = { version = "0.11", features = ["zeroize"] }
 serde_json = "1"
 unicode-normalization = "=0.1.25"
 x25519-dalek = { version = "3", features = ["static_secrets"] }
@@ -59,9 +59,15 @@ zip = { version = "8", default-features = false, features = ["deflate"] }
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 
+[target.'cfg(any(unix, windows))'.dependencies]
+cap-std = "=4.0.3"
+cap-fs-ext = "=4.0.3"
+
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61", features = [
     "Win32_Foundation",
+    "Win32_Security",
+    "Win32_Security_Authorization",
     "Win32_System_Threading",
     "Win32_System_IO",
     "Win32_Storage_FileSystem",

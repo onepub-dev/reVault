@@ -448,6 +448,243 @@ fn profile_history_transport(
     }
 }
 
+fn lockbox_alias_list_transport(
+    values: &[revault_vault_api::LockboxAlias],
+) -> bindings_transport::LockboxAliasListT {
+    bindings_transport::LockboxAliasListT {
+        values: Some(
+            values
+                .iter()
+                .map(|value| bindings_transport::LockboxAliasT {
+                    name: Some(value.name.clone()),
+                    lockbox_id: Some(value.lockbox_id.as_bytes().to_vec()),
+                })
+                .collect(),
+        ),
+    }
+}
+
+#[no_mangle]
+/// Sets or replaces an alias for a remembered identity; repeating the same mapping performs no write.
+///
+/// # Safety
+/// The handle must be a live matching Vault handle; byte pointers must be valid
+/// for their lengths. Callers must prevent overlapping mutable access.
+pub unsafe extern "C" fn vault_directory_set_lockbox_alias(
+    handle: *const c_void,
+    name: *const c_char,
+    name_len: usize,
+    id: *const u8,
+    id_len: usize,
+) -> bool {
+    let Some(handle) =
+        (!handle.is_null()).then(|| unsafe { &*(handle.cast::<VaultDirectoryHandle>()) })
+    else {
+        set_error("vault handle is null");
+        return false;
+    };
+    let Some(name) = (unsafe { input_str(name, name_len) }) else {
+        set_error("invalid alias name");
+        return false;
+    };
+    let id = match lockbox_id_from_bytes(id, id_len) {
+        Ok(id) => id,
+        Err(error) => {
+            set_error(error);
+            return false;
+        }
+    };
+    match handle.set_lockbox_alias(name, id) {
+        Ok(()) => {
+            clear_error();
+            true
+        }
+        Err(error) => {
+            set_error(error);
+            false
+        }
+    }
+}
+
+#[no_mangle]
+/// Lists sorted alias names and stable target identities without opening target archives.
+///
+/// # Safety
+/// The handle must be a live matching Vault handle; byte pointers must be valid
+/// for their lengths. Callers must prevent overlapping mutable access.
+pub unsafe extern "C" fn vault_directory_list_lockbox_aliases(
+    handle: *const c_void,
+) -> RevaultBuffer {
+    let Some(handle) =
+        (!handle.is_null()).then(|| unsafe { &*(handle.cast::<VaultDirectoryHandle>()) })
+    else {
+        set_error("vault handle is null");
+        return RevaultBuffer {
+            ptr: ptr::null_mut(),
+            len: 0,
+        };
+    };
+    match handle.list_lockbox_aliases() {
+        Ok(value) => {
+            clear_error();
+            flatbuffer_buffer!(&lockbox_alias_list_transport(&value))
+        }
+        Err(error) => {
+            set_error(error);
+            RevaultBuffer {
+                ptr: ptr::null_mut(),
+                len: 0,
+            }
+        }
+    }
+}
+
+#[no_mangle]
+/// Removes only the alias; preserves its target archive and remembered path.
+///
+/// # Safety
+/// The handle must be a live matching Vault handle; byte pointers must be valid
+/// for their lengths. Callers must prevent overlapping mutable access.
+pub unsafe extern "C" fn vault_directory_remove_lockbox_alias(
+    handle: *const c_void,
+    name: *const c_char,
+    name_len: usize,
+) -> bool {
+    let Some(handle) =
+        (!handle.is_null()).then(|| unsafe { &*(handle.cast::<VaultDirectoryHandle>()) })
+    else {
+        set_error("vault handle is null");
+        return false;
+    };
+    let Some(name) = (unsafe { input_str(name, name_len) }) else {
+        set_error("invalid alias name");
+        return false;
+    };
+    match handle.remove_lockbox_alias(name) {
+        Ok(()) => {
+            clear_error();
+            true
+        }
+        Err(error) => {
+            set_error(error);
+            false
+        }
+    }
+}
+
+#[no_mangle]
+/// Resolves metadata only; callers must verify the target identity when opening its path.
+///
+/// # Safety
+/// The handle must be a live matching Vault handle; byte pointers must be valid
+/// for their lengths. Callers must prevent overlapping mutable access.
+pub unsafe extern "C" fn vault_directory_resolve_lockbox_alias(
+    handle: *const c_void,
+    name: *const c_char,
+    name_len: usize,
+) -> RevaultBuffer {
+    let Some(handle) =
+        (!handle.is_null()).then(|| unsafe { &*(handle.cast::<VaultDirectoryHandle>()) })
+    else {
+        set_error("vault handle is null");
+        return RevaultBuffer {
+            ptr: ptr::null_mut(),
+            len: 0,
+        };
+    };
+    let Some(name) = (unsafe { input_str(name, name_len) }) else {
+        set_error("invalid alias name");
+        return RevaultBuffer {
+            ptr: ptr::null_mut(),
+            len: 0,
+        };
+    };
+    match handle.resolve_lockbox_alias(name) {
+        Ok(value) => {
+            clear_error();
+            flatbuffer_buffer!(&known_lockbox_transport(&value))
+        }
+        Err(error) => {
+            set_error(error);
+            RevaultBuffer {
+                ptr: ptr::null_mut(),
+                len: 0,
+            }
+        }
+    }
+}
+
+#[no_mangle]
+/// Lists sorted alias names and stable target identities without opening target archives.
+///
+/// # Safety
+/// The handle must be a live matching Vault handle; byte pointers must be valid
+/// for their lengths. Callers must prevent overlapping mutable access.
+pub unsafe extern "C" fn vault_read_only_list_lockbox_aliases(
+    handle: *const c_void,
+) -> RevaultBuffer {
+    let Some(handle) = (unsafe { read_only_vault(handle) }) else {
+        set_error("vault handle is null");
+        return RevaultBuffer {
+            ptr: ptr::null_mut(),
+            len: 0,
+        };
+    };
+    match handle.list_lockbox_aliases() {
+        Ok(value) => {
+            clear_error();
+            flatbuffer_buffer!(&lockbox_alias_list_transport(&value))
+        }
+        Err(error) => {
+            set_error(error);
+            RevaultBuffer {
+                ptr: ptr::null_mut(),
+                len: 0,
+            }
+        }
+    }
+}
+
+#[no_mangle]
+/// Resolves metadata only; callers must verify the target identity when opening its path.
+///
+/// # Safety
+/// The handle must be a live matching Vault handle; byte pointers must be valid
+/// for their lengths. Callers must prevent overlapping mutable access.
+pub unsafe extern "C" fn vault_read_only_resolve_lockbox_alias(
+    handle: *const c_void,
+    name: *const c_char,
+    name_len: usize,
+) -> RevaultBuffer {
+    let Some(handle) = (unsafe { read_only_vault(handle) }) else {
+        set_error("vault handle is null");
+        return RevaultBuffer {
+            ptr: ptr::null_mut(),
+            len: 0,
+        };
+    };
+    let Some(name) = (unsafe { input_str(name, name_len) }) else {
+        set_error("invalid alias name");
+        return RevaultBuffer {
+            ptr: ptr::null_mut(),
+            len: 0,
+        };
+    };
+    match handle.resolve_lockbox_alias(name) {
+        Ok(value) => {
+            clear_error();
+            flatbuffer_buffer!(&known_lockbox_transport(&value))
+        }
+        Err(error) => {
+            set_error(error);
+            RevaultBuffer {
+                ptr: ptr::null_mut(),
+                len: 0,
+            }
+        }
+    }
+}
+
 fn known_lockbox_transport(
     value: &revault_vault_api::KnownLockbox,
 ) -> bindings_transport::KnownLockboxT {
@@ -7157,12 +7394,23 @@ pub extern "C" fn vault_agent_list() -> RevaultBuffer {
 #[no_mangle]
 /// Returns the agent sleep support.
 pub extern "C" fn vault_agent_sleep_support() -> RevaultBuffer {
+    let cache_clearing_active = match revault_vault_api::suspend_cache_clearing_active() {
+        Ok(active) => active,
+        Err(error) => {
+            set_error(error);
+            return RevaultBuffer {
+                ptr: ptr::null_mut(),
+                len: 0,
+            };
+        }
+    };
     let support = revault_vault_api::agent_sleep_support();
     clear_error();
     flatbuffer_buffer!(&bindings_transport::SleepSupportT {
         suspend_notifications: support.suspend_notifications,
         sleep_inhibition: support.sleep_inhibition,
         supported: support.supported(),
+        cache_clearing_active,
     })
 }
 
@@ -8241,10 +8489,459 @@ pub extern "C" fn vault_forget_all() -> bool {
     }
 }
 
+#[no_mangle]
+/// Opens with an explicit per-credential password derivation budget.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
+pub unsafe extern "C" fn lockbox_open_password_with_budget(
+    bytes: *const u8,
+    len: usize,
+    password: *const u8,
+    password_len: usize,
+    max_derivations: u32,
+) -> *mut c_void {
+    let (Some(bytes), Some(password)) = (unsafe { input(bytes, len) }, unsafe {
+        input(password, password_len)
+    }) else {
+        set_error("invalid lockbox input");
+        return ptr::null_mut();
+    };
+    let password = match revault_lockbox_api::SecretString::try_from_slice(password) {
+        Ok(value) => value,
+        Err(error) => {
+            set_error(error);
+            return ptr::null_mut();
+        }
+    };
+    match Lockbox::open_with_password_budget(bytes.to_vec(), &password, max_derivations) {
+        Ok(value) => {
+            clear_error();
+            Box::into_raw(Box::new(value)).cast()
+        }
+        Err(error) => {
+            set_error(error);
+            ptr::null_mut()
+        }
+    }
+}
+
+#[no_mangle]
+/// Extracts one file with limits and final permissions applied before publication.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
+pub unsafe extern "C" fn lockbox_extract_file_with_policy(
+    handle: *const c_void,
+    source: *const c_char,
+    source_len: usize,
+    destination: *const c_char,
+    destination_len: usize,
+    max_file_bytes: u64,
+    max_total_bytes: u64,
+    max_files: usize,
+    restore_permissions: bool,
+    overwrite: bool,
+) -> bool {
+    let Some(handle) = (unsafe { lockbox_ref(handle) }) else {
+        set_error("lockbox handle is null");
+        return false;
+    };
+    let (Some(source), Some(destination)) = (unsafe { input_str(source, source_len) }, unsafe {
+        input_str(destination, destination_len)
+    }) else {
+        set_error("invalid extraction path");
+        return false;
+    };
+    match LockboxPath::new(source).and_then(|source| {
+        handle.extract_file_to_with_policy(
+            &source,
+            std::path::Path::new(destination),
+            &ExtractPolicy {
+                max_file_bytes,
+                max_total_bytes,
+                max_files,
+                restore_symlinks: false,
+                restore_permissions,
+                overwrite,
+            },
+        )
+    }) {
+        Ok(()) => {
+            clear_error();
+            true
+        }
+        Err(error) => {
+            set_error(error);
+            false
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::ffi::CStr;
+
+    #[test]
+    fn alias_abi_persisted_normalized_rebind_and_read_only_lifecycle() {
+        unsafe fn take(value: RevaultBuffer) -> Vec<u8> {
+            assert!(!value.ptr.is_null());
+            let bytes = unsafe { std::slice::from_raw_parts(value.ptr, value.len) }.to_vec();
+            unsafe { buffer_free(value) };
+            bytes
+        }
+        let root = std::env::temp_dir().join(format!(
+            "revault-alias-abi-{}",
+            revault_lockbox_api::LockboxId::new_random().unwrap()
+        ));
+        std::fs::create_dir(&root).unwrap();
+        let vault_root = root.join("vault");
+        let vault_path = vault_root.to_str().unwrap();
+        let password = b"PUBLIC synthetic alias lifecycle password";
+        let decomposed = "cafe\u{0301}.東京";
+        let canonical = "café.東京";
+        unsafe {
+            let mut targets = Vec::new();
+            for (name, contents) in [
+                ("first", b"first persisted bytes".as_slice()),
+                ("second", b"second persisted bytes".as_slice()),
+            ] {
+                let archive = lockbox_create_password(password.as_ptr(), password.len());
+                assert!(!archive.is_null());
+                assert!(lockbox_add_file(
+                    archive,
+                    b"/entry".as_ptr().cast(),
+                    6,
+                    contents.as_ptr(),
+                    contents.len(),
+                    false
+                ));
+                assert!(lockbox_commit(archive));
+                let id = take(lockbox_id(archive));
+                let bytes = take(lockbox_to_bytes(archive));
+                lockbox_free(archive);
+                let path = root.join(format!("{name}.lbox"));
+                std::fs::write(&path, &bytes).unwrap();
+                targets.push((id, path, bytes, contents));
+            }
+            let vault = vault_directory_open(
+                vault_path.as_ptr().cast(),
+                vault_path.len(),
+                password.as_ptr(),
+                password.len(),
+            );
+            assert!(!vault.is_null());
+            for (id, path, _, _) in &targets {
+                let path = path.to_str().unwrap();
+                assert!(vault_directory_remember_lockbox(
+                    vault,
+                    id.as_ptr(),
+                    id.len(),
+                    path.as_ptr().cast(),
+                    path.len()
+                ));
+            }
+            let set = |name: &str, id: &[u8]| {
+                vault_directory_set_lockbox_alias(
+                    vault,
+                    name.as_ptr().cast(),
+                    name.len(),
+                    id.as_ptr(),
+                    id.len(),
+                )
+            };
+            assert!(set(decomposed, &targets[0].0));
+            let unchanged = std::fs::read(vault_root.join("local-vault.lbox")).unwrap();
+            assert!(set(canonical, &targets[0].0));
+            assert_eq!(
+                std::fs::read(vault_root.join("local-vault.lbox")).unwrap(),
+                unchanged
+            );
+            let listed = take(vault_directory_list_lockbox_aliases(vault));
+            let listed = flatbuffers::root::<bindings_transport::LockboxAliasList<'_>>(&listed)
+                .unwrap()
+                .unpack();
+            let aliases = listed.values.unwrap();
+            assert_eq!(aliases.len(), 1);
+            assert_eq!(aliases[0].name.as_deref(), Some(canonical));
+            assert_eq!(
+                aliases[0].lockbox_id.as_deref(),
+                Some(targets[0].0.as_slice())
+            );
+            assert!(!set("../invalid", &targets[1].0));
+            assert!(!set("unknown", &[9; 16]));
+            assert!(!set("short-id", &[1; 15]));
+            assert_eq!(
+                std::fs::read(vault_root.join("local-vault.lbox")).unwrap(),
+                unchanged
+            );
+            // Rebinding an existing normalized name is an explicit supported replacement.
+            assert!(set(decomposed, &targets[1].0));
+            let resolved = take(vault_directory_resolve_lockbox_alias(
+                vault,
+                canonical.as_ptr().cast(),
+                canonical.len(),
+            ));
+            let resolved = flatbuffers::root::<bindings_transport::KnownLockbox<'_>>(&resolved)
+                .unwrap()
+                .unpack();
+            assert_eq!(
+                resolved.lockbox_id.as_deref(),
+                Some(targets[1].0.as_slice())
+            );
+            assert_eq!(resolved.path.as_deref(), targets[1].1.to_str());
+            vault_directory_free(vault);
+            let view = vault_read_only_open(
+                vault_path.as_ptr().cast(),
+                vault_path.len(),
+                password.as_ptr(),
+                password.len(),
+            );
+            assert!(!view.is_null());
+            let listed = take(vault_read_only_list_lockbox_aliases(view));
+            assert_eq!(
+                flatbuffers::root::<bindings_transport::LockboxAliasList<'_>>(&listed)
+                    .unwrap()
+                    .values()
+                    .unwrap()
+                    .len(),
+                1
+            );
+            let resolved = take(vault_read_only_resolve_lockbox_alias(
+                view,
+                decomposed.as_ptr().cast(),
+                decomposed.len(),
+            ));
+            let resolved = flatbuffers::root::<bindings_transport::KnownLockbox<'_>>(&resolved)
+                .unwrap()
+                .unpack();
+            assert_eq!(
+                resolved.lockbox_id.as_deref(),
+                Some(targets[1].0.as_slice())
+            );
+            vault_read_only_free(view);
+            let vault = vault_directory_open(
+                vault_path.as_ptr().cast(),
+                vault_path.len(),
+                password.as_ptr(),
+                password.len(),
+            );
+            assert!(!vault.is_null());
+            assert!(vault_directory_remove_lockbox_alias(
+                vault,
+                decomposed.as_ptr().cast(),
+                decomposed.len()
+            ));
+            assert!(vault_directory_remove_lockbox_alias(
+                vault,
+                canonical.as_ptr().cast(),
+                canonical.len()
+            ));
+            vault_directory_free(vault);
+            let view = vault_read_only_open(
+                vault_path.as_ptr().cast(),
+                vault_path.len(),
+                password.as_ptr(),
+                password.len(),
+            );
+            assert!(!view.is_null());
+            let listed = take(vault_read_only_list_lockbox_aliases(view));
+            assert_eq!(
+                flatbuffers::root::<bindings_transport::LockboxAliasList<'_>>(&listed)
+                    .unwrap()
+                    .values()
+                    .unwrap()
+                    .len(),
+                0
+            );
+            let absent = vault_read_only_resolve_lockbox_alias(
+                view,
+                canonical.as_ptr().cast(),
+                canonical.len(),
+            );
+            assert!(absent.ptr.is_null());
+            vault_read_only_free(view);
+            for (_, path, bytes, contents) in targets {
+                assert_eq!(std::fs::read(path).unwrap(), bytes);
+                let archive = lockbox_open_password(
+                    bytes.as_ptr(),
+                    bytes.len(),
+                    password.as_ptr(),
+                    password.len(),
+                );
+                assert!(!archive.is_null());
+                assert_eq!(
+                    take(lockbox_get_file(archive, b"/entry".as_ptr().cast(), 6)),
+                    contents
+                );
+                lockbox_free(archive);
+            }
+        }
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn runtime_sleep_status_preserves_old_wire_fields_and_false_default() {
+        // Produce the previous three-field wire table independently of the
+        // regenerated schema: vtable offsets 4, 6 and 8 are the original IDs.
+        let mut builder = flatbuffers::FlatBufferBuilder::new();
+        let start = builder.start_table();
+        builder.push_slot::<bool>(4, true, false);
+        builder.push_slot::<bool>(6, true, false);
+        builder.push_slot::<bool>(8, true, false);
+        let table = builder.end_table(start);
+        let root =
+            flatbuffers::WIPOffset::<bindings_transport::SleepSupport<'_>>::new(table.value());
+        builder.finish(root, None);
+        let old =
+            flatbuffers::root::<bindings_transport::SleepSupport<'_>>(builder.finished_data())
+                .unwrap();
+        assert!(old.suspend_notifications() && old.sleep_inhibition() && old.supported());
+        assert!(!old.cache_clearing_active());
+        let mut current = flatbuffers::FlatBufferBuilder::new();
+        let root = bindings_transport::SleepSupport::create(
+            &mut current,
+            &bindings_transport::SleepSupportArgs {
+                suspend_notifications: true,
+                sleep_inhibition: false,
+                supported: false,
+                cache_clearing_active: true,
+            },
+        );
+        current.finish(root, None);
+        let decoded =
+            flatbuffers::root::<bindings_transport::SleepSupport<'_>>(current.finished_data())
+                .unwrap();
+        assert!(decoded.suspend_notifications() && decoded.cache_clearing_active());
+        assert!(!decoded.sleep_inhibition() && !decoded.supported());
+    }
+
+    #[test]
+    fn password_budget_and_private_extraction_abi_lifecycle() {
+        let password = b"ordinary ABI password";
+        let source = b"/payload";
+        let data = b"persisted through separate password open";
+        let root = std::env::temp_dir().join(format!(
+            "revault-security-abi-{}",
+            revault_lockbox_api::LockboxId::new_random().unwrap()
+        ));
+        std::fs::create_dir(&root).unwrap();
+        let destination = root.join("output");
+        let destination_text = destination.to_str().unwrap();
+        unsafe {
+            let handle = lockbox_create_password(password.as_ptr(), password.len());
+            assert!(!handle.is_null());
+            assert!(lockbox_add_file_with_permissions(
+                handle,
+                source.as_ptr().cast(),
+                source.len(),
+                data.as_ptr(),
+                data.len(),
+                0o600,
+                false
+            ));
+            assert!(lockbox_commit(handle));
+            let archive = lockbox_to_bytes(handle);
+            assert!(!archive.ptr.is_null());
+            lockbox_free(handle);
+            assert!(lockbox_open_password_with_budget(
+                archive.ptr,
+                archive.len,
+                password.as_ptr(),
+                password.len(),
+                0
+            )
+            .is_null());
+            let opened = lockbox_open_password_with_budget(
+                archive.ptr,
+                archive.len,
+                password.as_ptr(),
+                password.len(),
+                1,
+            );
+            assert!(!opened.is_null());
+            buffer_free(archive);
+            assert!(!lockbox_extract_file_with_policy(
+                opened,
+                source.as_ptr().cast(),
+                source.len(),
+                destination_text.as_ptr().cast(),
+                destination_text.len(),
+                1,
+                1,
+                1,
+                true,
+                false
+            ));
+            assert!(!destination.exists());
+            assert!(lockbox_extract_file_with_policy(
+                opened,
+                source.as_ptr().cast(),
+                source.len(),
+                destination_text.as_ptr().cast(),
+                destination_text.len(),
+                1024,
+                1024,
+                1,
+                true,
+                false
+            ));
+            assert_eq!(std::fs::read(&destination).unwrap(), data);
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                assert_eq!(
+                    std::fs::metadata(&destination)
+                        .unwrap()
+                        .permissions()
+                        .mode()
+                        & 0o777,
+                    0o600
+                );
+            }
+            std::fs::write(&destination, b"existing destination sentinel").unwrap();
+            assert!(!lockbox_extract_file_with_policy(
+                opened,
+                source.as_ptr().cast(),
+                source.len(),
+                destination_text.as_ptr().cast(),
+                destination_text.len(),
+                1024,
+                1024,
+                1,
+                true,
+                false
+            ));
+            assert_eq!(
+                std::fs::read(&destination).unwrap(),
+                b"existing destination sentinel"
+            );
+            assert!(lockbox_extract_file_with_policy(
+                opened,
+                source.as_ptr().cast(),
+                source.len(),
+                destination_text.as_ptr().cast(),
+                destination_text.len(),
+                1024,
+                1024,
+                1,
+                true,
+                true
+            ));
+            assert_eq!(std::fs::read(&destination).unwrap(), data);
+            lockbox_free(opened);
+        }
+        std::fs::remove_dir_all(root).unwrap();
+    }
 
     #[test]
     fn cache_limit_abi_validates_policy_and_preserves_pending_content() {

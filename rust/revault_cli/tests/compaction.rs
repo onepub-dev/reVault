@@ -173,7 +173,12 @@ fn compaction_preserves_secret_records_and_mirror_lifecycle() {
         dir,
         true,
         &[
-            "box.lbox", "form", "set", "--secret", "--stdin", "/account", "password",
+            "box.lbox",
+            "form",
+            "set",
+            "--secret",
+            "--stdin",
+            "/account@password",
         ],
         b"form secret",
     ));
@@ -201,7 +206,7 @@ fn compaction_preserves_secret_records_and_mirror_lifecycle() {
         b"variable secret\n"
     );
     assert_eq!(
-        call(&["box.lbox", "form", "get", "--secret", "/account", "password"]),
+        call(&["box.lbox", "form", "get", "--secret", "/account@password"]),
         b"form secret\n"
     );
     assert!(String::from_utf8(call(&["box.lbox", "description", "get"]))

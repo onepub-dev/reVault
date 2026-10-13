@@ -1,25 +1,32 @@
-Development only: archive format 4 (not release-ready)
-CLI: 0.5.0-dev.1
-Bindings: 0.5.0-dev.1
+reVault 0.5 — release notes draft
+Not a qualified release candidate: replace versions and attach final validation before publication.
 
-- Reserve 0.5.x for archive format 4 development on main.
-- Published format-3 releases remain CLI 0.4.0 and bindings 0.4.1.
+Compatibility and migration
 
-- Establish the 0.4.x compatibility line for archive format 3; format 4 is excluded.
-- Dart 0.4.0 has already shipped; 0.4.1 updates its build-hook dependency and package-version metadata.
-- Declare the Swift native-library dependency explicitly on Linux and locate its build products through SwiftPM.
+This release introduces archive format 4 on the 0.5.x compatibility line. Matching 0.5.x CLI and binding versions share the archive and persisted Vault compatibility line. Each language facade must use its matching native or WASM ABI carrier; independently advancing component patch versions do not change the format contract. The published baseline is CLI 0.4.1 and bindings 0.4.1. The 0.4.x line uses format 3; 0.4 readers cannot open format-4 archives or Vault containers.
 
-- Fix #310: share verified raw frames with seekable readers
-- Fix #310: reduce large-file read copies and redundant wiping
-- Fix #310: share decoded pages and benchmark fresh ZIP reads
-- Prepare all release: CLI 0.0.18, bindings 0.3.16
-- Retain comprehensive migration fixtures and enforce release coverage
-- Fix hosted WASM conformance native loader paths
-- Prepare all release: CLI 0.0.18, bindings 0.3.16
-- Strengthen migration assertions and update format documentation
-- Fix header corruption tests for v3 lockboxes
-- Prepare all release: CLI 0.0.18, bindings 0.3.16
-- Fix release conformance format probe and xtask workflow
-- Prepare all release: CLI 0.0.18, bindings 0.3.16
-- Hide xtask development tasks behind revault-tool
-- Consolidate development commands in revault-tool
+Migrate the Vault before migrating standalone Lockboxes. Vault structure remains version 3, while its enclosing archive moves to format 4. Keep the original files and verify migrated content before replacing them. Migration preserves supported logical content but creates a new commit chain; historical archive signatures are not copied into the new archive. Historical exporter packages must accompany this release.
+
+File handling
+
+CLI extraction restores recorded permissions by default, with --no-restore-permissions available for host-created permissions. Extracted content is staged privately and published after validation and applicable permission restoration. Extraction uses anchored directory operations and exclusive publication when overwrite is disabled. Language binding defaults and explicit extraction-policy options are documented separately.
+
+Security corrections
+
+Protected plaintext intermediates and key working memory use cleanup owners across ordinary success and error paths. Plaintext used exclusively in unencrypted archives does not acquire a blanket wiping requirement. Protected compression uses bounded, wiped workspace; an existing raw-frame fallback remains encrypted when compression workspace is unavailable. Cleanup guarantees are scoped to deliberately owned buffers, not every compiler-generated temporary or abrupt process termination.
+
+Password-based opening bounds derivation attempts per credential across embedded, mirrored and recovery candidates. The default is 32 attempts, with an explicit higher budget for trusted archives. Automatic profile selection can try multiple locally configured passwords; this is not a global 32-attempt limit for an entire CLI command. The limit does not restrict persisted slot counts or change password derivation parameters and key record formats.
+
+Session Agent transport handling uses bounded operations and avoids holding the key-cache lock during transport I/O. Active secret operations use process-local suspend protection. The agent no longer terminates processes by a remotely supplied numeric PID.
+
+Headless configuration
+
+Requested suspend protection now reports an error when the operating system cannot provide it. For deliberately unprotected headless operation, disable both LOCKBOX_AGENT_TERMINATE_ON_SUSPEND and LOCKBOX_AGENT_PREVENT_SLEEP before starting the Session Agent. Stop and restart an existing agent after changing its configuration. Session status and doctor distinguish compiled platform support from an active cache suspend watcher. Forced suspend and operating-system notification delivery remain platform limitations.
+
+Performance scope
+
+This release retains the measured archive read and extraction improvements from the accepted performance checkpoint. Results depend on file sizes, file count, compression, encryption, signing and workload. The evidence does not establish a universal speed advantage over ZIP or a universal 100 MB process-memory ceiling. Final release claims must cite results for the qualified candidate.
+
+Before publication
+
+Replace this draft with exact CLI/binding versions, qualified platform/package results, migration evidence, corrected compression dependency version and final source/artifact identities. Remove any feature description that does not survive validation. No publication is authorized by this document.

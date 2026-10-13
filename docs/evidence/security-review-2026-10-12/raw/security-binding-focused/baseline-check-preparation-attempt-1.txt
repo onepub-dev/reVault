@@ -1,0 +1,1 @@
+Snapshot creation succeeded. First checker launch preparation failed before running the checker because the evidence output path was rust-relative (rust/docs/evidence did not exist). No checker process started. Snapshot retained at /tmp/revault-rust-api-baseline-cc2909a.

@@ -54,6 +54,7 @@ export const wasmlockbox_move_form_record: (a: number, b: number, c: number, d: 
 export const wasmlockbox_move_variable: (a: number, b: number, c: number, d: number, e: number) => [number, number];
 export const wasmlockbox_open: (a: number, b: number, c: number, d: number) => [number, number, number];
 export const wasmlockbox_open_with_password: (a: number, b: number, c: number, d: number) => [number, number, number];
+export const wasmlockbox_open_with_password_budget: (a: number, b: number, c: number, d: number, e: number) => [number, number, number];
 export const wasmlockbox_permissions: (a: number, b: number, c: number) => [number, number, number];
 export const wasmlockbox_read_range: (a: number, b: number, c: number, d: bigint, e: bigint) => [number, number, number, number];
 export const wasmlockbox_remove_dir: (a: number, b: number, c: number, d: number) => [number, number];

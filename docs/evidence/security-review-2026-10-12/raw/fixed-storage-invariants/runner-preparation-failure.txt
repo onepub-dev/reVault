@@ -1,0 +1,1 @@
+Initial invocation from evidence directory failed before runner execution: dcli could not resolve package:dcli/dcli.dart because that directory is outside the tools package context. No compiler or test process ran.

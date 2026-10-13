@@ -128,10 +128,14 @@ pub fn round_trip(data: &[u8]) {
         &mut writer,
     );
     let mut dec_table = FSETable::new(255);
-    encoder.encode(data);
+    encoder
+        .encode(data)
+        .expect("owned round-trip output allocation failed");
     let acc_log = encoder.acc_log();
     let enc_table = encoder.into_table();
-    let encoded = writer.dump();
+    let encoded = writer
+        .dump()
+        .expect("owned round-trip output allocation failed");
 
     let table_bytes = dec_table.build_decoder(&encoded, acc_log).unwrap();
     let encoded = &encoded[table_bytes..];

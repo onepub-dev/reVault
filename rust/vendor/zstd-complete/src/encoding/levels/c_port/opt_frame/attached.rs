@@ -68,7 +68,9 @@ pub(super) fn initialize_attached_dictionary(
     active_state: &mut OptBlockState,
 ) -> OptAttachedDictionary {
     let mut dictionary_state = super::super::greedy::GreedyMatchState::new();
-    dictionary_state.ensure_tables(dictionary_params);
+    dictionary_state
+        .ensure_tables(dictionary_params)
+        .expect("owned legacy codec allocation failed");
     dictionary_state.next_to_update = C_WINDOW_START_INDEX;
     load_attached_dictionary_binary_tree(
         dictionary_src,

@@ -262,6 +262,9 @@ public final class Conformance {
             check(Arrays.equals(opened.getFile("/password.txt"), "password protected".getBytes()), "password open");
           }
           pass("lockbox_open_password", 2);
+          try (var budgetOpen = API.openLockboxWithPasswordBudget(passwordArchive, "archive password".getBytes(), 1)) {
+            check(Arrays.equals(budgetOpen.getFile("/password.txt"), "password protected".getBytes()), "budget password bytes");
+          } pass("lockbox_open_password_with_budget", 2);
         }
         try (var contactBox = API.createLockboxForContact(publicKey)) {
           contactBox.addFile("/contact.txt", "contact protected".getBytes(), false); contactBox.commit();
@@ -288,6 +291,8 @@ public final class Conformance {
       var extractedFile = extractRoot.resolve("account.txt"); Files.deleteIfExists(extractedFile);
       box.extractFile("/account.txt", extractedFile.toString(), false);
       check(Files.exists(extractedFile), "extract file"); pass("lockbox_extract_file", 2);
+      box.extractFileWithPolicy("/account.txt", extractedFile.toString(), 1 << 20, 1 << 20, 1, true, true);
+      check(Arrays.equals(Files.readAllBytes(extractedFile), box.getFile("/account.txt")), "policy extracted bytes"); pass("lockbox_extract_file_with_policy", 2);
       var extractedTree = extractRoot.resolve("tree"); Files.createDirectories(extractedTree);
       box.extractDirectory(extractedTree.toString(), 1 << 20, 4 << 20, 100, false, true, false);
       check(Files.exists(extractedTree), "extract dir"); pass("lockbox_extract_directory", 2);
@@ -346,6 +351,12 @@ public final class Conformance {
         vault.rememberLockbox(id, "/tmp/example.lbox");
         check(vault.listKnownLockboxes().size() == 1, "known");
         pass("vault_directory_remember_lockbox"); pass("vault_directory_list_known_lockboxes");
+        vault.setLockboxAlias("portable", id); vault.setLockboxAlias("portable", id);
+        check(vault.listLockboxAliases().size() == 1 && vault.listLockboxAliases().get(0).name().equals("portable"), "alias repeat and list");
+        check(vault.resolveLockboxAlias("portable").path().equals("/tmp/example.lbox"), "alias resolution");
+        pass("vault_directory_set_lockbox_alias", 2); pass("vault_directory_list_lockbox_aliases", 2); pass("vault_directory_resolve_lockbox_alias");
+        vault.removeLockboxAlias("portable"); vault.removeLockboxAlias("portable");
+        check(vault.listLockboxAliases().isEmpty(), "alias removal repeat"); pass("vault_directory_remove_lockbox_alias", 3);
         vault.rememberAccessSlotLabel(id, 7, "primary");
         check(vault.listAccessSlotLabels(id).size() == 1, "labels");
         check(vault.findAccessSlotLabels(id, "primary").size() == 1, "find");
@@ -368,6 +379,7 @@ public final class Conformance {
         vault.deletePrivateKey("alice"); check(!vault.privateKeyExists("alice"), "deleted");
         vault.restorePrivateKey("alice", profile, owner, true); check(vault.privateKeyExists("alice"), "restored");
         pass("vault_directory_delete_private_key", 2); pass("vault_directory_restore_private_key", 2);
+        vault.rememberLockbox(id, "/tmp/example.lbox"); vault.setLockboxAlias("portable", id);
       }
       pass("vault_directory_free");
       // The writable vault's scope must end before an independent path probe.
@@ -381,6 +393,9 @@ public final class Conformance {
         pass("vault_read_only_open"); pass("vault_read_only_list_profile_names", 2);
         pass("vault_read_only_list_contact_names"); pass("vault_read_only_list_form_aliases", 2);
         pass("vault_read_only_list_known_lockboxes");
+        check(readonly.listLockboxAliases().size() == 1 && readonly.listLockboxAliases().get(0).name().equals("portable"), "persisted read-only alias");
+        check(readonly.resolveLockboxAlias("portable").path().equals("/tmp/example.lbox"), "read-only alias resolution");
+        pass("vault_read_only_list_lockbox_aliases", 2); pass("vault_read_only_resolve_lockbox_alias");
       }
       pass("vault_read_only_free");
     }

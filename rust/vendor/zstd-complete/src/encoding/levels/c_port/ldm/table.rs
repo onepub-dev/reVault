@@ -21,9 +21,13 @@ impl LdmHashTable {
         let bucket_count = 1_usize << (params.hash_log - params.bucket_size_log);
 
         let mut hash_table = ReusableVec::with_capacity(table_entries);
-        hash_table.resize(table_entries, LdmEntry::default());
+        hash_table
+            .resize(table_entries, LdmEntry::default())
+            .expect("owned legacy codec allocation failed");
         let mut bucket_offsets = ReusableVec::with_capacity(bucket_count);
-        bucket_offsets.resize(bucket_count, 0);
+        bucket_offsets
+            .resize(bucket_count, 0)
+            .expect("owned legacy codec allocation failed");
         Self {
             hash_table,
             bucket_offsets,
@@ -43,9 +47,9 @@ impl LdmHashTable {
         let table_entries = 1_usize << params.hash_log;
         let bucket_count = 1_usize << (params.hash_log - params.bucket_size_log);
         let mut hash_table = arena.allocate_reusable_vec(table_entries)?;
-        hash_table.resize(table_entries, LdmEntry::default());
+        hash_table.resize(table_entries, LdmEntry::default())?;
         let mut bucket_offsets = arena.allocate_reusable_vec(bucket_count)?;
-        bucket_offsets.resize(bucket_count, 0);
+        bucket_offsets.resize(bucket_count, 0)?;
         Ok(Self {
             hash_table,
             bucket_offsets,

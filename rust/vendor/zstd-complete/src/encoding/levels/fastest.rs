@@ -1,3 +1,6 @@
+// This legacy path owns real Vec buffers and preserves its historical
+// infallible allocation contract. Caller-backed workspace paths instead
+// propagate admission errors and are not routed through this module.
 use crate::{
     common::MAX_BLOCK_SIZE,
     encoding::{
@@ -205,7 +208,8 @@ fn emit_matcher_block_or_raw<M: Matcher>(
     output.extend_from_slice(&[0; 3]);
     output.reserve(compressed_block_reserve(block_size));
     let compressed_start = output.len();
-    let new_huffman_table = compress_block_with_config(state, output, config);
+    let new_huffman_table = compress_block_with_config(state, output, config)
+        .expect("owned legacy codec allocation failed");
     let compressed_size = output.len() - compressed_start;
     if compressed_size >= block_size as usize || compressed_size > MAX_BLOCK_SIZE as usize {
         output.truncate(block_start);
@@ -424,7 +428,9 @@ fn emit_prepared_candidate_with_config(
             block_type: crate::blocks::block::BlockType::RLE,
             block_size,
         };
-        header.serialize(output);
+        header
+            .serialize(output)
+            .expect("owned legacy codec allocation failed");
         output.push(data[0]);
         return Some(());
     }
@@ -442,7 +448,8 @@ fn emit_prepared_candidate_with_config(
         encode_state.fse_tables,
         encode_state.offset_history,
         current_last_huff.as_ref(),
-    );
+    )
+    .expect("owned legacy codec allocation failed");
     let compressed_size = output.len() - compressed_start;
 
     if compressed_size >= block_size as usize || compressed_size > MAX_BLOCK_SIZE as usize {
@@ -475,7 +482,9 @@ fn write_rle_block(last_block: bool, block_size: u32, rle_byte: u8, output: &mut
         block_type: crate::blocks::block::BlockType::RLE,
         block_size,
     };
-    header.serialize(output);
+    header
+        .serialize(output)
+        .expect("owned legacy codec allocation failed");
     output.push(rle_byte);
 }
 
@@ -485,7 +494,9 @@ fn write_raw_block(last_block: bool, block_size: u32, data: &[u8], output: &mut 
         block_type: crate::blocks::block::BlockType::Raw,
         block_size,
     };
-    header.serialize(output);
+    header
+        .serialize(output)
+        .expect("owned legacy codec allocation failed");
     output.extend_from_slice(data);
 }
 

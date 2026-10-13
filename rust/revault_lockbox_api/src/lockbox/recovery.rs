@@ -82,8 +82,7 @@ impl RecoveryScanner {
 }
 
 fn recover_bytes(bytes: Vec<u8>, key: impl AsRef<[u8]>) -> RecoveryReport {
-    let key = key.as_ref().to_vec();
-    RecoverySession::new(&bytes, &key).report()
+    RecoverySession::new(&bytes, key.as_ref()).report()
 }
 
 fn salvage_bytes(
@@ -91,8 +90,7 @@ fn salvage_bytes(
     key: impl AsRef<[u8]>,
     signing_key: &OwnerSigningKeyPair,
 ) -> Result<Lockbox> {
-    let key_bytes = key.as_ref().to_vec();
-    RecoverySession::new(&bytes, &key_bytes).salvage(signing_key)
+    RecoverySession::new(&bytes, key.as_ref()).salvage(signing_key)
 }
 
 struct RecoverySession<'a> {
@@ -706,8 +704,7 @@ mod committed_membership_tests {
                 .unwrap();
             archive.commit().unwrap();
             let mut archive =
-                Lockbox::open_bytes_with_key_options(archive.to_bytes(), key, options.clone())
-                    .unwrap();
+                Lockbox::open_bytes_with_key_options(archive.to_bytes(), key, options).unwrap();
             archive.set_owner_signing_key(signer.try_clone().unwrap());
             archive.add_file(&path("/b"), b"replacement", true).unwrap();
             archive.delete(&path("/a")).unwrap();

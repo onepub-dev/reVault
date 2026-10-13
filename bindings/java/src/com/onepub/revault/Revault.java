@@ -286,6 +286,8 @@ public final class Revault {
         options.cacheBytes(), options.workload(), options.worker(), options.jobs()));
   }
   /** Opens lockbox with password. */
+  public Lockbox openLockboxWithPasswordBudget(byte[] archive, byte[] password, long maxDerivations) { return new Lockbox(operations.lockboxOpenPasswordWithBudget(archive, password, maxDerivations)); }
+  /** Opens with the default per-credential password work budget. */
   public Lockbox openLockboxWithPassword(byte[] archive, byte[] password) {
     return new Lockbox(operations.lockboxOpenPassword(archive, password));
   }
@@ -317,6 +319,8 @@ public final class Revault {
     /** Reads the complete file stored at the Lockbox path. */
     public byte[] getFile(String path) { return operations.lockboxGetFile(handle, path); }
     /** Writes one Lockbox file to the host filesystem. */
+    public void extractFileWithPolicy(String source, String destination, long maxFileBytes, long maxTotalBytes, long maxFiles, boolean restorePermissions, boolean overwrite) { operations.lockboxExtractFileWithPolicy(handle, source, destination, maxFileBytes, maxTotalBytes, maxFiles, restorePermissions, overwrite); }
+    /** Extracts one file using the legacy permission policy. */
     public void extractFile(String source, String destination, boolean replace) { operations.lockboxExtractFile(handle, source, destination, replace); }
     /** Extracts the Lockbox with explicit size, count, link, and permission limits. */
     public void extractDirectory(String destination, long maxFileBytes, long maxTotalBytes, long maxFiles,
@@ -598,6 +602,14 @@ public final class Revault {
     public void rememberLockbox(byte[] id, String path) { operations.vaultDirectoryRememberLockbox(handle, id, path); }
     /** Lists known lockboxes. */
     public java.util.List<KnownLockbox> listKnownLockboxes() { return operations.vaultDirectoryListKnownLockboxes(handle); }
+    /** Resolves metadata; verify target identity before opening its path. */
+    public KnownLockbox resolveLockboxAlias(String name) { return operations.vaultDirectoryResolveLockboxAlias(handle, name); }
+    /** Removes only the alias, preserving the target. */
+    public void removeLockboxAlias(String name) { operations.vaultDirectoryRemoveLockboxAlias(handle, name); }
+    /** Lists aliases without opening their targets. */
+    public java.util.List<LockboxAlias> listLockboxAliases() { return operations.vaultDirectoryListLockboxAliases(handle); }
+    /** Sets or replaces a normalized alias for a remembered identity. */
+    public void setLockboxAlias(String name, byte[] id) { operations.vaultDirectorySetLockboxAlias(handle, name, id); }
     /** Removes lockbox. */
     public void forgetLockbox(String path) { operations.vaultDirectoryForgetLockbox(handle, path); }
     /** Stores access slot label. */
@@ -649,6 +661,10 @@ public final class Revault {
     public java.util.List<String> listFormAliases() { return operations.vaultReadOnlyListFormAliases(handle); }
     /** Lists known lockboxes. */
     public java.util.List<KnownLockbox> listKnownLockboxes() { return operations.vaultReadOnlyListKnownLockboxes(handle); }
+    /** Resolves metadata; verify target identity before opening its path. */
+    public KnownLockbox resolveLockboxAlias(String name) { return operations.vaultReadOnlyResolveLockboxAlias(handle, name); }
+    /** Lists aliases without opening their targets. */
+    public java.util.List<LockboxAlias> listLockboxAliases() { return operations.vaultReadOnlyListLockboxAliases(handle); }
     /** Releases the native resources held by this object. */
     @Override public void close() { if (handle != null) { operations.vaultReadOnlyFree(handle); handle = null; } }
   }

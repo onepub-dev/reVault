@@ -44,6 +44,8 @@ fn assure_decoder_send_sync() {
     // not a real test just there to throw an compiler error if FrameDecoder is Send + Sync
 
     use crate::decoding::FrameDecoder;
+    fn assert_send<T: Send>() {}
+    assert_send::<FrameDecoder>();
     let decoder = FrameDecoder::new();
     std::thread::spawn(move || {
         drop(decoder);
@@ -240,64 +242,20 @@ fn test_decode_from_to() {
 
 #[test]
 fn test_specific_file() {
-    use crate::decoding::BlockDecodingStrategy;
-    use crate::decoding::FrameDecoder;
+    use crate::decoding::{BlockDecodingStrategy, FrameDecoder};
     use std::fs;
-    use std::io::BufReader;
-    use std::io::Read;
 
-    let path = "./decodecorpus_files/z000068.zst";
-    let mut content = fs::File::open(path).unwrap();
-
-    struct NullWriter(());
-    impl std::io::Write for NullWriter {
-        fn write(&mut self, buf: &[u8]) -> Result<usize, std::io::Error> {
-            Ok(buf.len())
-        }
-        fn flush(&mut self) -> Result<(), std::io::Error> {
-            Ok(())
-        }
-    }
-    let mut _null_target = NullWriter(());
-
+    // The packaged ordinary fixture and its uncompressed sibling share the
+    // same stem. Compare bytes, rather than printing a different file's mismatch.
+    let mut content = fs::File::open("./decodecorpus_files/z000068.zst").unwrap();
     let mut frame_dec = FrameDecoder::new();
     frame_dec.reset(&mut content).unwrap();
     frame_dec
         .decode_blocks(&mut content, BlockDecodingStrategy::All)
         .unwrap();
     let result = frame_dec.collect().unwrap();
-
-    let original_f = BufReader::new(fs::File::open("./decodecorpus_files/z000088").unwrap());
-    let original: Vec<u8> = original_f.bytes().map(|x| x.unwrap()).collect();
-
-    std::println!("Results for file: {path}");
-
-    if original.len() != result.len() {
-        std::println!(
-            "Result has wrong length: {}, should be: {}",
-            result.len(),
-            original.len()
-        );
-    }
-
-    let mut counter = 0;
-    let min = if original.len() < result.len() {
-        original.len()
-    } else {
-        result.len()
-    };
-    for idx in 0..min {
-        if original[idx] != result[idx] {
-            counter += 1;
-            //std::println!(
-            //    "Original {:3} not equal to result {:3} at byte: {}",
-            //    original[idx], result[idx], idx,
-            //);
-        }
-    }
-    if counter > 0 {
-        std::println!("Result differs in at least {counter} bytes from original");
-    }
+    let original = fs::read("./decodecorpus_files/z000068").unwrap();
+    assert_eq!(result, original);
 }
 
 #[test]
@@ -749,7 +707,9 @@ fn inspect_archive(path: &std::path::Path) {
     let window_size = frame_header.window_size().unwrap() as usize;
     let mut scratch = DecoderScratch::new(window_size);
     if let Some(dictionary) = dictionary.as_ref() {
-        scratch.init_from_dict(dictionary);
+        scratch
+            .init_from_dict(dictionary)
+            .expect("test storage admission");
     }
     let mut block_decoder = crate::decoding::block_decoder::new();
 

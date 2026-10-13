@@ -1,0 +1,83 @@
+../bindings/go/domain_models.go:321:	// CacheClearingActive: Whether the current compatible Session Agent reports an active suspend cache watcher; false when absent or unavailable. Notification delivery is platform-dependent.
+../bindings/go/domain_models.go:322:	CacheClearingActive bool
+../bindings/go/domain_models.go:747:	result.CacheClearingActive = value.CacheClearingActive
+../bindings/flatbuffers/revault_bindings.fbs:264:  cache_clearing_active:bool (id: 3);
+../bindings/dart/lib/src/domain_models.dart:844:  final bool? _cacheClearingActive;
+../bindings/dart/lib/src/domain_models.dart:846:  late final bool cacheClearingActive = _view == null ? _cacheClearingActive! : _view.cacheClearingActive;
+../bindings/dart/lib/src/domain_models.dart:855:  SleepSupport({bool suspendNotifications = false, bool sleepInhibition = false, bool supported = false, bool cacheClearingActive = false}) : _view = null, _suspendNotifications = suspendNotifications, _sleepInhibition = sleepInhibition, _supported = supported, _cacheClearingActive = cacheClearingActive;
+../bindings/dart/lib/src/domain_models.dart:856:  SleepSupport._from(this._view) : _suspendNotifications = null, _sleepInhibition = null, _supported = null, _cacheClearingActive = null;
+../rust/revault_bindings/src/generated/revault_bindings_generated.rs:7480:  pub const VT_CACHE_CLEARING_ACTIVE: flatbuffers::VOffsetT = 10;
+../rust/revault_bindings/src/generated/revault_bindings_generated.rs:7492:    builder.add_cache_clearing_active(args.cache_clearing_active);
+../rust/revault_bindings/src/generated/revault_bindings_generated.rs:7503:    let cache_clearing_active = self.cache_clearing_active();
+../rust/revault_bindings/src/generated/revault_bindings_generated.rs:7508:      cache_clearing_active,
+../rust/revault_bindings/src/generated/revault_bindings_generated.rs:7534:  pub fn cache_clearing_active(&self) -> bool {
+../rust/revault_bindings/src/generated/revault_bindings_generated.rs:7538:    unsafe { self._tab.get::<bool>(SleepSupport::VT_CACHE_CLEARING_ACTIVE, Some(false)).unwrap()}
+../rust/revault_bindings/src/generated/revault_bindings_generated.rs:7552:     .visit_field::<bool>("cache_clearing_active", Self::VT_CACHE_CLEARING_ACTIVE, false)?
+../rust/revault_bindings/src/generated/revault_bindings_generated.rs:7561:    pub cache_clearing_active: bool,
+../rust/revault_bindings/src/generated/revault_bindings_generated.rs:7570:      cache_clearing_active: false,
+../rust/revault_bindings/src/generated/revault_bindings_generated.rs:7593:  pub fn add_cache_clearing_active(&mut self, cache_clearing_active: bool) {
+../rust/revault_bindings/src/generated/revault_bindings_generated.rs:7594:    self.fbb_.push_slot::<bool>(SleepSupport::VT_CACHE_CLEARING_ACTIVE, cache_clearing_active, false);
+../rust/revault_bindings/src/generated/revault_bindings_generated.rs:7617:      ds.field("cache_clearing_active", &self.cache_clearing_active());
+../rust/revault_bindings/src/generated/revault_bindings_generated.rs:7627:  pub cache_clearing_active: bool,
+../rust/revault_bindings/src/generated/revault_bindings_generated.rs:7635:      cache_clearing_active: false,
+../rust/revault_bindings/src/generated/revault_bindings_generated.rs:7647:    let cache_clearing_active = self.cache_clearing_active;
+../rust/revault_bindings/src/generated/revault_bindings_generated.rs:7652:      cache_clearing_active,
+../bindings/php/src/DomainModels.php:372:    public function __construct(public readonly bool $suspend_notifications, public readonly bool $sleep_inhibition, public readonly bool $supported, public readonly bool $cache_clearing_active) {}
+../bindings/php/src/DomainModels.php:380:    public function getCacheClearingActive(): mixed { return $this->cache_clearing_active; }
+../bindings/php/src/DomainModels.php:698:        return new SleepSupport($value->getSuspendNotifications(), $value->getSleepInhibition(), $value->getSupported(), $value->getCacheClearingActive());
+../bindings/csharp/DomainModels.cs:190:/// <param name="CacheClearingActive">Whether the current compatible Session Agent reports an active suspend cache watcher; false when absent or unavailable. Notification delivery is platform-dependent.</param>
+../bindings/csharp/DomainModels.cs:191:public sealed record SleepSupport(bool SuspendNotifications, bool SleepInhibition, bool Supported, bool CacheClearingActive);
+../bindings/csharp/DomainModels.cs:291:        new(value.SuspendNotifications, value.SleepInhibition, value.Supported, value.CacheClearingActive);
+../bindings/csharp/Generated/FlatBuffers/revault_bindings_generated.cs:3904:  public bool CacheClearingActive { get { int o = __p.__offset(10); return o != 0 ? 0!=__p.bb.Get(o + __p.bb_pos) : (bool)false; } }
+../bindings/csharp/Generated/FlatBuffers/revault_bindings_generated.cs:3910:      bool cache_clearing_active = false) {
+../bindings/csharp/Generated/FlatBuffers/revault_bindings_generated.cs:3912:    SleepSupport.AddCacheClearingActive(builder, cache_clearing_active);
+../bindings/csharp/Generated/FlatBuffers/revault_bindings_generated.cs:3923:  public static void AddCacheClearingActive(FlatBufferBuilder builder, bool cacheClearingActive) { builder.AddBool(3, cacheClearingActive, false); }
+../bindings/csharp/Generated/FlatBuffers/revault_bindings_generated.cs:3937:    _o.CacheClearingActive = this.CacheClearingActive;
+../bindings/csharp/Generated/FlatBuffers/revault_bindings_generated.cs:3946:      _o.CacheClearingActive);
+../bindings/csharp/Generated/FlatBuffers/revault_bindings_generated.cs:3955:  public bool CacheClearingActive { get; set; }
+../bindings/csharp/Generated/FlatBuffers/revault_bindings_generated.cs:3961:    this.CacheClearingActive = false;
+../bindings/csharp/Generated/FlatBuffers/revault_bindings_generated.cs:3974:      && verifier.VerifyField(tablePos, 10 /*CacheClearingActive*/, 1 /*bool*/, 1, false)
+../bindings/java/src/com/onepub/revault/SleepSupport.java:9:  private final boolean cacheClearingActive;
+../bindings/java/src/com/onepub/revault/SleepSupport.java:12:  public SleepSupport(boolean suspendNotifications, boolean sleepInhibition, boolean supported, boolean cacheClearingActive) {
+../bindings/java/src/com/onepub/revault/SleepSupport.java:17:    this.cacheClearingActive = cacheClearingActive;
+../bindings/java/src/com/onepub/revault/SleepSupport.java:25:    this.cacheClearingActive = false;
+../bindings/java/src/com/onepub/revault/SleepSupport.java:44:  public boolean cacheClearingActive() {
+../bindings/java/src/com/onepub/revault/SleepSupport.java:45:    return view == null ? cacheClearingActive : view.cacheClearingActive();
+../bindings/python/revault_api/_flatbuffers/revault_bindings_generated.py:5353:    def CacheClearingActive(self):
+../bindings/python/revault_api/_flatbuffers/revault_bindings_generated.py:5371:def SleepSupportAddCacheClearingActive(builder, cacheClearingActive):
+../bindings/python/revault_api/_flatbuffers/revault_bindings_generated.py:5372:    builder.PrependBoolSlot(3, cacheClearingActive, 0)
+../bindings/python/revault_api/_flatbuffers/revault_bindings_generated.py:5386:        self.cacheClearingActive = False  # type: bool
+../bindings/python/revault_api/_flatbuffers/revault_bindings_generated.py:5412:        self.cacheClearingActive = sleepSupport.CacheClearingActive()
+../bindings/python/revault_api/_flatbuffers/revault_bindings_generated.py:5420:        SleepSupportAddCacheClearingActive(builder, self.cacheClearingActive)
+../bindings/cpp/domain_models.hpp:314:  bool cache_clearing_active{};
+../bindings/cpp/domain_codec.hpp:114:  return {value.suspend_notifications, value.sleep_inhibition, value.supported, value.cache_clearing_active};
+../bindings/ruby/lib/revault/domain_models.rb:504:      attr_reader :cache_clearing_active
+../bindings/ruby/lib/revault/domain_models.rb:506:      def initialize(suspend_notifications: false, sleep_inhibition: false, supported: false, cache_clearing_active: false) = (@suspend_notifications = suspend_notifications; @sleep_inhibition = sleep_inhibition; @supported = supported; @cache_clearing_active = cache_clearing_active)
+../bindings/ruby/lib/revault/domain_models.rb:617:      'SleepSupport' => [[:suspend_notifications, 'bool'], [:sleep_inhibition, 'bool'], [:supported, 'bool'], [:cache_clearing_active, 'bool']],
+../bindings/swift/Sources/RevaultAPI/DomainModels.swift:474:    public let cacheClearingActive: Bool
+../bindings/swift/Sources/RevaultAPI/DomainModels.swift:476:    public init(suspendNotifications: Bool, sleepInhibition: Bool, supported: Bool, cacheClearingActive: Bool) {
+../bindings/swift/Sources/RevaultAPI/DomainModels.swift:480:        self.cacheClearingActive = cacheClearingActive
+../bindings/swift/Sources/RevaultAPI/DomainModels.swift:693:        SleepSupport(suspendNotifications: value.suspendNotifications, sleepInhibition: value.sleepInhibition, supported: value.supported, cacheClearingActive: value.cacheClearingActive)
+../bindings/swift/Sources/RevaultAPI/Internal/FlatBuffers/revault_bindings_generated.swift:4092:    case cacheClearingActive = 10
+../bindings/swift/Sources/RevaultAPI/Internal/FlatBuffers/revault_bindings_generated.swift:4100:  internal var cacheClearingActive: Bool { let o = _accessor.offset(VTOFFSET.cacheClearingActive.v); return o == 0 ? false : _accessor.readBuffer(of: Bool.self, at: o) }
+../bindings/swift/Sources/RevaultAPI/Internal/FlatBuffers/revault_bindings_generated.swift:4108:  internal static func add(cacheClearingActive: Bool, _ fbb: inout FlatBufferBuilder) { fbb.add(element: cacheClearingActive, def: false,
+../bindings/swift/Sources/RevaultAPI/Internal/FlatBuffers/revault_bindings_generated.swift:4109:   at: VTOFFSET.cacheClearingActive.p) }
+../bindings/swift/Sources/RevaultAPI/Internal/FlatBuffers/revault_bindings_generated.swift:4116:    cacheClearingActive: Bool = false
+../bindings/swift/Sources/RevaultAPI/Internal/FlatBuffers/revault_bindings_generated.swift:4122:    revault_internal__SleepSupport.add(cacheClearingActive: cacheClearingActive, &fbb)
+../bindings/swift/Sources/RevaultAPI/Internal/FlatBuffers/revault_bindings_generated.swift:4140:    revault_internal__SleepSupport.add(cacheClearingActive: obj.cacheClearingActive, &builder)
+../bindings/swift/Sources/RevaultAPI/Internal/FlatBuffers/revault_bindings_generated.swift:4149:    try _v.visit(field: VTOFFSET.cacheClearingActive.p, fieldName: "cacheClearingActive", required: false, type: Bool.self)
+../bindings/swift/Sources/RevaultAPI/Internal/FlatBuffers/revault_bindings_generated.swift:4159:  internal var cacheClearingActive: Bool
+../bindings/swift/Sources/RevaultAPI/Internal/FlatBuffers/revault_bindings_generated.swift:4165:    cacheClearingActive = _t.cacheClearingActive
+../bindings/swift/Sources/RevaultAPI/Internal/FlatBuffers/revault_bindings_generated.swift:4172:    cacheClearingActive = false
+../bindings/cpp/generated/flatbuffers/revault_bindings_generated.h:3977:  bool cache_clearing_active = false;
+../bindings/cpp/generated/flatbuffers/revault_bindings_generated.h:3987:    VT_CACHE_CLEARING_ACTIVE = 10
+../bindings/cpp/generated/flatbuffers/revault_bindings_generated.h:3998:  bool cache_clearing_active() const {
+../bindings/cpp/generated/flatbuffers/revault_bindings_generated.h:3999:    return GetField<uint8_t>(VT_CACHE_CLEARING_ACTIVE, 0) != 0;
+../bindings/cpp/generated/flatbuffers/revault_bindings_generated.h:4006:           VerifyField<uint8_t>(verifier, VT_CACHE_CLEARING_ACTIVE, 1) &&
+../bindings/cpp/generated/flatbuffers/revault_bindings_generated.h:4027:  void add_cache_clearing_active(bool cache_clearing_active) {
+../bindings/cpp/generated/flatbuffers/revault_bindings_generated.h:4028:    fbb_.AddElement<uint8_t>(SleepSupport::VT_CACHE_CLEARING_ACTIVE, static_cast<uint8_t>(cache_clearing_active), 0);
+../bindings/cpp/generated/flatbuffers/revault_bindings_generated.h:4046:    bool cache_clearing_active = false) {
+../bindings/cpp/generated/flatbuffers/revault_bindings_generated.h:4048:  builder_.add_cache_clearing_active(cache_clearing_active);
+../bindings/cpp/generated/flatbuffers/revault_bindings_generated.h:6114:  { auto _e = cache_clearing_active(); _o->cache_clearing_active = _e; }
+../bindings/cpp/generated/flatbuffers/revault_bindings_generated.h:6128:  auto _cache_clearing_active = _o->cache_clearing_active;
+../bindings/cpp/generated/flatbuffers/revault_bindings_generated.h:6134:      _cache_clearing_active);

@@ -1,0 +1,94 @@
+use std::{cell::Cell, mem::MaybeUninit, ptr::NonNull, rc::Rc};
+use fixed_storage::{CapacityError, FixedStorage};
+
+#[path = "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/vendor/zstd-complete/src/fixed_storage.rs"]
+mod fixed_storage;
+
+#[test]
+fn full_capacity_refusal_preserves_initialized_prefix_and_storage() {
+    let mut backing = [MaybeUninit::<u32>::uninit(); 2];
+    let pointer = NonNull::new(backing.as_mut_ptr().cast::<u32>()).unwrap();
+    // Backing outlives this exclusive container and starts uninitialized.
+    let mut values = unsafe { FixedStorage::new(pointer, 2) };
+    values.extend_from_slice(&[13, 29]).unwrap();
+    assert_eq!(values.push(41), Err(CapacityError::Exhausted { required: 3, capacity: 2 }));
+    assert_eq!(values.resize(3, 47), Err(CapacityError::Exhausted { required: 3, capacity: 2 }));
+    assert_eq!(values.as_slice(), &[13, 29]);
+    assert_eq!(values.as_slice().as_ptr(), pointer.as_ptr());
+    assert_eq!(values.pop(), Some(29));
+    values.push(53).unwrap();
+    assert_eq!(values.as_slice(), &[13, 53]);
+}
+
+#[test]
+fn zero_and_overflow_admission_are_checked_without_allocating() {
+    let mut empty = unsafe { FixedStorage::<u32>::new(NonNull::dangling(), 0) };
+    empty.reserve(0).unwrap();
+    assert_eq!(empty.push(1), Err(CapacityError::Exhausted { required: 1, capacity: 0 }));
+    assert!(empty.as_slice().is_empty());
+    let mut backing = [MaybeUninit::<u32>::uninit(); 1];
+    let mut values = unsafe { FixedStorage::new(NonNull::new(backing.as_mut_ptr().cast()).unwrap(), 1) };
+    values.push(7).unwrap();
+    assert_eq!(values.reserve(usize::MAX), Err(CapacityError::Overflow));
+    assert_eq!(values.as_slice(), &[7]);
+}
+
+struct Counted { drops: Rc<Cell<usize>>, clones: Rc<Cell<usize>>, panic_at_clone: usize }
+impl Clone for Counted {
+    fn clone(&self) -> Self {
+        let next=self.clones.get()+1; self.clones.set(next);
+        assert_ne!(next,self.panic_at_clone,"intentional ordinary clone failure");
+        Self { drops:self.drops.clone(), clones:self.clones.clone(), panic_at_clone:self.panic_at_clone }
+    }
+}
+impl Drop for Counted { fn drop(&mut self) { self.drops.set(self.drops.get()+1); } }
+
+#[test]
+fn clone_failure_tracks_only_successfully_initialized_elements() {
+    let drops=Rc::new(Cell::new(0)); let clones=Rc::new(Cell::new(0));
+    let source=Counted {drops:drops.clone(),clones:clones.clone(),panic_at_clone:2};
+    let mut backing:[MaybeUninit<Counted>;3]=std::array::from_fn(|_|MaybeUninit::uninit());
+    let mut values=unsafe {FixedStorage::new(NonNull::new(backing.as_mut_ptr().cast()).unwrap(),3)};
+    let result=std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| values.resize(3,source)));
+    assert!(result.is_err());
+    assert_eq!(values.len(),1);
+    assert_eq!(drops.get(),1); // input value was released during unwind
+    values.clear();
+    assert_eq!(drops.get(),2);
+    drop(values);
+    assert_eq!(drops.get(),2);
+}
+
+#[test]
+fn ownership_transfer_preserves_full_pointer_capacity_and_single_drop() {
+    let drops=Rc::new(Cell::new(0)); let clones=Rc::new(Cell::new(0));
+    let mut backing:[MaybeUninit<Counted>;3]=std::array::from_fn(|_|MaybeUninit::uninit());
+    let pointer=NonNull::new(backing.as_mut_ptr().cast::<Counted>()).unwrap();
+    let mut values=unsafe {FixedStorage::new(pointer,3)};
+    values.push(Counted {drops:drops.clone(),clones,panic_at_clone:usize::MAX}).unwrap();
+    let (moved,len,capacity)=values.into_parts();
+    assert_eq!(moved,pointer); assert_eq!(len,1); assert_eq!(capacity,3);
+    assert_eq!(drops.get(),0);
+    let mut restored=unsafe {FixedStorage::new(moved,capacity)};
+    unsafe {restored.set_len(len)}.unwrap(); // exactly the transferred live prefix
+    drop(restored);
+    assert_eq!(drops.get(),1);
+}
+
+struct DropOnce { remaining:Rc<Cell<usize>>, panic:bool }
+impl Drop for DropOnce {
+    fn drop(&mut self) { self.remaining.set(self.remaining.get()-1); assert!(!self.panic,"intentional ordinary destructor failure"); }
+}
+
+#[test]
+fn truncate_removes_ownership_before_calling_a_destructor() {
+    let remaining=Rc::new(Cell::new(2));
+    let mut backing:[MaybeUninit<DropOnce>;2]=std::array::from_fn(|_|MaybeUninit::uninit());
+    let mut values=unsafe {FixedStorage::new(NonNull::new(backing.as_mut_ptr().cast()).unwrap(),2)};
+    values.push(DropOnce {remaining:remaining.clone(),panic:false}).unwrap();
+    values.push(DropOnce {remaining:remaining.clone(),panic:true}).unwrap();
+    assert!(std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| values.clear())).is_err());
+    assert_eq!(values.len(),1); assert_eq!(remaining.get(),1);
+    drop(values);
+    assert_eq!(remaining.get(),0);
+}

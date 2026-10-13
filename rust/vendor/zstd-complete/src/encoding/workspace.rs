@@ -18,15 +18,37 @@ use c_port::{
 /// Errors reported while creating or using an encoder workspace.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum EncoderWorkspaceError {
-    InsufficientWorkspace { required: usize, provided: usize },
-    InputTooLarge { maximum: usize, provided: usize },
-    OutputTooSmall { required: usize, provided: usize },
+    Capacity(crate::workspace::CapacityError),
+    /// A prior encode did not complete. Recreate the context before reuse.
+    ContextPoisoned,
+    /// Requested strategy would enter an owned-only entropy path.
+    UnsupportedWorkspaceConfiguration,
+    InsufficientWorkspace {
+        required: usize,
+        provided: usize,
+    },
+    InputTooLarge {
+        maximum: usize,
+        provided: usize,
+    },
+    OutputTooSmall {
+        required: usize,
+        provided: usize,
+    },
     SizeOverflow,
 }
 
 impl fmt::Display for EncoderWorkspaceError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::Capacity(error) => {
+                write!(formatter, "encoder storage admission failed: {error:?}")
+            }
+            Self::UnsupportedWorkspaceConfiguration => formatter
+                .write_str("encoder configuration is not supported by caller-backed storage"),
+            Self::ContextPoisoned => {
+                formatter.write_str("encoder context must be recreated after an incomplete encode")
+            }
             Self::InsufficientWorkspace { required, provided } => write!(
                 formatter,
                 "encoder workspace needs {required} bytes but only {provided} were provided"
@@ -61,7 +83,17 @@ enum MatchWorkspace {
     },
 }
 
+impl From<crate::workspace::CapacityError> for EncoderWorkspaceError {
+    fn from(error: crate::workspace::CapacityError) -> Self {
+        Self::Capacity(error)
+    }
+}
+
 struct EncoderCore {
+    // Set before any codec mutation and cleared only after complete success.
+    // This also survives caught unwinds: taken scratch cannot silently become
+    // an owned default buffer on a later sensitive operation.
+    poisoned: bool,
     level: i32,
     maximum_input: usize,
     base_cctx: CctxParameters,
@@ -161,6 +193,7 @@ impl EncoderCore {
             None
         };
         Ok(Self {
+            poisoned: false,
             level,
             maximum_input,
             base_cctx: cctx,
@@ -175,6 +208,9 @@ impl EncoderCore {
         input: &[u8],
         output: &'output mut [u8],
     ) -> Result<&'output [u8], EncoderWorkspaceError> {
+        if self.poisoned {
+            return Err(EncoderWorkspaceError::ContextPoisoned);
+        }
         if input.len() > self.maximum_input {
             return Err(EncoderWorkspaceError::InputTooLarge {
                 maximum: self.maximum_input,
@@ -188,13 +224,22 @@ impl EncoderCore {
                 provided: output.len(),
             });
         }
+        self.poisoned = true;
         let cctx = CctxParameters::from_compression_parameters(
             self.level,
             self.base_cctx.compression,
             input.len() as u64,
         );
-        // SAFETY: the temporary vector is recovered before this function
-        // returns and the capacity check above prevents growth.
+        // Target mode uses owned clone-based alternatives. Static encoding
+        // currently never requests it; refuse a future accidental routing change.
+        if cctx.target_c_block_size != 0
+            || !FrameBlockState::supports_workspace_entropy(cctx.compression)
+        {
+            return Err(EncoderWorkspaceError::UnsupportedWorkspaceConfiguration);
+        }
+        // SAFETY: the guarded facade never owns caller storage, including on
+        // early exit. Every growth is admitted before writes by the fixed-capacity
+        // facade; caller storage cannot be reallocated even if sizing is wrong.
         let reusable = unsafe { ReusableVec::from_static_parts(output.as_mut_ptr(), output.len()) };
         let (mut output_vec, lease) = reusable.lease_vec();
         let ldm = &mut self.ldm;
@@ -223,15 +268,19 @@ impl EncoderCore {
                 ldm.as_mut(),
                 &mut output_vec,
             ),
-        }
+        }?;
         let length = output_vec.len();
         let reusable = ReusableVec::recover_vec(output_vec, lease);
         drop(reusable);
+        self.poisoned = false;
         Ok(&output[..length])
     }
 }
 
-fn encode_uncompressed(input: &[u8], output: &mut Vec<u8>) {
+fn encode_uncompressed(
+    input: &[u8],
+    output: &mut impl crate::workspace::Growable<u8>,
+) -> Result<(), crate::workspace::CapacityError> {
     use crate::{
         blocks::block::BlockType,
         encoding::{block_header::BlockHeader, frame_header::FrameHeader},
@@ -244,15 +293,15 @@ fn encode_uncompressed(input: &[u8], output: &mut Vec<u8>) {
         dictionary_id: None,
         window_size: None,
     }
-    .serialize(output);
+    .serialize(output)?;
     if input.is_empty() {
         BlockHeader {
             last_block: true,
             block_type: BlockType::Raw,
             block_size: 0,
         }
-        .serialize(output);
-        return;
+        .serialize(output)?;
+        return Ok(());
     }
     let block_size = crate::common::MAX_BLOCK_SIZE as usize;
     for (index, block) in input.chunks(block_size).enumerate() {
@@ -261,9 +310,10 @@ fn encode_uncompressed(input: &[u8], output: &mut Vec<u8>) {
             block_type: BlockType::Raw,
             block_size: block.len() as u32,
         }
-        .serialize(output);
-        output.extend_from_slice(block);
+        .serialize(output)?;
+        output.extend_from_slice(block)?;
     }
+    Ok(())
 }
 
 /// An owned compression workspace reusable without further allocation.
@@ -385,6 +435,7 @@ fn initialized_bytes_as_uninit(storage: &mut [u8]) -> &mut [MaybeUninit<u8>] {
 
 fn map_arena(error: ArenaError) -> EncoderWorkspaceError {
     match error {
+        ArenaError::Capacity(error) => EncoderWorkspaceError::Capacity(error),
         ArenaError::InsufficientStorage { required, provided } => {
             EncoderWorkspaceError::InsufficientWorkspace { required, provided }
         }

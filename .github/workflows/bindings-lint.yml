@@ -94,7 +94,15 @@ jobs:
           cargo doc --locked --no-deps --all-features --workspace \
             --exclude revault_cli \
             --exclude revault_tooling \
-            --exclude xtask
+            --exclude xtask \
+            --exclude revault_archive_v3_reader \
+            --exclude revault_vault_v3_reader
+          # Historical readers intentionally retain the current libraries' names.
+          # Document them separately to prevent Cargo's output filename collisions.
+          cargo doc --locked --no-deps --all-features -p revault_archive_v3_reader \
+            --target-dir target/docs-archive-v3-reader
+          cargo doc --locked --no-deps --all-features -p revault_vault_v3_reader \
+            --target-dir target/docs-vault-v3-reader
           cargo doc --locked --no-deps --manifest-path ../bindings/rust/Cargo.toml
       - name: Build native library for compiled facades
         working-directory: rust

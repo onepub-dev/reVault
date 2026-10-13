@@ -110,30 +110,32 @@ impl HuffmanTable {
         FSETable::add_workspace_size(size, 6)
     }
 
-    pub(crate) fn reserve_workspace(&mut self) {
+    pub(crate) fn reserve_workspace(&mut self) -> Result<(), crate::workspace::CapacityError> {
         let decode = (1_usize << MAX_MAX_NUM_BITS).saturating_sub(self.decode.len());
-        self.decode.reserve(decode);
+        self.decode.reserve(decode)?;
         let weights = 256_usize.saturating_sub(self.weights.len());
-        self.weights.reserve(weights);
+        self.weights.reserve(weights)?;
         let bits = 257_usize.saturating_sub(self.bits.len());
-        self.bits.reserve(bits);
+        self.bits.reserve(bits)?;
         let bit_ranks = 12_usize.saturating_sub(self.bit_ranks.len());
-        self.bit_ranks.reserve(bit_ranks);
+        self.bit_ranks.reserve(bit_ranks)?;
         let rank_indexes = 12_usize.saturating_sub(self.rank_indexes.len());
-        self.rank_indexes.reserve(rank_indexes);
-        self.fse_table.reserve_workspace(6);
+        self.rank_indexes.reserve(rank_indexes)?;
+        self.fse_table.reserve_workspace(6)?;
+        Ok(())
     }
 
     /// Completely empty the table then repopulate as a replica
     /// of `other`.
-    pub fn reinit_from(&mut self, other: &Self) {
+    pub fn reinit_from(&mut self, other: &Self) -> Result<(), crate::workspace::CapacityError> {
         self.reset();
-        self.decode.extend_from_slice(&other.decode);
-        self.weights.extend_from_slice(&other.weights);
+        self.decode.extend_from_slice(&other.decode)?;
+        self.weights.extend_from_slice(&other.weights)?;
         self.max_num_bits = other.max_num_bits;
-        self.bits.extend_from_slice(&other.bits);
-        self.rank_indexes.extend_from_slice(&other.rank_indexes);
-        self.fse_table.reinit_from(&other.fse_table);
+        self.bits.extend_from_slice(&other.bits)?;
+        self.rank_indexes.extend_from_slice(&other.rank_indexes)?;
+        self.fse_table.reinit_from(&other.fse_table)?;
+        Ok(())
     }
 
     /// Completely empty the table of all data.
@@ -257,22 +259,22 @@ impl HuffmanTable {
                 // The two decoders take turns decoding a single symbol and updating their state.
                 loop {
                     let w = dec1.decode_symbol();
-                    self.weights.push(w);
+                    self.weights.push(w)?;
                     dec1.update_state(&mut br);
 
                     if br.bits_remaining() <= -1 {
                         //collect final states
-                        self.weights.push(dec2.decode_symbol());
+                        self.weights.push(dec2.decode_symbol())?;
                         break;
                     }
 
                     let w = dec2.decode_symbol();
-                    self.weights.push(w);
+                    self.weights.push(w)?;
                     dec2.update_state(&mut br);
 
                     if br.bits_remaining() <= -1 {
                         //collect final states
-                        self.weights.push(dec1.decode_symbol());
+                        self.weights.push(dec1.decode_symbol())?;
                         break;
                     }
                     //maximum number of weights is 255 because we use u8 symbols and the last weight is inferred from the sum of all others
@@ -293,7 +295,7 @@ impl HuffmanTable {
                 // weights are directly encoded
                 let weights_raw = &source[1..];
                 let num_weights = header - 127;
-                self.weights.resize(num_weights as usize, 0);
+                self.weights.resize(num_weights as usize, 0)?;
 
                 let bytes_needed = if num_weights.is_multiple_of(2) {
                     num_weights as usize / 2
@@ -335,7 +337,7 @@ impl HuffmanTable {
         use HuffmanTableError as err;
 
         self.bits.clear();
-        self.bits.resize(self.weights.len() + 1, 0);
+        self.bits.resize(self.weights.len() + 1, 0)?;
 
         let mut weight_sum: u32 = 0;
         for w in &self.weights {
@@ -376,7 +378,7 @@ impl HuffmanTable {
         }
 
         self.bit_ranks.clear();
-        self.bit_ranks.resize((max_bits + 1) as usize, 0);
+        self.bit_ranks.resize((max_bits + 1) as usize, 0)?;
         for num_bits in &self.bits {
             self.bit_ranks[(*num_bits) as usize] += 1;
         }
@@ -388,11 +390,11 @@ impl HuffmanTable {
                 symbol: 0,
                 num_bits: 0,
             },
-        );
+        )?;
 
         //starting codes for each rank
         self.rank_indexes.clear();
-        self.rank_indexes.resize((max_bits + 1) as usize, 0);
+        self.rank_indexes.resize((max_bits + 1) as usize, 0)?;
 
         self.rank_indexes[max_bits as usize] = 0;
         for bits in (1..self.rank_indexes.len() as u8).rev() {

@@ -432,11 +432,15 @@ fn actual_encoded_len(
     let mut writer = BitWriter::from(&mut encoded);
     let mut encoder = HuffmanEncoder::new(table, &mut writer);
     if four_streams {
-        encoder.encode4x(data, with_table);
+        encoder
+            .encode4x(data, with_table)
+            .expect("test storage admission");
     } else {
-        encoder.encode(data, with_table);
+        encoder
+            .encode(data, with_table)
+            .expect("test storage admission");
     }
-    writer.flush();
+    writer.flush().expect("test storage admission");
     encoded.len()
 }
 
@@ -467,9 +471,11 @@ fn compact_tree_builder_matches_vector_code_length_builder() {
     for max_bits in 4..=MAX_HUFFMAN_BITS {
         let mut direct_nodes = Vec::new();
         let direct = HuffmanTable::build_c_table_with_nodes(&counts, max_bits, &mut direct_nodes)
+            .expect("test storage admission")
             .expect("the selected table log can represent this alphabet");
         let mut vector_nodes = Vec::new();
         let lengths = length_limited_code_lengths_with_nodes(&counts, max_bits, &mut vector_nodes)
+            .expect("test storage admission")
             .expect("the vector builder can represent this alphabet");
         let vector = HuffmanTable::build_from_code_lengths(&lengths, max_bits);
         assert_eq!(direct.codes, vector.codes);
@@ -490,13 +496,15 @@ fn generated_tree_to_weight_transaction_matches_local_builder() {
     for counts in cases {
         for max_bits in 4..=MAX_HUFFMAN_BITS {
             let mut local_nodes = Vec::new();
-            let local = HuffmanTable::build_c_table_with_nodes(&counts, max_bits, &mut local_nodes);
+            let local = HuffmanTable::build_c_table_with_nodes(&counts, max_bits, &mut local_nodes)
+                .expect("test storage admission");
             let mut generated_scratch = crate::kernel::huff0::HuffmanBuildScratch::default();
             let generated = crate::kernel::huff0::build_huffman_table(
                 &counts,
                 max_bits,
                 &mut generated_scratch,
-            );
+            )
+            .expect("test storage admission");
 
             match (local, generated) {
                 (None, None) => {}
@@ -515,6 +523,7 @@ fn generated_tree_to_weight_transaction_matches_local_builder() {
                         &mut described_scratch,
                         super::weights::table_description_bytes_from_weights,
                     )
+                    .expect("test storage admission")
                     .expect("the equivalent generated table is representable");
                     assert_eq!(described.codes.as_slice(), local.codes.as_slice());
                     assert_eq!(described.max_num_bits, local.max_num_bits);
@@ -573,20 +582,25 @@ fn reusable_huffman_output_table_preserves_allocations_and_bytes() {
         &first_counts,
         MAX_HUFFMAN_BITS,
         &mut scratch,
-    );
+    )
+    .expect("test storage admission");
     let codes_ptr = first.codes.as_ptr();
     let description_ptr = first.table_description.as_ptr();
-    scratch.recycle_table(first);
+    scratch
+        .recycle_table(first)
+        .expect("test storage admission");
     assert_eq!(scratch.recycled_table_count(), 1);
 
     let reused = HuffmanTable::build_from_counts_with_max_bits_and_scratch(
         &second_counts,
         MAX_HUFFMAN_BITS,
         &mut scratch,
-    );
+    )
+    .expect("test storage admission");
     let mut local_nodes = Vec::new();
     let reference =
         HuffmanTable::build_c_table_with_nodes(&second_counts, MAX_HUFFMAN_BITS, &mut local_nodes)
+            .expect("test storage admission")
             .expect("dense histogram builds a C table");
 
     assert_eq!(scratch.recycled_table_count(), 0);
@@ -610,7 +624,8 @@ fn reusable_table_description_matches_allocating_serializer() {
     for mut weights in fixtures {
         weights.push(1);
         let expected = table_description_bytes_from_weights(&weights);
-        table_description_bytes_from_weights_reusing(&weights, &mut reused);
+        table_description_bytes_from_weights_reusing(&weights, &mut reused)
+            .expect("test storage admission");
         assert_eq!(reused, expected);
     }
 }
@@ -633,7 +648,8 @@ fn reusable_weight_fse_workspace_preserves_description_and_table_allocations() {
             &weights,
             &mut output,
             &mut scratch,
-        );
+        )
+        .expect("test storage admission");
         assert_eq!(output, expected);
         assert_eq!(scratch.recycled_table_count(), 1);
         let allocations = scratch.recycled_table_allocation_addresses();
@@ -656,7 +672,8 @@ fn nested_fse_workspace_preserves_complete_huffman_table() {
         MAX_HUFFMAN_BITS,
         &mut huffman_scratch,
         &mut fse_scratch,
-    );
+    )
+    .expect("test storage admission");
     let expected = HuffmanTable::build_from_counts_with_max_bits(&counts, MAX_HUFFMAN_BITS);
 
     assert_eq!(actual.codes, expected.codes);

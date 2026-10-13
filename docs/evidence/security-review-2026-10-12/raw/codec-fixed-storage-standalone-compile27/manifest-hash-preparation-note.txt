@@ -1,0 +1,1 @@
+Initial manifest hash capture used crate/Cargo.toml.original; the preparation script stores it at the snapshot root. No compiler command ran. The source snapshot itself is intact.

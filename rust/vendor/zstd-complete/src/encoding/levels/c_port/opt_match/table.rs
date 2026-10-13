@@ -33,13 +33,15 @@ impl OptMatchTable {
         arena: &mut Arena<'_>,
     ) -> Result<Self, ArenaError> {
         let mut entries = arena.allocate_reusable_vec(ZSTD_OPT_NUM)?;
-        entries.resize(ZSTD_OPT_NUM, OptMatch::EMPTY);
+        entries.resize(ZSTD_OPT_NUM, OptMatch::EMPTY)?;
         Ok(Self { entries, len: 0 })
     }
 
     pub(in crate::encoding::levels::c_port) fn new() -> Self {
         let mut entries = ReusableVec::with_capacity(ZSTD_OPT_NUM);
-        entries.resize(ZSTD_OPT_NUM, OptMatch::EMPTY);
+        entries
+            .resize(ZSTD_OPT_NUM, OptMatch::EMPTY)
+            .expect("owned legacy codec allocation failed");
         Self { entries, len: 0 }
     }
 

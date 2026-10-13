@@ -24,54 +24,56 @@ pub(crate) fn compress_block_fast_ext_dict_with_state(
     repeat_offsets: RepeatOffsets,
     state: &mut FastMatchState,
     loaded_dict_end: usize,
-) -> FastBlockOutput {
-    match params.min_match {
-        4 => compress_block_fast_ext_dict_with_state_mls::<4>(
-            src,
-            block_range,
-            dict_limit,
-            params,
-            repeat_offsets,
-            state,
-            loaded_dict_end,
-        ),
-        5 => compress_block_fast_ext_dict_with_state_mls::<5>(
-            src,
-            block_range,
-            dict_limit,
-            params,
-            repeat_offsets,
-            state,
-            loaded_dict_end,
-        ),
-        6 => compress_block_fast_ext_dict_with_state_mls::<6>(
-            src,
-            block_range,
-            dict_limit,
-            params,
-            repeat_offsets,
-            state,
-            loaded_dict_end,
-        ),
-        7 => compress_block_fast_ext_dict_with_state_mls::<7>(
-            src,
-            block_range,
-            dict_limit,
-            params,
-            repeat_offsets,
-            state,
-            loaded_dict_end,
-        ),
-        _ => compress_block_fast_ext_dict_with_state_mls::<4>(
-            src,
-            block_range,
-            dict_limit,
-            params,
-            repeat_offsets,
-            state,
-            loaded_dict_end,
-        ),
-    }
+) -> Result<FastBlockOutput, crate::workspace::CapacityError> {
+    Ok({
+        match params.min_match {
+            4 => compress_block_fast_ext_dict_with_state_mls::<4>(
+                src,
+                block_range,
+                dict_limit,
+                params,
+                repeat_offsets,
+                state,
+                loaded_dict_end,
+            )?,
+            5 => compress_block_fast_ext_dict_with_state_mls::<5>(
+                src,
+                block_range,
+                dict_limit,
+                params,
+                repeat_offsets,
+                state,
+                loaded_dict_end,
+            )?,
+            6 => compress_block_fast_ext_dict_with_state_mls::<6>(
+                src,
+                block_range,
+                dict_limit,
+                params,
+                repeat_offsets,
+                state,
+                loaded_dict_end,
+            )?,
+            7 => compress_block_fast_ext_dict_with_state_mls::<7>(
+                src,
+                block_range,
+                dict_limit,
+                params,
+                repeat_offsets,
+                state,
+                loaded_dict_end,
+            )?,
+            _ => compress_block_fast_ext_dict_with_state_mls::<4>(
+                src,
+                block_range,
+                dict_limit,
+                params,
+                repeat_offsets,
+                state,
+                loaded_dict_end,
+            )?,
+        }
+    })
 }
 
 fn compress_block_fast_ext_dict_with_state_mls<const MIN_MATCH: u32>(
@@ -82,205 +84,207 @@ fn compress_block_fast_ext_dict_with_state_mls<const MIN_MATCH: u32>(
     repeat_offsets: RepeatOffsets,
     state: &mut FastMatchState,
     loaded_dict_end: usize,
-) -> FastBlockOutput {
-    debug_assert!(dict_limit <= block_range.start);
-    debug_assert!(block_range.start <= block_range.end);
-    debug_assert!(block_range.end <= src.len());
+) -> Result<FastBlockOutput, crate::workspace::CapacityError> {
+    Ok({
+        debug_assert!(dict_limit <= block_range.start);
+        debug_assert!(block_range.start <= block_range.end);
+        debug_assert!(block_range.end <= src.len());
 
-    let mut rep = repeat_offsets.as_offsets();
-    let block_start = block_range.start;
-    let block_end = block_range.end;
-    let block_len = block_end - block_start;
+        let mut rep = repeat_offsets.as_offsets();
+        let block_start = block_range.start;
+        let block_end = block_range.end;
+        let block_len = block_end - block_start;
 
-    if block_len <= HASH_READ_SIZE {
-        return FastBlockOutput {
-            sequences: state.take_sequence_store(),
-            last_literals: block_len as u32,
-            repeat_offsets,
-        };
-    }
+        if block_len <= HASH_READ_SIZE {
+            return Ok(FastBlockOutput {
+                sequences: state.take_sequence_store(),
+                last_literals: block_len as u32,
+                repeat_offsets,
+            });
+        }
 
-    let hlog = params.hash_log;
-    let step_size = params.target_length as usize + usize::from(params.target_length == 0) + 1;
-    let dict_start_index =
-        lowest_prefix_index_with_loaded_dict(block_end, params.window_log, loaded_dict_end);
-    let prefix_start_index = dict_limit.max(dict_start_index);
-    if prefix_start_index == dict_start_index {
-        return compress_block_fast_no_dict_with_state_and_loaded_dict(
-            src,
-            block_range,
-            params,
-            repeat_offsets,
-            state,
-            0,
-        );
-    }
-    let mut sequences = state.take_sequence_store();
-    let ilimit = block_end - HASH_READ_SIZE;
+        let hlog = params.hash_log;
+        let step_size = params.target_length as usize + usize::from(params.target_length == 0) + 1;
+        let dict_start_index =
+            lowest_prefix_index_with_loaded_dict(block_end, params.window_log, loaded_dict_end);
+        let prefix_start_index = dict_limit.max(dict_start_index);
+        if prefix_start_index == dict_start_index {
+            return Ok(compress_block_fast_no_dict_with_state_and_loaded_dict(
+                src,
+                block_range,
+                params,
+                repeat_offsets,
+                state,
+                0,
+            )?);
+        }
+        let mut sequences = state.take_sequence_store();
+        let ilimit = block_end - HASH_READ_SIZE;
 
-    let hash_table = state.table_for(hlog);
-    let mut anchor = block_start;
-    let mut ip0 = block_start;
+        let hash_table = state.table_for(hlog)?;
+        let mut anchor = block_start;
+        let mut ip0 = block_start;
 
-    let mut rep_offset1 = rep[0] as usize;
-    let mut rep_offset2 = rep[1] as usize;
-    let mut offset_saved1 = 0_usize;
-    let mut offset_saved2 = 0_usize;
+        let mut rep_offset1 = rep[0] as usize;
+        let mut rep_offset2 = rep[1] as usize;
+        let mut offset_saved1 = 0_usize;
+        let mut offset_saved2 = 0_usize;
 
-    let max_rep = ip0 - dict_start_index;
-    if rep_offset2 >= max_rep {
-        offset_saved2 = rep_offset2;
-        rep_offset2 = 0;
-    }
-    if rep_offset1 >= max_rep {
-        offset_saved1 = rep_offset1;
-        rep_offset1 = 0;
-    }
+        let max_rep = ip0 - dict_start_index;
+        if rep_offset2 >= max_rep {
+            offset_saved2 = rep_offset2;
+            rep_offset2 = 0;
+        }
+        if rep_offset1 >= max_rep {
+            offset_saved1 = rep_offset1;
+            rep_offset1 = 0;
+        }
 
-    'restart: loop {
-        let mut step = step_size;
-        let mut next_step = ip0 + (1 << (SEARCH_STRENGTH - 1));
-        let mut ip1 = ip0 + 1;
-        let mut ip2 = ip0 + step;
-        let mut ip3 = ip2 + 1;
+        'restart: loop {
+            let mut step = step_size;
+            let mut next_step = ip0 + (1 << (SEARCH_STRENGTH - 1));
+            let mut ip1 = ip0 + 1;
+            let mut ip2 = ip0 + step;
+            let mut ip3 = ip2 + 1;
 
-        if ip3 >= ilimit {
+            if ip3 >= ilimit {
+                break;
+            }
+
+            let mut hash0 = hash_small_ptr::<MIN_MATCH>(src, ip0, hlog);
+            let mut hash1 = hash_small_ptr::<MIN_MATCH>(src, ip1, hlog);
+            let mut match_idx = hash_table[hash0] as usize;
+
+            while ip3 < ilimit {
+                let current0 = ip0;
+                hash_table[hash0] = current0 as u32;
+
+                if rep_match(src, ip2, rep_offset1, dict_start_index, prefix_start_index) {
+                    ip0 = ip2;
+                    let mut match0 = ip0 - rep_offset1;
+                    let backward = usize::from(ip0 > anchor && src[ip0 - 1] == src[match0 - 1]);
+                    ip0 -= backward;
+                    match0 -= backward;
+                    hash_table[hash1] = ip1 as u32;
+                    store_match(
+                        src,
+                        &mut sequences,
+                        &mut anchor,
+                        &mut ip0,
+                        match0,
+                        OffBase::Repeat(RepeatCode::First),
+                        4 + backward,
+                        block_end,
+                    )?;
+                    fill_after_match::<MIN_MATCH>(src, hash_table, hlog, current0, ip0, ilimit);
+                    consume_immediate_repcodes::<MIN_MATCH>(
+                        src,
+                        hash_table,
+                        &mut sequences,
+                        hlog,
+                        &mut anchor,
+                        &mut ip0,
+                        ilimit,
+                        &mut rep_offset1,
+                        &mut rep_offset2,
+                        block_end,
+                        dict_start_index,
+                        prefix_start_index,
+                    )?;
+                    continue 'restart;
+                }
+
+                if match4_found(src, ip0, match_idx, dict_start_index, block_end) {
+                    hash_table[hash1] = ip1 as u32;
+                    store_offset_match::<MIN_MATCH>(
+                        src,
+                        hash_table,
+                        hlog,
+                        &mut sequences,
+                        &mut anchor,
+                        &mut ip0,
+                        match_idx,
+                        current0,
+                        ilimit,
+                        block_end,
+                        &mut rep_offset1,
+                        &mut rep_offset2,
+                        dict_start_index,
+                        prefix_start_index,
+                    )?;
+                    continue 'restart;
+                }
+
+                match_idx = hash_table[hash1] as usize;
+                hash0 = hash1;
+                hash1 = hash_small_ptr::<MIN_MATCH>(src, ip2, hlog);
+                ip0 = ip1;
+                ip1 = ip2;
+                ip2 = ip3;
+
+                let current0 = ip0;
+                hash_table[hash0] = current0 as u32;
+
+                if match4_found(src, ip0, match_idx, dict_start_index, block_end) {
+                    if step <= 4 {
+                        hash_table[hash1] = ip1 as u32;
+                    }
+                    store_offset_match::<MIN_MATCH>(
+                        src,
+                        hash_table,
+                        hlog,
+                        &mut sequences,
+                        &mut anchor,
+                        &mut ip0,
+                        match_idx,
+                        current0,
+                        ilimit,
+                        block_end,
+                        &mut rep_offset1,
+                        &mut rep_offset2,
+                        dict_start_index,
+                        prefix_start_index,
+                    )?;
+                    continue 'restart;
+                }
+
+                match_idx = hash_table[hash1] as usize;
+                hash0 = hash1;
+                hash1 = hash_small_ptr::<MIN_MATCH>(src, ip2, hlog);
+                ip0 = ip1;
+                ip1 = ip2;
+                ip2 = ip0 + step;
+                ip3 = ip1 + step;
+
+                if ip2 >= next_step {
+                    step += 1;
+                    next_step += 1 << (SEARCH_STRENGTH - 1);
+                }
+            }
+
             break;
         }
 
-        let mut hash0 = hash_small_ptr::<MIN_MATCH>(src, ip0, hlog);
-        let mut hash1 = hash_small_ptr::<MIN_MATCH>(src, ip1, hlog);
-        let mut match_idx = hash_table[hash0] as usize;
-
-        while ip3 < ilimit {
-            let current0 = ip0;
-            hash_table[hash0] = current0 as u32;
-
-            if rep_match(src, ip2, rep_offset1, dict_start_index, prefix_start_index) {
-                ip0 = ip2;
-                let mut match0 = ip0 - rep_offset1;
-                let backward = usize::from(ip0 > anchor && src[ip0 - 1] == src[match0 - 1]);
-                ip0 -= backward;
-                match0 -= backward;
-                hash_table[hash1] = ip1 as u32;
-                store_match(
-                    src,
-                    &mut sequences,
-                    &mut anchor,
-                    &mut ip0,
-                    match0,
-                    OffBase::Repeat(RepeatCode::First),
-                    4 + backward,
-                    block_end,
-                );
-                fill_after_match::<MIN_MATCH>(src, hash_table, hlog, current0, ip0, ilimit);
-                consume_immediate_repcodes::<MIN_MATCH>(
-                    src,
-                    hash_table,
-                    &mut sequences,
-                    hlog,
-                    &mut anchor,
-                    &mut ip0,
-                    ilimit,
-                    &mut rep_offset1,
-                    &mut rep_offset2,
-                    block_end,
-                    dict_start_index,
-                    prefix_start_index,
-                );
-                continue 'restart;
-            }
-
-            if match4_found(src, ip0, match_idx, dict_start_index, block_end) {
-                hash_table[hash1] = ip1 as u32;
-                store_offset_match::<MIN_MATCH>(
-                    src,
-                    hash_table,
-                    hlog,
-                    &mut sequences,
-                    &mut anchor,
-                    &mut ip0,
-                    match_idx,
-                    current0,
-                    ilimit,
-                    block_end,
-                    &mut rep_offset1,
-                    &mut rep_offset2,
-                    dict_start_index,
-                    prefix_start_index,
-                );
-                continue 'restart;
-            }
-
-            match_idx = hash_table[hash1] as usize;
-            hash0 = hash1;
-            hash1 = hash_small_ptr::<MIN_MATCH>(src, ip2, hlog);
-            ip0 = ip1;
-            ip1 = ip2;
-            ip2 = ip3;
-
-            let current0 = ip0;
-            hash_table[hash0] = current0 as u32;
-
-            if match4_found(src, ip0, match_idx, dict_start_index, block_end) {
-                if step <= 4 {
-                    hash_table[hash1] = ip1 as u32;
-                }
-                store_offset_match::<MIN_MATCH>(
-                    src,
-                    hash_table,
-                    hlog,
-                    &mut sequences,
-                    &mut anchor,
-                    &mut ip0,
-                    match_idx,
-                    current0,
-                    ilimit,
-                    block_end,
-                    &mut rep_offset1,
-                    &mut rep_offset2,
-                    dict_start_index,
-                    prefix_start_index,
-                );
-                continue 'restart;
-            }
-
-            match_idx = hash_table[hash1] as usize;
-            hash0 = hash1;
-            hash1 = hash_small_ptr::<MIN_MATCH>(src, ip2, hlog);
-            ip0 = ip1;
-            ip1 = ip2;
-            ip2 = ip0 + step;
-            ip3 = ip1 + step;
-
-            if ip2 >= next_step {
-                step += 1;
-                next_step += 1 << (SEARCH_STRENGTH - 1);
-            }
+        if offset_saved1 != 0 && rep_offset1 != 0 {
+            offset_saved2 = offset_saved1;
         }
+        rep[0] = (if rep_offset1 != 0 {
+            rep_offset1
+        } else {
+            offset_saved1
+        }) as u32;
+        rep[1] = (if rep_offset2 != 0 {
+            rep_offset2
+        } else {
+            offset_saved2
+        }) as u32;
 
-        break;
-    }
-
-    if offset_saved1 != 0 && rep_offset1 != 0 {
-        offset_saved2 = offset_saved1;
-    }
-    rep[0] = (if rep_offset1 != 0 {
-        rep_offset1
-    } else {
-        offset_saved1
-    }) as u32;
-    rep[1] = (if rep_offset2 != 0 {
-        rep_offset2
-    } else {
-        offset_saved2
-    }) as u32;
-
-    FastBlockOutput {
-        sequences,
-        last_literals: (block_end - anchor) as u32,
-        repeat_offsets: RepeatOffsets::from_offsets(rep[0], rep[1], rep[2]),
-    }
+        FastBlockOutput {
+            sequences,
+            last_literals: (block_end - anchor) as u32,
+            repeat_offsets: RepeatOffsets::from_offsets(rep[0], rep[1], rep[2]),
+        }
+    })
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -299,45 +303,47 @@ fn store_offset_match<const MIN_MATCH: u32>(
     rep_offset2: &mut usize,
     dict_start_index: usize,
     prefix_start_index: usize,
-) {
-    let low_match = if match_pos < prefix_start_index {
-        dict_start_index
-    } else {
-        prefix_start_index
-    };
-    *rep_offset2 = *rep_offset1;
-    *rep_offset1 = *ip - match_pos;
-    let mut match_length = 4;
-    while *ip > *anchor && match_pos > low_match && src[*ip - 1] == src[match_pos - 1] {
-        *ip -= 1;
-        match_pos -= 1;
-        match_length += 1;
-    }
-    store_match(
-        src,
-        sequences,
-        anchor,
-        ip,
-        match_pos,
-        OffBase::Offset(*rep_offset1 as u32),
-        match_length,
-        block_end,
-    );
-    fill_after_match::<MIN_MATCH>(src, hash_table, hlog, current0, *ip, ilimit);
-    consume_immediate_repcodes::<MIN_MATCH>(
-        src,
-        hash_table,
-        sequences,
-        hlog,
-        anchor,
-        ip,
-        ilimit,
-        rep_offset1,
-        rep_offset2,
-        block_end,
-        dict_start_index,
-        prefix_start_index,
-    );
+) -> Result<(), crate::workspace::CapacityError> {
+    Ok({
+        let low_match = if match_pos < prefix_start_index {
+            dict_start_index
+        } else {
+            prefix_start_index
+        };
+        *rep_offset2 = *rep_offset1;
+        *rep_offset1 = *ip - match_pos;
+        let mut match_length = 4;
+        while *ip > *anchor && match_pos > low_match && src[*ip - 1] == src[match_pos - 1] {
+            *ip -= 1;
+            match_pos -= 1;
+            match_length += 1;
+        }
+        store_match(
+            src,
+            sequences,
+            anchor,
+            ip,
+            match_pos,
+            OffBase::Offset(*rep_offset1 as u32),
+            match_length,
+            block_end,
+        )?;
+        fill_after_match::<MIN_MATCH>(src, hash_table, hlog, current0, *ip, ilimit);
+        consume_immediate_repcodes::<MIN_MATCH>(
+            src,
+            hash_table,
+            sequences,
+            hlog,
+            anchor,
+            ip,
+            ilimit,
+            rep_offset1,
+            rep_offset2,
+            block_end,
+            dict_start_index,
+            prefix_start_index,
+        )?;
+    })
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -350,21 +356,23 @@ fn store_match(
     off_base: OffBase,
     match_length: usize,
     match_limit: usize,
-) {
-    let match_length = match_length
-        + count_match(
-            src,
-            *ip + match_length,
-            match_pos + match_length,
-            match_limit,
-        );
-    sequences.push(StoredSequence::new(
-        (*ip - *anchor) as u32,
-        off_base,
-        match_length as u32,
-    ));
-    *ip += match_length;
-    *anchor = *ip;
+) -> Result<(), crate::workspace::CapacityError> {
+    Ok({
+        let match_length = match_length
+            + count_match(
+                src,
+                *ip + match_length,
+                match_pos + match_length,
+                match_limit,
+            );
+        sequences.push(StoredSequence::new(
+            (*ip - *anchor) as u32,
+            off_base,
+            match_length as u32,
+        ))?;
+        *ip += match_length;
+        *anchor = *ip;
+    })
 }
 
 fn fill_after_match<const MIN_MATCH: u32>(
@@ -400,24 +408,28 @@ fn consume_immediate_repcodes<const MIN_MATCH: u32>(
     match_limit: usize,
     dict_start_index: usize,
     prefix_start_index: usize,
-) {
-    if *rep_offset2 == 0 {
-        return;
-    }
+) -> Result<(), crate::workspace::CapacityError> {
+    Ok({
+        if *rep_offset2 == 0 {
+            return Ok(());
+        }
 
-    while *ip <= ilimit && rep_match(src, *ip, *rep_offset2, dict_start_index, prefix_start_index) {
-        let rep_index = *ip - *rep_offset2;
-        let repeat_length = count_match(src, *ip + 4, rep_index + 4, match_limit) + 4;
-        core::mem::swap(rep_offset1, rep_offset2);
-        hash_table[hash_small_ptr::<MIN_MATCH>(src, *ip, hlog)] = *ip as u32;
-        *ip += repeat_length;
-        sequences.push(StoredSequence::new(
-            0,
-            OffBase::Repeat(RepeatCode::First),
-            repeat_length as u32,
-        ));
-        *anchor = *ip;
-    }
+        while *ip <= ilimit
+            && rep_match(src, *ip, *rep_offset2, dict_start_index, prefix_start_index)
+        {
+            let rep_index = *ip - *rep_offset2;
+            let repeat_length = count_match(src, *ip + 4, rep_index + 4, match_limit) + 4;
+            core::mem::swap(rep_offset1, rep_offset2);
+            hash_table[hash_small_ptr::<MIN_MATCH>(src, *ip, hlog)] = *ip as u32;
+            *ip += repeat_length;
+            sequences.push(StoredSequence::new(
+                0,
+                OffBase::Repeat(RepeatCode::First),
+                repeat_length as u32,
+            ))?;
+            *anchor = *ip;
+        }
+    })
 }
 
 fn rep_match(

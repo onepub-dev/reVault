@@ -76,10 +76,11 @@ impl DecodeBuffer {
         &mut self,
         history_capacity: usize,
         dictionary_capacity: usize,
-    ) {
+    ) -> Result<(), crate::workspace::CapacityError> {
         self.buffer.reserve(history_capacity);
         let additional = dictionary_capacity.saturating_sub(self.dict_content.len());
-        self.dict_content.reserve(additional);
+        self.dict_content.reserve(additional)?;
+        Ok(())
     }
 
     pub fn len(&self) -> usize {

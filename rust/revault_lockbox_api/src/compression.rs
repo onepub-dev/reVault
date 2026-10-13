@@ -17,7 +17,7 @@ pub(crate) enum FrameEncoding {
 }
 
 impl FrameEncoding {
-    fn into_encoded(self, input: &[u8]) -> (u8, Vec<u8>) {
+    pub(crate) fn into_encoded(self, input: &[u8]) -> (u8, Vec<u8>) {
         match self {
             Self::Raw => (COMPRESSION_NONE, input.to_vec()),
             Self::Compressed(mut bytes) => (COMPRESSION_ZSTD, std::mem::take(&mut *bytes)),
@@ -36,19 +36,38 @@ pub(crate) const ZSTD_DEFAULT_LEVEL: i32 = 1;
 pub(crate) const ZSTD_BULK_IMPORT_LEVEL: i32 = 3;
 const ZSTD_MAGIC: &[u8; 4] = &[0x28, 0xb5, 0x2f, 0xfd];
 
+#[cfg(test)]
 pub(crate) fn encode_page_body(payload: &[u8]) -> Vec<u8> {
-    let (algorithm, stored) = if looks_incompressible(payload) {
-        (COMPRESSION_NONE, payload.to_vec())
+    encode_page_body_sensitive(payload, false).into_vec()
+}
+
+pub(crate) fn encode_page_body_sensitive(
+    payload: &[u8],
+    sensitive: bool,
+) -> crate::page_buffer::SensitiveBytes {
+    use crate::page_buffer::SensitiveBytes;
+    let (algorithm, stored) = if sensitive {
+        let (algorithm, stored) =
+            encode_sensitive_outcome(payload, None, ZSTD_DEFAULT_LEVEL).into_encoded(payload);
+        (algorithm, SensitiveBytes::new(stored, true))
+    } else if looks_incompressible(payload) {
+        (
+            COMPRESSION_NONE,
+            SensitiveBytes::new(payload.to_vec(), sensitive),
+        )
     } else {
-        let compressed = zstd_encode(payload, ZSTD_DEFAULT_LEVEL);
+        let compressed = SensitiveBytes::new(zstd_encode(payload, ZSTD_DEFAULT_LEVEL), sensitive);
         if compressed.len() < payload.len() {
             (COMPRESSION_ZSTD, compressed)
         } else {
-            (COMPRESSION_NONE, payload.to_vec())
+            (
+                COMPRESSION_NONE,
+                SensitiveBytes::new(payload.to_vec(), sensitive),
+            )
         }
     };
 
-    let mut body = Vec::with_capacity(17 + stored.len());
+    let mut body = SensitiveBytes::new(Vec::with_capacity(17 + stored.len()), sensitive);
     body.extend_from_slice(&(payload.len() as u64).to_le_bytes());
     body.push(algorithm);
     body.extend_from_slice(&(stored.len() as u64).to_le_bytes());
@@ -154,6 +173,35 @@ pub(crate) fn encode_with_compression(
     compression: crate::Compression,
 ) -> (u8, Vec<u8>) {
     encode_with_compression_outcome(payload, compression).into_encoded(payload)
+}
+
+/// Sensitive compression never enters the allocating legacy codec fallback.
+pub(crate) fn encode_sensitive_outcome(
+    payload: &[u8],
+    compression: Option<crate::Compression>,
+    default_level: i32,
+) -> FrameEncoding {
+    let level = match compression {
+        Some(crate::Compression::None) => return FrameEncoding::Raw,
+        Some(crate::Compression::Zstd { level }) => {
+            CompressionLevel::new(level.get()).expect("validated level")
+        }
+        None => zstd_complete_level(default_level),
+    };
+    encode_workspace::encode_sensitive(payload, level)
+}
+
+pub(crate) fn encode_with_compression_sensitive(
+    payload: &[u8],
+    compression: crate::Compression,
+    sensitive: bool,
+) -> (u8, Vec<u8>) {
+    if sensitive {
+        encode_sensitive_outcome(payload, Some(compression), ZSTD_DEFAULT_LEVEL)
+            .into_encoded(payload)
+    } else {
+        encode_with_compression(payload, compression)
+    }
 }
 
 pub(crate) fn encode_with_compression_outcome(
@@ -527,5 +575,45 @@ mod tests {
         payload[26..28].copy_from_slice(&8u16.to_le_bytes());
         payload[30..38].copy_from_slice(b"data.bin");
         payload
+    }
+}
+
+#[cfg(test)]
+mod sensitive_encoder_tests {
+    use super::*;
+
+    #[test]
+    fn sensitive_frames_roundtrip_all_supported_levels_and_boundary_sizes() {
+        for size in [0usize, 1, 63, 65_535, 65_536, 131_073] {
+            let input: Vec<u8> = (0..size).map(|i| ((i / 97 + i % 13) % 251) as u8).collect();
+            for level in 1..=22 {
+                let compression = crate::Compression::Zstd {
+                    level: crate::ZstdLevel::new(level).unwrap(),
+                };
+                let (codec, bytes) = encode_with_compression_sensitive(&input, compression, true);
+                assert_eq!(
+                    decode_compression_frame(codec, &bytes, size as u64).unwrap(),
+                    input
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn clear_only_encoding_keeps_existing_bytes_and_sensitive_none_stays_raw() {
+        let input = vec![37u8; 4097];
+        for level in [1, 3, 9, 18, 22] {
+            let compression = crate::Compression::Zstd {
+                level: crate::ZstdLevel::new(level).unwrap(),
+            };
+            assert_eq!(
+                encode_with_compression_sensitive(&input, compression, false),
+                encode_with_compression(&input, compression)
+            );
+        }
+        assert_eq!(
+            encode_with_compression_sensitive(&input, crate::Compression::None, true),
+            (COMPRESSION_NONE, input)
+        );
     }
 }

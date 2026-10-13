@@ -32,13 +32,12 @@ impl Files<StorageBackend> {
         let mut cleanup = temporary.clone();
         let mut installed = false;
         let result = (|| {
-            std::fs::set_permissions(replacement.temp_path(), metadata.permissions())
-                .map_err(|e| Error::Io(e.to_string()))?;
             let destination = source.compact_into(temporary, authority, signer, key)?;
             let mut checked = Self::open(destination, archive, mode, authority, key)?;
             checked.audit_with(true)?;
             checkpoint("verified");
             source.storage.ensure_current()?;
+            source.storage.copy_file_permissions_to(&checked.storage)?;
             replacement.publish()?;
             installed = true;
             checked.storage.relocate(path);

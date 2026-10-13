@@ -1,0 +1,1 @@
+gcc -std=c11 -O2 -Wall -Wextra -Wpedantic -Werror -Irust/revault_bindings bindings/e2e/c/conformance.c -Lrust/target/release -Wl,-rpath,/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/release -lrevault_api -o /tmp/revault-c-conformance-20261013; run --core

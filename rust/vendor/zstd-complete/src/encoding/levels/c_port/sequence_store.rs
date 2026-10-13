@@ -2,7 +2,7 @@
 //! `ZSTD_updateRep()`.
 
 use alloc::vec::Vec;
-use core::{mem::ManuallyDrop, slice};
+use core::slice;
 
 use crate::encoding::blocks::{PreparedBlock, PreparedBlockRef, PreparedSequence};
 
@@ -205,14 +205,16 @@ pub(crate) fn prepare_stored_sequences(
     initial_repeat_offsets: RepeatOffsets,
     sequences: &[StoredSequence],
     last_literals: u32,
-) -> PreparedBlock {
-    prepared_words_into_block(prepare_stored_sequence_words_in(
-        src,
-        initial_repeat_offsets,
-        sequences,
-        last_literals,
-        PreparedStoreWords::default(),
-    ))
+) -> Result<PreparedBlock, crate::workspace::CapacityError> {
+    Ok({
+        prepared_words_into_block(prepare_stored_sequence_words_in(
+            src,
+            initial_repeat_offsets,
+            sequences,
+            last_literals,
+            PreparedStoreWords::default(),
+        )?)
+    })
 }
 
 pub(crate) fn prepare_stored_sequence_words_in(
@@ -221,29 +223,31 @@ pub(crate) fn prepare_stored_sequence_words_in(
     sequences: &[StoredSequence],
     last_literals: u32,
     reuse: PreparedStoreWords,
-) -> PreparedStoreWords {
-    // SAFETY: the compile-time layout assertions above prove that the local C
-    // record has exactly the primitive word-array ABI expected by the leaf
-    // codegen crate.
-    let sequence_words = unsafe {
-        slice::from_raw_parts(
-            sequences
-                .as_ptr()
-                .cast::<crate::kernel::seqstore::StoredSequenceWords>(),
-            sequences.len(),
-        )
-    };
-    // SAFETY: matcher-produced sequences and `last_literals` partition `src`,
-    // and the repeat history belongs to that same matcher transaction.
-    unsafe {
-        crate::kernel::seqstore::prepare_stored_sequences_in(
-            src,
-            initial_repeat_offsets.as_offsets(),
-            sequence_words,
-            last_literals,
-            reuse,
-        )
-    }
+) -> Result<PreparedStoreWords, crate::workspace::CapacityError> {
+    Ok({
+        // SAFETY: the compile-time layout assertions above prove that the local C
+        // record has exactly the primitive word-array ABI expected by the leaf
+        // codegen crate.
+        let sequence_words = unsafe {
+            slice::from_raw_parts(
+                sequences
+                    .as_ptr()
+                    .cast::<crate::kernel::seqstore::StoredSequenceWords>(),
+                sequences.len(),
+            )
+        };
+        // SAFETY: matcher-produced sequences and `last_literals` partition `src`,
+        // and the repeat history belongs to that same matcher transaction.
+        unsafe {
+            crate::kernel::seqstore::prepare_stored_sequences_in(
+                src,
+                initial_repeat_offsets.as_offsets(),
+                sequence_words,
+                last_literals,
+                reuse,
+            )?
+        }
+    })
 }
 
 pub(crate) fn prepare_stored_literal_words_in(
@@ -251,27 +255,29 @@ pub(crate) fn prepare_stored_literal_words_in(
     sequences: &[StoredSequence],
     last_literals: u32,
     reuse: PreparedStoreWords,
-) -> PreparedStoreWords {
-    // SAFETY: the compile-time layout assertions above prove that the local C
-    // record has exactly the primitive word-array ABI expected by the leaf
-    // codegen crate.
-    let sequence_words = unsafe {
-        slice::from_raw_parts(
-            sequences
-                .as_ptr()
-                .cast::<crate::kernel::seqstore::StoredSequenceWords>(),
-            sequences.len(),
-        )
-    };
-    // SAFETY: matcher-produced lengths and `last_literals` partition `src`.
-    unsafe {
-        crate::kernel::seqstore::prepare_stored_literals_in(
-            src,
-            sequence_words,
-            last_literals,
-            reuse,
-        )
-    }
+) -> Result<PreparedStoreWords, crate::workspace::CapacityError> {
+    Ok({
+        // SAFETY: the compile-time layout assertions above prove that the local C
+        // record has exactly the primitive word-array ABI expected by the leaf
+        // codegen crate.
+        let sequence_words = unsafe {
+            slice::from_raw_parts(
+                sequences
+                    .as_ptr()
+                    .cast::<crate::kernel::seqstore::StoredSequenceWords>(),
+                sequences.len(),
+            )
+        };
+        // SAFETY: matcher-produced lengths and `last_literals` partition `src`.
+        unsafe {
+            crate::kernel::seqstore::prepare_stored_literals_in(
+                src,
+                sequence_words,
+                last_literals,
+                reuse,
+            )?
+        }
+    })
 }
 
 pub(crate) fn prepared_words_as_ref(prepared: &PreparedStoreWords) -> PreparedBlockRef<'_> {
@@ -291,11 +297,11 @@ pub(crate) fn prepared_words_as_ref(prepared: &PreparedStoreWords) -> PreparedBl
 
 pub(crate) fn prepared_words_into_block(prepared: PreparedStoreWords) -> PreparedBlock {
     PreparedBlock {
-        literals: prepared.literals.into_owned_vec(),
+        literals: prepared.literals,
         // SAFETY: the compile-time layout assertions prove the returned word
         // arrays and local prepared records have identical size and alignment,
         // and every returned element is initialized.
-        sequences: unsafe { prepared_words_into_sequences(prepared.sequences.into_owned_vec()) },
+        sequences: unsafe { prepared_words_into_sequences(prepared.sequences) },
     }
 }
 
@@ -331,44 +337,26 @@ pub(crate) fn recover_prepared_words(
 
 pub(crate) fn prepared_block_into_words(prepared: PreparedBlock) -> PreparedStoreWords {
     PreparedStoreWords {
-        literals: crate::workspace::ReusableVec::from_owned(prepared.literals),
+        literals: prepared.literals,
         // SAFETY: the compile-time layout assertions prove that the local
         // prepared records and primitive word arrays have identical layout.
         // Ownership moves into the returned vector without duplication.
-        sequences: crate::workspace::ReusableVec::from_owned(unsafe {
-            prepared_sequences_into_words(prepared.sequences)
-        }),
+        sequences: unsafe { prepared_sequences_into_words(prepared.sequences) },
     }
 }
 
 unsafe fn prepared_words_into_sequences(
-    sequences: Vec<crate::kernel::seqstore::PreparedSequenceWords>,
-) -> Vec<PreparedSequence> {
-    let mut sequences = ManuallyDrop::new(sequences);
-    // SAFETY: the caller establishes identical element layout, and ownership
-    // of the allocation transfers to the returned vector without duplication.
-    unsafe {
-        Vec::from_raw_parts(
-            sequences.as_mut_ptr().cast::<PreparedSequence>(),
-            sequences.len(),
-            sequences.capacity(),
-        )
-    }
+    sequences: crate::workspace::ReusableVec<crate::kernel::seqstore::PreparedSequenceWords>,
+) -> crate::workspace::ReusableVec<PreparedSequence> {
+    // SAFETY: caller establishes the compile-time checked identical layouts.
+    unsafe { sequences.cast() }
 }
 
 unsafe fn prepared_sequences_into_words(
-    sequences: Vec<PreparedSequence>,
-) -> Vec<crate::kernel::seqstore::PreparedSequenceWords> {
-    let mut sequences = ManuallyDrop::new(sequences);
-    // SAFETY: the caller establishes identical element layout, and ownership
-    // of the allocation transfers to the returned vector without duplication.
-    unsafe {
-        Vec::from_raw_parts(
-            sequences.as_mut_ptr().cast(),
-            sequences.len(),
-            sequences.capacity(),
-        )
-    }
+    sequences: crate::workspace::ReusableVec<PreparedSequence>,
+) -> crate::workspace::ReusableVec<crate::kernel::seqstore::PreparedSequenceWords> {
+    // SAFETY: caller establishes the compile-time checked identical layouts.
+    unsafe { sequences.cast() }
 }
 
 /// Safe short-literal analogue of C's `ZSTD_storeSeq()` wild copy.

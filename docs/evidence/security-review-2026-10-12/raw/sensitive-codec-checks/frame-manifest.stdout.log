@@ -1,0 +1,9 @@
+
+running 4 tests
+test file_format::payload::tests::compression_frame_manifest_is_stored_only_on_first_segment ... ok
+test model::compression_frame_manifest::tests::manifest_rejects_compressed_len_larger_than_frame_len ... ok
+test model::compression_frame_manifest::tests::manifest_rejects_trailing_bytes ... ok
+test model::compression_frame_manifest::tests::manifest_round_trips_compact_binary_encoding ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 720 filtered out; finished in 0.00s
+

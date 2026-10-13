@@ -1,0 +1,107 @@
+#! /usr/bin/env dcli
+import 'dart:io';
+import 'package:dcli/dcli.dart';
+void main() {
+  const root='/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance';
+  var s=File('$root/rust/revault_cli/tests/migration_cli.rs').readAsStringSync();
+  void change(String a,String b){if(a.allMatches(s).length!=1)throw StateError('Exact migration test anchor required: $a');s=s.replaceFirst(a,b);}
+  const override='''        "--exporter",
+        "unused-for-current-format",
+''';
+  if(override.allMatches(s).length!=2)throw StateError('Two stale override assumptions required');
+  s=s.replaceAll(override,'');
+  change('''    let advanced_source = fixture.create_archive("advanced.lbox");
+''','''    let advanced_source = fixture.create_archive("advanced.lbox");
+    let payload = b"ordinary migration persisted content";
+    let input = fixture.root.join("input.txt");
+    std::fs::write(&input, payload).unwrap();
+    fixture.success(&[path(&advanced_source), "add", path(&input), "/content.txt"]);
+''');
+  change('    Lockbox::inspect_file(&imported).unwrap();','    assert_eq!(fixture.success(&[path(&imported), "cat", "/content.txt"]).stdout, payload);');
+  change('''    let direct_source = fixture.create_archive("direct.lbox");
+''','''    let direct_source = fixture.create_archive("direct.lbox");
+    fixture.success(&[path(&direct_source), "add", path(&input), "/content.txt"]);
+    let missing_exporter = fixture.root.join("missing-exporter");
+    let refused_output = fixture.root.join("refused-migration.lbox");
+    let source_before = std::fs::read(&direct_source).unwrap();
+    let refused = fixture.run(&["doctor", "migrate", "lockbox", path(&direct_source),
+        "--output", path(&refused_output), "--exporter", path(&missing_exporter)]);
+    assert!(!refused.status.success(), "an explicit missing exporter must not be ignored");
+    assert!(!refused_output.exists());
+    assert_eq!(std::fs::read(&direct_source).unwrap(), source_before);
+''');
+  change('    Lockbox::inspect_file(&direct_output).unwrap();','    assert_eq!(fixture.success(&[path(&direct_output), "cat", "/content.txt"]).stdout, payload);');
+  change('''    let replace_source = fixture.create_archive("replace.lbox");
+''','''    let replace_source = fixture.create_archive("replace.lbox");
+    fixture.success(&[path(&replace_source), "add", path(&input), "/content.txt"]);
+''');
+  change('    Lockbox::inspect_file(&replace_source).unwrap();','    assert_eq!(fixture.success(&[path(&replace_source), "cat", "/content.txt"]).stdout, payload);');
+  change('''    let archive_exporter = exporter.with_file_name(format!(
+        "revault-migrate-archive-v3{}",
+        std::env::consts::EXE_SUFFIX
+    ));''', '''    let archive_exporter = build_selected_exporter(
+        "revault_migrate_archive_v3", "revault-migrate-archive-v3");''');
+  for(final pair in [('revault_migrate_vault_v2','revault-migrate-vault-v2'),('revault_migrate_archive_v3','revault-migrate-vault-v3')]){
+    final pkg=pair.$1,bin=pair.$2;
+    final first=s.indexOf(pkg=='revault_migrate_vault_v2'?'    let status = Command::new("cargo")':'    let status = Command::new(env!("CARGO"))',s.indexOf(pkg=='revault_migrate_vault_v2'?'fn vault_v2_replace':'fn vault_v3_container'));
+    final last=s.indexOf('    fixture.success(&[',first);
+    if(first<0||last<0||!s.substring(first,last).contains('"$pkg"')||!s.substring(first,last).contains('"$bin{}"'))throw StateError('Exporter block mismatch');
+    s=s.substring(0,first)+'    let exporter = build_selected_exporter("$pkg", "$bin");\n'+s.substring(last);
+  }
+  const helper='''fn build_selected_exporter(package: &str, binary: &str) -> PathBuf {
+    // Cargo's actual artifact path is authoritative for debug/release and
+    // CARGO_TARGET_DIR; the test executable's sibling directory is not.
+    let output = Command::new(env!("CARGO"))
+        .current_dir(Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap())
+        .args(["build", "--locked", "--offline", "-p", package, "--bin", binary, "--message-format=json"])
+        .output().unwrap();
+    assert!(output.status.success(), "exporter build failed: {}", String::from_utf8_lossy(&output.stderr));
+    let artifacts: Vec<PathBuf> = String::from_utf8(output.stdout).unwrap().lines()
+        .filter_map(|line| serde_json::from_str::<serde_json::Value>(line).ok())
+        .filter(|value| value["reason"] == "compiler-artifact" && value["target"]["name"] == binary)
+        .filter_map(|value| value["executable"].as_str().map(PathBuf::from)).collect();
+    assert_eq!(artifacts.len(), 1, "expected one selected exporter executable");
+    assert!(artifacts[0].is_file());
+    artifacts.into_iter().next().unwrap()
+}
+
+''';
+  change('fn build_historical_vault_exporter() -> PathBuf {',helper+'fn build_historical_vault_exporter() -> PathBuf {');
+  final first=s.indexOf('fn assert_current_vault(root: &Path) {');final last=s.indexOf('\nfn assert_success(',first);
+  if(first<0||last<0)throw StateError('Current Vault assertion boundaries');
+  const assertion='''fn assert_current_vault(root: &Path) {
+    let verification = TestTempDir::new("migration-public-verification");
+    let agent = common::agent_socket_dir(&verification.path().join("agent"));
+    let run = |args: &[&str]| {
+        let output = Command::new(env!("CARGO_BIN_EXE_lockbox"))
+            .args(args).env("LOCKBOX_VAULT_DIR", root)
+            .env("LOCKBOX_VAULT_PASSWORD", VAULT_PASSWORD)
+            .env("LOCKBOX_PLATFORM_SECRET_STORE", "disabled")
+            .env("LOCKBOX_SESSION_AGENT_DIR", &agent).test_output().unwrap();
+        assert_success(&output);
+        output
+    };
+    let before = std::fs::read(root.join("local-vault.lbox")).unwrap();
+    let current = run(&["doctor", "migrate", "vault", "--replace"]);
+    assert!(String::from_utf8_lossy(&current.stdout).contains(&format!(
+        "Vault already uses format version {}. No migration needed.",
+        revault_vault_api::CURRENT_VAULT_STRUCTURE_VERSION)));
+    assert_eq!(std::fs::read(root.join("local-vault.lbox")).unwrap(), before);
+    let listed = run(&["vault", "profile", "list", "--format", "json"]);
+    assert!(String::from_utf8_lossy(&listed.stdout).lines().filter(|line| !line.trim().is_empty())
+        .map(|line| serde_json::from_str::<serde_json::Value>(line).unwrap())
+        .any(|value| value["name"] == "default"));
+    let first = verification.path().join("first.pub");
+    let second = verification.path().join("second.pub");
+    run(&["vault", "profile", "export", path(&first), "--format", "raw"]);
+    run(&["vault", "profile", "export", path(&second), "--format", "raw"]);
+    let public = std::fs::read(first).unwrap();
+    assert!(!public.is_empty());
+    assert_eq!(std::fs::read(second).unwrap(), public);
+    run(&["session", "stop"]);
+}
+''';
+  s=s.substring(0,first)+assertion+s.substring(last);
+  File('/tmp/revault-security-drafts/migration-cli-release-fixes.rs.txt').writeAsStringSync(s);
+  print(green('Read-only migration test draft prepared; frozen worktree unchanged.'));
+}

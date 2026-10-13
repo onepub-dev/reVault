@@ -28,15 +28,15 @@ pub(crate) fn append_block_fast_no_dict_with_state_and_policy_in_mode(
     context: FastBlockEncodeContext<'_, '_>,
     policy: BlockEncodingPolicy,
     block_encode_mode: BlockEncodeMode,
-    output: &mut Vec<u8>,
-) -> FastBlockEncoding {
+    output: &mut impl crate::workspace::Growable<u8>,
+) -> Result<FastBlockEncoding, crate::workspace::CapacityError> {
     let block = &source.src[source.block_range.clone()];
 
-    if append_special_block(block, last_block, output) {
-        return FastBlockEncoding {
+    if append_special_block(block, last_block, output)? {
+        return Ok(FastBlockEncoding {
             repeat_offsets,
             new_huffman_table: None,
-        };
+        });
     }
 
     if let Some(target_size) = block_encode_mode.target_c_block_size() {
@@ -47,7 +47,7 @@ pub(crate) fn append_block_fast_no_dict_with_state_and_policy_in_mode(
             repeat_offsets,
             match_state,
             source.loaded_dict_end,
-        );
+        )?;
         return target::append_target_block(
             block,
             last_block,
@@ -69,7 +69,7 @@ pub(crate) fn append_block_fast_no_dict_with_state_and_policy_in_mode(
             repeat_offsets,
             match_state,
             source.loaded_dict_end,
-        );
+        )?;
         let previous_fse = context.fse_tables.snapshot_previous();
         let previous_offsets = *context.offset_history;
         return encode_prepared_words_block(
@@ -95,7 +95,7 @@ pub(crate) fn append_block_fast_no_dict_with_state_and_policy_in_mode(
         repeat_offsets,
         match_state,
         source.loaded_dict_end,
-    );
+    )?;
 
     encode_stored_words_block(
         block,
@@ -122,15 +122,15 @@ pub(crate) fn append_block_fast_ext_dict_with_state_and_policy_in_mode(
     context: FastBlockEncodeContext<'_, '_>,
     policy: BlockEncodingPolicy,
     block_encode_mode: BlockEncodeMode,
-    output: &mut Vec<u8>,
-) -> FastBlockEncoding {
+    output: &mut impl crate::workspace::Growable<u8>,
+) -> Result<FastBlockEncoding, crate::workspace::CapacityError> {
     let block = &source.src[source.block_range.clone()];
 
-    if append_special_block(block, last_block, output) {
-        return FastBlockEncoding {
+    if append_special_block(block, last_block, output)? {
+        return Ok(FastBlockEncoding {
             repeat_offsets,
             new_huffman_table: None,
-        };
+        });
     }
 
     if let Some(target_size) = block_encode_mode.target_c_block_size() {
@@ -139,7 +139,7 @@ pub(crate) fn append_block_fast_ext_dict_with_state_and_policy_in_mode(
             params,
             repeat_offsets,
             match_state,
-        );
+        )?;
         return target::append_target_block(
             block,
             last_block,
@@ -159,7 +159,7 @@ pub(crate) fn append_block_fast_ext_dict_with_state_and_policy_in_mode(
             params,
             repeat_offsets,
             match_state,
-        );
+        )?;
         let previous_fse = context.fse_tables.snapshot_previous();
         let previous_offsets = *context.offset_history;
         return encode_prepared_words_block(
@@ -179,7 +179,7 @@ pub(crate) fn append_block_fast_ext_dict_with_state_and_policy_in_mode(
     }
 
     let stored =
-        prepare_block_fast_ext_dict_stored_with_state(source, params, repeat_offsets, match_state);
+        prepare_block_fast_ext_dict_stored_with_state(source, params, repeat_offsets, match_state)?;
 
     encode_stored_words_block(
         block,

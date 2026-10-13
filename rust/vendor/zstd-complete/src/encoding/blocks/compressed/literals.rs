@@ -28,45 +28,53 @@ pub(super) fn should_compress_literals(
     len >= min_size
 }
 
-pub(super) fn raw_literals(literals: &[u8], writer: &mut BitWriter<&mut Vec<u8>>) {
-    writer.write_bits(0u8, 2); // Raw_Literals_Block
+pub(super) fn raw_literals(
+    literals: &[u8],
+    writer: &mut BitWriter<impl crate::workspace::ByteBufferOwner>,
+) -> Result<(), crate::workspace::CapacityError> {
+    writer.write_bits(0u8, 2)?; // Raw_Literals_Block
     match literals.len() {
         0..=31 => {
-            writer.write_bits(0u8, 1);
-            writer.write_bits(literals.len() as u32, 5);
+            writer.write_bits(0u8, 1)?;
+            writer.write_bits(literals.len() as u32, 5)?;
         }
         32..=4095 => {
-            writer.write_bits(0b01u8, 2);
-            writer.write_bits(literals.len() as u32, 12);
+            writer.write_bits(0b01u8, 2)?;
+            writer.write_bits(literals.len() as u32, 12)?;
         }
         4096..=1_048_575 => {
-            writer.write_bits(0b11u8, 2);
-            writer.write_bits(literals.len() as u32, 20);
+            writer.write_bits(0b11u8, 2)?;
+            writer.write_bits(literals.len() as u32, 20)?;
         }
         _ => panic!("literal section exceeds zstd raw literals size limit"),
     }
-    writer.append_bytes(literals);
+    writer.append_bytes(literals)?;
+    Ok(())
 }
 
-pub(super) fn rle_literals(literals: &[u8], writer: &mut BitWriter<&mut Vec<u8>>) {
+pub(super) fn rle_literals(
+    literals: &[u8],
+    writer: &mut BitWriter<impl crate::workspace::ByteBufferOwner>,
+) -> Result<(), crate::workspace::CapacityError> {
     debug_assert!(!literals.is_empty());
-    writer.write_bits(1u8, 2); // RLE_Literals_Block
+    writer.write_bits(1u8, 2)?; // RLE_Literals_Block
     match literals.len() {
         0..=31 => {
-            writer.write_bits(0u8, 1);
-            writer.write_bits(literals.len() as u32, 5);
+            writer.write_bits(0u8, 1)?;
+            writer.write_bits(literals.len() as u32, 5)?;
         }
         32..=4095 => {
-            writer.write_bits(0b01u8, 2);
-            writer.write_bits(literals.len() as u32, 12);
+            writer.write_bits(0b01u8, 2)?;
+            writer.write_bits(literals.len() as u32, 12)?;
         }
         4096..=1_048_575 => {
-            writer.write_bits(0b11u8, 2);
-            writer.write_bits(literals.len() as u32, 20);
+            writer.write_bits(0b11u8, 2)?;
+            writer.write_bits(literals.len() as u32, 20)?;
         }
         _ => panic!("literal section exceeds zstd RLE literals size limit"),
     }
-    writer.write_bits(literals[0], 8);
+    writer.write_bits(literals[0], 8)?;
+    Ok(())
 }
 
 pub(super) fn compress_literals(
@@ -74,8 +82,8 @@ pub(super) fn compress_literals(
     last_table: Option<&huff0_encoder::HuffmanTable>,
     previous_table_is_valid: bool,
     options: LiteralCompressionOptions,
-    writer: &mut BitWriter<&mut Vec<u8>>,
-) -> Option<huff0_encoder::HuffmanTable> {
+    writer: &mut BitWriter<impl crate::workspace::ByteBufferOwner>,
+) -> Result<Option<huff0_encoder::HuffmanTable>, crate::workspace::CapacityError> {
     compress_literals_with_scratch(
         literals,
         last_table,
@@ -94,8 +102,8 @@ pub(super) fn compress_literals_with_scratch(
     options: LiteralCompressionOptions,
     mut huffman_scratch: Option<&mut huff0_encoder::HuffmanBuildScratch>,
     fse_build_scratch: Option<&mut FSETableBuildScratch>,
-    writer: &mut BitWriter<&mut Vec<u8>>,
-) -> Option<huff0_encoder::HuffmanTable> {
+    writer: &mut BitWriter<impl crate::workspace::ByteBufferOwner>,
+) -> Result<Option<huff0_encoder::HuffmanTable>, crate::workspace::CapacityError> {
     if huffman_scratch.is_some()
         && !huffman_scratch
             .as_deref()
@@ -113,14 +121,14 @@ pub(super) fn compress_literals_with_scratch(
             previous_table_is_valid,
             reset_idx,
             writer,
-        )
+        )?
     {
-        return None;
+        return Ok(None);
     }
 
     if options.suspect_uncompressible && sampled_literals_likely_incompressible(literals) {
-        raw_literals(literals, writer);
-        return None;
+        raw_literals(literals, writer)?;
+        return Ok(None);
     }
 
     let force_single_stream = options
@@ -139,11 +147,11 @@ pub(super) fn compress_literals_with_scratch(
         || literal_stats.likely_incompressible(literals.len())
     {
         if !literals.is_empty() && literal_stats.largest() == literals.len() {
-            rle_literals(literals, writer);
+            rle_literals(literals, writer)?;
         } else {
-            raw_literals(literals, writer);
+            raw_literals(literals, writer)?;
         }
-        return None;
+        return Ok(None);
     }
 
     let header_len = compressed_literals_header_len(size_format);
@@ -164,14 +172,14 @@ pub(super) fn compress_literals_with_scratch(
                     table_log,
                     huffman_scratch,
                     fse_scratch,
-                )
+                )?
             }
             (Some(scratch), None) => {
                 huff0_encoder::HuffmanTable::build_from_counts_with_max_bits_and_scratch(
                     literal_stats.counts(),
                     table_log,
                     scratch,
-                )
+                )?
             }
             (None, _) => huff0_encoder::HuffmanTable::build_from_counts_with_max_bits(
                 literal_stats.counts(),
@@ -186,12 +194,12 @@ pub(super) fn compress_literals_with_scratch(
                     11,
                     huffman_scratch,
                     fse_scratch,
-                )
+                )?
             }
             (Some(scratch), None) => huff0_encoder::HuffmanTable::build_from_counts_with_scratch(
                 literal_stats.counts(),
                 scratch,
-            ),
+            )?,
             (None, _) => huff0_encoder::HuffmanTable::build_from_counts(literal_stats.counts()),
         }
     };
@@ -230,11 +238,11 @@ pub(super) fn compress_literals_with_scratch(
     } else {
         !literal_estimate_has_enough_gain(choice.estimated_len, choice.header_len, literals.len())
     } {
-        raw_literals(literals, writer);
+        raw_literals(literals, writer)?;
         if let Some(scratch) = huffman_scratch.as_deref_mut() {
-            scratch.recycle_table(new_encoder_table);
+            scratch.recycle_table(new_encoder_table)?;
         }
-        return None;
+        return Ok(None);
     }
 
     write_compressed_literals(
@@ -244,25 +252,25 @@ pub(super) fn compress_literals_with_scratch(
         choice.size_format,
         choice.size_bits,
         writer,
-    );
+    )?;
     let total_len = (writer.index() - reset_idx) / 8;
 
     // If encoded len is bigger than the raw literals we are better off just writing the raw literals here
-    if total_len >= literals.len() {
-        writer.reset_to(reset_idx);
-        raw_literals(literals, writer);
+    Ok(if total_len >= literals.len() {
+        writer.reset_to(reset_idx)?;
+        raw_literals(literals, writer)?;
         if let Some(scratch) = huffman_scratch.as_deref_mut() {
-            scratch.recycle_table(new_encoder_table);
+            scratch.recycle_table(new_encoder_table)?;
         }
         None
     } else if choice.new_table {
         Some(new_encoder_table)
     } else {
         if let Some(scratch) = huffman_scratch {
-            scratch.recycle_table(new_encoder_table);
+            scratch.recycle_table(new_encoder_table)?;
         }
         None
-    }
+    })
 }
 
 #[inline(never)]
@@ -271,17 +279,17 @@ fn try_preferred_repeat_literals(
     last_table: Option<&huff0_encoder::HuffmanTable>,
     previous_table_is_valid: bool,
     reset_idx: usize,
-    writer: &mut BitWriter<&mut Vec<u8>>,
-) -> bool {
+    writer: &mut BitWriter<impl crate::workspace::ByteBufferOwner>,
+) -> Result<bool, crate::workspace::CapacityError> {
     if !previous_table_is_valid || literals.len() > REPEAT_SINGLE_STREAM_LITERALS_MAX {
-        return false;
+        return Ok(false);
     }
     if !literals.is_empty() && literals.iter().all(|literal| *literal == literals[0]) {
-        rle_literals(literals, writer);
-        return true;
+        rle_literals(literals, writer)?;
+        return Ok(true);
     }
     let Some(previous_table) = last_table else {
-        return false;
+        return Ok(false);
     };
 
     let (size_format, size_bits) =
@@ -293,13 +301,13 @@ fn try_preferred_repeat_literals(
         size_format,
         size_bits,
         writer,
-    );
+    )?;
     let total_len = (writer.index() - reset_idx) / 8;
     if total_len >= literals.len() {
-        writer.reset_to(reset_idx);
-        raw_literals(literals, writer);
+        writer.reset_to(reset_idx)?;
+        raw_literals(literals, writer)?;
     }
-    true
+    Ok(true)
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -477,25 +485,26 @@ pub(in crate::encoding::blocks::compressed) fn write_compressed_literals(
     new_table: bool,
     size_format: u8,
     size_bits: usize,
-    writer: &mut BitWriter<&mut Vec<u8>>,
-) {
+    writer: &mut BitWriter<impl crate::workspace::ByteBufferOwner>,
+) -> Result<(), crate::workspace::CapacityError> {
     if new_table {
-        writer.write_bits(2u8, 2); // compressed literals type
+        writer.write_bits(2u8, 2)?; // compressed literals type
     } else {
-        writer.write_bits(3u8, 2); // treeless compressed literals type
+        writer.write_bits(3u8, 2)?; // treeless compressed literals type
     }
 
-    writer.write_bits(size_format, 2);
-    writer.write_bits(literals.len() as u32, size_bits);
+    writer.write_bits(size_format, 2)?;
+    writer.write_bits(literals.len() as u32, size_bits)?;
     let size_index = writer.index();
-    writer.write_bits(0u32, size_bits);
+    writer.write_bits(0u32, size_bits)?;
     let index_before = writer.index();
     let mut encoder = huff0_encoder::HuffmanEncoder::new(encoder_table, writer);
     if size_format == 0 {
-        encoder.encode(literals, new_table)
+        encoder.encode(literals, new_table)?
     } else {
-        encoder.encode4x(literals, new_table)
+        encoder.encode4x(literals, new_table)?
     };
     let encoded_len = (writer.index() - index_before) / 8;
-    writer.change_bits(size_index, encoded_len as u64, size_bits);
+    writer.change_bits(size_index, encoded_len as u64, size_bits)?;
+    Ok(())
 }

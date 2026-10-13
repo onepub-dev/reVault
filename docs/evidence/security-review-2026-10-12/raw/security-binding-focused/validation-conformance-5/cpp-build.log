@@ -1,0 +1,6 @@
+In file included from bindings/cpp/domain_codec.hpp:4,
+                 from bindings/cpp/revault_api.cpp:2:
+bindings/cpp/generated/flatbuffers/revault_bindings_generated.h:7:10: fatal error: flatbuffers/flatbuffers.h: No such file or directory
+    7 | #include "flatbuffers/flatbuffers.h"
+      |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~
+compilation terminated.

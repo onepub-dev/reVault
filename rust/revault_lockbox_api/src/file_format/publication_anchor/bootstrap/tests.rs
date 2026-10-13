@@ -134,6 +134,13 @@ fn password_and_contact_bootstrap_authenticate_before_private_metadata() {
         let owner = signed.then_some(&public);
         for (credential, id) in [
             (Credential::Password(&password), 1),
+            (
+                Credential::PasswordWithBudget {
+                    password: &password,
+                    max_derivations: 1,
+                },
+                1,
+            ),
             (Credential::Contact(&contact), 2),
         ] {
             let opened = open(&storage, archive(), mode, owner, credential, Some(id)).unwrap();

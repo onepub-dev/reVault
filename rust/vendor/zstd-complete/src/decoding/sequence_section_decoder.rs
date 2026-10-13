@@ -15,7 +15,7 @@ pub fn decode_sequences(
     section: &SequencesHeader,
     source: &[u8],
     scratch: &mut FSEScratch,
-    target: &mut Vec<Sequence>,
+    target: &mut impl crate::workspace::Growable<Sequence>,
 ) -> Result<(), DecodeSequenceError> {
     let bytes_read = maybe_update_fse_tables(section, source, scratch)?;
 
@@ -50,7 +50,7 @@ fn decode_sequences_with_rle(
     section: &SequencesHeader,
     br: &mut BitReaderReversed<'_>,
     scratch: &FSEScratch,
-    target: &mut Vec<Sequence>,
+    target: &mut impl crate::workspace::Growable<Sequence>,
 ) -> Result<(), DecodeSequenceError> {
     let mut ll_dec = FSEDecoder::new(&scratch.literal_lengths);
     let mut ml_dec = FSEDecoder::new(&scratch.match_lengths);
@@ -67,7 +67,7 @@ fn decode_sequences_with_rle(
     }
 
     target.clear();
-    target.reserve(section.num_sequences as usize);
+    target.reserve(section.num_sequences as usize)?;
 
     for _seq_idx in 0..section.num_sequences {
         //get the codes from either the RLE byte or from the decoder
@@ -118,7 +118,7 @@ fn decode_sequences_with_rle(
             ll: ll_value + ll_add as u32,
             ml: ml_value + ml_add as u32,
             of: offset,
-        });
+        })?;
 
         if target.len() < section.num_sequences as usize {
             //println!(
@@ -155,7 +155,7 @@ fn decode_sequences_without_rle(
     section: &SequencesHeader,
     br: &mut BitReaderReversed<'_>,
     scratch: &FSEScratch,
-    target: &mut Vec<Sequence>,
+    target: &mut impl crate::workspace::Growable<Sequence>,
 ) -> Result<(), DecodeSequenceError> {
     let mut ll_dec = FSEDecoder::new(&scratch.literal_lengths);
     let mut ml_dec = FSEDecoder::new(&scratch.match_lengths);
@@ -166,7 +166,7 @@ fn decode_sequences_without_rle(
     ml_dec.init_state(br)?;
 
     target.clear();
-    target.reserve(section.num_sequences as usize);
+    target.reserve(section.num_sequences as usize)?;
 
     for _seq_idx in 0..section.num_sequences {
         let ll_code = ll_dec.decode_symbol();
@@ -193,7 +193,7 @@ fn decode_sequences_without_rle(
             ll: ll_value + ll_add as u32,
             ml: ml_value + ml_add as u32,
             of: offset,
-        });
+        })?;
 
         if target.len() < section.num_sequences as usize {
             //println!(

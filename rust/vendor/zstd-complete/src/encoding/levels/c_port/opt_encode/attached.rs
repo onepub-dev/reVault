@@ -45,12 +45,12 @@ pub(crate) fn encode_block_opt_attached_dict_with_state_and_policy_and_ldm_in_mo
     block_encode_mode: BlockEncodeMode,
     policy: BlockEncodingPolicy,
     ldm_cursor: Option<&mut LdmOptCursor<'_>>,
-) -> GreedyEncodedBlock {
+) -> Result<GreedyEncodedBlock, crate::workspace::CapacityError> {
     let block = &source.src[source.block_range.clone()];
-    let mut bytes = opt_state.take_block_bytes(block.len().saturating_add(3));
+    let mut bytes = opt_state.take_block_bytes(block.len().saturating_add(3))?;
 
-    if let Some(encoded) = encode_special_block(block, last_block, repeat_offsets, &mut bytes) {
-        return encoded;
+    if let Some(encoded) = encode_special_block(block, last_block, repeat_offsets, &mut bytes)? {
+        return Ok(encoded);
     }
 
     let mut output = compress_block_opt_attached_dict_with_state_and_ldm(
@@ -62,7 +62,7 @@ pub(crate) fn encode_block_opt_attached_dict_with_state_and_policy_and_ldm_in_mo
         strategy,
         ldm_cursor,
         source.dictionary,
-    );
+    )?;
     if matches!(block_encode_mode, BlockEncodeMode::Normal)
         && config.uses_c_opt_native_sequence_store()
     {
@@ -94,7 +94,7 @@ pub(crate) fn encode_block_opt_attached_dict_with_state_and_policy_and_ldm_in_mo
         repeat_offsets,
         &output,
         opt_state.take_prepared_block(),
-    );
+    )?;
     let output_repeat_offsets = output.repeat_offsets;
     opt_state.recycle_sequences(output.sequences);
     let mut prepared = GreedyPreparedBlock {
@@ -108,7 +108,7 @@ pub(crate) fn encode_block_opt_attached_dict_with_state_and_policy_and_ldm_in_mo
         last_block,
         repeat_offsets,
         &mut prepared,
-    );
+    )?;
     if let Some(target_size) = block_encode_mode.target_c_block_size() {
         let encoded = encode_target_block_with_superblock_fallback(
             block,
@@ -141,10 +141,10 @@ pub(crate) fn encode_block_opt_attached_dict_with_state_and_policy_and_ldm_in_mo
             &mut opt_state.entropy_huffman_scratch,
             &mut opt_state.entropy_fse_scratch,
             bytes,
-        ) {
+        )? {
             Ok(encoded) => {
                 opt_state.recycle_prepared_block(prepared.prepared);
-                return encoded;
+                return Ok(encoded);
             }
             Err(returned) => bytes = returned,
         }

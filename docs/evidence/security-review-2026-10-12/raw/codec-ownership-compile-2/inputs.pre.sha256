@@ -1,0 +1,6 @@
+a7cb78402445860f85c79ce8b64a47d6af3ae65f521c756231ffecd8a90f1a87  rust/Cargo.lock
+2de5bae61c5bb96f06a2f2337aaba891fb3d3b2125b50a80260e203780990a65  rust/vendor/zstd-complete/Cargo.toml
+c104ec67cc699583295d03443586ddb290881ea40c2a8fe5cd72e96f9bc6f810  rust/vendor/zstd-complete/src/lib.rs
+1730dc5dfe5df08f8128acd8d8faa4694f13e1cfb2304ad8d53183cb557ff501  rust/vendor/zstd-complete/src/encoding/mod.rs
+06d22159781cd37fecabb0c9b4359b32955cf8eb381ec9bdf279ada3f6e247c3  rust/vendor/zstd-complete/src/encoding/levels/c_port/target_multi_basic.rs
+275b50cbfd572b1f9eeab415107fcf854a5c8efdfdede1cab6ff83f1cc48332f  rust/vendor/zstd-complete/src/encoding/levels/c_port/target_single.rs

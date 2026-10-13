@@ -63,6 +63,7 @@ mod mutation;
 mod native_file_reader;
 mod preparation;
 mod recovery;
+pub(crate) mod secure_output;
 #[cfg(test)]
 mod signed_content;
 #[cfg(test)]
@@ -907,11 +908,30 @@ impl Lockbox<Writable> {
         options: LockboxOptions,
         allow_recovery: bool,
     ) -> Result<Self> {
+        Self::open_storage_with_secret_key_mode_and_backup(
+            storage,
+            key,
+            options,
+            allow_recovery,
+            None,
+        )
+    }
+
+    pub(crate) fn open_storage_with_secret_key_mode_and_backup(
+        storage: StorageBackend,
+        key: SecretVec,
+        options: LockboxOptions,
+        allow_recovery: bool,
+        backup: Option<&[u8]>,
+    ) -> Result<Self> {
+        let backup = backup
+            .map(crate::key_directory::read_key_directory_backup)
+            .transpose()?;
         let header = storage.read_at(0, HEADER_LEN)?;
         let parsed_header = read_header(&header)?;
         let format_mode = parsed_header.format_mode;
         let header_result = Ok::<_, Error>(parsed_header);
-        let scanned_key_directory: Option<DecodedKeyDirectory> = None;
+        let scanned_key_directory: Option<DecodedKeyDirectory> = backup;
         let (
             header_root_offset,
             header_auth_offset,
@@ -1113,9 +1133,13 @@ impl Lockbox<Writable> {
             toc_root_offset = commit_root.toc_root_offset;
             lockbox.toc_root_commitment = commit_root.toc_root_commitment;
         }
+        let mut restored_backup = false;
         if let Some(directory) =
             lockbox.read_best_key_directory(scanned_key_directory.as_ref(), access_digest)?
         {
+            // Backup acceptance is authenticated below, and opening never writes
+            // repaired pages. A writable caller publishes them in its next commit.
+            restored_backup = directory.offset == 0;
             lockbox.key_directory.generation = directory.generation;
             lockbox.key_directory.physical_len = crate::page::canonical_control_page_len(
                 crate::key_directory::encode_key_directory(
@@ -1199,10 +1223,16 @@ impl Lockbox<Writable> {
                     });
                 }
             }
+            if restored_backup && allow_recovery {
+                lockbox.mark_key_directory_dirty();
+            }
             Ok(lockbox)
         } else {
             if !allow_recovery && lockbox.rollback_required {
                 lockbox.require_clean_transaction()?;
+            }
+            if restored_backup && allow_recovery {
+                lockbox.mark_key_directory_dirty();
             }
             Ok(lockbox)
         }
@@ -1403,7 +1433,7 @@ impl<State> Lockbox<State> {
 
     fn read_best_key_directory(
         &self,
-        _scanned_fallback: Option<&DecodedKeyDirectory>,
+        backup: Option<&DecodedKeyDirectory>,
         expected_digest: Option<[u8; 32]>,
     ) -> Result<Option<DecodedKeyDirectory>> {
         let offsets = self.key_directory.offsets();
@@ -1467,6 +1497,20 @@ impl<State> Lockbox<State> {
         }
         if let Some(directory) = best_key_directory(accepted) {
             return Ok(Some(directory));
+        }
+        // The latest authenticated commit root, never the backup itself,
+        // authorizes the access slots. Stale or unrelated backups cannot grant access.
+        if let Some(directory) = backup {
+            if directory.lockbox_id == self.lockbox_id
+                && directory.generation == self.key_directory.generation
+                && crate::key_directory::key_directory_digest(
+                    &directory.slots,
+                    directory.lockbox_id,
+                    directory.generation,
+                )? == expected
+            {
+                return Ok(Some(directory.clone()));
+            }
         }
         if offsets == [0, 0]
             && crate::key_directory::key_directory_digest(

@@ -74,8 +74,8 @@ pub(super) fn append_stored_block_or_raw(
     fse_build_scratch: Option<&mut FSETableBuildScratch>,
     fse_tables: &mut FseTables,
     offset_history: &mut OffsetHistory,
-    output: &mut Vec<u8>,
-) -> PreparedBlockEmission {
+    output: &mut impl crate::workspace::Growable<u8>,
+) -> Result<PreparedBlockEmission, crate::workspace::CapacityError> {
     if (config.is_allocation_free_workspace() || defers_stored_entropy_commit())
         || fse_build_scratch
             .as_deref()
@@ -134,10 +134,10 @@ fn append_stored_block_or_raw_deferred(
     mut fse_build_scratch: Option<&mut FSETableBuildScratch>,
     fse_tables: &mut FseTables,
     offset_history: &mut OffsetHistory,
-    output: &mut Vec<u8>,
-) -> PreparedBlockEmission {
+    output: &mut impl crate::workspace::Growable<u8>,
+) -> Result<PreparedBlockEmission, crate::workspace::CapacityError> {
     let block_start = output.len();
-    output.extend_from_slice(&[0; 3]);
+    output.extend_from_slice(&[0; 3])?;
     let compressed_start = output.len();
     let mut pending_state = PendingStoredEntropyState::new();
     let mut compression_result = if uses_matcher_offset_handoff(config) {
@@ -154,7 +154,7 @@ fn append_stored_block_or_raw_deferred(
             huffman_scratch.as_deref_mut(),
             fse_build_scratch.as_deref_mut(),
             &mut pending_state,
-        )
+        )?
     } else {
         compress_c_stored_block_deferred_with_stats(
             output,
@@ -167,37 +167,42 @@ fn append_stored_block_or_raw_deferred(
             huffman_scratch.as_deref_mut(),
             fse_build_scratch.as_deref_mut(),
             &mut pending_state,
-        )
+        )?
     };
     let compressed_size = output.len() - compressed_start;
 
-    if policy.allows_rle() && compressed_size < 25 && rle_byte(block).is_some() {
-        output.truncate(block_start);
-        pending_state.discard(fse_build_scratch.as_deref_mut());
-        recycle_rejected_huffman_table(&mut compression_result, huffman_scratch.as_deref_mut());
-        write_rle_block(last_block, block.len() as u32, block[0], output);
-        PreparedBlockEmission::Rle
-    } else if compression_result.should_emit_raw_block
-        || !compressed_block_is_worthwhile(block.len(), compressed_size, strategy)
-        || compressed_size > MAX_BLOCK_SIZE as usize
-    {
-        output.truncate(block_start);
-        pending_state.discard(fse_build_scratch.as_deref_mut());
-        recycle_rejected_huffman_table(&mut compression_result, huffman_scratch);
-        write_raw_block(last_block, block.len() as u32, block, output);
-        PreparedBlockEmission::Raw
-    } else {
-        pending_state.commit(fse_tables, offset_history, fse_build_scratch);
-        let header = BlockHeader {
-            last_block,
-            block_type: crate::blocks::block::BlockType::Compressed,
-            block_size: compressed_size as u32,
-        };
-        output[block_start..compressed_start].copy_from_slice(&header.serialize_to_bytes());
-        PreparedBlockEmission::Compressed {
-            new_huffman_table: compression_result.new_huffman_table,
-        }
-    }
+    Ok(
+        if policy.allows_rle() && compressed_size < 25 && rle_byte(block).is_some() {
+            output.truncate(block_start);
+            pending_state.discard(fse_build_scratch.as_deref_mut())?;
+            recycle_rejected_huffman_table(
+                &mut compression_result,
+                huffman_scratch.as_deref_mut(),
+            )?;
+            write_rle_block(last_block, block.len() as u32, block[0], output)?;
+            PreparedBlockEmission::Rle
+        } else if compression_result.should_emit_raw_block
+            || !compressed_block_is_worthwhile(block.len(), compressed_size, strategy)
+            || compressed_size > MAX_BLOCK_SIZE as usize
+        {
+            output.truncate(block_start);
+            pending_state.discard(fse_build_scratch.as_deref_mut())?;
+            recycle_rejected_huffman_table(&mut compression_result, huffman_scratch)?;
+            write_raw_block(last_block, block.len() as u32, block, output)?;
+            PreparedBlockEmission::Raw
+        } else {
+            pending_state.commit(fse_tables, offset_history, fse_build_scratch)?;
+            let header = BlockHeader {
+                last_block,
+                block_type: crate::blocks::block::BlockType::Compressed,
+                block_size: compressed_size as u32,
+            };
+            output[block_start..compressed_start].copy_from_slice(&header.serialize_to_bytes());
+            PreparedBlockEmission::Compressed {
+                new_huffman_table: compression_result.new_huffman_table,
+            }
+        },
+    )
 }
 
 #[inline(never)]
@@ -215,12 +220,12 @@ fn append_stored_block_or_raw_eager(
     fse_build_scratch: Option<&mut FSETableBuildScratch>,
     fse_tables: &mut FseTables,
     offset_history: &mut OffsetHistory,
-    output: &mut Vec<u8>,
-) -> PreparedBlockEmission {
+    output: &mut impl crate::workspace::Growable<u8>,
+) -> Result<PreparedBlockEmission, crate::workspace::CapacityError> {
     let previous_fse = fse_tables.snapshot_previous();
     let previous_offsets = *offset_history;
     let block_start = output.len();
-    output.extend_from_slice(&[0; 3]);
+    output.extend_from_slice(&[0; 3])?;
     let compressed_start = output.len();
     let mut compression_result = if uses_matcher_offset_handoff(config) {
         let offsets = compressed_repeat_offsets.as_offsets();
@@ -235,7 +240,7 @@ fn append_stored_block_or_raw_eager(
             previous_huff_table.is_some(),
             huffman_scratch.as_deref_mut(),
             fse_build_scratch,
-        )
+        )?
     } else {
         compress_c_stored_block_with_stats(
             output,
@@ -247,47 +252,51 @@ fn append_stored_block_or_raw_eager(
             previous_huff_table.is_some(),
             huffman_scratch.as_deref_mut(),
             fse_build_scratch,
-        )
+        )?
     };
     let compressed_size = output.len() - compressed_start;
 
-    if policy.allows_rle() && compressed_size < 25 && rle_byte(block).is_some() {
-        output.truncate(block_start);
-        fse_tables.restore_previous(previous_fse);
-        *offset_history = previous_offsets;
-        recycle_rejected_huffman_table(&mut compression_result, huffman_scratch);
-        write_rle_block(last_block, block.len() as u32, block[0], output);
-        PreparedBlockEmission::Rle
-    } else if compression_result.should_emit_raw_block
-        || !compressed_block_is_worthwhile(block.len(), compressed_size, strategy)
-        || compressed_size > MAX_BLOCK_SIZE as usize
-    {
-        output.truncate(block_start);
-        fse_tables.restore_previous(previous_fse);
-        *offset_history = previous_offsets;
-        recycle_rejected_huffman_table(&mut compression_result, huffman_scratch);
-        write_raw_block(last_block, block.len() as u32, block, output);
-        PreparedBlockEmission::Raw
-    } else {
-        let header = BlockHeader {
-            last_block,
-            block_type: crate::blocks::block::BlockType::Compressed,
-            block_size: compressed_size as u32,
-        };
-        output[block_start..compressed_start].copy_from_slice(&header.serialize_to_bytes());
-        PreparedBlockEmission::Compressed {
-            new_huffman_table: compression_result.new_huffman_table,
-        }
-    }
+    Ok(
+        if policy.allows_rle() && compressed_size < 25 && rle_byte(block).is_some() {
+            output.truncate(block_start);
+            fse_tables.restore_previous(previous_fse);
+            *offset_history = previous_offsets;
+            recycle_rejected_huffman_table(&mut compression_result, huffman_scratch)?;
+            write_rle_block(last_block, block.len() as u32, block[0], output)?;
+            PreparedBlockEmission::Rle
+        } else if compression_result.should_emit_raw_block
+            || !compressed_block_is_worthwhile(block.len(), compressed_size, strategy)
+            || compressed_size > MAX_BLOCK_SIZE as usize
+        {
+            output.truncate(block_start);
+            fse_tables.restore_previous(previous_fse);
+            *offset_history = previous_offsets;
+            recycle_rejected_huffman_table(&mut compression_result, huffman_scratch)?;
+            write_raw_block(last_block, block.len() as u32, block, output)?;
+            PreparedBlockEmission::Raw
+        } else {
+            let header = BlockHeader {
+                last_block,
+                block_type: crate::blocks::block::BlockType::Compressed,
+                block_size: compressed_size as u32,
+            };
+            output[block_start..compressed_start].copy_from_slice(&header.serialize_to_bytes());
+            PreparedBlockEmission::Compressed {
+                new_huffman_table: compression_result.new_huffman_table,
+            }
+        },
+    )
 }
 
 fn recycle_rejected_huffman_table(
     result: &mut crate::encoding::blocks::CompressedBlockResult,
     scratch: Option<&mut HuffmanBuildScratch>,
-) {
-    if let (Some(table), Some(scratch)) = (result.new_huffman_table.take(), scratch) {
-        scratch.recycle_table(table);
-    }
+) -> Result<(), crate::workspace::CapacityError> {
+    Ok({
+        if let (Some(table), Some(scratch)) = (result.new_huffman_table.take(), scratch) {
+            scratch.recycle_table(table)?;
+        }
+    })
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -303,10 +312,10 @@ pub(super) fn append_prepared_block_or_raw(
     previous_huff_table: Option<&HuffmanTable>,
     fse_tables: &mut FseTables,
     offset_history: &mut OffsetHistory,
-    output: &mut Vec<u8>,
-) -> PreparedBlockEmission {
+    output: &mut impl crate::workspace::Growable<u8>,
+) -> Result<PreparedBlockEmission, crate::workspace::CapacityError> {
     let block_start = output.len();
-    output.extend_from_slice(&[0; 3]);
+    output.extend_from_slice(&[0; 3])?;
     let compressed_start = output.len();
     let compression_result = compress_c_prepared_block_with_stats(
         output,
@@ -316,62 +325,77 @@ pub(super) fn append_prepared_block_or_raw(
         offset_history,
         previous_huff_table,
         previous_huff_table.is_some(),
-    );
+    )?;
     let compressed_size = output.len() - compressed_start;
 
-    if policy.allows_rle() && compressed_size < 25 && rle_byte(block).is_some() {
-        output.truncate(block_start);
-        fse_tables.restore_previous(previous_fse);
-        *offset_history = previous_offsets;
-        write_rle_block(last_block, block.len() as u32, block[0], output);
-        PreparedBlockEmission::Rle
-    } else if compression_result.should_emit_raw_block
-        || !compressed_block_is_worthwhile(block.len(), compressed_size, strategy)
-        || compressed_size > MAX_BLOCK_SIZE as usize
-    {
-        output.truncate(block_start);
-        fse_tables.restore_previous(previous_fse);
-        *offset_history = previous_offsets;
-        write_raw_block(last_block, block.len() as u32, block, output);
-        PreparedBlockEmission::Raw
-    } else {
-        let header = BlockHeader {
-            last_block,
-            block_type: crate::blocks::block::BlockType::Compressed,
-            block_size: compressed_size as u32,
-        };
-        output[block_start..compressed_start].copy_from_slice(&header.serialize_to_bytes());
-        PreparedBlockEmission::Compressed {
-            new_huffman_table: compression_result.new_huffman_table,
-        }
-    }
+    Ok(
+        if policy.allows_rle() && compressed_size < 25 && rle_byte(block).is_some() {
+            output.truncate(block_start);
+            fse_tables.restore_previous(previous_fse);
+            *offset_history = previous_offsets;
+            write_rle_block(last_block, block.len() as u32, block[0], output)?;
+            PreparedBlockEmission::Rle
+        } else if compression_result.should_emit_raw_block
+            || !compressed_block_is_worthwhile(block.len(), compressed_size, strategy)
+            || compressed_size > MAX_BLOCK_SIZE as usize
+        {
+            output.truncate(block_start);
+            fse_tables.restore_previous(previous_fse);
+            *offset_history = previous_offsets;
+            write_raw_block(last_block, block.len() as u32, block, output)?;
+            PreparedBlockEmission::Raw
+        } else {
+            let header = BlockHeader {
+                last_block,
+                block_type: crate::blocks::block::BlockType::Compressed,
+                block_size: compressed_size as u32,
+            };
+            output[block_start..compressed_start].copy_from_slice(&header.serialize_to_bytes());
+            PreparedBlockEmission::Compressed {
+                new_huffman_table: compression_result.new_huffman_table,
+            }
+        },
+    )
 }
 
-pub(super) fn append_special_block(block: &[u8], last_block: bool, output: &mut Vec<u8>) -> bool {
+pub(super) fn append_special_block(
+    block: &[u8],
+    last_block: bool,
+    output: &mut impl crate::workspace::Growable<u8>,
+) -> Result<bool, crate::workspace::CapacityError> {
     if block.is_empty() {
-        write_raw_block(last_block, 0, block, output);
-        return true;
+        write_raw_block(last_block, 0, block, output)?;
+        return Ok(true);
     }
 
     if should_skip_sequence_build(block.len()) {
-        write_raw_block(last_block, block.len() as u32, block, output);
-        return true;
+        write_raw_block(last_block, block.len() as u32, block, output)?;
+        return Ok(true);
     }
 
-    false
+    Ok(false)
 }
 
-pub(super) fn append_raw_block(block: &[u8], last_block: bool, output: &mut Vec<u8>) {
-    write_raw_block(last_block, block.len() as u32, block, output);
+pub(super) fn append_raw_block(
+    block: &[u8],
+    last_block: bool,
+    output: &mut impl crate::workspace::Growable<u8>,
+) -> Result<(), crate::workspace::CapacityError> {
+    write_raw_block(last_block, block.len() as u32, block, output)?;
+    Ok(())
 }
 
-pub(super) fn append_rle_block(block: &[u8], last_block: bool, output: &mut Vec<u8>) -> bool {
+pub(super) fn append_rle_block(
+    block: &[u8],
+    last_block: bool,
+    output: &mut impl crate::workspace::Growable<u8>,
+) -> Result<bool, crate::workspace::CapacityError> {
     let Some(byte) = rle_byte(block) else {
-        return false;
+        return Ok(false);
     };
 
-    write_rle_block(last_block, block.len() as u32, byte, output);
-    true
+    write_rle_block(last_block, block.len() as u32, byte, output)?;
+    Ok(true)
 }
 
 fn rle_byte(data: &[u8]) -> Option<u8> {
@@ -379,24 +403,36 @@ fn rle_byte(data: &[u8]) -> Option<u8> {
     data.iter().all(|byte| *byte == first).then_some(first)
 }
 
-fn write_rle_block(last_block: bool, block_size: u32, rle_byte: u8, output: &mut Vec<u8>) {
+fn write_rle_block(
+    last_block: bool,
+    block_size: u32,
+    rle_byte: u8,
+    output: &mut impl crate::workspace::Growable<u8>,
+) -> Result<(), crate::workspace::CapacityError> {
     let header = BlockHeader {
         last_block,
         block_type: crate::blocks::block::BlockType::RLE,
         block_size,
     };
-    header.serialize(output);
-    output.push(rle_byte);
+    header.serialize(output)?;
+    output.push(rle_byte)?;
+    Ok(())
 }
 
-fn write_raw_block(last_block: bool, block_size: u32, data: &[u8], output: &mut Vec<u8>) {
+fn write_raw_block(
+    last_block: bool,
+    block_size: u32,
+    data: &[u8],
+    output: &mut impl crate::workspace::Growable<u8>,
+) -> Result<(), crate::workspace::CapacityError> {
     let header = BlockHeader {
         last_block,
         block_type: crate::blocks::block::BlockType::Raw,
         block_size,
     };
-    header.serialize(output);
-    output.extend_from_slice(data);
+    header.serialize(output)?;
+    output.extend_from_slice(data)?;
+    Ok(())
 }
 
 #[cfg(test)]
@@ -417,8 +453,8 @@ mod tests {
     fn rle_is_emitted_after_prepared_compression_without_confirming_state() {
         let block = alloc::vec![b'a'; 4096];
         let prepared = PreparedBlock {
-            literals: block.clone(),
-            sequences: Vec::new(),
+            literals: crate::workspace::ReusableVec::from_owned(block.clone()),
+            sequences: crate::workspace::ReusableVec::from_owned(Vec::new()),
         };
         let mut fse_tables = FseTables::new();
         let previous_fse = fse_tables.snapshot_previous();
@@ -439,7 +475,8 @@ mod tests {
             &mut fse_tables,
             &mut offset_history,
             &mut output,
-        );
+        )
+        .expect("test storage admission");
 
         assert!(matches!(emission, PreparedBlockEmission::Rle));
         assert_eq!(offset_history, previous_offsets);
@@ -466,7 +503,8 @@ mod tests {
         };
         let mut scratch = HuffmanBuildScratch::new();
 
-        recycle_rejected_huffman_table(&mut result, Some(&mut scratch));
+        recycle_rejected_huffman_table(&mut result, Some(&mut scratch))
+            .expect("test storage admission");
 
         assert!(result.new_huffman_table.is_none());
         assert_eq!(scratch.recycled_table_count(), 1);
@@ -480,8 +518,8 @@ mod tests {
         }
         let previous_huff_table = HuffmanTable::build_from_counts(&literal_counts(&block));
         let prepared = PreparedBlock {
-            literals: block.clone(),
-            sequences: Vec::new(),
+            literals: crate::workspace::ReusableVec::from_owned(block.clone()),
+            sequences: crate::workspace::ReusableVec::from_owned(Vec::new()),
         };
         let mut fse_tables = FseTables::new();
         let previous_fse = fse_tables.snapshot_previous();
@@ -502,7 +540,8 @@ mod tests {
             &mut fse_tables,
             &mut offset_history,
             &mut output,
-        );
+        )
+        .expect("test storage admission");
 
         assert!(matches!(emission, PreparedBlockEmission::Compressed { .. }));
         assert_eq!(
@@ -543,7 +582,8 @@ mod tests {
                 &mut fse_tables,
                 &mut offset_history,
                 &mut output,
-            );
+            )
+            .expect("test storage admission");
 
             assert!(matches!(
                 emission,

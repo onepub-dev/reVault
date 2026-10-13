@@ -161,6 +161,11 @@ final class Revault
     }
 
     /** Opens serialized Lockbox bytes with the supplied password. */
+    public function lockboxOpenPasswordWithBudget(string $archive, string $password, int $maxDerivations): Lockbox
+    {
+        return new Lockbox($this->operations, $this->operations->lockboxOpenPasswordWithBudget($archive, $password, $maxDerivations));
+    }
+    /** Opens with the default per-credential password work budget. */
     public function lockboxOpenPassword(string $archive, string $password): Lockbox
     {
         return new Lockbox($this->operations, $this->operations->lockboxOpenPassword($archive, $password));
@@ -489,6 +494,11 @@ class Lockbox extends OwnedHandle
     }
 
     /** Writes one Lockbox file to the host filesystem. */
+    public function extractFileWithPolicy(string $source, string $destination, int $maxFileBytes, int $maxTotalBytes, int $maxFiles, bool $restorePermissions, bool $overwrite): bool
+    {
+        return $this->operations->lockboxExtractFileWithPolicy($this->handle, $source, $destination, $maxFileBytes, $maxTotalBytes, $maxFiles, $restorePermissions, $overwrite);
+    }
+    /** Extracts one file using the legacy permission policy. */
     public function extractFile(string $source, string $destination, bool $replace): bool
     {
         return $this->operations->lockboxExtractFile($this->handle, $source, $destination, $replace);
@@ -1176,6 +1186,30 @@ class VaultStore extends OwnedHandle
         return $this->operations->vaultDirectoryListKnownLockboxes($this->handle);
     }
 
+    /** Resolve metadata; verify target identity when opening its path. */
+    public function resolveLockboxAlias(string $name): \Revault\KnownLockbox
+    {
+        return $this->operations->vaultDirectoryResolveLockboxAlias($this->handle, $name);
+    }
+
+    /** Remove only an alias, preserving its target. */
+    public function removeLockboxAlias(string $name): bool
+    {
+        return $this->operations->vaultDirectoryRemoveLockboxAlias($this->handle, $name);
+    }
+
+    /** List persisted aliases without opening target archives. */
+    public function listLockboxAliases(): \Revault\LockboxAliasList
+    {
+        return $this->operations->vaultDirectoryListLockboxAliases($this->handle);
+    }
+
+    /** Set or replace a normalized alias for a remembered identity. */
+    public function setLockboxAlias(string $name, string $id): bool
+    {
+        return $this->operations->vaultDirectorySetLockboxAlias($this->handle, $name, $id);
+    }
+
     /** Removes lockbox. */
     public function forgetLockbox(string $path): bool
     {
@@ -1284,6 +1318,18 @@ class ReadOnlyVault
     public function listKnownLockboxes(): \Revault\KnownLockboxList
     {
         return $this->operations->vaultReadOnlyListKnownLockboxes($this->handle);
+    }
+
+    /** Resolve metadata; verify target identity when opening its path. */
+    public function resolveLockboxAlias(string $name): \Revault\KnownLockbox
+    {
+        return $this->operations->vaultReadOnlyResolveLockboxAlias($this->handle, $name);
+    }
+
+    /** List persisted aliases without opening target archives. */
+    public function listLockboxAliases(): \Revault\LockboxAliasList
+    {
+        return $this->operations->vaultReadOnlyListLockboxAliases($this->handle);
     }
 
     /** Releases the native resources held by this object. */

@@ -12,33 +12,35 @@ pub(super) fn select_path(
     last_stretch: Option<Optimal>,
     rep: &mut [u32; 3],
     state: &OptBlockState,
-    path: &mut Vec<Optimal>,
-) {
-    path.clear();
-    let stretch = last_stretch.unwrap_or_else(|| state.opt[last_pos]);
-    let mut cur = last_pos - stretch.mlen as usize;
+    path: &mut impl crate::workspace::Growable<Optimal>,
+) -> Result<(), crate::workspace::CapacityError> {
+    Ok({
+        path.clear();
+        let stretch = last_stretch.unwrap_or_else(|| state.opt[last_pos]);
+        let mut cur = last_pos - stretch.mlen as usize;
 
-    if stretch.litlen == 0 {
-        *rep = update_reps(state.opt[cur].rep, stretch.off, state.opt[cur].litlen == 0);
-    } else {
-        *rep = stretch.rep;
-        cur -= stretch.litlen as usize;
-    }
-
-    path.push(stretch);
-    let mut stretch_pos = cur;
-    loop {
-        let next = state.opt[stretch_pos];
-        let last = path.len() - 1;
-        path[last].litlen = next.litlen;
-        if next.mlen == 0 {
-            break;
+        if stretch.litlen == 0 {
+            *rep = update_reps(state.opt[cur].rep, stretch.off, state.opt[cur].litlen == 0);
+        } else {
+            *rep = stretch.rep;
+            cur -= stretch.litlen as usize;
         }
-        path.push(next);
-        stretch_pos -= next.litlen as usize + next.mlen as usize;
-    }
 
-    path.reverse();
+        path.push(stretch)?;
+        let mut stretch_pos = cur;
+        loop {
+            let next = state.opt[stretch_pos];
+            let last = path.len() - 1;
+            path[last].litlen = next.litlen;
+            if next.mlen == 0 {
+                break;
+            }
+            path.push(next)?;
+            stretch_pos -= next.litlen as usize + next.mlen as usize;
+        }
+
+        path.reverse();
+    })
 }
 
 pub(super) fn update_reps(rep: [u32; 3], off_base: u32, previous_litlen_zero: bool) -> [u32; 3] {

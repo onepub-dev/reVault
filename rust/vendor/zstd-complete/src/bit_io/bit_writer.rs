@@ -1,10 +1,11 @@
 //! Use [BitWriter] to write an arbitrary amount of bits into a buffer.
+use crate::workspace::{CapacityError, Growable};
 use alloc::vec::Vec;
 
 /// An interface for writing an arbitrary number of bits into a buffer. Write new bits into the buffer with `write_bits`, and
 /// obtain the output using `dump`.
 #[derive(Debug)]
-pub(crate) struct BitWriter<V: AsMut<Vec<u8>>> {
+pub(crate) struct BitWriter<V: crate::workspace::ByteBufferOwner> {
     /// The buffer that's filled with bits
     output: V,
     /// holds a partially filled byte which gets put in outpu when it's fill with a write_bits call
@@ -28,11 +29,11 @@ impl BitWriter<Vec<u8>> {
     }
 }
 
-impl<V: AsMut<Vec<u8>>> BitWriter<V> {
+impl<V: crate::workspace::ByteBufferOwner> BitWriter<V> {
     /// Initialize a new writer.
     pub fn from(mut output: V) -> BitWriter<V> {
         BitWriter {
-            bit_idx: output.as_mut().len() * 8,
+            bit_idx: output.buffer().len() * 8,
             output,
             partial: 0,
             bits_in_partial: 0,
@@ -45,23 +46,35 @@ impl<V: AsMut<Vec<u8>>> BitWriter<V> {
     }
 
     /// Reset to an index. Currently only supports resetting to a byte aligned index
-    pub fn reset_to(&mut self, index: usize) {
+    pub fn reset_to(&mut self, index: usize) -> Result<(), CapacityError> {
         assert!(index.is_multiple_of(8));
+        self.output.buffer().resize(index / 8, 0)?;
         self.partial = 0;
         self.bits_in_partial = 0;
         self.bit_idx = index;
-        self.output.as_mut().resize(index / 8, 0);
+        Ok(())
     }
 
     /// Change the bits at the index. `bits` contains the ǹum_bits` new bits that should be written
     /// Instead of the current content. `bits` *MUST* only contain zeroes in the upper bits outside of the `0..num_bits` range.
-    pub fn change_bits(&mut self, idx: usize, bits: impl Into<u64>, num_bits: usize) {
-        self.change_bits_64(idx, bits.into(), num_bits);
+    pub fn change_bits(
+        &mut self,
+        idx: usize,
+        bits: impl Into<u64>,
+        num_bits: usize,
+    ) -> Result<(), CapacityError> {
+        self.change_bits_64(idx, bits.into(), num_bits)?;
+        Ok(())
     }
 
     /// Monomorphized version of `change_bits`
-    pub fn change_bits_64(&mut self, mut idx: usize, mut bits: u64, mut num_bits: usize) {
-        self.flush();
+    pub fn change_bits_64(
+        &mut self,
+        mut idx: usize,
+        mut bits: u64,
+        mut num_bits: usize,
+    ) -> Result<(), CapacityError> {
+        self.flush()?;
         assert!(idx + num_bits < self.index());
         assert!(self.index() - (idx + num_bits) > self.bits_in_partial);
 
@@ -73,10 +86,10 @@ impl<V: AsMut<Vec<u8>>> BitWriter<V> {
             // We don't support only changing a few bits in the middle of a byte
             assert!(bits_in_first_byte <= num_bits);
             // Zero out the upper bits that will be changed while keeping the lower bits intact
-            self.output.as_mut()[idx / 8] &= 0xFFu8 >> bits_in_first_byte;
+            self.output.buffer()[idx / 8] &= 0xFFu8 >> bits_in_first_byte;
             // Shift the bits up and put them in the now zeroed out bits
             let new_bits = (bits << (8 - bits_in_first_byte)) as u8;
-            self.output.as_mut()[idx / 8] |= new_bits;
+            self.output.buffer()[idx / 8] |= new_bits;
             // Update the state. Note that we are now definitely working byte aligned
             num_bits -= bits_in_first_byte;
             bits >>= bits_in_first_byte;
@@ -89,7 +102,7 @@ impl<V: AsMut<Vec<u8>>> BitWriter<V> {
 
         // Update full bytes by just shifting and extracting bytes from the bits
         while num_bits >= 8 {
-            self.output.as_mut()[idx] = bits as u8;
+            self.output.buffer()[idx] = bits as u8;
             num_bits -= 8;
             bits >>= 8;
             idx += 1;
@@ -97,54 +110,65 @@ impl<V: AsMut<Vec<u8>>> BitWriter<V> {
 
         // Deal with leftover bits that wont fill a full byte, keeping the upper bits of the original byte intact
         if num_bits > 0 {
-            self.output.as_mut()[idx] &= 0xFFu8 << num_bits;
-            self.output.as_mut()[idx] |= bits as u8;
+            self.output.buffer()[idx] &= 0xFFu8 << num_bits;
+            self.output.buffer()[idx] |= bits as u8;
         }
+        Ok(())
     }
 
     /// Simply append bytes to the buffer. Only works if the buffer was already byte aligned
-    pub fn append_bytes(&mut self, data: &[u8]) {
+    pub fn append_bytes(&mut self, data: &[u8]) -> Result<(), CapacityError> {
         if self.misaligned() != 0 {
             panic!("Don't append bytes when writer is misaligned")
         }
-        self.flush();
-        self.output.as_mut().extend_from_slice(data);
+        self.flush()?;
+        self.output.buffer().extend_from_slice(data)?;
         self.bit_idx += data.len() * 8;
+        Ok(())
     }
 
     /// Gives a callback direct access to append a byte-aligned payload.
-    pub(crate) fn append_aligned_with<R>(&mut self, append: impl FnOnce(&mut Vec<u8>) -> R) -> R {
+    pub(crate) fn append_aligned_with<R>(
+        &mut self,
+        append: impl FnOnce(&mut V::Buffer) -> Result<R, CapacityError>,
+    ) -> Result<R, CapacityError> {
         assert_eq!(self.misaligned(), 0);
-        self.flush();
-        let initial_len = self.output.as_mut().len();
-        let result = append(self.output.as_mut());
-        let final_len = self.output.as_mut().len();
+        self.flush()?;
+        let initial_len = self.output.buffer().len();
+        let result = append(self.output.buffer())?;
+        let final_len = self.output.buffer().len();
         assert!(final_len >= initial_len);
         self.bit_idx += (final_len - initial_len) * 8;
-        result
+        Ok(result)
     }
 
     /// Flush temporary internal buffers to the output buffer. Only works if this is currently byte aligned
-    pub fn flush(&mut self) {
+    pub fn flush(&mut self) -> Result<(), CapacityError> {
         assert!(self.bits_in_partial.is_multiple_of(8));
         let full_bytes = self.bits_in_partial / 8;
         self.output
-            .as_mut()
-            .extend_from_slice(&self.partial.to_le_bytes()[..full_bytes]);
+            .buffer()
+            .extend_from_slice(&self.partial.to_le_bytes()[..full_bytes])?;
         self.partial >>= full_bytes * 8;
         self.bits_in_partial -= full_bytes * 8;
         self.bit_idx += full_bytes * 8;
+        Ok(())
     }
 
     /// Write the lower `num_bits` from `bits` into the writer. `bits` *MUST* only contain zeroes in the upper bits outside of the `0..num_bits` range.
-    pub fn write_bits(&mut self, bits: impl Into<u64>, num_bits: usize) {
-        self.write_bits_64(bits.into(), num_bits);
+    pub fn write_bits(
+        &mut self,
+        bits: impl Into<u64>,
+        num_bits: usize,
+    ) -> Result<(), CapacityError> {
+        self.write_bits_64(bits.into(), num_bits)?;
+        Ok(())
     }
 
     /// This is the special case where we need to flush the partial buffer to the output.
     /// Marked as cold and in a separate function so the optimizer has more information.
     #[cold]
-    fn write_bits_64_cold(&mut self, bits: u64, num_bits: usize) {
+    fn write_bits_64_cold(&mut self, bits: u64, num_bits: usize) -> Result<(), CapacityError> {
         assert!(self.bits_in_partial + num_bits >= 64);
         // Fill the partial buffer so it contains 64 bits
         let bits_free_in_partial = 64 - self.bits_in_partial;
@@ -152,8 +176,8 @@ impl<V: AsMut<Vec<u8>>> BitWriter<V> {
         let merged = self.partial | part;
         // Put the 8 bytes into the output buffer
         self.output
-            .as_mut()
-            .extend_from_slice(&merged.to_le_bytes());
+            .buffer()
+            .extend_from_slice(&merged.to_le_bytes())?;
         self.bit_idx += 64;
         self.partial = 0;
         self.bits_in_partial = 0;
@@ -164,7 +188,7 @@ impl<V: AsMut<Vec<u8>>> BitWriter<V> {
         // While we are at it push full bytes into the output buffer instead of polluting the partial buffer
         while num_bits / 8 > 0 {
             let byte = bits as u8;
-            self.output.as_mut().push(byte);
+            self.output.buffer().push(byte)?;
             num_bits -= 8;
             self.bit_idx += 8;
             bits >>= 8;
@@ -177,12 +201,13 @@ impl<V: AsMut<Vec<u8>>> BitWriter<V> {
             self.partial = bits & mask;
             self.bits_in_partial = num_bits;
         }
+        Ok(())
     }
 
     /// Monomorphized version of `change_bits`
-    pub fn write_bits_64(&mut self, bits: u64, num_bits: usize) {
+    pub fn write_bits_64(&mut self, bits: u64, num_bits: usize) -> Result<(), CapacityError> {
         if num_bits == 0 {
-            return;
+            return Ok(());
         }
 
         if bits > 0 {
@@ -200,15 +225,16 @@ impl<V: AsMut<Vec<u8>>> BitWriter<V> {
             let part = bits << self.bits_in_partial;
             let merged = self.partial | part;
             self.output
-                .as_mut()
-                .extend_from_slice(&merged.to_le_bytes());
+                .buffer()
+                .extend_from_slice(&merged.to_le_bytes())?;
             self.bit_idx += 64;
             self.partial = 0;
             self.bits_in_partial = 0;
         } else {
             // If the partial buffer can't hold the num_bits we need to make space
-            self.write_bits_64_cold(bits, num_bits);
+            self.write_bits_64_cold(bits, num_bits)?;
         }
+        Ok(())
     }
 
     /// Returns the populated buffer that you've been writing bits into.
@@ -216,13 +242,13 @@ impl<V: AsMut<Vec<u8>>> BitWriter<V> {
     /// This function consumes the writer, so it cannot be used after
     /// dumping
     #[cfg(any(test, feature = "dict_builder", feature = "fuzz_exports"))]
-    pub fn dump(mut self) -> V {
+    pub fn dump(mut self) -> Result<V, CapacityError> {
         if self.misaligned() != 0 {
             panic!("`dump` was called on a bit writer but an even number of bytes weren't written into the buffer. Was: {}", self.index())
         }
-        self.flush();
+        self.flush()?;
         debug_assert_eq!(self.partial, 0);
-        self.output
+        Ok(self.output)
     }
 
     /// Returns how many bits are missing for an even byte
@@ -246,22 +272,32 @@ mod tests {
         // Define an existing vec, write some bits into it
         let mut existing_vec = vec![255_u8];
         let mut bw = BitWriter::from(&mut existing_vec);
-        bw.write_bits(0u8, 8);
-        bw.flush();
+        bw.write_bits(0u8, 8).expect("test storage admission");
+        bw.flush().expect("test storage admission");
         assert_eq!(vec![255, 0], existing_vec);
     }
 
     #[test]
     fn change_bits() {
         let mut writer = BitWriter::new();
-        writer.write_bits(0u32, 24);
-        writer.change_bits(8, 0xFFu8, 8);
-        assert_eq!(vec![0, 0xFF, 0], writer.dump());
+        writer.write_bits(0u32, 24).expect("test storage admission");
+        writer
+            .change_bits(8, 0xFFu8, 8)
+            .expect("test storage admission");
+        assert_eq!(
+            vec![0, 0xFF, 0],
+            writer.dump().expect("test output admission")
+        );
 
         let mut writer = BitWriter::new();
-        writer.write_bits(0u32, 24);
-        writer.change_bits(6, 0x0FFFu16, 12);
-        assert_eq!(vec![0b11000000, 0xFF, 0b00000011], writer.dump());
+        writer.write_bits(0u32, 24).expect("test storage admission");
+        writer
+            .change_bits(6, 0x0FFFu16, 12)
+            .expect("test storage admission");
+        assert_eq!(
+            vec![0b11000000, 0xFF, 0b00000011],
+            writer.dump().expect("test output admission")
+        );
     }
 
     #[test]
@@ -269,9 +305,9 @@ mod tests {
         // Write the first 4 bits as 1s and the last 4 bits as 0s
         // 1010 is used where values should never be read from.
         let mut bw = BitWriter::new();
-        bw.write_bits(0b1111u8, 4);
-        bw.write_bits(0b0000u8, 4);
-        let output = bw.dump();
+        bw.write_bits(0b1111u8, 4).expect("test storage admission");
+        bw.write_bits(0b0000u8, 4).expect("test storage admission");
+        let output = bw.dump().expect("test output admission");
         assert!(output.len() == 1, "Single byte written into writer returned a vec that wasn't one byte, vec was {} elements long", output.len());
         assert_eq!(
             0b0000_1111, output[0],
@@ -283,9 +319,10 @@ mod tests {
     fn single_byte_written_3_5() {
         // Write the first 3 bits as 1s and the last 5 bits as 0s
         let mut bw = BitWriter::new();
-        bw.write_bits(0b111u8, 3);
-        bw.write_bits(0b0_0000u8, 5);
-        let output = bw.dump();
+        bw.write_bits(0b111u8, 3).expect("test storage admission");
+        bw.write_bits(0b0_0000u8, 5)
+            .expect("test storage admission");
+        let output = bw.dump().expect("test output admission");
         assert!(output.len() == 1, "Single byte written into writer return a vec that wasn't one byte, vec was {} elements long", output.len());
         assert_eq!(0b0000_0111, output[0], "3 and 5 bits written into buffer");
     }
@@ -294,9 +331,9 @@ mod tests {
     fn single_byte_written_1_7() {
         // Write the first bit as a 1 and the last 7 bits as 0s
         let mut bw = BitWriter::new();
-        bw.write_bits(0b1u8, 1);
-        bw.write_bits(0u8, 7);
-        let output = bw.dump();
+        bw.write_bits(0b1u8, 1).expect("test storage admission");
+        bw.write_bits(0u8, 7).expect("test storage admission");
+        let output = bw.dump().expect("test output admission");
         assert!(output.len() == 1, "Single byte written into writer return a vec that wasn't one byte, vec was {} elements long", output.len());
         assert_eq!(0b0000_0001, output[0], "1 and 7 bits written into buffer");
     }
@@ -305,8 +342,8 @@ mod tests {
     fn single_byte_written_8() {
         // Write an entire byte
         let mut bw = BitWriter::new();
-        bw.write_bits(1u8, 8);
-        let output = bw.dump();
+        bw.write_bits(1u8, 8).expect("test storage admission");
+        let output = bw.dump().expect("test output admission");
         assert!(output.len() == 1, "Single byte written into writer return a vec that wasn't one byte, vec was {} elements long", output.len());
         assert_eq!(1, output[0], "1 and 7 bits written into buffer");
     }
@@ -315,32 +352,37 @@ mod tests {
     fn multi_byte_clean_boundary_4_4_4_4() {
         // Writing 4 bits at a time for 2 bytes
         let mut bw = BitWriter::new();
-        bw.write_bits(0u8, 4);
-        bw.write_bits(0b1111u8, 4);
-        bw.write_bits(0b1111u8, 4);
-        bw.write_bits(0u8, 4);
-        assert_eq!(vec![0b1111_0000, 0b0000_1111], bw.dump());
+        bw.write_bits(0u8, 4).expect("test storage admission");
+        bw.write_bits(0b1111u8, 4).expect("test storage admission");
+        bw.write_bits(0b1111u8, 4).expect("test storage admission");
+        bw.write_bits(0u8, 4).expect("test storage admission");
+        assert_eq!(
+            vec![0b1111_0000, 0b0000_1111],
+            bw.dump().expect("test output admission")
+        );
     }
 
     #[test]
     fn multi_byte_clean_boundary_16_8() {
         // Writing 16 bits at once
         let mut bw = BitWriter::new();
-        bw.write_bits(0x0100u16, 16);
-        bw.write_bits(69u8, 8);
-        assert_eq!(vec![0, 1, 69], bw.dump())
+        bw.write_bits(0x0100u16, 16)
+            .expect("test storage admission");
+        bw.write_bits(69u8, 8).expect("test storage admission");
+        assert_eq!(vec![0, 1, 69], bw.dump().expect("test output admission"))
     }
 
     #[test]
     fn exact_64_bit_fill_flushes_without_losing_following_bits() {
         let mut bw = BitWriter::new();
-        bw.write_bits(0xABu8, 8);
-        bw.write_bits(0x01_02_03_04_05_06_07u64, 56);
-        bw.write_bits(0xCDu8, 8);
+        bw.write_bits(0xABu8, 8).expect("test storage admission");
+        bw.write_bits(0x01_02_03_04_05_06_07u64, 56)
+            .expect("test storage admission");
+        bw.write_bits(0xCDu8, 8).expect("test storage admission");
 
         assert_eq!(
             vec![0xAB, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01, 0xCD],
-            bw.dump()
+            bw.dump().expect("test output admission")
         );
     }
 
@@ -348,29 +390,43 @@ mod tests {
     fn multi_byte_boundary_crossed_4_12() {
         // Writing 4 1s and then 12 zeros
         let mut bw = BitWriter::new();
-        bw.write_bits(0b1111u8, 4);
-        bw.write_bits(0b0000_0011_0100_0010u16, 12);
-        assert_eq!(vec![0b0010_1111, 0b0011_0100], bw.dump());
+        bw.write_bits(0b1111u8, 4).expect("test storage admission");
+        bw.write_bits(0b0000_0011_0100_0010u16, 12)
+            .expect("test storage admission");
+        assert_eq!(
+            vec![0b0010_1111, 0b0011_0100],
+            bw.dump().expect("test output admission")
+        );
     }
 
     #[test]
     fn multi_byte_boundary_crossed_4_5_7() {
         // Writing 4 1s and then 5 zeros then 7 1s
         let mut bw = BitWriter::new();
-        bw.write_bits(0b1111u8, 4);
-        bw.write_bits(0b0_0000u8, 5);
-        bw.write_bits(0b111_1111u8, 7);
-        assert_eq!(vec![0b0000_1111, 0b1111_1110], bw.dump());
+        bw.write_bits(0b1111u8, 4).expect("test storage admission");
+        bw.write_bits(0b0_0000u8, 5)
+            .expect("test storage admission");
+        bw.write_bits(0b111_1111u8, 7)
+            .expect("test storage admission");
+        assert_eq!(
+            vec![0b0000_1111, 0b1111_1110],
+            bw.dump().expect("test output admission")
+        );
     }
 
     #[test]
     fn multi_byte_boundary_crossed_1_9_6() {
         // Writing 1 1 and then 9 zeros then 6 1s
         let mut bw = BitWriter::new();
-        bw.write_bits(0b1u8, 1);
-        bw.write_bits(0b0_0000_0000u16, 9);
-        bw.write_bits(0b11_1111u8, 6);
-        assert_eq!(vec![0b0000_0001, 0b1111_1100], bw.dump());
+        bw.write_bits(0b1u8, 1).expect("test storage admission");
+        bw.write_bits(0b0_0000_0000u16, 9)
+            .expect("test storage admission");
+        bw.write_bits(0b11_1111u8, 6)
+            .expect("test storage admission");
+        assert_eq!(
+            vec![0b0000_0001, 0b1111_1100],
+            bw.dump().expect("test output admission")
+        );
     }
 
     #[test]
@@ -379,22 +435,26 @@ mod tests {
         // Write a single bit in then dump it, making sure
         // the correct error is returned
         let mut bw = BitWriter::new();
-        bw.write_bits(0u8, 1);
-        bw.dump();
+        bw.write_bits(0u8, 1).expect("test storage admission");
+        bw.dump().expect("test output admission");
     }
 
     #[test]
     #[should_panic]
     fn catches_dirty_upper_bits() {
         let mut bw = BitWriter::new();
-        bw.write_bits(10u8, 1);
+        bw.write_bits(10u8, 1).expect("test storage admission");
     }
 
     #[test]
     fn add_multiple_aligned() {
         let mut bw = BitWriter::new();
-        bw.write_bits(0x00_0F_F0_FFu32, 32);
-        assert_eq!(vec![0xFF, 0xF0, 0x0F, 0x00], bw.dump());
+        bw.write_bits(0x00_0F_F0_FFu32, 32)
+            .expect("test storage admission");
+        assert_eq!(
+            vec![0xFF, 0xF0, 0x0F, 0x00],
+            bw.dump().expect("test output admission")
+        );
     }
 
     // #[test]

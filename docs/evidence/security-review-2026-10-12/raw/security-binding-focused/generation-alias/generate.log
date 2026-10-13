@@ -1,0 +1,14 @@
+/usr/lib/python3/dist-packages/apt/__init__.py:37: Warning: W:Unable to read /etc/apt/apt.conf.d/99-ubuntu-mirror-esp - open (13: Permission denied)
+  apt_pkg.init_config()
+Traceback (most recent call last):
+  File "/tmp/.tmp5pcOni/bindings/flatbuffers/generate_dart_models.py", line 219, in <module>
+    OUTPUT.write_text(generate())
+                      ~~~~~~~~^^
+  File "/tmp/.tmp5pcOni/bindings/flatbuffers/generate_dart_models.py", line 131, in generate
+    *[f"/// {line}" for line in example(table).splitlines()],
+                                ~~~~~~~^^^^^^^
+  File "/tmp/.tmp5pcOni/bindings/flatbuffers/model_docs.py", line 71, in example
+    return EXAMPLES[name]
+           ~~~~~~~~^^^^^^
+KeyError: 'LockboxAlias'
+revault-tool: generate_dart_models.py failed with exit status: 1

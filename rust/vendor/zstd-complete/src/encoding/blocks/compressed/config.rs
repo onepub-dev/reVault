@@ -129,6 +129,12 @@ impl BlockCompressionConfig {
         self.allocation_free_workspace = true;
     }
 
+    // The caller-backed path must not enter small-table search, whose owned
+    // clone-based alternatives are intentionally outside that contract.
+    pub(crate) const fn supports_workspace_entropy(self) -> bool {
+        self.c_literal_cost_model
+    }
+
     pub(crate) const fn is_allocation_free_workspace(self) -> bool {
         self.allocation_free_workspace
     }

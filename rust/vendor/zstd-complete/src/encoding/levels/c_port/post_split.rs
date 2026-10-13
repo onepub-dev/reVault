@@ -83,9 +83,12 @@ pub(super) fn encode_split_block(
     scratch: &mut PostSplitScratch,
     huffman_scratch: &mut HuffmanBuildScratch,
     fse_scratch: &mut FSETableBuildScratch,
-    mut bytes: Vec<u8>,
-) -> Result<GreedyEncodedBlock, Vec<u8>> {
-    sequence_prefixes_into(&prepared.prepared, &mut scratch.prefixes);
+    mut bytes: crate::workspace::ReusableVec<u8>,
+) -> Result<
+    Result<GreedyEncodedBlock, crate::workspace::ReusableVec<u8>>,
+    crate::workspace::CapacityError,
+> {
+    sequence_prefixes_into(&prepared.prepared, &mut scratch.prefixes)?;
     derive_block_splits_into(
         block,
         &prepared.prepared,
@@ -99,13 +102,13 @@ pub(super) fn encode_split_block(
         },
         &mut scratch.estimate,
         &mut scratch.partitions,
-    );
+    )?;
     if scratch.partitions.len() <= 1 {
         if !scratch.is_workspace_backed() {
-            return Err(bytes);
+            return Ok(Err(bytes));
         }
         scratch.partitions.clear();
-        scratch.partitions.push(prepared.prepared.sequences.len());
+        scratch.partitions.push(prepared.prepared.sequences.len())?;
     }
 
     bytes.clear();
@@ -130,7 +133,7 @@ pub(super) fn encode_split_block(
             &mut candidate_decompression_offsets,
             &mut compression_repeat_offsets,
             &mut scratch.resolved_sequences,
-        );
+        )?;
         let emission = append_stored_block_or_raw(
             chunk.source,
             last_block && last_partition,
@@ -149,11 +152,11 @@ pub(super) fn encode_split_block(
             context.offset_history,
             &mut bytes,
         );
-        if let PreparedBlockEmission::Compressed { new_huffman_table } = emission {
+        if let PreparedBlockEmission::Compressed { new_huffman_table } = emission? {
             decompression_repeat_offsets = candidate_decompression_offsets;
             if let Some(new_huffman_table) = new_huffman_table {
                 if let Some(previous) = last_huff_table.replace(new_huffman_table) {
-                    huffman_scratch.recycle_table(previous);
+                    huffman_scratch.recycle_table(previous)?;
                 }
             }
         } else {
@@ -162,11 +165,11 @@ pub(super) fn encode_split_block(
         start_seq = end_seq;
     }
 
-    Ok(GreedyEncodedBlock {
+    Ok(Ok(GreedyEncodedBlock {
         bytes,
         repeat_offsets: decompression_repeat_offsets,
         new_huffman_table: last_huff_table,
-    })
+    }))
 }
 
 fn derive_block_splits_into(
@@ -176,11 +179,11 @@ fn derive_block_splits_into(
     context: EstimateContext<'_>,
     estimate_scratch: &mut EstimateScratch,
     splits: &mut ReusableVec<usize>,
-) {
+) -> Result<(), crate::workspace::CapacityError> {
     let nb_seq = prepared.sequences.len();
     splits.clear();
     if nb_seq <= 4 {
-        return;
+        return Ok(());
     }
 
     derive_block_splits_helper(
@@ -193,13 +196,14 @@ fn derive_block_splits_into(
         context,
         estimate_scratch,
         None,
-    );
-    splits.push(nb_seq);
+    )?;
+    splits.push(nb_seq)?;
+    Ok(())
 }
 
 #[allow(clippy::too_many_arguments)]
 fn derive_block_splits_helper(
-    splits: &mut Vec<usize>,
+    splits: &mut impl crate::workspace::Growable<usize>,
     start_idx: usize,
     end_idx: usize,
     block: &[u8],
@@ -208,13 +212,15 @@ fn derive_block_splits_helper(
     context: EstimateContext<'_>,
     estimate_scratch: &mut EstimateScratch,
     known_original_size: Option<usize>,
-) {
+) -> Result<(), crate::workspace::CapacityError> {
     if end_idx - start_idx < MIN_SEQUENCES_BLOCK_SPLITTING || splits.len() >= MAX_NB_BLOCK_SPLITS {
-        return;
+        return Ok(());
     }
 
     let mid_idx = (start_idx + end_idx) / 2;
-    let original_size = known_original_size.unwrap_or_else(|| {
+    let original_size = if let Some(size) = known_original_size {
+        size
+    } else {
         estimate_partition_size_with_sequences(
             block,
             prepared,
@@ -223,8 +229,8 @@ fn derive_block_splits_helper(
             end_idx,
             context,
             estimate_scratch,
-        )
-    });
+        )?
+    };
     let first_half_size = estimate_partition_size_with_sequences(
         block,
         prepared,
@@ -233,7 +239,7 @@ fn derive_block_splits_helper(
         mid_idx,
         context,
         estimate_scratch,
-    );
+    )?;
     let second_half_size = estimate_partition_size_with_sequences(
         block,
         prepared,
@@ -242,7 +248,7 @@ fn derive_block_splits_helper(
         end_idx,
         context,
         estimate_scratch,
-    );
+    )?;
 
     if should_split(
         first_half_size,
@@ -260,8 +266,8 @@ fn derive_block_splits_helper(
             context,
             estimate_scratch,
             Some(first_half_size),
-        );
-        splits.push(mid_idx);
+        )?;
+        splits.push(mid_idx)?;
         derive_block_splits_helper(
             splits,
             mid_idx,
@@ -272,8 +278,9 @@ fn derive_block_splits_helper(
             context,
             estimate_scratch,
             Some(second_half_size),
-        );
+        )?;
     }
+    Ok(())
 }
 
 fn should_split(
@@ -303,7 +310,7 @@ fn estimate_partition_size(
     start_seq: usize,
     end_seq: usize,
     context: EstimateContext<'_>,
-) -> usize {
+) -> Result<usize, crate::workspace::CapacityError> {
     let mut scratch = EstimateScratch::new();
     estimate_partition_size_with_sequences(
         block,
@@ -324,10 +331,10 @@ fn estimate_partition_size_with_sequences(
     end_seq: usize,
     context: EstimateContext<'_>,
     scratch: &mut EstimateScratch,
-) -> usize {
+) -> Result<usize, crate::workspace::CapacityError> {
     let chunk = prepared_chunk_ref(block, prepared, prefixes, start_seq, end_seq);
     if chunk.source.is_empty() {
-        return 3;
+        return Ok(3);
     }
 
     estimate_prepared_block_size_with_sequences(
@@ -400,21 +407,25 @@ struct SequencePrefix {
     source_pos: usize,
 }
 
-fn sequence_prefixes_into(prepared: &PreparedBlock, prefixes: &mut ReusableVec<SequencePrefix>) {
+fn sequence_prefixes_into(
+    prepared: &PreparedBlock,
+    prefixes: &mut ReusableVec<SequencePrefix>,
+) -> Result<(), crate::workspace::CapacityError> {
     prefixes.clear();
     let mut prefix = SequencePrefix {
         literal_pos: 0,
         source_pos: 0,
     };
-    prefixes.push(prefix);
+    prefixes.push(prefix)?;
 
     for sequence in &prepared.sequences {
         let lit_len = sequence.ll as usize;
         let match_len = sequence.ml as usize;
         prefix.literal_pos += lit_len;
         prefix.source_pos += lit_len + match_len;
-        prefixes.push(prefix);
+        prefixes.push(prefix)?;
     }
+    Ok(())
 }
 
 fn resolved_partition_sequences_into(
@@ -422,7 +433,7 @@ fn resolved_partition_sequences_into(
     decompression_repeat_offsets: &mut RepeatOffsets,
     compression_repeat_offsets: &mut RepeatOffsets,
     resolved: &mut ReusableVec<StoredSequence>,
-) {
+) -> Result<(), crate::workspace::CapacityError> {
     resolved.clear();
     for sequence in sequences.iter().copied() {
         let original_off_base = OffBase::from_c_value(sequence.encoded_offset_value)
@@ -445,14 +456,15 @@ fn resolved_partition_sequences_into(
             sequence.ll,
             decompression_off_base,
             sequence.ml,
-        ));
+        ))?;
     }
+    Ok(())
 }
 
 #[cfg(test)]
 fn sequence_prefixes(prepared: &PreparedBlock) -> Vec<SequencePrefix> {
     let mut prefixes = ReusableVec::new();
-    sequence_prefixes_into(prepared, &mut prefixes);
+    sequence_prefixes_into(prepared, &mut prefixes).expect("test storage admission");
     prefixes.into_owned_vec()
 }
 
@@ -472,7 +484,8 @@ fn derive_block_splits(
         context,
         estimate_scratch,
         &mut splits,
-    );
+    )
+    .expect("test storage admission");
     splits.into_owned_vec()
 }
 
@@ -488,7 +501,8 @@ fn resolved_partition_sequences(
         decompression_repeat_offsets,
         compression_repeat_offsets,
         &mut resolved,
-    );
+    )
+    .expect("test storage admission");
     resolved.into_owned_vec()
 }
 
@@ -518,7 +532,8 @@ fn encode_partition(
         &mut decompression_offsets,
         &mut compression_offsets,
         &mut resolved,
-    );
+    )
+    .expect("test storage admission");
     let mut bytes = Vec::new();
     let mut huffman_scratch = HuffmanBuildScratch::new();
     let mut fse_scratch = FSETableBuildScratch::new();
@@ -539,15 +554,16 @@ fn encode_partition(
         context.fse_tables,
         context.offset_history,
         &mut bytes,
-    );
+    )
+    .expect("test storage admission");
     match emission {
         PreparedBlockEmission::Compressed { new_huffman_table } => GreedyEncodedBlock {
-            bytes,
+            bytes: crate::workspace::ReusableVec::from_owned(bytes),
             repeat_offsets: decompression_offsets,
             new_huffman_table,
         },
         PreparedBlockEmission::Raw | PreparedBlockEmission::Rle => GreedyEncodedBlock {
-            bytes,
+            bytes: crate::workspace::ReusableVec::from_owned(bytes),
             repeat_offsets,
             new_huffman_table: None,
         },

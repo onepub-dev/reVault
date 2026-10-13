@@ -14,6 +14,10 @@ const MAX_INLINE_SLOTS: usize = 48;
 #[derive(Clone, Copy)]
 pub(crate) enum Credential<'a> {
     Password(&'a SecretString),
+    PasswordWithBudget {
+        password: &'a SecretString,
+        max_derivations: u32,
+    },
     Contact(&'a ContactKeyPair),
 }
 pub(crate) struct Opened {
@@ -177,13 +181,31 @@ pub(super) fn open_in(
         return Err(Error::InvalidKey);
     }
     let slots = read_directory_in(storage, &candidate, layout)?;
+    let mut password_budget = match credential {
+        Credential::Password(password) => Some(crate::PasswordWorkBudget::default_for(password)),
+        Credential::PasswordWithBudget {
+            password,
+            max_derivations,
+        } => Some(crate::PasswordWorkBudget::new(password, max_derivations)),
+        Credential::Contact(_) => None,
+    };
     for slot in &slots {
         if requested_slot.is_some_and(|id| id != slot.id()) {
             continue;
         }
         let result = match (slot, credential) {
-            (KeySlot::Password { .. }, Credential::Password(password)) => {
-                slot.try_password(password)
+            (
+                KeySlot::Password { .. },
+                Credential::Password(_) | Credential::PasswordWithBudget { .. },
+            ) => {
+                let Some(bytes) = password_budget
+                    .as_mut()
+                    .expect("password credential budget")
+                    .try_slot(slot)?
+                else {
+                    continue;
+                };
+                Ok(bytes)
             }
             (KeySlot::HybridContact { .. }, Credential::Contact(contact)) => {
                 slot.try_contact(contact)
@@ -192,7 +214,8 @@ pub(super) fn open_in(
         };
         let decoded = match result {
             Ok(bytes) => ZeroizingBytes::new(bytes),
-            Err(_) => continue,
+            Err(Error::InvalidKey) => continue,
+            Err(err) => return Err(err),
         };
         if decoded.len() != 32 {
             continue;

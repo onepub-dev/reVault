@@ -1,0 +1,1 @@
+Only a standalone [workspace] resolver = "3" was appended to the copied vendor Cargo.toml. Dependency/version data was copied from the worktree and not changed. rustc-dep-of-std intentionally excluded because it requires the compiler-internal rustc toolchain. These checks are compiler-only; no test executable is run.

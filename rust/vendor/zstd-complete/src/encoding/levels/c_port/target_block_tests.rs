@@ -47,8 +47,9 @@ fn target_block_uses_huffman_literals_for_sequence_block() {
             fse_tables: &mut fse_tables,
             offset_history: &mut offset_history,
         },
-        Vec::new(),
-    );
+        crate::workspace::ReusableVec::from_owned(Vec::new()),
+    )
+    .expect("test storage admission");
     let (last_block, block_type, block_size) = parse_block_header(&encoded.bytes);
 
     assert!(last_block);
@@ -81,8 +82,9 @@ fn fastish_target_block_prefers_valid_previous_huffman_table() {
             fse_tables: &mut fse_tables,
             offset_history: &mut offset_history,
         },
-        Vec::new(),
-    );
+        crate::workspace::ReusableVec::from_owned(Vec::new()),
+    )
+    .expect("test storage admission");
     let (_, block_type, block_size) = parse_block_header(&encoded.bytes);
     assert_eq!(block_type, BlockType::Compressed);
     assert_eq!(block_size as usize, encoded.bytes.len() - 3);
@@ -116,8 +118,9 @@ fn target_block_splits_huffman_literal_sequence_block_by_target_size() {
             fse_tables: &mut fse_tables,
             offset_history: &mut offset_history,
         },
-        Vec::new(),
-    );
+        crate::workspace::ReusableVec::from_owned(Vec::new()),
+    )
+    .expect("test storage admission");
     let headers = parse_block_headers(&encoded.bytes);
 
     assert!(headers.len() > 1);
@@ -158,8 +161,9 @@ fn target_block_emits_zero_literal_raw_sections_inside_huffman_superblock() {
             fse_tables: &mut fse_tables,
             offset_history: &mut offset_history,
         },
-        Vec::new(),
-    );
+        crate::workspace::ReusableVec::from_owned(Vec::new()),
+    )
+    .expect("test storage admission");
     let headers = parse_block_headers(&encoded.bytes);
 
     assert!(
@@ -197,8 +201,9 @@ fn target_block_splits_basic_literal_sequence_block_by_target_size() {
             fse_tables: &mut fse_tables,
             offset_history: &mut offset_history,
         },
-        Vec::new(),
-    );
+        crate::workspace::ReusableVec::from_owned(Vec::new()),
+    )
+    .expect("test storage admission");
     let headers = parse_block_headers(&encoded.bytes);
 
     assert!(headers.len() > 1);
@@ -261,8 +266,9 @@ fn target_block_emits_raw_tail_when_final_subblock_is_not_worthwhile() {
             fse_tables: &mut fse_tables,
             offset_history: &mut offset_history,
         },
-        Vec::new(),
-    );
+        crate::workspace::ReusableVec::from_owned(Vec::new()),
+    )
+    .expect("test storage admission");
     let headers = parse_block_headers(&encoded.bytes);
 
     assert!(headers.len() > 1);
@@ -279,13 +285,13 @@ fn target_block_uses_rle_shortcut_when_policy_allows_it() {
     let data = [0x5A; 64];
     let prepared = GreedyPreparedBlock {
         prepared: PreparedBlock {
-            literals: vec![0x5A],
-            sequences: vec![PreparedSequence {
+            literals: crate::workspace::ReusableVec::from_owned(vec![0x5A]),
+            sequences: crate::workspace::ReusableVec::from_owned(vec![PreparedSequence {
                 ll: 1,
                 ml: 63,
                 raw_offset: 1,
                 encoded_offset_value: 0,
-            }],
+            }]),
         },
         repeat_offsets: RepeatOffsets::new(),
     };
@@ -307,8 +313,9 @@ fn target_block_uses_rle_shortcut_when_policy_allows_it() {
             fse_tables: &mut fse_tables,
             offset_history: &mut offset_history,
         },
-        Vec::new(),
-    );
+        crate::workspace::ReusableVec::from_owned(Vec::new()),
+    )
+    .expect("test storage admission");
     let (last_block, block_type, block_size) = parse_block_header(&encoded.bytes);
 
     assert!(last_block);
@@ -324,8 +331,8 @@ fn target_block_rle_shortcut_requires_c_maybe_rle_shape() {
     let data = [0x5A; 64];
     let prepared = GreedyPreparedBlock {
         prepared: PreparedBlock {
-            literals: data.to_vec(),
-            sequences: Vec::new(),
+            literals: crate::workspace::ReusableVec::from_owned(data.to_vec()),
+            sequences: crate::workspace::ReusableVec::from_owned(Vec::new()),
         },
         repeat_offsets: RepeatOffsets::new(),
     };
@@ -347,8 +354,9 @@ fn target_block_rle_shortcut_requires_c_maybe_rle_shape() {
             fse_tables: &mut fse_tables,
             offset_history: &mut offset_history,
         },
-        Vec::new(),
-    );
+        crate::workspace::ReusableVec::from_owned(Vec::new()),
+    )
+    .expect("test storage admission");
     let (_, block_type, _) = parse_block_header(&encoded.bytes);
 
     assert_ne!(block_type, BlockType::RLE);
@@ -366,7 +374,7 @@ fn target_acceptance_rejects_candidate_without_c_minimum_gain() {
     let mut offset_history = OffsetHistory::new();
     let previous_offsets = offset_history;
     let encoded = GreedyEncodedBlock {
-        bytes: vec![0; data.len()],
+        bytes: crate::workspace::ReusableVec::from_owned(vec![0; data.len()]),
         repeat_offsets: RepeatOffsets::new(),
         new_huffman_table: None,
     };
@@ -384,7 +392,8 @@ fn target_acceptance_rejects_candidate_without_c_minimum_gain() {
             previous_fse,
             previous_offsets,
         },
-    );
+    )
+    .expect("test storage admission");
     let (last_block, block_type, block_size) = parse_block_header(&fallback.bytes);
 
     assert!(last_block);

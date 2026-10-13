@@ -1,0 +1,37 @@
+   Compiling async-io v2.6.0
+   Compiling module-lattice v0.2.3
+   Compiling zstd-complete v0.2.0 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/vendor/zstd-complete)
+   Compiling ml-kem v0.3.2
+   Compiling ml-dsa v0.1.1
+   Compiling async-signal v0.2.14
+   Compiling async-process v2.5.0
+   Compiling zbus v5.19.0
+   Compiling revault_lockbox_api v0.0.41 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api)
+   Compiling secret-service v5.1.0
+warning: associated function `new` is never used
+  --> revault_lockbox_api/src/compression/encode_workspace.rs:63:19
+   |
+62 | impl EncoderFrame {
+   | ----------------- associated function in this implementation
+63 |     pub(crate) fn new(input: &[u8], probe: bool) -> Self {
+   |                   ^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: function `encode_compression_frame_manifest` is never used
+  --> revault_lockbox_api/src/model/compression_frame_manifest.rs:49:15
+   |
+49 | pub(crate) fn encode_compression_frame_manifest(
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+   Compiling revault_vault_api v0.0.42 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_vault_api)
+warning: `revault_lockbox_api` (lib) generated 2 warnings
+   Compiling revault_bindings v0.2.23 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_bindings)
+    Finished `release` profile [optimized] target(s) in 42.58s
+     Running unittests src/lib.rs (target/release/deps/revault_api-d9443ccd5a9e6798)
+
+running 1 test
+test tests::password_budget_and_private_extraction_abi_lifecycle ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.47s
+

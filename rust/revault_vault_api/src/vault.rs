@@ -77,7 +77,11 @@ impl<S: ContentKeyStore> Vault<S> {
         ttl_seconds: u64,
     ) -> Result<()> {
         let path = path.as_ref();
-        let opened = open_path_or_backup_with_password(path, password)?;
+        let opened = open_path_or_backup_with_password(
+            path,
+            password,
+            revault_lockbox_api::DEFAULT_PASSWORD_SLOT_BUDGET,
+        )?;
         self.store.put_content_key_for_path_with_ttl(
             opened.lockbox_id,
             opened.try_clone_key()?,
@@ -217,8 +221,27 @@ impl<S: ContentKeyStore> Vault<S> {
         password: &SecretString,
         ttl_seconds: Option<u64>,
     ) -> Result<()> {
+        self.open_password_read_only_with_budget(
+            path,
+            password,
+            ttl_seconds,
+            revault_lockbox_api::DEFAULT_PASSWORD_SLOT_BUDGET,
+        )
+    }
+
+    /// Explicit KDF work admission for a trusted archive with many password slots.
+    pub fn open_password_read_only_with_budget(
+        &self,
+        path: impl AsRef<Path>,
+        password: &SecretString,
+        ttl_seconds: Option<u64>,
+        max_derivations: u32,
+    ) -> Result<()> {
         let path = path.as_ref();
-        let opened = VaultOpen::path_with_password(path, password)?;
+        let opened = VaultOpen::path_with_password_budget(
+            path,
+            &mut revault_lockbox_api::PasswordWorkBudget::new(password, max_derivations),
+        )?;
         let key = opened.try_clone_key()?;
         let lockbox = opened.open_path(path)?;
         match ttl_seconds {
@@ -259,6 +282,7 @@ impl<S: ContentKeyStore> Vault<S> {
         signing_key: &OwnerSigningKeyPair,
     ) -> Result<Lockbox> {
         let path = path.as_ref();
+        let password_limit = password_work_limit(&open);
         match open {
             LockboxOpen::Unencrypted => {
                 Lockbox::open_for_write(path, LockboxOpen::Unencrypted, signing_key)
@@ -271,29 +295,21 @@ impl<S: ContentKeyStore> Vault<S> {
                     .put_content_key_for_path(lockbox.lockbox_id(), store_key, path)?;
                 Ok(lockbox)
             }
-            LockboxOpen::Password(password) => {
-                let opened = open_path_or_backup_with_password(path, password)?;
-                self.store.put_content_key_for_path(
-                    opened.lockbox_id,
-                    opened.try_clone_key()?,
-                    path,
-                )?;
-                opened.open_path_for_write(path, signing_key)
+            LockboxOpen::Password(password) | LockboxOpen::PasswordWithBudget { password, .. } => {
+                let opened = open_path_or_backup_with_password(path, password, password_limit)?;
+                let store_key = opened.try_clone_key()?;
+                let lockbox = opened.open_path_for_write(path, signing_key)?;
+                self.store
+                    .put_content_key_for_path(lockbox.lockbox_id(), store_key, path)?;
+                Ok(lockbox)
             }
             LockboxOpen::ContactKeyPair(contact) => {
                 let opened = open_path_or_backup_with_contact(path, &contact)?;
-                self.store.put_content_key_for_path(
-                    opened.lockbox_id,
-                    opened.try_clone_key()?,
-                    path,
-                )?;
-                match opened.open_path_for_write(path, signing_key) {
-                    Ok(lockbox) => Ok(lockbox),
-                    Err(Error::InvalidOperation(_)) => {
-                        self.open_cached_with_signing_key(path, signing_key)
-                    }
-                    Err(err) => Err(err),
-                }
+                let store_key = opened.try_clone_key()?;
+                let lockbox = opened.open_path_for_write(path, signing_key)?;
+                self.store
+                    .put_content_key_for_path(lockbox.lockbox_id(), store_key, path)?;
+                Ok(lockbox)
             }
         }
     }
@@ -319,7 +335,8 @@ impl<S: ContentKeyStore> Vault<S> {
         open: LockboxOpen<'_>,
         ttl_seconds: Option<u64>,
     ) -> Result<Lockbox> {
-        let key = match open {
+        let password_limit = password_work_limit(&open);
+        let (key, opened) = match open {
             LockboxOpen::Unencrypted => {
                 return Lockbox::open_for_write(
                     path,
@@ -327,19 +344,24 @@ impl<S: ContentKeyStore> Vault<S> {
                     revault_lockbox_api::Signing::None,
                 )
             }
-            LockboxOpen::ContentKey(key) => key,
-            LockboxOpen::Password(password) => {
-                open_path_or_backup_with_password(path, password)?.try_clone_key()?
+            LockboxOpen::ContentKey(key) => (key, None),
+            LockboxOpen::Password(password) | LockboxOpen::PasswordWithBudget { password, .. } => {
+                let opened = open_path_or_backup_with_password(path, password, password_limit)?;
+                (opened.try_clone_key()?, Some(opened))
             }
             LockboxOpen::ContactKeyPair(contact) => {
-                open_path_or_backup_with_contact(path, &contact)?.try_clone_key()?
+                let opened = open_path_or_backup_with_contact(path, &contact)?;
+                (opened.try_clone_key()?, Some(opened))
             }
         };
-        let lockbox = Lockbox::open_for_write(
-            path,
-            LockboxOpen::ContentKey(key.try_clone()?),
-            revault_lockbox_api::Signing::None,
-        )?;
+        let lockbox = match opened {
+            Some(opened) => opened.open_path_for_write(path, revault_lockbox_api::Signing::None)?,
+            None => Lockbox::open_for_write(
+                path,
+                LockboxOpen::ContentKey(key.try_clone()?),
+                revault_lockbox_api::Signing::None,
+            )?,
+        };
         match ttl_seconds {
             Some(ttl) => self.store.put_content_key_for_path_with_ttl(
                 lockbox.lockbox_id(),
@@ -364,6 +386,7 @@ impl<S: ContentKeyStore> Vault<S> {
         signing_key: &OwnerSigningKeyPair,
     ) -> Result<Lockbox> {
         let path = path.as_ref();
+        let password_limit = password_work_limit(&open);
         match open {
             LockboxOpen::Unencrypted => {
                 Lockbox::open_for_write(path, LockboxOpen::Unencrypted, signing_key)
@@ -380,8 +403,8 @@ impl<S: ContentKeyStore> Vault<S> {
                 )?;
                 Ok(lockbox)
             }
-            LockboxOpen::Password(password) => {
-                let opened = open_path_or_backup_with_password(path, password)?;
+            LockboxOpen::Password(password) | LockboxOpen::PasswordWithBudget { password, .. } => {
+                let opened = open_path_or_backup_with_password(path, password, password_limit)?;
                 let lockbox_id = opened.lockbox_id;
                 let store_key = opened.try_clone_key()?;
                 let lockbox = opened.open_path_for_write(path, signing_key)?;
@@ -397,35 +420,16 @@ impl<S: ContentKeyStore> Vault<S> {
                 let opened = open_path_or_backup_with_contact(path, &contact)?;
                 let lockbox_id = opened.lockbox_id;
                 let store_key = opened.try_clone_key()?;
+                let lockbox = opened.open_path_for_write(path, signing_key)?;
                 self.store.put_content_key_for_path_with_ttl(
                     lockbox_id,
                     store_key,
                     path,
                     ttl_seconds,
                 )?;
-                match opened.open_path_for_write(path, signing_key) {
-                    Ok(lockbox) => Ok(lockbox),
-                    Err(Error::InvalidOperation(_)) => {
-                        self.open_cached_with_signing_key(path, signing_key)
-                    }
-                    Err(err) => Err(err),
-                }
+                Ok(lockbox)
             }
         }
-    }
-
-    fn open_cached_with_signing_key(
-        &self,
-        path: &Path,
-        signing_key: &OwnerSigningKeyPair,
-    ) -> Result<Lockbox> {
-        let lockbox_id = VaultOpen::read_lockbox_id(path)?;
-        let Some(key) = self.store.get_content_key(lockbox_id)? else {
-            return Err(Error::VaultUnavailable(format!(
-                "no cached content key for lockbox {lockbox_id}"
-            )));
-        };
-        Lockbox::open_for_write(path, LockboxOpen::ContentKey(key), signing_key)
     }
 
     /// Removes this lockbox's cached content key from the store.
@@ -527,20 +531,36 @@ fn load_owner_signing_key_with_password(
     Ok(Some(signing_key))
 }
 
+fn password_work_limit(open: &LockboxOpen<'_>) -> u32 {
+    match open {
+        LockboxOpen::PasswordWithBudget {
+            max_derivations, ..
+        } => *max_derivations,
+        _ => revault_lockbox_api::DEFAULT_PASSWORD_SLOT_BUDGET,
+    }
+}
+
 fn open_path_or_backup_with_password(
     path: &Path,
     password: &SecretString,
+    max_derivations: u32,
 ) -> Result<OpenedContentKey> {
-    match VaultOpen::path_with_password(path, password) {
+    let mut budget = revault_lockbox_api::PasswordWorkBudget::new(password, max_derivations);
+    match VaultOpen::path_with_password_budget(path, &mut budget) {
         Ok(opened) => Ok(opened),
+        Err(err @ Error::SecurityLimitExceeded(_)) => Err(err),
         Err(primary_err) => {
             let lockbox_id = VaultOpen::read_lockbox_id(path).map_err(|_| primary_err.clone())?;
             let vault_password = vault_password_from_env().map_err(|_| primary_err.clone())?;
             let backup = VaultDirectory::open_or_create_default(&vault_password)
                 .and_then(|vault| vault.load_key_directory_backup(lockbox_id))
                 .map_err(|_| primary_err.clone())?;
-            VaultOpen::key_directory_backup_with_password(&backup, password)
-                .map_err(|_| primary_err)
+            VaultOpen::key_directory_backup_with_password_budget(&backup, &mut budget).map_err(
+                |err| match err {
+                    Error::SecurityLimitExceeded(_) => err,
+                    _ => primary_err,
+                },
+            )
         }
     }
 }

@@ -8,8 +8,8 @@ use alloc::{vec, vec::Vec};
 #[test]
 fn best_split_mid_biases_toward_balanced_decompressed_bytes() {
     let prepared = PreparedBlock {
-        literals: vec![0; 103],
-        sequences: vec![
+        literals: crate::workspace::ReusableVec::from_owned(vec![0; 103]),
+        sequences: crate::workspace::ReusableVec::from_owned(vec![
             PreparedSequence {
                 ll: 100,
                 ml: 100,
@@ -34,7 +34,7 @@ fn best_split_mid_biases_toward_balanced_decompressed_bytes() {
                 raw_offset: 4,
                 encoded_offset_value: 0,
             },
-        ],
+        ]),
     };
 
     assert_eq!(best_split_mid_by_decompressed_bytes(prepared.as_ref()), 1);
@@ -43,8 +43,8 @@ fn best_split_mid_biases_toward_balanced_decompressed_bytes() {
 #[test]
 fn best_split_mid_keeps_even_sequences_centered() {
     let prepared = PreparedBlock {
-        literals: vec![0; 8],
-        sequences: vec![
+        literals: crate::workspace::ReusableVec::from_owned(vec![0; 8]),
+        sequences: crate::workspace::ReusableVec::from_owned(vec![
             PreparedSequence {
                 ll: 2,
                 ml: 2,
@@ -69,7 +69,7 @@ fn best_split_mid_keeps_even_sequences_centered() {
                 raw_offset: 4,
                 encoded_offset_value: 0,
             },
-        ],
+        ]),
     };
 
     assert_eq!(best_split_mid_by_decompressed_bytes(prepared.as_ref()), 2);
@@ -94,8 +94,8 @@ fn derive_best_partitions_respects_partition_budget() {
         sequence_count
     ];
     let prepared = PreparedBlock {
-        literals,
-        sequences,
+        literals: crate::workspace::ReusableVec::from_owned(literals),
+        sequences: crate::workspace::ReusableVec::from_owned(sequences),
     };
     let data = vec![0u8; sequence_count * 4];
     let whole_range = PreparedRange {

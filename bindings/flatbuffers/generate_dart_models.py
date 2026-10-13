@@ -182,7 +182,7 @@ def generate() -> str:
         "FormDefinitionList": "FormDefinition",
         "FormRecordList": "FormRecord",
         "ContactList": "Contact",
-        "KnownLockboxList": "KnownLockbox",
+        "LockboxAliasList": "LockboxAlias", "KnownLockboxList": "KnownLockbox",
         "AccessSlotLabelList": "AccessSlotLabel",
         "AgentEntryList": "AgentEntry",
         "ProfileHistoryList": "ProfileHistory",

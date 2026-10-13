@@ -1,0 +1,1 @@
+cargo test process exited 101 at 2026-10-12T23:40:20Z; first failing target tests/cli_flow terminated full package run; no remaining CLI test executables were launched.

@@ -1,0 +1,36 @@
+
+running 7 tests
+test lockbox::extraction::tests::checked_destination_rejects_existing_symlink_parent ... ok
+test lockbox::extraction::tests::extract_directory_to_writes_only_the_selected_subtree ... FAILED
+test lockbox::extraction::tests::last_use_retirement_preserves_later_shared_frames_pages_and_parent ... ok
+test lockbox::extraction::tests::parallel_extraction_rejects_existing_symlink_parent ... ok
+test lockbox::extraction::tests::private_tree_publication_preserves_nested_files ... FAILED
+test lockbox::extraction::tests::protected_compressed_parallel_extraction_preserves_all_file_bytes ... FAILED
+test lockbox::extraction::tests::sequential_extraction_rejects_existing_symlink_parent ... ok
+
+failures:
+
+---- lockbox::extraction::tests::extract_directory_to_writes_only_the_selected_subtree stdout ----
+
+thread 'lockbox::extraction::tests::extract_directory_to_writes_only_the_selected_subtree' panicked at revault_lockbox_api/src/lockbox/extraction.rs:553:14:
+called `Result::unwrap()` on an `Err` value: Io("Bad file descriptor (os error 9)")
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- lockbox::extraction::tests::private_tree_publication_preserves_nested_files stdout ----
+
+thread 'lockbox::extraction::tests::private_tree_publication_preserves_nested_files' panicked at revault_lockbox_api/src/lockbox/extraction.rs:527:29:
+called `Result::unwrap()` on an `Err` value: Os { code: 9, kind: Uncategorized, message: "Bad file descriptor" }
+
+---- lockbox::extraction::tests::protected_compressed_parallel_extraction_preserves_all_file_bytes stdout ----
+
+thread 'lockbox::extraction::tests::protected_compressed_parallel_extraction_preserves_all_file_bytes' panicked at revault_lockbox_api/src/lockbox/extraction.rs:838:60:
+called `Result::unwrap()` on an `Err` value: Io("Bad file descriptor (os error 9)")
+
+
+failures:
+    lockbox::extraction::tests::extract_directory_to_writes_only_the_selected_subtree
+    lockbox::extraction::tests::private_tree_publication_preserves_nested_files
+    lockbox::extraction::tests::protected_compressed_parallel_extraction_preserves_all_file_bytes
+
+test result: FAILED. 4 passed; 3 failed; 0 ignored; 0 measured; 712 filtered out; finished in 0.13s
+

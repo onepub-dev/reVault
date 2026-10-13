@@ -1,0 +1,54 @@
+   Compiling hybrid-array v0.4.15
+   Compiling zbus v5.19.0
+   Compiling rustls v0.23.45
+   Compiling tempfile v3.27.0
+warning: revault_key_server@0.0.37: reVault key/topology server production operation requires a separate commercial license from OnePub IP Pty Ltd; see revault_key_server/LICENSE
+   Compiling crypto-common v0.2.2
+   Compiling block-buffer v0.12.1
+   Compiling inout v0.2.2
+   Compiling module-lattice v0.2.3
+   Compiling digest v0.11.3
+   Compiling universal-hash v0.6.1
+   Compiling cipher v0.5.2
+   Compiling aead v0.6.1
+   Compiling kem v0.3.0
+   Compiling poly1305 v0.9.1
+   Compiling sha2 v0.11.0
+   Compiling signature v3.0.0
+   Compiling shake v0.1.0
+   Compiling sha3 v0.11.0
+   Compiling hmac v0.13.0
+   Compiling curve25519-dalek v5.0.0
+   Compiling blake2 v0.11.0
+   Compiling ml-dsa v0.1.1
+   Compiling ed25519 v3.0.0
+   Compiling chacha20 v0.10.2
+   Compiling hkdf v0.13.0
+   Compiling argon2 v0.6.0
+   Compiling chacha20poly1305 v0.11.0
+   Compiling ml-kem v0.3.2
+   Compiling revault_migration_format v0.0.35 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_migration_format)
+   Compiling ed25519-dalek v3.0.0
+   Compiling x25519-dalek v3.0.0
+   Compiling revault_lockbox_api v0.0.41 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api)
+   Compiling revault_archive_v3_reader v0.0.1 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_migrate_archive_v3/legacy)
+   Compiling revault_lockbox_api v0.0.6
+   Compiling revault_lockbox_api v0.0.9
+   Compiling revault_lockbox_api v0.0.2
+   Compiling revault_lockbox_api v0.0.3
+   Compiling ureq v3.4.1
+   Compiling lettre v0.11.23
+   Compiling secret-service v5.1.0
+   Compiling revault_publish_protocol v0.0.35 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_publish_protocol)
+   Compiling zbus-secret-service-keyring-store v1.0.1
+   Compiling keyring v4.2.0
+   Compiling revault_key_server v0.0.37 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_key_server)
+   Compiling revault_vault_api v0.0.10
+   Compiling revault_vault_api v0.0.6
+   Compiling revault_vault_api v0.0.42 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_vault_api)
+   Compiling revault_vault_v3_reader v0.0.1 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_migrate_archive_v3/legacy_vault)
+   Compiling revault_vault_api v0.0.2
+   Compiling revault_migration v0.0.39 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_migration)
+   Compiling revault_cli v0.5.0-dev.1 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_cli)
+    Finished `release` profile [optimized] target(s) in 1m 11s
+     Running tests/mirror_cli.rs (target/release/deps/mirror_cli-0c893f8ea3b8dd5b)

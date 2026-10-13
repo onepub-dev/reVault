@@ -1,0 +1,12 @@
+node: unavailable
+php: unavailable
+ruby: unavailable
+go: unavailable
+swift: unavailable
+g++: /usr/bin/g++
+clang++: unavailable
+cmake: unavailable
+gradle: /opt/gradle/latest/bin/gradle
+java: /usr/bin/java
+javac: /usr/bin/javac
+gcc: /usr/bin/gcc

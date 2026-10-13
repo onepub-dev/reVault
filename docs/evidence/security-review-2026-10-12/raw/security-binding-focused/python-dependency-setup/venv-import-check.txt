@@ -1,0 +1,2 @@
+/tmp/revault-python-conformance-20261013/lib/python3.14/site-packages/flatbuffers/__init__.py
+25.2.10

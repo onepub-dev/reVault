@@ -15,6 +15,8 @@ fn retain(kind: &str, version: u32, writer: &str, bytes: &[u8], coverage: &[&str
     let container = revault_lockbox_api::probe_lockbox_format_version(bytes).unwrap();
     let name = if kind == "vault" && version == 2 && container == 1 {
         "vault-v2-container-v1".to_string()
+    } else if kind == "vault" && version == 3 && container == 4 {
+        "vault-v3-container-v4".to_string()
     } else {
         format!("{kind}-v{version}")
     };
@@ -161,6 +163,48 @@ archive_generator!(
     true
 );
 
+fn producer_package_version(manifest: &str) -> &str {
+    let mut in_package = false;
+    for line in manifest.lines().map(str::trim) {
+        if line.starts_with('[') {
+            in_package = line == "[package]";
+        } else if in_package {
+            if let Some((key, value)) = line.split_once('=') {
+                if key.trim() == "version" {
+                    let version = value
+                        .trim()
+                        .strip_prefix('"')
+                        .and_then(|value| value.strip_suffix('"'))
+                        .expect("fixture producer requires a literal package version");
+                    assert!(
+                        !version.is_empty()
+                            && version
+                                .bytes()
+                                .all(|b| b.is_ascii_alphanumeric() || b".-+".contains(&b))
+                    );
+                    return version;
+                }
+            }
+        }
+    }
+    panic!("fixture producer package version is missing");
+}
+
+fn current_writer() -> String {
+    // The runner preserves the producing source patch and manifest identity.
+    // Read versions from those compiled manifests, not release-sensitive literals.
+    let identity = std::env::var("REVAULT_FIXTURE_SOURCE_SHA256")
+        .expect("record the exact producing source manifest SHA-256");
+    assert!(identity.len() == 64 && identity.bytes().all(|b| b.is_ascii_hexdigit()));
+    let api_version =
+        producer_package_version(include_str!("../../../revault_lockbox_api/Cargo.toml"));
+    let vault_version =
+        producer_package_version(include_str!("../../../revault_vault_api/Cargo.toml"));
+    format!("revault_lockbox_api {api_version}; revault_vault_api {vault_version} (workspace); source-manifest SHA-256 {identity}")
+}
+
+archive_generator!(archive_v4, revault_lockbox_api, 4, &current_writer(), true);
+
 macro_rules! vault_generator {
     ($function:ident, $vault:ident, $api:ident, $version:expr, $writer:expr, $email:ident $(, $password_profile:ident)?) => {
         fn $function() {
@@ -228,11 +272,21 @@ vault_generator!(
     store_profile_email
 );
 
+vault_generator!(
+    vault_v3_container_v4,
+    revault_vault_api,
+    revault_lockbox_api,
+    3,
+    &current_writer(),
+    store_profile_email,
+    create_password_profile
+);
+
 #[test]
 #[ignore = "explicit fixture creation only; refuses to overwrite retained bytes"]
 fn append_retained_fixture() {
-    let name =
-        std::env::var("REVAULT_APPEND_FIXTURE").expect("select archive-v1..v3 or vault-v1..v3");
+    let name = std::env::var("REVAULT_APPEND_FIXTURE")
+        .expect("select an explicitly registered archive/vault fixture");
     assert!(
         !root().join(&name).exists(),
         "refusing to overwrite retained fixture directory"
@@ -244,11 +298,24 @@ fn append_retained_fixture() {
             assert_eq!(LOCKBOX_FORMAT_VERSION, 3);
             archive_v3();
         }
+        "archive-v4" => {
+            assert_eq!(LOCKBOX_FORMAT_VERSION, 4);
+            archive_v4();
+        }
+        "vault-v3-container-v4" => {
+            assert_eq!(CURRENT_VAULT_STRUCTURE_VERSION, 3);
+            assert_eq!(LOCKBOX_FORMAT_VERSION, 4);
+            vault_v3_container_v4();
+        }
         "vault-v1" => vault_v1(),
         "vault-v2" => vault_v2(),
         "vault-v2-container-v1" => vault_v2_container_v1(),
         "vault-v3" => {
             assert_eq!(CURRENT_VAULT_STRUCTURE_VERSION, 3);
+            assert_eq!(
+                LOCKBOX_FORMAT_VERSION, 3,
+                "historical generator requires its original container writer"
+            );
             vault_v3();
         }
         _ => panic!("add an explicit writer and coverage inventory for the new native version"),

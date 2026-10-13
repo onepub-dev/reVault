@@ -1,0 +1,1 @@
+/usr/bin/timeout --kill-after=30s 900s cargo +1.88.0 test --locked --offline --release -p revault_cli --test cli_flow read_only_archive_supports_cli_listing_and_byte_exact_extraction -- --test-threads=1

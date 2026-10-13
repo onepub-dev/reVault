@@ -23,16 +23,18 @@ pub(crate) fn compress_block_greedy_ext_dict_with_state(
     repeat_offsets: RepeatOffsets,
     state: &mut GreedyMatchState,
     loaded_dict_end: usize,
-) -> GreedyBlockOutput {
-    compress_block_hash_or_row_ext_dict_with_state::<0>(
-        src,
-        block_range,
-        dict_limit,
-        params,
-        repeat_offsets,
-        state,
-        loaded_dict_end,
-    )
+) -> Result<GreedyBlockOutput, crate::workspace::CapacityError> {
+    Ok({
+        compress_block_hash_or_row_ext_dict_with_state::<0>(
+            src,
+            block_range,
+            dict_limit,
+            params,
+            repeat_offsets,
+            state,
+            loaded_dict_end,
+        )?
+    })
 }
 
 pub(crate) fn compress_block_lazy_ext_dict_with_state(
@@ -43,16 +45,18 @@ pub(crate) fn compress_block_lazy_ext_dict_with_state(
     repeat_offsets: RepeatOffsets,
     state: &mut GreedyMatchState,
     loaded_dict_end: usize,
-) -> GreedyBlockOutput {
-    compress_block_hash_or_row_ext_dict_with_state::<1>(
-        src,
-        block_range,
-        dict_limit,
-        params,
-        repeat_offsets,
-        state,
-        loaded_dict_end,
-    )
+) -> Result<GreedyBlockOutput, crate::workspace::CapacityError> {
+    Ok({
+        compress_block_hash_or_row_ext_dict_with_state::<1>(
+            src,
+            block_range,
+            dict_limit,
+            params,
+            repeat_offsets,
+            state,
+            loaded_dict_end,
+        )?
+    })
 }
 
 pub(crate) fn compress_block_lazy2_ext_dict_with_state(
@@ -63,16 +67,18 @@ pub(crate) fn compress_block_lazy2_ext_dict_with_state(
     repeat_offsets: RepeatOffsets,
     state: &mut GreedyMatchState,
     loaded_dict_end: usize,
-) -> GreedyBlockOutput {
-    compress_block_hash_or_row_ext_dict_with_state::<2>(
-        src,
-        block_range,
-        dict_limit,
-        params,
-        repeat_offsets,
-        state,
-        loaded_dict_end,
-    )
+) -> Result<GreedyBlockOutput, crate::workspace::CapacityError> {
+    Ok({
+        compress_block_hash_or_row_ext_dict_with_state::<2>(
+            src,
+            block_range,
+            dict_limit,
+            params,
+            repeat_offsets,
+            state,
+            loaded_dict_end,
+        )?
+    })
 }
 
 pub(crate) fn compress_block_btlazy2_ext_dict_with_state(
@@ -83,15 +89,17 @@ pub(crate) fn compress_block_btlazy2_ext_dict_with_state(
     repeat_offsets: RepeatOffsets,
     state: &mut GreedyMatchState,
     loaded_dict_end: usize,
-) -> GreedyBlockOutput {
-    compress_block_lazy_generic_with_state::<SEARCH_BINARY_TREE, 2>(
-        src,
-        block_range.clone(),
-        params,
-        repeat_offsets,
-        state,
-        LazyDictionaryBounds::ext_dict(block_range.end, dict_limit, params, loaded_dict_end),
-    )
+) -> Result<GreedyBlockOutput, crate::workspace::CapacityError> {
+    Ok({
+        compress_block_lazy_generic_with_state::<SEARCH_BINARY_TREE, 2>(
+            src,
+            block_range.clone(),
+            params,
+            repeat_offsets,
+            state,
+            LazyDictionaryBounds::ext_dict(block_range.end, dict_limit, params, loaded_dict_end),
+        )?
+    })
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -107,20 +115,22 @@ pub(crate) fn compress_block_greedy_attached_row_dict_with_state<'a>(
     dictionary_state: &'a GreedyMatchState,
     dictionary_params: CompressionParameters,
     dictionary_index_start: usize,
-) -> GreedyBlockOutput {
-    compress_block_attached_row_dict_with_state::<0>(
-        src,
-        block_range,
-        active_dict_limit,
-        active_prefix_start,
-        params,
-        repeat_offsets,
-        state,
-        dictionary_src,
-        dictionary_state,
-        dictionary_params,
-        dictionary_index_start,
-    )
+) -> Result<GreedyBlockOutput, crate::workspace::CapacityError> {
+    Ok({
+        compress_block_attached_row_dict_with_state::<0>(
+            src,
+            block_range,
+            active_dict_limit,
+            active_prefix_start,
+            params,
+            repeat_offsets,
+            state,
+            dictionary_src,
+            dictionary_state,
+            dictionary_params,
+            dictionary_index_start,
+        )?
+    })
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -136,24 +146,26 @@ pub(crate) fn compress_block_attached_row_dict_with_state<'a, const DEPTH: u32>(
     dictionary_state: &'a GreedyMatchState,
     dictionary_params: CompressionParameters,
     dictionary_index_start: usize,
-) -> GreedyBlockOutput {
-    debug_assert!(row_match_finder_enabled(params));
-    compress_block_lazy_generic_with_state_and_attached::<SEARCH_ROW_HASH, DEPTH>(
-        src,
-        block_range.clone(),
-        params,
-        repeat_offsets,
-        state,
-        LazyDictionaryBounds::no_dict(block_range.end, params, active_dict_limit),
-        AttachedDictionarySearch {
-            src: dictionary_src,
-            state: dictionary_state,
-            params: dictionary_params,
-            dictionary_index_start,
-            active_dict_limit,
-            active_prefix_start,
-        },
-    )
+) -> Result<GreedyBlockOutput, crate::workspace::CapacityError> {
+    Ok({
+        debug_assert!(row_match_finder_enabled(params));
+        compress_block_lazy_generic_with_state_and_attached::<SEARCH_ROW_HASH, DEPTH>(
+            src,
+            block_range.clone(),
+            params,
+            repeat_offsets,
+            state,
+            LazyDictionaryBounds::no_dict(block_range.end, params, active_dict_limit),
+            AttachedDictionarySearch {
+                src: dictionary_src,
+                state: dictionary_state,
+                params: dictionary_params,
+                dictionary_index_start,
+                active_dict_limit,
+                active_prefix_start,
+            },
+        )?
+    })
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -169,24 +181,26 @@ pub(crate) fn compress_block_btlazy2_attached_dict_with_state<'a>(
     dictionary_state: &'a GreedyMatchState,
     dictionary_params: CompressionParameters,
     dictionary_index_start: usize,
-) -> GreedyBlockOutput {
-    debug_assert!(!row_match_finder_enabled(params));
-    compress_block_lazy_generic_with_state_and_attached::<SEARCH_BINARY_TREE, 2>(
-        src,
-        block_range.clone(),
-        params,
-        repeat_offsets,
-        state,
-        LazyDictionaryBounds::no_dict(block_range.end, params, active_dict_limit),
-        AttachedDictionarySearch {
-            src: dictionary_src,
-            state: dictionary_state,
-            params: dictionary_params,
-            dictionary_index_start,
-            active_dict_limit,
-            active_prefix_start,
-        },
-    )
+) -> Result<GreedyBlockOutput, crate::workspace::CapacityError> {
+    Ok({
+        debug_assert!(!row_match_finder_enabled(params));
+        compress_block_lazy_generic_with_state_and_attached::<SEARCH_BINARY_TREE, 2>(
+            src,
+            block_range.clone(),
+            params,
+            repeat_offsets,
+            state,
+            LazyDictionaryBounds::no_dict(block_range.end, params, active_dict_limit),
+            AttachedDictionarySearch {
+                src: dictionary_src,
+                state: dictionary_state,
+                params: dictionary_params,
+                dictionary_index_start,
+                active_dict_limit,
+                active_prefix_start,
+            },
+        )?
+    })
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -198,26 +212,28 @@ fn compress_block_hash_or_row_ext_dict_with_state<const DEPTH: u32>(
     repeat_offsets: RepeatOffsets,
     state: &mut GreedyMatchState,
     loaded_dict_end: usize,
-) -> GreedyBlockOutput {
-    let bounds =
-        LazyDictionaryBounds::ext_dict(block_range.end, dict_limit, params, loaded_dict_end);
-    if row_match_finder_enabled(params) {
-        compress_block_lazy_generic_with_state::<SEARCH_ROW_HASH, DEPTH>(
-            src,
-            block_range,
-            params,
-            repeat_offsets,
-            state,
-            bounds,
-        )
-    } else {
-        compress_block_lazy_generic_with_state::<SEARCH_HASH_CHAIN, DEPTH>(
-            src,
-            block_range,
-            params,
-            repeat_offsets,
-            state,
-            bounds,
-        )
-    }
+) -> Result<GreedyBlockOutput, crate::workspace::CapacityError> {
+    Ok({
+        let bounds =
+            LazyDictionaryBounds::ext_dict(block_range.end, dict_limit, params, loaded_dict_end);
+        if row_match_finder_enabled(params) {
+            compress_block_lazy_generic_with_state::<SEARCH_ROW_HASH, DEPTH>(
+                src,
+                block_range,
+                params,
+                repeat_offsets,
+                state,
+                bounds,
+            )?
+        } else {
+            compress_block_lazy_generic_with_state::<SEARCH_HASH_CHAIN, DEPTH>(
+                src,
+                block_range,
+                params,
+                repeat_offsets,
+                state,
+                bounds,
+            )?
+        }
+    })
 }

@@ -59,6 +59,8 @@ let lockbox_file;
 // END generated file operation symbol
 let lockbox_open;
 let lockbox_open_with_options;
+let lockbox_open_password_with_budget;
+let lockbox_extract_file_with_policy;
 let lockbox_open_password;
 let lockbox_open_contact;
 let lockbox_add_file;
@@ -200,6 +202,12 @@ let vault_directory_load_contact_signing_key;
 let vault_directory_list_profile_generations;
 let vault_directory_rotate_private_key;
 let vault_directory_remember_lockbox;
+let vault_directory_set_lockbox_alias;
+let vault_directory_list_lockbox_aliases;
+let vault_directory_remove_lockbox_alias;
+let vault_directory_resolve_lockbox_alias;
+let vault_read_only_list_lockbox_aliases;
+let vault_read_only_resolve_lockbox_alias;
 let vault_directory_list_known_lockboxes;
 let vault_directory_forget_lockbox;
 let vault_directory_remember_access_slot_label;
@@ -292,6 +300,8 @@ export function configureNativeLibrary(explicitPath = undefined) {
 // END generated file operation load
   lockbox_open = library.func('void * lockbox_open(void *, size_t, void *, size_t)');
   lockbox_open_with_options = library.func('void * lockbox_open_with_options(void *, size_t, void *, size_t, const char *, size_t, uint64_t, const char *, size_t, const char *, size_t, size_t)');
+  lockbox_open_password_with_budget = library.func('void * lockbox_open_password_with_budget(void *, size_t, void *, size_t, uint32_t)');
+  lockbox_extract_file_with_policy = library.func('bool lockbox_extract_file_with_policy(void *, const char *, size_t, const char *, size_t, uint64_t, uint64_t, size_t, bool, bool)');
   lockbox_open_password = library.func('void * lockbox_open_password(void *, size_t, void *, size_t)');
   lockbox_open_contact = library.func('void * lockbox_open_contact(void *, size_t, void *)');
   lockbox_add_file = library.func('bool lockbox_add_file(void *, const char *, size_t, void *, size_t, bool)');
@@ -433,6 +443,12 @@ export function configureNativeLibrary(explicitPath = undefined) {
   vault_directory_list_profile_generations = library.func('RevaultBuffer vault_directory_list_profile_generations(void *, const char *, size_t)');
   vault_directory_rotate_private_key = library.func('RevaultBuffer vault_directory_rotate_private_key(void *, const char *, size_t)');
   vault_directory_remember_lockbox = library.func('bool vault_directory_remember_lockbox(void *, void *, size_t, const char *, size_t)');
+  vault_directory_set_lockbox_alias = library.func('bool vault_directory_set_lockbox_alias(void *, const char *, size_t, void *, size_t)');
+  vault_directory_list_lockbox_aliases = library.func('RevaultBuffer vault_directory_list_lockbox_aliases(void *)');
+  vault_directory_remove_lockbox_alias = library.func('bool vault_directory_remove_lockbox_alias(void *, const char *, size_t)');
+  vault_directory_resolve_lockbox_alias = library.func('RevaultBuffer vault_directory_resolve_lockbox_alias(void *, const char *, size_t)');
+  vault_read_only_list_lockbox_aliases = library.func('RevaultBuffer vault_read_only_list_lockbox_aliases(void *)');
+  vault_read_only_resolve_lockbox_alias = library.func('RevaultBuffer vault_read_only_resolve_lockbox_alias(void *, const char *, size_t)');
   vault_directory_list_known_lockboxes = library.func('RevaultBuffer vault_directory_list_known_lockboxes(void *)');
   vault_directory_forget_lockbox = library.func('bool vault_directory_forget_lockbox(void *, const char *, size_t)');
   vault_directory_remember_access_slot_label = library.func('bool vault_directory_remember_access_slot_label(void *, void *, size_t, uint64_t, const char *, size_t)');
@@ -591,6 +607,8 @@ export class BindingOperations {
 
   lockboxOpenWithOptions(archive, key, cacheMode, cacheBytes, workload, worker, jobs) { return requireHandle(lockbox_open_with_options(Buffer.from(archive), Buffer.byteLength(archive), Buffer.from(key), Buffer.byteLength(key), Buffer.from(cacheMode), Buffer.byteLength(cacheMode), cacheBytes, Buffer.from(workload), Buffer.byteLength(workload), Buffer.from(worker), Buffer.byteLength(worker), jobs)); }
 
+  lockboxOpenPasswordWithBudget(archive, password, maxDerivations) { if (!Number.isInteger(maxDerivations) || maxDerivations < 0 || maxDerivations > 0xffffffff) throw new RangeError("maxDerivations must be an unsigned 32-bit integer"); return requireHandle(lockbox_open_password_with_budget(Buffer.from(archive), Buffer.byteLength(archive), Buffer.from(password), Buffer.byteLength(password), maxDerivations)); }
+  lockboxExtractFileWithPolicy(handle, source, destination, maxFileBytes, maxTotalBytes, maxFiles, restorePermissions, overwrite) { return requireValue(lockbox_extract_file_with_policy(handle, Buffer.from(source), Buffer.byteLength(source), Buffer.from(destination), Buffer.byteLength(destination), maxFileBytes, maxTotalBytes, maxFiles, restorePermissions, overwrite)); }
   lockboxOpenPassword(archive, password) { return requireHandle(lockbox_open_password(Buffer.from(archive), Buffer.byteLength(archive), Buffer.from(password), Buffer.byteLength(password))); }
 
   lockboxOpenContact(archive, contact) { return requireHandle(lockbox_open_contact(Buffer.from(archive), Buffer.byteLength(archive), contact)); }
@@ -885,6 +903,18 @@ export class BindingOperations {
   vaultDirectoryRotatePrivateKey(handle, name) { return decode('ProfileHistory', vault_directory_rotate_private_key(handle, Buffer.from(name), Buffer.byteLength(name))); }
 
   vaultDirectoryRememberLockbox(handle, id, path) { return requireValue(vault_directory_remember_lockbox(handle, Buffer.from(id), Buffer.byteLength(id), Buffer.from(path), Buffer.byteLength(path))); }
+
+  vaultDirectorySetLockboxAlias(handle, name, id) { return requireValue(vault_directory_set_lockbox_alias(handle, Buffer.from(name), Buffer.byteLength(name), Buffer.from(id), Buffer.byteLength(id))); }
+
+  vaultDirectoryListLockboxAliases(handle) { return decode('LockboxAliasList', vault_directory_list_lockbox_aliases(handle)); }
+
+  vaultDirectoryRemoveLockboxAlias(handle, name) { return requireValue(vault_directory_remove_lockbox_alias(handle, Buffer.from(name), Buffer.byteLength(name))); }
+
+  vaultDirectoryResolveLockboxAlias(handle, name) { return decode('KnownLockbox', vault_directory_resolve_lockbox_alias(handle, Buffer.from(name), Buffer.byteLength(name))); }
+
+  vaultReadOnlyListLockboxAliases(handle) { return decode('LockboxAliasList', vault_read_only_list_lockbox_aliases(handle)); }
+
+  vaultReadOnlyResolveLockboxAlias(handle, name) { return decode('KnownLockbox', vault_read_only_resolve_lockbox_alias(handle, Buffer.from(name), Buffer.byteLength(name))); }
 
   vaultDirectoryListKnownLockboxes(handle) { return decode('KnownLockboxList', vault_directory_list_known_lockboxes(handle)); }
 

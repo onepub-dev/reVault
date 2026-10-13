@@ -312,6 +312,8 @@ jobs:
           cargo test --locked -p revault_lockbox_api symlink
           cargo test --locked -p revault_lockbox_api create_path
           cargo test --locked -p revault_lockbox_api packed_page_relocation_updates_the_survivor_page_length
+          cargo test --locked -p revault_lockbox_api secure_output --lib
+          cargo test --locked -p revault_lockbox_api private_archive --lib
 
       - name: Agent IPC smoke test
         run: cargo test -p revault_cli --test agent_flow -- --nocapture

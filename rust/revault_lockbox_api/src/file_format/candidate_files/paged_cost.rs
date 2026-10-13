@@ -3,7 +3,7 @@
 //! old/new leaf coexistence budget before implementing a paged catalogue.
 use super::dense_catalogue::{Catalogue, File};
 use super::*;
-use crate::compression::{encode_with_compression, COMPRESSION_NONE};
+use crate::compression::{encode_with_compression_sensitive, COMPRESSION_NONE};
 use crate::crypto::{open_with_nonce, seal_with_random_nonce, strong_checksum};
 use crate::page_buffer::ZeroizingBytes;
 use serde_json::{json, Value};
@@ -49,7 +49,11 @@ impl FrameCodec {
                 "paged model decoded limit".into(),
             ));
         }
-        let (kind, encoded) = encode_with_compression(plain, self.mode.options().compression);
+        let (kind, encoded) = encode_with_compression_sensitive(
+            plain,
+            self.mode.options().compression,
+            !self.mode.plaintext(),
+        );
         let encoded = ZeroizingBytes::new(encoded);
         let overhead = 56 + if self.key.is_some() { 16 } else { 0 };
         let required = encoded.len() + overhead;

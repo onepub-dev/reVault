@@ -116,24 +116,30 @@ impl FSETable {
         size.add::<u32>(256)
     }
 
-    pub(crate) fn reserve_workspace(&mut self, max_log: u8) {
+    pub(crate) fn reserve_workspace(
+        &mut self,
+        max_log: u8,
+    ) -> Result<(), crate::workspace::CapacityError> {
         let probabilities = 256_usize.saturating_sub(self.symbol_probabilities.len());
-        self.symbol_probabilities.reserve(probabilities);
+        self.symbol_probabilities.reserve(probabilities)?;
         let counters = 256_usize.saturating_sub(self.symbol_counter.len());
-        self.symbol_counter.reserve(counters);
+        self.symbol_counter.reserve(counters)?;
         let decode_entries = 1_usize << max_log;
         let entries = decode_entries.saturating_sub(self.decode.len());
-        self.decode.reserve(entries);
+        self.decode.reserve(entries)?;
+        Ok(())
     }
 
     /// Reset `self` and update `self`'s state to mirror the provided table.
-    pub fn reinit_from(&mut self, other: &Self) {
+    pub fn reinit_from(&mut self, other: &Self) -> Result<(), crate::workspace::CapacityError> {
         self.reset();
-        self.symbol_counter.extend_from_slice(&other.symbol_counter);
+        self.symbol_counter
+            .extend_from_slice(&other.symbol_counter)?;
         self.symbol_probabilities
-            .extend_from_slice(&other.symbol_probabilities);
-        self.decode.extend_from_slice(&other.decode);
+            .extend_from_slice(&other.symbol_probabilities)?;
+        self.decode.extend_from_slice(&other.decode)?;
         self.accuracy_log = other.accuracy_log;
+        Ok(())
     }
 
     /// Empty the table and clear all internal state.
@@ -164,7 +170,7 @@ impl FSETable {
             return Err(FSETableError::AccLogIsZero);
         }
         self.symbol_probabilities.clear();
-        self.symbol_probabilities.extend_from_slice(probs);
+        self.symbol_probabilities.extend_from_slice(probs)?;
         self.accuracy_log = acc_log;
         self.build_decoding_table()
     }
@@ -187,7 +193,7 @@ impl FSETable {
         let table_size = 1 << self.accuracy_log;
         if self.decode.len() < table_size {
             let additional = table_size - self.decode.len();
-            self.decode.reserve(additional);
+            self.decode.reserve(additional)?;
         }
         //fill with dummy entries
         self.decode.resize(
@@ -197,7 +203,7 @@ impl FSETable {
                 num_bits: 0,
                 symbol: 0,
             },
-        );
+        )?;
 
         let mut negative_idx = table_size; //will point to the highest index with is already occupied by a negative-probability-symbol
 
@@ -237,7 +243,7 @@ impl FSETable {
         // baselines and num_bits can only be calculated when all symbols have been spread
         self.symbol_counter.clear();
         self.symbol_counter
-            .resize(self.symbol_probabilities.len(), 0);
+            .resize(self.symbol_probabilities.len(), 0)?;
         for idx in 0..negative_idx {
             let entry = &mut self.decode[idx];
             let symbol = entry.symbol;
@@ -299,7 +305,7 @@ impl FSETable {
 
             let prob = (value as i32) - 1;
 
-            self.symbol_probabilities.push(prob);
+            self.symbol_probabilities.push(prob)?;
             if prob != 0 {
                 if prob > 0 {
                     probability_counter += prob as u32;
@@ -314,7 +320,7 @@ impl FSETable {
                     let skip_amount = br.get_bits(2)? as usize;
 
                     let new_len = self.symbol_probabilities.len() + skip_amount;
-                    self.symbol_probabilities.resize(new_len, 0);
+                    self.symbol_probabilities.resize(new_len, 0)?;
                     if skip_amount != 3 {
                         break;
                     }

@@ -152,6 +152,12 @@ final class BindingOperations {
     }
   }
 
+  public MemorySegment lockboxOpenPasswordWithBudget(byte[] archive, byte[] password, long maxDerivations) {
+    if (maxDerivations < 0 || maxDerivations > 0xffffffffL) throw new IllegalArgumentException("maxDerivations must be an unsigned 32-bit integer");
+    try (var arena = Arena.ofConfined()) {
+      return require((MemorySegment) call(api.lockbox_open_password_with_budget, bytes(arena, archive), (long) archive.length, bytes(arena, password), (long) password.length, (int) maxDerivations));
+    }
+  }
   public MemorySegment lockboxOpenPassword(byte[] archive, byte[] password) {
     try (var arena = Arena.ofConfined()) {
       return require((MemorySegment) call(api.lockbox_open_password, bytes(arena, archive), (long) archive.length, bytes(arena, password), (long) password.length));
@@ -182,6 +188,11 @@ final class BindingOperations {
     }
   }
 
+  public boolean lockboxExtractFileWithPolicy(MemorySegment handle, String source, String destination, long maxFileBytes, long maxTotalBytes, long maxFiles, boolean restorePermissions, boolean overwrite) {
+    try (var arena = Arena.ofConfined()) {
+      return require((boolean) call(api.lockbox_extract_file_with_policy, handle, text(arena, source), (long) source.getBytes(StandardCharsets.UTF_8).length, text(arena, destination), (long) destination.getBytes(StandardCharsets.UTF_8).length, maxFileBytes, maxTotalBytes, maxFiles, restorePermissions, overwrite));
+    }
+  }
   public boolean lockboxExtractFile(MemorySegment handle, String source, String destination, boolean replace) {
     try (var arena = Arena.ofConfined()) {
       return require((boolean) call(api.lockbox_extract_file, handle, text(arena, source), (long) source.getBytes(StandardCharsets.UTF_8).length, text(arena, destination), (long) destination.getBytes(StandardCharsets.UTF_8).length, replace));
@@ -963,6 +974,30 @@ final class BindingOperations {
     try (var arena = Arena.ofConfined()) {
       return require((boolean) call(api.vault_directory_remember_lockbox, handle, bytes(arena, id), (long) id.length, text(arena, path), (long) path.getBytes(StandardCharsets.UTF_8).length));
     }
+  }
+
+  public boolean vaultDirectorySetLockboxAlias(MemorySegment handle, String name, byte[] id) {
+    try (var arena = Arena.ofConfined()) { return require((boolean) call(api.vault_directory_set_lockbox_alias, handle, text(arena, name), (long) name.getBytes(StandardCharsets.UTF_8).length, bytes(arena, id), (long) id.length)); }
+  }
+
+  public java.util.List<LockboxAlias> vaultDirectoryListLockboxAliases(MemorySegment handle) {
+    try (var arena = Arena.ofConfined()) { return frame((MemorySegment) call(api.vault_directory_list_lockbox_aliases, arena, handle), DomainCodec::lockboxAliasList); }
+  }
+
+  public boolean vaultDirectoryRemoveLockboxAlias(MemorySegment handle, String name) {
+    try (var arena = Arena.ofConfined()) { return require((boolean) call(api.vault_directory_remove_lockbox_alias, handle, text(arena, name), (long) name.getBytes(StandardCharsets.UTF_8).length)); }
+  }
+
+  public KnownLockbox vaultDirectoryResolveLockboxAlias(MemorySegment handle, String name) {
+    try (var arena = Arena.ofConfined()) { return frame((MemorySegment) call(api.vault_directory_resolve_lockbox_alias, arena, handle, text(arena, name), (long) name.getBytes(StandardCharsets.UTF_8).length), DomainCodec::knownLockbox); }
+  }
+
+  public java.util.List<LockboxAlias> vaultReadOnlyListLockboxAliases(MemorySegment handle) {
+    try (var arena = Arena.ofConfined()) { return frame((MemorySegment) call(api.vault_read_only_list_lockbox_aliases, arena, handle), DomainCodec::lockboxAliasList); }
+  }
+
+  public KnownLockbox vaultReadOnlyResolveLockboxAlias(MemorySegment handle, String name) {
+    try (var arena = Arena.ofConfined()) { return frame((MemorySegment) call(api.vault_read_only_resolve_lockbox_alias, arena, handle, text(arena, name), (long) name.getBytes(StandardCharsets.UTF_8).length), DomainCodec::knownLockbox); }
   }
 
   public java.util.List<KnownLockbox> vaultDirectoryListKnownLockboxes(MemorySegment handle) {

@@ -78,6 +78,9 @@ export class Revault {
   /** Opens a lockbox using the cache and worker tuning described by `lockboxCreateWithOptions`. */
   lockboxOpenWithOptions(archive: BinaryInput, key: BinaryInput, cacheMode: string, cacheBytes: number, workload: string, worker: string, jobs: number): Lockbox;
   /** Opens serialized Lockbox bytes with the supplied password. */
+  /** Explicit per-credential KDF work allowance for trusted archives. */
+  lockboxOpenPasswordWithBudget(archive: BinaryInput, password: BinaryInput, maxDerivations: number): Lockbox;
+  /** Opens with the default per-credential password work budget. */
   lockboxOpenPassword(archive: BinaryInput, password: BinaryInput): Lockbox;
   /** Opens serialized Lockbox bytes with the supplied contact private key. */
   lockboxOpenContact(archive: BinaryInput, contact: NativeHandle): Lockbox;
@@ -184,6 +187,9 @@ export class Lockbox {
   /** Reads the complete file stored at the Lockbox path. */
   getFile(path: string): Binary;
   /** Writes one Lockbox file to the host filesystem. */
+  /** Apply limits and final stored permissions before filesystem publication. */
+  extractFileWithPolicy(source: string, destination: string, maxFileBytes: number | bigint, maxTotalBytes: number | bigint, maxFiles: number, restorePermissions: boolean, overwrite: boolean): boolean;
+  /** Extracts one file using the legacy permission policy. */
   extractFile(source: string, destination: string, replace: boolean): boolean;
   /** Extracts the Lockbox with explicit size, count, link, and permission limits. */
   extractDirectory(destination: string, maxFileBytes: number, maxTotalBytes: number, maxFiles: number, restoreSymlinks: boolean, restorePermissions: boolean, overwrite: boolean): boolean;
@@ -444,6 +450,15 @@ export class Vault {
   /** Stores lockbox. */
   rememberLockbox(id: BinaryInput, path: string): boolean;
   /** Lists known lockboxes. */
+  /** Manage persisted Vault aliases. */
+  setLockboxAlias(name: string, id: BinaryInput): boolean;
+  /** Manage persisted Vault aliases. */
+  listLockboxAliases(): ReadonlyArray<import('./domain.js').LockboxAlias>;
+  /** Manage persisted Vault aliases. */
+  removeLockboxAlias(name: string): boolean;
+  /** Resolve metadata; verify target identity before opening. */
+  resolveLockboxAlias(name: string): import('./domain.js').KnownLockbox;
+  /** Lists remembered identities and paths. */
   listKnownLockboxes(): ReadonlyArray<import('./domain.js').KnownLockbox>;
   /** Removes lockbox. */
   forgetLockbox(path: string): boolean;
@@ -485,6 +500,11 @@ export class ReadOnlyVault {
   /** Lists form aliases. */
   listFormAliases(): ReadonlyArray<string>;
   /** Lists known lockboxes. */
+  /** Manage persisted Vault aliases. */
+  listLockboxAliases(): ReadonlyArray<import('./domain.js').LockboxAlias>;
+  /** Resolve metadata; verify target identity before opening. */
+  resolveLockboxAlias(name: string): import('./domain.js').KnownLockbox;
+  /** Lists remembered identities and paths. */
   listKnownLockboxes(): ReadonlyArray<import('./domain.js').KnownLockbox>;
   /** Releases the native resources held by this object. */
   free(): void;

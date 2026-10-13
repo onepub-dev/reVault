@@ -1,0 +1,6 @@
+0000000000276c60 T vault_directory_list_lockbox_aliases
+0000000000277030 T vault_directory_remove_lockbox_alias
+0000000000277110 T vault_directory_resolve_lockbox_alias
+0000000000276a80 T vault_directory_set_lockbox_alias
+0000000000277500 T vault_read_only_list_lockbox_aliases
+00000000002778d0 T vault_read_only_resolve_lockbox_alias

@@ -1,0 +1,105 @@
+   Compiling serde_core v1.0.229
+   Compiling crossbeam-utils v0.8.23
+   Compiling zerocopy v0.8.57
+    Checking windows-sys v0.61.2
+   Compiling num-traits v0.2.19
+   Compiling crossbeam-epoch v0.9.21
+   Compiling winapi-x86_64-pc-windows-gnu v0.4.0
+    Checking memchr v2.8.3
+   Compiling syn v2.0.119
+   Compiling syn v3.0.5
+   Compiling serde v1.0.229
+   Compiling find-msvc-tools v0.1.12
+   Compiling shlex v2.0.1
+   Compiling crossbeam-deque v0.8.8
+   Compiling crc32fast v1.5.1
+    Checking subtle v2.6.1
+   Compiling winapi v0.3.9
+   Compiling cc v1.4.5
+   Compiling rayon-core v1.13.0
+   Compiling thiserror v2.0.20
+    Checking either v1.18.0
+    Checking clap_lex v1.1.0
+    Checking ciborium-io v0.2.2
+    Checking regex-syntax v0.8.11
+    Checking anstyle v1.0.14
+    Checking plotters-backend v0.3.7
+    Checking itertools v0.13.0
+    Checking bumpalo v3.20.3
+    Checking zlib-rs v0.6.7
+    Checking equivalent v1.0.2
+    Checking clap_builder v4.6.6
+    Checking plotters-svg v0.3.7
+    Checking hashbrown v0.17.1
+    Checking simd-adler32 v0.3.10
+    Checking cast v0.3.0
+    Checking typed-path v0.12.3
+    Checking oorandom v11.1.5
+    Checking zopfli v0.8.3
+    Checking anes v0.1.6
+    Checking module-lattice v0.2.3
+    Checking plotters v0.3.7
+    Checking indexmap v2.14.2
+    Checking ml-kem v0.3.2
+    Checking regex-automata v0.4.18
+    Checking rayon v1.12.0
+    Checking ml-dsa v0.1.1
+    Checking flate2 v1.1.10
+    Checking page_size v0.6.0
+    Checking criterion-plot v0.8.2
+   Compiling alloca v0.4.0
+    Checking zip v8.6.0
+    Checking clap v4.6.6
+   Compiling serde_derive v1.0.229
+   Compiling thiserror-impl v2.0.20
+warning: alloca@0.4.0: Compiler family detection failed due to error: ToolNotFound: failed to find tool "x86_64-w64-mingw32-gcc": No such file or directory (os error 2)
+warning: alloca@0.4.0: Compiler family detection failed due to error: ToolNotFound: failed to find tool "x86_64-w64-mingw32-gcc": No such file or directory (os error 2)
+error: failed to run custom build command for `alloca v0.4.0`
+
+Caused by:
+  process didn't exit successfully: `/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/debug/build/alloca-3d5ee1cd9707db16/build-script-build` (exit status: 1)
+  --- stdout
+  cargo:rerun-if-env-changed=CC_FORCE_DISABLE
+  CC_FORCE_DISABLE = None
+  cargo:rerun-if-env-changed=CC_x86_64-pc-windows-gnu
+  CC_x86_64-pc-windows-gnu = None
+  cargo:rerun-if-env-changed=CC_x86_64_pc_windows_gnu
+  CC_x86_64_pc_windows_gnu = None
+  cargo:rerun-if-env-changed=TARGET_CC
+  TARGET_CC = None
+  cargo:rerun-if-env-changed=CC
+  CC = None
+  cargo:rerun-if-env-changed=CROSS_COMPILE
+  CROSS_COMPILE = None
+  cargo:rerun-if-env-changed=CC_ENABLE_DEBUG_OUTPUT
+  cargo:warning=Compiler family detection failed due to error: ToolNotFound: failed to find tool "x86_64-w64-mingw32-gcc": No such file or directory (os error 2)
+  cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+  CRATE_CC_NO_DEFAULTS = None
+  cargo:rerun-if-env-changed=CC_ENABLE_DEBUG_OUTPUT
+  cargo:warning=Compiler family detection failed due to error: ToolNotFound: failed to find tool "x86_64-w64-mingw32-gcc": No such file or directory (os error 2)
+  cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+  CRATE_CC_NO_DEFAULTS = None
+  cargo:rerun-if-env-changed=CFLAGS
+  CFLAGS = None
+  cargo:rerun-if-env-changed=TARGET_CFLAGS
+  TARGET_CFLAGS = None
+  cargo:rerun-if-env-changed=CFLAGS_x86_64_pc_windows_gnu
+  CFLAGS_x86_64_pc_windows_gnu = None
+  cargo:rerun-if-env-changed=CFLAGS_x86_64-pc-windows-gnu
+  CFLAGS_x86_64-pc-windows-gnu = None
+  cargo:rerun-if-env-changed=CFLAGS
+  CFLAGS = None
+  cargo:rerun-if-env-changed=TARGET_CFLAGS
+  TARGET_CFLAGS = None
+  cargo:rerun-if-env-changed=CFLAGS_x86_64_pc_windows_gnu
+  CFLAGS_x86_64_pc_windows_gnu = None
+  cargo:rerun-if-env-changed=CFLAGS_x86_64-pc-windows-gnu
+  CFLAGS_x86_64-pc-windows-gnu = None
+
+  --- stderr
+
+
+  error occurred in cc-rs: failed to find tool "x86_64-w64-mingw32-gcc": No such file or directory (os error 2)
+
+
+warning: build failed, waiting for other jobs to finish...

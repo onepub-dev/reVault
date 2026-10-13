@@ -51,6 +51,7 @@ mod agent_protocol;
 mod content_key_store;
 mod hex;
 mod key_format;
+mod local_secret_activity;
 mod noop_store;
 mod platform_secret_store;
 mod sleep_watcher;
@@ -66,8 +67,8 @@ mod windows;
 pub use agent_client::{
     begin_secret_activity, forget, forget_all, forget_owner_signing_key, forget_vault_unlock_key,
     get, get_owner_signing_key, get_vault_unlock_key, is_running, list, put, put_owner_signing_key,
-    put_vault_unlock_key, serve_agent, start, stop, verify_agent_transport_security, AgentClient,
-    SecretActivityGuard,
+    put_vault_unlock_key, serve_agent, start, stop, suspend_cache_clearing_active,
+    verify_agent_transport_security, AgentClient, SecretActivityGuard,
 };
 pub use agent_log::{agent_log_destination, agent_log_path};
 pub use agent_protocol::CachedLockbox;

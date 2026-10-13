@@ -26,8 +26,12 @@ pub fn round_trip(data: &[u8]) {
     let encoder_table = huff0_encoder::HuffmanTable::build_from_data(data);
     let mut encoder = huff0_encoder::HuffmanEncoder::new(&encoder_table, &mut writer);
 
-    encoder.encode(data, true);
-    let encoded = writer.dump();
+    encoder
+        .encode(data, true)
+        .expect("owned round-trip output allocation failed");
+    let encoded = writer
+        .dump()
+        .expect("owned round-trip output allocation failed");
     let mut decoder_table = HuffmanTable::new();
     let table_bytes = decoder_table.build_decoder(&encoded).unwrap();
     let mut decoder = HuffmanDecoder::new(&decoder_table);

@@ -102,6 +102,9 @@ pub use form::{
 pub use key_slot::{
     LockboxKeySlot, LockboxKeySlotAlgorithm, LockboxKeySlotProtection, MAX_KEY_SLOT_NAME_BYTES,
 };
+mod password_work;
+pub use password_work::{PasswordWorkBudget, DEFAULT_PASSWORD_SLOT_BUDGET};
+
 pub use key_wrap::{ContactKeyPair, ContactPublicKey, ContactWrappedKey};
 pub use list_options::ListOptions;
 #[cfg(feature = "test-support")]

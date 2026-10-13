@@ -71,7 +71,7 @@ fn row_finder_reports_previous_match() {
     let data = b"abcdefghabcdefgh-tail";
     let mut state = GreedyMatchState::new();
     let params = params();
-    state.ensure_tables(params);
+    state.ensure_tables(params).expect("test storage admission");
     let mut off_base = 0;
     fill_hash_cache(
         data,
@@ -109,7 +109,9 @@ fn row_finder_searches_attached_dictionary_rows_after_active_rows() {
 
     let params = params();
     let mut dict_state = GreedyMatchState::new();
-    dict_state.ensure_tables(params);
+    dict_state
+        .ensure_tables(params)
+        .expect("test storage admission");
     dict_state.next_to_update = C_WINDOW_START_INDEX;
     load_dictionary_rows_at_index_base(
         dict,
@@ -121,7 +123,9 @@ fn row_finder_searches_attached_dictionary_rows_after_active_rows() {
     );
 
     let mut active_state = GreedyMatchState::new();
-    active_state.ensure_tables(params);
+    active_state
+        .ensure_tables(params)
+        .expect("test storage admission");
     active_state.next_to_update = dict.len();
     let mut off_base = 0;
     fill_hash_cache(
@@ -177,7 +181,7 @@ fn row_update_skips_middle_of_large_gaps_like_c() {
 
     let mut state = GreedyMatchState::new();
     let params = params();
-    state.ensure_tables(params);
+    state.ensure_tables(params).expect("test storage admission");
     let mut off_base = 0;
     fill_hash_cache(
         &data,

@@ -59,40 +59,42 @@ pub(super) fn prefer_target_leading_repcode_literal(
     last_block: bool,
     initial_repeat_offsets: RepeatOffsets,
     prepared: &mut GreedyPreparedBlock,
-) {
-    if !last_block || !prepared.prepared.literals.is_empty() {
-        return;
-    }
-    let [sequence] = prepared.prepared.sequences.as_slice() else {
-        return;
-    };
-    if sequence.ll != 0 || sequence.ml as usize != block.len() || sequence.ml <= 1 {
-        return;
-    }
-    let rep1 = initial_repeat_offsets.as_offsets()[0] as usize;
-    let Some(rep_start) = block_start
-        .checked_add(1)
-        .and_then(|pos| pos.checked_sub(rep1))
-    else {
-        return;
-    };
-    let match_len = sequence.ml as usize - 1;
-    let Some(rep_end) = rep_start.checked_add(match_len) else {
-        return;
-    };
-    if rep_end > src.len() || src.get(rep_start..rep_end) != block.get(1..) {
-        return;
-    }
+) -> Result<(), crate::workspace::CapacityError> {
+    Ok({
+        if !last_block || !prepared.prepared.literals.is_empty() {
+            return Ok(());
+        }
+        let [sequence] = prepared.prepared.sequences.as_slice() else {
+            return Ok(());
+        };
+        if sequence.ll != 0 || sequence.ml as usize != block.len() || sequence.ml <= 1 {
+            return Ok(());
+        }
+        let rep1 = initial_repeat_offsets.as_offsets()[0] as usize;
+        let Some(rep_start) = block_start
+            .checked_add(1)
+            .and_then(|pos| pos.checked_sub(rep1))
+        else {
+            return Ok(());
+        };
+        let match_len = sequence.ml as usize - 1;
+        let Some(rep_end) = rep_start.checked_add(match_len) else {
+            return Ok(());
+        };
+        if rep_end > src.len() || src.get(rep_start..rep_end) != block.get(1..) {
+            return Ok(());
+        }
 
-    let replacement = PreparedSequence {
-        ll: 1,
-        ml: sequence.ml - 1,
-        raw_offset: rep1 as u32,
-        encoded_offset_value: 1,
-    };
-    prepared.prepared.literals.push(block[0]);
-    prepared.prepared.sequences[0] = replacement;
-    prepared.repeat_offsets = initial_repeat_offsets;
+        let replacement = PreparedSequence {
+            ll: 1,
+            ml: sequence.ml - 1,
+            raw_offset: rep1 as u32,
+            encoded_offset_value: 1,
+        };
+        prepared.prepared.literals.push(block[0])?;
+        prepared.prepared.sequences[0] = replacement;
+        prepared.repeat_offsets = initial_repeat_offsets;
+    })
 }
 
 #[cfg(test)]
@@ -107,13 +109,13 @@ mod tests {
     fn full_match_prepared() -> GreedyPreparedBlock {
         GreedyPreparedBlock {
             prepared: PreparedBlock {
-                literals: Vec::new(),
-                sequences: vec![PreparedSequence {
+                literals: crate::workspace::ReusableVec::from_owned(Vec::new()),
+                sequences: crate::workspace::ReusableVec::from_owned(vec![PreparedSequence {
                     ll: 0,
                     ml: 5,
                     raw_offset: 9,
                     encoded_offset_value: 12,
-                }],
+                }]),
             },
             repeat_offsets: RepeatOffsets::from_offsets(9, 4, 8),
         }
@@ -126,7 +128,8 @@ mod tests {
         let mut prepared = full_match_prepared();
         let repeats = RepeatOffsets::from_offsets(5, 4, 8);
 
-        prefer_target_leading_repcode_literal(src, 5, block, true, repeats, &mut prepared);
+        prefer_target_leading_repcode_literal(src, 5, block, true, repeats, &mut prepared)
+            .expect("test storage admission");
 
         assert_eq!(prepared.prepared.literals, b"X");
         assert_eq!(prepared.prepared.sequences.len(), 1);
@@ -154,10 +157,12 @@ mod tests {
             repeat_offsets: RepeatOffsets::from_offsets(9, 5, 4),
         };
 
-        prefer_target_leading_repcode_literal(src, 5, block, true, repeats, &mut prepared);
+        prefer_target_leading_repcode_literal(src, 5, block, true, repeats, &mut prepared)
+            .expect("test storage admission");
         prefer_stored_leading_repcode_literal(src, 5, block, true, repeats, &mut stored);
         let materialized =
-            prepare_stored_sequences(block, repeats, &stored.sequences, stored.last_literals);
+            prepare_stored_sequences(block, repeats, &stored.sequences, stored.last_literals)
+                .expect("test storage admission");
 
         assert_eq!(materialized.literals, prepared.prepared.literals);
         assert_eq!(materialized.sequences.len(), 1);
@@ -190,7 +195,8 @@ mod tests {
             true,
             RepeatOffsets::from_offsets(5, 4, 8),
             &mut prepared,
-        );
+        )
+        .expect("test storage admission");
 
         assert!(prepared.prepared.literals.is_empty());
         assert_eq!(prepared.prepared.sequences[0].ll, original_sequence.ll);

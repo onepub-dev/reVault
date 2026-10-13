@@ -1,6 +1,5 @@
 //! External-dictionary adapters for the C greedy/lazy block compressors.
 
-use alloc::vec::Vec;
 use core::ops::Range;
 
 use super::{
@@ -48,26 +47,28 @@ fn prepare_block_hash_chain_ext_dict_with_state(
     repeat_offsets: RepeatOffsets,
     state: &mut GreedyMatchState,
     depth: LazyBlockStrategy,
-) -> GreedyPreparedBlock {
-    let block = &source.src[source.block_range.clone()];
-    let mut output = compress_block_for_depth_ext_dict_with_state(
-        source.src,
-        source.block_range,
-        source.dict_limit,
-        params,
-        repeat_offsets,
-        state,
-        depth,
-        source.loaded_dict_end,
-    );
-    let prepared = prepare_from_greedy_output(block, repeat_offsets, &output);
-    let output_repeat_offsets = output.repeat_offsets;
-    state.recycle_sequence_store(core::mem::take(&mut output.sequences));
+) -> Result<GreedyPreparedBlock, crate::workspace::CapacityError> {
+    Ok({
+        let block = &source.src[source.block_range.clone()];
+        let mut output = compress_block_for_depth_ext_dict_with_state(
+            source.src,
+            source.block_range,
+            source.dict_limit,
+            params,
+            repeat_offsets,
+            state,
+            depth,
+            source.loaded_dict_end,
+        )?;
+        let prepared = prepare_from_greedy_output(block, repeat_offsets, &output)?;
+        let output_repeat_offsets = output.repeat_offsets;
+        state.recycle_sequence_store(core::mem::take(&mut output.sequences));
 
-    GreedyPreparedBlock {
-        prepared,
-        repeat_offsets: output_repeat_offsets,
-    }
+        GreedyPreparedBlock {
+            prepared,
+            repeat_offsets: output_repeat_offsets,
+        }
+    })
 }
 
 fn prepare_block_attached_dict_with_state(
@@ -76,18 +77,20 @@ fn prepare_block_attached_dict_with_state(
     repeat_offsets: RepeatOffsets,
     state: &mut GreedyMatchState,
     depth: LazyBlockStrategy,
-) -> GreedyPreparedBlock {
-    let block = &source.src[source.block_range.clone()];
-    let mut output =
-        compress_block_attached_dict_with_state(source, params, repeat_offsets, state, depth);
-    let prepared = prepare_from_greedy_output(block, repeat_offsets, &output);
-    let output_repeat_offsets = output.repeat_offsets;
-    state.recycle_sequence_store(core::mem::take(&mut output.sequences));
+) -> Result<GreedyPreparedBlock, crate::workspace::CapacityError> {
+    Ok({
+        let block = &source.src[source.block_range.clone()];
+        let mut output =
+            compress_block_attached_dict_with_state(source, params, repeat_offsets, state, depth)?;
+        let prepared = prepare_from_greedy_output(block, repeat_offsets, &output)?;
+        let output_repeat_offsets = output.repeat_offsets;
+        state.recycle_sequence_store(core::mem::take(&mut output.sequences));
 
-    GreedyPreparedBlock {
-        prepared,
-        repeat_offsets: output_repeat_offsets,
-    }
+        GreedyPreparedBlock {
+            prepared,
+            repeat_offsets: output_repeat_offsets,
+        }
+    })
 }
 
 fn compress_block_attached_dict_with_state(
@@ -96,61 +99,63 @@ fn compress_block_attached_dict_with_state(
     repeat_offsets: RepeatOffsets,
     state: &mut GreedyMatchState,
     depth: LazyBlockStrategy,
-) -> GreedyBlockOutput {
-    match depth {
-        LazyBlockStrategy::BtLazy2 => compress_block_btlazy2_attached_dict_with_state(
-            source.src,
-            source.block_range,
-            source.active_dict_limit,
-            source.active_prefix_start,
-            params,
-            repeat_offsets,
-            state,
-            source.dictionary_src,
-            source.dictionary_state,
-            source.dictionary_params,
-            source.dictionary_index_start,
-        ),
-        LazyBlockStrategy::Greedy => compress_block_attached_row_dict_with_state::<0>(
-            source.src,
-            source.block_range,
-            source.active_dict_limit,
-            source.active_prefix_start,
-            params,
-            repeat_offsets,
-            state,
-            source.dictionary_src,
-            source.dictionary_state,
-            source.dictionary_params,
-            source.dictionary_index_start,
-        ),
-        LazyBlockStrategy::Lazy => compress_block_attached_row_dict_with_state::<1>(
-            source.src,
-            source.block_range,
-            source.active_dict_limit,
-            source.active_prefix_start,
-            params,
-            repeat_offsets,
-            state,
-            source.dictionary_src,
-            source.dictionary_state,
-            source.dictionary_params,
-            source.dictionary_index_start,
-        ),
-        LazyBlockStrategy::Lazy2 => compress_block_attached_row_dict_with_state::<2>(
-            source.src,
-            source.block_range,
-            source.active_dict_limit,
-            source.active_prefix_start,
-            params,
-            repeat_offsets,
-            state,
-            source.dictionary_src,
-            source.dictionary_state,
-            source.dictionary_params,
-            source.dictionary_index_start,
-        ),
-    }
+) -> Result<GreedyBlockOutput, crate::workspace::CapacityError> {
+    Ok({
+        match depth {
+            LazyBlockStrategy::BtLazy2 => compress_block_btlazy2_attached_dict_with_state(
+                source.src,
+                source.block_range,
+                source.active_dict_limit,
+                source.active_prefix_start,
+                params,
+                repeat_offsets,
+                state,
+                source.dictionary_src,
+                source.dictionary_state,
+                source.dictionary_params,
+                source.dictionary_index_start,
+            )?,
+            LazyBlockStrategy::Greedy => compress_block_attached_row_dict_with_state::<0>(
+                source.src,
+                source.block_range,
+                source.active_dict_limit,
+                source.active_prefix_start,
+                params,
+                repeat_offsets,
+                state,
+                source.dictionary_src,
+                source.dictionary_state,
+                source.dictionary_params,
+                source.dictionary_index_start,
+            )?,
+            LazyBlockStrategy::Lazy => compress_block_attached_row_dict_with_state::<1>(
+                source.src,
+                source.block_range,
+                source.active_dict_limit,
+                source.active_prefix_start,
+                params,
+                repeat_offsets,
+                state,
+                source.dictionary_src,
+                source.dictionary_state,
+                source.dictionary_params,
+                source.dictionary_index_start,
+            )?,
+            LazyBlockStrategy::Lazy2 => compress_block_attached_row_dict_with_state::<2>(
+                source.src,
+                source.block_range,
+                source.active_dict_limit,
+                source.active_prefix_start,
+                params,
+                repeat_offsets,
+                state,
+                source.dictionary_src,
+                source.dictionary_state,
+                source.dictionary_params,
+                source.dictionary_index_start,
+            )?,
+        }
+    })
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -163,45 +168,47 @@ fn compress_block_for_depth_ext_dict_with_state(
     state: &mut GreedyMatchState,
     depth: LazyBlockStrategy,
     loaded_dict_end: usize,
-) -> GreedyBlockOutput {
-    match depth {
-        LazyBlockStrategy::Greedy => compress_block_greedy_ext_dict_with_state(
-            src,
-            block_range,
-            dict_limit,
-            params,
-            repeat_offsets,
-            state,
-            loaded_dict_end,
-        ),
-        LazyBlockStrategy::Lazy => compress_block_lazy_ext_dict_with_state(
-            src,
-            block_range,
-            dict_limit,
-            params,
-            repeat_offsets,
-            state,
-            loaded_dict_end,
-        ),
-        LazyBlockStrategy::Lazy2 => compress_block_lazy2_ext_dict_with_state(
-            src,
-            block_range,
-            dict_limit,
-            params,
-            repeat_offsets,
-            state,
-            loaded_dict_end,
-        ),
-        LazyBlockStrategy::BtLazy2 => compress_block_btlazy2_ext_dict_with_state(
-            src,
-            block_range,
-            dict_limit,
-            params,
-            repeat_offsets,
-            state,
-            loaded_dict_end,
-        ),
-    }
+) -> Result<GreedyBlockOutput, crate::workspace::CapacityError> {
+    Ok({
+        match depth {
+            LazyBlockStrategy::Greedy => compress_block_greedy_ext_dict_with_state(
+                src,
+                block_range,
+                dict_limit,
+                params,
+                repeat_offsets,
+                state,
+                loaded_dict_end,
+            )?,
+            LazyBlockStrategy::Lazy => compress_block_lazy_ext_dict_with_state(
+                src,
+                block_range,
+                dict_limit,
+                params,
+                repeat_offsets,
+                state,
+                loaded_dict_end,
+            )?,
+            LazyBlockStrategy::Lazy2 => compress_block_lazy2_ext_dict_with_state(
+                src,
+                block_range,
+                dict_limit,
+                params,
+                repeat_offsets,
+                state,
+                loaded_dict_end,
+            )?,
+            LazyBlockStrategy::BtLazy2 => compress_block_btlazy2_ext_dict_with_state(
+                src,
+                block_range,
+                dict_limit,
+                params,
+                repeat_offsets,
+                state,
+                loaded_dict_end,
+            )?,
+        }
+    })
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -215,7 +222,7 @@ pub(crate) fn encode_block_hash_chain_ext_dict_with_state_and_policy(
     context: GreedyBlockEncodeContext<'_, '_>,
     depth: LazyBlockStrategy,
     policy: BlockEncodingPolicy,
-) -> GreedyEncodedBlock {
+) -> Result<GreedyEncodedBlock, crate::workspace::CapacityError> {
     encode_block_hash_chain_ext_dict_with_state_and_policy_in_mode(
         source,
         last_block,
@@ -242,7 +249,7 @@ pub(crate) fn encode_block_hash_chain_ext_dict_with_state_and_policy_in_mode(
     depth: LazyBlockStrategy,
     policy: BlockEncodingPolicy,
     block_encode_mode: BlockEncodeMode,
-) -> GreedyEncodedBlock {
+) -> Result<GreedyEncodedBlock, crate::workspace::CapacityError> {
     encode_block_hash_chain_ext_dict_with_state_and_policy_in_mode_into(
         source,
         last_block,
@@ -254,7 +261,7 @@ pub(crate) fn encode_block_hash_chain_ext_dict_with_state_and_policy_in_mode(
         depth,
         policy,
         block_encode_mode,
-        Vec::new(),
+        crate::workspace::ReusableVec::new(),
     )
 }
 
@@ -270,13 +277,13 @@ pub(crate) fn encode_block_hash_chain_ext_dict_with_state_and_policy_in_mode_int
     depth: LazyBlockStrategy,
     policy: BlockEncodingPolicy,
     block_encode_mode: BlockEncodeMode,
-    mut bytes: Vec<u8>,
-) -> GreedyEncodedBlock {
+    mut bytes: crate::workspace::ReusableVec<u8>,
+) -> Result<GreedyEncodedBlock, crate::workspace::CapacityError> {
     let block = &source.src[source.block_range.clone()];
     bytes.clear();
 
-    if let Some(encoded) = encode_special_block(block, last_block, repeat_offsets, &mut bytes) {
-        return encoded;
+    if let Some(encoded) = encode_special_block(block, last_block, repeat_offsets, &mut bytes)? {
+        return Ok(encoded);
     }
 
     if let Some(target_size) = block_encode_mode.target_c_block_size() {
@@ -286,7 +293,7 @@ pub(crate) fn encode_block_hash_chain_ext_dict_with_state_and_policy_in_mode_int
             repeat_offsets,
             match_state,
             depth,
-        );
+        )?;
         return encode_target_block_with_superblock_fallback(
             block,
             last_block,
@@ -312,7 +319,7 @@ pub(crate) fn encode_block_hash_chain_ext_dict_with_state_and_policy_in_mode_int
             match_state,
             depth,
             source.loaded_dict_end,
-        );
+        )?;
         return encode_stored_block(
             block,
             last_block,
@@ -333,7 +340,7 @@ pub(crate) fn encode_block_hash_chain_ext_dict_with_state_and_policy_in_mode_int
         repeat_offsets,
         match_state,
         depth,
-    );
+    )?;
     let previous_fse = context.fse_tables.snapshot_previous();
     let previous_offsets = *context.offset_history;
     encode_prepared_block(
@@ -363,12 +370,12 @@ pub(crate) fn encode_block_attached_dict_with_state_and_policy_in_mode(
     depth: LazyBlockStrategy,
     policy: BlockEncodingPolicy,
     block_encode_mode: BlockEncodeMode,
-) -> GreedyEncodedBlock {
+) -> Result<GreedyEncodedBlock, crate::workspace::CapacityError> {
     let block = &source.src[source.block_range.clone()];
-    let mut bytes = Vec::new();
+    let mut bytes = crate::workspace::ReusableVec::new();
 
-    if let Some(encoded) = encode_special_block(block, last_block, repeat_offsets, &mut bytes) {
-        return encoded;
+    if let Some(encoded) = encode_special_block(block, last_block, repeat_offsets, &mut bytes)? {
+        return Ok(encoded);
     }
 
     if let Some(target_size) = block_encode_mode.target_c_block_size() {
@@ -378,7 +385,7 @@ pub(crate) fn encode_block_attached_dict_with_state_and_policy_in_mode(
             repeat_offsets,
             match_state,
             depth,
-        );
+        )?;
         return encode_target_block_with_superblock_fallback(
             block,
             last_block,
@@ -401,7 +408,7 @@ pub(crate) fn encode_block_attached_dict_with_state_and_policy_in_mode(
             repeat_offsets,
             match_state,
             depth,
-        );
+        )?;
         return encode_stored_block(
             block,
             last_block,
@@ -417,7 +424,7 @@ pub(crate) fn encode_block_attached_dict_with_state_and_policy_in_mode(
     }
 
     let prepared =
-        prepare_block_attached_dict_with_state(source, params, repeat_offsets, match_state, depth);
+        prepare_block_attached_dict_with_state(source, params, repeat_offsets, match_state, depth)?;
     let previous_fse = context.fse_tables.snapshot_previous();
     let previous_offsets = *context.offset_history;
     encode_prepared_block(

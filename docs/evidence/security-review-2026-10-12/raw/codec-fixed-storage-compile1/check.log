@@ -1,0 +1,4 @@
+error: There are multiple `zstd-complete` packages in your project, and the specification `zstd-complete` is ambiguous.
+Please re-run this command with one of the following specifications:
+  zstd-complete@0.1.0
+  zstd-complete@0.2.0

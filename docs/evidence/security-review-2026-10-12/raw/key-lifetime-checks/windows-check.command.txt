@@ -1,0 +1,1 @@
+/usr/bin/timeout --kill-after=30s 900s cargo +1.88.0 check --locked --offline -p revault_vault_api@0.0.42 --target x86_64-pc-windows-gnu

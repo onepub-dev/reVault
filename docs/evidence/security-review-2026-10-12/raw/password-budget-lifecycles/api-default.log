@@ -1,0 +1,33 @@
+   Compiling revault_lockbox_api v0.0.41 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_lockbox_api)
+warning: variant `PasswordWithBudget` is never constructed
+  --> revault_lockbox_api/src/file_format/publication_anchor/bootstrap.rs:17:5
+   |
+15 | pub(crate) enum Credential<'a> {
+   |                 ---------- variant in this enum
+16 |     Password(&'a SecretString),
+17 |     PasswordWithBudget { password: &'a SecretString, max_derivations: u32 },
+   |     ^^^^^^^^^^^^^^^^^^
+   |
+   = note: `Credential` has a derived impl for the trait `Clone`, but this is intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` on by default
+
+warning: field `payload` is never read
+  --> revault_lockbox_api/src/model/record.rs:26:16
+   |
+22 | pub(crate) struct DecodedRecord {
+   |                   ------------- field in this struct
+...
+26 |     pub(crate) payload: Vec<u8>,
+   |                ^^^^^^^
+   |
+   = note: `DecodedRecord` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: `revault_lockbox_api` (lib test) generated 2 warnings
+    Finished `release` profile [optimized] target(s) in 1m 11s
+     Running unittests src/lib.rs (target/release/deps/revault_lockbox_api-9ff5a2f0178b8ac8)
+
+running 1 test
+test api_tests::password_work_override_preserves_ordinary_archive_and_mirror_readability ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 727 filtered out; finished in 1.20s
+

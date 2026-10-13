@@ -1,0 +1,29 @@
+warning: variant `AllocationFailed` is never constructed
+ --> /home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/vendor/zstd-complete/src/fixed_storage.rs:6:5
+  |
+4 | pub enum CapacityError {
+  |          ------------- variant in this enum
+5 |     Overflow,
+6 |     AllocationFailed,
+  |     ^^^^^^^^^^^^^^^^
+  |
+  = note: `CapacityError` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+  = note: `#[warn(dead_code)]` on by default
+
+warning: methods `capacity`, `as_mut_slice`, and `spare_capacity_mut` are never used
+  --> /home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/vendor/zstd-complete/src/fixed_storage.rs:31:19
+   |
+17 | impl<T> FixedStorage<T> {
+   | ----------------------- methods in this implementation
+...
+31 |     pub(crate) fn capacity(&self) -> usize { self.capacity }
+   |                   ^^^^^^^^
+...
+36 |     pub(crate) fn as_mut_slice(&mut self) -> &mut [T] {
+   |                   ^^^^^^^^^^^^
+...
+96 |     pub(crate) fn spare_capacity_mut(&mut self) -> &mut [MaybeUninit<T>] {
+   |                   ^^^^^^^^^^^^^^^^^^
+
+warning: 2 warnings emitted
+

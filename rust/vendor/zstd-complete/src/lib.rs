@@ -14,6 +14,7 @@
 #![no_std]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![deny(trivial_casts, trivial_numeric_casts, rust_2018_idioms)]
+#![deny(unused_must_use)]
 
 #[cfg(feature = "std")]
 extern crate std;
@@ -41,6 +42,7 @@ pub mod decoding;
 #[cfg_attr(docsrs, doc(cfg(feature = "dict_builder")))]
 pub mod dictionary;
 pub mod encoding;
+mod fixed_storage;
 mod kernel;
 #[doc(hidden)]
 pub mod workspace;

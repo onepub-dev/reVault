@@ -176,6 +176,15 @@ table ProfileHistory {
   generations:[revault.internal.ProfileGeneration] (id: 2);
 }
 
+table LockboxAlias {
+  name:string (id: 0);
+  lockbox_id:[ubyte] (id: 1);
+}
+
+table LockboxAliasList {
+  values:[revault.internal.LockboxAlias] (id: 0);
+}
+
 table KnownLockbox {
   lockbox_id:[ubyte] (id: 0);
   path:string (id: 1);
@@ -261,6 +270,7 @@ table SleepSupport {
   suspend_notifications:bool (id: 0);
   sleep_inhibition:bool (id: 1);
   supported:bool (id: 2);
+  cache_clearing_active:bool (id: 3);
 }
 
 table PlatformStatus {

@@ -1,0 +1,4 @@
+cwd=rust
+env=REVAULT_UNICODE_SHELLS=bash
+command=cargo +1.88.0 test --locked --offline --release -p revault_cli --test unicode_shell_cli unicode_alias_roundtrips_and_completion_through_native_shells -- --ignored --exact --nocapture --test-threads=1
+timeout=900s + 30s kill grace

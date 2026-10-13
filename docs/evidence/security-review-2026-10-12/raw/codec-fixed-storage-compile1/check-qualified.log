@@ -1,0 +1,551 @@
+    Checking zstd-complete v0.2.0 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/vendor/zstd-complete)
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/decoding/block_decoder.rs:180:17
+    |
+176 |             decode_sequences(
+    |             ---------------- arguments to this function are incorrect
+...
+180 |                 &mut workspace.sequences,
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^ expected `&mut Vec<Sequence>`, found `&mut ReusableVec<Sequence>`
+    |
+    = note: expected mutable reference `&mut std::vec::Vec<sequence_section::Sequence>`
+               found mutable reference `&mut ReusableVec<sequence_section::Sequence>`
+note: function defined here
+   --> vendor/zstd-complete/src/decoding/sequence_section_decoder.rs:14:8
+    |
+14  | pub fn decode_sequences(
+    |        ^^^^^^^^^^^^^^^^
+...
+18  |     target: &mut Vec<Sequence>,
+    |     --------------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/estimate.rs:102:76
+    |
+102 |     encode_sequences_for_estimate_into(prepared.sequences, offset_history, &mut scratch.sequences);
+    |     ----------------------------------                                     ^^^^^^^^^^^^^^^^^^^^^^ expected `&mut Vec<Sequence>`, found `&mut ReusableVec<Sequence>`
+    |     |
+    |     arguments to this function are incorrect
+    |
+    = note: expected mutable reference `&mut std::vec::Vec<sequence_section::Sequence>`
+               found mutable reference `&mut ReusableVec<sequence_section::Sequence>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_bitstream.rs:179:15
+    |
+179 | pub(super) fn encode_sequences_for_estimate_into(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+182 |     encoded: &mut Vec<crate::blocks::sequence_section::Sequence>,
+    |     ------------------------------------------------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/estimate.rs:117:9
+    |
+112 |     let sequence_size = estimate_sequence_section_size(
+    |                         ------------------------------ arguments to this function are incorrect
+...
+117 |         &mut scratch.table_bytes,
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^ expected `&mut Vec<u8>`, found `&mut ReusableVec<u8>`
+    |
+    = note: expected mutable reference `&mut std::vec::Vec<u8>`
+               found mutable reference `&mut ReusableVec<u8>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/estimate.rs:259:4
+    |
+259 | fn estimate_sequence_section_size(
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+264 |     table_bytes: &mut Vec<u8>,
+    |     -------------------------
+
+error[E0308]: mismatched types
+  --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_block/special.rs:17:47
+   |
+17 |         write_raw_block(last_block, 0, block, bytes);
+   |         ---------------                       ^^^^^ expected `&mut Vec<u8>`, found `&mut ReusableVec<u8>`
+   |         |
+   |         arguments to this function are incorrect
+   |
+   = note: expected mutable reference `&mut std::vec::Vec<u8>`
+              found mutable reference `&mut ReusableVec<u8>`
+note: function defined here
+  --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_block/special.rs:37:4
+   |
+37 | fn write_raw_block(last_block: bool, block_size: u32, data: &[u8], output: &mut Vec<u8>) {
+   |    ^^^^^^^^^^^^^^^                                                 --------------------
+
+error[E0308]: mismatched types
+  --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_block/special.rs:26:64
+   |
+26 |         write_raw_block(last_block, block.len() as u32, block, bytes);
+   |         ---------------                                        ^^^^^ expected `&mut Vec<u8>`, found `&mut ReusableVec<u8>`
+   |         |
+   |         arguments to this function are incorrect
+   |
+   = note: expected mutable reference `&mut std::vec::Vec<u8>`
+              found mutable reference `&mut ReusableVec<u8>`
+note: function defined here
+  --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_block/special.rs:37:4
+   |
+37 | fn write_raw_block(last_block: bool, block_size: u32, data: &[u8], output: &mut Vec<u8>) {
+   |    ^^^^^^^^^^^^^^^                                                 --------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_block.rs:473:9
+    |
+457 |     let emission = append_stored_block_or_raw(
+    |                    -------------------------- arguments to this function are incorrect
+...
+473 |         &mut bytes,
+    |         ^^^^^^^^^^ expected `&mut Vec<u8>`, found `&mut ReusableVec<u8>`
+    |
+    = note: expected mutable reference `&mut std::vec::Vec<u8>`
+               found mutable reference `&mut ReusableVec<u8>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:64:15
+    |
+64  | pub(super) fn append_stored_block_or_raw(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+77  |     output: &mut Vec<u8>,
+    |     --------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_block.rs:519:9
+    |
+507 |     match append_prepared_block_or_raw(
+    |           ---------------------------- arguments to this function are incorrect
+...
+519 |         &mut bytes,
+    |         ^^^^^^^^^^ expected `&mut Vec<u8>`, found `&mut ReusableVec<u8>`
+    |
+    = note: expected mutable reference `&mut std::vec::Vec<u8>`
+               found mutable reference `&mut ReusableVec<u8>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:294:15
+    |
+294 | pub(super) fn append_prepared_block_or_raw(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+306 |     output: &mut Vec<u8>,
+    |     --------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/opt_encode.rs:566:9
+    |
+550 |     let emission = append_stored_block_or_raw(
+    |                    -------------------------- arguments to this function are incorrect
+...
+566 |         &mut bytes,
+    |         ^^^^^^^^^^ expected `&mut Vec<u8>`, found `&mut ReusableVec<u8>`
+    |
+    = note: expected mutable reference `&mut std::vec::Vec<u8>`
+               found mutable reference `&mut ReusableVec<u8>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:64:15
+    |
+64  | pub(super) fn append_stored_block_or_raw(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+77  |     output: &mut Vec<u8>,
+    |     --------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/opt_parser.rs:487:17
+    |
+482 |             select_path(
+    |             ----------- arguments to this function are incorrect
+...
+487 |                 &mut path,
+    |                 ^^^^^^^^^ expected `&mut Vec<Optimal>`, found `&mut ReusableVec<Optimal>`
+    |
+    = note: expected mutable reference `&mut std::vec::Vec<Optimal>`
+               found mutable reference `&mut ReusableVec<Optimal>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/opt_path.rs:10:15
+    |
+10  | pub(super) fn select_path(
+    |               ^^^^^^^^^^^
+...
+15  |     path: &mut Vec<Optimal>,
+    |     -----------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/post_split.rs:150:13
+    |
+134 |         let emission = append_stored_block_or_raw(
+    |                        -------------------------- arguments to this function are incorrect
+...
+150 |             &mut bytes,
+    |             ^^^^^^^^^^ expected `&mut Vec<u8>`, found `&mut ReusableVec<u8>`
+    |
+    = note: expected mutable reference `&mut std::vec::Vec<u8>`
+               found mutable reference `&mut ReusableVec<u8>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:64:15
+    |
+64  | pub(super) fn append_stored_block_or_raw(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+77  |     output: &mut Vec<u8>,
+    |     --------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/post_split.rs:187:9
+    |
+186 |     derive_block_splits_helper(
+    |     -------------------------- arguments to this function are incorrect
+187 |         splits,
+    |         ^^^^^^ expected `&mut Vec<usize>`, found `&mut ReusableVec<usize>`
+    |
+    = note: expected mutable reference `&mut std::vec::Vec<usize>`
+               found mutable reference `&mut ReusableVec<usize>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/post_split.rs:201:4
+    |
+201 | fn derive_block_splits_helper(
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+202 |     splits: &mut Vec<usize>,
+    |     -----------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/target_acceptance.rs:51:41
+    |
+51  |     append_raw_block(block, last_block, &mut bytes);
+    |     ----------------                    ^^^^^^^^^^ expected `&mut Vec<u8>`, found `&mut ReusableVec<u8>`
+    |     |
+    |     arguments to this function are incorrect
+    |
+    = note: expected mutable reference `&mut std::vec::Vec<u8>`
+               found mutable reference `&mut ReusableVec<u8>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:364:15
+    |
+364 | pub(super) fn append_raw_block(block: &[u8], last_block: bool, output: &mut Vec<u8>) {
+    |               ^^^^^^^^^^^^^^^^                                 --------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/target_block.rs:55:48
+    |
+55  |         if append_rle_block(block, last_block, &mut candidate) {
+    |            ----------------                    ^^^^^^^^^^^^^^ expected `&mut Vec<u8>`, found `&mut ReusableVec<u8>`
+    |            |
+    |            arguments to this function are incorrect
+    |
+    = note: expected mutable reference `&mut std::vec::Vec<u8>`
+               found mutable reference `&mut ReusableVec<u8>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:368:15
+    |
+368 | pub(super) fn append_rle_block(block: &[u8], last_block: bool, output: &mut Vec<u8>) -> bool {
+    |               ^^^^^^^^^^^^^^^^                                 --------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/target_block.rs:76:13
+    |
+69  |         if let Some(emission) = append_literal_only_sub_block(
+    |                                 ----------------------------- arguments to this function are incorrect
+...
+76  |             &mut candidate,
+    |             ^^^^^^^^^^^^^^ expected `&mut Vec<u8>`, found `&mut ReusableVec<u8>`
+    |
+    = note: expected mutable reference `&mut std::vec::Vec<u8>`
+               found mutable reference `&mut ReusableVec<u8>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/superblock.rs:175:15
+    |
+175 | pub(super) fn append_literal_only_sub_block(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+182 |     output: &mut Vec<u8>,
+    |     --------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/workspace.rs:202:72
+    |
+202 |             MatchWorkspace::Uncompressed => encode_uncompressed(input, &mut output_vec),
+    |                                             -------------------        ^^^^^^^^^^^^^^^ expected `&mut Vec<u8>`, found `&mut ReusableVec<u8>`
+    |                                             |
+    |                                             arguments to this function are incorrect
+    |
+    = note: expected mutable reference `&mut std::vec::Vec<u8>`
+               found mutable reference `&mut ReusableVec<u8>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/workspace.rs:234:4
+    |
+234 | fn encode_uncompressed(input: &[u8], output: &mut Vec<u8>) {
+    |    ^^^^^^^^^^^^^^^^^^^               --------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/workspace.rs:204:84
+    |
+204 |                 c_port::workspace_encode_fast(input, cctx, &mut self.frame, state, &mut output_vec)
+    |                 -----------------------------                                      ^^^^^^^^^^^^^^^ expected `&mut Vec<u8>`, found `&mut ReusableVec<u8>`
+    |                 |
+    |                 arguments to this function are incorrect
+    |
+    = note: expected mutable reference `&mut std::vec::Vec<u8>`
+               found mutable reference `&mut ReusableVec<u8>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_frame.rs:49:15
+    |
+49  | pub(crate) fn encode_frame_fast_no_dict_with_cctx_in(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+54  |     output: &mut Vec<u8>,
+    |     --------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/workspace.rs:207:85
+    |
+207 |                 c_port::workspace_encode_dfast(input, cctx, &mut self.frame, state, &mut output_vec)
+    |                 ------------------------------                                      ^^^^^^^^^^^^^^^ expected `&mut Vec<u8>`, found `&mut ReusableVec<u8>`
+    |                 |
+    |                 arguments to this function are incorrect
+    |
+    = note: expected mutable reference `&mut std::vec::Vec<u8>`
+               found mutable reference `&mut ReusableVec<u8>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_frame.rs:53:15
+    |
+53  | pub(crate) fn encode_frame_double_fast_no_dict_with_cctx_in(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+58  |     output: &mut Vec<u8>,
+    |     --------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/workspace.rs:215:17
+    |
+209 |             MatchWorkspace::Greedy { state, depth } => c_port::workspace_encode_greedy(
+    |                                                        ------------------------------- arguments to this function are incorrect
+...
+215 |                 &mut output_vec,
+    |                 ^^^^^^^^^^^^^^^ expected `&mut Vec<u8>`, found `&mut ReusableVec<u8>`
+    |
+    = note: expected mutable reference `&mut std::vec::Vec<u8>`
+               found mutable reference `&mut ReusableVec<u8>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_frame.rs:148:15
+    |
+148 | pub(crate) fn encode_frame_hash_chain_no_dict_with_cctx_in(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+154 |     output: &mut Vec<u8>,
+    |     --------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/workspace.rs:224:17
+    |
+217 |             MatchWorkspace::Opt { state, strategy } => c_port::workspace_encode_opt(
+    |                                                        ---------------------------- arguments to this function are incorrect
+...
+224 |                 &mut output_vec,
+    |                 ^^^^^^^^^^^^^^^ expected `&mut Vec<u8>`, found `&mut ReusableVec<u8>`
+    |
+    = note: expected mutable reference `&mut std::vec::Vec<u8>`
+               found mutable reference `&mut ReusableVec<u8>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/opt_frame.rs:312:15
+    |
+312 | pub(crate) fn encode_frame_opt_no_dict_with_cctx_in(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+319 |     output: &mut Vec<u8>,
+    |     --------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/kernel/huff0/table.rs:182:41
+    |
+182 |     let leaf_count = build_tree(counts, &mut scratch.nodes)?;
+    |                      ----------         ^^^^^^^^^^^^^^^^^^ expected `&mut Vec<Node>`, found `&mut ReusableVec<Node>`
+    |                      |
+    |                      arguments to this function are incorrect
+    |
+    = note: expected mutable reference `&mut std::vec::Vec<Node>`
+               found mutable reference `&mut ReusableVec<Node>`
+note: function defined here
+   --> vendor/zstd-complete/src/kernel/huff0/table.rs:266:4
+    |
+266 | fn build_tree(counts: &[usize], nodes: &mut Vec<Node>) -> Option<usize> {
+    |    ^^^^^^^^^^                   ---------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/kernel/huff0/table.rs:223:41
+    |
+223 |     let leaf_count = build_tree(counts, &mut scratch.nodes)?;
+    |                      ----------         ^^^^^^^^^^^^^^^^^^ expected `&mut Vec<Node>`, found `&mut ReusableVec<Node>`
+    |                      |
+    |                      arguments to this function are incorrect
+    |
+    = note: expected mutable reference `&mut std::vec::Vec<Node>`
+               found mutable reference `&mut ReusableVec<Node>`
+note: function defined here
+   --> vendor/zstd-complete/src/kernel/huff0/table.rs:266:4
+    |
+266 | fn build_tree(counts: &[usize], nodes: &mut Vec<Node>) -> Option<usize> {
+    |    ^^^^^^^^^^                   ---------------------
+
+error[E0599]: no method named `swap_remove` found for struct `ReusableVec<fse_encoder::table::FSETable>` in the current scope
+   --> vendor/zstd-complete/src/fse/fse_encoder/table.rs:372:54
+    |
+372 |             Some(index) => Some(self.recycled_tables.swap_remove(index)),
+    |                                                      ^^^^^^^^^^^ method not found in `ReusableVec<FSETable>`
+    |
+   ::: vendor/zstd-complete/src/workspace.rs:283:1
+    |
+283 | pub struct ReusableVec<T> { storage: VectorStorage<T> }
+    | ------------------------- method `swap_remove` not found for this struct
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/huff0/huff0_encoder/table.rs:111:62
+    |
+111 |             Self::build_c_table_with_nodes(counts, max_bits, &mut scratch.nodes)
+    |             ------------------------------                   ^^^^^^^^^^^^^^^^^^ expected `&mut Vec<HuffmanNode>`, found `&mut ReusableVec<HuffmanNode>`
+    |             |
+    |             arguments to this function are incorrect
+    |
+    = note: expected mutable reference `&mut std::vec::Vec<HuffmanNode>`
+               found mutable reference `&mut ReusableVec<HuffmanNode>`
+note: associated function defined here
+   --> vendor/zstd-complete/src/huff0/huff0_encoder/table.rs:522:19
+    |
+522 |     pub(super) fn build_c_table_with_nodes(
+    |                   ^^^^^^^^^^^^^^^^^^^^^^^^
+...
+525 |         nodes: &mut Vec<HuffmanNode>,
+    |         ----------------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/huff0/huff0_encoder/table.rs:441:17
+    |
+439 |             table_description_bytes_from_weights_reusing_with_fse_scratch(
+    |             ------------------------------------------------------------- arguments to this function are incorrect
+440 |                 &byte_weights[..weights.len()],
+441 |                 &mut description,
+    |                 ^^^^^^^^^^^^^^^^ expected `&mut Vec<u8>`, found `&mut ReusableVec<u8>`
+    |
+    = note: expected mutable reference `&mut std::vec::Vec<u8>`
+               found mutable reference `&mut ReusableVec<u8>`
+note: function defined here
+   --> vendor/zstd-complete/src/huff0/huff0_encoder/weights.rs:88:15
+    |
+88  | pub(super) fn table_description_bytes_from_weights_reusing_with_fse_scratch(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+89  |     weights: &[u8],
+90  |     output: &mut Vec<u8>,
+    |     --------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/huff0/huff0_encoder/table.rs:447:17
+    |
+445 |             table_description_bytes_from_weights_reusing(
+    |             -------------------------------------------- arguments to this function are incorrect
+446 |                 &byte_weights[..weights.len()],
+447 |                 &mut description,
+    |                 ^^^^^^^^^^^^^^^^ expected `&mut Vec<u8>`, found `&mut ReusableVec<u8>`
+    |
+    = note: expected mutable reference `&mut std::vec::Vec<u8>`
+               found mutable reference `&mut ReusableVec<u8>`
+note: function defined here
+   --> vendor/zstd-complete/src/huff0/huff0_encoder/weights.rs:56:15
+    |
+56  | pub(super) fn table_description_bytes_from_weights_reusing(weights: &[u8], output: &mut Vec<u8>) {
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^                 --------------------
+
+error[E0308]: arguments to this function are incorrect
+   --> vendor/zstd-complete/src/huff0/huff0_encoder/table.rs:605:17
+    |
+605 |                 crate::kernel::huff0::build_described_huffman_table_reusing_with_context(
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+note: expected `&mut Vec<(u32, u8)>`, found `&mut ReusableVec<(u32, u8)>`
+   --> vendor/zstd-complete/src/huff0/huff0_encoder/table.rs:609:21
+    |
+609 |                     &mut codes,
+    |                     ^^^^^^^^^^
+    = note: expected mutable reference `&mut std::vec::Vec<(u32, u8)>`
+               found mutable reference `&mut ReusableVec<(u32, u8)>`
+note: expected `&mut Vec<u8>`, found `&mut ReusableVec<u8>`
+   --> vendor/zstd-complete/src/huff0/huff0_encoder/table.rs:610:21
+    |
+610 |                     &mut table_description,
+    |                     ^^^^^^^^^^^^^^^^^^^^^^
+    = note: expected mutable reference `&mut std::vec::Vec<u8>`
+               found mutable reference `&mut ReusableVec<u8>`
+note: function defined here
+   --> vendor/zstd-complete/src/kernel/huff0/table.rs:153:8
+    |
+153 | pub fn build_described_huffman_table_reusing_with_context<Context>(
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+157 |     codes: &mut Vec<HuffmanCode>,
+    |     ----------------------------
+158 |     table_description: &mut Vec<u8>,
+    |     -------------------------------
+
+error[E0308]: arguments to this function are incorrect
+   --> vendor/zstd-complete/src/huff0/huff0_encoder/table.rs:615:17
+    |
+615 |                 crate::kernel::huff0::build_described_huffman_table_reusing(
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+note: expected `&mut Vec<(u32, u8)>`, found `&mut ReusableVec<(u32, u8)>`
+   --> vendor/zstd-complete/src/huff0/huff0_encoder/table.rs:619:21
+    |
+619 |                     &mut codes,
+    |                     ^^^^^^^^^^
+    = note: expected mutable reference `&mut std::vec::Vec<(u32, u8)>`
+               found mutable reference `&mut ReusableVec<(u32, u8)>`
+note: expected `&mut Vec<u8>`, found `&mut ReusableVec<u8>`
+   --> vendor/zstd-complete/src/huff0/huff0_encoder/table.rs:620:21
+    |
+620 |                     &mut table_description,
+    |                     ^^^^^^^^^^^^^^^^^^^^^^
+    = note: expected mutable reference `&mut std::vec::Vec<u8>`
+               found mutable reference `&mut ReusableVec<u8>`
+note: function defined here
+   --> vendor/zstd-complete/src/kernel/huff0/table.rs:124:8
+    |
+124 | pub fn build_described_huffman_table_reusing(
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+128 |     codes: &mut Vec<HuffmanCode>,
+    |     ----------------------------
+129 |     table_description: &mut Vec<u8>,
+    |     -------------------------------
+
+error[E0308]: arguments to this function are incorrect
+   --> vendor/zstd-complete/src/huff0/huff0_encoder/table.rs:625:13
+    |
+625 |             crate::kernel::huff0::build_described_huffman_table_reusing(
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+note: expected `&mut Vec<(u32, u8)>`, found `&mut ReusableVec<(u32, u8)>`
+   --> vendor/zstd-complete/src/huff0/huff0_encoder/table.rs:629:17
+    |
+629 |                 &mut codes,
+    |                 ^^^^^^^^^^
+    = note: expected mutable reference `&mut std::vec::Vec<(u32, u8)>`
+               found mutable reference `&mut ReusableVec<(u32, u8)>`
+note: expected `&mut Vec<u8>`, found `&mut ReusableVec<u8>`
+   --> vendor/zstd-complete/src/huff0/huff0_encoder/table.rs:630:17
+    |
+630 |                 &mut table_description,
+    |                 ^^^^^^^^^^^^^^^^^^^^^^
+    = note: expected mutable reference `&mut std::vec::Vec<u8>`
+               found mutable reference `&mut ReusableVec<u8>`
+note: function defined here
+   --> vendor/zstd-complete/src/kernel/huff0/table.rs:124:8
+    |
+124 | pub fn build_described_huffman_table_reusing(
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+128 |     codes: &mut Vec<HuffmanCode>,
+    |     ----------------------------
+129 |     table_description: &mut Vec<u8>,
+    |     -------------------------------
+
+Some errors have detailed explanations: E0308, E0599.
+For more information about an error, try `rustc --explain E0308`.
+error: could not compile `zstd-complete` (lib) due to 28 previous errors

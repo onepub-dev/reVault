@@ -135,6 +135,11 @@ public sealed record ProfileGeneration(uint Index, string Status, byte[] Contact
 /// <param name="Generations">Active and retired contact-key generations.</param>
 public sealed record ProfileHistory(string Name, uint ActiveGeneration, IReadOnlyList<ProfileGeneration> Generations);
 
+/// <summary>A local Vault alias mapping a normalized name to a stable lockbox identity; resolution does not open the target.</summary>
+/// <param name="Name">Case-sensitive normalized NFC alias name.</param>
+/// <param name="LockboxId">Stable binary target identity; verify it when opening the resolved path.</param>
+public sealed record LockboxAlias(string Name, byte[] LockboxId);
+
 /// <summary>A lockbox identifier and host path remembered by the local vault for later discovery.</summary>
 /// <param name="LockboxId">Stable binary identifier of the remembered lockbox.</param>
 /// <param name="Path">Last known host filesystem path of the lockbox.</param>
@@ -184,10 +189,11 @@ public sealed record Contact(string Name, byte[] Key);
 public sealed record AgentEntry(string Id, string Path);
 
 /// <summary>The host capabilities used to protect cached secrets across suspend and sleep.</summary>
-/// <param name="SuspendNotifications">Whether the host reports impending system suspend.</param>
-/// <param name="SleepInhibition">Whether the agent can delay sleep while handling secrets.</param>
-/// <param name="Supported">Whether the host supplies enough integration for safe caching.</param>
-public sealed record SleepSupport(bool SuspendNotifications, bool SleepInhibition, bool Supported);
+/// <param name="SuspendNotifications">Whether suspend notification support is compiled for this host.</param>
+/// <param name="SleepInhibition">Whether sleep inhibition support is compiled for this host.</param>
+/// <param name="Supported">Whether this build includes the host integration; this is not runtime watcher readiness.</param>
+/// <param name="CacheClearingActive">Whether the current compatible Session Agent reports an active suspend cache watcher; false when absent or unavailable. Notification delivery is platform-dependent.</param>
+public sealed record SleepSupport(bool SuspendNotifications, bool SleepInhibition, bool Supported, bool CacheClearingActive);
 
 /// <summary>Availability and configuration of the platform credential store used for the Vault passphrase.</summary>
 /// <param name="Supported">Whether a usable platform credential store exists.</param>
@@ -262,6 +268,9 @@ internal static class DomainCodec
     private static ProfileHistory FromInternal(global::RevaultTransport.ProfileHistoryT value) =>
         new(value.Name ?? string.Empty, value.ActiveGeneration, value.Generations is null ? Array.Empty<ProfileGeneration>() : value.Generations.Select(FromInternal).ToArray());
     internal static ProfileHistory ProfileHistory(byte[] bytes) => FromInternal(global::RevaultTransport.ProfileHistory.GetRootAsProfileHistory(new ByteBuffer(bytes)).UnPack());
+    private static LockboxAlias FromInternal(global::RevaultTransport.LockboxAliasT value) =>
+        new(value.Name ?? string.Empty, value.LockboxId?.ToArray() ?? Array.Empty<byte>());
+    internal static LockboxAlias LockboxAlias(byte[] bytes) => FromInternal(global::RevaultTransport.LockboxAlias.GetRootAsLockboxAlias(new ByteBuffer(bytes)).UnPack());
     private static KnownLockbox FromInternal(global::RevaultTransport.KnownLockboxT value) =>
         new(value.LockboxId?.ToArray() ?? Array.Empty<byte>(), value.Path ?? string.Empty, value.LastSeenUnixMs);
     internal static KnownLockbox KnownLockbox(byte[] bytes) => FromInternal(global::RevaultTransport.KnownLockbox.GetRootAsKnownLockbox(new ByteBuffer(bytes)).UnPack());
@@ -287,7 +296,7 @@ internal static class DomainCodec
         new(value.Id ?? string.Empty, value.Path ?? string.Empty);
     internal static AgentEntry AgentEntry(byte[] bytes) => FromInternal(global::RevaultTransport.AgentEntry.GetRootAsAgentEntry(new ByteBuffer(bytes)).UnPack());
     private static SleepSupport FromInternal(global::RevaultTransport.SleepSupportT value) =>
-        new(value.SuspendNotifications, value.SleepInhibition, value.Supported);
+        new(value.SuspendNotifications, value.SleepInhibition, value.Supported, value.CacheClearingActive);
     internal static SleepSupport SleepSupport(byte[] bytes) => FromInternal(global::RevaultTransport.SleepSupport.GetRootAsSleepSupport(new ByteBuffer(bytes)).UnPack());
     private static PlatformStatus FromInternal(global::RevaultTransport.PlatformStatusT value) =>
         new(value.Supported, value.Disabled, value.Scope ?? string.Empty, value.Backend ?? string.Empty, value.Item ?? string.Empty);
@@ -337,6 +346,11 @@ internal static class DomainCodec
     {
         var values = global::RevaultTransport.ContactList.GetRootAsContactList(new ByteBuffer(bytes)).UnPack().Values;
         return values is null ? Array.Empty<Contact>() : values.Select(FromInternal).ToArray();
+    }
+    internal static IReadOnlyList<LockboxAlias> LockboxAliasList(byte[] bytes)
+    {
+        var values = global::RevaultTransport.LockboxAliasList.GetRootAsLockboxAliasList(new ByteBuffer(bytes)).UnPack().Values;
+        return values is null ? Array.Empty<LockboxAlias>() : values.Select(FromInternal).ToArray();
     }
     internal static IReadOnlyList<KnownLockbox> KnownLockboxList(byte[] bytes)
     {

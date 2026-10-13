@@ -1,0 +1,397 @@
+   Compiling revault_page_api v0.0.34 (/tmp/rv-security-cli-isolated-20261013/source/rust/revault_page_api)
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/bit_io/bit_writer.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `alloc::vec::Vec`
+  --> vendor/zstd-complete/src/decoding/sequence_section_decoder.rs:11:5
+   |
+11 | use alloc::vec::Vec;
+   |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/block_header.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/blocks/compressed/estimate.rs:7:5
+  |
+7 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/blocks/compressed/literals.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/frame_header.rs:4:5
+  |
+4 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:6:5
+  |
+6 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/c_frame_header.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/mode.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/target.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/mode.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/target.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_block/special.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/opt_path.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/superblock_sequences.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/kernel/huff0/mod.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/fse/fse_encoder.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder/stream.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder/table.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: method `len` is never used
+  --> vendor/zstd-complete/src/fixed_storage.rs:38:19
+   |
+23 | impl<T> FixedStorage<T> {
+   | ----------------------- method in this implementation
+...
+38 |     pub(crate) fn len(&self) -> usize { self.len }
+   |                   ^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: `zstd-complete` (lib) generated 21 warnings (run `cargo fix --lib -p zstd-complete` to apply 20 suggestions)
+warning: revault_key_server@0.0.37: reVault key/topology server production operation requires a separate commercial license from OnePub IP Pty Ltd; see revault_key_server/LICENSE
+   Compiling revault_lockbox_api v0.0.41 (/tmp/rv-security-cli-isolated-20261013/source/rust/revault_lockbox_api)
+   Compiling revault_migration_format v0.0.35 (/tmp/rv-security-cli-isolated-20261013/source/rust/revault_migration_format)
+   Compiling revault_archive_v3_reader v0.0.1 (/tmp/rv-security-cli-isolated-20261013/source/rust/revault_migrate_archive_v3/legacy)
+   Compiling revault_vault_api v0.0.42 (/tmp/rv-security-cli-isolated-20261013/source/rust/revault_vault_api)
+   Compiling revault_migration v0.0.39 (/tmp/rv-security-cli-isolated-20261013/source/rust/revault_migration)
+   Compiling revault_vault_v3_reader v0.0.1 (/tmp/rv-security-cli-isolated-20261013/source/rust/revault_migrate_archive_v3/legacy_vault)
+   Compiling revault_cli v0.5.0-dev.1 (/tmp/rv-security-cli-isolated-20261013/source/rust/revault_cli)
+    Finished `release` profile [optimized] target(s) in 2m 41s
+     Running tests/migration_cli.rs (/tmp/rv-security-cli-isolated-20261013/target-pinned-188-final/release/deps/migration_cli-c8a2ed1e0ad1509c)
+
+running 11 tests
+test archive_migration_commands_and_options_execute_end_to_end ... Owned test agent namespace: /tmp/rv-agent-M7Hi57
+CLI start: test=archive_migration_commands_and_options_execute_end_to_end pid=2177620
+CLI end: test=archive_migration_commands_and_options_execute_end_to_end pid=2177620 elapsed=627.053378ms status=exit status: 0
+CLI start: test=archive_migration_commands_and_options_execute_end_to_end pid=2177627
+CLI end: test=archive_migration_commands_and_options_execute_end_to_end pid=2177627 elapsed=602.051783ms status=exit status: 0
+CLI start: test=archive_migration_commands_and_options_execute_end_to_end pid=2177647
+CLI end: test=archive_migration_commands_and_options_execute_end_to_end pid=2177647 elapsed=802.683423ms status=exit status: 0
+CLI start: test=archive_migration_commands_and_options_execute_end_to_end pid=2177648
+CLI end: test=archive_migration_commands_and_options_execute_end_to_end pid=2177648 elapsed=501.774338ms status=exit status: 0
+CLI start: test=archive_migration_commands_and_options_execute_end_to_end pid=2177649
+CLI end: test=archive_migration_commands_and_options_execute_end_to_end pid=2177649 elapsed=501.779938ms status=exit status: 0
+CLI start: test=archive_migration_commands_and_options_execute_end_to_end pid=2177651
+CLI end: test=archive_migration_commands_and_options_execute_end_to_end pid=2177651 elapsed=601.998072ms status=exit status: 0
+CLI start: test=archive_migration_commands_and_options_execute_end_to_end pid=2177656
+CLI end: test=archive_migration_commands_and_options_execute_end_to_end pid=2177656 elapsed=501.747528ms status=exit status: 0
+CLI start: test=archive_migration_commands_and_options_execute_end_to_end pid=2177657
+CLI end: test=archive_migration_commands_and_options_execute_end_to_end pid=2177657 elapsed=702.367428ms status=exit status: 0
+CLI start: test=archive_migration_commands_and_options_execute_end_to_end pid=2177658
+CLI end: test=archive_migration_commands_and_options_execute_end_to_end pid=2177658 elapsed=401.502554ms status=exit status: 0
+CLI start: test=archive_migration_commands_and_options_execute_end_to_end pid=2177659
+CLI end: test=archive_migration_commands_and_options_execute_end_to_end pid=2177659 elapsed=501.774699ms status=exit status: 0
+CLI start: test=archive_migration_commands_and_options_execute_end_to_end pid=2177662
+CLI end: test=archive_migration_commands_and_options_execute_end_to_end pid=2177662 elapsed=777.642188ms status=exit status: 0
+CLI start: test=archive_migration_commands_and_options_execute_end_to_end pid=2177684
+CLI end: test=archive_migration_commands_and_options_execute_end_to_end pid=2177684 elapsed=602.043653ms status=exit status: 1
+CLI start: test=archive_migration_commands_and_options_execute_end_to_end pid=2177686
+CLI end: test=archive_migration_commands_and_options_execute_end_to_end pid=2177686 elapsed=2.607829557s status=exit status: 0
+CLI start: test=archive_migration_commands_and_options_execute_end_to_end pid=2177687
+CLI end: test=archive_migration_commands_and_options_execute_end_to_end pid=2177687 elapsed=401.518294ms status=exit status: 0
+CLI start: test=archive_migration_commands_and_options_execute_end_to_end pid=2177688
+CLI end: test=archive_migration_commands_and_options_execute_end_to_end pid=2177688 elapsed=602.031023ms status=exit status: 0
+CLI start: test=archive_migration_commands_and_options_execute_end_to_end pid=2177689
+CLI end: test=archive_migration_commands_and_options_execute_end_to_end pid=2177689 elapsed=802.522831ms status=exit status: 0
+CLI start: test=archive_migration_commands_and_options_execute_end_to_end pid=2177708
+CLI end: test=archive_migration_commands_and_options_execute_end_to_end pid=2177708 elapsed=602.075803ms status=exit status: 0
+CLI start: test=archive_migration_commands_and_options_execute_end_to_end pid=2177709
+CLI end: test=archive_migration_commands_and_options_execute_end_to_end pid=2177709 elapsed=401.463343ms status=exit status: 0
+CLI start: test=archive_migration_commands_and_options_execute_end_to_end pid=2177710
+CLI end: test=archive_migration_commands_and_options_execute_end_to_end pid=2177710 elapsed=25.486862ms status=exit status: 2
+Owned test agent stopped and fixture directories removed
+ok
+test archive_v1_contact_only_migration_uses_keys_from_the_current_vault ... Owned test agent namespace: /tmp/rv-agent-CnhjNo
+CLI start: test=archive_v1_contact_only_migration_uses_keys_from_the_current_vault pid=2177713
+CLI end: test=archive_v1_contact_only_migration_uses_keys_from_the_current_vault pid=2177713 elapsed=627.112399ms status=exit status: 0
+CLI start: test=archive_v1_contact_only_migration_uses_keys_from_the_current_vault pid=2177722
+CLI end: test=archive_v1_contact_only_migration_uses_keys_from_the_current_vault pid=2177722 elapsed=5.01384446s status=exit status: 0
+Owned test agent stopped and fixture directories removed
+ok
+test archive_v1_migrates_end_to_end_with_the_historical_exporter ... Owned test agent namespace: /tmp/rv-agent-w5HIQF
+CLI start: test=archive_v1_migrates_end_to_end_with_the_historical_exporter pid=2177750
+CLI end: test=archive_v1_migrates_end_to_end_with_the_historical_exporter pid=2177750 elapsed=626.984948ms status=exit status: 0
+CLI start: test=archive_v1_migrates_end_to_end_with_the_historical_exporter pid=2177759
+CLI end: test=archive_v1_migrates_end_to_end_with_the_historical_exporter pid=2177759 elapsed=40.355802935s status=exit status: 0
+Owned test agent stopped and fixture directories removed
+ok
+test automatic_historical_exporter_install_hides_cargo_output ... Owned test agent namespace: /tmp/rv-agent-gVwhao
+CLI start: test=automatic_historical_exporter_install_hides_cargo_output pid=2178101
+CLI end: test=automatic_historical_exporter_install_hides_cargo_output pid=2178101 elapsed=6.82012626s status=exit status: 0
+Owned test agent namespace: /tmp/rv-agent-YEnIrT
+CLI start: test=automatic_historical_exporter_install_hides_cargo_output pid=2178162
+CLI end: test=automatic_historical_exporter_install_hides_cargo_output pid=2178162 elapsed=426.6172ms status=exit status: 0
+CLI start: test=automatic_historical_exporter_install_hides_cargo_output pid=2178169
+CLI end: test=automatic_historical_exporter_install_hides_cargo_output pid=2178169 elapsed=501.89062ms status=exit status: 0
+CLI start: test=automatic_historical_exporter_install_hides_cargo_output pid=2178170
+CLI end: test=automatic_historical_exporter_install_hides_cargo_output pid=2178170 elapsed=501.882169ms status=exit status: 0
+CLI start: test=automatic_historical_exporter_install_hides_cargo_output pid=2178174
+CLI end: test=automatic_historical_exporter_install_hides_cargo_output pid=2178174 elapsed=501.818309ms status=exit status: 0
+Owned test agent stopped and fixture directories removed
+Owned test agent stopped and fixture directories removed
+ok
+test lockbox_v1_with_description_migrates_and_default_error_names_its_path ... Owned test agent namespace: /tmp/rv-agent-EbTjvI
+CLI start: test=lockbox_v1_with_description_migrates_and_default_error_names_its_path pid=2178178
+CLI end: test=lockbox_v1_with_description_migrates_and_default_error_names_its_path pid=2178178 elapsed=727.331253ms status=exit status: 0
+CLI start: test=lockbox_v1_with_description_migrates_and_default_error_names_its_path pid=2178189
+CLI end: test=lockbox_v1_with_description_migrates_and_default_error_names_its_path pid=2178189 elapsed=25.519642ms status=exit status: 0
+CLI start: test=lockbox_v1_with_description_migrates_and_default_error_names_its_path pid=2178190
+CLI end: test=lockbox_v1_with_description_migrates_and_default_error_names_its_path pid=2178190 elapsed=351.202329ms status=exit status: 14
+CLI start: test=lockbox_v1_with_description_migrates_and_default_error_names_its_path pid=2178194
+CLI end: test=lockbox_v1_with_description_migrates_and_default_error_names_its_path pid=2178194 elapsed=40.414531957s status=exit status: 0
+Owned test agent stopped and fixture directories removed
+ok
+test migrated_mirror_preserves_configuration_and_update_lifecycle ... Owned test agent namespace: /tmp/rv-agent-zTcKAy
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2179370
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2179370 elapsed=627.258807ms status=exit status: 0
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2179377
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2179377 elapsed=602.072409ms status=exit status: 0
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2179397
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2179397 elapsed=802.686283ms status=exit status: 0
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2179398
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2179398 elapsed=1.705330499s status=exit status: 0
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2179445
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2179445 elapsed=802.689294ms status=exit status: 0
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2179446
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2179446 elapsed=2.482108524s status=exit status: 0
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2179563
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2179563 elapsed=803.20245ms status=exit status: 0
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2179564
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2179564 elapsed=1.304026158s status=exit status: 0
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2179565
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2179565 elapsed=401.447153ms status=exit status: 0
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2179566
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2179566 elapsed=1.705219997s status=exit status: 0
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2179586
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2179586 elapsed=401.564695ms status=exit status: 0
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2179588
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2179588 elapsed=401.792228ms status=exit status: 0
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2179590
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2179590 elapsed=401.823178ms status=exit status: 0
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2179591
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2179591 elapsed=401.749127ms status=exit status: 12
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2179592
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2179592 elapsed=1.30416048s status=exit status: 0
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2179594
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2179594 elapsed=1.304031059s status=exit status: 1
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2179595
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2179595 elapsed=401.535685ms status=exit status: 0
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2179596
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2179596 elapsed=401.441173ms status=exit status: 0
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2179621
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2179621 elapsed=401.538214ms status=exit status: 0
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2179622
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2179622 elapsed=401.545054ms status=exit status: 0
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2179623
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2179623 elapsed=376.513218ms status=exit status: 0
+Owned test agent stopped and fixture directories removed
+ok
+test vault_migration_commands_and_options_execute_end_to_end ... Owned test agent namespace: /tmp/rv-agent-0LcLpO
+CLI start: test=vault_migration_commands_and_options_execute_end_to_end pid=2179626
+CLI end: test=vault_migration_commands_and_options_execute_end_to_end pid=2179626 elapsed=627.217496ms status=exit status: 0
+CLI start: test=vault_migration_commands_and_options_execute_end_to_end pid=2179636
+CLI end: test=vault_migration_commands_and_options_execute_end_to_end pid=2179636 elapsed=2.30682764s status=exit status: 0
+Owned test agent namespace: /tmp/rv-agent-vhO8bY
+CLI start: test=vault_migration_commands_and_options_execute_end_to_end pid=2179640
+CLI end: test=vault_migration_commands_and_options_execute_end_to_end pid=2179640 elapsed=426.573231ms status=exit status: 0
+CLI start: test=vault_migration_commands_and_options_execute_end_to_end pid=2179650
+CLI end: test=vault_migration_commands_and_options_execute_end_to_end pid=2179650 elapsed=501.811531ms status=exit status: 0
+CLI start: test=vault_migration_commands_and_options_execute_end_to_end pid=2179672
+CLI end: test=vault_migration_commands_and_options_execute_end_to_end pid=2179672 elapsed=501.841152ms status=exit status: 0
+CLI start: test=vault_migration_commands_and_options_execute_end_to_end pid=2179673
+CLI end: test=vault_migration_commands_and_options_execute_end_to_end pid=2179673 elapsed=501.847072ms status=exit status: 0
+Owned test agent stopped and fixture directories removed
+CLI start: test=vault_migration_commands_and_options_execute_end_to_end pid=2179677
+CLI end: test=vault_migration_commands_and_options_execute_end_to_end pid=2179677 elapsed=25.431001ms status=exit status: 2
+CLI start: test=vault_migration_commands_and_options_execute_end_to_end pid=2179678
+CLI end: test=vault_migration_commands_and_options_execute_end_to_end pid=2179678 elapsed=526.808007ms status=exit status: 0
+CLI start: test=vault_migration_commands_and_options_execute_end_to_end pid=2179679
+CLI end: test=vault_migration_commands_and_options_execute_end_to_end pid=2179679 elapsed=501.822191ms status=exit status: 0
+CLI start: test=vault_migration_commands_and_options_execute_end_to_end pid=2179680
+CLI end: test=vault_migration_commands_and_options_execute_end_to_end pid=2179680 elapsed=602.510614ms status=exit status: 0
+CLI start: test=vault_migration_commands_and_options_execute_end_to_end pid=2179681
+CLI end: test=vault_migration_commands_and_options_execute_end_to_end pid=2179681 elapsed=502.221347ms status=exit status: 0
+CLI start: test=vault_migration_commands_and_options_execute_end_to_end pid=2179682
+CLI end: test=vault_migration_commands_and_options_execute_end_to_end pid=2179682 elapsed=903.280225ms status=exit status: 0
+Owned test agent namespace: /tmp/rv-agent-yDdGsH
+CLI start: test=vault_migration_commands_and_options_execute_end_to_end pid=2179684
+CLI end: test=vault_migration_commands_and_options_execute_end_to_end pid=2179684 elapsed=426.544871ms status=exit status: 0
+CLI start: test=vault_migration_commands_and_options_execute_end_to_end pid=2179691
+CLI end: test=vault_migration_commands_and_options_execute_end_to_end pid=2179691 elapsed=501.74271ms status=exit status: 0
+CLI start: test=vault_migration_commands_and_options_execute_end_to_end pid=2179737
+CLI end: test=vault_migration_commands_and_options_execute_end_to_end pid=2179737 elapsed=501.683479ms status=exit status: 0
+CLI start: test=vault_migration_commands_and_options_execute_end_to_end pid=2179778
+CLI end: test=vault_migration_commands_and_options_execute_end_to_end pid=2179778 elapsed=501.778021ms status=exit status: 0
+Owned test agent stopped and fixture directories removed
+CLI start: test=vault_migration_commands_and_options_execute_end_to_end pid=2179835
+CLI end: test=vault_migration_commands_and_options_execute_end_to_end pid=2179835 elapsed=476.757224ms status=exit status: 0
+Owned test agent namespace: /tmp/rv-agent-k4UWtT
+CLI start: test=vault_migration_commands_and_options_execute_end_to_end pid=2179876
+CLI end: test=vault_migration_commands_and_options_execute_end_to_end pid=2179876 elapsed=426.645472ms status=exit status: 0
+CLI start: test=vault_migration_commands_and_options_execute_end_to_end pid=2179919
+CLI end: test=vault_migration_commands_and_options_execute_end_to_end pid=2179919 elapsed=501.760671ms status=exit status: 0
+CLI start: test=vault_migration_commands_and_options_execute_end_to_end pid=2179962
+CLI end: test=vault_migration_commands_and_options_execute_end_to_end pid=2179962 elapsed=501.800621ms status=exit status: 0
+CLI start: test=vault_migration_commands_and_options_execute_end_to_end pid=2180004
+CLI end: test=vault_migration_commands_and_options_execute_end_to_end pid=2180004 elapsed=501.612918ms status=exit status: 0
+Owned test agent stopped and fixture directories removed
+Owned test agent stopped and fixture directories removed
+ok
+test vault_structure_v2_in_container_v1_migrates_end_to_end ... Owned test agent namespace: /tmp/rv-agent-gHgpOW
+CLI start: test=vault_structure_v2_in_container_v1_migrates_end_to_end pid=2180097
+CLI end: test=vault_structure_v2_in_container_v1_migrates_end_to_end pid=2180097 elapsed=326.206972ms status=exit status: 14
+CLI start: test=vault_structure_v2_in_container_v1_migrates_end_to_end pid=2180134
+CLI end: test=vault_structure_v2_in_container_v1_migrates_end_to_end pid=2180134 elapsed=6.894346008s status=exit status: 0
+Owned test agent namespace: /tmp/rv-agent-AceFeO
+CLI start: test=vault_structure_v2_in_container_v1_migrates_end_to_end pid=2180610
+CLI end: test=vault_structure_v2_in_container_v1_migrates_end_to_end pid=2180610 elapsed=426.670891ms status=exit status: 0
+CLI start: test=vault_structure_v2_in_container_v1_migrates_end_to_end pid=2180622
+CLI end: test=vault_structure_v2_in_container_v1_migrates_end_to_end pid=2180622 elapsed=501.621489ms status=exit status: 0
+CLI start: test=vault_structure_v2_in_container_v1_migrates_end_to_end pid=2180686
+CLI end: test=vault_structure_v2_in_container_v1_migrates_end_to_end pid=2180686 elapsed=501.776971ms status=exit status: 0
+CLI start: test=vault_structure_v2_in_container_v1_migrates_end_to_end pid=2180687
+CLI end: test=vault_structure_v2_in_container_v1_migrates_end_to_end pid=2180687 elapsed=501.750452ms status=exit status: 0
+Owned test agent stopped and fixture directories removed
+Owned test agent stopped and fixture directories removed
+ok
+test vault_v1_replace_uses_the_explicit_historical_exporter ... Owned test agent namespace: /tmp/rv-agent-8ohZg9
+CLI start: test=vault_v1_replace_uses_the_explicit_historical_exporter pid=2180693
+CLI end: test=vault_v1_replace_uses_the_explicit_historical_exporter pid=2180693 elapsed=6.720744816s status=exit status: 0
+Owned test agent namespace: /tmp/rv-agent-KMM7jd
+CLI start: test=vault_v1_replace_uses_the_explicit_historical_exporter pid=2180813
+CLI end: test=vault_v1_replace_uses_the_explicit_historical_exporter pid=2180813 elapsed=426.720733ms status=exit status: 0
+CLI start: test=vault_v1_replace_uses_the_explicit_historical_exporter pid=2180820
+CLI end: test=vault_v1_replace_uses_the_explicit_historical_exporter pid=2180820 elapsed=501.837803ms status=exit status: 0
+CLI start: test=vault_v1_replace_uses_the_explicit_historical_exporter pid=2180827
+CLI end: test=vault_v1_replace_uses_the_explicit_historical_exporter pid=2180827 elapsed=501.865812ms status=exit status: 0
+CLI start: test=vault_v1_replace_uses_the_explicit_historical_exporter pid=2180830
+CLI end: test=vault_v1_replace_uses_the_explicit_historical_exporter pid=2180830 elapsed=501.864172ms status=exit status: 0
+Owned test agent stopped and fixture directories removed
+CLI start: test=vault_v1_replace_uses_the_explicit_historical_exporter pid=2180832
+CLI end: test=vault_v1_replace_uses_the_explicit_historical_exporter pid=2180832 elapsed=476.769605ms status=exit status: 0
+Owned test agent stopped and fixture directories removed
+ok
+test vault_v2_replace_preserves_profile_keys_and_supports_password_profiles ... Owned test agent namespace: /tmp/rv-agent-oygwod
+CLI start: test=vault_v2_replace_preserves_profile_keys_and_supports_password_profiles pid=2180837
+CLI end: test=vault_v2_replace_preserves_profile_keys_and_supports_password_profiles pid=2180837 elapsed=6.818550959s status=exit status: 0
+CLI start: test=vault_v2_replace_preserves_profile_keys_and_supports_password_profiles pid=2180966
+CLI end: test=vault_v2_replace_preserves_profile_keys_and_supports_password_profiles pid=2180966 elapsed=501.881452ms status=exit status: 0
+CLI start: test=vault_v2_replace_preserves_profile_keys_and_supports_password_profiles pid=2180967
+CLI end: test=vault_v2_replace_preserves_profile_keys_and_supports_password_profiles pid=2180967 elapsed=501.867492ms status=exit status: 0
+CLI start: test=vault_v2_replace_preserves_profile_keys_and_supports_password_profiles pid=2180970
+CLI end: test=vault_v2_replace_preserves_profile_keys_and_supports_password_profiles pid=2180970 elapsed=501.865261ms status=exit status: 0
+CLI start: test=vault_v2_replace_preserves_profile_keys_and_supports_password_profiles pid=2180971
+CLI end: test=vault_v2_replace_preserves_profile_keys_and_supports_password_profiles pid=2180971 elapsed=501.72614ms status=exit status: 0
+CLI start: test=vault_v2_replace_preserves_profile_keys_and_supports_password_profiles pid=2180972
+CLI end: test=vault_v2_replace_preserves_profile_keys_and_supports_password_profiles pid=2180972 elapsed=501.73166ms status=exit status: 0
+Owned test agent stopped and fixture directories removed
+ok
+test vault_v3_container_upgrade_preserves_profiles_and_enables_compaction ... Owned test agent namespace: /tmp/rv-agent-pUUdjU
+CLI start: test=vault_v3_container_upgrade_preserves_profiles_and_enables_compaction pid=2181749
+CLI end: test=vault_v3_container_upgrade_preserves_profiles_and_enables_compaction pid=2181749 elapsed=7.523758602s status=exit status: 0
+CLI start: test=vault_v3_container_upgrade_preserves_profiles_and_enables_compaction pid=2181804
+CLI end: test=vault_v3_container_upgrade_preserves_profiles_and_enables_compaction pid=2181804 elapsed=501.992463ms status=exit status: 0
+CLI start: test=vault_v3_container_upgrade_preserves_profiles_and_enables_compaction pid=2181805
+CLI end: test=vault_v3_container_upgrade_preserves_profiles_and_enables_compaction pid=2181805 elapsed=501.990093ms status=exit status: 0
+CLI start: test=vault_v3_container_upgrade_preserves_profiles_and_enables_compaction pid=2181871
+CLI end: test=vault_v3_container_upgrade_preserves_profiles_and_enables_compaction pid=2181871 elapsed=501.776321ms status=exit status: 0
+CLI start: test=vault_v3_container_upgrade_preserves_profiles_and_enables_compaction pid=2182005
+CLI end: test=vault_v3_container_upgrade_preserves_profiles_and_enables_compaction pid=2182005 elapsed=5.039641303s status=exit status: 0
+CLI start: test=vault_v3_container_upgrade_preserves_profiles_and_enables_compaction pid=2182114
+CLI end: test=vault_v3_container_upgrade_preserves_profiles_and_enables_compaction pid=2182114 elapsed=803.162869ms status=exit status: 0
+CLI start: test=vault_v3_container_upgrade_preserves_profiles_and_enables_compaction pid=2182121
+CLI end: test=vault_v3_container_upgrade_preserves_profiles_and_enables_compaction pid=2182121 elapsed=401.664467ms status=exit status: 0
+CLI start: test=vault_v3_container_upgrade_preserves_profiles_and_enables_compaction pid=2182141
+CLI end: test=vault_v3_container_upgrade_preserves_profiles_and_enables_compaction pid=2182141 elapsed=376.63629ms status=exit status: 0
+CLI start: test=vault_v3_container_upgrade_preserves_profiles_and_enables_compaction pid=2182142
+CLI end: test=vault_v3_container_upgrade_preserves_profiles_and_enables_compaction pid=2182142 elapsed=426.907956ms status=exit status: 0
+Owned test agent stopped and fixture directories removed
+ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 194.29s
+

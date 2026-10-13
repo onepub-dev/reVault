@@ -1,0 +1,334 @@
+ M ../.github/workflows/bindings-lint.yml
+ M ../.github/workflows/rust.yml
+ M ../.github/workflows/windows-agent-ipc.yml
+ M ../bindings/README.md
+ M ../bindings/api/rust-only-exclusions.tsv
+ M ../bindings/api/rust-to-abi.tsv
+ M ../bindings/cpp/domain_codec.hpp
+ M ../bindings/cpp/domain_models.hpp
+ M ../bindings/cpp/generated/flatbuffers/revault_bindings_generated.h
+ M ../bindings/cpp/revault_api.hpp
+ M ../bindings/csharp/BindingOperations.cs
+ M ../bindings/csharp/DomainModels.cs
+ M ../bindings/csharp/Generated/FlatBuffers/revault_bindings_generated.cs
+ M ../bindings/csharp/RevaultNative.cs
+ M ../bindings/csharp/Vault.cs
+ M ../bindings/dart/lib/src/binding_operations.dart
+ M ../bindings/dart/lib/src/domain_models.dart
+ M ../bindings/dart/lib/src/generated/flatbuffers/revault_bindings_revault.internal_generated.dart
+ M ../bindings/dart/lib/src/lockbox.dart
+ M ../bindings/dart/lib/src/read_only_vault.dart
+ M ../bindings/dart/lib/src/revault.dart
+ M ../bindings/dart/lib/src/revault_native.dart
+ M ../bindings/dart/lib/src/vault.dart
+ M ../bindings/e2e/c/conformance.c
+ M ../bindings/e2e/cpp/conformance.cpp
+ M ../bindings/e2e/csharp/Program.cs
+ M ../bindings/e2e/dart/conformance.dart
+ M ../bindings/e2e/go/conformance.go
+ M ../bindings/e2e/java/Conformance.java
+ M ../bindings/e2e/javascript/conformance.js
+ M ../bindings/e2e/lua/conformance.lua
+ M ../bindings/e2e/operations.tsv
+ M ../bindings/e2e/php/conformance.php
+ M ../bindings/e2e/python/conformance.py
+ M ../bindings/e2e/ruby/conformance.rb
+ M ../bindings/e2e/typescript/conformance.ts
+ M ../bindings/flatbuffers/generate_cpp_models.py
+ M ../bindings/flatbuffers/generate_csharp_models.py
+ M ../bindings/flatbuffers/generate_dart_models.py
+ M ../bindings/flatbuffers/generate_go_models.py
+ M ../bindings/flatbuffers/generate_java_models.py
+ M ../bindings/flatbuffers/generate_php_models.py
+ M ../bindings/flatbuffers/model_docs.py
+ M ../bindings/flatbuffers/results.tsv
+ M ../bindings/flatbuffers/revault_bindings.fbs
+ M ../bindings/go/domain_models.go
+ M ../bindings/go/internal/transport/revault_bindings_generated.go
+ M ../bindings/go/revault.go
+ M ../bindings/go/revault_native.go
+ M ../bindings/java/generated/flatbuffers/com/onepub/revault/internal/SleepSupport.java
+ M ../bindings/java/generated/flatbuffers/com/onepub/revault/internal/SleepSupportT.java
+ M ../bindings/java/src/com/onepub/revault/AccessSlotLabel.java
+ M ../bindings/java/src/com/onepub/revault/BindingOperations.java
+ M ../bindings/java/src/com/onepub/revault/DomainCodec.java
+ M ../bindings/java/src/com/onepub/revault/Revault.java
+ M ../bindings/java/src/com/onepub/revault/RevaultAbiSymbols.java
+ M ../bindings/java/src/com/onepub/revault/RevaultNativeApi.java
+ M ../bindings/java/src/com/onepub/revault/SleepSupport.java
+ M ../bindings/javascript/domain.d.ts
+ M ../bindings/javascript/generated/flatbuffers.js
+ M ../bindings/javascript/generated/flatbuffers/revault/internal.ts
+ M ../bindings/javascript/generated/flatbuffers/revault/internal/sleep-support.ts
+ M ../bindings/javascript/index.d.ts
+ M ../bindings/javascript/index.js
+ M ../bindings/javascript/native.js
+ M ../bindings/kotlin/src/main/kotlin/internal/flatbuffers/revault/internal/revault_bindings.kt
+ M ../bindings/lua/revault_api.lua
+ M ../bindings/lua/revault_flatbuffers.lua
+ M ../bindings/php/generated/flatbuffers/SleepSupport.php
+ M ../bindings/php/revault_ffi.h
+ M ../bindings/php/src/BindingOperations.php
+ M ../bindings/php/src/DomainModels.php
+ M ../bindings/php/src/Vault.php
+ M ../bindings/python/revault_api/_domain.py
+ M ../bindings/python/revault_api/_flatbuffers/__init__.py
+ M ../bindings/python/revault_api/_flatbuffers/revault_bindings_generated.py
+ M ../bindings/python/revault_api/_revault_native.py
+ M ../bindings/python/revault_api/facade.py
+ M ../bindings/ruby/lib/revault/binding_operations.rb
+ M ../bindings/ruby/lib/revault/domain_models.rb
+ M ../bindings/ruby/lib/revault/vault.rb
+ M ../bindings/ruby/native/revault_ruby_shim.c
+ M ../bindings/swift/Sources/RevaultAPI/DomainModels.swift
+ M ../bindings/swift/Sources/RevaultAPI/Internal/FlatBuffers/revault_bindings_generated.swift
+ M ../bindings/swift/Sources/RevaultAPI/RevaultAPI.swift
+ M ../bindings/swift/Sources/RevaultConformance/main.swift
+ M ../bindings/wasm/generated/revault_wasm_bindings.cjs
+ M ../bindings/wasm/generated/revault_wasm_bindings.d.ts
+ M ../bindings/wasm/generated/revault_wasm_bindings_bg.wasm
+ M ../bindings/wasm/generated/revault_wasm_bindings_bg.wasm.d.ts
+ M ../manual/cli-tooling/profiles.md
+ M ../manual/cli-tooling/revault-session-agent.md
+ M ../manual/configuration-file.md
+ M ../manual/protect-and-share/the-vault/profiles.md
+ M ../manual/sessions-and-automation/configuration-file.md
+ M ../manual/sessions-and-automation/session-management/revault-session-agent.md
+ M ../release-notes/candidate.txt
+ M Cargo.lock
+ M revault_bindings/revault_api.h
+ M revault_bindings/src/generated/revault_bindings_generated.rs
+ M revault_bindings/src/lib.rs
+ M revault_cli/CHANGELOG.md
+ M revault_cli/src/commands/doctor.rs
+ M revault_cli/src/commands/files.rs
+ M revault_cli/src/commands/help.rs
+ M revault_cli/src/commands/keys.rs
+ M revault_cli/src/commands/mirror.rs
+ M revault_cli/src/commands/mod.rs
+ M revault_cli/src/commands/session.rs
+ M revault_cli/tests/agent_flow.rs
+ M revault_cli/tests/aliases.rs
+ M revault_cli/tests/cli_flow.rs
+ M revault_cli/tests/common/mod.rs
+ M revault_cli/tests/compaction.rs
+ M revault_cli/tests/completion.rs
+ M revault_cli/tests/headless.rs
+ M revault_cli/tests/migration_cli.rs
+ M revault_cli/tests/password_profiles.rs
+ M revault_cli/tests/publish_integration.rs
+ M revault_cli/wix/main.wxs
+ M revault_lockbox_api/Cargo.toml
+ M revault_lockbox_api/src/api_tests.rs
+ M revault_lockbox_api/src/compression.rs
+ M revault_lockbox_api/src/compression/encode_workspace.rs
+ M revault_lockbox_api/src/file_format/block_page.rs
+ M revault_lockbox_api/src/file_format/candidate_files/compaction.rs
+ M revault_lockbox_api/src/file_format/candidate_files/cost_model.rs
+ M revault_lockbox_api/src/file_format/candidate_files/paged_cost.rs
+ M revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/variables.rs
+ M revault_lockbox_api/src/file_format/candidate_files/tree_image/install.rs
+ M revault_lockbox_api/src/file_format/data_extent.rs
+ M revault_lockbox_api/src/file_format/page.rs
+ M revault_lockbox_api/src/file_format/page_buffer.rs
+ M revault_lockbox_api/src/file_format/payload.rs
+ M revault_lockbox_api/src/file_format/publication_anchor/bootstrap.rs
+ M revault_lockbox_api/src/file_format/publication_anchor/bootstrap/tests.rs
+ M revault_lockbox_api/src/file_format/publication_anchor/shared/catalogue.rs
+ M revault_lockbox_api/src/keys/key_derivation.rs
+ M revault_lockbox_api/src/keys/key_slot.rs
+ M revault_lockbox_api/src/keys/key_wrap.rs
+ M revault_lockbox_api/src/keys/signing.rs
+ M revault_lockbox_api/src/lib.rs
+ M revault_lockbox_api/src/lockbox.rs
+ M revault_lockbox_api/src/lockbox/extraction.rs
+ M revault_lockbox_api/src/lockbox/file_import_pipeline.rs
+ M revault_lockbox_api/src/lockbox/files.rs
+ M revault_lockbox_api/src/lockbox/key_management.rs
+ M revault_lockbox_api/src/lockbox/lockbox_rewrite.rs
+ M revault_lockbox_api/src/lockbox/native_file_reader.rs
+ M revault_lockbox_api/src/lockbox/recovery.rs
+ M revault_lockbox_api/src/lockbox/variables.rs
+ M revault_lockbox_api/src/model/compression_frame_manifest.rs
+ M revault_lockbox_api/src/model/record.rs
+ M revault_lockbox_api/src/storage/atomic_file_replacement.rs
+ M revault_lockbox_api/src/storage/mod.rs
+ M revault_lockbox_api/src/vault_integration.rs
+ M revault_migrate_archive_v3/legacy/Cargo.toml
+ M revault_migration/tests/retained/generate.rs
+ M revault_migration/tests/retained_fixtures.rs
+ M revault_page_api/src/arena.rs
+ M revault_tooling/Cargo.toml
+ M revault_tooling/src/main.rs
+ M revault_tooling/src/release_candidate.rs
+ M revault_tooling/src/repository.rs
+ M revault_vault_api/Cargo.toml
+ M revault_vault_api/src/active_secret.rs
+ M revault_vault_api/src/agent_client.rs
+ M revault_vault_api/src/agent_protocol.rs
+ M revault_vault_api/src/lib.rs
+ M revault_vault_api/src/sleep_watcher.rs
+ M revault_vault_api/src/unix.rs
+ M revault_vault_api/src/vault.rs
+ M revault_vault_api/src/windows.rs
+ M revault_wasm_bindings/operations.tsv
+ M revault_wasm_bindings/src/lib.rs
+ M vendor/PATCHES.md
+ M vendor/zstd-complete/Cargo.toml
+ M vendor/zstd-complete/Cargo.toml.orig
+ M vendor/zstd-complete/src/bit_io/bit_writer.rs
+ M vendor/zstd-complete/src/decoding/block_decoder.rs
+ M vendor/zstd-complete/src/decoding/decode_buffer.rs
+ M vendor/zstd-complete/src/decoding/errors.rs
+ M vendor/zstd-complete/src/decoding/frame_decoder.rs
+ M vendor/zstd-complete/src/decoding/literals_section_decoder.rs
+ M vendor/zstd-complete/src/decoding/scratch.rs
+ M vendor/zstd-complete/src/decoding/sequence_execution.rs
+ M vendor/zstd-complete/src/decoding/sequence_section_decoder.rs
+ M vendor/zstd-complete/src/decoding/wiping.rs
+ M vendor/zstd-complete/src/decoding/workspace.rs
+ M vendor/zstd-complete/src/dictionary/mod.rs
+ M vendor/zstd-complete/src/encoding/block_header.rs
+ M vendor/zstd-complete/src/encoding/blocks/compressed.rs
+ M vendor/zstd-complete/src/encoding/blocks/compressed/config.rs
+ M vendor/zstd-complete/src/encoding/blocks/compressed/estimate.rs
+ M vendor/zstd-complete/src/encoding/blocks/compressed/literal_sections.rs
+ M vendor/zstd-complete/src/encoding/blocks/compressed/literals.rs
+ M vendor/zstd-complete/src/encoding/blocks/compressed/sequence_bitstream.rs
+ M vendor/zstd-complete/src/encoding/blocks/compressed/sequence_sections.rs
+ M vendor/zstd-complete/src/encoding/blocks/compressed/sequence_superblock.rs
+ M vendor/zstd-complete/src/encoding/blocks/compressed/sequence_tables.rs
+ M vendor/zstd-complete/src/encoding/blocks/compressed/sequence_tables/builder.rs
+ M vendor/zstd-complete/src/encoding/blocks/compressed/sequence_tables/selection.rs
+ M vendor/zstd-complete/src/encoding/blocks/compressed/sequence_tables/selection/c_fast.rs
+ M vendor/zstd-complete/src/encoding/blocks/compressed/sequence_tables/selection/policy.rs
+ M vendor/zstd-complete/src/encoding/blocks/compressed/tests.rs
+ M vendor/zstd-complete/src/encoding/frame_compressor.rs
+ M vendor/zstd-complete/src/encoding/frame_header.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/c_frame_header.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/dfast.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/dfast_block.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/mode.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/target.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/dfast_dict.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/dfast_ext.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/dfast_ext_tests.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/dfast_frame.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/dfast_helpers.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/dfast_tests.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/dictionary_frame.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/fast.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/fast_block.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/fast_block/mode.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/fast_block/target.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/fast_ext.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/fast_ext_tests.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/fast_frame.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/fast_tests.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/frame_state.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/greedy.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/greedy/lazy.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/greedy_block.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/greedy_block/special.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/greedy_dict.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/greedy_ext.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/greedy_ext_block.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/greedy_ext_tests.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/greedy_frame.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/greedy_state.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/greedy_tests.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/ldm.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/ldm/sequence.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/ldm/table.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/ldm_tests.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/ldm_window_tests.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/opt_block.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/opt_dict.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/opt_encode.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/opt_encode/attached.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/opt_encode/target_preference.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/opt_frame.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/opt_frame/attached.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/opt_frame/strategy.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/opt_match/table.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/opt_match_tests.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/opt_parser.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/opt_parser_tests.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/opt_path.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/opt_state.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/post_split.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/post_split/tests.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/row_match/tests.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/sequence_store.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/sequence_store_tests.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/superblock.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/superblock/tests.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/superblock_sequences.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/target_acceptance.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/target_block.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/target_block_fixtures.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/target_block_tests.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/target_multi.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/target_multi_basic.rs
+ M vendor/zstd-complete/src/encoding/levels/c_port/target_single.rs
+ M vendor/zstd-complete/src/encoding/levels/fastest.rs
+ M vendor/zstd-complete/src/encoding/levels/fastest/tests.rs
+ M vendor/zstd-complete/src/encoding/streaming_encoder.rs
+ M vendor/zstd-complete/src/encoding/workspace.rs
+ M vendor/zstd-complete/src/fse/fse_decoder.rs
+ M vendor/zstd-complete/src/fse/fse_encoder.rs
+ M vendor/zstd-complete/src/fse/fse_encoder/normalize.rs
+ M vendor/zstd-complete/src/fse/fse_encoder/table.rs
+ M vendor/zstd-complete/src/fse/fse_encoder/tests.rs
+ M vendor/zstd-complete/src/fse/mod.rs
+ M vendor/zstd-complete/src/huff0/huff0_decoder.rs
+ M vendor/zstd-complete/src/huff0/huff0_encoder.rs
+ M vendor/zstd-complete/src/huff0/huff0_encoder/stream.rs
+ M vendor/zstd-complete/src/huff0/huff0_encoder/table.rs
+ M vendor/zstd-complete/src/huff0/huff0_encoder/tests.rs
+ M vendor/zstd-complete/src/huff0/huff0_encoder/tree.rs
+ M vendor/zstd-complete/src/huff0/huff0_encoder/weights.rs
+ M vendor/zstd-complete/src/huff0/mod.rs
+ M vendor/zstd-complete/src/kernel/huff0/mod.rs
+ M vendor/zstd-complete/src/kernel/huff0/table.rs
+ M vendor/zstd-complete/src/kernel/seqstore.rs
+ M vendor/zstd-complete/src/lib.rs
+ M vendor/zstd-complete/src/tests/fuzz_regressions.rs
+ M vendor/zstd-complete/src/tests/mod.rs
+ M vendor/zstd-complete/src/workspace.rs
+ M vendor/zstd-complete/tests/workspaces.rs
+?? ../bindings/java/generated/flatbuffers/com/onepub/revault/internal/LockboxAlias.java
+?? ../bindings/java/generated/flatbuffers/com/onepub/revault/internal/LockboxAliasList.java
+?? ../bindings/java/generated/flatbuffers/com/onepub/revault/internal/LockboxAliasListT.java
+?? ../bindings/java/generated/flatbuffers/com/onepub/revault/internal/LockboxAliasT.java
+?? ../bindings/java/src/com/onepub/revault/LockboxAlias.java
+?? ../bindings/javascript/generated/flatbuffers/revault/internal/lockbox-alias-list.ts
+?? ../bindings/javascript/generated/flatbuffers/revault/internal/lockbox-alias.ts
+?? ../bindings/php/generated/flatbuffers/LockboxAlias.php
+?? ../bindings/php/generated/flatbuffers/LockboxAliasList.php
+?? ../docs/evidence/release-readiness-2026-10-13/
+?? ../docs/evidence/security-review-2026-10-12/
+?? ../docs/evidence/security-review-2026-10-13/
+?? docs/evidence/
+?? revault_lockbox_api/src/lockbox/secure_output.rs
+?? revault_lockbox_api/src/password_work.rs
+?? revault_lockbox_api/src/storage/private_archive_file.rs
+?? revault_migration/tests/retained/archive-v4/
+?? revault_migration/tests/retained/vault-v3-container-v4/
+?? revault_tooling/src/private_api_boundary.rs
+?? revault_vault_api/src/local_secret_activity.rs
+?? vendor/zstd-complete/decodecorpus_files/PROVENANCE.md
+?? vendor/zstd-complete/decodecorpus_files/abc.txt
+?? vendor/zstd-complete/decodecorpus_files/z000068
+?? vendor/zstd-complete/decodecorpus_files/z000068.zst
+?? vendor/zstd-complete/decodecorpus_files/z000088
+?? vendor/zstd-complete/decodecorpus_files/z000088.zst
+?? vendor/zstd-complete/src/fixed_storage.rs
+?? ../tools/fixed-storage-invariants-final.dart
+?? ../tools/full-runtime-api-native-recheck.dart
+?? ../tools/full-runtime-api-recheck.dart
+?? ../tools/full-runtime-api-recheck2.dart
+?? ../tools/full-runtime-api-runner.dart
+?? ../tools/security_review/
+?? ../tools/validate-api-parser-recheck.dart

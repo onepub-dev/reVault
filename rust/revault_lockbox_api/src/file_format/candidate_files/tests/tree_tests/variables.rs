@@ -1065,7 +1065,7 @@ fn password_integrity_selected_variable_rejects_historical_ciphertext_all_protec
         let latest =
             AuditedTreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
                 .unwrap();
-        let extent = latest.image.catalogue.variables[0].layout.extents[0].clone();
+        let extent = latest.image.catalogue.variables[0].layout.extents[0];
         let valid =
             tree_image::TreeImage::open(storage.clone(), archive(), mode, &authority, key(mode))
                 .unwrap();

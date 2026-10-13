@@ -1,0 +1,20 @@
+Resolving dependencies...
+Downloading packages...
++ code_assets 2.1.0
++ collection 1.19.1
++ crypto 3.0.7
++ ffi 2.2.0
++ flat_buffers 25.9.23
++ hooks 2.2.0
++ logging 1.3.0
++ meta 1.19.0
++ path 1.9.1
++ pub_semver 2.2.1
++ record_use 1.1.1
++ revault_api 0.5.0-dev.1 from path ../../dart
++ source_span 1.10.2
++ string_scanner 1.4.1
++ term_glyph 1.2.2
++ typed_data 1.4.0
++ yaml 3.1.4
+Changed 17 dependencies!

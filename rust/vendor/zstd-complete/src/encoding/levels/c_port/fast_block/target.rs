@@ -21,8 +21,8 @@ pub(super) fn append_target_block(
     policy: BlockEncodingPolicy,
     context: FastBlockEncodeContext<'_, '_>,
     target_size: usize,
-    output: &mut Vec<u8>,
-) -> FastBlockEncoding {
+    output: &mut impl crate::workspace::Growable<u8>,
+) -> Result<FastBlockEncoding, crate::workspace::CapacityError> {
     let encoded = encode_target_block_with_superblock_fallback(
         block,
         last_block,
@@ -41,11 +41,11 @@ pub(super) fn append_target_block(
             fse_tables: context.fse_tables,
             offset_history: context.offset_history,
         },
-        Vec::new(),
-    );
-    output.extend_from_slice(&encoded.bytes);
-    FastBlockEncoding {
+        crate::workspace::ReusableVec::new(),
+    )?;
+    output.extend_from_slice(&encoded.bytes)?;
+    Ok(FastBlockEncoding {
         repeat_offsets: encoded.repeat_offsets,
         new_huffman_table: encoded.new_huffman_table,
-    }
+    })
 }

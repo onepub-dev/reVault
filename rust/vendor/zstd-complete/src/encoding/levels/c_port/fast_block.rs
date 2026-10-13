@@ -96,14 +96,16 @@ pub(crate) fn prepare_block_fast_no_dict(
     src: &[u8],
     params: CompressionParameters,
     repeat_offsets: RepeatOffsets,
-) -> FastPreparedBlock {
-    let output = compress_block_fast_no_dict(src, params, repeat_offsets);
-    let prepared = prepare_from_fast_output(src, repeat_offsets, &output);
+) -> Result<FastPreparedBlock, crate::workspace::CapacityError> {
+    Ok({
+        let output = compress_block_fast_no_dict(src, params, repeat_offsets)?;
+        let prepared = prepare_from_fast_output(src, repeat_offsets, &output)?;
 
-    FastPreparedBlock {
-        prepared,
-        repeat_offsets: output.repeat_offsets,
-    }
+        FastPreparedBlock {
+            prepared,
+            repeat_offsets: output.repeat_offsets,
+        }
+    })
 }
 
 pub(crate) fn prepare_block_fast_no_dict_with_state(
@@ -112,15 +114,17 @@ pub(crate) fn prepare_block_fast_no_dict_with_state(
     params: CompressionParameters,
     repeat_offsets: RepeatOffsets,
     state: &mut FastMatchState,
-) -> FastPreparedBlock {
-    prepare_block_fast_no_dict_with_state_and_loaded_dict(
-        src,
-        block_range,
-        params,
-        repeat_offsets,
-        state,
-        0,
-    )
+) -> Result<FastPreparedBlock, crate::workspace::CapacityError> {
+    Ok({
+        prepare_block_fast_no_dict_with_state_and_loaded_dict(
+            src,
+            block_range,
+            params,
+            repeat_offsets,
+            state,
+            0,
+        )?
+    })
 }
 
 pub(crate) fn prepare_block_fast_no_dict_with_state_and_loaded_dict(
@@ -130,16 +134,18 @@ pub(crate) fn prepare_block_fast_no_dict_with_state_and_loaded_dict(
     repeat_offsets: RepeatOffsets,
     state: &mut FastMatchState,
     loaded_dict_end: usize,
-) -> FastPreparedBlock {
-    prepare_block_fast_no_dict_words_with_state_and_loaded_dict(
-        src,
-        block_range,
-        params,
-        repeat_offsets,
-        state,
-        loaded_dict_end,
-    )
-    .into_owned()
+) -> Result<FastPreparedBlock, crate::workspace::CapacityError> {
+    Ok({
+        prepare_block_fast_no_dict_words_with_state_and_loaded_dict(
+            src,
+            block_range,
+            params,
+            repeat_offsets,
+            state,
+            loaded_dict_end,
+        )?
+        .into_owned()
+    })
 }
 
 pub(super) fn prepare_block_fast_no_dict_words_with_state_and_loaded_dict(
@@ -149,23 +155,25 @@ pub(super) fn prepare_block_fast_no_dict_words_with_state_and_loaded_dict(
     repeat_offsets: RepeatOffsets,
     state: &mut FastMatchState,
     loaded_dict_end: usize,
-) -> FastPreparedWords {
-    let block = &src[block_range.clone()];
-    let output = compress_block_fast_no_dict_with_state_and_loaded_dict(
-        src,
-        block_range,
-        params,
-        repeat_offsets,
-        state,
-        loaded_dict_end,
-    );
-    let reuse = state.take_prepared_store();
-    let prepared = prepare_from_fast_output_in(block, repeat_offsets, &output, reuse);
+) -> Result<FastPreparedWords, crate::workspace::CapacityError> {
+    Ok({
+        let block = &src[block_range.clone()];
+        let output = compress_block_fast_no_dict_with_state_and_loaded_dict(
+            src,
+            block_range,
+            params,
+            repeat_offsets,
+            state,
+            loaded_dict_end,
+        )?;
+        let reuse = state.take_prepared_store();
+        let prepared = prepare_from_fast_output_in(block, repeat_offsets, &output, reuse)?;
 
-    FastPreparedWords {
-        prepared,
-        repeat_offsets: output.repeat_offsets,
-    }
+        FastPreparedWords {
+            prepared,
+            repeat_offsets: output.repeat_offsets,
+        }
+    })
 }
 
 pub(super) fn prepare_block_fast_no_dict_stored_with_state_and_loaded_dict(
@@ -175,27 +183,29 @@ pub(super) fn prepare_block_fast_no_dict_stored_with_state_and_loaded_dict(
     repeat_offsets: RepeatOffsets,
     state: &mut FastMatchState,
     loaded_dict_end: usize,
-) -> FastStoredWords {
-    let block = &src[block_range.clone()];
-    let matcher_output = compress_block_fast_no_dict_with_state_and_loaded_dict(
-        src,
-        block_range,
-        params,
-        repeat_offsets,
-        state,
-        loaded_dict_end,
-    );
-    let reuse = state.take_prepared_store();
-    let literals = prepare_stored_literal_words_in(
-        block,
-        &matcher_output.sequences,
-        matcher_output.last_literals,
-        reuse,
-    );
-    FastStoredWords {
-        literals,
-        matcher_output,
-    }
+) -> Result<FastStoredWords, crate::workspace::CapacityError> {
+    Ok({
+        let block = &src[block_range.clone()];
+        let matcher_output = compress_block_fast_no_dict_with_state_and_loaded_dict(
+            src,
+            block_range,
+            params,
+            repeat_offsets,
+            state,
+            loaded_dict_end,
+        )?;
+        let reuse = state.take_prepared_store();
+        let literals = prepare_stored_literal_words_in(
+            block,
+            &matcher_output.sequences,
+            matcher_output.last_literals,
+            reuse,
+        )?;
+        FastStoredWords {
+            literals,
+            matcher_output,
+        }
+    })
 }
 
 pub(crate) fn prepare_block_fast_ext_dict_with_state(
@@ -203,8 +213,11 @@ pub(crate) fn prepare_block_fast_ext_dict_with_state(
     params: CompressionParameters,
     repeat_offsets: RepeatOffsets,
     state: &mut FastMatchState,
-) -> FastPreparedBlock {
-    prepare_block_fast_ext_dict_words_with_state(source, params, repeat_offsets, state).into_owned()
+) -> Result<FastPreparedBlock, crate::workspace::CapacityError> {
+    Ok({
+        prepare_block_fast_ext_dict_words_with_state(source, params, repeat_offsets, state)?
+            .into_owned()
+    })
 }
 
 pub(super) fn prepare_block_fast_ext_dict_words_with_state(
@@ -212,24 +225,26 @@ pub(super) fn prepare_block_fast_ext_dict_words_with_state(
     params: CompressionParameters,
     repeat_offsets: RepeatOffsets,
     state: &mut FastMatchState,
-) -> FastPreparedWords {
-    let block = &source.src[source.block_range.clone()];
-    let output = compress_block_fast_ext_dict_with_state(
-        source.src,
-        source.block_range,
-        source.dict_limit,
-        params,
-        repeat_offsets,
-        state,
-        source.loaded_dict_end,
-    );
-    let reuse = state.take_prepared_store();
-    let prepared = prepare_from_fast_output_in(block, repeat_offsets, &output, reuse);
+) -> Result<FastPreparedWords, crate::workspace::CapacityError> {
+    Ok({
+        let block = &source.src[source.block_range.clone()];
+        let output = compress_block_fast_ext_dict_with_state(
+            source.src,
+            source.block_range,
+            source.dict_limit,
+            params,
+            repeat_offsets,
+            state,
+            source.loaded_dict_end,
+        )?;
+        let reuse = state.take_prepared_store();
+        let prepared = prepare_from_fast_output_in(block, repeat_offsets, &output, reuse)?;
 
-    FastPreparedWords {
-        prepared,
-        repeat_offsets: output.repeat_offsets,
-    }
+        FastPreparedWords {
+            prepared,
+            repeat_offsets: output.repeat_offsets,
+        }
+    })
 }
 
 pub(super) fn prepare_block_fast_ext_dict_stored_with_state(
@@ -237,28 +252,30 @@ pub(super) fn prepare_block_fast_ext_dict_stored_with_state(
     params: CompressionParameters,
     repeat_offsets: RepeatOffsets,
     state: &mut FastMatchState,
-) -> FastStoredWords {
-    let block = &source.src[source.block_range.clone()];
-    let matcher_output = compress_block_fast_ext_dict_with_state(
-        source.src,
-        source.block_range,
-        source.dict_limit,
-        params,
-        repeat_offsets,
-        state,
-        source.loaded_dict_end,
-    );
-    let reuse = state.take_prepared_store();
-    let literals = prepare_stored_literal_words_in(
-        block,
-        &matcher_output.sequences,
-        matcher_output.last_literals,
-        reuse,
-    );
-    FastStoredWords {
-        literals,
-        matcher_output,
-    }
+) -> Result<FastStoredWords, crate::workspace::CapacityError> {
+    Ok({
+        let block = &source.src[source.block_range.clone()];
+        let matcher_output = compress_block_fast_ext_dict_with_state(
+            source.src,
+            source.block_range,
+            source.dict_limit,
+            params,
+            repeat_offsets,
+            state,
+            source.loaded_dict_end,
+        )?;
+        let reuse = state.take_prepared_store();
+        let literals = prepare_stored_literal_words_in(
+            block,
+            &matcher_output.sequences,
+            matcher_output.last_literals,
+            reuse,
+        )?;
+        FastStoredWords {
+            literals,
+            matcher_output,
+        }
+    })
 }
 
 pub(crate) fn encode_block_fast_no_dict(
@@ -268,7 +285,7 @@ pub(crate) fn encode_block_fast_no_dict(
     config: BlockCompressionConfig,
     repeat_offsets: RepeatOffsets,
     context: FastBlockEncodeContext<'_, '_>,
-) -> FastEncodedBlock {
+) -> Result<FastEncodedBlock, crate::workspace::CapacityError> {
     encode_block_fast_no_dict_with_policy(
         src,
         last_block,
@@ -289,7 +306,7 @@ pub(crate) fn encode_block_fast_no_dict_with_policy(
     repeat_offsets: RepeatOffsets,
     context: FastBlockEncodeContext<'_, '_>,
     policy: BlockEncodingPolicy,
-) -> FastEncodedBlock {
+) -> Result<FastEncodedBlock, crate::workspace::CapacityError> {
     let mut bytes = Vec::new();
     let encoding = append_block_fast_no_dict_with_policy(
         src,
@@ -300,13 +317,13 @@ pub(crate) fn encode_block_fast_no_dict_with_policy(
         context,
         policy,
         &mut bytes,
-    );
+    )?;
 
-    FastEncodedBlock {
+    Ok(FastEncodedBlock {
         bytes,
         repeat_offsets: encoding.repeat_offsets,
         new_huffman_table: encoding.new_huffman_table,
-    }
+    })
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -318,18 +335,18 @@ pub(crate) fn append_block_fast_no_dict_with_policy(
     repeat_offsets: RepeatOffsets,
     context: FastBlockEncodeContext<'_, '_>,
     policy: BlockEncodingPolicy,
-    output: &mut Vec<u8>,
-) -> FastBlockEncoding {
-    if append_special_block(src, last_block, output) {
-        return FastBlockEncoding {
+    output: &mut impl crate::workspace::Growable<u8>,
+) -> Result<FastBlockEncoding, crate::workspace::CapacityError> {
+    if append_special_block(src, last_block, output)? {
+        return Ok(FastBlockEncoding {
             repeat_offsets,
             new_huffman_table: None,
-        };
+        });
     }
 
     let previous_fse = context.fse_tables.snapshot_previous();
     let previous_offsets = *context.offset_history;
-    let prepared = prepare_block_fast_no_dict(src, params, repeat_offsets);
+    let prepared = prepare_block_fast_no_dict(src, params, repeat_offsets)?;
     encode_prepared_block(
         src,
         last_block,
@@ -353,7 +370,7 @@ pub(crate) fn encode_block_fast_no_dict_with_state(
     repeat_offsets: RepeatOffsets,
     match_state: &mut FastMatchState,
     context: FastBlockEncodeContext<'_, '_>,
-) -> FastEncodedBlock {
+) -> Result<FastEncodedBlock, crate::workspace::CapacityError> {
     encode_block_fast_no_dict_with_state_and_policy(
         source,
         last_block,
@@ -376,7 +393,7 @@ pub(crate) fn encode_block_fast_no_dict_with_state_and_policy(
     match_state: &mut FastMatchState,
     context: FastBlockEncodeContext<'_, '_>,
     policy: BlockEncodingPolicy,
-) -> FastEncodedBlock {
+) -> Result<FastEncodedBlock, crate::workspace::CapacityError> {
     let mut bytes = Vec::new();
     let encoding = append_block_fast_no_dict_with_state_and_policy(
         source,
@@ -388,13 +405,13 @@ pub(crate) fn encode_block_fast_no_dict_with_state_and_policy(
         context,
         policy,
         &mut bytes,
-    );
+    )?;
 
-    FastEncodedBlock {
+    Ok(FastEncodedBlock {
         bytes,
         repeat_offsets: encoding.repeat_offsets,
         new_huffman_table: encoding.new_huffman_table,
-    }
+    })
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -407,8 +424,8 @@ pub(crate) fn append_block_fast_no_dict_with_state_and_policy(
     match_state: &mut FastMatchState,
     context: FastBlockEncodeContext<'_, '_>,
     policy: BlockEncodingPolicy,
-    output: &mut Vec<u8>,
-) -> FastBlockEncoding {
+    output: &mut impl crate::workspace::Growable<u8>,
+) -> Result<FastBlockEncoding, crate::workspace::CapacityError> {
     append_block_fast_no_dict_with_state_and_policy_in_mode(
         source,
         last_block,
@@ -433,7 +450,7 @@ pub(crate) fn encode_block_fast_ext_dict_with_state_and_policy(
     match_state: &mut FastMatchState,
     context: FastBlockEncodeContext<'_, '_>,
     policy: BlockEncodingPolicy,
-) -> FastEncodedBlock {
+) -> Result<FastEncodedBlock, crate::workspace::CapacityError> {
     let mut bytes = Vec::new();
     let encoding = append_block_fast_ext_dict_with_state_and_policy(
         source,
@@ -445,13 +462,13 @@ pub(crate) fn encode_block_fast_ext_dict_with_state_and_policy(
         context,
         policy,
         &mut bytes,
-    );
+    )?;
 
-    FastEncodedBlock {
+    Ok(FastEncodedBlock {
         bytes,
         repeat_offsets: encoding.repeat_offsets,
         new_huffman_table: encoding.new_huffman_table,
-    }
+    })
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -464,8 +481,8 @@ pub(crate) fn append_block_fast_ext_dict_with_state_and_policy(
     match_state: &mut FastMatchState,
     context: FastBlockEncodeContext<'_, '_>,
     policy: BlockEncodingPolicy,
-    output: &mut Vec<u8>,
-) -> FastBlockEncoding {
+    output: &mut impl crate::workspace::Growable<u8>,
+) -> Result<FastBlockEncoding, crate::workspace::CapacityError> {
     append_block_fast_ext_dict_with_state_and_policy_in_mode(
         source,
         last_block,
@@ -492,8 +509,8 @@ fn encode_prepared_block(
     previous_fse: FseTableSnapshot,
     previous_offsets: OffsetHistory,
     context: FastBlockEncodeContext<'_, '_>,
-    output: &mut Vec<u8>,
-) -> FastBlockEncoding {
+    output: &mut impl crate::workspace::Growable<u8>,
+) -> Result<FastBlockEncoding, crate::workspace::CapacityError> {
     encode_prepared_block_ref(
         block,
         last_block,
@@ -523,8 +540,8 @@ pub(super) fn encode_prepared_words_block(
     previous_offsets: OffsetHistory,
     context: FastBlockEncodeContext<'_, '_>,
     match_state: &mut FastMatchState,
-    output: &mut Vec<u8>,
-) -> FastBlockEncoding {
+    output: &mut impl crate::workspace::Growable<u8>,
+) -> Result<FastBlockEncoding, crate::workspace::CapacityError> {
     let encoding = encode_prepared_block_ref(
         block,
         last_block,
@@ -554,8 +571,8 @@ pub(super) fn encode_stored_words_block(
     policy: BlockEncodingPolicy,
     context: FastBlockEncodeContext<'_, '_>,
     match_state: &mut FastMatchState,
-    output: &mut Vec<u8>,
-) -> FastBlockEncoding {
+    output: &mut impl crate::workspace::Growable<u8>,
+) -> Result<FastBlockEncoding, crate::workspace::CapacityError> {
     let compressed_repeat_offsets = stored.matcher_output.repeat_offsets;
     let emission = append_stored_block_or_raw(
         block,
@@ -578,15 +595,15 @@ pub(super) fn encode_stored_words_block(
     match_state.recycle_prepared_store(stored.literals);
     match_state.recycle_sequence_store(core::mem::take(&mut stored.matcher_output.sequences));
 
-    match emission {
-        PreparedBlockEmission::Raw | PreparedBlockEmission::Rle => FastBlockEncoding {
+    match emission? {
+        PreparedBlockEmission::Raw | PreparedBlockEmission::Rle => Ok(FastBlockEncoding {
             repeat_offsets,
             new_huffman_table: None,
-        },
-        PreparedBlockEmission::Compressed { new_huffman_table } => FastBlockEncoding {
+        }),
+        PreparedBlockEmission::Compressed { new_huffman_table } => Ok(FastBlockEncoding {
             repeat_offsets: compressed_repeat_offsets,
             new_huffman_table,
-        },
+        }),
     }
 }
 
@@ -603,8 +620,8 @@ fn encode_prepared_block_ref(
     previous_fse: FseTableSnapshot,
     previous_offsets: OffsetHistory,
     context: FastBlockEncodeContext<'_, '_>,
-    output: &mut Vec<u8>,
-) -> FastBlockEncoding {
+    output: &mut impl crate::workspace::Growable<u8>,
+) -> Result<FastBlockEncoding, crate::workspace::CapacityError> {
     match append_prepared_block_or_raw(
         block,
         last_block,
@@ -618,15 +635,15 @@ fn encode_prepared_block_ref(
         context.fse_tables,
         context.offset_history,
         output,
-    ) {
-        PreparedBlockEmission::Raw | PreparedBlockEmission::Rle => FastBlockEncoding {
+    )? {
+        PreparedBlockEmission::Raw | PreparedBlockEmission::Rle => Ok(FastBlockEncoding {
             repeat_offsets,
             new_huffman_table: None,
-        },
-        PreparedBlockEmission::Compressed { new_huffman_table } => FastBlockEncoding {
+        }),
+        PreparedBlockEmission::Compressed { new_huffman_table } => Ok(FastBlockEncoding {
             repeat_offsets: compressed_repeat_offsets,
             new_huffman_table,
-        },
+        }),
     }
 }
 
@@ -634,13 +651,15 @@ fn prepare_from_fast_output(
     src: &[u8],
     initial_repeat_offsets: RepeatOffsets,
     output: &FastBlockOutput,
-) -> PreparedBlock {
-    prepare_stored_sequences(
-        src,
-        initial_repeat_offsets,
-        &output.sequences,
-        output.last_literals,
-    )
+) -> Result<PreparedBlock, crate::workspace::CapacityError> {
+    Ok({
+        prepare_stored_sequences(
+            src,
+            initial_repeat_offsets,
+            &output.sequences,
+            output.last_literals,
+        )?
+    })
 }
 
 fn prepare_from_fast_output_in(
@@ -648,12 +667,14 @@ fn prepare_from_fast_output_in(
     initial_repeat_offsets: RepeatOffsets,
     output: &FastBlockOutput,
     reuse: PreparedStoreWords,
-) -> PreparedStoreWords {
-    prepare_stored_sequence_words_in(
-        src,
-        initial_repeat_offsets,
-        &output.sequences,
-        output.last_literals,
-        reuse,
-    )
+) -> Result<PreparedStoreWords, crate::workspace::CapacityError> {
+    Ok({
+        prepare_stored_sequence_words_in(
+            src,
+            initial_repeat_offsets,
+            &output.sequences,
+            output.last_literals,
+            reuse,
+        )?
+    })
 }

@@ -1,0 +1,172 @@
+   Compiling proc-macro2 v1.0.106
+   Compiling libc v0.2.186
+   Compiling quote v1.0.45
+   Compiling unicode-ident v1.0.24
+   Compiling zerocopy v0.8.49
+   Compiling cfg-if v1.0.4
+   Compiling shlex v1.3.0
+   Compiling find-msvc-tools v0.1.9
+   Compiling serde_core v1.0.228
+   Compiling crossbeam-utils v0.8.21
+   Compiling pkg-config v0.3.33
+   Compiling serde v1.0.228
+   Compiling zmij v1.0.21
+   Compiling autocfg v1.5.1
+   Compiling either v1.16.0
+   Compiling serde_json v1.0.150
+   Compiling rayon-core v1.13.0
+   Compiling anstyle v1.0.14
+   Compiling plotters-backend v0.3.7
+   Compiling zstd-safe v7.2.4
+   Compiling itoa v1.0.18
+   Compiling ciborium-io v0.2.2
+   Compiling regex-syntax v0.8.10
+   Compiling memchr v2.8.1
+   Compiling clap_lex v1.1.0
+   Compiling itertools v0.10.5
+   Compiling cast v0.3.0
+   Compiling plotters-svg v0.3.7
+   Compiling same-file v1.0.6
+   Compiling num-traits v0.2.19
+   Compiling clap_builder v4.6.0
+   Compiling once_cell v1.21.4
+   Compiling oorandom v11.1.5
+   Compiling walkdir v2.5.0
+   Compiling anes v0.1.6
+   Compiling twox-hash v2.1.2
+   Compiling crossbeam-epoch v0.9.18
+   Compiling crossbeam-deque v0.8.6
+   Compiling syn v2.0.117
+   Compiling plotters v0.3.7
+   Compiling regex-automata v0.4.14
+   Compiling criterion-plot v0.5.0
+   Compiling jobserver v0.1.34
+   Compiling getrandom v0.2.17
+   Compiling is-terminal v0.4.17
+   Compiling rayon v1.12.0
+   Compiling rand_core v0.6.4
+   Compiling cc v1.2.62
+   Compiling clap v4.6.1
+   Compiling zstd-sys v2.0.16+zstd.1.5.7
+   Compiling regex v1.12.3
+   Compiling zerocopy-derive v0.8.49
+   Compiling serde_derive v1.0.228
+   Compiling zstd v0.13.3
+   Compiling tinytemplate v1.2.1
+   Compiling half v2.7.1
+   Compiling ppv-lite86 v0.2.21
+   Compiling ciborium-ll v0.2.2
+   Compiling rand_chacha v0.3.1
+   Compiling ciborium v0.2.2
+   Compiling rand v0.8.6
+   Compiling criterion v0.5.1
+   Compiling zstd-complete v0.3.0 (/tmp/revault-zstd-030-security-package/attempt2/unpacked/zstd-complete-0.3.0)
+warning: unused import: `alloc::vec::Vec`
+ --> src/encoding/block_header.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `alloc::vec::Vec`
+ --> src/encoding/blocks/compressed/estimate.rs:7:5
+  |
+7 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> src/encoding/blocks/compressed/literals.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> src/encoding/frame_header.rs:4:5
+  |
+4 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> src/encoding/levels/c_port/dfast_block/mode.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> src/encoding/levels/c_port/dfast_block/target.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> src/encoding/levels/c_port/fast_block/mode.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> src/encoding/levels/c_port/fast_block/target.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> src/encoding/levels/c_port/greedy_block/special.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> src/encoding/levels/c_port/opt_path.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> src/encoding/levels/c_port/superblock_sequences.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> src/kernel/huff0/mod.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> src/fse/fse_encoder.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> src/huff0/huff0_encoder.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> src/huff0/huff0_encoder/stream.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> src/huff0/huff0_encoder/table.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: method `len` is never used
+  --> src/fixed_storage.rs:38:19
+   |
+23 | impl<T> FixedStorage<T> {
+   | ----------------------- method in this implementation
+...
+38 |     pub(crate) fn len(&self) -> usize { self.len }
+   |                   ^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+

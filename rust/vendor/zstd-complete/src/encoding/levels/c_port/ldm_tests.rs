@@ -185,7 +185,8 @@ fn ldm_no_dict_sequence_generation_matches_c_vector() {
     }
     let mut table = LdmHashTable::new(params);
 
-    let result = generate_sequences_no_dict(&data, params, &mut table);
+    let result =
+        generate_sequences_no_dict(&data, params, &mut table).expect("test storage admission");
 
     assert_eq!(result.last_literals, 0);
     assert_eq!(
@@ -244,7 +245,8 @@ fn ldm_prefix_sequence_generation_emits_source_relative_literals() {
         dictionary.len()..combined.len(),
         params,
         &mut table,
-    );
+    )
+    .expect("test storage admission");
 
     assert!(!result.sequences.is_empty());
     assert_eq!(result.sequences[0].lit_length, 0);
@@ -272,7 +274,8 @@ fn ldm_source_prefix_match_does_not_extend_back_into_dictionary() {
 
     fill_prefix_hash_table(&combined, 0..source_start, params, &mut table);
     let result =
-        generate_sequences_with_prefix(&combined, source_start..combined.len(), params, &mut table);
+        generate_sequences_with_prefix(&combined, source_start..combined.len(), params, &mut table)
+            .expect("test storage admission");
 
     assert!(
         result.sequences.iter().any(|sequence| {
@@ -306,7 +309,8 @@ fn ldm_chunking_prepends_previous_leftover_literals_like_c() {
     data.extend_from_slice(&repeat);
     let mut table = LdmHashTable::new(params);
 
-    let result = generate_sequences_no_dict(&data, params, &mut table);
+    let result =
+        generate_sequences_no_dict(&data, params, &mut table).expect("test storage admission");
 
     assert!(!result.sequences.is_empty());
     assert!(

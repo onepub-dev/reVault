@@ -72,13 +72,23 @@ pub(in crate::encoding::blocks::compressed) fn choose_c_dfast_compact_sequence_t
     config: SequenceModeSearchConfig<'a>,
     offset_history: OffsetHistory,
     scratch: Option<&mut FSETableBuildScratch>,
-) -> (
-    FseTableMode<'a>,
-    FseTableMode<'a>,
-    FseTableMode<'a>,
-    OffsetHistory,
-) {
-    choose_c_dfast_u32_sequence_table_modes::<_, true>(sequences, config, offset_history, scratch)
+) -> Result<
+    (
+        FseTableMode<'a>,
+        FseTableMode<'a>,
+        FseTableMode<'a>,
+        OffsetHistory,
+    ),
+    crate::workspace::CapacityError,
+> {
+    Ok({
+        choose_c_dfast_u32_sequence_table_modes::<_, true>(
+            sequences,
+            config,
+            offset_history,
+            scratch,
+        )?
+    })
 }
 
 pub(in crate::encoding::blocks::compressed) fn choose_c_dfast_compact_sequence_table_modes_from_stored<
@@ -88,13 +98,23 @@ pub(in crate::encoding::blocks::compressed) fn choose_c_dfast_compact_sequence_t
     config: SequenceModeSearchConfig<'a>,
     offset_history: OffsetHistory,
     scratch: Option<&mut FSETableBuildScratch>,
-) -> (
-    FseTableMode<'a>,
-    FseTableMode<'a>,
-    FseTableMode<'a>,
-    OffsetHistory,
-) {
-    choose_c_dfast_u32_sequence_table_modes::<_, true>(sequences, config, offset_history, scratch)
+) -> Result<
+    (
+        FseTableMode<'a>,
+        FseTableMode<'a>,
+        FseTableMode<'a>,
+        OffsetHistory,
+    ),
+    crate::workspace::CapacityError,
+> {
+    Ok({
+        choose_c_dfast_u32_sequence_table_modes::<_, true>(
+            sequences,
+            config,
+            offset_history,
+            scratch,
+        )?
+    })
 }
 
 pub(in crate::encoding::blocks::compressed) fn choose_c_dfast_compact_sequence_table_modes_from_stored_with_final_history<
@@ -104,18 +124,23 @@ pub(in crate::encoding::blocks::compressed) fn choose_c_dfast_compact_sequence_t
     config: SequenceModeSearchConfig<'a>,
     final_offset_history: OffsetHistory,
     scratch: Option<&mut FSETableBuildScratch>,
-) -> (
-    FseTableMode<'a>,
-    FseTableMode<'a>,
-    FseTableMode<'a>,
-    OffsetHistory,
-) {
-    choose_c_dfast_u32_sequence_table_modes::<_, false>(
-        sequences,
-        config,
-        final_offset_history,
-        scratch,
-    )
+) -> Result<
+    (
+        FseTableMode<'a>,
+        FseTableMode<'a>,
+        FseTableMode<'a>,
+        OffsetHistory,
+    ),
+    crate::workspace::CapacityError,
+> {
+    Ok({
+        choose_c_dfast_u32_sequence_table_modes::<_, false>(
+            sequences,
+            config,
+            final_offset_history,
+            scratch,
+        )?
+    })
 }
 
 /// C's complete unsigned-count path from `ZSTD_seqToCodes()` through the
@@ -127,89 +152,94 @@ fn choose_c_dfast_u32_sequence_table_modes<'a, S: CSequenceValues, const REPLAY_
     config: SequenceModeSearchConfig<'a>,
     mut offset_history: OffsetHistory,
     mut scratch: Option<&mut FSETableBuildScratch>,
-) -> (
-    FseTableMode<'a>,
-    FseTableMode<'a>,
-    FseTableMode<'a>,
-    OffsetHistory,
-) {
-    debug_assert!(!config.exact_sequence_mode_search);
-    debug_assert!(config.c_fast_heuristics);
-    debug_assert!(!config.c_cost_model);
-    debug_assert!(!sequences.is_empty());
+) -> Result<
+    (
+        FseTableMode<'a>,
+        FseTableMode<'a>,
+        FseTableMode<'a>,
+        OffsetHistory,
+    ),
+    crate::workspace::CapacityError,
+> {
+    Ok({
+        debug_assert!(!config.exact_sequence_mode_search);
+        debug_assert!(config.c_fast_heuristics);
+        debug_assert!(!config.c_cost_model);
+        debug_assert!(!sequences.is_empty());
 
-    let mut workspace = [0u32; 256];
-    for &sequence in sequences {
-        let literal_length = sequence.literal_length();
-        U32CountStats::add_count(&mut workspace, LL_LANE, literal_length_code(literal_length));
-        U32CountStats::add_count(
-            &mut workspace,
-            ML_LANE,
-            match_length_code(sequence.match_length()),
-        );
-        let offset_value = sequence.offset_value();
-        debug_assert!(offset_value != 0);
-        U32CountStats::add_count(&mut workspace, OF_LANE, offset_code(offset_value));
-        if REPLAY_HISTORY {
-            let raw_offset =
-                offset_history.update_from_c_offset_value(offset_value, literal_length);
-            debug_assert!(sequence
-                .expected_raw_offset()
-                .is_none_or(|expected| expected == raw_offset));
+        let mut workspace = [0u32; 256];
+        for &sequence in sequences {
+            let literal_length = sequence.literal_length();
+            U32CountStats::add_count(&mut workspace, LL_LANE, literal_length_code(literal_length));
+            U32CountStats::add_count(
+                &mut workspace,
+                ML_LANE,
+                match_length_code(sequence.match_length()),
+            );
+            let offset_value = sequence.offset_value();
+            debug_assert!(offset_value != 0);
+            U32CountStats::add_count(&mut workspace, OF_LANE, offset_code(offset_value));
+            if REPLAY_HISTORY {
+                let raw_offset =
+                    offset_history.update_from_c_offset_value(offset_value, literal_length);
+                debug_assert!(sequence
+                    .expected_raw_offset()
+                    .is_none_or(|expected| expected == raw_offset));
+            }
         }
-    }
-    let total = u32::try_from(sequences.len())
-        .expect("a Zstandard block cannot contain more than u32::MAX sequences");
-    let ll_stats = U32CountStats::from_counts(&workspace[..CODE_LANE_WIDTH], total);
-    let ml_stats =
-        U32CountStats::from_counts(&workspace[CODE_LANE_WIDTH..2 * CODE_LANE_WIDTH], total);
-    let of_stats =
-        U32CountStats::from_counts(&workspace[2 * CODE_LANE_WIDTH..3 * CODE_LANE_WIDTH], total);
+        let total = u32::try_from(sequences.len())
+            .expect("a Zstandard block cannot contain more than u32::MAX sequences");
+        let ll_stats = U32CountStats::from_counts(&workspace[..CODE_LANE_WIDTH], total);
+        let ml_stats =
+            U32CountStats::from_counts(&workspace[CODE_LANE_WIDTH..2 * CODE_LANE_WIDTH], total);
+        let of_stats =
+            U32CountStats::from_counts(&workspace[2 * CODE_LANE_WIDTH..3 * CODE_LANE_WIDTH], total);
 
-    let last = sequences[sequences.len() - 1];
-    let last_offset_value = last.offset_value();
-    debug_assert!(last_offset_value != 0);
-    let ll_mode = choose_c_fast_table_from_u32_lane(
-        config.ll_previous,
-        config.ll_repeat_valid,
-        config.ll_default,
-        &mut workspace[..CODE_LANE_WIDTH],
-        ll_stats,
-        literal_length_code(last.literal_length()),
-        9,
-        config.repeat_table_max_sequences,
-        config.llml_predefined_max_sequences,
-        6,
-        scratch.as_deref_mut(),
-    );
-    let of_mode = choose_c_fast_table_from_u32_lane(
-        config.of_previous,
-        config.of_repeat_valid,
-        config.of_default,
-        &mut workspace[2 * CODE_LANE_WIDTH..3 * CODE_LANE_WIDTH],
-        of_stats,
-        offset_code(last_offset_value),
-        config.of_max_log,
-        config.repeat_table_max_sequences,
-        config.of_predefined_max_sequences,
-        5,
-        scratch.as_deref_mut(),
-    );
-    let ml_mode = choose_c_fast_table_from_u32_lane(
-        config.ml_previous,
-        config.ml_repeat_valid,
-        config.ml_default,
-        &mut workspace[CODE_LANE_WIDTH..2 * CODE_LANE_WIDTH],
-        ml_stats,
-        match_length_code(last.match_length()),
-        9,
-        config.repeat_table_max_sequences,
-        config.llml_predefined_max_sequences,
-        6,
-        scratch,
-    );
+        let last = sequences[sequences.len() - 1];
+        let last_offset_value = last.offset_value();
+        debug_assert!(last_offset_value != 0);
+        let ll_mode = choose_c_fast_table_from_u32_lane(
+            config.ll_previous,
+            config.ll_repeat_valid,
+            config.ll_default,
+            &mut workspace[..CODE_LANE_WIDTH],
+            ll_stats,
+            literal_length_code(last.literal_length()),
+            9,
+            config.repeat_table_max_sequences,
+            config.llml_predefined_max_sequences,
+            6,
+            scratch.as_deref_mut(),
+        )?;
+        let of_mode = choose_c_fast_table_from_u32_lane(
+            config.of_previous,
+            config.of_repeat_valid,
+            config.of_default,
+            &mut workspace[2 * CODE_LANE_WIDTH..3 * CODE_LANE_WIDTH],
+            of_stats,
+            offset_code(last_offset_value),
+            config.of_max_log,
+            config.repeat_table_max_sequences,
+            config.of_predefined_max_sequences,
+            5,
+            scratch.as_deref_mut(),
+        )?;
+        let ml_mode = choose_c_fast_table_from_u32_lane(
+            config.ml_previous,
+            config.ml_repeat_valid,
+            config.ml_default,
+            &mut workspace[CODE_LANE_WIDTH..2 * CODE_LANE_WIDTH],
+            ml_stats,
+            match_length_code(last.match_length()),
+            9,
+            config.repeat_table_max_sequences,
+            config.llml_predefined_max_sequences,
+            6,
+            scratch,
+        )?;
 
-    (ll_mode, ml_mode, of_mode, offset_history)
+        (ll_mode, ml_mode, of_mode, offset_history)
+    })
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -225,7 +255,7 @@ fn choose_c_fast_table_from_u32_lane<'a>(
     predefined_max_sequences: usize,
     default_norm_log: u8,
     scratch: Option<&mut FSETableBuildScratch>,
-) -> FseTableMode<'a> {
+) -> Result<FseTableMode<'a>, crate::workspace::CapacityError> {
     debug_assert_eq!(stats.total, counts.iter().sum::<u32>());
     debug_assert!((stats.max_symbol as usize) < counts.len());
 
@@ -233,9 +263,9 @@ fn choose_c_fast_table_from_u32_lane<'a>(
         let first_code = stats.max_symbol as u8;
         let default_allowed = default_table.can_encode_symbol(first_code);
         return if default_allowed && stats.total <= 2 {
-            FseTableMode::Predefined(default_table)
+            Ok(FseTableMode::Predefined(default_table))
         } else {
-            FseTableMode::Rle(first_code)
+            Ok(FseTableMode::Rle(first_code))
         };
     }
 
@@ -254,18 +284,18 @@ fn choose_c_fast_table_from_u32_lane<'a>(
                     .enumerate()
                     .all(|(symbol, count)| *count == 0 || previous.can_encode_symbol(symbol as u8));
             if repeat_allowed {
-                return FseTableMode::RepeatLast(previous);
+                return Ok(FseTableMode::RepeatLast(previous));
             }
         }
 
         if stats.total < predefined_max_sequences as u32
             || stats.most_frequent < (stats.total >> (u32::from(default_norm_log) - 1))
         {
-            return FseTableMode::Predefined(default_table);
+            return Ok(FseTableMode::Predefined(default_table));
         }
     }
 
-    FseTableMode::Encoded(match scratch {
+    Ok(FseTableMode::Encoded(match scratch {
         Some(scratch) => build_c_fast_sequence_table_from_u32_counts_with_scratch(
             counts,
             stats.total,
@@ -274,7 +304,7 @@ fn choose_c_fast_table_from_u32_lane<'a>(
             max_log,
             TableBuilder::Full,
             scratch,
-        ),
+        )?,
         None => build_c_fast_sequence_table_from_u32_counts(
             counts,
             stats.total,
@@ -282,8 +312,8 @@ fn choose_c_fast_table_from_u32_lane<'a>(
             u32::from(last_code),
             max_log,
             TableBuilder::Full,
-        ),
-    })
+        )?,
+    }))
 }
 
 #[cfg(test)]
@@ -323,11 +353,13 @@ mod tests {
         fn encode_modes(modes: &(FseTableMode<'_>, FseTableMode<'_>, FseTableMode<'_>)) -> Vec<u8> {
             let mut output = Vec::new();
             let mut writer = BitWriter::from(&mut output);
-            writer.write_bits(encode_fse_table_modes(&modes.0, &modes.1, &modes.2), 8);
-            encode_table(&modes.0, &mut writer);
-            encode_table(&modes.2, &mut writer);
-            encode_table(&modes.1, &mut writer);
-            writer.flush();
+            writer
+                .write_bits(encode_fse_table_modes(&modes.0, &modes.1, &modes.2), 8)
+                .expect("test storage admission");
+            encode_table(&modes.0, &mut writer).expect("test storage admission");
+            encode_table(&modes.2, &mut writer).expect("test storage admission");
+            encode_table(&modes.1, &mut writer).expect("test storage admission");
+            writer.flush().expect("test storage admission");
             output
         }
 
@@ -373,13 +405,15 @@ mod tests {
 
         for sequences in cases {
             let control =
-                super::super::choose_c_sequence_table_modes_from_stored(&sequences, config());
+                super::super::choose_c_sequence_table_modes_from_stored(&sequences, config())
+                    .expect("test storage admission");
             let candidate = choose_c_dfast_u32_sequence_table_modes::<_, true>(
                 &sequences,
                 config(),
                 OffsetHistory::new(),
                 None,
-            );
+            )
+            .expect("test storage admission");
             let mut expected_history = OffsetHistory::new();
             for sequence in &sequences {
                 expected_history

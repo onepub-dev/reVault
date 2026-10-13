@@ -1,0 +1,29 @@
+{
+  "scope": "Exact generator output installation after successful direct lifecycle; no raw test logs/scripts/private fixture data copied. Rust source unchanged. JS Node output maps to repository cjs name.",
+  "artifacts": [
+    {
+      "source": "/tmp/rv-wasm-final-20261013/generated/revault_wasm_bindings.js",
+      "destination": "bindings/wasm/generated/revault_wasm_bindings.cjs",
+      "before_sha256": "1695dbef349b2cc307bde72e47deb226d403159428f1394dae85d7cd63967137",
+      "after_sha256": "1695dbef349b2cc307bde72e47deb226d403159428f1394dae85d7cd63967137"
+    },
+    {
+      "source": "/tmp/rv-wasm-final-20261013/generated/revault_wasm_bindings.d.ts",
+      "destination": "bindings/wasm/generated/revault_wasm_bindings.d.ts",
+      "before_sha256": "e1cbe8a2ae21c4fa54d1dfac7a03688c0b2e32b39297d404053d9b921c7e0cf9",
+      "after_sha256": "e1cbe8a2ae21c4fa54d1dfac7a03688c0b2e32b39297d404053d9b921c7e0cf9"
+    },
+    {
+      "source": "/tmp/rv-wasm-final-20261013/generated/revault_wasm_bindings_bg.wasm",
+      "destination": "bindings/wasm/generated/revault_wasm_bindings_bg.wasm",
+      "before_sha256": "84a2ccb1c508d84205c0634cdb71aab6bab99762b2e143938734199642339a27",
+      "after_sha256": "9191f2ec8a27e63f20c5098df811dd380a2646abaf5e68df0221abd3fecfadf5"
+    },
+    {
+      "source": "/tmp/rv-wasm-final-20261013/generated/revault_wasm_bindings_bg.wasm.d.ts",
+      "destination": "bindings/wasm/generated/revault_wasm_bindings_bg.wasm.d.ts",
+      "before_sha256": "c7c6a0d739e0a0da18cbc014e12bc3bceb998a7c9fc2b227f52e32f75cfba9ae",
+      "after_sha256": "c7c6a0d739e0a0da18cbc014e12bc3bceb998a7c9fc2b227f52e32f75cfba9ae"
+    }
+  ]
+}

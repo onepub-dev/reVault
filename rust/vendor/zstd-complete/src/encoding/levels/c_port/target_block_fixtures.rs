@@ -38,8 +38,8 @@ pub(super) fn huffman_friendly_sequence_block() -> (Vec<u8>, GreedyPreparedBlock
         data,
         GreedyPreparedBlock {
             prepared: PreparedBlock {
-                literals,
-                sequences,
+                literals: crate::workspace::ReusableVec::from_owned(literals),
+                sequences: crate::workspace::ReusableVec::from_owned(sequences),
             },
             repeat_offsets: RepeatOffsets::new(),
         },
@@ -71,8 +71,8 @@ pub(super) fn split_friendly_sequence_block() -> (Vec<u8>, GreedyPreparedBlock) 
         data,
         GreedyPreparedBlock {
             prepared: PreparedBlock {
-                literals,
-                sequences,
+                literals: crate::workspace::ReusableVec::from_owned(literals),
+                sequences: crate::workspace::ReusableVec::from_owned(sequences),
             },
             repeat_offsets: RepeatOffsets::new(),
         },
@@ -108,8 +108,8 @@ pub(super) fn high_entropy_literal_sequence_block() -> (Vec<u8>, GreedyPreparedB
         data,
         GreedyPreparedBlock {
             prepared: PreparedBlock {
-                literals,
-                sequences,
+                literals: crate::workspace::ReusableVec::from_owned(literals),
+                sequences: crate::workspace::ReusableVec::from_owned(sequences),
             },
             repeat_offsets: RepeatOffsets::new(),
         },
@@ -149,8 +149,8 @@ pub(super) fn zero_literal_tail_sequence_block() -> (Vec<u8>, GreedyPreparedBloc
         data,
         GreedyPreparedBlock {
             prepared: PreparedBlock {
-                literals: base.to_vec(),
-                sequences,
+                literals: crate::workspace::ReusableVec::from_owned(base.to_vec()),
+                sequences: crate::workspace::ReusableVec::from_owned(sequences),
             },
             repeat_offsets: RepeatOffsets::new(),
         },
@@ -192,8 +192,8 @@ pub(super) fn raw_tail_sequence_block() -> (Vec<u8>, GreedyPreparedBlock) {
         data,
         GreedyPreparedBlock {
             prepared: PreparedBlock {
-                literals,
-                sequences,
+                literals: crate::workspace::ReusableVec::from_owned(literals),
+                sequences: crate::workspace::ReusableVec::from_owned(sequences),
             },
             repeat_offsets: RepeatOffsets::new(),
         },

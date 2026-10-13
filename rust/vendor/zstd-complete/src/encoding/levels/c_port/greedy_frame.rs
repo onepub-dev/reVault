@@ -141,7 +141,8 @@ pub(crate) fn encode_frame_hash_chain_no_dict_with_cctx(
         &mut frame_state,
         &mut match_state,
         &mut output,
-    );
+    )
+    .expect("owned legacy codec allocation failed");
     output
 }
 
@@ -151,8 +152,8 @@ pub(crate) fn encode_frame_hash_chain_no_dict_with_cctx_in(
     depth: LazyBlockStrategy,
     frame_state: &mut FrameBlockState,
     match_state: &mut GreedyMatchState,
-    output: &mut Vec<u8>,
-) {
+    output: &mut impl crate::workspace::Growable<u8>,
+) -> Result<(), crate::workspace::CapacityError> {
     cctx.assert_resolved();
     let block_encode_mode = BlockEncodeMode::from_cctx(cctx);
     let params = cctx.compression;
@@ -161,9 +162,9 @@ pub(crate) fn encode_frame_hash_chain_no_dict_with_cctx_in(
         params,
         cctx.max_block_size,
         Some(&mut match_state.entropy_huffman_scratch),
-    );
+    )?;
     match_state.reset_for_frame(params);
-    write_frame_header_no_dict(output, src.len(), params);
+    write_frame_header_no_dict(output, src.len(), params)?;
     let mut dict_limit = 0_usize;
 
     if src.is_empty() {
@@ -189,13 +190,13 @@ pub(crate) fn encode_frame_hash_chain_no_dict_with_cctx_in(
             FrameBlockState::block_policy(true),
             block_encode_mode,
             block_bytes,
-        );
-        output.extend_from_slice(&encoded_block.bytes);
+        )?;
+        output.extend_from_slice(&encoded_block.bytes)?;
         match_state.recycle_block_bytes(crate::workspace::ReusableVec::recover_vec(
             encoded_block.bytes,
             block_bytes_lease,
         ));
-        return;
+        return Ok(());
     }
 
     let mut block_start = 0;
@@ -232,7 +233,7 @@ pub(crate) fn encode_frame_hash_chain_no_dict_with_cctx_in(
                 policy,
                 block_encode_mode,
                 block_bytes,
-            )
+            )?
         } else {
             encode_block_hash_chain_ext_dict_with_state_and_policy_in_mode_into(
                 GreedyExtDictBlockSource {
@@ -251,10 +252,10 @@ pub(crate) fn encode_frame_hash_chain_no_dict_with_cctx_in(
                 policy,
                 block_encode_mode,
                 block_bytes,
-            )
+            )?
         };
         let encoded_size = encoded_block.bytes.len();
-        output.extend_from_slice(&encoded_block.bytes);
+        output.extend_from_slice(&encoded_block.bytes)?;
         let reusable_bytes =
             crate::workspace::ReusableVec::recover_vec(encoded_block.bytes, block_bytes_lease);
         match_state.recycle_block_bytes(reusable_bytes);
@@ -264,9 +265,10 @@ pub(crate) fn encode_frame_hash_chain_no_dict_with_cctx_in(
             encoded_block.repeat_offsets,
             encoded_block.new_huffman_table,
             Some(&mut match_state.entropy_huffman_scratch),
-        );
+        )?;
         block_start = block_end;
     }
+    Ok(())
 }
 
 fn encode_frame_hash_chain_with_dictionary(
@@ -313,7 +315,9 @@ fn encode_frame_hash_chain_with_dictionary_with_cctx(
     if let Some(attached) = attached_dict {
         let dictionary_src = &context.combined[..context.dict_len];
         let mut dictionary_state = GreedyMatchState::new();
-        dictionary_state.ensure_tables(attached.dictionary_params);
+        dictionary_state
+            .ensure_tables(attached.dictionary_params)
+            .expect("owned legacy codec allocation failed");
         dictionary_state.next_to_update = C_WINDOW_START_INDEX;
         if depth == LazyBlockStrategy::BtLazy2 {
             load_attached_dictionary_binary_tree(
@@ -346,14 +350,16 @@ fn encode_frame_hash_chain_with_dictionary_with_cctx(
             &context.combined,
             context.dict_len,
             params,
-        );
+        )
+        .expect("owned legacy codec allocation failed");
     } else {
         load_prefix(
             &mut match_state,
             &context.combined,
             context.dict_len,
             params,
-        );
+        )
+        .expect("owned legacy codec allocation failed");
     }
 
     if src.is_empty() {
@@ -369,7 +375,8 @@ fn encode_frame_hash_chain_with_dictionary_with_cctx(
                 offset_history: &mut context.frame_state.offset_history,
             },
             depth,
-        );
+        )
+        .expect("owned legacy codec allocation failed");
         context.output.extend_from_slice(&encoded_block.bytes);
         return context.output;
     }
@@ -414,6 +421,7 @@ fn encode_frame_hash_chain_with_dictionary_with_cctx(
                 policy,
                 block_encode_mode,
             )
+            .expect("owned legacy codec allocation failed")
         } else if loaded_dict_end == 0 {
             encode_block_hash_chain_no_dict_with_state_and_policy_in_mode(
                 GreedyBlockSource {
@@ -431,6 +439,7 @@ fn encode_frame_hash_chain_with_dictionary_with_cctx(
                 policy,
                 block_encode_mode,
             )
+            .expect("owned legacy codec allocation failed")
         } else {
             encode_block_hash_chain_ext_dict_with_state_and_policy_in_mode(
                 GreedyExtDictBlockSource {
@@ -449,13 +458,17 @@ fn encode_frame_hash_chain_with_dictionary_with_cctx(
                 policy,
                 block_encode_mode,
             )
+            .expect("owned legacy codec allocation failed")
         };
-        context.frame_state.record_encoded_block(
-            block_size,
-            encoded_block.bytes.len(),
-            encoded_block.repeat_offsets,
-            encoded_block.new_huffman_table,
-        );
+        context
+            .frame_state
+            .record_encoded_block(
+                block_size,
+                encoded_block.bytes.len(),
+                encoded_block.repeat_offsets,
+                encoded_block.new_huffman_table,
+            )
+            .expect("owned legacy codec allocation failed");
         context.output.extend_from_slice(&encoded_block.bytes);
         block_start = block_end;
     }

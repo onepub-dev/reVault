@@ -1,0 +1,3 @@
+/tmp/rv-zstd-030-ordinary-home present 4.0K
+/tmp/rv-zstd-030-workspaces-home present 4.0K
+/tmp/rv-zstd-030-doctests-home present 4.0K

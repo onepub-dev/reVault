@@ -1,0 +1,307 @@
+    Checking zstd-complete v0.2.0 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/vendor/zstd-complete)
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/bit_io/bit_writer.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `alloc::vec::Vec`
+  --> vendor/zstd-complete/src/decoding/sequence_section_decoder.rs:11:5
+   |
+11 | use alloc::vec::Vec;
+   |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/block_header.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/blocks/compressed/estimate.rs:7:5
+  |
+7 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/blocks/compressed/literals.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/frame_header.rs:4:5
+  |
+4 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:6:5
+  |
+6 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/c_frame_header.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/mode.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/target.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/mode.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/target.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_block/special.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/opt_path.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/superblock_sequences.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/kernel/huff0/mod.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/fse/fse_encoder.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder/stream.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder/table.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+error[E0277]: `?` couldn't convert the error to `CapacityError`
+    --> vendor/zstd-complete/src/decoding/scratch.rs:141:43
+     |
+141  |         self.huf.table.reserve_workspace()?;
+     |                        -------------------^ the trait `From<HuffmanTableError>` is not implemented for `CapacityError`
+     |                        |
+     |                        this can't be annotated with `?` because it has type `Result<_, HuffmanTableError>`
+     |
+note: `CapacityError` needs to implement `From<HuffmanTableError>`
+    --> vendor/zstd-complete/src/fixed_storage.rs:4:1
+     |
+4    | pub enum CapacityError {
+     | ^^^^^^^^^^^^^^^^^^^^^^
+note: alternatively, `HuffmanTableError` needs to implement `Into<CapacityError>`
+    --> vendor/zstd-complete/src/decoding/errors.rs:1020:1
+     |
+1020 | pub enum HuffmanTableError {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+     = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+
+error[E0277]: `?` couldn't convert the error to `CapacityError`
+   --> vendor/zstd-complete/src/decoding/scratch.rs:142:46
+    |
+142 |         self.fse.offsets.reserve_workspace(8)?;
+    |                          --------------------^ the trait `From<FSETableError>` is not implemented for `CapacityError`
+    |                          |
+    |                          this can't be annotated with `?` because it has type `Result<_, FSETableError>`
+    |
+note: `CapacityError` needs to implement `From<FSETableError>`
+   --> vendor/zstd-complete/src/fixed_storage.rs:4:1
+    |
+4   | pub enum CapacityError {
+    | ^^^^^^^^^^^^^^^^^^^^^^
+note: alternatively, `FSETableError` needs to implement `Into<CapacityError>`
+   --> vendor/zstd-complete/src/decoding/errors.rs:919:1
+    |
+919 | pub enum FSETableError {
+    | ^^^^^^^^^^^^^^^^^^^^^^
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+
+error[E0277]: `?` couldn't convert the error to `CapacityError`
+   --> vendor/zstd-complete/src/decoding/scratch.rs:143:54
+    |
+143 |         self.fse.literal_lengths.reserve_workspace(9)?;
+    |                                  --------------------^ the trait `From<FSETableError>` is not implemented for `CapacityError`
+    |                                  |
+    |                                  this can't be annotated with `?` because it has type `Result<_, FSETableError>`
+    |
+note: `CapacityError` needs to implement `From<FSETableError>`
+   --> vendor/zstd-complete/src/fixed_storage.rs:4:1
+    |
+4   | pub enum CapacityError {
+    | ^^^^^^^^^^^^^^^^^^^^^^
+note: alternatively, `FSETableError` needs to implement `Into<CapacityError>`
+   --> vendor/zstd-complete/src/decoding/errors.rs:919:1
+    |
+919 | pub enum FSETableError {
+    | ^^^^^^^^^^^^^^^^^^^^^^
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+
+error[E0277]: `?` couldn't convert the error to `CapacityError`
+   --> vendor/zstd-complete/src/decoding/scratch.rs:144:52
+    |
+144 |         self.fse.match_lengths.reserve_workspace(9)?;
+    |                                --------------------^ the trait `From<FSETableError>` is not implemented for `CapacityError`
+    |                                |
+    |                                this can't be annotated with `?` because it has type `Result<_, FSETableError>`
+    |
+note: `CapacityError` needs to implement `From<FSETableError>`
+   --> vendor/zstd-complete/src/fixed_storage.rs:4:1
+    |
+4   | pub enum CapacityError {
+    | ^^^^^^^^^^^^^^^^^^^^^^
+note: alternatively, `FSETableError` needs to implement `Into<CapacityError>`
+   --> vendor/zstd-complete/src/decoding/errors.rs:919:1
+    |
+919 | pub enum FSETableError {
+    | ^^^^^^^^^^^^^^^^^^^^^^
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+
+error[E0277]: `?` couldn't convert the error to `CapacityError`
+    --> vendor/zstd-complete/src/decoding/scratch.rs:161:52
+     |
+161  |         self.huf.table.reinit_from(&dict.huf.table)?;
+     |                        ----------------------------^ the trait `From<HuffmanTableError>` is not implemented for `CapacityError`
+     |                        |
+     |                        this can't be annotated with `?` because it has type `Result<_, HuffmanTableError>`
+     |
+note: `CapacityError` needs to implement `From<HuffmanTableError>`
+    --> vendor/zstd-complete/src/fixed_storage.rs:4:1
+     |
+4    | pub enum CapacityError {
+     | ^^^^^^^^^^^^^^^^^^^^^^
+note: alternatively, `HuffmanTableError` needs to implement `Into<CapacityError>`
+    --> vendor/zstd-complete/src/decoding/errors.rs:1020:1
+     |
+1020 | pub enum HuffmanTableError {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+     = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+
+error[E0277]: `?` couldn't convert the error to `CapacityError`
+   --> vendor/zstd-complete/src/decoding/scratch.rs:276:49
+    |
+276 |         self.offsets.reinit_from(&other.offsets)?;
+    |                      ---------------------------^ the trait `From<FSETableError>` is not implemented for `CapacityError`
+    |                      |
+    |                      this can't be annotated with `?` because it has type `Result<_, FSETableError>`
+    |
+note: `CapacityError` needs to implement `From<FSETableError>`
+   --> vendor/zstd-complete/src/fixed_storage.rs:4:1
+    |
+4   | pub enum CapacityError {
+    | ^^^^^^^^^^^^^^^^^^^^^^
+note: alternatively, `FSETableError` needs to implement `Into<CapacityError>`
+   --> vendor/zstd-complete/src/decoding/errors.rs:919:1
+    |
+919 | pub enum FSETableError {
+    | ^^^^^^^^^^^^^^^^^^^^^^
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+
+error[E0277]: `?` couldn't convert the error to `CapacityError`
+   --> vendor/zstd-complete/src/decoding/scratch.rs:277:65
+    |
+277 |         self.literal_lengths.reinit_from(&other.literal_lengths)?;
+    |                              -----------------------------------^ the trait `From<FSETableError>` is not implemented for `CapacityError`
+    |                              |
+    |                              this can't be annotated with `?` because it has type `Result<_, FSETableError>`
+    |
+note: `CapacityError` needs to implement `From<FSETableError>`
+   --> vendor/zstd-complete/src/fixed_storage.rs:4:1
+    |
+4   | pub enum CapacityError {
+    | ^^^^^^^^^^^^^^^^^^^^^^
+note: alternatively, `FSETableError` needs to implement `Into<CapacityError>`
+   --> vendor/zstd-complete/src/decoding/errors.rs:919:1
+    |
+919 | pub enum FSETableError {
+    | ^^^^^^^^^^^^^^^^^^^^^^
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+
+error[E0277]: `?` couldn't convert the error to `CapacityError`
+   --> vendor/zstd-complete/src/decoding/scratch.rs:278:61
+    |
+278 |         self.match_lengths.reinit_from(&other.match_lengths)?;
+    |                            ---------------------------------^ the trait `From<FSETableError>` is not implemented for `CapacityError`
+    |                            |
+    |                            this can't be annotated with `?` because it has type `Result<_, FSETableError>`
+    |
+note: `CapacityError` needs to implement `From<FSETableError>`
+   --> vendor/zstd-complete/src/fixed_storage.rs:4:1
+    |
+4   | pub enum CapacityError {
+    | ^^^^^^^^^^^^^^^^^^^^^^
+note: alternatively, `FSETableError` needs to implement `Into<CapacityError>`
+   --> vendor/zstd-complete/src/decoding/errors.rs:919:1
+    |
+919 | pub enum FSETableError {
+    | ^^^^^^^^^^^^^^^^^^^^^^
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+
+error[E0004]: non-exhaustive patterns: `&DecoderWorkspaceError::Capacity(_)` not covered
+   --> vendor/zstd-complete/src/decoding/workspace.rs:137:15
+    |
+137 |         match self {
+    |               ^^^^ pattern `&DecoderWorkspaceError::Capacity(_)` not covered
+    |
+note: `DecoderWorkspaceError` defined here
+   --> vendor/zstd-complete/src/decoding/workspace.rs:106:10
+    |
+106 | pub enum DecoderWorkspaceError {
+    |          ^^^^^^^^^^^^^^^^^^^^^
+107 |     Capacity(crate::workspace::CapacityError),
+    |     -------- not covered
+    = note: the matched value is of type `&DecoderWorkspaceError`
+help: ensure that all possible cases are being handled by adding a match arm with a wildcard pattern or an explicit pattern as shown
+    |
+142 ~             | Self::DictionaryTooLarge { .. } => None,
+143 ~             &DecoderWorkspaceError::Capacity(_) => todo!(),
+    |
+
+Some errors have detailed explanations: E0004, E0277.
+For more information about an error, try `rustc --explain E0004`.
+warning: `zstd-complete` (lib) generated 20 warnings
+error: could not compile `zstd-complete` (lib) due to 9 previous errors; 20 warnings emitted

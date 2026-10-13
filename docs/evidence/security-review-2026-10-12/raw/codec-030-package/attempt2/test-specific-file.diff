@@ -1,0 +1,73 @@
+--- /tmp/revault-zstd-030-security-package/source/src/tests/mod.rs	2026-10-13 13:19:35.717306400 +1100
++++ /tmp/revault-zstd-030-security-package/attempt2/source/src/tests/mod.rs	2026-10-13 13:30:59.075598894 +1100
+@@ -242,64 +242,20 @@
+ 
+ #[test]
+ fn test_specific_file() {
+-    use crate::decoding::BlockDecodingStrategy;
+-    use crate::decoding::FrameDecoder;
++    use crate::decoding::{BlockDecodingStrategy, FrameDecoder};
+     use std::fs;
+-    use std::io::BufReader;
+-    use std::io::Read;
+-
+-    let path = "./decodecorpus_files/z000068.zst";
+-    let mut content = fs::File::open(path).unwrap();
+-
+-    struct NullWriter(());
+-    impl std::io::Write for NullWriter {
+-        fn write(&mut self, buf: &[u8]) -> Result<usize, std::io::Error> {
+-            Ok(buf.len())
+-        }
+-        fn flush(&mut self) -> Result<(), std::io::Error> {
+-            Ok(())
+-        }
+-    }
+-    let mut _null_target = NullWriter(());
+ 
++    // The packaged ordinary fixture and its uncompressed sibling share the
++    // same stem. Compare bytes, rather than printing a different file's mismatch.
++    let mut content = fs::File::open("./decodecorpus_files/z000068.zst").unwrap();
+     let mut frame_dec = FrameDecoder::new();
+     frame_dec.reset(&mut content).unwrap();
+     frame_dec
+         .decode_blocks(&mut content, BlockDecodingStrategy::All)
+         .unwrap();
+     let result = frame_dec.collect().unwrap();
+-
+-    let original_f = BufReader::new(fs::File::open("./decodecorpus_files/z000088").unwrap());
+-    let original: Vec<u8> = original_f.bytes().map(|x| x.unwrap()).collect();
+-
+-    std::println!("Results for file: {path}");
+-
+-    if original.len() != result.len() {
+-        std::println!(
+-            "Result has wrong length: {}, should be: {}",
+-            result.len(),
+-            original.len()
+-        );
+-    }
+-
+-    let mut counter = 0;
+-    let min = if original.len() < result.len() {
+-        original.len()
+-    } else {
+-        result.len()
+-    };
+-    for idx in 0..min {
+-        if original[idx] != result[idx] {
+-            counter += 1;
+-            //std::println!(
+-            //    "Original {:3} not equal to result {:3} at byte: {}",
+-            //    original[idx], result[idx], idx,
+-            //);
+-        }
+-    }
+-    if counter > 0 {
+-        std::println!("Result differs in at least {counter} bytes from original");
+-    }
++    let original = fs::read("./decodecorpus_files/z000068").unwrap();
++    assert_eq!(result, original);
+ }
+ 
+ #[test]

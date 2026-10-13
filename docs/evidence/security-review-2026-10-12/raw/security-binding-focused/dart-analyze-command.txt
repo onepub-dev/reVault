@@ -1,0 +1,1 @@
+/home/bsutton/apps/flutter/bin/dart analyze bindings/dart

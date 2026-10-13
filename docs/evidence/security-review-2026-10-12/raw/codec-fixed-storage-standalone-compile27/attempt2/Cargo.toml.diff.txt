@@ -1,0 +1,8 @@
+--- /tmp/revault-codec-fixed-storage-compile27/Cargo.toml.original	2026-10-13 12:30:06.380667922 +1100
++++ /tmp/revault-codec-fixed-storage-compile27/crate/Cargo.toml	2026-10-13 12:33:02.500815417 +1100
+@@ -120,3 +120,5 @@
+ 
+ [dev-dependencies.zstd]
+ version = "0.13.2"
++
++[workspace]

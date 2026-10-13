@@ -1,0 +1,8 @@
+[package]
+name = "zstd-packaged-consumer-check"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+zstd-complete = { version = "=0.3.0", path = "/tmp/revault-zstd-030-security-package/unpacked/zstd-complete-0.3.0" }
+twox-hash = { version = "=2.1.2", default-features = false, features = ["xxhash64"] }

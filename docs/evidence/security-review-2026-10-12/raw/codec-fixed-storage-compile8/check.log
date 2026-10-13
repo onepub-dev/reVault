@@ -1,0 +1,381 @@
+    Checking zstd-complete v0.2.0 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/vendor/zstd-complete)
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/bit_io/bit_writer.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `alloc::vec::Vec`
+  --> vendor/zstd-complete/src/decoding/sequence_section_decoder.rs:11:5
+   |
+11 | use alloc::vec::Vec;
+   |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/block_header.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/blocks/compressed/estimate.rs:7:5
+  |
+7 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/blocks/compressed/literals.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/frame_header.rs:4:5
+  |
+4 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:6:5
+  |
+6 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/c_frame_header.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/mode.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/target.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/mode.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/target.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_block/special.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/opt_path.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/superblock_sequences.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/kernel/huff0/mod.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/fse/fse_encoder.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder/stream.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder/table.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:177:40
+    |
+177 |         recycle_rejected_huffman_table(&mut compression_result, huffman_scratch.as_deref_mut());
+    |         ------------------------------ ^^^^^^^^^^^^^^^^^^^^^^^ expected `&mut CompressedBlockResult`, found `&mut Result<CompressedBlockResult, ...>`
+    |         |
+    |         arguments to this function are incorrect
+    |
+    = note: expected mutable reference `&mut compressed::CompressedBlockResult`
+               found mutable reference `&mut Result<compressed::CompressedBlockResult, CapacityError>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:284:4
+    |
+284 | fn recycle_rejected_huffman_table(
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+285 |     result: &mut crate::encoding::blocks::CompressedBlockResult,
+    |     -----------------------------------------------------------
+
+error[E0609]: no field `should_emit_raw_block` on type `Result<compressed::CompressedBlockResult, CapacityError>`
+   --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:180:34
+    |
+180 |     } else if compression_result.should_emit_raw_block
+    |                                  ^^^^^^^^^^^^^^^^^^^^^ unknown field
+    |
+help: one of the expressions' fields has a field of the same name
+    |
+180 |     } else if compression_result.unwrap().should_emit_raw_block
+    |                                  +++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:186:40
+    |
+186 |         recycle_rejected_huffman_table(&mut compression_result, huffman_scratch);
+    |         ------------------------------ ^^^^^^^^^^^^^^^^^^^^^^^ expected `&mut CompressedBlockResult`, found `&mut Result<CompressedBlockResult, ...>`
+    |         |
+    |         arguments to this function are incorrect
+    |
+    = note: expected mutable reference `&mut compressed::CompressedBlockResult`
+               found mutable reference `&mut Result<compressed::CompressedBlockResult, CapacityError>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:284:4
+    |
+284 | fn recycle_rejected_huffman_table(
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+285 |     result: &mut crate::encoding::blocks::CompressedBlockResult,
+    |     -----------------------------------------------------------
+
+error[E0609]: no field `new_huffman_table` on type `Result<compressed::CompressedBlockResult, CapacityError>`
+   --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:198:51
+    |
+198 |             new_huffman_table: compression_result.new_huffman_table,
+    |                                                   ^^^^^^^^^^^^^^^^^ unknown field
+    |
+help: one of the expressions' fields has a field of the same name
+    |
+198 |             new_huffman_table: compression_result.unwrap().new_huffman_table,
+    |                                                   +++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:258:40
+    |
+258 |         recycle_rejected_huffman_table(&mut compression_result, huffman_scratch);
+    |         ------------------------------ ^^^^^^^^^^^^^^^^^^^^^^^ expected `&mut CompressedBlockResult`, found `&mut Result<CompressedBlockResult, ...>`
+    |         |
+    |         arguments to this function are incorrect
+    |
+    = note: expected mutable reference `&mut compressed::CompressedBlockResult`
+               found mutable reference `&mut Result<compressed::CompressedBlockResult, CapacityError>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:284:4
+    |
+284 | fn recycle_rejected_huffman_table(
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+285 |     result: &mut crate::encoding::blocks::CompressedBlockResult,
+    |     -----------------------------------------------------------
+
+error[E0609]: no field `should_emit_raw_block` on type `Result<compressed::CompressedBlockResult, CapacityError>`
+   --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:261:34
+    |
+261 |     } else if compression_result.should_emit_raw_block
+    |                                  ^^^^^^^^^^^^^^^^^^^^^ unknown field
+    |
+help: one of the expressions' fields has a field of the same name
+    |
+261 |     } else if compression_result.unwrap().should_emit_raw_block
+    |                                  +++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:268:40
+    |
+268 |         recycle_rejected_huffman_table(&mut compression_result, huffman_scratch);
+    |         ------------------------------ ^^^^^^^^^^^^^^^^^^^^^^^ expected `&mut CompressedBlockResult`, found `&mut Result<CompressedBlockResult, ...>`
+    |         |
+    |         arguments to this function are incorrect
+    |
+    = note: expected mutable reference `&mut compressed::CompressedBlockResult`
+               found mutable reference `&mut Result<compressed::CompressedBlockResult, CapacityError>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:284:4
+    |
+284 | fn recycle_rejected_huffman_table(
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+285 |     result: &mut crate::encoding::blocks::CompressedBlockResult,
+    |     -----------------------------------------------------------
+
+error[E0609]: no field `new_huffman_table` on type `Result<compressed::CompressedBlockResult, CapacityError>`
+   --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:279:51
+    |
+279 |             new_huffman_table: compression_result.new_huffman_table,
+    |                                                   ^^^^^^^^^^^^^^^^^ unknown field
+    |
+help: one of the expressions' fields has a field of the same name
+    |
+279 |             new_huffman_table: compression_result.unwrap().new_huffman_table,
+    |                                                   +++++++++
+
+error[E0609]: no field `should_emit_raw_block` on type `Result<compressed::CompressedBlockResult, CapacityError>`
+   --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:328:34
+    |
+328 |     } else if compression_result.should_emit_raw_block
+    |                                  ^^^^^^^^^^^^^^^^^^^^^ unknown field
+    |
+help: one of the expressions' fields has a field of the same name
+    |
+328 |     } else if compression_result.unwrap().should_emit_raw_block
+    |                                  +++++++++
+
+error[E0609]: no field `new_huffman_table` on type `Result<compressed::CompressedBlockResult, CapacityError>`
+   --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:345:51
+    |
+345 |             new_huffman_table: compression_result.new_huffman_table,
+    |                                                   ^^^^^^^^^^^^^^^^^ unknown field
+    |
+help: one of the expressions' fields has a field of the same name
+    |
+345 |             new_huffman_table: compression_result.unwrap().new_huffman_table,
+    |                                                   +++++++++
+
+error[E0308]: `match` arms have incompatible types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/superblock.rs:159:13
+    |
+156 |       match mode {
+    |       ---------- `match` arms have incompatible types
+157 |           EntropyTableMode::Basic => write_raw_literals(literals, &mut writer),
+    |                                      ----------------------------------------- this is found to be of type `Result<(), CapacityError>`
+158 |           EntropyTableMode::Rle => {
+159 | /             if literals.is_empty() {
+160 | |                 write_raw_literals(literals, &mut writer);
+161 | |             } else {
+162 | |                 write_rle_literals(literals, &mut writer);
+163 | |             }
+    | |_____________^ expected `Result<(), CapacityError>`, found `()`
+    |
+    = note:   expected enum `Result<(), CapacityError>`
+            found unit type `()`
+help: try wrapping the expression in `core::prelude::v1::Ok`
+    |
+159 ~             core::prelude::v1::Ok(if literals.is_empty() {
+160 |                 write_raw_literals(literals, &mut writer);
+161 |             } else {
+162 |                 write_rle_literals(literals, &mut writer);
+163 ~             })
+    |
+
+error[E0308]: mismatched types
+  --> vendor/zstd-complete/src/encoding/levels/c_port/superblock_sequences.rs:75:17
+   |
+75 |                 byte_size,
+   |                 ^^^^^^^^^ expected `usize`, found `Option<usize>`
+   |
+   = note: expected type `usize`
+              found enum `Option<usize>`
+help: consider using `Option::expect` to unwrap the `Option<usize>` value, panicking if the value is an `Option::None`
+   |
+75 |                 byte_size: byte_size.expect("REASON"),
+   |                          ++++++++++++++++++++++++++++
+
+error[E0308]: mismatched types
+  --> vendor/zstd-complete/src/encoding/levels/c_port/superblock_sequences.rs:73:16
+   |
+68 |   ) -> Option<SubBlockSequenceEmission> {
+   |        -------------------------------- expected `Option<SubBlockSequenceEmission>` because of return type
+...
+73 |           return append_repeat_sequence_section(sequences, fse_tables, offset_history, output).map(
+   |  ________________^
+74 | |             |byte_size| SubBlockSequenceEmission {
+75 | |                 byte_size,
+76 | |                 entropy_written: true,
+77 | |             },
+78 | |         );
+   | |_________^ expected `Option<SubBlockSequenceEmission>`, found `Result<SubBlockSequenceEmission, ...>`
+   |
+   = note: expected enum `Option<SubBlockSequenceEmission>`
+              found enum `Result<SubBlockSequenceEmission, CapacityError>`
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/superblock_sequences.rs:114:9
+    |
+114 |         byte_size,
+    |         ^^^^^^^^^ expected `usize`, found `Option<usize>`
+    |
+    = note: expected type `usize`
+               found enum `Option<usize>`
+help: use the `?` operator to extract the `Option<usize>` value, propagating an `Option::None` value to the caller
+    |
+114 |         byte_size: byte_size?,
+    |                  ++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/superblock_sequences.rs:127:5
+    |
+123 | ) -> Option<CompressedSequenceTables> {
+    |      -------------------------------- expected `Option<sequence_sections::CompressedSequenceTables>` because of return type
+...
+127 |     build_compressed_sequence_tables(sequences, offset_history)
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `Option<CompressedSequenceTables>`, found `Result<Option<...>, ...>`
+    |
+    = note: expected enum `Option<_>`
+               found enum `Result<Option<_>, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<Option<sequence_sections::CompressedSequenceTables>, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+127 |     build_compressed_sequence_tables(sequences, offset_history).expect("REASON")
+    |                                                                +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/fastest.rs:232:16
+    |
+232 |         if let Some(table) = new_huffman_table {
+    |                ^^^^^^^^^^^   ----------------- this expression has type `Result<Option<huff0_encoder::table::HuffmanTable>, CapacityError>`
+    |                |
+    |                expected `Result<Option<HuffmanTable>, ...>`, found `Option<_>`
+    |
+    = note: expected enum `Result<Option<huff0_encoder::table::HuffmanTable>, CapacityError>`
+               found enum `Option<_>`
+help: try wrapping the pattern in `core::prelude::v1::Ok`
+    |
+232 |         if let core::prelude::v1::Ok(Some(table)) = new_huffman_table {
+    |                ++++++++++++++++++++++           +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/fastest.rs:460:16
+    |
+460 |         if let Some(table) = new_huffman_table {
+    |                ^^^^^^^^^^^   ----------------- this expression has type `Result<Option<huff0_encoder::table::HuffmanTable>, CapacityError>`
+    |                |
+    |                expected `Result<Option<HuffmanTable>, ...>`, found `Option<_>`
+    |
+    = note: expected enum `Result<Option<huff0_encoder::table::HuffmanTable>, CapacityError>`
+               found enum `Option<_>`
+help: try wrapping the pattern in `core::prelude::v1::Ok`
+    |
+460 |         if let core::prelude::v1::Ok(Some(table)) = new_huffman_table {
+    |                ++++++++++++++++++++++           +
+
+Some errors have detailed explanations: E0308, E0609.
+For more information about an error, try `rustc --explain E0308`.
+warning: `zstd-complete` (lib) generated 20 warnings
+error: could not compile `zstd-complete` (lib) due to 17 previous errors; 20 warnings emitted

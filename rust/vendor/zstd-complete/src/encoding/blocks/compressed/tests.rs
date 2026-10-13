@@ -58,13 +58,15 @@ fn reusable_huffman_workspace_matches_fresh_construction_across_blocks() {
             Some(&mut scratch),
             None,
             &mut reused_writer,
-        );
-        reused_writer.flush();
+        )
+        .expect("test storage admission");
+        reused_writer.flush().expect("test storage admission");
 
         let mut fresh_output = Vec::new();
         let mut fresh_writer = BitWriter::from(&mut fresh_output);
-        let fresh_table = compress_literals(&literals, None, false, options, &mut fresh_writer);
-        fresh_writer.flush();
+        let fresh_table = compress_literals(&literals, None, false, options, &mut fresh_writer)
+            .expect("test storage admission");
+        fresh_writer.flush().expect("test storage admission");
 
         assert!(reused_table.is_some(), "pass {} should build a table", pass);
         assert!(fresh_table.is_some(), "pass {} should build a table", pass);
@@ -95,13 +97,15 @@ fn shared_huffman_weight_fse_workspace_matches_fresh_literal_transaction() {
         Some(&mut huffman_scratch),
         Some(&mut fse_scratch),
         &mut reused_writer,
-    );
-    reused_writer.flush();
+    )
+    .expect("test storage admission");
+    reused_writer.flush().expect("test storage admission");
 
     let mut fresh_output = Vec::new();
     let mut fresh_writer = BitWriter::from(&mut fresh_output);
-    let fresh_table = compress_literals(&literals, None, false, options, &mut fresh_writer);
-    fresh_writer.flush();
+    let fresh_table = compress_literals(&literals, None, false, options, &mut fresh_writer)
+        .expect("test storage admission");
+    fresh_writer.flush().expect("test storage admission");
 
     assert_eq!(reused_output, fresh_output);
     assert_eq!(
@@ -142,7 +146,8 @@ fn unselected_new_huffman_table_returns_to_fast_scratch() {
         Some(&mut scratch),
         None,
         &mut writer,
-    );
+    )
+    .expect("test storage admission");
 
     assert!(new_table.is_none());
     assert_eq!(output[0] & 0b11, 3);
@@ -231,7 +236,8 @@ fn compressed_frame_with_literal_payload_and_config(
     };
     let mut block_payload = Vec::new();
 
-    compress_block_with_config(&mut state, &mut block_payload, config);
+    compress_block_with_config(&mut state, &mut block_payload, config)
+        .expect("test storage admission");
 
     let mut frame = Vec::new();
     crate::encoding::frame_header::FrameHeader {
@@ -241,13 +247,15 @@ fn compressed_frame_with_literal_payload_and_config(
         dictionary_id: None,
         window_size: Some(128 * 1024),
     }
-    .serialize(&mut frame);
+    .serialize(&mut frame)
+    .expect("test storage admission");
     crate::encoding::block_header::BlockHeader {
         last_block: true,
         block_type: crate::blocks::block::BlockType::Compressed,
         block_size: block_payload.len() as u32,
     }
-    .serialize(&mut frame);
+    .serialize(&mut frame)
+    .expect("test storage admission");
     frame.extend_from_slice(&block_payload);
 
     let last_literal = literals[literals.len() - 1];
@@ -350,7 +358,8 @@ fn preencoded_offset_value_preserves_c_port_offbase_choice() {
             encoded_offset_value: 5,
         }],
         &mut history,
-    );
+    )
+    .expect("test storage admission");
 
     assert_eq!(sequences[0].of, 5);
     assert_eq!(history, offset_history(2, 10, 4));
@@ -376,7 +385,8 @@ fn history_materialization_initializes_reserved_prefix_without_reallocating() {
         },
     ];
 
-    sequence_bitstream::encode_sequences_for_history_into(&prepared, &mut history, &mut encoded);
+    sequence_bitstream::encode_sequences_for_history_into(&prepared, &mut history, &mut encoded)
+        .expect("test storage admission");
 
     assert_eq!(encoded.as_ptr(), allocation);
     assert_eq!(encoded.len(), prepared.len());
@@ -430,7 +440,8 @@ fn direct_c_prepared_entropy_path_matches_materialized_reference_across_blocks()
         &mut reference_history,
         None,
         false,
-    );
+    )
+    .expect("test storage admission");
     let direct_first = compress_c_prepared_block_with_stats(
         &mut direct_output,
         config,
@@ -442,7 +453,8 @@ fn direct_c_prepared_entropy_path_matches_materialized_reference_across_blocks()
         &mut direct_history,
         None,
         false,
-    );
+    )
+    .expect("test storage admission");
     assert_eq!(direct_output, reference_output);
     assert_eq!(direct_history, reference_history);
     assert_eq!(
@@ -463,7 +475,8 @@ fn direct_c_prepared_entropy_path_matches_materialized_reference_across_blocks()
         &mut reference_history,
         reference_first.new_huffman_table.as_ref(),
         reference_first.new_huffman_table.is_some(),
-    );
+    )
+    .expect("test storage admission");
     let direct_second = compress_c_prepared_block_with_stats(
         &mut direct_output,
         config,
@@ -475,7 +488,8 @@ fn direct_c_prepared_entropy_path_matches_materialized_reference_across_blocks()
         &mut direct_history,
         direct_first.new_huffman_table.as_ref(),
         direct_first.new_huffman_table.is_some(),
-    );
+    )
+    .expect("test storage admission");
     assert_eq!(direct_start, reference_start);
     assert_eq!(direct_output, reference_output);
     assert_eq!(direct_history, reference_history);
@@ -538,7 +552,8 @@ fn direct_stored_entropy_path_matches_prepared_path_across_blocks() {
             &mut prepared_history,
             None,
             false,
-        );
+        )
+        .expect("test storage admission");
         let stored_first = compress_c_stored_block_with_stats(
             &mut stored_output,
             config,
@@ -552,7 +567,8 @@ fn direct_stored_entropy_path_matches_prepared_path_across_blocks() {
             false,
             None,
             None,
-        );
+        )
+        .expect("test storage admission");
         let mut pending_first = PendingStoredEntropyState::new();
         let deferred_first = compress_c_stored_block_deferred_with_stats(
             &mut deferred_output,
@@ -568,12 +584,15 @@ fn direct_stored_entropy_path_matches_prepared_path_across_blocks() {
             None,
             None,
             &mut pending_first,
-        );
+        )
+        .expect("test storage admission");
         assert_eq!(deferred_history, OffsetHistory::new());
         assert!(deferred_tables.ll_previous.is_none());
         assert!(deferred_tables.ml_previous.is_none());
         assert!(deferred_tables.of_previous.is_none());
-        pending_first.commit(&mut deferred_tables, &mut deferred_history, None);
+        pending_first
+            .commit(&mut deferred_tables, &mut deferred_history, None)
+            .expect("test storage admission");
         assert_eq!(
             stored_output, prepared_output,
             "strategy {strategy}, block 1"
@@ -600,7 +619,8 @@ fn direct_stored_entropy_path_matches_prepared_path_across_blocks() {
             &mut prepared_history,
             prepared_first.new_huffman_table.as_ref(),
             prepared_first.new_huffman_table.is_some(),
-        );
+        )
+        .expect("test storage admission");
         let stored_second = compress_c_stored_block_with_stats(
             &mut stored_output,
             config,
@@ -614,7 +634,8 @@ fn direct_stored_entropy_path_matches_prepared_path_across_blocks() {
             stored_first.new_huffman_table.is_some(),
             None,
             None,
-        );
+        )
+        .expect("test storage admission");
         let ll_before = deferred_tables.ll_previous.clone();
         let ml_before = deferred_tables.ml_previous.clone();
         let of_before = deferred_tables.of_previous.clone();
@@ -634,7 +655,8 @@ fn direct_stored_entropy_path_matches_prepared_path_across_blocks() {
             None,
             None,
             &mut pending_second,
-        );
+        )
+        .expect("test storage admission");
         assert_eq!(deferred_history, history_before);
         assert_eq!(
             deferred_tables
@@ -657,7 +679,9 @@ fn direct_stored_entropy_path_matches_prepared_path_across_blocks() {
                 .map(SharedFSETable::as_ptr),
             of_before.as_ref().map(SharedFSETable::as_ptr)
         );
-        pending_second.commit(&mut deferred_tables, &mut deferred_history, None);
+        pending_second
+            .commit(&mut deferred_tables, &mut deferred_history, None)
+            .expect("test storage admission");
         assert_eq!(
             stored_output, prepared_output,
             "strategy {strategy}, block 2"
@@ -727,7 +751,8 @@ fn matcher_offset_handoff_matches_replay_for_all_c_strategies() {
             false,
             None,
             None,
-        );
+        )
+        .expect("test storage admission");
         let handoff = compress_c_stored_block_with_matcher_history(
             &mut handoff_output,
             config,
@@ -742,7 +767,8 @@ fn matcher_offset_handoff_matches_replay_for_all_c_strategies() {
             false,
             None,
             None,
-        );
+        )
+        .expect("test storage admission");
 
         assert_eq!(handoff_output, replay_output, "strategy {strategy}");
         assert_eq!(handoff_history, replay_history, "strategy {strategy}");
@@ -771,9 +797,12 @@ fn matcher_offset_handoff_matches_replay_for_all_c_strategies() {
             None,
             None,
             &mut pending,
-        );
+        )
+        .expect("test storage admission");
         assert_eq!(deferred_history, initial_history, "strategy {strategy}");
-        pending.commit(&mut deferred_tables, &mut deferred_history, None);
+        pending
+            .commit(&mut deferred_tables, &mut deferred_history, None)
+            .expect("test storage admission");
         assert_eq!(deferred_output, replay_output, "strategy {strategy}");
         assert_eq!(deferred_history, final_history, "strategy {strategy}");
         assert_eq!(
@@ -811,7 +840,9 @@ fn pending_entropy_transaction_recycles_committed_and_rejected_tables() {
     };
     let mut scratch = FSETableBuildScratch::new();
 
-    pending.commit(&mut tables, &mut history, Some(&mut scratch));
+    pending
+        .commit(&mut tables, &mut history, Some(&mut scratch))
+        .expect("test storage admission");
 
     assert_eq!(history, next_history);
     assert!(tables.ll_previous.is_some());
@@ -828,7 +859,9 @@ fn pending_entropy_transaction_recycles_committed_and_rejected_tables() {
         offset_history: Some(OffsetHistory::from_offsets(99, 98, 97)),
     };
     let mut rejected_scratch = FSETableBuildScratch::new();
-    rejected.discard(Some(&mut rejected_scratch));
+    rejected
+        .discard(Some(&mut rejected_scratch))
+        .expect("test storage admission");
 
     assert_eq!(history, next_history);
     assert_eq!(rejected_scratch.recycled_table_count(), 3);
@@ -855,7 +888,8 @@ fn repeat_sequence_section_rejects_tables_that_cannot_encode_symbols() {
     }];
 
     let emitted =
-        append_repeat_sequence_section(&sequences, &fse_tables, &mut history, &mut output);
+        append_repeat_sequence_section(&sequences, &fse_tables, &mut history, &mut output)
+            .expect("test storage admission");
 
     assert_eq!(emitted, None);
     assert!(output.is_empty());
@@ -876,7 +910,8 @@ fn choose_table_uses_predefined_tables_for_tiny_sequence_counts() {
             9,
             64,
             16,
-        ),
+        )
+        .expect("test storage admission"),
         FseTableMode::Predefined(_)
     ));
 }
@@ -899,7 +934,8 @@ fn choose_table_uses_predefined_tables_for_small_non_rle_blocks() {
             9,
             64,
             16,
-        ),
+        )
+        .expect("test storage admission"),
         FseTableMode::Predefined(_)
     ));
 }
@@ -918,7 +954,8 @@ fn choose_table_uses_rle_for_repeated_codes() {
             9,
             64,
             16,
-        ),
+        )
+        .expect("test storage admission"),
         FseTableMode::Rle(5)
     ));
 }
@@ -982,7 +1019,8 @@ fn valid_repeat_table_bypasses_small_literal_histogram_for_fastish_c_strategy() 
     let mut options = literal_options(false, false);
     options.c_literal_cost_model = true;
     options.prefer_valid_repeat = true;
-    let new_table = compress_literals(literals, Some(&previous), true, options, &mut writer);
+    let new_table = compress_literals(literals, Some(&previous), true, options, &mut writer)
+        .expect("test storage admission");
 
     assert!(new_table.is_none());
     assert_eq!(
@@ -1013,6 +1051,7 @@ fn suspect_literal_sampling_uses_raw_literals_before_full_histogram() {
             literal_options(true, true),
             &mut sampled_writer,
         )
+        .expect("test storage admission")
     };
 
     assert!(sampled_table.is_none());
@@ -1032,6 +1071,7 @@ fn suspect_literal_sampling_uses_raw_literals_before_full_histogram() {
             literal_options(true, false),
             &mut full_writer,
         )
+        .expect("test storage admission")
     };
 
     assert!(full_table.is_some());
@@ -1071,13 +1111,16 @@ fn rle_sequence_modes_round_trip_through_decoder() {
     let mut encoded = Vec::new();
     let mut writer = BitWriter::from(&mut encoded);
 
-    encode_seqnum(sequences.len(), &mut writer);
-    writer.write_bits(encode_fse_table_modes(&ll_mode, &ml_mode, &of_mode), 8);
-    encode_table(&ll_mode, &mut writer);
-    encode_table(&of_mode, &mut writer);
-    encode_table(&ml_mode, &mut writer);
-    encode_sequences(&sequences, &mut writer, &ll_mode, &ml_mode, &of_mode);
-    writer.flush();
+    encode_seqnum(sequences.len(), &mut writer).expect("test storage admission");
+    writer
+        .write_bits(encode_fse_table_modes(&ll_mode, &ml_mode, &of_mode), 8)
+        .expect("test storage admission");
+    encode_table(&ll_mode, &mut writer).expect("test storage admission");
+    encode_table(&of_mode, &mut writer).expect("test storage admission");
+    encode_table(&ml_mode, &mut writer).expect("test storage admission");
+    encode_sequences(&sequences, &mut writer, &ll_mode, &ml_mode, &of_mode)
+        .expect("test storage admission");
+    writer.flush().expect("test storage admission");
 
     let mut header = crate::blocks::sequence_section::SequencesHeader::new();
     let header_size = header.parse_from_header(&encoded).unwrap();
@@ -1113,13 +1156,16 @@ fn all_rle_sequence_modes_preserve_additional_bits() {
     let mut encoded = Vec::new();
     let mut writer = BitWriter::from(&mut encoded);
 
-    encode_seqnum(sequences.len(), &mut writer);
-    writer.write_bits(encode_fse_table_modes(&ll_mode, &ml_mode, &of_mode), 8);
-    encode_table(&ll_mode, &mut writer);
-    encode_table(&of_mode, &mut writer);
-    encode_table(&ml_mode, &mut writer);
-    encode_sequences(&sequences, &mut writer, &ll_mode, &ml_mode, &of_mode);
-    writer.flush();
+    encode_seqnum(sequences.len(), &mut writer).expect("test storage admission");
+    writer
+        .write_bits(encode_fse_table_modes(&ll_mode, &ml_mode, &of_mode), 8)
+        .expect("test storage admission");
+    encode_table(&ll_mode, &mut writer).expect("test storage admission");
+    encode_table(&of_mode, &mut writer).expect("test storage admission");
+    encode_table(&ml_mode, &mut writer).expect("test storage admission");
+    encode_sequences(&sequences, &mut writer, &ll_mode, &ml_mode, &of_mode)
+        .expect("test storage admission");
+    writer.flush().expect("test storage admission");
 
     let mut header = crate::blocks::sequence_section::SequencesHeader::new();
     let header_size = header.parse_from_header(&encoded).unwrap();
@@ -1159,13 +1205,16 @@ fn mixed_predefined_sequence_modes_round_trip_through_decoder() {
     let mut encoded = Vec::new();
     let mut writer = BitWriter::from(&mut encoded);
 
-    encode_seqnum(sequences.len(), &mut writer);
-    writer.write_bits(encode_fse_table_modes(&ll_mode, &ml_mode, &of_mode), 8);
-    encode_table(&ll_mode, &mut writer);
-    encode_table(&of_mode, &mut writer);
-    encode_table(&ml_mode, &mut writer);
-    encode_sequences(&sequences, &mut writer, &ll_mode, &ml_mode, &of_mode);
-    writer.flush();
+    encode_seqnum(sequences.len(), &mut writer).expect("test storage admission");
+    writer
+        .write_bits(encode_fse_table_modes(&ll_mode, &ml_mode, &of_mode), 8)
+        .expect("test storage admission");
+    encode_table(&ll_mode, &mut writer).expect("test storage admission");
+    encode_table(&of_mode, &mut writer).expect("test storage admission");
+    encode_table(&ml_mode, &mut writer).expect("test storage admission");
+    encode_sequences(&sequences, &mut writer, &ll_mode, &ml_mode, &of_mode)
+        .expect("test storage admission");
+    writer.flush().expect("test storage admission");
 
     let mut header = crate::blocks::sequence_section::SequencesHeader::new();
     let header_size = header.parse_from_header(&encoded).unwrap();
@@ -1218,22 +1267,22 @@ fn small_length_code_tables_match_spec_ranges() {
 fn raw_literals_use_shortest_header_form() {
     let mut one_byte_header = Vec::new();
     let mut writer = BitWriter::from(&mut one_byte_header);
-    raw_literals(&[7; 31], &mut writer);
-    writer.flush();
+    raw_literals(&[7; 31], &mut writer).expect("test storage admission");
+    writer.flush().expect("test storage admission");
     assert_eq!(one_byte_header[0], 31 << 3);
     assert_eq!(&one_byte_header[1..], &[7; 31]);
 
     let mut two_byte_header = Vec::new();
     let mut writer = BitWriter::from(&mut two_byte_header);
-    raw_literals(&[9; 44], &mut writer);
-    writer.flush();
+    raw_literals(&[9; 44], &mut writer).expect("test storage admission");
+    writer.flush().expect("test storage admission");
     assert_eq!(&two_byte_header[..2], &[0xC4, 0x02]);
     assert_eq!(&two_byte_header[2..], &[9; 44]);
 
     let mut three_byte_header = Vec::new();
     let mut writer = BitWriter::from(&mut three_byte_header);
-    raw_literals(&[11; 4096], &mut writer);
-    writer.flush();
+    raw_literals(&[11; 4096], &mut writer).expect("test storage admission");
+    writer.flush().expect("test storage admission");
     assert_eq!(&three_byte_header[..3], &[0x0C, 0x00, 0x01]);
     assert_eq!(&three_byte_header[3..], &[11; 4096]);
 }
@@ -1244,8 +1293,9 @@ fn raw_literals_support_max_block_size_header() {
 
     let mut encoded = Vec::new();
     let mut writer = BitWriter::from(&mut encoded);
-    raw_literals(&alloc::vec![0xA5; MAX_BLOCK_LITERALS], &mut writer);
-    writer.flush();
+    raw_literals(&alloc::vec![0xA5; MAX_BLOCK_LITERALS], &mut writer)
+        .expect("test storage admission");
+    writer.flush().expect("test storage admission");
 
     assert_eq!(&encoded[..3], &[0x0C, 0x00, 0x20]);
     assert_eq!(encoded.len(), 3 + MAX_BLOCK_LITERALS);
@@ -1546,20 +1596,20 @@ fn sub_block_huffman_literals_emit_raw_when_empty() {
 fn rle_literals_use_shortest_header_form() {
     let mut one_byte_header = Vec::new();
     let mut writer = BitWriter::from(&mut one_byte_header);
-    rle_literals(&[7; 31], &mut writer);
-    writer.flush();
+    rle_literals(&[7; 31], &mut writer).expect("test storage admission");
+    writer.flush().expect("test storage admission");
     assert_eq!(&one_byte_header, &[0xF9, 7]);
 
     let mut two_byte_header = Vec::new();
     let mut writer = BitWriter::from(&mut two_byte_header);
-    rle_literals(&[9; 44], &mut writer);
-    writer.flush();
+    rle_literals(&[9; 44], &mut writer).expect("test storage admission");
+    writer.flush().expect("test storage admission");
     assert_eq!(&two_byte_header, &[0xC5, 0x02, 9]);
 
     let mut three_byte_header = Vec::new();
     let mut writer = BitWriter::from(&mut three_byte_header);
-    rle_literals(&[11; 4096], &mut writer);
-    writer.flush();
+    rle_literals(&[11; 4096], &mut writer).expect("test storage admission");
+    writer.flush().expect("test storage admission");
     assert_eq!(&three_byte_header, &[0x0D, 0x00, 0x01, 11]);
 }
 
@@ -1569,8 +1619,9 @@ fn rle_literals_support_max_block_size_header() {
 
     let mut encoded = Vec::new();
     let mut writer = BitWriter::from(&mut encoded);
-    rle_literals(&alloc::vec![0x5A; MAX_BLOCK_LITERALS], &mut writer);
-    writer.flush();
+    rle_literals(&alloc::vec![0x5A; MAX_BLOCK_LITERALS], &mut writer)
+        .expect("test storage admission");
+    writer.flush().expect("test storage admission");
 
     assert_eq!(&encoded, &[0x0D, 0x00, 0x20, 0x5A]);
 }
@@ -1579,8 +1630,8 @@ fn rle_literals_support_max_block_size_header() {
 fn rle_literals_round_trip_through_decoder() {
     let mut encoded = Vec::new();
     let mut writer = BitWriter::from(&mut encoded);
-    rle_literals(&[42; 44], &mut writer);
-    writer.flush();
+    rle_literals(&[42; 44], &mut writer).expect("test storage admission");
+    writer.flush().expect("test storage admission");
 
     let mut section = crate::blocks::literals_section::LiteralsSection::new();
     let header_size = section.parse_from_header(&encoded).unwrap();
@@ -1731,7 +1782,8 @@ fn small_literals_prefer_previous_huffman_table_and_single_stream() {
         &mut state,
         &mut first_payload,
         BlockCompressionConfig::for_level(CompressionLevel::Fastest),
-    );
+    )
+    .expect("test storage admission");
 
     state.matcher = LiteralPayloadMatcher {
         literals: second_literals.clone(),
@@ -1742,7 +1794,8 @@ fn small_literals_prefer_previous_huffman_table_and_single_stream() {
         &mut state,
         &mut second_payload,
         BlockCompressionConfig::for_level(CompressionLevel::Fastest),
-    );
+    )
+    .expect("test storage admission");
 
     assert_eq!(
         second_payload[0] & 0b11,
@@ -1763,20 +1816,23 @@ fn small_literals_prefer_previous_huffman_table_and_single_stream() {
         dictionary_id: None,
         window_size: Some(128 * 1024),
     }
-    .serialize(&mut frame);
+    .serialize(&mut frame)
+    .expect("test storage admission");
     crate::encoding::block_header::BlockHeader {
         last_block: false,
         block_type: crate::blocks::block::BlockType::Compressed,
         block_size: first_payload.len() as u32,
     }
-    .serialize(&mut frame);
+    .serialize(&mut frame)
+    .expect("test storage admission");
     frame.extend_from_slice(&first_payload);
     crate::encoding::block_header::BlockHeader {
         last_block: true,
         block_type: crate::blocks::block::BlockType::Compressed,
         block_size: second_payload.len() as u32,
     }
-    .serialize(&mut frame);
+    .serialize(&mut frame)
+    .expect("test storage admission");
     frame.extend_from_slice(&second_payload);
 
     let mut expected = first_literals.clone();
@@ -2206,7 +2262,8 @@ fn choose_table_repeats_previous_table_for_small_blocks_when_valid() {
             8,
             64,
             16,
-        ),
+        )
+        .expect("test storage admission"),
         FseTableMode::RepeatLast(_)
     ));
 }
@@ -2243,7 +2300,8 @@ fn c_fast_sequence_heuristic_repeats_previous_table_before_default() {
             c_fast_heuristics: true,
             c_cost_model: false,
         },
-    );
+    )
+    .expect("test storage admission");
 
     assert!(matches!(ll_mode, FseTableMode::RepeatLast(_)));
 }
@@ -2276,7 +2334,8 @@ fn c_fast_sequence_heuristic_does_not_repeat_check_only_table() {
             c_fast_heuristics: true,
             c_cost_model: false,
         },
-    );
+    )
+    .expect("test storage admission");
 
     assert!(matches!(ll_mode, FseTableMode::Predefined(_)));
 }
@@ -2313,7 +2372,8 @@ fn c_fast_sequence_heuristic_requires_default_table_before_repeat() {
             c_fast_heuristics: true,
             c_cost_model: false,
         },
-    );
+    )
+    .expect("test storage admission");
 
     assert!(matches!(of_mode, FseTableMode::Encoded(_)));
 }
@@ -2328,7 +2388,8 @@ fn c_cost_sequence_model_uses_basic_when_default_is_cheapest() {
     let (ll_mode, _, _) = choose_sequence_table_modes(
         &sequences,
         c_cost_config(&ll_default, None, &ml_default, &of_default, None),
-    );
+    )
+    .expect("test storage admission");
 
     assert!(matches!(ll_mode, FseTableMode::Predefined(_)));
 }
@@ -2353,7 +2414,8 @@ fn c_cost_sequence_model_repeats_previous_table_when_cheapest() {
     let (ll_mode, _, _) = choose_sequence_table_modes(
         &sequences,
         c_cost_config(&ll_default, Some(&previous), &ml_default, &of_default, None),
-    );
+    )
+    .expect("test storage admission");
 
     assert!(matches!(ll_mode, FseTableMode::RepeatLast(_)));
 }
@@ -2371,7 +2433,8 @@ fn c_cost_sequence_model_encodes_new_table_when_cheapest() {
     let (ll_mode, _, _) = choose_sequence_table_modes(
         &sequences,
         c_cost_config(&ll_default, None, &ml_default, &of_default, None),
-    );
+    )
+    .expect("test storage admission");
 
     assert!(matches!(ll_mode, FseTableMode::Encoded(_)));
 }
@@ -2407,7 +2470,8 @@ fn encoded_sequence_table_removes_repeated_last_code_from_counts() {
             c_fast_heuristics: false,
             c_cost_model: false,
         },
-    );
+    )
+    .expect("test storage admission");
 
     let FseTableMode::Encoded(table) = ll_mode else {
         panic!("forced encoded table");
@@ -2469,7 +2533,8 @@ fn encoded_sequence_table_log_uses_original_sequence_count() {
             c_fast_heuristics: false,
             c_cost_model: false,
         },
-    );
+    )
+    .expect("test storage admission");
 
     let FseTableMode::Encoded(table) = ll_mode else {
         panic!("forced encoded table");
@@ -2546,7 +2611,8 @@ fn exact_sequence_mode_search_never_worsens_threshold_choice() {
                         9,
                         64,
                         16,
-                    );
+                    )
+                    .expect("test storage admission");
                     let heuristic_ml = choose_table(
                         None,
                         &ml_default,
@@ -2555,7 +2621,8 @@ fn exact_sequence_mode_search_never_worsens_threshold_choice() {
                         9,
                         64,
                         16,
-                    );
+                    )
+                    .expect("test storage admission");
                     let heuristic_of = choose_table(
                         None,
                         &of_default,
@@ -2564,7 +2631,8 @@ fn exact_sequence_mode_search_never_worsens_threshold_choice() {
                         8,
                         64,
                         16,
-                    );
+                    )
+                    .expect("test storage admission");
                     let (ll_mode, ml_mode, of_mode) = choose_sequence_table_modes(
                         &sequences,
                         SequenceModeSearchConfig {
@@ -2585,7 +2653,8 @@ fn exact_sequence_mode_search_never_worsens_threshold_choice() {
                             c_fast_heuristics: false,
                             c_cost_model: false,
                         },
-                    );
+                    )
+                    .expect("test storage admission");
                     let heuristic_size = exact_sequence_section_size(
                         &sequences,
                         &heuristic_ll,

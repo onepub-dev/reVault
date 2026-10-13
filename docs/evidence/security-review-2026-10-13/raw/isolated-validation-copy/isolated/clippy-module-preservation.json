@@ -1,0 +1,10 @@
+{
+  "kind": "test_module_move_integrity_audit",
+  "source_scope": "isolated /tmp source snapshot; worktree untouched",
+  "modules": [
+    {"path":"rust/revault_lockbox_api/src/compression/encode_workspace.rs","module":"tests","preserved_after_move_and_trim":true,"before_sha256":"4852e2e48d0fe275021048a547f5c56ee7f634db471814fe6896e6bdb8a68d19","after_sha256":"4852e2e48d0fe275021048a547f5c56ee7f634db471814fe6896e6bdb8a68d19"},
+    {"path":"rust/revault_lockbox_api/src/lockbox/variables.rs","module":"commitment_lifecycle_tests","preserved_except_approved_copy_clone_removal":true,"before_sha256":"dc090e9250e54dedd57d0e4c2aa2d3a23fc42b4c4910ddddda36f131b9060676","after_sha256":"f98f05ef5e990aae14a6816f89d134266b6f40bcd2987669cb35da0aeb86dcdd","only_difference":"one 8-byte `.clone()` token removed from a Copy value; no other differing spans"},
+    {"path":"rust/revault_bindings/src/lib.rs","module":"tests","preserved_after_move_and_trim":true,"before_sha256":"cc0d65f5c946af221a3dcd1a4c1562792a1bc5280e980d779362d148bc27885c","after_sha256":"cc0d65f5c946af221a3dcd1a4c1562792a1bc5280e980d779362d148bc27885c"}
+  ],
+  "excluded_from_this_audit": ["bootstrap credential-case addition", "record payload and page test adjustments"]
+}

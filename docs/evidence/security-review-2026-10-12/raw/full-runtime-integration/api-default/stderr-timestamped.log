@@ -1,0 +1,19 @@
+2026-10-12T23:18:32.991213Z [stderr] 
+2026-10-12T23:18:32.991251Z [stderr] thread 'compression::decode_workspace::tests::scoped_scratch_reuses_allocation_and_cleans_up_nested_and_panicking_calls' panicked at revault_lockbox_api/src/compression/decode_workspace.rs:282:13:
+2026-10-12T23:18:32.991271Z [stderr] visitor failure
+2026-10-12T23:18:32.991284Z [stderr] note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+2026-10-12T23:18:33.038615Z [stderr] 
+2026-10-12T23:18:33.038652Z [stderr] thread 'compression::encode_workspace::tests::pooled_buffers_are_wiped_and_reused_after_success_error_and_unwind' panicked at revault_lockbox_api/src/compression/encode_workspace.rs:178:34:
+2026-10-12T23:18:33.038674Z [stderr] injected callback failure
+2026-10-12T23:18:36.221373Z [stderr] allocator atomic failure cases: 262
+2026-10-12T23:18:38.413065Z [stderr] single aligned-region damage cases: 148
+2026-10-12T23:18:38.644446Z [stderr] allocator power-loss cases: 1548
+2026-10-12T23:18:40.150366Z [stderr] 
+2026-10-12T23:18:40.150421Z [stderr] thread 'file_format::candidate_files::resource_probe::extraction::tests::extraction_refuses_existing_destination_before_opening_archive' panicked at revault_lockbox_api/src/file_format/candidate_files/../../benchmark_extraction.rs:121:5:
+2026-10-12T23:18:40.150448Z [stderr] extraction requires a fresh destination
+2026-10-12T23:18:40.151117Z [stderr] 
+2026-10-12T23:18:40.151178Z [stderr] thread 'file_format::candidate_files::resource_probe::extraction::tests::extraction_rejects_wrong_output_even_with_correct_reported_count' panicked at revault_lockbox_api/src/file_format/candidate_files/../../benchmark_extraction.rs:180:13:
+2026-10-12T23:18:40.151205Z [stderr] assertion `left == right` failed: file-000000.bin: output bytes differ
+2026-10-12T23:18:40.151223Z [stderr]   left: [99, 111, 114, 114, 101, 99, 116]
+2026-10-12T23:18:40.151235Z [stderr]  right: [99, 111, 114, 114, 117, 112, 116]
+2026-10-12T23:18:57.608840Z [stderr] metadata repair atomic failure cases: 223; power-loss cases: 1784

@@ -1,0 +1,1 @@
+cargo +1.88.0 test --locked --offline --release -p revault_lockbox_api --lib private_archive_creation_and_replacement_preserve_selected_mode -- --test-threads=1

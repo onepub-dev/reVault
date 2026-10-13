@@ -1,0 +1,2 @@
+C++ core result: 189 PASS records; build and run exit 0.
+Synthetic temp fixture removed after capture.

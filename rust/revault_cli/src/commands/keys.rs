@@ -416,10 +416,11 @@ fn open_options(options: OpenOptions) -> CliResult<()> {
             && !revault_vault_api::default_vault_path()?.exists())
     {
         let password = options.read_password()?;
-        local_vault().open_password_read_only(
+        local_vault().open_password_read_only_with_budget(
             &options.lockbox_path,
             &password,
             options.ttl_seconds,
+            options.password_slot_budget,
         )?;
         println!("Lockbox opened: {}", options.lockbox_path);
         return Ok(());
@@ -453,26 +454,27 @@ fn open_options(options: OpenOptions) -> CliResult<()> {
     let lb = if let Some(ttl_seconds) = options.ttl_seconds {
         local_vault().open_lockbox_with_for_duration_and_signing_key(
             &options.lockbox_path,
-            LockboxOpen::Password(&password),
+            LockboxOpen::PasswordWithBudget {
+                password: &password,
+                max_derivations: options.password_slot_budget,
+            },
             ttl_seconds,
             &signing_key,
         )?
     } else {
         local_vault().open_lockbox_with_signing_key(
             &options.lockbox_path,
-            LockboxOpen::Password(&password),
+            LockboxOpen::PasswordWithBudget {
+                password: &password,
+                max_derivations: options.password_slot_budget,
+            },
             &signing_key,
         )?
     };
     mirror_key_directory_with_vault(&lb, &options.lockbox_path, &vault)?;
     remember_lockbox_password_if_enabled_with_vault(&lb, &password, &vault)?;
-    if let Some(ttl_seconds) = options.ttl_seconds {
-        local_vault().cache_lockbox_password_for_duration(
-            &options.lockbox_path,
-            &password,
-            ttl_seconds,
-        )?;
-    }
+    // The duration-aware open above already cached this authenticated key
+    // with the requested TTL; do not repeat password derivations here.
     println!("Lockbox opened: {}", options.lockbox_path);
     Ok(())
 }
@@ -518,13 +520,19 @@ fn open_with_vault_profile(
         let opened = match options.ttl_seconds {
             Some(ttl) => local_vault().open_lockbox_with_for_duration_and_signing_key(
                 &options.lockbox_path,
-                LockboxOpen::Password(&password),
+                LockboxOpen::PasswordWithBudget {
+                    password: &password,
+                    max_derivations: options.password_slot_budget,
+                },
                 ttl,
                 &signing_key,
             ),
             None => local_vault().open_lockbox_with_signing_key(
                 &options.lockbox_path,
-                LockboxOpen::Password(&password),
+                LockboxOpen::PasswordWithBudget {
+                    password: &password,
+                    max_derivations: options.password_slot_budget,
+                },
                 &signing_key,
             ),
         };
@@ -1285,6 +1293,7 @@ fn ensure_new_lockbox_path(path: &Path) -> CliResult<()> {
 
 struct OpenOptions {
     lockbox_path: String,
+    password_slot_budget: u32,
     ttl_seconds: Option<u64>,
     password_source: PasswordSource,
 }
@@ -1321,10 +1330,20 @@ impl OpenOptions {
         if ttl_seconds.is_none() {
             ttl_seconds = default_session_duration()?;
         }
+        let password_slot_budget = matches
+            .get_one::<String>("password-slot-budget")
+            .map(|value| {
+                value.parse::<u32>().map_err(|_| {
+                    cli_error("--password-slot-budget must be an unsigned 32-bit attempt count")
+                })
+            })
+            .transpose()?
+            .unwrap_or(revault_lockbox_api::DEFAULT_PASSWORD_SLOT_BUDGET);
         Ok(Self {
             lockbox_path,
             ttl_seconds,
             password_source,
+            password_slot_budget,
         })
     }
 

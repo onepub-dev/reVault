@@ -1,4 +1,9 @@
+// Optional external-data test, not part of ordinary packaged qualification.
+// Requires a separately managed fuzz/artifacts/decode corpus. No such corpus
+// is distributed or obtained by the release build. Maintainers with that data
+// can explicitly select this ignored test from the crate root.
 #[test]
+#[ignore = "requires separately managed external fuzz/artifacts/decode corpus"]
 fn test_all_artifacts() {
     extern crate std;
     use crate::decoding::BlockDecodingStrategy;

@@ -222,6 +222,14 @@ struct ProfileHistory {
   std::vector<ProfileGeneration> generations{};
 };
 
+/** A local Vault alias mapping a normalized name to a stable lockbox identity; resolution does not open the target. */
+struct LockboxAlias {
+  /** Case-sensitive normalized NFC alias name. */
+  std::string name{};
+  /** Stable binary target identity; verify it when opening the resolved path. */
+  std::vector<std::uint8_t> lockbox_id{};
+};
+
 /** A lockbox identifier and host path remembered by the local vault for later discovery. */
 struct KnownLockbox {
   /** Stable binary identifier of the remembered lockbox. */
@@ -304,12 +312,14 @@ struct AgentEntry {
 
 /** The host capabilities used to protect cached secrets across suspend and sleep. */
 struct SleepSupport {
-  /** Whether the host reports impending system suspend. */
+  /** Whether suspend notification support is compiled for this host. */
   bool suspend_notifications{};
-  /** Whether the agent can delay sleep while handling secrets. */
+  /** Whether sleep inhibition support is compiled for this host. */
   bool sleep_inhibition{};
-  /** Whether the host supplies enough integration for safe caching. */
+  /** Whether this build includes the host integration; this is not runtime watcher readiness. */
   bool supported{};
+  /** Whether the current compatible Session Agent reports an active suspend cache watcher; false when absent or unavailable. Notification delivery is platform-dependent. */
+  bool cache_clearing_active{};
 };
 
 /** Availability and configuration of the platform credential store used for the Vault passphrase. */
@@ -364,6 +374,7 @@ using KeySlotList = std::vector<KeySlot>;
 using FormDefinitionList = std::vector<FormDefinition>;
 using FormRecordList = std::vector<FormRecord>;
 using ContactList = std::vector<Contact>;
+using LockboxAliasList = std::vector<LockboxAlias>;
 using KnownLockboxList = std::vector<KnownLockbox>;
 using AccessSlotLabelList = std::vector<AccessSlotLabel>;
 using AgentEntryList = std::vector<AgentEntry>;
@@ -397,6 +408,7 @@ template <> bindings::PageInspection decode<bindings::PageInspection>(std::span<
 template <> bindings::FileInspection decode<bindings::FileInspection>(std::span<const std::uint8_t> bytes);
 template <> bindings::ProfileGeneration decode<bindings::ProfileGeneration>(std::span<const std::uint8_t> bytes);
 template <> bindings::ProfileHistory decode<bindings::ProfileHistory>(std::span<const std::uint8_t> bytes);
+template <> bindings::LockboxAlias decode<bindings::LockboxAlias>(std::span<const std::uint8_t> bytes);
 template <> bindings::KnownLockbox decode<bindings::KnownLockbox>(std::span<const std::uint8_t> bytes);
 template <> bindings::AccessSlotLabel decode<bindings::AccessSlotLabel>(std::span<const std::uint8_t> bytes);
 template <> bindings::StreamChunk decode<bindings::StreamChunk>(std::span<const std::uint8_t> bytes);
@@ -417,6 +429,7 @@ template <> bindings::KeySlotList decode<bindings::KeySlotList>(std::span<const 
 template <> bindings::FormDefinitionList decode<bindings::FormDefinitionList>(std::span<const std::uint8_t> bytes);
 template <> bindings::FormRecordList decode<bindings::FormRecordList>(std::span<const std::uint8_t> bytes);
 template <> bindings::ContactList decode<bindings::ContactList>(std::span<const std::uint8_t> bytes);
+template <> bindings::LockboxAliasList decode<bindings::LockboxAliasList>(std::span<const std::uint8_t> bytes);
 template <> bindings::KnownLockboxList decode<bindings::KnownLockboxList>(std::span<const std::uint8_t> bytes);
 template <> bindings::AccessSlotLabelList decode<bindings::AccessSlotLabelList>(std::span<const std::uint8_t> bytes);
 template <> bindings::AgentEntryList decode<bindings::AgentEntryList>(std::span<const std::uint8_t> bytes);

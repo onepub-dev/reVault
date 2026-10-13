@@ -1,0 +1,7 @@
+ M rust/revault_lockbox_api/src/file_format/page.rs
+ M rust/revault_lockbox_api/src/file_format/page_buffer.rs
+ M rust/revault_lockbox_api/src/lockbox/extraction.rs
+ M rust/revault_lockbox_api/src/lockbox/files.rs
+ M rust/revault_vault_api/src/unix.rs
+ M rust/revault_vault_api/src/windows.rs
+?? docs/evidence/security-review-2026-10-12/

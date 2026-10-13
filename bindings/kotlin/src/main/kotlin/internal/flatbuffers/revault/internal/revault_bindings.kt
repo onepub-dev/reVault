@@ -1791,6 +1791,123 @@ class ProfileHistory : Table() {
     }
 }
 @Suppress("unused")
+class LockboxAlias : Table() {
+
+    fun __init(_i: Int, _bb: ByteBuffer)  {
+        __reset(_i, _bb)
+    }
+    fun __assign(_i: Int, _bb: ByteBuffer) : LockboxAlias {
+        __init(_i, _bb)
+        return this
+    }
+    val name : String?
+        get() {
+            val o = __offset(4)
+            return if (o != 0) {
+                __string(o + bb_pos)
+            } else {
+                null
+            }
+        }
+    val nameAsByteBuffer : ByteBuffer get() = __vector_as_bytebuffer(4, 1)
+    fun nameInByteBuffer(_bb: ByteBuffer) : ByteBuffer = __vector_in_bytebuffer(_bb, 4, 1)
+    fun lockboxId(j: Int) : UByte {
+        val o = __offset(6)
+        return if (o != 0) {
+            bb.get(__vector(o) + j * 1).toUByte()
+        } else {
+            0u
+        }
+    }
+    val lockboxIdLength : Int
+        get() {
+            val o = __offset(6); return if (o != 0) __vector_len(o) else 0
+        }
+    val lockboxIdAsByteBuffer : ByteBuffer get() = __vector_as_bytebuffer(6, 1)
+    fun lockboxIdInByteBuffer(_bb: ByteBuffer) : ByteBuffer = __vector_in_bytebuffer(_bb, 6, 1)
+    companion object {
+        fun validateVersion() = Constants.FLATBUFFERS_25_2_10()
+        fun getRootAsLockboxAlias(_bb: ByteBuffer): LockboxAlias = getRootAsLockboxAlias(_bb, LockboxAlias())
+        fun getRootAsLockboxAlias(_bb: ByteBuffer, obj: LockboxAlias): LockboxAlias {
+            _bb.order(ByteOrder.LITTLE_ENDIAN)
+            return (obj.__assign(_bb.getInt(_bb.position()) + _bb.position(), _bb))
+        }
+        fun createLockboxAlias(builder: FlatBufferBuilder, nameOffset: Int, lockboxIdOffset: Int) : Int {
+            builder.startTable(2)
+            addLockboxId(builder, lockboxIdOffset)
+            addName(builder, nameOffset)
+            return endLockboxAlias(builder)
+        }
+        fun startLockboxAlias(builder: FlatBufferBuilder) = builder.startTable(2)
+        fun addName(builder: FlatBufferBuilder, name: Int) = builder.addOffset(0, name, 0)
+        fun addLockboxId(builder: FlatBufferBuilder, lockboxId: Int) = builder.addOffset(1, lockboxId, 0)
+        @kotlin.ExperimentalUnsignedTypes
+        fun createLockboxIdVector(builder: FlatBufferBuilder, data: UByteArray) : Int {
+            builder.startVector(1, data.size, 1)
+            for (i in data.size - 1 downTo 0) {
+                builder.addByte(data[i].toByte())
+            }
+            return builder.endVector()
+        }
+        fun startLockboxIdVector(builder: FlatBufferBuilder, numElems: Int) = builder.startVector(1, numElems, 1)
+        fun endLockboxAlias(builder: FlatBufferBuilder) : Int {
+            val o = builder.endTable()
+            return o
+        }
+    }
+}
+@Suppress("unused")
+class LockboxAliasList : Table() {
+
+    fun __init(_i: Int, _bb: ByteBuffer)  {
+        __reset(_i, _bb)
+    }
+    fun __assign(_i: Int, _bb: ByteBuffer) : LockboxAliasList {
+        __init(_i, _bb)
+        return this
+    }
+    fun values(j: Int) : revault.internal.LockboxAlias? = values(revault.internal.LockboxAlias(), j)
+    fun values(obj: revault.internal.LockboxAlias, j: Int) : revault.internal.LockboxAlias? {
+        val o = __offset(4)
+        return if (o != 0) {
+            obj.__assign(__indirect(__vector(o) + j * 4), bb)
+        } else {
+            null
+        }
+    }
+    val valuesLength : Int
+        get() {
+            val o = __offset(4); return if (o != 0) __vector_len(o) else 0
+        }
+    companion object {
+        fun validateVersion() = Constants.FLATBUFFERS_25_2_10()
+        fun getRootAsLockboxAliasList(_bb: ByteBuffer): LockboxAliasList = getRootAsLockboxAliasList(_bb, LockboxAliasList())
+        fun getRootAsLockboxAliasList(_bb: ByteBuffer, obj: LockboxAliasList): LockboxAliasList {
+            _bb.order(ByteOrder.LITTLE_ENDIAN)
+            return (obj.__assign(_bb.getInt(_bb.position()) + _bb.position(), _bb))
+        }
+        fun createLockboxAliasList(builder: FlatBufferBuilder, valuesOffset: Int) : Int {
+            builder.startTable(1)
+            addValues(builder, valuesOffset)
+            return endLockboxAliasList(builder)
+        }
+        fun startLockboxAliasList(builder: FlatBufferBuilder) = builder.startTable(1)
+        fun addValues(builder: FlatBufferBuilder, values: Int) = builder.addOffset(0, values, 0)
+        fun createValuesVector(builder: FlatBufferBuilder, data: IntArray) : Int {
+            builder.startVector(4, data.size, 4)
+            for (i in data.size - 1 downTo 0) {
+                builder.addOffset(data[i])
+            }
+            return builder.endVector()
+        }
+        fun startValuesVector(builder: FlatBufferBuilder, numElems: Int) = builder.startVector(4, numElems, 4)
+        fun endLockboxAliasList(builder: FlatBufferBuilder) : Int {
+            val o = builder.endTable()
+            return o
+        }
+    }
+}
+@Suppress("unused")
 class KnownLockbox : Table() {
 
     fun __init(_i: Int, _bb: ByteBuffer)  {
@@ -2750,6 +2867,11 @@ class SleepSupport : Table() {
             val o = __offset(8)
             return if(o != 0) 0.toByte() != bb.get(o + bb_pos) else false
         }
+    val cacheClearingActive : Boolean
+        get() {
+            val o = __offset(10)
+            return if(o != 0) 0.toByte() != bb.get(o + bb_pos) else false
+        }
     companion object {
         fun validateVersion() = Constants.FLATBUFFERS_25_2_10()
         fun getRootAsSleepSupport(_bb: ByteBuffer): SleepSupport = getRootAsSleepSupport(_bb, SleepSupport())
@@ -2757,17 +2879,19 @@ class SleepSupport : Table() {
             _bb.order(ByteOrder.LITTLE_ENDIAN)
             return (obj.__assign(_bb.getInt(_bb.position()) + _bb.position(), _bb))
         }
-        fun createSleepSupport(builder: FlatBufferBuilder, suspendNotifications: Boolean, sleepInhibition: Boolean, supported: Boolean) : Int {
-            builder.startTable(3)
+        fun createSleepSupport(builder: FlatBufferBuilder, suspendNotifications: Boolean, sleepInhibition: Boolean, supported: Boolean, cacheClearingActive: Boolean) : Int {
+            builder.startTable(4)
+            addCacheClearingActive(builder, cacheClearingActive)
             addSupported(builder, supported)
             addSleepInhibition(builder, sleepInhibition)
             addSuspendNotifications(builder, suspendNotifications)
             return endSleepSupport(builder)
         }
-        fun startSleepSupport(builder: FlatBufferBuilder) = builder.startTable(3)
+        fun startSleepSupport(builder: FlatBufferBuilder) = builder.startTable(4)
         fun addSuspendNotifications(builder: FlatBufferBuilder, suspendNotifications: Boolean) = builder.addBoolean(0, suspendNotifications, false)
         fun addSleepInhibition(builder: FlatBufferBuilder, sleepInhibition: Boolean) = builder.addBoolean(1, sleepInhibition, false)
         fun addSupported(builder: FlatBufferBuilder, supported: Boolean) = builder.addBoolean(2, supported, false)
+        fun addCacheClearingActive(builder: FlatBufferBuilder, cacheClearingActive: Boolean) = builder.addBoolean(3, cacheClearingActive, false)
         fun endSleepSupport(builder: FlatBufferBuilder) : Int {
             val o = builder.endTable()
             return o

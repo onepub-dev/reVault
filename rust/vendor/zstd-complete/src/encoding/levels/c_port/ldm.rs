@@ -41,14 +41,16 @@ impl LdmWorkspace {
         &mut self,
         src: &[u8],
         params: LdmParameters,
-    ) -> sequence::LdmSequenceResult {
-        self.table.reset();
-        sequence::generate_sequences_no_dict_in(
-            src,
-            params,
-            &mut self.table,
-            core::mem::take(&mut self.sequences),
-        )
+    ) -> Result<sequence::LdmSequenceResult, crate::workspace::CapacityError> {
+        Ok({
+            self.table.reset();
+            sequence::generate_sequences_no_dict_in(
+                src,
+                params,
+                &mut self.table,
+                core::mem::take(&mut self.sequences),
+            )?
+        })
     }
 
     pub(crate) fn recycle(&mut self, mut result: sequence::LdmSequenceResult) {

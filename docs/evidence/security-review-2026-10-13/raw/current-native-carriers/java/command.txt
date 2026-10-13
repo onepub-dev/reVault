@@ -1,0 +1,1 @@
+Java 27; precompiled classes=/tmp/revault-java-alias-batch5-classes; classpath includes FlatBuffers Java 25.2.10; --enable-native-access=ALL-UNNAMED; REVAULT_E2E_LOAD_PATH=<worktree>/rust/target/release/librevault_api.so

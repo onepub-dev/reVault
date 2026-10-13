@@ -1,0 +1,3 @@
+35ca2495f65662c1bedf1ba748683458469ccb3d4b8ee889811ca4d08f6c0805  bindings/e2e/javascript/conformance.js
+a98aa2fde3a66bdc5fa87972f9a36f0ca3f9777e2d97f619f990730b32ef0477  bindings/javascript/index.js
+009d16510363bb5ae25c5a7ca909bca16957dbcf42fee83abd82dcf281e0a0b0  rust/target/release/librevault_api.so

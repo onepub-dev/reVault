@@ -1,0 +1,1 @@
+git archive cc2909a from worktree root; extracted into /tmp/revault-repo-baseline-cc2909a; temporary git metadata added there solely so the checker can enumerate tracked files

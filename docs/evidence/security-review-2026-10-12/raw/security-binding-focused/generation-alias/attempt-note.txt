@@ -1,0 +1,5 @@
+Outcome: generation stopped with exit 1 before completing.
+Failure: bindings/flatbuffers/generate_dart_models.py raised KeyError: 'LockboxAlias' from model_docs.example() because no LockboxAlias example entry was available.
+No changes were applied by this failed generation attempt: normalized Git status before/after was identical (the raw status files were captured from different working directories; status-delta.diff preserves that unnormalized comparison).
+The initially attempted inputs.before.sha256 capture was empty because the command used paths relative to rust/ instead of repository root. inputs.after.sha256 records the exact four schema/registry inputs plus the prebuilt generator executable after the failure; the generator executable SHA is also in generator.sha256. This capture limitation is preserved, not represented as a pre-run hash.
+Evidence directory was initially created under rust/docs due the same working-directory mistake, then relocated to the root docs/evidence path. The generator invocation itself ran from rust/ as recorded in command.txt.

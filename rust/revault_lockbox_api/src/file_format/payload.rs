@@ -3,7 +3,7 @@ use crate::compression::{
     decode_compression_frame, encode_compression_frame, validate_compression_frame_lengths,
 };
 use crate::compression_frame_manifest::{
-    decode_compression_frame_manifest, encode_compression_frame_manifest, CompressionFrameManifest,
+    decode_compression_frame_manifest, CompressionFrameManifest,
 };
 #[cfg(test)]
 use crate::lockbox_path::validate_stored_path as validate_path;
@@ -75,6 +75,7 @@ pub(crate) fn encode_compression_frame_segment_payload(
         segment_offset,
         segment,
         None,
+        false,
     )
 }
 
@@ -83,14 +84,25 @@ pub(crate) fn encode_compression_frame_segment_payload_with_compression(
     segment_offset: u64,
     segment: &[u8],
     compression: Option<crate::Compression>,
+    sensitive: bool,
 ) -> Result<Vec<u8>> {
     let manifest_bytes = if segment_offset == 0 {
-        encode_compression_frame_manifest(manifest)?
+        crate::compression_frame_manifest::encode_compression_frame_manifest_sensitive(
+            manifest, sensitive,
+        )?
     } else {
         Vec::new()
     };
+    let manifest_bytes = crate::page_buffer::SensitiveBytes::new(manifest_bytes, sensitive);
     let (manifest_compression, stored_manifest) = if manifest_bytes.is_empty() {
         (crate::compression::COMPRESSION_NONE, Vec::new())
+    } else if sensitive {
+        crate::compression::encode_sensitive_outcome(
+            &manifest_bytes,
+            compression,
+            crate::compression::ZSTD_DEFAULT_LEVEL,
+        )
+        .into_encoded(&manifest_bytes)
     } else {
         match compression {
             Some(compression) => {
@@ -99,7 +111,12 @@ pub(crate) fn encode_compression_frame_segment_payload_with_compression(
             None => encode_compression_frame(&manifest_bytes),
         }
     };
-    let mut out = Vec::with_capacity(72 + stored_manifest.len() + segment.len());
+    let stored_manifest = crate::page_buffer::SensitiveBytes::new(stored_manifest, sensitive);
+    let capacity = 128usize
+        .checked_add(stored_manifest.len())
+        .and_then(|n| n.checked_add(segment.len()))
+        .ok_or(Error::CorruptRecord)?;
+    let mut out = crate::page_buffer::SensitiveBytes::new(Vec::with_capacity(capacity), sensitive);
     out.extend_from_slice(COMPRESSION_FRAME_SEGMENT_MAGIC);
     out.push(COMPRESSION_FRAME_SEGMENT_VERSION);
     put_varint(manifest.compression_frame_id, &mut out);
@@ -114,7 +131,7 @@ pub(crate) fn encode_compression_frame_segment_payload_with_compression(
     put_varint(segment_offset, &mut out);
     put_varint(segment.len() as u64, &mut out);
     out.extend_from_slice(segment);
-    Ok(out)
+    Ok(out.into_vec())
 }
 
 pub(crate) fn decode_compression_frame_segment_payload_view(

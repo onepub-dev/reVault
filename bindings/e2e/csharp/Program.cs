@@ -161,6 +161,7 @@ static class Conformance
         using (var opened = Api.OpenLockbox(archive, key, options)) Check(opened.GetFile("/account.txt").SequenceEqual(Bytes("account data")), "option open"); Pass("lockbox_open_with_options", 2);
         byte[] passwordArchive; using (var passwordBox = Api.CreateLockboxWithPassword(Bytes("archive password"))) { passwordBox.AddFile("/password.txt", Bytes("password protected")); passwordBox.Commit(); passwordArchive = passwordBox.Bytes; }
         Pass("lockbox_create_password"); using (var opened = Api.OpenLockboxWithPassword(passwordArchive, Bytes("archive password"))) Check(opened.GetFile("/password.txt").SequenceEqual(Bytes("password protected")), "password open"); Pass("lockbox_open_password", 2);
+        using (var budgetOpen = Api.OpenLockboxWithPasswordBudget(passwordArchive, Bytes("archive password"), 1)) Check(budgetOpen.GetFile("/password.txt").SequenceEqual(Bytes("password protected")), "budget password bytes"); Pass("lockbox_open_password_with_budget", 2);
         byte[] contactArchive; using (var contactBox = Api.CreateLockboxForContact(publicKey)) { contactBox.AddFile("/contact.txt", Bytes("contact protected")); contactBox.Commit(); contactArchive = contactBox.Bytes; }
         Pass("lockbox_create_contact"); using (var opened = Api.OpenLockboxForContact(contactArchive, contact)) Check(opened.GetFile("/contact.txt").SequenceEqual(Bytes("contact protected")), "contact open"); Pass("lockbox_open_contact", 2);
         using (var signedPassword = Api.CreateLockboxWithPasswordAndSigningKey(Bytes("archive password"), signing)) signedPassword.Commit(); Pass("lockbox_create_password_with_signing_key");
@@ -168,6 +169,7 @@ static class Conformance
         using (var signed = Api.CreateLockboxWithProfileSigningKey(key, signing)) { signed.Commit(); Check(signed.OwnerInspection().Signed, "signed"); } Pass("lockbox_create_with_signing_key", 2);
         var extract = Path.Combine(Root(), "extract"); if (Directory.Exists(extract)) Directory.Delete(extract, true); Directory.CreateDirectory(extract);
         var extracted = Path.Combine(extract, "account.txt"); box.ExtractFile("/account.txt", extracted); Check(File.Exists(extracted), "extract file"); Pass("lockbox_extract_file", 2);
+        box.ExtractFileWithPolicy("/account.txt", extracted, 1 << 20, 1 << 20, 1, true, true); Check(File.ReadAllBytes(extracted).SequenceEqual(box.GetFile("/account.txt")), "policy extracted bytes"); Pass("lockbox_extract_file_with_policy", 2);
         var tree = Path.Combine(extract, "tree"); Directory.CreateDirectory(tree); box.ExtractDirectory(tree, 1 << 20, 4 << 20, 100, false, true, false); Check(Directory.Exists(tree), "extract dir"); Pass("lockbox_extract_directory", 2);
         box.DeleteFormRecord("/account.form"); Pass("lockbox_delete_form_record");
     }
@@ -192,6 +194,12 @@ static class Conformance
             Check(vault.ListPrivateKeys().Count > 0 && vault.ListPrivateKeyNames().Count > 0 && vault.ListContactNames().Count > 0, "lists"); Pass("vault_directory_list_private_keys"); Pass("vault_directory_list_private_key_names"); Pass("vault_directory_list_contact_names");
             vault.StoreBackup(id, Bytes("encrypted backup bytes")); Check(vault.BackupCount == 1 && vault.LoadBackup(id).SequenceEqual(Bytes("encrypted backup bytes")), "backup"); Pass("vault_directory_store_backup"); Pass("vault_directory_backup_count"); Pass("vault_directory_load_backup", 3);
             vault.RememberLockbox(id, "/tmp/example.lbox"); Check(vault.ListKnownLockboxes().Count == 1, "known"); Pass("vault_directory_remember_lockbox"); Pass("vault_directory_list_known_lockboxes");
+            vault.SetLockboxAlias("portable", id); vault.SetLockboxAlias("portable", id);
+            Check(vault.ListLockboxAliases().Count == 1 && vault.ListLockboxAliases()[0].Name == "portable", "alias repeat and list");
+            Check(vault.ResolveLockboxAlias("portable").Path == "/tmp/example.lbox", "alias resolution");
+            Pass("vault_directory_set_lockbox_alias", 2); Pass("vault_directory_list_lockbox_aliases", 2); Pass("vault_directory_resolve_lockbox_alias");
+            vault.RemoveLockboxAlias("portable"); vault.RemoveLockboxAlias("portable");
+            Check(vault.ListLockboxAliases().Count == 0, "alias removal repeat"); Pass("vault_directory_remove_lockbox_alias", 3);
             vault.RememberAccessSlotLabel(id, 7, "primary"); Check(vault.ListAccessSlotLabels(id).Count == 1 && vault.FindAccessSlotLabels(id, "primary").Count == 1, "labels"); Pass("vault_directory_remember_access_slot_label"); Pass("vault_directory_list_access_slot_labels"); Pass("vault_directory_find_access_slot_labels");
             vault.RememberPassword(id, password); Check(vault.RememberedPassword(id).SequenceEqual(password), "remember"); Pass("vault_directory_remember_password"); Pass("vault_directory_remembered_password", 3);
             var vaultForm = vault.DefineForm("login", "Login", "Login form", Fields()); Check(vaultForm.TypeId.Length > 0 && vault.ResolveForm("login").TypeId.Length > 0 && vault.ListForms().Count > 0, "forms"); Pass("vault_directory_define_form"); Pass("vault_directory_resolve_form"); Pass("vault_directory_list_forms");
@@ -199,8 +207,12 @@ static class Conformance
             Check(vault.SeedForms() > 0, "seed"); Pass("vault_directory_seed_forms"); Check(vault.ListFormAliases().Count > 0, "aliases"); Pass("vault_directory_list_form_aliases");
             vault.ForgetAccessSlotLabel(id, 7); vault.ForgetLockbox("/tmp/example.lbox"); vault.DeleteContact("bob"); Pass("vault_directory_forget_access_slot_label"); Pass("vault_directory_forget_lockbox"); Pass("vault_directory_delete_contact");
             vault.DeletePrivateKey("alice"); Check(!vault.PrivateKeyExists("alice"), "deleted"); vault.RestorePrivateKey("alice", profile, owner, true); Check(vault.PrivateKeyExists("alice"), "restored"); Pass("vault_directory_delete_private_key", 2); Pass("vault_directory_restore_private_key", 2);
+            vault.RememberLockbox(id, "/tmp/example.lbox"); vault.SetLockboxAlias("portable", id);
         }
-        Pass("vault_directory_free"); using (var readOnlyVault = Api.OpenReadOnlyVault(root, password)) { Check(readOnlyVault.ListProfileNames().Count > 0, "readonly profiles"); _ = readOnlyVault.ListContactNames(); Check(readOnlyVault.ListFormAliases().Count > 0, "readonly forms"); _ = readOnlyVault.ListKnownLockboxes(); Pass("vault_read_only_open"); Pass("vault_read_only_list_profile_names", 2); Pass("vault_read_only_list_contact_names"); Pass("vault_read_only_list_form_aliases", 2); Pass("vault_read_only_list_known_lockboxes"); } Pass("vault_read_only_free");
+        Pass("vault_directory_free"); using (var readOnlyVault = Api.OpenReadOnlyVault(root, password)) { Check(readOnlyVault.ListProfileNames().Count > 0, "readonly profiles"); _ = readOnlyVault.ListContactNames(); Check(readOnlyVault.ListFormAliases().Count > 0, "readonly forms"); _ = readOnlyVault.ListKnownLockboxes(); Pass("vault_read_only_open"); Pass("vault_read_only_list_profile_names", 2); Pass("vault_read_only_list_contact_names"); Pass("vault_read_only_list_form_aliases", 2); Pass("vault_read_only_list_known_lockboxes");
+ Check(readOnlyVault.ListLockboxAliases().Count == 1 && readOnlyVault.ListLockboxAliases()[0].Name == "portable", "persisted read-only alias");
+            Check(readOnlyVault.ResolveLockboxAlias("portable").Path == "/tmp/example.lbox", "read-only alias resolution");
+            Pass("vault_read_only_list_lockbox_aliases", 2); Pass("vault_read_only_resolve_lockbox_alias"); } Pass("vault_read_only_free");
         // Both writable and read-only handles are closed before the path probe.
         Check(Api.ProbeVaultStructureVersion(root, password) == Api.CurrentVaultStructureVersion, "vault probe"); Pass("vault_directory_probe_structure_version", 2);
         Api.ChangeVaultPassword(root, password, changed); Pass("vault_directory_change_password"); using (var opened = Api.OpenVault(root, changed)) Check(opened.StructureVersion > 0, "reopen"); Pass("vault_directory_open"); Console.WriteLine($"ARTIFACT\tcsharp\tvault-opened\t{root}");

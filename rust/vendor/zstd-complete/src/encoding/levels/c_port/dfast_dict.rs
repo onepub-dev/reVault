@@ -17,23 +17,25 @@ pub(crate) fn load_prefix(
     src: &[u8],
     prefix_len: usize,
     params: CompressionParameters,
-) {
-    debug_assert!(prefix_len <= src.len());
-    if prefix_len <= HASH_READ_SIZE {
-        return;
-    }
+) -> Result<(), crate::workspace::CapacityError> {
+    Ok({
+        debug_assert!(prefix_len <= src.len());
+        if prefix_len <= HASH_READ_SIZE {
+            return Ok(());
+        }
 
-    state.ensure_tables(params);
-    let iend = prefix_len - HASH_READ_SIZE;
-    let mut ip = 0_usize;
+        state.ensure_tables(params)?;
+        let iend = prefix_len - HASH_READ_SIZE;
+        let mut ip = 0_usize;
 
-    while ip + FAST_HASH_FILL_STEP - 1 <= iend {
-        let hash_small = hash_ptr(src, ip, params.chain_log, params.min_match);
-        let hash_long = hash_ptr(src, ip, params.hash_log, 8);
-        state.hash_small[hash_small] = ip as u32;
-        state.hash_long[hash_long] = ip as u32;
-        ip += FAST_HASH_FILL_STEP;
-    }
+        while ip + FAST_HASH_FILL_STEP - 1 <= iend {
+            let hash_small = hash_ptr(src, ip, params.chain_log, params.min_match);
+            let hash_long = hash_ptr(src, ip, params.hash_log, 8);
+            state.hash_small[hash_small] = ip as u32;
+            state.hash_long[hash_long] = ip as u32;
+            ip += FAST_HASH_FILL_STEP;
+        }
+    })
 }
 
 pub(crate) fn load_cdict_copy_prefix(
@@ -41,45 +43,48 @@ pub(crate) fn load_cdict_copy_prefix(
     src: &[u8],
     prefix_len: usize,
     params: CompressionParameters,
-) {
-    debug_assert!(prefix_len <= src.len());
-    if prefix_len <= HASH_READ_SIZE {
-        return;
-    }
-
-    state.ensure_tables(params);
-    state.hash_small.fill(0);
-    state.hash_long.fill(0);
-
-    let mut tagged_long = vec![0_u32; state.hash_long.len()];
-    let iend = prefix_len - HASH_READ_SIZE;
-    let mut ip = 0_usize;
-
-    while ip + FAST_HASH_FILL_STEP - 1 <= iend {
-        for step in 0..FAST_HASH_FILL_STEP {
-            let pos = ip + step;
-            let small_hash_and_tag = hash_ptr(
-                src,
-                pos,
-                params.chain_log + SHORT_CACHE_TAG_BITS,
-                params.min_match,
-            );
-            if step == 0 {
-                state.hash_small[table_index(small_hash_and_tag)] = pos as u32;
-            }
-
-            let long_hash_and_tag = hash_ptr(src, pos, params.hash_log + SHORT_CACHE_TAG_BITS, 8);
-            let long_slot = table_index(long_hash_and_tag);
-            if step == 0 || tagged_long[long_slot] == 0 {
-                tagged_long[long_slot] = tagged_index(long_hash_and_tag, pos);
-            }
+) -> Result<(), crate::workspace::CapacityError> {
+    Ok({
+        debug_assert!(prefix_len <= src.len());
+        if prefix_len <= HASH_READ_SIZE {
+            return Ok(());
         }
-        ip += FAST_HASH_FILL_STEP;
-    }
 
-    for (dst, tagged) in state.hash_long.iter_mut().zip(tagged_long) {
-        *dst = tagged >> SHORT_CACHE_TAG_BITS;
-    }
+        state.ensure_tables(params)?;
+        state.hash_small.fill(0);
+        state.hash_long.fill(0);
+
+        let mut tagged_long = vec![0_u32; state.hash_long.len()];
+        let iend = prefix_len - HASH_READ_SIZE;
+        let mut ip = 0_usize;
+
+        while ip + FAST_HASH_FILL_STEP - 1 <= iend {
+            for step in 0..FAST_HASH_FILL_STEP {
+                let pos = ip + step;
+                let small_hash_and_tag = hash_ptr(
+                    src,
+                    pos,
+                    params.chain_log + SHORT_CACHE_TAG_BITS,
+                    params.min_match,
+                );
+                if step == 0 {
+                    state.hash_small[table_index(small_hash_and_tag)] = pos as u32;
+                }
+
+                let long_hash_and_tag =
+                    hash_ptr(src, pos, params.hash_log + SHORT_CACHE_TAG_BITS, 8);
+                let long_slot = table_index(long_hash_and_tag);
+                if step == 0 || tagged_long[long_slot] == 0 {
+                    tagged_long[long_slot] = tagged_index(long_hash_and_tag, pos);
+                }
+            }
+            ip += FAST_HASH_FILL_STEP;
+        }
+
+        for (dst, tagged) in state.hash_long.iter_mut().zip(tagged_long) {
+            *dst = tagged >> SHORT_CACHE_TAG_BITS;
+        }
+    })
 }
 
 fn table_index(hash_and_tag: usize) -> usize {
@@ -103,7 +108,7 @@ mod tests {
         let params = params();
         let mut state = DFastMatchState::new();
 
-        load_prefix(&mut state, data, data.len(), params);
+        load_prefix(&mut state, data, data.len(), params).expect("test storage admission");
 
         let hash0_small = hash_ptr(data, 0, params.chain_log, params.min_match);
         let hash3_small = hash_ptr(data, 3, params.chain_log, params.min_match);
@@ -124,7 +129,8 @@ mod tests {
         let params = params();
         let mut state = DFastMatchState::new();
 
-        load_cdict_copy_prefix(&mut state, data, data.len(), params);
+        load_cdict_copy_prefix(&mut state, data, data.len(), params)
+            .expect("test storage admission");
 
         let hash0_small = hash_ptr(
             data,

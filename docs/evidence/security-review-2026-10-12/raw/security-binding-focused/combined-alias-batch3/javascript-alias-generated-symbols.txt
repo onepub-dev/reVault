@@ -1,0 +1,17 @@
+2957:var LockboxAliasList = class _LockboxAliasList {
+2965:  static getRootAsLockboxAliasList(bb, obj) {
+2966:    return (obj || new _LockboxAliasList()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+2968:  static getSizePrefixedRootAsLockboxAliasList(bb, obj) {
+2970:    return (obj || new _LockboxAliasList()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
+2980:  static startLockboxAliasList(builder) {
+2996:  static endLockboxAliasList(builder) {
+3000:  static createLockboxAliasList(builder, valuesOffset) {
+3001:    _LockboxAliasList.startLockboxAliasList(builder);
+3002:    _LockboxAliasList.addValues(builder, valuesOffset);
+3003:    return _LockboxAliasList.endLockboxAliasList(builder);
+3006:    return new LockboxAliasListT(
+3014:var LockboxAliasListT = class {
+3019:    const values = LockboxAliasList.createValuesVector(builder, builder.createObjectOffsetList(this.values));
+3020:    return LockboxAliasList.createLockboxAliasList(
+5375:  LockboxAliasList,
+5376:  LockboxAliasListT,

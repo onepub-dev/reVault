@@ -17,7 +17,8 @@ fn btopt_parser_emits_sequences_for_repeated_data() {
     let data = b"alpha beta gamma alpha beta gamma alpha beta gamma";
     let params = btopt_params(data.len());
 
-    let output = compress_block_btopt_no_dict(data, params, RepeatOffsets::new());
+    let output = compress_block_btopt_no_dict(data, params, RepeatOffsets::new())
+        .expect("test storage admission");
 
     assert!(!output.sequences.is_empty());
     assert!(output.last_literals < data.len() as u32);
@@ -28,7 +29,8 @@ fn btultra_parser_emits_sequences_for_repeated_data() {
     let data = b"alpha beta gamma alpha beta gamma alpha beta gamma";
     let params = btultra_params(data.len());
 
-    let output = compress_block_btultra_no_dict(data, params, RepeatOffsets::new());
+    let output = compress_block_btultra_no_dict(data, params, RepeatOffsets::new())
+        .expect("test storage admission");
     let covered = output
         .sequences
         .iter()
@@ -43,7 +45,8 @@ fn btultra_parser_emits_sequences_for_repeated_data() {
 fn btopt_parser_round_trips_sequence_coverage() {
     let data = b"GET /index.html 200 GET /index.html 200 GET /index.html 200";
     let params = btopt_params(data.len());
-    let output = compress_block_btopt_no_dict(data, params, RepeatOffsets::new());
+    let output = compress_block_btopt_no_dict(data, params, RepeatOffsets::new())
+        .expect("test storage admission");
 
     let covered = output
         .sequences
@@ -68,14 +71,16 @@ fn btopt_parser_state_spans_blocks() {
         params,
         RepeatOffsets::new(),
         &mut state,
-    );
+    )
+    .expect("test storage admission");
     let second = super::opt_block::compress_block_btopt_no_dict_with_state(
         data,
         split..data.len(),
         params,
         first.repeat_offsets,
         &mut state,
-    );
+    )
+    .expect("test storage admission");
 
     assert_eq!(
         first
@@ -102,7 +107,7 @@ fn btopt_parser_reuses_path_scratch_without_stale_entries() {
     let data = b"scratch-path-reuse scratch-path-reuse scratch-path-reuse";
     let params = btopt_params(data.len());
     let mut state = OptBlockState::new();
-    state.path.reserve(32);
+    state.path.reserve(32).expect("test storage admission");
     let capacity = state.path.capacity();
 
     let output = super::opt_block::compress_block_btopt_no_dict_with_state(
@@ -111,7 +116,8 @@ fn btopt_parser_reuses_path_scratch_without_stale_entries() {
         params,
         RepeatOffsets::new(),
         &mut state,
-    );
+    )
+    .expect("test storage admission");
 
     assert!(!output.sequences.is_empty());
     assert_eq!(state.path.len(), 0);
@@ -148,7 +154,8 @@ fn btultra_parser_emits_matches_for_structured_data() {
         params,
         RepeatOffsets::new(),
         &mut state,
-    );
+    )
+    .expect("test storage admission");
     let match_bytes = output
         .sequences
         .iter()
@@ -172,7 +179,10 @@ fn opt_match_collection_appends_ldm_candidate_like_c() {
     let params = btopt_params(data.len());
     let mut state = OptBlockState::new();
     state.reset_for_frame(params);
-    state.match_state.ensure_tables(params);
+    state
+        .match_state
+        .ensure_tables(params)
+        .expect("test storage admission");
     let sequences = [LdmRawSequence {
         offset: 4,
         lit_length: 4,
@@ -216,17 +226,20 @@ fn btopt_loaded_dictionary_keeps_full_dictionary_valid_like_c() {
     let block_range = dictionary.len()..combined.len();
 
     let mut no_loaded_state = OptBlockState::new();
-    super::opt_dict::load_prefix(&mut no_loaded_state, &combined, dictionary.len(), params);
+    super::opt_dict::load_prefix(&mut no_loaded_state, &combined, dictionary.len(), params)
+        .expect("test storage admission");
     let no_loaded = super::opt_block::compress_block_btopt_no_dict_with_state(
         &combined,
         block_range.clone(),
         params,
         RepeatOffsets::new(),
         &mut no_loaded_state,
-    );
+    )
+    .expect("test storage admission");
 
     let mut loaded_state = OptBlockState::new();
-    super::opt_dict::load_prefix(&mut loaded_state, &combined, dictionary.len(), params);
+    super::opt_dict::load_prefix(&mut loaded_state, &combined, dictionary.len(), params)
+        .expect("test storage admission");
     let loaded = compress_block_opt_no_dict_with_state_and_ldm(
         &combined,
         block_range,
@@ -236,7 +249,8 @@ fn btopt_loaded_dictionary_keeps_full_dictionary_valid_like_c() {
         OptParserStrategy::BtOpt,
         None,
         dictionary.len(),
-    );
+    )
+    .expect("test storage admission");
 
     assert!(!has_loaded_dictionary_match(&no_loaded, params));
     assert!(has_loaded_dictionary_match(&loaded, params));
@@ -252,7 +266,8 @@ fn btopt_ext_dict_rejects_overlap_repcode_like_c() {
 
     let params = loaded_dictionary_params();
     let mut state = OptBlockState::new();
-    super::opt_dict::load_prefix(&mut state, &combined, dict.len(), params);
+    super::opt_dict::load_prefix(&mut state, &combined, dict.len(), params)
+        .expect("test storage admission");
     let output = compress_block_opt_ext_dict_with_state_and_ldm(
         &combined,
         dict.len()..combined.len(),
@@ -263,7 +278,8 @@ fn btopt_ext_dict_rejects_overlap_repcode_like_c() {
         OptParserStrategy::BtOpt,
         None,
         dict.len(),
-    );
+    )
+    .expect("test storage admission");
 
     assert!(!output
         .sequences
@@ -281,7 +297,8 @@ fn btopt_ext_dict_finds_dictionary_offset_match() {
 
     let params = loaded_dictionary_params();
     let mut state = OptBlockState::new();
-    super::opt_dict::load_prefix(&mut state, &combined, dict.len(), params);
+    super::opt_dict::load_prefix(&mut state, &combined, dict.len(), params)
+        .expect("test storage admission");
     let output = compress_block_opt_ext_dict_with_state_and_ldm(
         &combined,
         dict.len()..combined.len(),
@@ -292,7 +309,8 @@ fn btopt_ext_dict_finds_dictionary_offset_match() {
         OptParserStrategy::BtOpt,
         None,
         dict.len(),
-    );
+    )
+    .expect("test storage admission");
 
     assert!(output
         .sequences

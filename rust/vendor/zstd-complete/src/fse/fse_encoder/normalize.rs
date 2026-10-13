@@ -25,7 +25,7 @@ pub(crate) fn build_table_from_data_with_scratch(
     max_log: u8,
     avoid_0_numbit: bool,
     scratch: &mut FSETableBuildScratch,
-) -> FSETable {
+) -> Result<FSETable, crate::workspace::CapacityError> {
     let mut counts = [0; 256];
     let mut max_symbol = 0;
     for symbol in data {
@@ -46,7 +46,7 @@ fn build_table_from_counts_with_scratch(
     max_log: u8,
     avoid_0_numbit: bool,
     scratch: &mut FSETableBuildScratch,
-) -> FSETable {
+) -> Result<FSETable, crate::workspace::CapacityError> {
     let mut probabilities = [0_i32; 256];
     let acc_log = normalized_probabilities_from_counts_into(
         counts,
@@ -202,7 +202,7 @@ pub(crate) fn build_huffman_weight_table_from_data_with_scratch(
     data: &[u8],
     max_log: u8,
     scratch: &mut FSETableBuildScratch,
-) -> FSETable {
+) -> Result<FSETable, crate::workspace::CapacityError> {
     let mut counts = [0; 256];
     let mut max_symbol = 0;
     for symbol in data {

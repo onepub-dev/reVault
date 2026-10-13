@@ -136,33 +136,42 @@ impl DecoderScratch {
         self.huf.table.reset();
     }
 
-    pub(crate) fn reserve_workspace(&mut self, max_window_size: usize, max_dictionary_size: usize) {
+    pub(crate) fn reserve_workspace(
+        &mut self,
+        max_window_size: usize,
+        max_dictionary_size: usize,
+    ) -> Result<(), crate::workspace::CapacityError> {
         let block_size = MAX_BLOCK_SIZE as usize;
-        self.huf.table.reserve_workspace();
-        self.fse.offsets.reserve_workspace(8);
-        self.fse.literal_lengths.reserve_workspace(9);
-        self.fse.match_lengths.reserve_workspace(9);
+        self.huf.table.reserve_workspace()?;
+        self.fse.offsets.reserve_workspace(8)?;
+        self.fse.literal_lengths.reserve_workspace(9)?;
+        self.fse.match_lengths.reserve_workspace(9)?;
         let block_content = block_size.saturating_sub(self.block_content_buffer.len());
-        self.block_content_buffer.reserve(block_content);
+        self.block_content_buffer.reserve(block_content)?;
         let literals = block_size.saturating_sub(self.literals_buffer.len());
-        self.literals_buffer.reserve(literals);
+        self.literals_buffer.reserve(literals)?;
         let maximum_sequences = MAX_ENCODED_SEQUENCES;
         let sequences = maximum_sequences.saturating_sub(self.sequences.len());
-        self.sequences.reserve(sequences);
+        self.sequences.reserve(sequences)?;
         self.buffer.reserve_workspace(
             max_window_size.saturating_add(block_size),
             max_dictionary_size,
-        );
+        )?;
+        Ok(())
     }
 
-    pub fn init_from_dict(&mut self, dict: &Dictionary) {
-        self.fse.reinit_from(&dict.fse);
-        self.huf.table.reinit_from(&dict.huf.table);
+    pub fn init_from_dict(
+        &mut self,
+        dict: &Dictionary,
+    ) -> Result<(), crate::workspace::CapacityError> {
+        self.fse.reinit_from(&dict.fse)?;
+        self.huf.table.reinit_from(&dict.huf.table)?;
         self.offset_hist = dict.offset_hist;
         self.buffer.dict_content.clear();
         self.buffer
             .dict_content
-            .extend_from_slice(&dict.dict_content);
+            .extend_from_slice(&dict.dict_content)?;
+        Ok(())
     }
 
     /// Parses a formatted dictionary directly into the reusable decoder
@@ -219,14 +228,18 @@ impl DecoderScratch {
             u32::from_le_bytes(offsets[8..12].try_into().expect("four-byte slice")),
         ];
         self.buffer.dict_content.clear();
-        self.buffer.dict_content.extend_from_slice(&tables[12..]);
+        self.buffer.dict_content.extend_from_slice(&tables[12..])?;
         Ok(dict_id)
     }
 
-    pub(crate) fn init_from_raw_dictionary(&mut self, dictionary: &[u8]) {
+    pub(crate) fn init_from_raw_dictionary(
+        &mut self,
+        dictionary: &[u8],
+    ) -> Result<(), crate::workspace::CapacityError> {
         self.offset_hist = [1, 4, 8];
         self.buffer.dict_content.clear();
-        self.buffer.dict_content.extend_from_slice(dictionary);
+        self.buffer.dict_content.extend_from_slice(dictionary)?;
+        Ok(())
     }
 }
 
@@ -269,13 +282,14 @@ impl FSEScratch {
         }
     }
 
-    pub fn reinit_from(&mut self, other: &Self) {
-        self.offsets.reinit_from(&other.offsets);
-        self.literal_lengths.reinit_from(&other.literal_lengths);
-        self.match_lengths.reinit_from(&other.match_lengths);
+    pub fn reinit_from(&mut self, other: &Self) -> Result<(), crate::workspace::CapacityError> {
+        self.offsets.reinit_from(&other.offsets)?;
+        self.literal_lengths.reinit_from(&other.literal_lengths)?;
+        self.match_lengths.reinit_from(&other.match_lengths)?;
         self.of_rle = other.of_rle;
         self.ll_rle = other.ll_rle;
         self.ml_rle = other.ml_rle;
+        Ok(())
     }
 }
 

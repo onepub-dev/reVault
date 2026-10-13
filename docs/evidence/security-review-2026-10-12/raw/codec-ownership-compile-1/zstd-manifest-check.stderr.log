@@ -1,0 +1,508 @@
+    Checking twox-hash v2.1.2
+    Checking zstd-complete v0.2.0 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/vendor/zstd-complete)
+warning: unused import: `alloc::vec::Vec`
+ --> src/encoding/levels/c_port/opt_state.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `mem::ManuallyDrop`
+ --> src/encoding/levels/c_port/sequence_store.rs:5:12
+  |
+5 | use core::{mem::ManuallyDrop, slice};
+  |            ^^^^^^^^^^^^^^^^^
+
+error[E0308]: mismatched types
+   --> src/encoding/blocks/compressed.rs:256:19
+    |
+256 |         literals: literals_vec,
+    |                   ^^^^^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<u8>`
+    |
+    = note: expected struct `ReusableVec<u8>`
+               found struct `std::vec::Vec<u8>`
+
+error[E0308]: mismatched types
+   --> src/encoding/blocks/compressed.rs:257:9
+    |
+257 |         sequences,
+    |         ^^^^^^^^^ expected `ReusableVec<PreparedSequence>`, found `Vec<PreparedSequence>`
+    |
+    = note: expected struct `ReusableVec<compressed::PreparedSequence>`
+               found struct `std::vec::Vec<compressed::PreparedSequence>`
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/greedy_block/special.rs:19:36
+    |
+19  |             bytes: core::mem::take(bytes),
+    |                    --------------- ^^^^^ expected `&mut ReusableVec<u8>`, found `&mut Vec<u8>`
+    |                    |
+    |                    arguments to this function are incorrect
+    |
+    = note: expected mutable reference `&mut ReusableVec<u8>`
+               found mutable reference `&mut std::vec::Vec<u8>`
+note: function defined here
+   --> /home/bsutton/.rustup/toolchains/1.88.0-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/mem/mod.rs:783:8
+    |
+783 | pub fn take<T: Default>(dest: &mut T) -> T {
+    |        ^^^^
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/greedy_block/special.rs:28:36
+    |
+28  |             bytes: core::mem::take(bytes),
+    |                    --------------- ^^^^^ expected `&mut ReusableVec<u8>`, found `&mut Vec<u8>`
+    |                    |
+    |                    arguments to this function are incorrect
+    |
+    = note: expected mutable reference `&mut ReusableVec<u8>`
+               found mutable reference `&mut std::vec::Vec<u8>`
+note: function defined here
+   --> /home/bsutton/.rustup/toolchains/1.88.0-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/mem/mod.rs:783:8
+    |
+783 | pub fn take<T: Default>(dest: &mut T) -> T {
+    |        ^^^^
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/greedy_block.rs:338:9
+    |
+327 |     encode_block_hash_chain_no_dict_with_state_and_policy_in_mode_into(
+    |     ------------------------------------------------------------------ arguments to this function are incorrect
+...
+338 |         Vec::new(),
+    |         ^^^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<_>`
+    |
+    = note: expected struct `ReusableVec<u8>`
+               found struct `std::vec::Vec<_>`
+note: function defined here
+   --> src/encoding/levels/c_port/greedy_block.rs:343:15
+    |
+343 | pub(crate) fn encode_block_hash_chain_no_dict_with_state_and_policy_in_mode_into(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+354 |     mut bytes: crate::workspace::ReusableVec<u8>,
+    |     --------------------------------------------
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/greedy_block.rs:384:13
+    |
+373 |         return encode_target_block_with_superblock_fallback(
+    |                -------------------------------------------- arguments to this function are incorrect
+...
+384 |             bytes,
+    |             ^^^^^- help: try using a conversion method: `.to_vec()`
+    |             |
+    |             expected `Vec<u8>`, found `ReusableVec<u8>`
+    |
+    = note: expected struct `std::vec::Vec<u8>`
+               found struct `ReusableVec<u8>`
+note: function defined here
+   --> src/encoding/levels/c_port/target_block.rs:43:15
+    |
+43  | pub(super) fn encode_target_block_with_superblock_fallback(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+49  |     bytes: Vec<u8>,
+    |     --------------
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/greedy_block.rs:545:23
+    |
+545 |             literals: Vec::new(),
+    |                       ^^^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<_>`
+    |
+    = note: expected struct `ReusableVec<u8>`
+               found struct `std::vec::Vec<_>`
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/greedy_block.rs:546:24
+    |
+546 |             sequences: Vec::new(),
+    |                        ^^^^^^^^^^ expected `ReusableVec<PreparedSequence>`, found `Vec<_>`
+    |
+    = note: expected struct `ReusableVec<compressed::PreparedSequence>`
+               found struct `std::vec::Vec<_>`
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/greedy_ext_block.rs:257:9
+    |
+246 |     encode_block_hash_chain_ext_dict_with_state_and_policy_in_mode_into(
+    |     ------------------------------------------------------------------- arguments to this function are incorrect
+...
+257 |         Vec::new(),
+    |         ^^^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<_>`
+    |
+    = note: expected struct `ReusableVec<u8>`
+               found struct `std::vec::Vec<_>`
+note: function defined here
+   --> src/encoding/levels/c_port/greedy_ext_block.rs:262:15
+    |
+262 | pub(crate) fn encode_block_hash_chain_ext_dict_with_state_and_policy_in_mode_into(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+273 |     mut bytes: crate::workspace::ReusableVec<u8>,
+    |     --------------------------------------------
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/greedy_ext_block.rs:301:13
+    |
+290 |         return encode_target_block_with_superblock_fallback(
+    |                -------------------------------------------- arguments to this function are incorrect
+...
+301 |             bytes,
+    |             ^^^^^- help: try using a conversion method: `.to_vec()`
+    |             |
+    |             expected `Vec<u8>`, found `ReusableVec<u8>`
+    |
+    = note: expected struct `std::vec::Vec<u8>`
+               found struct `ReusableVec<u8>`
+note: function defined here
+   --> src/encoding/levels/c_port/target_block.rs:43:15
+    |
+43  | pub(super) fn encode_target_block_with_superblock_fallback(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+49  |     bytes: Vec<u8>,
+    |     --------------
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/greedy_ext_block.rs:415:13
+    |
+405 |         return encode_stored_block(
+    |                ------------------- arguments to this function are incorrect
+...
+415 |             bytes,
+    |             ^^^^^ expected `ReusableVec<u8>`, found `Vec<u8>`
+    |
+    = note: expected struct `ReusableVec<u8>`
+               found struct `std::vec::Vec<u8>`
+note: function defined here
+   --> src/encoding/levels/c_port/greedy_block.rs:439:15
+    |
+439 | pub(super) fn encode_stored_block(
+    |               ^^^^^^^^^^^^^^^^^^^
+...
+449 |     mut bytes: crate::workspace::ReusableVec<u8>,
+    |     --------------------------------------------
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/greedy_ext_block.rs:434:9
+    |
+423 |     encode_prepared_block(
+    |     --------------------- arguments to this function are incorrect
+...
+434 |         bytes,
+    |         ^^^^^ expected `ReusableVec<u8>`, found `Vec<u8>`
+    |
+    = note: expected struct `ReusableVec<u8>`
+               found struct `std::vec::Vec<u8>`
+note: function defined here
+   --> src/encoding/levels/c_port/greedy_block.rs:494:15
+    |
+494 | pub(super) fn encode_prepared_block(
+    |               ^^^^^^^^^^^^^^^^^^^^^
+...
+505 |     mut bytes: crate::workspace::ReusableVec<u8>,
+    |     --------------------------------------------
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/opt_encode/attached.rs:124:13
+    |
+113 |         let encoded = encode_target_block_with_superblock_fallback(
+    |                       -------------------------------------------- arguments to this function are incorrect
+...
+124 |             bytes,
+    |             ^^^^^- help: try using a conversion method: `.to_vec()`
+    |             |
+    |             expected `Vec<u8>`, found `ReusableVec<u8>`
+    |
+    = note: expected struct `std::vec::Vec<u8>`
+               found struct `ReusableVec<u8>`
+note: function defined here
+   --> src/encoding/levels/c_port/target_block.rs:43:15
+    |
+43  | pub(super) fn encode_target_block_with_superblock_fallback(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+49  |     bytes: Vec<u8>,
+    |     --------------
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/opt_encode/attached.rs:143:13
+    |
+130 |         match encode_split_block(
+    |               ------------------ arguments to this function are incorrect
+...
+143 |             bytes,
+    |             ^^^^^- help: try using a conversion method: `.to_vec()`
+    |             |
+    |             expected `Vec<u8>`, found `ReusableVec<u8>`
+    |
+    = note: expected struct `std::vec::Vec<u8>`
+               found struct `ReusableVec<u8>`
+note: function defined here
+   --> src/encoding/levels/c_port/post_split.rs:73:15
+    |
+73  | pub(super) fn encode_split_block(
+    |               ^^^^^^^^^^^^^^^^^^
+...
+86  |     mut bytes: Vec<u8>,
+    |     ------------------
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/opt_encode/attached.rs:149:38
+    |
+50  |     let mut bytes = opt_state.take_block_bytes(block.len().saturating_add(3));
+    |                     --------------------------------------------------------- expected due to this value
+...
+149 |             Err(returned) => bytes = returned,
+    |                                      ^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<u8>`
+    |
+    = note: expected struct `ReusableVec<u8>`
+               found struct `std::vec::Vec<u8>`
+help: consider dereferencing here to assign to the mutably borrowed value
+    |
+149 |             Err(returned) => *bytes = returned,
+    |                              +
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/opt_encode.rs:311:13
+    |
+300 |         let encoded = encode_target_block_with_superblock_fallback(
+    |                       -------------------------------------------- arguments to this function are incorrect
+...
+311 |             bytes,
+    |             ^^^^^- help: try using a conversion method: `.to_vec()`
+    |             |
+    |             expected `Vec<u8>`, found `ReusableVec<u8>`
+    |
+    = note: expected struct `std::vec::Vec<u8>`
+               found struct `ReusableVec<u8>`
+note: function defined here
+   --> src/encoding/levels/c_port/target_block.rs:43:15
+    |
+43  | pub(super) fn encode_target_block_with_superblock_fallback(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+49  |     bytes: Vec<u8>,
+    |     --------------
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/opt_encode.rs:330:13
+    |
+317 |         match encode_split_block(
+    |               ------------------ arguments to this function are incorrect
+...
+330 |             bytes,
+    |             ^^^^^- help: try using a conversion method: `.to_vec()`
+    |             |
+    |             expected `Vec<u8>`, found `ReusableVec<u8>`
+    |
+    = note: expected struct `std::vec::Vec<u8>`
+               found struct `ReusableVec<u8>`
+note: function defined here
+   --> src/encoding/levels/c_port/post_split.rs:73:15
+    |
+73  | pub(super) fn encode_split_block(
+    |               ^^^^^^^^^^^^^^^^^^
+...
+86  |     mut bytes: Vec<u8>,
+    |     ------------------
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/opt_encode.rs:336:38
+    |
+237 |     let mut bytes = opt_state.take_block_bytes(block.len().saturating_add(3));
+    |                     --------------------------------------------------------- expected due to this value
+...
+336 |             Err(returned) => bytes = returned,
+    |                                      ^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<u8>`
+    |
+    = note: expected struct `ReusableVec<u8>`
+               found struct `std::vec::Vec<u8>`
+help: consider dereferencing here to assign to the mutably borrowed value
+    |
+336 |             Err(returned) => *bytes = returned,
+    |                              +
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/opt_encode.rs:476:13
+    |
+465 |         let encoded = encode_target_block_with_superblock_fallback(
+    |                       -------------------------------------------- arguments to this function are incorrect
+...
+476 |             bytes,
+    |             ^^^^^- help: try using a conversion method: `.to_vec()`
+    |             |
+    |             expected `Vec<u8>`, found `ReusableVec<u8>`
+    |
+    = note: expected struct `std::vec::Vec<u8>`
+               found struct `ReusableVec<u8>`
+note: function defined here
+   --> src/encoding/levels/c_port/target_block.rs:43:15
+    |
+43  | pub(super) fn encode_target_block_with_superblock_fallback(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+49  |     bytes: Vec<u8>,
+    |     --------------
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/opt_encode.rs:495:13
+    |
+482 |         match encode_split_block(
+    |               ------------------ arguments to this function are incorrect
+...
+495 |             bytes,
+    |             ^^^^^- help: try using a conversion method: `.to_vec()`
+    |             |
+    |             expected `Vec<u8>`, found `ReusableVec<u8>`
+    |
+    = note: expected struct `std::vec::Vec<u8>`
+               found struct `ReusableVec<u8>`
+note: function defined here
+   --> src/encoding/levels/c_port/post_split.rs:73:15
+    |
+73  | pub(super) fn encode_split_block(
+    |               ^^^^^^^^^^^^^^^^^^
+...
+86  |     mut bytes: Vec<u8>,
+    |     ------------------
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/opt_encode.rs:501:38
+    |
+401 |     let mut bytes = opt_state.take_block_bytes(block.len().saturating_add(3));
+    |                     --------------------------------------------------------- expected due to this value
+...
+501 |             Err(returned) => bytes = returned,
+    |                                      ^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<u8>`
+    |
+    = note: expected struct `ReusableVec<u8>`
+               found struct `std::vec::Vec<u8>`
+help: consider dereferencing here to assign to the mutably borrowed value
+    |
+501 |             Err(returned) => *bytes = returned,
+    |                              +
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/post_split.rs:166:9
+    |
+166 |         bytes,
+    |         ^^^^^ expected `ReusableVec<u8>`, found `Vec<u8>`
+    |
+    = note: expected struct `ReusableVec<u8>`
+               found struct `std::vec::Vec<u8>`
+
+error[E0308]: mismatched types
+  --> src/encoding/levels/c_port/target_acceptance.rs:54:9
+   |
+54 |         bytes,
+   |         ^^^^^ expected `ReusableVec<u8>`, found `Vec<u8>`
+   |
+   = note: expected struct `ReusableVec<u8>`
+              found struct `std::vec::Vec<u8>`
+
+error[E0308]: mismatched types
+  --> src/encoding/levels/c_port/target_block.rs:58:24
+   |
+58 |                 bytes: candidate,
+   |                        ^^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<u8>`
+   |
+   = note: expected struct `ReusableVec<u8>`
+              found struct `std::vec::Vec<u8>`
+
+error[E0308]: mismatched types
+  --> src/encoding/levels/c_port/target_block.rs:82:32
+   |
+82 |                         bytes: candidate,
+   |                                ^^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<u8>`
+   |
+   = note: expected struct `ReusableVec<u8>`
+              found struct `std::vec::Vec<u8>`
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/target_multi.rs:249:20
+    |
+249 |             bytes: candidate,
+    |                    ^^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<u8>`
+    |
+    = note: expected struct `ReusableVec<u8>`
+               found struct `std::vec::Vec<u8>`
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/target_multi.rs:273:20
+    |
+273 |             bytes: candidate,
+    |                    ^^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<u8>`
+    |
+    = note: expected struct `ReusableVec<u8>`
+               found struct `std::vec::Vec<u8>`
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/target_multi.rs:292:16
+    |
+292 |         bytes: candidate,
+    |                ^^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<u8>`
+    |
+    = note: expected struct `ReusableVec<u8>`
+               found struct `std::vec::Vec<u8>`
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/target_multi_basic.rs:207:20
+    |
+207 |             bytes: candidate,
+    |                    ^^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<u8>`
+    |
+    = note: expected struct `ReusableVec<u8>`
+               found struct `std::vec::Vec<u8>`
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/target_multi_basic.rs:231:20
+    |
+231 |             bytes: candidate,
+    |                    ^^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<u8>`
+    |
+    = note: expected struct `ReusableVec<u8>`
+               found struct `std::vec::Vec<u8>`
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/target_multi_basic.rs:247:16
+    |
+247 |         bytes: candidate,
+    |                ^^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<u8>`
+    |
+    = note: expected struct `ReusableVec<u8>`
+               found struct `std::vec::Vec<u8>`
+
+error[E0308]: mismatched types
+  --> src/encoding/levels/c_port/target_single.rs:83:16
+   |
+83 |         bytes: candidate,
+   |                ^^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<u8>`
+   |
+   = note: expected struct `ReusableVec<u8>`
+              found struct `std::vec::Vec<u8>`
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/target_single.rs:149:20
+    |
+149 |             bytes: candidate,
+    |                    ^^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<u8>`
+    |
+    = note: expected struct `ReusableVec<u8>`
+               found struct `std::vec::Vec<u8>`
+
+error[E0308]: mismatched types
+   --> src/encoding/levels/c_port/target_single.rs:193:20
+    |
+193 |             bytes: candidate,
+    |                    ^^^^^^^^^ expected `ReusableVec<u8>`, found `Vec<u8>`
+    |
+    = note: expected struct `ReusableVec<u8>`
+               found struct `std::vec::Vec<u8>`
+
+For more information about this error, try `rustc --explain E0308`.
+warning: `zstd-complete` (lib) generated 2 warnings
+error: could not compile `zstd-complete` (lib) due to 34 previous errors; 2 warnings emitted

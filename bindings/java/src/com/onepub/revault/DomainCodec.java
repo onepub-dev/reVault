@@ -52,6 +52,9 @@ final class DomainCodec {
   static ProfileHistory profileHistory(byte[] bytes) {
     return new ProfileHistory(com.onepub.revault.internal.ProfileHistory.getRootAsProfileHistory(ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN)));
   }
+  static LockboxAlias lockboxAlias(byte[] bytes) {
+    return new LockboxAlias(com.onepub.revault.internal.LockboxAlias.getRootAsLockboxAlias(ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN)));
+  }
   static KnownLockbox knownLockbox(byte[] bytes) {
     return new KnownLockbox(com.onepub.revault.internal.KnownLockbox.getRootAsKnownLockbox(ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN)));
   }
@@ -134,6 +137,12 @@ final class DomainCodec {
     var view = com.onepub.revault.internal.ContactList.getRootAsContactList(ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN));
     var result = new java.util.ArrayList<Contact>(view.valuesLength());
     for (int index = 0; index < view.valuesLength(); index++) result.add(new Contact(view.values(index)));
+    return java.util.List.copyOf(result);
+  }
+  static java.util.List<LockboxAlias> lockboxAliasList(byte[] bytes) {
+    var view = com.onepub.revault.internal.LockboxAliasList.getRootAsLockboxAliasList(ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN));
+    var result = new java.util.ArrayList<LockboxAlias>(view.valuesLength());
+    for (int index = 0; index < view.valuesLength(); index++) result.add(new LockboxAlias(view.values(index)));
     return java.util.List.copyOf(result);
   }
   static java.util.List<KnownLockbox> knownLockboxList(byte[] bytes) {

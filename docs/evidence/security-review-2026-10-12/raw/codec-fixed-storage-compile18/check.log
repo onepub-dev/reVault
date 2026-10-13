@@ -1,0 +1,1351 @@
+    Checking zstd-complete v0.2.0 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/vendor/zstd-complete)
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/bit_io/bit_writer.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `alloc::vec::Vec`
+  --> vendor/zstd-complete/src/decoding/sequence_section_decoder.rs:11:5
+   |
+11 | use alloc::vec::Vec;
+   |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/block_header.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/blocks/compressed/estimate.rs:7:5
+  |
+7 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/blocks/compressed/literals.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/frame_header.rs:4:5
+  |
+4 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:6:5
+  |
+6 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/c_frame_header.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/mode.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/target.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/mode.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/target.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_block/special.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/opt_path.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/superblock_sequences.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/kernel/huff0/mod.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/fse/fse_encoder.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder/stream.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder/table.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: method `len` is never used
+  --> vendor/zstd-complete/src/fixed_storage.rs:30:19
+   |
+17 | impl<T> FixedStorage<T> {
+   | ----------------------- method in this implementation
+...
+30 |     pub(crate) fn len(&self) -> usize { self.len }
+   |                   ^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/decoding/frame_decoder.rs:197:9
+    |
+197 |         scratch.reserve_workspace(max_window_size, max_dictionary_size);
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+note: the lint level is defined here
+   --> vendor/zstd-complete/src/lib.rs:17:9
+    |
+17  | #![deny(unused_must_use)]
+    |         ^^^^^^^^^^^^^^^
+help: use `let _ = ...` to ignore the resulting value
+    |
+197 |         let _ = scratch.reserve_workspace(max_window_size, max_dictionary_size);
+    |         +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/decoding/frame_decoder.rs:279:17
+    |
+279 |                 state.decoder_scratch.init_from_dict(dict);
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+279 |                 let _ = state.decoder_scratch.init_from_dict(dict);
+    |                 +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/decoding/frame_decoder.rs:283:13
+    |
+283 |             state.decoder_scratch.init_from_raw_dictionary(dictionary);
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+283 |             let _ = state.decoder_scratch.init_from_raw_dictionary(dictionary);
+    |             +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/decoding/frame_decoder.rs:306:9
+    |
+306 |         state.decoder_scratch.init_from_dict(dict);
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+306 |         let _ = state.decoder_scratch.init_from_dict(dict);
+    |         +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/decoding/block_decoder.rs:103:9
+    |
+103 | /         workspace
+104 | |             .block_content_buffer
+105 | |             .resize(header.content_size as usize, 0);
+    | |____________________________________________________^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+103 |         let _ = workspace
+    |         +++++++
+
+error: unused `Result` that must be used
+  --> vendor/zstd-complete/src/decoding/literals_section_decoder.rs:44:9
+   |
+44 |         WipingBytes::reserve(self, additional);
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+   |
+44 |         let _ = WipingBytes::reserve(self, additional);
+   |         +++++++
+
+error: unused `Result` that must be used
+  --> vendor/zstd-complete/src/decoding/literals_section_decoder.rs:47:9
+   |
+47 |         self.extend_from_slice(bytes);
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+   |
+47 |         let _ = self.extend_from_slice(bytes);
+   |         +++++++
+
+error: unused `Result` that must be used
+  --> vendor/zstd-complete/src/decoding/literals_section_decoder.rs:50:9
+   |
+50 |         WipingBytes::resize(self, length, byte);
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+   |
+50 |         let _ = WipingBytes::resize(self, length, byte);
+   |         +++++++
+
+error: unused `Result` that must be used
+  --> vendor/zstd-complete/src/decoding/literals_section_decoder.rs:53:9
+   |
+53 |         WipingBytes::push(self, byte);
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+   |
+53 |         let _ = WipingBytes::push(self, byte);
+   |         +++++++
+
+error: unused `Result` that must be used
+  --> vendor/zstd-complete/src/decoding/sequence_section_decoder.rs:70:5
+   |
+70 |     target.reserve(section.num_sequences as usize);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+   |
+70 |     let _ = target.reserve(section.num_sequences as usize);
+   |     +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/decoding/sequence_section_decoder.rs:117:9
+    |
+117 | /         target.push(Sequence {
+118 | |             ll: ll_value + ll_add as u32,
+119 | |             ml: ml_value + ml_add as u32,
+120 | |             of: offset,
+121 | |         });
+    | |__________^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+117 |         let _ = target.push(Sequence {
+    |         +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/decoding/sequence_section_decoder.rs:169:5
+    |
+169 |     target.reserve(section.num_sequences as usize);
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+169 |     let _ = target.reserve(section.num_sequences as usize);
+    |     +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/decoding/sequence_section_decoder.rs:192:9
+    |
+192 | /         target.push(Sequence {
+193 | |             ll: ll_value + ll_add as u32,
+194 | |             ml: ml_value + ml_add as u32,
+195 | |             of: offset,
+196 | |         });
+    | |__________^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+192 |         let _ = target.push(Sequence {
+    |         +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/blocks/compressed.rs:124:13
+    |
+124 | /             apply_fse_table_update_with_scratch(
+125 | |                 &mut fse_tables.ll_previous,
+126 | |                 &mut fse_tables.ll_repeat_valid,
+127 | |                 updates.ll,
+128 | |                 fse_build_scratch.as_deref_mut(),
+129 | |             );
+    | |_____________^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+124 |             let _ = apply_fse_table_update_with_scratch(
+    |             +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/blocks/compressed.rs:130:13
+    |
+130 | /             apply_fse_table_update_with_scratch(
+131 | |                 &mut fse_tables.ml_previous,
+132 | |                 &mut fse_tables.ml_repeat_valid,
+133 | |                 updates.ml,
+134 | |                 fse_build_scratch.as_deref_mut(),
+135 | |             );
+    | |_____________^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+130 |             let _ = apply_fse_table_update_with_scratch(
+    |             +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/blocks/compressed.rs:136:13
+    |
+136 | /             apply_fse_table_update_with_scratch(
+137 | |                 &mut fse_tables.of_previous,
+138 | |                 &mut fse_tables.of_repeat_valid,
+139 | |                 updates.of,
+140 | |                 fse_build_scratch,
+141 | |             );
+    | |_____________^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+136 |             let _ = apply_fse_table_update_with_scratch(
+    |             +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/blocks/compressed.rs:150:13
+    |
+150 |             recycle_fse_table_update(updates.ll, fse_build_scratch.as_deref_mut());
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+150 |             let _ = recycle_fse_table_update(updates.ll, fse_build_scratch.as_deref_mut());
+    |             +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/blocks/compressed.rs:151:13
+    |
+151 |             recycle_fse_table_update(updates.ml, fse_build_scratch.as_deref_mut());
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+151 |             let _ = recycle_fse_table_update(updates.ml, fse_build_scratch.as_deref_mut());
+    |             +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/blocks/compressed.rs:152:13
+    |
+152 |             recycle_fse_table_update(updates.of, fse_build_scratch);
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+152 |             let _ = recycle_fse_table_update(updates.of, fse_build_scratch);
+    |             +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/literal_sections.rs:96:5
+    |
+96  | /     write_compressed_literals(
+97  | |         literals,
+98  | |         table,
+99  | |         matches!(mode, HuffmanLiteralMode::Compressed),
+...   |
+102 | |         &mut writer,
+103 | |     );
+    | |_____^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+96  |     let _ = write_compressed_literals(
+    |     +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/literal_sections.rs:104:5
+    |
+104 |     writer.flush();
+    |     ^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+104 |     let _ = writer.flush();
+    |     +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/literal_sections.rs:112:9
+    |
+112 |         writer.reset_to(start * 8);
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+112 |         let _ = writer.reset_to(start * 8);
+    |         +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/literal_sections.rs:113:9
+    |
+113 |         raw_literals(literals, &mut writer);
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+113 |         let _ = raw_literals(literals, &mut writer);
+    |         +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/literal_sections.rs:114:9
+    |
+114 |         writer.flush();
+    |         ^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+114 |         let _ = writer.flush();
+    |         +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/literal_sections.rs:135:5
+    |
+135 |     raw_literals(literals, &mut writer);
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+135 |     let _ = raw_literals(literals, &mut writer);
+    |     +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/literal_sections.rs:136:5
+    |
+136 |     writer.flush();
+    |     ^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+136 |     let _ = writer.flush();
+    |     +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/literals.rs:237:13
+    |
+237 |             scratch.recycle_table(new_encoder_table);
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+237 |             let _ = scratch.recycle_table(new_encoder_table);
+    |             +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/literals.rs:257:13
+    |
+257 |             scratch.recycle_table(new_encoder_table);
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+257 |             let _ = scratch.recycle_table(new_encoder_table);
+    |             +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/literals.rs:264:13
+    |
+264 |             scratch.recycle_table(new_encoder_table);
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+264 |             let _ = scratch.recycle_table(new_encoder_table);
+    |             +++++++
+
+error: unused `Result` that must be used
+  --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_superblock.rs:31:5
+   |
+31 |     encode_sequences_for_history_into(sequences, &mut offset_history, &mut encoded_sequences);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+   |
+31 |     let _ = encode_sequences_for_history_into(sequences, &mut offset_history, &mut encoded_sequences);
+   |     +++++++
+
+error: unused `Result` that must be used
+  --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_superblock.rs:78:5
+   |
+78 |     encode_sequences_for_history_into(sequences, &mut offset_history, &mut encoded_sequences);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+   |
+78 |     let _ = encode_sequences_for_history_into(sequences, &mut offset_history, &mut encoded_sequences);
+   |     +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_superblock.rs:163:5
+    |
+163 |     encode_sequences_for_history_into(sequences, &mut offset_history, &mut encoded_sequences);
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+163 |     let _ = encode_sequences_for_history_into(sequences, &mut offset_history, &mut encoded_sequences);
+    |     +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_superblock.rs:270:5
+    |
+270 |     table.write_table(&mut writer);
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+270 |     let _ = table.write_table(&mut writer);
+    |     +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_superblock.rs:271:5
+    |
+271 |     writer.flush();
+    |     ^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+271 |     let _ = writer.flush();
+    |     +++++++
+
+error: unused `Result` that must be used
+  --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_tables.rs:73:5
+   |
+73 |     writer.write_bits(encode_fse_table_modes(ll_mode, ml_mode, of_mode), 8);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+   |
+73 |     let _ = writer.write_bits(encode_fse_table_modes(ll_mode, ml_mode, of_mode), 8);
+   |     +++++++
+
+error: unused `Result` that must be used
+  --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_tables.rs:74:5
+   |
+74 |     encode_table(ll_mode, &mut writer);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+   |
+74 |     let _ = encode_table(ll_mode, &mut writer);
+   |     +++++++
+
+error: unused `Result` that must be used
+  --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_tables.rs:75:5
+   |
+75 |     encode_table(of_mode, &mut writer);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+   |
+75 |     let _ = encode_table(of_mode, &mut writer);
+   |     +++++++
+
+error: unused `Result` that must be used
+  --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_tables.rs:76:5
+   |
+76 |     encode_table(ml_mode, &mut writer);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+   |
+76 |     let _ = encode_table(ml_mode, &mut writer);
+   |     +++++++
+
+error: unused `Result` that must be used
+  --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_tables.rs:77:5
+   |
+77 |     encode_sequences(sequences, &mut writer, ll_mode, ml_mode, of_mode);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+   |
+77 |     let _ = encode_sequences(sequences, &mut writer, ll_mode, ml_mode, of_mode);
+   |     +++++++
+
+error: unused `Result` that must be used
+  --> vendor/zstd-complete/src/encoding/blocks/compressed/sequence_tables.rs:78:5
+   |
+78 |     writer.flush();
+   |     ^^^^^^^^^^^^^^
+   |
+   = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+   |
+78 |     let _ = writer.flush();
+   |     +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/frame_compressor.rs:274:9
+    |
+274 |         header.serialize(output);
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+274 |         let _ = header.serialize(output);
+    |         +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/frame_compressor.rs:319:17
+    |
+319 |                 header.serialize(output);
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+319 |                 let _ = header.serialize(output);
+    |                 +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/frame_compressor.rs:427:9
+    |
+427 |         header.serialize(output);
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+427 |         let _ = header.serialize(output);
+    |         +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:289:9
+    |
+289 |         scratch.recycle_table(table);
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+289 |         let _ = scratch.recycle_table(table);
+    |         +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/levels/c_port/dfast.rs:136:13
+    |
+136 |             self.hash_long.resize(long_size, 0);
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+136 |             let _ = self.hash_long.resize(long_size, 0);
+    |             +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/levels/c_port/dfast.rs:141:13
+    |
+141 |             self.hash_small.resize(small_size, 0);
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+141 |             let _ = self.hash_small.resize(small_size, 0);
+    |             +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/levels/c_port/dfast.rs:227:5
+    |
+227 |     sequences.reserve(maximum_sequences);
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+227 |     let _ = sequences.reserve(maximum_sequences);
+    |     +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/levels/c_port/dfast.rs:261:14
+    |
+261 |     unsafe { sequences.set_len(result.sequence_count) };
+    |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+261 |     unsafe { let _ = sequences.set_len(result.sequence_count); };
+    |              +++++++                                         +
+
+error: unused `Result` that must be used
+  --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_helpers.rs:64:5
+   |
+64 | /     sequences.push(StoredSequence::new(
+65 | |         (*ip - *anchor) as u32,
+66 | |         off_base,
+67 | |         match_length as u32,
+68 | |     ));
+   | |______^
+   |
+   = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+   |
+64 |     let _ = sequences.push(StoredSequence::new(
+   |     +++++++
+
+error: unused `Result` that must be used
+  --> vendor/zstd-complete/src/encoding/levels/c_port/dictionary_frame.rs:59:9
+   |
+59 |         write_frame_header(&mut output, src.len(), params, dictionary_id);
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+   |
+59 |         let _ = write_frame_header(&mut output, src.len(), params, dictionary_id);
+   |         +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast.rs:121:13
+    |
+121 |             self.hash_table.resize(table_size, INVALID_INDEX);
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+121 |             let _ = self.hash_table.resize(table_size, INVALID_INDEX);
+    |             +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast.rs:273:5
+    |
+273 |     sequences.reserve(maximum_sequences);
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+273 |     let _ = sequences.reserve(maximum_sequences);
+    |     +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast.rs:304:14
+    |
+304 |     unsafe { sequences.set_len(result.sequence_count) };
+    |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+304 |     unsafe { let _ = sequences.set_len(result.sequence_count); };
+    |              +++++++                                         +
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast.rs:624:5
+    |
+624 | /     sequences.push(StoredSequence::new(
+625 | |         (*ip - *anchor) as u32,
+626 | |         off_base,
+627 | |         match_length as u32,
+628 | |     ));
+    | |______^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+624 |     let _ = sequences.push(StoredSequence::new(
+    |     +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast.rs:677:9
+    |
+677 | /         sequences.push(StoredSequence::new(
+678 | |             0,
+679 | |             OffBase::Repeat(RepeatCode::First),
+680 | |             repeat_length as u32,
+681 | |         ));
+    | |__________^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+677 |         let _ = sequences.push(StoredSequence::new(
+    |         +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_ext.rs:361:5
+    |
+361 | /     sequences.push(StoredSequence::new(
+362 | |         (*ip - *anchor) as u32,
+363 | |         off_base,
+364 | |         match_length as u32,
+365 | |     ));
+    | |______^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+361 |     let _ = sequences.push(StoredSequence::new(
+    |     +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_ext.rs:414:9
+    |
+414 | /         sequences.push(StoredSequence::new(
+415 | |             0,
+416 | |             OffBase::Repeat(RepeatCode::First),
+417 | |             repeat_length as u32,
+418 | |         ));
+    | |__________^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+414 |         let _ = sequences.push(StoredSequence::new(
+    |         +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/levels/c_port/frame_state.rs:122:13
+    |
+122 | /             external_huffman_scratch
+123 | |                 .as_deref_mut()
+124 | |                 .unwrap_or(&mut self.huffman_build_scratch)
+125 | |                 .recycle_table(table);
+    | |_____________________________________^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+122 |             let _ = external_huffman_scratch
+    |             +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/levels/c_port/frame_state.rs:216:21
+    |
+216 | /                     external_huffman_scratch
+217 | |                         .unwrap_or(&mut self.huffman_build_scratch)
+218 | |                         .recycle_table(previous);
+    | |________________________________________________^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+216 |                     let _ = external_huffman_scratch
+    |                     +++++++
+
+error: unused `Result` that must be used
+  --> vendor/zstd-complete/src/encoding/levels/c_port/greedy/lazy.rs:92:5
+   |
+92 |     sequences.reserve(maximum_sequences);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+   |
+92 |     let _ = sequences.reserve(maximum_sequences);
+   |     +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/levels/c_port/greedy/lazy.rs:134:14
+    |
+134 |     unsafe { sequences.set_len(result.sequence_count) };
+    |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+134 |     unsafe { let _ = sequences.set_len(result.sequence_count); };
+    |              +++++++                                         +
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/levels/c_port/greedy/lazy.rs:577:5
+    |
+577 | /     sequences.push(StoredSequence::new(
+578 | |         (start - *anchor) as u32,
+579 | |         off_base,
+580 | |         match_length as u32,
+581 | |     ));
+    | |______^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+577 |     let _ = sequences.push(StoredSequence::new(
+    |     +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_frame.rs:193:9
+    |
+193 |         output.extend_from_slice(&encoded_block.bytes);
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+193 |         let _ = output.extend_from_slice(&encoded_block.bytes);
+    |         +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_frame.rs:257:9
+    |
+257 |         output.extend_from_slice(&encoded_block.bytes);
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+257 |         let _ = output.extend_from_slice(&encoded_block.bytes);
+    |         +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_state.rs:281:13
+    |
+281 |             self.hash_table.resize(hash_size, 0);
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+281 |             let _ = self.hash_table.resize(hash_size, 0);
+    |             +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_state.rs:290:13
+    |
+290 |             self.hash_table3.resize(hash3_size, 0);
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+290 |             let _ = self.hash_table3.resize(hash3_size, 0);
+    |             +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_state.rs:300:13
+    |
+300 |             self.chain_table.resize(chain_size, 0);
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+300 |             let _ = self.chain_table.resize(chain_size, 0);
+    |             +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_state.rs:311:13
+    |
+311 |             self.tag_table.resize(hash_size, 0);
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+311 |             let _ = self.tag_table.resize(hash_size, 0);
+    |             +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/levels/c_port/ldm/sequence.rs:259:13
+    |
+259 | /             sequences.push(LdmRawSequence {
+260 | |                 offset: to_u32(split - best_entry_offset as usize),
+261 | |                 lit_length: to_u32(split - backward_match_length - anchor),
+262 | |                 match_length: to_u32(match_length),
+263 | |             });
+    | |______________^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+259 |             let _ = sequences.push(LdmRawSequence {
+    |             +++++++
+
+error: unused `Result` that must be used
+  --> vendor/zstd-complete/src/encoding/levels/c_port/ldm/table.rs:24:9
+   |
+24 |         hash_table.resize(table_entries, LdmEntry::default());
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+   |
+24 |         let _ = hash_table.resize(table_entries, LdmEntry::default());
+   |         +++++++
+
+error: unused `Result` that must be used
+  --> vendor/zstd-complete/src/encoding/levels/c_port/ldm/table.rs:26:9
+   |
+26 |         bucket_offsets.resize(bucket_count, 0);
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+   |
+26 |         let _ = bucket_offsets.resize(bucket_count, 0);
+   |         +++++++
+
+error: unused `Result` that must be used
+  --> vendor/zstd-complete/src/encoding/levels/c_port/opt_encode/target_preference.rs:93:5
+   |
+93 |     prepared.prepared.literals.push(block[0]);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+   |
+93 |     let _ = prepared.prepared.literals.push(block[0]);
+   |     +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/levels/c_port/opt_frame.rs:355:9
+    |
+355 |         output.extend_from_slice(&encoded_block.bytes);
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+355 |         let _ = output.extend_from_slice(&encoded_block.bytes);
+    |         +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/levels/c_port/opt_frame.rs:447:9
+    |
+447 |         output.extend_from_slice(&encoded_block.bytes);
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+447 |         let _ = output.extend_from_slice(&encoded_block.bytes);
+    |         +++++++
+
+error: unused `Result` that must be used
+  --> vendor/zstd-complete/src/encoding/levels/c_port/opt_match/table.rs:42:9
+   |
+42 |         entries.resize(ZSTD_OPT_NUM, OptMatch::EMPTY);
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+   |
+42 |         let _ = entries.resize(ZSTD_OPT_NUM, OptMatch::EMPTY);
+   |         +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/levels/c_port/opt_parser.rs:442:13
+    |
+442 | /             path.push(Optimal {
+443 | |                 price: 0,
+444 | |                 off: longest.off_base,
+445 | |                 mlen: longest.len,
+446 | |                 litlen,
+447 | |                 rep,
+448 | |             });
+    | |______________^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+442 |             let _ = path.push(Optimal {
+    |             +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/levels/c_port/opt_parser.rs:504:13
+    |
+504 | /             sequences.push(StoredSequence::new(
+505 | |                 lit_length,
+506 | |                 OffBase::from_c_value(off_base).expect("optimal parser offBase"),
+507 | |                 match_length,
+508 | |             ));
+    | |______________^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+504 |             let _ = sequences.push(StoredSequence::new(
+    |             +++++++
+
+error: unused `Result` that must be used
+  --> vendor/zstd-complete/src/encoding/levels/c_port/opt_path.rs:28:5
+   |
+28 |     path.push(stretch);
+   |     ^^^^^^^^^^^^^^^^^^
+   |
+   = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+   |
+28 |     let _ = path.push(stretch);
+   |     +++++++
+
+error: unused `Result` that must be used
+  --> vendor/zstd-complete/src/encoding/levels/c_port/opt_path.rs:37:9
+   |
+37 |         path.push(next);
+   |         ^^^^^^^^^^^^^^^
+   |
+   = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+   |
+37 |         let _ = path.push(next);
+   |         +++++++
+
+error: unused `Result` that must be used
+  --> vendor/zstd-complete/src/encoding/levels/c_port/opt_state.rs:83:9
+   |
+83 |         opt.resize(ZSTD_OPT_NUM + 4, Optimal::default());
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+   |
+83 |         let _ = opt.resize(ZSTD_OPT_NUM + 4, Optimal::default());
+   |         +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/levels/c_port/opt_state.rs:166:13
+    |
+166 |             sequences.reserve(min_capacity - capacity);
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+166 |             let _ = sequences.reserve(min_capacity - capacity);
+    |             +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/levels/c_port/opt_state.rs:211:13
+    |
+211 |             bytes.reserve(min_capacity - capacity);
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+211 |             let _ = bytes.reserve(min_capacity - capacity);
+    |             +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/levels/c_port/post_split.rs:156:21
+    |
+156 |                     huffman_scratch.recycle_table(previous);
+    |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+156 |                     let _ = huffman_scratch.recycle_table(previous);
+    |                     +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/streaming_encoder.rs:412:5
+    |
+412 | /     FrameHeader {
+413 | |         frame_content_size: None,
+414 | |         single_segment: false,
+415 | |         content_checksum: false,
+...   |
+419 | |     .serialize(&mut header);
+    | |___________________________^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+412 |     let _ = FrameHeader {
+    |     +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/streaming_encoder.rs:453:5
+    |
+453 | /     FrameHeader {
+454 | |         frame_content_size: Some(source.len() as u64),
+455 | |         single_segment: true,
+456 | |         content_checksum: false,
+...   |
+460 | |     .serialize(&mut output);
+    | |___________________________^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+453 |     let _ = FrameHeader {
+    |     +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/streaming_encoder.rs:463:9
+    |
+463 | /         BlockHeader {
+464 | |             last_block: true,
+465 | |             block_type: BlockType::Raw,
+466 | |             block_size: 0,
+467 | |         }
+468 | |         .serialize(&mut output);
+    | |_______________________________^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+463 |         let _ = BlockHeader {
+    |         +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/encoding/streaming_encoder.rs:473:9
+    |
+473 | /         BlockHeader {
+474 | |             last_block: (index + 1) * MAX_BLOCK_SIZE as usize >= source.len(),
+475 | |             block_type: BlockType::Raw,
+476 | |             block_size: block.len() as u32,
+477 | |         }
+478 | |         .serialize(&mut output);
+    | |_______________________________^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+473 |         let _ = BlockHeader {
+    |         +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/kernel/seqstore.rs:193:13
+    |
+193 |             literals.reserve(literal_capacity);
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+193 |             let _ = literals.reserve(literal_capacity);
+    |             +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/kernel/seqstore.rs:197:13
+    |
+197 |             sequences.reserve(sequence_capacity);
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+197 |             let _ = sequences.reserve(sequence_capacity);
+    |             +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/kernel/seqstore.rs:291:14
+    |
+291 |     unsafe { values.set_len(initialized_len) };
+    |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+291 |     unsafe { let _ = values.set_len(initialized_len); };
+    |              +++++++                                +
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/huff0/huff0_encoder/tree.rs:102:5
+    |
+102 | /     nodes.resize(
+103 | |         2 * leaf_count,
+104 | |         HuffmanNode {
+105 | |             count: u32::MAX,
+...   |
+109 | |         },
+110 | |     );
+    | |_____^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+102 |     let _ = nodes.resize(
+    |     +++++++
+
+error: unused `Result` that must be used
+   --> vendor/zstd-complete/src/huff0/huff0_encoder/tree.rs:301:5
+    |
+301 | /     nodes.resize(
+302 | |         nonzero_count + 1,
+303 | |         HuffmanNode {
+304 | |             count: u32::MAX,
+...   |
+308 | |         },
+309 | |     );
+    | |_____^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+301 |     let _ = nodes.resize(
+    |     +++++++
+
+warning: `zstd-complete` (lib) generated 21 warnings
+error: could not compile `zstd-complete` (lib) due to 92 previous errors; 21 warnings emitted

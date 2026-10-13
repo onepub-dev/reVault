@@ -1,0 +1,95 @@
+{
+  "files": [
+    {
+      "path": "rust/revault_bindings/src/lib.rs",
+      "before_sha256": "fecae8fc9eae8c96da1d0442bd58f67d18691426c4f0372fc95e163d5d81b082",
+      "after_sha256": "d8f28254834eba078e528e08d6e44d4623d07189a342366b1debaee751c72c99"
+    },
+    {
+      "path": "rust/revault_cli/tests/common/mod.rs",
+      "before_sha256": "8c0f85a526677e422f31512dfd028ff23976c3fb8a7569fb86f276c9b82fad34",
+      "after_sha256": "b45405b30a7c1da64c4b754b28e2ea2d33d726fa5e7cc814451ec93a6971acce"
+    },
+    {
+      "path": "rust/revault_cli/tests/migration_cli.rs",
+      "before_sha256": "04485c5495301a8f6e78c15938a42529bda04d836b239e92273d76086dec20c7",
+      "after_sha256": "5ce64d4e51e6cb5872af1e6ff9ca4c68778d4661c6285fa8621bcbb4504c0489"
+    },
+    {
+      "path": "rust/revault_cli/tests/publish_integration.rs",
+      "before_sha256": "5e1d4296393e774366e570ccab5a0a9f02e19f43d5ad427354620bedb68b46df",
+      "after_sha256": "9f32c7592cca9b222711e28db734248f4eb35c23fd566fb54f5fd68bf68caa69"
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/compression/encode_workspace.rs",
+      "before_sha256": "4df130f1e3fb360c23b513ff7b69a4821e89c24a0940cbc300a7bc3444a2ba84",
+      "after_sha256": "aa6c3983ebbd1e25c178678211f6210d8a6cd84b644c126e39c0fc4b11c6d79c"
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/candidate_files/tests/tree_tests/variables.rs",
+      "before_sha256": "a08a2527831b4024c9680fc9c001553f68d5a7525df6aa7159cb5869eaee494e",
+      "after_sha256": "6fd97a875ee1e6c461581845590e5fbafec5183fe9c96eeacae8a33ba3a5dc72"
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/page.rs",
+      "before_sha256": "12585980e00ea788acfa9c694fef284086795dcc8d22a4363befce11f84b8ea6",
+      "after_sha256": "bf8876d39f35e470f2706cdb58e789d3cff340117c1d7369cdaec2f98d513a54"
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/file_format/publication_anchor/bootstrap/tests.rs",
+      "before_sha256": "64736a26b9f78cb5b9926ee2276175d4d9cf0c894d347e23144312409cc52cc6",
+      "after_sha256": "c6a6bb041943766d64b47c0578081ce70b9a499265a5c7280ee78f2f2bf92221"
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/keys/key_slot.rs",
+      "before_sha256": "e857149dfb0ef043c414e4975d1f133b412b8f09a008426cd2dc656508b23e64",
+      "after_sha256": "d4f5b8220ecc58fe63a422a2169e1aae184bd4f70d2746e55f772e0f1384f6f9"
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/keys/signing.rs",
+      "before_sha256": "8d4d782cd8361d85edbc1260d646bac62f1d8b3ba9a877edc65332c08754e327",
+      "after_sha256": "abf832f2c6ba174ee4974c5559cb914c8dce1d745915e5bb603a3757691e0327"
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/lockbox/key_management.rs",
+      "before_sha256": "fe9c88d1471b562808a93bb446b289f2c4d24421595aea2377481e01d232bf61",
+      "after_sha256": "faa7b4245d681559b35cbdb11bdde1a6acf6a0a26a9ec33ffc7c9e4212923c70"
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/lockbox/recovery.rs",
+      "before_sha256": "c8419b9d599e55257718d122c0cd5101e35a10c7356ba15b2fbc9cc6d3e18ba8",
+      "after_sha256": "55de7ec91fcfeb7b0bbea5d8a19a1341cdb6787ad505077471282ac364cea696"
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/lockbox/secure_output.rs",
+      "before_sha256": "e5c85864525da2d349ea6f4bf09ac0060066550d774b0dffb2d3baa511a35f99",
+      "after_sha256": "674fee72ac68f3063607731686981145810b5dbeffdb98bef96b96c4c18afbb7"
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/lockbox/variables.rs",
+      "before_sha256": "2633865e83071f39c21a421d9969dbab374706b4c3f1f5542d8da3321e176423",
+      "after_sha256": "e61ba33b5ce5dd23b0977ca3d488974f6f00f99d8e25e74907946c95ae8108c4"
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/model/compression_frame_manifest.rs",
+      "before_sha256": "3baa4ea45e2f6cbf951a0486536087bc77eeb601a22d724a26b8dcf696208561",
+      "after_sha256": "83b706ba556143c2dc8a4db4febc63b9d3c99ee3f4ac3ce4dd8c9b41131215ea"
+    },
+    {
+      "path": "rust/revault_lockbox_api/src/model/record.rs",
+      "before_sha256": "5ef45ad8e58d4cb4d9377ea4ca3904d0c81bef3b63fb1b9ba857c188ab69402a",
+      "after_sha256": "0729b371e09e7319e69788aad8905023d70c5c2e81d1da6a13aa7b8a506e9d55"
+    },
+    {
+      "path": "rust/revault_page_api/src/arena.rs",
+      "before_sha256": "8cd391a07fbd5da89a6d41c0598e118ae35c16898904fc083740699b80850bfe",
+      "after_sha256": "e7e03b025e8db7702386d358cc61cdb2b33042033ca8eb8f5005cc15f5429474"
+    },
+    {
+      "path": ".github/workflows/bindings-lint.yml",
+      "before_sha256": "897a79f79a14815ab6e9c5b2fee372cc001c5e5dc2174ee93c3c7350a7fe913b",
+      "after_sha256": "1d9e46d6f08de3d84507ce6f5cf0e637a1c28166d833fe1d452fda643b699336"
+    }
+  ],
+  "scope": "Reviewed isolated lint, test lifecycle and documentation workflow changes; applied after native library terminal. No formatting, vendor changes, publication or fixture generation."
+}

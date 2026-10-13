@@ -16,15 +16,15 @@ use super::{
 
 pub(super) fn encode_table_count_size(
     mode: &FseTableMode<'_>,
-    writer: &mut BitWriter<&mut Vec<u8>>,
-) -> usize {
+    writer: &mut BitWriter<impl crate::workspace::ByteBufferOwner>,
+) -> Result<usize, crate::workspace::CapacityError> {
     let start = writer.index();
-    encode_table(mode, writer);
-    if matches!(mode, FseTableMode::Encoded(_)) {
+    encode_table(mode, writer)?;
+    Ok(if matches!(mode, FseTableMode::Encoded(_)) {
         byte_size_between(start, writer.index())
     } else {
         0
-    }
+    })
 }
 
 pub(super) fn byte_size_between(start_bits: usize, end_bits: usize) -> usize {
@@ -79,80 +79,83 @@ pub(super) fn apply_fse_table_update_with_scratch(
     repeat_valid: &mut bool,
     update: FseTableUpdate,
     mut scratch: Option<&mut FSETableBuildScratch>,
-) {
+) -> Result<(), crate::workspace::CapacityError> {
     if !scratch
         .as_deref()
         .is_some_and(FSETableBuildScratch::has_shared_pool)
         && !crate::fse::fse_encoder::recycles_fast_fse_tables()
     {
         apply_fse_table_update(previous, repeat_valid, update);
-        return;
+        return Ok(());
     }
 
     match update {
         FseTableUpdate::Keep => {}
         FseTableUpdate::Clear => {
-            recycle_previous_table(previous.take(), scratch);
+            recycle_previous_table(previous.take(), scratch)?;
             *repeat_valid = false;
         }
         FseTableUpdate::Replace(table) => {
             let table = match scratch.as_deref_mut() {
-                Some(scratch) => scratch.share_table(table),
+                Some(scratch) => scratch.share_table(table)?,
                 None => SharedFSETable::new(table),
             };
             let old = previous.replace(table);
-            recycle_previous_table(old, scratch);
+            recycle_previous_table(old, scratch)?;
             *repeat_valid = false;
         }
     }
+    Ok(())
 }
 
 pub(super) fn recycle_fse_table_update(
     update: FseTableUpdate,
     scratch: Option<&mut FSETableBuildScratch>,
-) {
+) -> Result<(), crate::workspace::CapacityError> {
     if !scratch
         .as_deref()
         .is_some_and(FSETableBuildScratch::has_shared_pool)
         && !crate::fse::fse_encoder::recycles_fast_fse_tables()
     {
-        return;
+        return Ok(());
     }
     if let FseTableUpdate::Replace(table) = update {
         if let Some(scratch) = scratch {
-            scratch.recycle_table(table);
+            scratch.recycle_table(table)?;
         }
     }
+    Ok(())
 }
 
 fn recycle_previous_table(
     table: Option<SharedFSETable>,
     scratch: Option<&mut FSETableBuildScratch>,
-) {
+) -> Result<(), crate::workspace::CapacityError> {
     let (Some(table), Some(scratch)) = (table, scratch) else {
-        return;
+        return Ok(());
     };
     if let Ok(table) = SharedFSETable::try_unwrap(table) {
-        scratch.recycle_table(table);
+        scratch.recycle_table(table)?;
     }
+    Ok(())
 }
 
 pub(super) fn encode_sequences_for_history(
     sequences: &[PreparedSequence],
     offset_history: &mut OffsetHistory,
-) -> Vec<crate::blocks::sequence_section::Sequence> {
+) -> Result<Vec<crate::blocks::sequence_section::Sequence>, crate::workspace::CapacityError> {
     let mut encoded = Vec::with_capacity(sequences.len());
-    encode_sequences_for_history_into(sequences, offset_history, &mut encoded);
-    encoded
+    encode_sequences_for_history_into(sequences, offset_history, &mut encoded)?;
+    Ok(encoded)
 }
 
 pub(super) fn encode_sequences_for_history_into(
     sequences: &[PreparedSequence],
     offset_history: &mut OffsetHistory,
-    encoded: &mut Vec<crate::blocks::sequence_section::Sequence>,
-) {
+    encoded: &mut impl crate::workspace::Growable<crate::blocks::sequence_section::Sequence>,
+) -> Result<(), crate::workspace::CapacityError> {
     encoded.clear();
-    encoded.reserve(sequences.len());
+    encoded.reserve(sequences.len())?;
     let spare = encoded.spare_capacity_mut();
     debug_assert!(spare.len() >= sequences.len());
     for (slot, sequence) in spare.iter_mut().zip(sequences) {
@@ -173,14 +176,15 @@ pub(super) fn encode_sequences_for_history_into(
     // SAFETY: the zip above writes exactly one element for every source
     // sequence into the contiguous spare prefix, and the reserve/debug
     // invariant proves that prefix is allocated.
-    unsafe { encoded.set_len(sequences.len()) };
+    unsafe { encoded.set_len(sequences.len()) }?;
+    Ok(())
 }
 
 pub(super) fn encode_sequences_for_estimate_into(
     sequences: &[PreparedSequence],
     offset_history: OffsetHistory,
-    encoded: &mut Vec<crate::blocks::sequence_section::Sequence>,
-) {
+    encoded: &mut impl crate::workspace::Growable<crate::blocks::sequence_section::Sequence>,
+) -> Result<(), crate::workspace::CapacityError> {
     encoded.clear();
 
     if sequences
@@ -193,12 +197,13 @@ pub(super) fn encode_sequences_for_estimate_into(
                 ml: sequence.ml,
                 of: sequence.encoded_offset_value,
             }
-        }));
-        return;
+        }))?;
+        return Ok(());
     }
 
     let mut offset_history = offset_history;
-    encode_sequences_for_history_into(sequences, &mut offset_history, encoded);
+    encode_sequences_for_history_into(sequences, &mut offset_history, encoded)?;
+    Ok(())
 }
 
 #[inline(always)]
@@ -211,27 +216,27 @@ pub(super) fn offset_to_u32(offset: usize) -> u32 {
 
 pub(super) fn encode_sequences(
     sequences: &[crate::blocks::sequence_section::Sequence],
-    writer: &mut BitWriter<&mut Vec<u8>>,
+    writer: &mut BitWriter<impl crate::workspace::ByteBufferOwner>,
     ll_mode: &FseTableMode<'_>,
     ml_mode: &FseTableMode<'_>,
     of_mode: &FseTableMode<'_>,
-) {
+) -> Result<(), crate::workspace::CapacityError> {
     if let (
         FseTableMode::Rle(ll_symbol),
         FseTableMode::Rle(ml_symbol),
         FseTableMode::Rle(of_symbol),
     ) = (ll_mode, ml_mode, of_mode)
     {
-        encode_rle_sequences(sequences, writer, *ll_symbol, *ml_symbol, *of_symbol);
-        return;
+        encode_rle_sequences(sequences, writer, *ll_symbol, *ml_symbol, *of_symbol)?;
+        return Ok(());
     }
 
     let ll_table = ll_mode.table();
     let ml_table = ml_mode.table();
     let of_table = of_mode.table();
     if let (Some(ll_table), Some(ml_table), Some(of_table)) = (ll_table, ml_table, of_table) {
-        encode_table_sequences(sequences, writer, ll_table, ml_table, of_table);
-        return;
+        encode_table_sequences(sequences, writer, ll_table, ml_table, of_table)?;
+        return Ok(());
     }
 
     let sequence = sequences[sequences.len() - 1];
@@ -250,7 +255,7 @@ pub(super) fn encode_sequences(
         ml_num_bits,
         of_add_bits,
         of_num_bits,
-    );
+    )?;
 
     // Encode backwards so the decoder reads the first sequence first.
     let mut sequence_idx = sequences.len() - 1;
@@ -262,13 +267,13 @@ pub(super) fn encode_sequences(
         let (ml_code, ml_add_bits, ml_num_bits) = encode_match_len(sequence.ml);
 
         {
-            update_fse_state(of_table, &mut of_state, of_code, writer);
+            update_fse_state(of_table, &mut of_state, of_code, writer)?;
         }
         {
-            update_fse_state(ml_table, &mut ml_state, ml_code, writer);
+            update_fse_state(ml_table, &mut ml_state, ml_code, writer)?;
         }
         {
-            update_fse_state(ll_table, &mut ll_state, ll_code, writer);
+            update_fse_state(ll_table, &mut ll_state, ll_code, writer)?;
         }
 
         write_sequence_extra_bits(
@@ -279,18 +284,19 @@ pub(super) fn encode_sequences(
             ml_num_bits,
             of_add_bits,
             of_num_bits,
-        );
+        )?;
     }
-    flush_fse_state(ml_table, ml_state, writer);
-    flush_fse_state(of_table, of_state, writer);
-    flush_fse_state(ll_table, ll_state, writer);
+    flush_fse_state(ml_table, ml_state, writer)?;
+    flush_fse_state(of_table, of_state, writer)?;
+    flush_fse_state(ll_table, ll_state, writer)?;
 
     let bits_to_fill = writer.misaligned();
     if bits_to_fill == 0 {
-        writer.write_bits(1u32, 8);
+        writer.write_bits(1u32, 8)?;
     } else {
-        writer.write_bits(1u32, bits_to_fill);
+        writer.write_bits(1u32, bits_to_fill)?;
     }
+    Ok(())
 }
 
 #[cfg_attr(target_vendor = "apple", link_section = "__TEXT,__rz_seq0")]
@@ -305,12 +311,12 @@ pub(super) fn encode_sequences(
 )]
 pub(super) fn encode_prepared_sequences(
     sequences: &[PreparedSequence],
-    writer: &mut BitWriter<&mut Vec<u8>>,
+    writer: &mut BitWriter<impl crate::workspace::ByteBufferOwner>,
     ll_mode: &FseTableMode<'_>,
     ml_mode: &FseTableMode<'_>,
     of_mode: &FseTableMode<'_>,
     c_fast_emission: bool,
-) {
+) -> Result<(), crate::workspace::CapacityError> {
     encode_c_sequences(
         sequences,
         writer,
@@ -318,7 +324,8 @@ pub(super) fn encode_prepared_sequences(
         ml_mode,
         of_mode,
         c_fast_emission,
-    );
+    )?;
+    Ok(())
 }
 
 #[cfg_attr(target_vendor = "apple", link_section = "__TEXT,__rz_seq2")]
@@ -333,12 +340,12 @@ pub(super) fn encode_prepared_sequences(
 )]
 pub(super) fn encode_stored_sequences(
     sequences: &[StoredSequence],
-    writer: &mut BitWriter<&mut Vec<u8>>,
+    writer: &mut BitWriter<impl crate::workspace::ByteBufferOwner>,
     ll_mode: &FseTableMode<'_>,
     ml_mode: &FseTableMode<'_>,
     of_mode: &FseTableMode<'_>,
     c_fast_emission: bool,
-) {
+) -> Result<(), crate::workspace::CapacityError> {
     encode_c_sequences(
         sequences,
         writer,
@@ -346,25 +353,26 @@ pub(super) fn encode_stored_sequences(
         ml_mode,
         of_mode,
         c_fast_emission,
-    );
+    )?;
+    Ok(())
 }
 
 fn encode_c_sequences<S: CSequenceValues>(
     sequences: &[S],
-    writer: &mut BitWriter<&mut Vec<u8>>,
+    writer: &mut BitWriter<impl crate::workspace::ByteBufferOwner>,
     ll_mode: &FseTableMode<'_>,
     ml_mode: &FseTableMode<'_>,
     of_mode: &FseTableMode<'_>,
     c_fast_emission: bool,
-) {
+) -> Result<(), crate::workspace::CapacityError> {
     if let (
         FseTableMode::Rle(ll_symbol),
         FseTableMode::Rle(ml_symbol),
         FseTableMode::Rle(of_symbol),
     ) = (ll_mode, ml_mode, of_mode)
     {
-        encode_rle_c_sequences(sequences, writer, *ll_symbol, *ml_symbol, *of_symbol);
-        return;
+        encode_rle_c_sequences(sequences, writer, *ll_symbol, *ml_symbol, *of_symbol)?;
+        return Ok(());
     }
 
     let ll_table = ll_mode.table();
@@ -372,11 +380,11 @@ fn encode_c_sequences<S: CSequenceValues>(
     let of_table = of_mode.table();
     if let (Some(ll_table), Some(ml_table), Some(of_table)) = (ll_table, ml_table, of_table) {
         if c_fast_emission {
-            encode_c_fast_table_sequences(sequences, writer, ll_table, ml_table, of_table);
+            encode_c_fast_table_sequences(sequences, writer, ll_table, ml_table, of_table)?;
         } else {
-            encode_table_c_sequences(sequences, writer, ll_table, ml_table, of_table);
+            encode_table_c_sequences(sequences, writer, ll_table, ml_table, of_table)?;
         }
-        return;
+        return Ok(());
     }
 
     let sequence = sequences[sequences.len() - 1];
@@ -397,7 +405,7 @@ fn encode_c_sequences<S: CSequenceValues>(
         ml_num_bits,
         of_add_bits,
         of_num_bits,
-    );
+    )?;
 
     let mut sequence_idx = sequences.len() - 1;
     while sequence_idx > 0 {
@@ -409,9 +417,9 @@ fn encode_c_sequences<S: CSequenceValues>(
         let (of_code, of_add_bits, of_num_bits) = encode_offset(offset_value);
         let (ml_code, ml_add_bits, ml_num_bits) = encode_match_len(sequence.match_length());
 
-        update_fse_state(of_table, &mut of_state, of_code, writer);
-        update_fse_state(ml_table, &mut ml_state, ml_code, writer);
-        update_fse_state(ll_table, &mut ll_state, ll_code, writer);
+        update_fse_state(of_table, &mut of_state, of_code, writer)?;
+        update_fse_state(ml_table, &mut ml_state, ml_code, writer)?;
+        update_fse_state(ll_table, &mut ll_state, ll_code, writer)?;
         write_sequence_extra_bits(
             writer,
             ll_add_bits,
@@ -420,12 +428,13 @@ fn encode_c_sequences<S: CSequenceValues>(
             ml_num_bits,
             of_add_bits,
             of_num_bits,
-        );
+        )?;
     }
-    flush_fse_state(ml_table, ml_state, writer);
-    flush_fse_state(of_table, of_state, writer);
-    flush_fse_state(ll_table, ll_state, writer);
-    write_sequence_end_marker(writer);
+    flush_fse_state(ml_table, ml_state, writer)?;
+    flush_fse_state(of_table, of_state, writer)?;
+    flush_fse_state(ll_table, ll_state, writer)?;
+    write_sequence_end_marker(writer)?;
+    Ok(())
 }
 
 /// Fast and DFast analogue of C's complete `ZSTD_encodeSequences_body()` hot
@@ -435,22 +444,23 @@ fn encode_c_sequences<S: CSequenceValues>(
 #[inline(never)]
 fn encode_c_fast_table_sequences<S: CSequenceValues>(
     sequences: &[S],
-    writer: &mut BitWriter<&mut Vec<u8>>,
+    writer: &mut BitWriter<impl crate::workspace::ByteBufferOwner>,
     ll_table: &FSETable,
     ml_table: &FSETable,
     of_table: &FSETable,
-) {
+) -> Result<(), crate::workspace::CapacityError> {
     #[cfg(target_arch = "x86_64")]
     if crate::cpu::bmi2_supported() {
         // SAFETY: the cached CPUID result proves BMI2 is available before the
         // target-feature function is entered.
         unsafe {
-            encode_c_fast_table_sequences_bmi2(sequences, writer, ll_table, ml_table, of_table);
+            encode_c_fast_table_sequences_bmi2(sequences, writer, ll_table, ml_table, of_table)?;
         }
-        return;
+        return Ok(());
     }
 
-    encode_c_fast_table_sequences_body(sequences, writer, ll_table, ml_table, of_table);
+    encode_c_fast_table_sequences_body(sequences, writer, ll_table, ml_table, of_table)?;
+    Ok(())
 }
 
 #[cfg(target_arch = "x86_64")]
@@ -467,22 +477,23 @@ fn encode_c_fast_table_sequences<S: CSequenceValues>(
 )]
 unsafe fn encode_c_fast_table_sequences_bmi2<S: CSequenceValues>(
     sequences: &[S],
-    writer: &mut BitWriter<&mut Vec<u8>>,
+    writer: &mut BitWriter<impl crate::workspace::ByteBufferOwner>,
     ll_table: &FSETable,
     ml_table: &FSETable,
     of_table: &FSETable,
-) {
-    encode_c_fast_table_sequences_body(sequences, writer, ll_table, ml_table, of_table);
+) -> Result<(), crate::workspace::CapacityError> {
+    encode_c_fast_table_sequences_body(sequences, writer, ll_table, ml_table, of_table)?;
+    Ok(())
 }
 
 #[inline(always)]
 fn encode_c_fast_table_sequences_body<S: CSequenceValues>(
     sequences: &[S],
-    writer: &mut BitWriter<&mut Vec<u8>>,
+    writer: &mut BitWriter<impl crate::workspace::ByteBufferOwner>,
     ll_table: &FSETable,
     ml_table: &FSETable,
     of_table: &FSETable,
-) {
+) -> Result<(), crate::workspace::CapacityError> {
     let sequence = sequences[sequences.len() - 1];
     let (ll_code, ll_add_bits, ll_num_bits) = encode_literal_length(sequence.literal_length());
     let offset_value = sequence.offset_value();
@@ -501,7 +512,7 @@ fn encode_c_fast_table_sequences_body<S: CSequenceValues>(
         ml_num_bits,
         of_add_bits,
         of_num_bits,
-    );
+    )?;
 
     let mut sequence_idx = sequences.len() - 1;
     while sequence_idx > 0 {
@@ -539,13 +550,14 @@ fn encode_c_fast_table_sequences_body<S: CSequenceValues>(
             ml_num_bits,
             of_add_bits,
             of_num_bits,
-        );
+        )?;
     }
 
     flush_table_fse_states(
         ml_table, ml_state, of_table, of_state, ll_table, ll_state, writer,
-    );
-    write_sequence_end_marker(writer);
+    )?;
+    write_sequence_end_marker(writer)?;
+    Ok(())
 }
 
 /// C flushes after each sequence. The existing writer can preserve that bit
@@ -555,7 +567,7 @@ fn encode_c_fast_table_sequences_body<S: CSequenceValues>(
 #[allow(clippy::too_many_arguments)]
 #[inline(always)]
 fn write_c_fast_sequence_bits(
-    writer: &mut BitWriter<&mut Vec<u8>>,
+    writer: &mut BitWriter<impl crate::workspace::ByteBufferOwner>,
     fse_bits: u64,
     fse_num_bits: usize,
     ll_bits: u32,
@@ -564,7 +576,7 @@ fn write_c_fast_sequence_bits(
     ml_num_bits: usize,
     of_bits: u32,
     of_num_bits: usize,
-) {
+) -> Result<(), crate::workspace::CapacityError> {
     let extra_num_bits = ll_num_bits + ml_num_bits + of_num_bits;
     debug_assert!(extra_num_bits < u64::BITS as usize);
     let extra_bits = u64::from(ll_bits)
@@ -573,25 +585,26 @@ fn write_c_fast_sequence_bits(
     let total_num_bits = fse_num_bits + extra_num_bits;
 
     if total_num_bits <= u64::BITS as usize {
-        writer.write_bits_64(fse_bits | (extra_bits << fse_num_bits), total_num_bits);
+        writer.write_bits_64(fse_bits | (extra_bits << fse_num_bits), total_num_bits)?;
     } else {
         debug_assert!(fse_num_bits > 0);
         let bits_in_low_extra = u64::BITS as usize - fse_num_bits;
-        writer.write_bits_64(fse_bits | (extra_bits << fse_num_bits), u64::BITS as usize);
+        writer.write_bits_64(fse_bits | (extra_bits << fse_num_bits), u64::BITS as usize)?;
         writer.write_bits_64(
             extra_bits >> bits_in_low_extra,
             total_num_bits - u64::BITS as usize,
-        );
+        )?;
     }
+    Ok(())
 }
 
 fn encode_table_c_sequences<S: CSequenceValues>(
     sequences: &[S],
-    writer: &mut BitWriter<&mut Vec<u8>>,
+    writer: &mut BitWriter<impl crate::workspace::ByteBufferOwner>,
     ll_table: &FSETable,
     ml_table: &FSETable,
     of_table: &FSETable,
-) {
+) -> Result<(), crate::workspace::CapacityError> {
     let sequence = sequences[sequences.len() - 1];
     let (ll_code, ll_add_bits, ll_num_bits) = encode_literal_length(sequence.literal_length());
     let offset_value = sequence.offset_value();
@@ -610,7 +623,7 @@ fn encode_table_c_sequences<S: CSequenceValues>(
         ml_num_bits,
         of_add_bits,
         of_num_bits,
-    );
+    )?;
 
     let mut sequence_idx = sequences.len() - 1;
     while sequence_idx > 0 {
@@ -633,7 +646,7 @@ fn encode_table_c_sequences<S: CSequenceValues>(
             &mut ll_state,
             ll_code,
             writer,
-        );
+        )?;
         write_sequence_extra_bits(
             writer,
             ll_add_bits,
@@ -642,21 +655,22 @@ fn encode_table_c_sequences<S: CSequenceValues>(
             ml_num_bits,
             of_add_bits,
             of_num_bits,
-        );
+        )?;
     }
     flush_table_fse_states(
         ml_table, ml_state, of_table, of_state, ll_table, ll_state, writer,
-    );
-    write_sequence_end_marker(writer);
+    )?;
+    write_sequence_end_marker(writer)?;
+    Ok(())
 }
 
 fn encode_rle_c_sequences<S: CSequenceValues>(
     sequences: &[S],
-    writer: &mut BitWriter<&mut Vec<u8>>,
+    writer: &mut BitWriter<impl crate::workspace::ByteBufferOwner>,
     ll_symbol: u8,
     ml_symbol: u8,
     of_symbol: u8,
-) {
+) -> Result<(), crate::workspace::CapacityError> {
     for &sequence in sequences.iter().rev() {
         let (ll_code, ll_add_bits, ll_num_bits) = encode_literal_length(sequence.literal_length());
         let offset_value = sequence.offset_value();
@@ -674,28 +688,32 @@ fn encode_rle_c_sequences<S: CSequenceValues>(
             ml_num_bits,
             of_add_bits,
             of_num_bits,
-        );
+        )?;
     }
-    write_sequence_end_marker(writer);
+    write_sequence_end_marker(writer)?;
+    Ok(())
 }
 
 #[inline(always)]
-fn write_sequence_end_marker(writer: &mut BitWriter<&mut Vec<u8>>) {
+fn write_sequence_end_marker(
+    writer: &mut BitWriter<impl crate::workspace::ByteBufferOwner>,
+) -> Result<(), crate::workspace::CapacityError> {
     let bits_to_fill = writer.misaligned();
     if bits_to_fill == 0 {
-        writer.write_bits(1u32, 8);
+        writer.write_bits(1u32, 8)?;
     } else {
-        writer.write_bits(1u32, bits_to_fill);
+        writer.write_bits(1u32, bits_to_fill)?;
     }
+    Ok(())
 }
 
 fn encode_table_sequences(
     sequences: &[crate::blocks::sequence_section::Sequence],
-    writer: &mut BitWriter<&mut Vec<u8>>,
+    writer: &mut BitWriter<impl crate::workspace::ByteBufferOwner>,
     ll_table: &FSETable,
     ml_table: &FSETable,
     of_table: &FSETable,
-) {
+) -> Result<(), crate::workspace::CapacityError> {
     let sequence = sequences[sequences.len() - 1];
     let (ll_code, ll_add_bits, ll_num_bits) = encode_literal_length(sequence.ll);
     let (of_code, of_add_bits, of_num_bits) = encode_offset(sequence.of);
@@ -712,7 +730,7 @@ fn encode_table_sequences(
         ml_num_bits,
         of_add_bits,
         of_num_bits,
-    );
+    )?;
 
     let mut sequence_idx = sequences.len() - 1;
     while sequence_idx > 0 {
@@ -733,7 +751,7 @@ fn encode_table_sequences(
             &mut ll_state,
             ll_code,
             writer,
-        );
+        )?;
 
         write_sequence_extra_bits(
             writer,
@@ -743,27 +761,28 @@ fn encode_table_sequences(
             ml_num_bits,
             of_add_bits,
             of_num_bits,
-        );
+        )?;
     }
     flush_table_fse_states(
         ml_table, ml_state, of_table, of_state, ll_table, ll_state, writer,
-    );
+    )?;
 
     let bits_to_fill = writer.misaligned();
     if bits_to_fill == 0 {
-        writer.write_bits(1u32, 8);
+        writer.write_bits(1u32, 8)?;
     } else {
-        writer.write_bits(1u32, bits_to_fill);
+        writer.write_bits(1u32, bits_to_fill)?;
     }
+    Ok(())
 }
 
 fn encode_rle_sequences(
     sequences: &[crate::blocks::sequence_section::Sequence],
-    writer: &mut BitWriter<&mut Vec<u8>>,
+    writer: &mut BitWriter<impl crate::workspace::ByteBufferOwner>,
     ll_symbol: u8,
     ml_symbol: u8,
     of_symbol: u8,
-) {
+) -> Result<(), crate::workspace::CapacityError> {
     for sequence in sequences.iter().rev() {
         let (ll_code, ll_add_bits, ll_num_bits) = encode_literal_length(sequence.ll);
         let (of_code, of_add_bits, of_num_bits) = encode_offset(sequence.of);
@@ -780,15 +799,16 @@ fn encode_rle_sequences(
             ml_num_bits,
             of_add_bits,
             of_num_bits,
-        );
+        )?;
     }
 
     let bits_to_fill = writer.misaligned();
     if bits_to_fill == 0 {
-        writer.write_bits(1u32, 8);
+        writer.write_bits(1u32, 8)?;
     } else {
-        writer.write_bits(1u32, bits_to_fill);
+        writer.write_bits(1u32, bits_to_fill)?;
     }
+    Ok(())
 }
 
 fn init_fse_state(mode: &FseTableMode<'_>, symbol: u8) -> Option<u32> {
@@ -805,17 +825,18 @@ fn update_fse_state(
     table: Option<&FSETable>,
     state: &mut Option<u32>,
     symbol: u8,
-    writer: &mut BitWriter<&mut Vec<u8>>,
-) {
+    writer: &mut BitWriter<impl crate::workspace::ByteBufferOwner>,
+) -> Result<(), crate::workspace::CapacityError> {
     if let Some(table) = table {
         if let Some(current) = *state {
             let (bits, num_bits, next_state) = table.encode_symbol(symbol, current);
-            writer.write_bits(u64::from(bits), usize::from(num_bits));
+            writer.write_bits(u64::from(bits), usize::from(num_bits))?;
             *state = Some(next_state);
         } else {
             unreachable!("non-RLE FSE mode must have a state");
         }
     }
+    Ok(())
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -830,8 +851,8 @@ fn update_table_fse_states(
     ll_table: &FSETable,
     ll_state: &mut u32,
     ll_symbol: u8,
-    writer: &mut BitWriter<&mut Vec<u8>>,
-) {
+    writer: &mut BitWriter<impl crate::workspace::ByteBufferOwner>,
+) -> Result<(), crate::workspace::CapacityError> {
     let (of_bits, of_num_bits, next_of_state) = of_table.encode_symbol(of_symbol, *of_state);
     let (ml_bits, ml_num_bits, next_ml_state) = ml_table.encode_symbol(ml_symbol, *ml_state);
     let (ll_bits, ll_num_bits, next_ll_state) = ll_table.encode_symbol(ll_symbol, *ll_state);
@@ -844,7 +865,8 @@ fn update_table_fse_states(
     let packed = u64::from(of_bits)
         | (u64::from(ml_bits) << of_num_bits)
         | (u64::from(ll_bits) << (of_num_bits + ml_num_bits));
-    writer.write_bits_64(packed, of_num_bits + ml_num_bits + ll_num_bits);
+    writer.write_bits_64(packed, of_num_bits + ml_num_bits + ll_num_bits)?;
+    Ok(())
 }
 
 fn flush_table_fse_states(
@@ -854,8 +876,8 @@ fn flush_table_fse_states(
     of_state: u32,
     ll_table: &FSETable,
     ll_state: u32,
-    writer: &mut BitWriter<&mut Vec<u8>>,
-) {
+    writer: &mut BitWriter<impl crate::workspace::ByteBufferOwner>,
+) -> Result<(), crate::workspace::CapacityError> {
     let ml_bits = ml_table.state_bits(ml_state);
     let of_bits = of_table.state_bits(of_state);
     let ll_bits = ll_table.state_bits(ll_state);
@@ -865,59 +887,66 @@ fn flush_table_fse_states(
     let packed = u64::from(ml_bits)
         | (u64::from(of_bits) << ml_num_bits)
         | (u64::from(ll_bits) << (ml_num_bits + of_num_bits));
-    writer.write_bits_64(packed, ml_num_bits + of_num_bits + ll_num_bits);
+    writer.write_bits_64(packed, ml_num_bits + of_num_bits + ll_num_bits)?;
+    Ok(())
 }
 
 #[allow(clippy::too_many_arguments)]
 #[inline(always)]
 fn write_sequence_extra_bits(
-    writer: &mut BitWriter<&mut Vec<u8>>,
+    writer: &mut BitWriter<impl crate::workspace::ByteBufferOwner>,
     ll_bits: u32,
     ll_num_bits: usize,
     ml_bits: u32,
     ml_num_bits: usize,
     of_bits: u32,
     of_num_bits: usize,
-) {
+) -> Result<(), crate::workspace::CapacityError> {
     debug_assert!(ll_num_bits + ml_num_bits + of_num_bits < u64::BITS as usize);
     let packed = u64::from(ll_bits)
         | (u64::from(ml_bits) << ll_num_bits)
         | (u64::from(of_bits) << (ll_num_bits + ml_num_bits));
-    writer.write_bits_64(packed, ll_num_bits + ml_num_bits + of_num_bits);
+    writer.write_bits_64(packed, ll_num_bits + ml_num_bits + of_num_bits)?;
+    Ok(())
 }
 
 fn flush_fse_state(
     table: Option<&FSETable>,
     state: Option<u32>,
-    writer: &mut BitWriter<&mut Vec<u8>>,
-) {
+    writer: &mut BitWriter<impl crate::workspace::ByteBufferOwner>,
+) -> Result<(), crate::workspace::CapacityError> {
     if let Some(table) = table {
         if let Some(state) = state {
-            writer.write_bits(u64::from(table.state_bits(state)), table.acc_log() as usize);
+            writer.write_bits(u64::from(table.state_bits(state)), table.acc_log() as usize)?;
         } else {
             unreachable!("non-RLE FSE mode must have a state");
         }
     }
+    Ok(())
 }
 
-pub(super) fn encode_seqnum(seqnum: usize, writer: &mut BitWriter<impl AsMut<Vec<u8>>>) {
+pub(super) fn encode_seqnum(
+    seqnum: usize,
+    writer: &mut BitWriter<impl crate::workspace::ByteBufferOwner>,
+) -> Result<(), crate::workspace::CapacityError> {
     const UPPER_LIMIT: usize = 0xFFFF + 0x7F00;
     match seqnum {
-        1..=127 => writer.write_bits(seqnum as u32, 8),
+        1..=127 => writer.write_bits(seqnum as u32, 8)?,
         128..=0x7FFF => {
             let upper = ((seqnum >> 8) | 0x80) as u8;
             let lower = seqnum as u8;
-            writer.write_bits(upper, 8);
-            writer.write_bits(lower, 8);
+            writer.write_bits(upper, 8)?;
+            writer.write_bits(lower, 8)?;
         }
         0x8000..=UPPER_LIMIT => {
             let encode = seqnum - 0x7F00;
             let upper = (encode >> 8) as u8;
             let lower = encode as u8;
-            writer.write_bits(255u8, 8);
-            writer.write_bits(upper, 8);
-            writer.write_bits(lower, 8);
+            writer.write_bits(255u8, 8)?;
+            writer.write_bits(upper, 8)?;
+            writer.write_bits(lower, 8)?;
         }
         _ => unreachable!(),
     }
+    Ok(())
 }

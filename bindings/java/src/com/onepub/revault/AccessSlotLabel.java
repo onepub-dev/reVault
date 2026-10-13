@@ -8,14 +8,7 @@ public final class AccessSlotLabel {
   private final String name;
   private final long updatedAtUnixMs;
 
-  /**
-   * Creates an application-owned access-slot label.
-   *
-   * @param lockboxId lockbox whose access slot is labelled
-   * @param slotId stable identifier of the labelled access slot
-   * @param name local human-readable label
-   * @param updatedAtUnixMs last label update time in Unix milliseconds
-   */
+  /** Creates an application-owned AccessSlotLabel value. */
   public AccessSlotLabel(byte[] lockboxId, long slotId, String name, long updatedAtUnixMs) {
     this.view = null;
     this.lockboxId = lockboxId;
@@ -32,11 +25,7 @@ public final class AccessSlotLabel {
     this.updatedAtUnixMs = 0;
   }
 
-  /**
-   * Returns the lockbox whose access slot is labelled.
-   *
-   * @return a defensive copy of the lockbox identifier
-   */
+  /** Lockbox whose access slot is labelled. */
   public byte[] lockboxId() {
     if (view == null) return lockboxId.clone();
     var result = new byte[view.lockboxIdLength()];
@@ -44,29 +33,17 @@ public final class AccessSlotLabel {
     return result;
   }
 
-  /**
-   * Returns the stable identifier of the labelled access slot.
-   *
-   * @return the access-slot identifier
-   */
+  /** Stable identifier of the labelled access slot. */
   public long slotId() {
     return view == null ? slotId : view.slotId();
   }
 
-  /**
-   * Returns the local human-readable label for the access slot.
-   *
-   * @return the label
-   */
+  /** Local human-readable label for the access slot. */
   public String name() {
     return view == null ? name : view.name();
   }
 
-  /**
-   * Returns the last label update time.
-   *
-   * @return the update time in Unix milliseconds
-   */
+  /** Last label update time in Unix milliseconds. */
   public long updatedAtUnixMs() {
     return view == null ? updatedAtUnixMs : view.updatedAtUnixMs();
   }

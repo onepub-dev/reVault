@@ -60,13 +60,17 @@ pub(crate) struct EncoderFrame {
     incompressible: bool,
 }
 impl EncoderFrame {
+    #[cfg(test)]
     pub(crate) fn new(input: &[u8], probe: bool) -> Self {
+        Self::new_sensitive(input, probe, false)
+    }
+    pub(crate) fn new_sensitive(input: &[u8], probe: bool, sensitive: bool) -> Self {
         Self {
             len: input.len(),
             incompressible: !probe
                 || !(64 * 1024..=super::MAX_DECOMPRESSED_COMPRESSION_FRAME_BYTES as usize)
                     .contains(&input.len())
-                || super::looks_incompressible(input),
+                || (!sensitive && super::looks_incompressible(input)),
         }
     }
 }
@@ -78,7 +82,7 @@ fn with_encoder<R>(
     default_level: i32,
     operation: impl FnOnce(&mut dyn FnMut(&[u8]) -> (u8, Vec<u8>)) -> R,
 ) -> R {
-    with_frame_encoder(first_frame, compression, default_level, |encode| {
+    with_frame_encoder(first_frame, compression, default_level, false, |encode| {
         operation(&mut |input| encode(input).into_encoded(input))
     })
 }
@@ -87,11 +91,18 @@ pub(crate) fn with_frame_encoder<R>(
     first_frame: EncoderFrame,
     compression: Option<crate::Compression>,
     default_level: i32,
+    sensitive: bool,
     operation: impl FnOnce(&mut dyn FnMut(&[u8]) -> super::FrameEncoding) -> R,
 ) -> R {
-    let mut fallback = |input: &[u8]| match compression {
-        Some(compression) => super::encode_with_compression_outcome(input, compression),
-        None => super::encode_frame_outcome(input, default_level),
+    let mut fallback = |input: &[u8]| {
+        if sensitive {
+            super::encode_sensitive_outcome(input, compression, default_level)
+        } else {
+            match compression {
+                Some(compression) => super::encode_with_compression_outcome(input, compression),
+                None => super::encode_frame_outcome(input, default_level),
+            }
+        }
     };
     let Some(crate::Compression::Zstd { level }) = compression else {
         return operation(&mut fallback);
@@ -128,7 +139,7 @@ pub(crate) fn with_frame_encoder<R>(
     operation(&mut |input| {
         // Match the ordinary encoder's exact input-size parameter selection.
         // The final short frame retains the established numeric path.
-        if input.len() != first_frame.len || super::looks_incompressible(input) {
+        if input.len() != first_frame.len || (!sensitive && super::looks_incompressible(input)) {
             return fallback(input);
         }
         match encoder.encode_into(input, output) {
@@ -139,6 +150,58 @@ pub(crate) fn with_frame_encoder<R>(
             Err(_) => fallback(input),
         }
     })
+}
+
+// Sensitive callers only; clear archives keep their existing encoding path.
+pub(crate) fn encode_sensitive(input: &[u8], level: CompressionLevel) -> super::FrameEncoding {
+    // The frame format already permits uncompressed fallback. Never fall back
+    // from this protected operation to a codec owning unwiped heap buffers.
+    let Some((scratch_size, output_size)) = EncoderWorkspace::required_size(level, input.len())
+        .ok()
+        .zip(EncoderWorkspace::required_output_size(input.len()).ok())
+    else {
+        return super::FrameEncoding::Raw;
+    };
+    // Bound the protected scratch allocation independently of codec level.
+    // Oversized work uses the existing raw-frame representation, still subject
+    // to the caller's archive encryption and authentication.
+    if scratch_size
+        .checked_add(output_size)
+        .is_none_or(|total| total > 64 * 1024 * 1024)
+    {
+        return super::FrameEncoding::Raw;
+    }
+    let allocate = |size: usize| -> Option<ZeroizingBytes> {
+        let mut bytes = Vec::new();
+        bytes.try_reserve_exact(size).ok()?;
+        bytes.resize(size, 0);
+        Some(ZeroizingBytes::new(bytes))
+    };
+    let Some(mut scratch) = allocate(scratch_size) else {
+        return super::FrameEncoding::Raw;
+    };
+    let Some(mut output) = allocate(output_size) else {
+        return super::FrameEncoding::Raw;
+    };
+    let result = {
+        let Ok(mut encoder) = StaticEncoderWorkspace::new(&mut scratch, level, input.len()) else {
+            return super::FrameEncoding::Raw;
+        };
+        match encoder.encode_into(input, &mut output) {
+            Ok(encoded) if encoded.len() < input.len() => Some(encoded.len()),
+            _ => None,
+        }
+    };
+    match result {
+        Some(length) => {
+            // Transfer the same guarded allocation, without copying or
+            // reallocating its plaintext-derived bytes. Spare capacity remains
+            // guarded until the recipient transfers/encrypts the result.
+            output.truncate(length);
+            super::FrameEncoding::Compressed(output)
+        }
+        None => super::FrameEncoding::Raw,
+    }
 }
 
 #[cfg(test)]

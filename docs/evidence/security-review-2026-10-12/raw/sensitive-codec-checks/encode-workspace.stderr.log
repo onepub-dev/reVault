@@ -1,0 +1,41 @@
+warning: method `into_owned_vec` is never used
+   --> vendor/zstd-complete/src/workspace.rs:341:19
+    |
+318 | impl<T> ReusableVec<T> {
+    | ---------------------- method in this implementation
+...
+341 |     pub(crate) fn into_owned_vec(self) -> Vec<T> {
+    |                   ^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` on by default
+
+warning: `zstd-complete` (lib) generated 1 warning
+warning: unused import: `encode_compression_frame_manifest`
+ --> revault_lockbox_api/src/file_format/block_page.rs:8:40
+  |
+8 |     decode_compression_frame_manifest, encode_compression_frame_manifest, CompressionFrameManifest,
+  |                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `encode_compression_frame_manifest`
+ --> revault_lockbox_api/src/file_format/payload.rs:6:40
+  |
+6 |     decode_compression_frame_manifest, encode_compression_frame_manifest, CompressionFrameManifest,
+  |                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: field `payload` is never read
+  --> revault_lockbox_api/src/model/record.rs:26:16
+   |
+22 | pub(crate) struct DecodedRecord {
+   |                   ------------- field in this struct
+...
+26 |     pub(crate) payload: Vec<u8>,
+   |                ^^^^^^^
+   |
+   = note: `DecodedRecord` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` on by default
+
+warning: `revault_lockbox_api` (lib test) generated 3 warnings (run `cargo fix --lib -p revault_lockbox_api --tests` to apply 2 suggestions)
+    Finished `release` profile [optimized] target(s) in 0.11s
+     Running unittests src/lib.rs (target/release/deps/revault_lockbox_api-9ff5a2f0178b8ac8)

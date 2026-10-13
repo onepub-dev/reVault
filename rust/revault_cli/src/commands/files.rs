@@ -402,13 +402,7 @@ pub(crate) fn extract(args: &[String], access: &Access) -> CliResult<()> {
             LockboxEntryKind::File => {
                 // A full-file extraction is a stream, not an interactive read set.
                 lb.set_workload_profile(WorkloadProfile::ExtractMany);
-                let replace = policy.overwrite && Path::new(dest).exists();
-                lb.extract_file_to(&path, Path::new(dest), replace)?;
-                restore_host_permissions(
-                    Path::new(dest),
-                    entry.permissions,
-                    policy.restore_permissions,
-                )?;
+                lb.extract_file_to_with_policy(&path, Path::new(dest), &policy)?;
             }
             LockboxEntryKind::Symlink => {
                 return Err(cli_error(format!(
@@ -980,26 +974,4 @@ fn confirm_remove(entries: &[LockboxEntry]) -> CliResult<bool> {
         answer.trim().to_ascii_lowercase().as_str(),
         "y" | "yes"
     ))
-}
-
-#[cfg(unix)]
-pub(super) fn restore_host_permissions(
-    path: &Path,
-    permissions: u32,
-    restore: bool,
-) -> CliResult<()> {
-    if restore {
-        use std::os::unix::fs::PermissionsExt;
-        fs::set_permissions(path, fs::Permissions::from_mode(permissions))?;
-    }
-    Ok(())
-}
-
-#[cfg(not(unix))]
-pub(super) fn restore_host_permissions(
-    _path: &Path,
-    _permissions: u32,
-    _restore: bool,
-) -> CliResult<()> {
-    Ok(())
 }

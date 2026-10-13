@@ -1,0 +1,1 @@
+/usr/bin/timeout --kill-after=30s 900s cargo +1.88.0 test --locked --offline --release -p revault_cli@0.5.0-dev.1 --no-run

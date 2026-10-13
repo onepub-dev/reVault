@@ -3,6 +3,45 @@ use crate::{Error, Result};
 use std::ops::{Deref, DerefMut};
 use zeroize::Zeroize;
 
+/// Internal owned plaintext whose sensitivity follows its archive protection.
+/// Successful public ownership transfer is explicit; abandoned encrypted-origin
+/// or pre-encryption bytes are wiped across the full capacity on every exit.
+pub(crate) struct SensitiveBytes {
+    bytes: Vec<u8>,
+    sensitive: bool,
+}
+
+impl SensitiveBytes {
+    pub(crate) fn new(bytes: Vec<u8>, sensitive: bool) -> Self {
+        Self { bytes, sensitive }
+    }
+
+    pub(crate) fn into_vec(mut self) -> Vec<u8> {
+        std::mem::take(&mut self.bytes)
+    }
+}
+
+impl Deref for SensitiveBytes {
+    type Target = Vec<u8>;
+    fn deref(&self) -> &Vec<u8> {
+        &self.bytes
+    }
+}
+
+impl DerefMut for SensitiveBytes {
+    fn deref_mut(&mut self) -> &mut Vec<u8> {
+        &mut self.bytes
+    }
+}
+
+impl Drop for SensitiveBytes {
+    fn drop(&mut self) {
+        if self.sensitive {
+            zeroize_bytes(&mut self.bytes);
+        }
+    }
+}
+
 // Vec<T>::zeroize first wipes every element separately and then wipes the
 // entire allocation again. For bytes, slice zeroization provides the same
 // volatile-write guarantees with one barrier per slice. Cover spare capacity

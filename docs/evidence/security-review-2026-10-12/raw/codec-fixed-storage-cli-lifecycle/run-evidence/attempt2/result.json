@@ -1,0 +1,1 @@
+{"passed":true,"steps":27,"cli_sha256":"450bf8a754620aabe0b4fb48cf6743458e01d11624393cad5afe12656b987ee7","owned_root_removed":true,"scope":"Fresh normal encrypted/signed public lifecycle; create, add/repeat, replace, stop/reopen, extraction bytes, refusal and removal. Explicit headless policy. Synthetic credentials and raw CLI output not retained."}

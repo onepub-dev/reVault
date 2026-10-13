@@ -1,0 +1,18 @@
+# All tests explicitly ignored by the crate (enumerated separately with --list --ignored)
+encoding::levels::fastest_tests::best_level_external_fixture_round_trips_with_rust_and_c_decoders_from_env
+encoding::match_generator::tests::inspect_best_matcher_from_env
+encoding::match_generator::tests::inspect_fastest_matcher_from_env
+tests::fuzz_regressions::test_all_artifacts
+tests::inspect_archive_from_env
+tests::profile_level1_fixture_from_env
+large_level22_ldm_workspace_does_not_allocate
+# External corpus sweeps and optional fuzz-artifact sweep are not in ordinary selection.
+tests::decode_corpus::test_decode_corpus_files
+tests::encode_corpus::test_encode_corpus_files_uncompressed_our_decompressor
+tests::encode_corpus::test_encode_corpus_files_uncompressed_original_decompressor
+tests::encode_corpus::test_encode_corpus_files_compressed_our_decompressor
+tests::encode_corpus::test_encode_corpus_files_compressed_original_decompressor
+encoding::frame_compressor::tests::fuzz_targets
+# Explicit malformed-input regression cases excluded from this ordinary batch.
+static_decoder_overlap_errors_preserve_output_bounds_and_checksum
+huffman_literal_overproduction_returns_error_without_static_growth

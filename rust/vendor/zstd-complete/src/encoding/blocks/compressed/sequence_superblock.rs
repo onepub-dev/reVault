@@ -28,7 +28,8 @@ pub(crate) fn select_c_sequence_table_modes(
 ) -> SequenceTableModes {
     let mut offset_history = offset_history;
     let mut encoded_sequences = Vec::with_capacity(sequences.len());
-    encode_sequences_for_history_into(sequences, &mut offset_history, &mut encoded_sequences);
+    encode_sequences_for_history_into(sequences, &mut offset_history, &mut encoded_sequences)
+        .expect("owned legacy codec allocation failed");
     let config = BlockCompressionConfig::for_c_strategy(strategy);
     let llml_predefined_max_sequences = config
         .file_type_small_sequence_predefined_llml_max_sequences
@@ -53,7 +54,8 @@ pub(crate) fn select_c_sequence_table_modes(
             c_fast_heuristics: config.c_fast_sequence_table_heuristics,
             c_cost_model: config.c_cost_sequence_table_selection,
         },
-    );
+    )
+    .expect("owned sequence selection allocation failed");
 
     SequenceTableModes {
         ll: sequence_table_mode_from_fse_mode(&ll),
@@ -75,7 +77,8 @@ pub(crate) fn prime_sequence_tables_for_repeat(
 
     let mut offset_history = offset_history;
     let mut encoded_sequences = Vec::with_capacity(sequences.len());
-    encode_sequences_for_history_into(sequences, &mut offset_history, &mut encoded_sequences);
+    encode_sequences_for_history_into(sequences, &mut offset_history, &mut encoded_sequences)
+        .expect("owned legacy codec allocation failed");
     let ll_repeat_valid = repeat_valid_after_mode(modes.ll, fse_tables.ll_repeat_valid);
     let ml_repeat_valid = repeat_valid_after_mode(modes.ml, fse_tables.ml_repeat_valid);
     let of_repeat_valid = repeat_valid_after_mode(modes.of, fse_tables.of_repeat_valid);
@@ -160,7 +163,8 @@ pub(crate) fn estimate_superblock_sequence_section_size(
 
     let mut offset_history = offset_history;
     let mut encoded_sequences = Vec::with_capacity(sequences.len());
-    encode_sequences_for_history_into(sequences, &mut offset_history, &mut encoded_sequences);
+    encode_sequences_for_history_into(sequences, &mut offset_history, &mut encoded_sequences)
+        .expect("owned legacy codec allocation failed");
     let (of_estimate, ll_estimate, ml_estimate) = sequence_symbol_estimates(&encoded_sequences);
 
     let mut estimate = SEQUENCES_SECTION_HEADER_SIZE
@@ -267,8 +271,12 @@ fn sequence_table_definition_size(
 fn fse_table_definition_size(table: &FSETable) -> usize {
     let mut bytes = Vec::new();
     let mut writer = BitWriter::from(&mut bytes);
-    table.write_table(&mut writer);
-    writer.flush();
+    table
+        .write_table(&mut writer)
+        .expect("owned legacy codec allocation failed");
+    writer
+        .flush()
+        .expect("owned legacy codec allocation failed");
     bytes.len()
 }
 

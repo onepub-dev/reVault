@@ -34,7 +34,10 @@ impl Fixture {
             .current_dir(self.root.path())
             .args(args)
             .env("LOCKBOX_VAULT_DIR", self.root.path().join("vault"))
-            .env("LOCKBOX_SESSION_AGENT_DIR", self.root.path().join("agent"))
+            .env(
+                "LOCKBOX_SESSION_AGENT_DIR",
+                common::agent_socket_dir(&self.root.path().join("agent")),
+            )
             .env(
                 "LOCKBOX_SESSION_AGENT_LOG",
                 self.root.path().join("agent.log"),

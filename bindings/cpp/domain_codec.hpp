@@ -21,6 +21,7 @@ inline bindings::PageInspection convert(const internal::PageInspectionT& value);
 inline bindings::FileInspection convert(const internal::FileInspectionT& value);
 inline bindings::ProfileGeneration convert(const internal::ProfileGenerationT& value);
 inline bindings::ProfileHistory convert(const internal::ProfileHistoryT& value);
+inline bindings::LockboxAlias convert(const internal::LockboxAliasT& value);
 inline bindings::KnownLockbox convert(const internal::KnownLockboxT& value);
 inline bindings::AccessSlotLabel convert(const internal::AccessSlotLabelT& value);
 inline bindings::StreamChunk convert(const internal::StreamChunkT& value);
@@ -86,6 +87,9 @@ inline bindings::ProfileGeneration convert(const internal::ProfileGenerationT& v
 inline bindings::ProfileHistory convert(const internal::ProfileHistoryT& value) {
   return {value.name, value.active_generation, convert_owned_vector<bindings::ProfileGeneration>(value.generations)};
 }
+inline bindings::LockboxAlias convert(const internal::LockboxAliasT& value) {
+  return {value.name, value.lockbox_id};
+}
 inline bindings::KnownLockbox convert(const internal::KnownLockboxT& value) {
   return {value.lockbox_id, value.path, value.last_seen_unix_ms};
 }
@@ -111,7 +115,7 @@ inline bindings::AgentEntry convert(const internal::AgentEntryT& value) {
   return {value.id, value.path};
 }
 inline bindings::SleepSupport convert(const internal::SleepSupportT& value) {
-  return {value.suspend_notifications, value.sleep_inhibition, value.supported};
+  return {value.suspend_notifications, value.sleep_inhibition, value.supported, value.cache_clearing_active};
 }
 inline bindings::PlatformStatus convert(const internal::PlatformStatusT& value) {
   return {value.supported, value.disabled, value.scope, value.backend, value.item};
@@ -169,6 +173,9 @@ template <> bindings::ProfileGeneration decode<bindings::ProfileGeneration>(std:
 }
 template <> bindings::ProfileHistory decode<bindings::ProfileHistory>(std::span<const std::uint8_t> bytes) {
   return convert(*flatbuffers::GetRoot<internal::ProfileHistory>(bytes.data())->UnPack());
+}
+template <> bindings::LockboxAlias decode<bindings::LockboxAlias>(std::span<const std::uint8_t> bytes) {
+  return convert(*flatbuffers::GetRoot<internal::LockboxAlias>(bytes.data())->UnPack());
 }
 template <> bindings::KnownLockbox decode<bindings::KnownLockbox>(std::span<const std::uint8_t> bytes) {
   return convert(*flatbuffers::GetRoot<internal::KnownLockbox>(bytes.data())->UnPack());
@@ -237,6 +244,10 @@ template <> bindings::FormRecordList decode<bindings::FormRecordList>(std::span<
 template <> bindings::ContactList decode<bindings::ContactList>(std::span<const std::uint8_t> bytes) {
   auto value = flatbuffers::GetRoot<internal::ContactList>(bytes.data())->UnPack();
   return convert_owned_vector<bindings::Contact>(value->values);
+}
+template <> bindings::LockboxAliasList decode<bindings::LockboxAliasList>(std::span<const std::uint8_t> bytes) {
+  auto value = flatbuffers::GetRoot<internal::LockboxAliasList>(bytes.data())->UnPack();
+  return convert_owned_vector<bindings::LockboxAlias>(value->values);
 }
 template <> bindings::KnownLockboxList decode<bindings::KnownLockboxList>(std::span<const std::uint8_t> bytes) {
   auto value = flatbuffers::GetRoot<internal::KnownLockboxList>(bytes.data())->UnPack();

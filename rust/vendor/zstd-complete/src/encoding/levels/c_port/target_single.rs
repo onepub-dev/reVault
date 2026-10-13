@@ -31,7 +31,7 @@ pub(super) fn try_huffman_literal_only_sub_block(
     bytes: &[u8],
     strategy: Strategy,
     repeat_offsets: super::sequence_store::RepeatOffsets,
-) -> Option<GreedyEncodedBlock> {
+) -> Result<Option<GreedyEncodedBlock>, crate::workspace::CapacityError> {
     let previous_offsets = *offset_history;
     let previous_fse = fse_tables.snapshot_previous();
     let mut candidate = bytes.to_vec();
@@ -47,7 +47,7 @@ pub(super) fn try_huffman_literal_only_sub_block(
     ) else {
         fse_tables.restore_previous(previous_fse);
         *offset_history = previous_offsets;
-        return None;
+        return Ok(None);
     };
     let Some(sequence_emission) = append_supported_sub_block_sequences(
         &[],
@@ -56,10 +56,11 @@ pub(super) fn try_huffman_literal_only_sub_block(
         fse_tables,
         offset_history,
         &mut candidate,
-    ) else {
+    )?
+    else {
         fse_tables.restore_previous(previous_fse);
         *offset_history = previous_offsets;
-        return None;
+        return Ok(None);
     };
 
     let content_size = candidate.len() - content_start;
@@ -76,14 +77,14 @@ pub(super) fn try_huffman_literal_only_sub_block(
     if !should_commit_sub_block(BLOCK_HEADER_SIZE + content_size, block.len()) {
         fse_tables.restore_previous(previous_fse);
         *offset_history = previous_offsets;
-        return None;
+        return Ok(None);
     }
 
-    Some(GreedyEncodedBlock {
-        bytes: candidate,
+    Ok(Some(GreedyEncodedBlock {
+        bytes: crate::workspace::ReusableVec::from_owned(candidate),
         repeat_offsets,
         new_huffman_table: literal_emission.new_huffman_table,
-    })
+    }))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -98,7 +99,7 @@ pub(super) fn try_huffman_sequence_sub_block(
     literal_mode: HuffmanLiteralMode,
     strategy: Strategy,
     sequence_modes: SequenceEntropyModes,
-) -> Option<GreedyEncodedBlock> {
+) -> Result<Option<GreedyEncodedBlock>, crate::workspace::CapacityError> {
     let previous_offsets = *offset_history;
     let previous_fse = fse_tables.snapshot_previous();
     let mut candidate = bytes.to_vec();
@@ -114,7 +115,7 @@ pub(super) fn try_huffman_sequence_sub_block(
     ) else {
         fse_tables.restore_previous(previous_fse);
         *offset_history = previous_offsets;
-        return None;
+        return Ok(None);
     };
     let Some(sequence_emission) = append_supported_sub_block_sequences(
         prepared.prepared.sequences.as_slice(),
@@ -123,10 +124,11 @@ pub(super) fn try_huffman_sequence_sub_block(
         fse_tables,
         offset_history,
         &mut candidate,
-    ) else {
+    )?
+    else {
         fse_tables.restore_previous(previous_fse);
         *offset_history = previous_offsets;
-        return None;
+        return Ok(None);
     };
 
     let content_size = candidate.len() - content_start;
@@ -145,15 +147,15 @@ pub(super) fn try_huffman_sequence_sub_block(
         if sequence_modes_clear_previous(sequence_modes) {
             fse_tables.reset();
         }
-        Some(GreedyEncodedBlock {
-            bytes: candidate,
+        Ok(Some(GreedyEncodedBlock {
+            bytes: crate::workspace::ReusableVec::from_owned(candidate),
             repeat_offsets: prepared.repeat_offsets,
             new_huffman_table: literal_emission.new_huffman_table,
-        })
+        }))
     } else {
         fse_tables.restore_previous(previous_fse);
         *offset_history = previous_offsets;
-        None
+        Ok(None)
     }
 }
 
@@ -165,7 +167,7 @@ pub(super) fn try_sequence_sub_block(
     offset_history: &mut OffsetHistory,
     bytes: &[u8],
     sequence_modes: SequenceEntropyModes,
-) -> Option<GreedyEncodedBlock> {
+) -> Result<Option<GreedyEncodedBlock>, crate::workspace::CapacityError> {
     let previous_offsets = *offset_history;
     let previous_fse = fse_tables.snapshot_previous();
     let mut candidate = bytes.to_vec();
@@ -180,23 +182,24 @@ pub(super) fn try_sequence_sub_block(
         fse_tables,
         offset_history,
         &mut candidate,
-    ) else {
+    )?
+    else {
         fse_tables.restore_previous(previous_fse);
         *offset_history = previous_offsets;
-        return None;
+        return Ok(None);
     };
     if should_commit_sub_block(emission.byte_size, block.len()) {
         if sequence_modes_clear_previous(sequence_modes) {
             fse_tables.reset();
         }
-        Some(GreedyEncodedBlock {
-            bytes: candidate,
+        Ok(Some(GreedyEncodedBlock {
+            bytes: crate::workspace::ReusableVec::from_owned(candidate),
             repeat_offsets: prepared.repeat_offsets,
             new_huffman_table: None,
-        })
+        }))
     } else {
         fse_tables.restore_previous(previous_fse);
         *offset_history = previous_offsets;
-        None
+        Ok(None)
     }
 }

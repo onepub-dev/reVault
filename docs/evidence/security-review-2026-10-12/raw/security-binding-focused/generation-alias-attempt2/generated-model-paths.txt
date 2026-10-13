@@ -1,0 +1,16 @@
+../bindings/cpp/generated/flatbuffers/revault_bindings_generated.h
+../bindings/csharp/Generated/FlatBuffers/revault_bindings_generated.cs
+../bindings/dart/lib/src/generated/flatbuffers/revault_bindings_revault.internal_generated.dart
+../bindings/go/internal/transport/revault_bindings_generated.go
+../bindings/java/generated/flatbuffers/com/onepub/revault/internal/LockboxAlias.java
+../bindings/java/generated/flatbuffers/com/onepub/revault/internal/LockboxAliasList.java
+../bindings/java/generated/flatbuffers/com/onepub/revault/internal/LockboxAliasListT.java
+../bindings/java/generated/flatbuffers/com/onepub/revault/internal/LockboxAliasT.java
+../bindings/javascript/generated/flatbuffers/revault/internal.ts
+../bindings/javascript/generated/flatbuffers/revault/internal/lockbox-alias-list.ts
+../bindings/javascript/generated/flatbuffers/revault/internal/lockbox-alias.ts
+../bindings/kotlin/src/main/kotlin/internal/flatbuffers/revault/internal/revault_bindings.kt
+../bindings/php/generated/flatbuffers/LockboxAlias.php
+../bindings/php/generated/flatbuffers/LockboxAliasList.php
+../bindings/python/revault_api/_flatbuffers/revault_bindings_generated.py
+../bindings/swift/Sources/RevaultAPI/Internal/FlatBuffers/revault_bindings_generated.swift

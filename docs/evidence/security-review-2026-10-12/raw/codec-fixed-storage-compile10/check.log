@@ -1,0 +1,716 @@
+    Checking zstd-complete v0.2.0 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/vendor/zstd-complete)
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/bit_io/bit_writer.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `alloc::vec::Vec`
+  --> vendor/zstd-complete/src/decoding/sequence_section_decoder.rs:11:5
+   |
+11 | use alloc::vec::Vec;
+   |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/block_header.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/blocks/compressed/estimate.rs:7:5
+  |
+7 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/blocks/compressed/literals.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/frame_header.rs:4:5
+  |
+4 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:6:5
+  |
+6 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/c_frame_header.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/mode.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/target.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/mode.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/target.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_block/special.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/opt_path.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/superblock_sequences.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/kernel/huff0/mod.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/fse/fse_encoder.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder/stream.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder/table.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+error[E0609]: no field `repeat_offsets` on type `Result<DFastBlockEncoding, CapacityError>`
+   --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_frame.rs:123:27
+    |
+123 |             encoded_block.repeat_offsets,
+    |                           ^^^^^^^^^^^^^^ unknown field
+    |
+help: one of the expressions' fields has a field of the same name
+    |
+123 |             encoded_block.unwrap().repeat_offsets,
+    |                           +++++++++
+
+error[E0609]: no field `new_huffman_table` on type `Result<DFastBlockEncoding, CapacityError>`
+   --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_frame.rs:124:27
+    |
+124 |             encoded_block.new_huffman_table,
+    |                           ^^^^^^^^^^^^^^^^^ unknown field
+    |
+help: one of the expressions' fields has a field of the same name
+    |
+124 |             encoded_block.unwrap().new_huffman_table,
+    |                           +++++++++
+
+error[E0609]: no field `repeat_offsets` on type `Result<DFastBlockEncoding, CapacityError>`
+   --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_frame.rs:246:27
+    |
+246 |             encoded_block.repeat_offsets,
+    |                           ^^^^^^^^^^^^^^ unknown field
+    |
+help: one of the expressions' fields has a field of the same name
+    |
+246 |             encoded_block.unwrap().repeat_offsets,
+    |                           +++++++++
+
+error[E0609]: no field `new_huffman_table` on type `Result<DFastBlockEncoding, CapacityError>`
+   --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_frame.rs:247:27
+    |
+247 |             encoded_block.new_huffman_table,
+    |                           ^^^^^^^^^^^^^^^^^ unknown field
+    |
+help: one of the expressions' fields has a field of the same name
+    |
+247 |             encoded_block.unwrap().new_huffman_table,
+    |                           +++++++++
+
+error[E0609]: no field `repeat_offsets` on type `Result<FastBlockEncoding, CapacityError>`
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_frame.rs:119:27
+    |
+119 |             encoded_block.repeat_offsets,
+    |                           ^^^^^^^^^^^^^^ unknown field
+    |
+help: one of the expressions' fields has a field of the same name
+    |
+119 |             encoded_block.unwrap().repeat_offsets,
+    |                           +++++++++
+
+error[E0609]: no field `new_huffman_table` on type `Result<FastBlockEncoding, CapacityError>`
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_frame.rs:120:27
+    |
+120 |             encoded_block.new_huffman_table,
+    |                           ^^^^^^^^^^^^^^^^^ unknown field
+    |
+help: one of the expressions' fields has a field of the same name
+    |
+120 |             encoded_block.unwrap().new_huffman_table,
+    |                           +++++++++
+
+error[E0609]: no field `repeat_offsets` on type `Result<FastBlockEncoding, CapacityError>`
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_frame.rs:237:27
+    |
+237 |             encoded_block.repeat_offsets,
+    |                           ^^^^^^^^^^^^^^ unknown field
+    |
+help: one of the expressions' fields has a field of the same name
+    |
+237 |             encoded_block.unwrap().repeat_offsets,
+    |                           +++++++++
+
+error[E0609]: no field `new_huffman_table` on type `Result<FastBlockEncoding, CapacityError>`
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_frame.rs:238:27
+    |
+238 |             encoded_block.new_huffman_table,
+    |                           ^^^^^^^^^^^^^^^^^ unknown field
+    |
+help: one of the expressions' fields has a field of the same name
+    |
+238 |             encoded_block.unwrap().new_huffman_table,
+    |                           +++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_block.rs:372:16
+    |
+354 |   ) -> Result<GreedyEncodedBlock, crate::workspace::CapacityError> {
+    |        ----------------------------------------------------------- expected `Result<GreedyEncodedBlock, CapacityError>` because of return type
+...
+372 |           return encode_target_block_with_superblock_fallback(
+    |  ________________^
+373 | |             block,
+374 | |             last_block,
+375 | |             TargetBlockOptions {
+...   |
+383 | |             bytes,
+384 | |         );
+    | |_________^ expected `Result<GreedyEncodedBlock, ...>`, found `GreedyEncodedBlock`
+    |
+    = note: expected enum `Result<GreedyEncodedBlock, CapacityError>`
+             found struct `GreedyEncodedBlock`
+help: try wrapping the expression in `core::prelude::v1::Ok`
+    |
+372 ~         return core::prelude::v1::Ok(encode_target_block_with_superblock_fallback(
+373 |             block,
+...
+383 |             bytes,
+384 ~         ));
+    |
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_ext_block.rs:277:12
+    |
+277 |     if let Some(encoded) = encode_special_block(block, last_block, repeat_offsets, &mut bytes) {
+    |            ^^^^^^^^^^^^^   ------------------------------------------------------------------- this expression has type `Result<Option<GreedyEncodedBlock>, CapacityError>`
+    |            |
+    |            expected `Result<Option<GreedyEncodedBlock>, ...>`, found `Option<_>`
+    |
+    = note: expected enum `Result<Option<GreedyEncodedBlock>, CapacityError>`
+               found enum `Option<_>`
+help: try wrapping the pattern in `core::prelude::v1::Ok`
+    |
+277 |     if let core::prelude::v1::Ok(Some(encoded)) = encode_special_block(block, last_block, repeat_offsets, &mut bytes) {
+    |            ++++++++++++++++++++++             +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_ext_block.rs:338:5
+    |
+273 |   ) -> GreedyEncodedBlock {
+    |        ------------------ expected `GreedyEncodedBlock` because of return type
+...
+338 | /     encode_prepared_block(
+339 | |         block,
+340 | |         last_block,
+341 | |         params,
+...   |
+349 | |         bytes,
+350 | |     )
+    | |_____^ expected `GreedyEncodedBlock`, found `Result<GreedyEncodedBlock, ...>`
+    |
+    = note: expected struct `GreedyEncodedBlock`
+                 found enum `Result<GreedyEncodedBlock, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<GreedyEncodedBlock, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+350 |     ).expect("REASON")
+    |      +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_ext_block.rs:369:12
+    |
+369 |     if let Some(encoded) = encode_special_block(block, last_block, repeat_offsets, &mut bytes) {
+    |            ^^^^^^^^^^^^^   ------------------------------------------------------------------- this expression has type `Result<Option<GreedyEncodedBlock>, CapacityError>`
+    |            |
+    |            expected `Result<Option<GreedyEncodedBlock>, ...>`, found `Option<_>`
+    |
+    = note: expected enum `Result<Option<GreedyEncodedBlock>, CapacityError>`
+               found enum `Option<_>`
+help: try wrapping the pattern in `core::prelude::v1::Ok`
+    |
+369 |     if let core::prelude::v1::Ok(Some(encoded)) = encode_special_block(block, last_block, repeat_offsets, &mut bytes) {
+    |            ++++++++++++++++++++++             +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_ext_block.rs:422:5
+    |
+365 |   ) -> GreedyEncodedBlock {
+    |        ------------------ expected `GreedyEncodedBlock` because of return type
+...
+422 | /     encode_prepared_block(
+423 | |         block,
+424 | |         last_block,
+425 | |         params,
+...   |
+433 | |         bytes,
+434 | |     )
+    | |_____^ expected `GreedyEncodedBlock`, found `Result<GreedyEncodedBlock, ...>`
+    |
+    = note: expected struct `GreedyEncodedBlock`
+                 found enum `Result<GreedyEncodedBlock, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<GreedyEncodedBlock, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+434 |     ).expect("REASON")
+    |      +++++++++++++++++
+
+error[E0609]: no field `bytes` on type `Result<GreedyEncodedBlock, CapacityError>`
+   --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_frame.rs:193:49
+    |
+193 |         output.extend_from_slice(&encoded_block.bytes);
+    |                                                 ^^^^^ unknown field
+    |
+help: one of the expressions' fields has a field of the same name
+    |
+193 |         output.extend_from_slice(&encoded_block.unwrap().bytes);
+    |                                                 +++++++++
+
+error[E0609]: no field `bytes` on type `Result<GreedyEncodedBlock, CapacityError>`
+   --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_frame.rs:195:27
+    |
+195 |             encoded_block.bytes,
+    |                           ^^^^^ unknown field
+    |
+help: one of the expressions' fields has a field of the same name
+    |
+195 |             encoded_block.unwrap().bytes,
+    |                           +++++++++
+
+error[E0308]: `if` and `else` have incompatible types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_frame.rs:237:13
+    |
+218 |             let encoded_block = if dict_limit == 0 {
+    |  _______________________________-
+219 | | /             encode_block_hash_chain_no_dict_with_state_and_policy_in_mode_into(
+220 | | |                 GreedyBlockSource {
+221 | | |                     src,
+222 | | |                     block_range: block_start..block_end,
+...   | |
+234 | | |                 block_bytes,
+235 | | |             )
+    | | |_____________- expected because of this
+236 | |           } else {
+237 | | /             encode_block_hash_chain_ext_dict_with_state_and_policy_in_mode_into(
+238 | | |                 GreedyExtDictBlockSource {
+239 | | |                     src,
+240 | | |                     block_range: block_start..block_end,
+...   | |
+253 | | |                 block_bytes,
+254 | | |             )
+    | | |_____________^ expected `Result<GreedyEncodedBlock, ...>`, found `GreedyEncodedBlock`
+255 | |           };
+    | |___________- `if` and `else` have incompatible types
+    |
+    = note: expected enum `Result<GreedyEncodedBlock, CapacityError>`
+             found struct `GreedyEncodedBlock`
+help: try wrapping the expression in `core::prelude::v1::Ok`
+    |
+237 ~             core::prelude::v1::Ok(encode_block_hash_chain_ext_dict_with_state_and_policy_in_mode_into(
+238 |                 GreedyExtDictBlockSource {
+...
+253 |                 block_bytes,
+254 ~             ))
+    |
+
+error[E0609]: no field `bytes` on type `Result<GreedyEncodedBlock, CapacityError>`
+   --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_frame.rs:373:57
+    |
+373 |         context.output.extend_from_slice(&encoded_block.bytes);
+    |                                                         ^^^^^ unknown field
+    |
+help: one of the expressions' fields has a field of the same name
+    |
+373 |         context.output.extend_from_slice(&encoded_block.unwrap().bytes);
+    |                                                         +++++++++
+
+error[E0308]: `if` and `else` have incompatible types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_frame.rs:435:13
+    |
+417 |             } else if loaded_dict_end == 0 {
+    |  __________________-
+418 | | /             encode_block_hash_chain_no_dict_with_state_and_policy_in_mode(
+419 | | |                 GreedyBlockSource {
+420 | | |                     src: &context.combined,
+421 | | |                     block_range: block_start..block_end,
+...   | |
+432 | | |                 block_encode_mode,
+433 | | |             )
+    | | |_____________- expected because of this
+434 | |           } else {
+435 | | /             encode_block_hash_chain_ext_dict_with_state_and_policy_in_mode(
+436 | | |                 GreedyExtDictBlockSource {
+437 | | |                     src: &context.combined,
+438 | | |                     block_range: block_start..block_end,
+...   | |
+450 | | |                 block_encode_mode,
+451 | | |             )
+    | | |_____________^ expected `Result<GreedyEncodedBlock, ...>`, found `GreedyEncodedBlock`
+452 | |           };
+    | |___________- `if` and `else` have incompatible types
+    |
+    = note: expected enum `Result<GreedyEncodedBlock, CapacityError>`
+             found struct `GreedyEncodedBlock`
+help: try wrapping the expression in `core::prelude::v1::Ok`
+    |
+435 ~             core::prelude::v1::Ok(encode_block_hash_chain_ext_dict_with_state_and_policy_in_mode(
+436 |                 GreedyExtDictBlockSource {
+...
+450 |                 block_encode_mode,
+451 ~             ))
+    |
+
+error[E0308]: mismatched types
+  --> vendor/zstd-complete/src/encoding/levels/c_port/opt_encode/attached.rs:52:12
+   |
+52 |     if let Some(encoded) = encode_special_block(block, last_block, repeat_offsets, &mut bytes) {
+   |            ^^^^^^^^^^^^^   ------------------------------------------------------------------- this expression has type `Result<Option<GreedyEncodedBlock>, CapacityError>`
+   |            |
+   |            expected `Result<Option<GreedyEncodedBlock>, ...>`, found `Option<_>`
+   |
+   = note: expected enum `Result<Option<GreedyEncodedBlock>, CapacityError>`
+              found enum `Option<_>`
+help: try wrapping the pattern in `core::prelude::v1::Ok`
+   |
+52 |     if let core::prelude::v1::Ok(Some(encoded)) = encode_special_block(block, last_block, repeat_offsets, &mut bytes) {
+   |            ++++++++++++++++++++++             +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/opt_encode/attached.rs:167:5
+    |
+48  | ) -> GreedyEncodedBlock {
+    |      ------------------ expected `GreedyEncodedBlock` because of return type
+...
+167 |     encoded
+    |     ^^^^^^^ expected `GreedyEncodedBlock`, found `Result<GreedyEncodedBlock, ...>`
+    |
+    = note: expected struct `GreedyEncodedBlock`
+                 found enum `Result<GreedyEncodedBlock, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<GreedyEncodedBlock, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+167 |     encoded.expect("REASON")
+    |            +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/opt_encode.rs:239:12
+    |
+239 |     if let Some(encoded) = encode_special_block(block, last_block, repeat_offsets, &mut bytes) {
+    |            ^^^^^^^^^^^^^   ------------------------------------------------------------------- this expression has type `Result<Option<GreedyEncodedBlock>, CapacityError>`
+    |            |
+    |            expected `Result<Option<GreedyEncodedBlock>, ...>`, found `Option<_>`
+    |
+    = note: expected enum `Result<Option<GreedyEncodedBlock>, CapacityError>`
+               found enum `Option<_>`
+help: try wrapping the pattern in `core::prelude::v1::Ok`
+    |
+239 |     if let core::prelude::v1::Ok(Some(encoded)) = encode_special_block(block, last_block, repeat_offsets, &mut bytes) {
+    |            ++++++++++++++++++++++             +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/opt_encode.rs:354:5
+    |
+235 | ) -> GreedyEncodedBlock {
+    |      ------------------ expected `GreedyEncodedBlock` because of return type
+...
+354 |     encoded
+    |     ^^^^^^^ expected `GreedyEncodedBlock`, found `Result<GreedyEncodedBlock, ...>`
+    |
+    = note: expected struct `GreedyEncodedBlock`
+                 found enum `Result<GreedyEncodedBlock, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<GreedyEncodedBlock, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+354 |     encoded.expect("REASON")
+    |            +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/opt_encode.rs:403:12
+    |
+403 |     if let Some(encoded) = encode_special_block(block, last_block, repeat_offsets, &mut bytes) {
+    |            ^^^^^^^^^^^^^   ------------------------------------------------------------------- this expression has type `Result<Option<GreedyEncodedBlock>, CapacityError>`
+    |            |
+    |            expected `Result<Option<GreedyEncodedBlock>, ...>`, found `Option<_>`
+    |
+    = note: expected enum `Result<Option<GreedyEncodedBlock>, CapacityError>`
+               found enum `Option<_>`
+help: try wrapping the pattern in `core::prelude::v1::Ok`
+    |
+403 |     if let core::prelude::v1::Ok(Some(encoded)) = encode_special_block(block, last_block, repeat_offsets, &mut bytes) {
+    |            ++++++++++++++++++++++             +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/opt_encode.rs:519:5
+    |
+399 | ) -> GreedyEncodedBlock {
+    |      ------------------ expected `GreedyEncodedBlock` because of return type
+...
+519 |     encoded
+    |     ^^^^^^^ expected `GreedyEncodedBlock`, found `Result<GreedyEncodedBlock, ...>`
+    |
+    = note: expected struct `GreedyEncodedBlock`
+                 found enum `Result<GreedyEncodedBlock, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<GreedyEncodedBlock, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+519 |     encoded.expect("REASON")
+    |            +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/opt_encode.rs:572:9
+    |
+571 |     match emission {
+    |           -------- this expression has type `Result<PreparedBlockEmission, CapacityError>`
+572 |         PreparedBlockEmission::Raw | PreparedBlockEmission::Rle => GreedyEncodedBlock {
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `Result<PreparedBlockEmission, ...>`, found `PreparedBlockEmission`
+    |
+   ::: vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:56:5
+    |
+56  |     Raw,
+    |     --- unit variant defined here
+    |
+    = note: expected enum `Result<PreparedBlockEmission, CapacityError>`
+               found enum `PreparedBlockEmission`
+help: try wrapping the pattern in `core::prelude::v1::Ok`
+    |
+572 |         core::prelude::v1::Ok(PreparedBlockEmission::Raw) | PreparedBlockEmission::Rle => GreedyEncodedBlock {
+    |         ++++++++++++++++++++++                          +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/opt_encode.rs:572:38
+    |
+571 |     match emission {
+    |           -------- this expression has type `Result<PreparedBlockEmission, CapacityError>`
+572 |         PreparedBlockEmission::Raw | PreparedBlockEmission::Rle => GreedyEncodedBlock {
+    |                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `Result<PreparedBlockEmission, ...>`, found `PreparedBlockEmission`
+    |
+   ::: vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:57:5
+    |
+57  |     Rle,
+    |     --- unit variant defined here
+    |
+    = note: expected enum `Result<PreparedBlockEmission, CapacityError>`
+               found enum `PreparedBlockEmission`
+help: try wrapping the pattern in `core::prelude::v1::Ok`
+    |
+572 |         PreparedBlockEmission::Raw | core::prelude::v1::Ok(PreparedBlockEmission::Rle) => GreedyEncodedBlock {
+    |                                      ++++++++++++++++++++++                          +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/opt_encode.rs:577:9
+    |
+571 |     match emission {
+    |           -------- this expression has type `Result<PreparedBlockEmission, CapacityError>`
+...
+577 |         PreparedBlockEmission::Compressed { new_huffman_table } => GreedyEncodedBlock {
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `Result<PreparedBlockEmission, ...>`, found `PreparedBlockEmission`
+    |
+    = note: expected enum `Result<PreparedBlockEmission, CapacityError>`
+               found enum `PreparedBlockEmission`
+help: try wrapping the pattern in `core::prelude::v1::Ok`
+    |
+577 |         core::prelude::v1::Ok(PreparedBlockEmission::Compressed { new_huffman_table }) => GreedyEncodedBlock {
+    |         ++++++++++++++++++++++                                                       +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/post_split.rs:152:16
+    |
+152 |         if let PreparedBlockEmission::Compressed { new_huffman_table } = emission {
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^   -------- this expression has type `Result<PreparedBlockEmission, CapacityError>`
+    |                |
+    |                expected `Result<PreparedBlockEmission, ...>`, found `PreparedBlockEmission`
+    |
+    = note: expected enum `Result<PreparedBlockEmission, CapacityError>`
+               found enum `PreparedBlockEmission`
+help: try wrapping the pattern in `core::prelude::v1::Ok`
+    |
+152 |         if let core::prelude::v1::Ok(PreparedBlockEmission::Compressed { new_huffman_table }) = emission {
+    |                ++++++++++++++++++++++                                                       +
+
+error[E0308]: mismatched types
+  --> vendor/zstd-complete/src/encoding/levels/c_port/target_block.rs:55:12
+   |
+55 |         if append_rle_block(block, last_block, &mut candidate) {
+   |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `bool`, found `Result<bool, CapacityError>`
+   |
+   = note: expected type `bool`
+              found enum `Result<bool, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<bool, CapacityError>` value, panicking if the value is a `Result::Err`
+   |
+55 |         if append_rle_block(block, last_block, &mut candidate).expect("REASON") {
+   |                                                               +++++++++++++++++
+
+error[E0308]: mismatched types
+  --> vendor/zstd-complete/src/encoding/levels/c_port/target_block.rs:69:16
+   |
+69 |           if let Some(emission) = append_literal_only_sub_block(
+   |  ________________^^^^^^^^^^^^^^___-
+   | |                |
+   | |                expected `Result<Option<SubBlockEmission>, ...>`, found `Option<_>`
+70 | |             prepared.prepared.literals.as_slice(),
+71 | |             last_block,
+72 | |             EntropyTableMode::Rle,
+...  |
+76 | |             &mut candidate,
+77 | |         ) {
+   | |_________- this expression has type `Result<Option<SubBlockEmission>, CapacityError>`
+   |
+   = note: expected enum `Result<Option<SubBlockEmission>, CapacityError>`
+              found enum `Option<_>`
+help: try wrapping the pattern in `core::prelude::v1::Ok`
+   |
+69 |         if let core::prelude::v1::Ok(Some(emission)) = append_literal_only_sub_block(
+   |                ++++++++++++++++++++++              +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/target_block.rs:149:16
+    |
+149 |         if let Some(encoded) =
+    |                ^^^^^^^^^^^^^ expected `Result<Option<GreedyEncodedBlock>, ...>`, found `Option<_>`
+150 |             try_huffman_literal_multi_sub_blocks(multi_target, prepared, fse_tables, offset_history)
+    |             ---------------------------------------------------------------------------------------- this expression has type `Result<Option<GreedyEncodedBlock>, CapacityError>`
+    |
+    = note: expected enum `Result<Option<GreedyEncodedBlock>, CapacityError>`
+               found enum `Option<_>`
+help: try wrapping the pattern in `core::prelude::v1::Ok`
+    |
+149 |         if let core::prelude::v1::Ok(Some(encoded)) =
+    |                ++++++++++++++++++++++             +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/target_block.rs:344:16
+    |
+344 |         if let Some(encoded) =
+    |                ^^^^^^^^^^^^^ expected `Result<Option<GreedyEncodedBlock>, ...>`, found `Option<_>`
+345 |             try_basic_literal_multi_sub_blocks(multi_target, prepared, fse_tables, offset_history)
+    |             -------------------------------------------------------------------------------------- this expression has type `Result<Option<GreedyEncodedBlock>, CapacityError>`
+    |
+    = note: expected enum `Result<Option<GreedyEncodedBlock>, CapacityError>`
+               found enum `Option<_>`
+help: try wrapping the pattern in `core::prelude::v1::Ok`
+    |
+344 |         if let core::prelude::v1::Ok(Some(encoded)) =
+    |                ++++++++++++++++++++++             +
+
+error[E0308]: mismatched types
+  --> vendor/zstd-complete/src/encoding/levels/c_port/target_single.rs:52:9
+   |
+52 |       let Some(sequence_emission) = append_supported_sub_block_sequences(
+   |  _________^^^^^^^^^^^^^^^^^^^^^^^___-
+   | |         |
+   | |         expected `Result<Option<...>, ...>`, found `Option<_>`
+53 | |         &[],
+54 | |         super::target_modes::basic_sequence_modes(),
+55 | |         false,
+...  |
+58 | |         &mut candidate,
+59 | |     ) else {
+   | |_____- this expression has type `Result<Option<SubBlockSequenceEmission>, CapacityError>`
+   |
+   = note: expected enum `Result<Option<SubBlockSequenceEmission>, CapacityError>`
+              found enum `Option<_>`
+help: try wrapping the pattern in `core::prelude::v1::Ok`
+   |
+52 |     let core::prelude::v1::Ok(Some(sequence_emission)) = append_supported_sub_block_sequences(
+   |         ++++++++++++++++++++++                       +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/target_single.rs:119:9
+    |
+119 |       let Some(sequence_emission) = append_supported_sub_block_sequences(
+    |  _________^^^^^^^^^^^^^^^^^^^^^^^___-
+    | |         |
+    | |         expected `Result<Option<...>, ...>`, found `Option<_>`
+120 | |         prepared.prepared.sequences.as_slice(),
+121 | |         sequence_modes,
+122 | |         true,
+...   |
+125 | |         &mut candidate,
+126 | |     ) else {
+    | |_____- this expression has type `Result<Option<SubBlockSequenceEmission>, CapacityError>`
+    |
+    = note: expected enum `Result<Option<SubBlockSequenceEmission>, CapacityError>`
+               found enum `Option<_>`
+help: try wrapping the pattern in `core::prelude::v1::Ok`
+    |
+119 |     let core::prelude::v1::Ok(Some(sequence_emission)) = append_supported_sub_block_sequences(
+    |         ++++++++++++++++++++++                       +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/target_single.rs:172:9
+    |
+172 |       let Some(emission) = append_sequence_sub_block(
+    |  _________^^^^^^^^^^^^^^___-
+    | |         |
+    | |         expected `Result<Option<SubBlockEmission>, ...>`, found `Option<_>`
+173 | |         prepared.prepared.literals.as_slice(),
+174 | |         prepared.prepared.sequences.as_slice(),
+175 | |         last_block,
+...   |
+182 | |         &mut candidate,
+183 | |     ) else {
+    | |_____- this expression has type `Result<Option<SubBlockEmission>, CapacityError>`
+    |
+    = note: expected enum `Result<Option<SubBlockEmission>, CapacityError>`
+               found enum `Option<_>`
+help: try wrapping the pattern in `core::prelude::v1::Ok`
+    |
+172 |     let core::prelude::v1::Ok(Some(emission)) = append_sequence_sub_block(
+    |         ++++++++++++++++++++++              +
+
+Some errors have detailed explanations: E0308, E0609.
+For more information about an error, try `rustc --explain E0308`.
+warning: `zstd-complete` (lib) generated 20 warnings
+error: could not compile `zstd-complete` (lib) due to 35 previous errors; 20 warnings emitted

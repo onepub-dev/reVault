@@ -1,0 +1,2 @@
+exit=0
+source_after_check_exit=0

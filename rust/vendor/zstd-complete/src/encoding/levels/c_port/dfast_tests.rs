@@ -34,7 +34,8 @@ fn double_fast_no_dict_keeps_tiny_blocks_as_last_literals() {
     let data = b"abcdefgh";
 
     let output =
-        compress_block_double_fast_no_dict(data, level3_params(data.len()), RepeatOffsets::new());
+        compress_block_double_fast_no_dict(data, level3_params(data.len()), RepeatOffsets::new())
+            .expect("test storage admission");
 
     assert!(output.sequences.is_empty());
     assert_eq!(output.last_literals, data.len() as u32);
@@ -46,7 +47,8 @@ fn double_fast_no_dict_emits_repcode_at_next_position() {
     let data = b"aaaaaaaaaaaaaaaa";
 
     let output =
-        compress_block_double_fast_no_dict(data, level3_params(data.len()), RepeatOffsets::new());
+        compress_block_double_fast_no_dict(data, level3_params(data.len()), RepeatOffsets::new())
+            .expect("test storage admission");
 
     assert_eq!(
         output.sequences,
@@ -65,7 +67,8 @@ fn double_fast_no_dict_uses_long_match_over_short_match() {
     let data = b"abcde12345abcde12345-tail";
 
     let output =
-        compress_block_double_fast_no_dict(data, level3_params(data.len()), RepeatOffsets::new());
+        compress_block_double_fast_no_dict(data, level3_params(data.len()), RepeatOffsets::new())
+            .expect("test storage admission");
 
     assert_eq!(
         output.sequences,
@@ -95,17 +98,20 @@ fn double_fast_loaded_dictionary_keeps_full_dictionary_valid_like_c() {
     let block_range = dictionary.len()..combined.len();
 
     let mut no_loaded_state = DFastMatchState::new();
-    super::dfast_dict::load_prefix(&mut no_loaded_state, &combined, dictionary.len(), params);
+    super::dfast_dict::load_prefix(&mut no_loaded_state, &combined, dictionary.len(), params)
+        .expect("test storage admission");
     let no_loaded = compress_block_double_fast_no_dict_with_state(
         &combined,
         block_range.clone(),
         params,
         RepeatOffsets::new(),
         &mut no_loaded_state,
-    );
+    )
+    .expect("test storage admission");
 
     let mut loaded_state = DFastMatchState::new();
-    super::dfast_dict::load_prefix(&mut loaded_state, &combined, dictionary.len(), params);
+    super::dfast_dict::load_prefix(&mut loaded_state, &combined, dictionary.len(), params)
+        .expect("test storage admission");
     let loaded = compress_block_double_fast_no_dict_with_state_and_loaded_dict(
         &combined,
         block_range,
@@ -113,7 +119,8 @@ fn double_fast_loaded_dictionary_keeps_full_dictionary_valid_like_c() {
         RepeatOffsets::new(),
         &mut loaded_state,
         dictionary.len(),
-    );
+    )
+    .expect("test storage admission");
 
     assert!(no_loaded.sequences.is_empty());
     assert!(loaded.sequences.iter().any(|sequence| {
@@ -129,7 +136,8 @@ fn double_fast_no_dict_prepared_block_resolves_sequences() {
     let data = b"abcde12345abcde12345-tail";
 
     let prepared =
-        prepare_block_double_fast_no_dict(data, level3_params(data.len()), RepeatOffsets::new());
+        prepare_block_double_fast_no_dict(data, level3_params(data.len()), RepeatOffsets::new())
+            .expect("test storage admission");
 
     assert_eq!(prepared.prepared.literals, b"abcde12345-tail");
     assert_eq!(prepared.prepared.sequences.len(), 1);
@@ -153,7 +161,8 @@ fn double_fast_state_reuses_sequence_store_after_block_preparation() {
         params,
         RepeatOffsets::new(),
         &mut state,
-    );
+    )
+    .expect("test storage admission");
     let first = state.sequence_store_allocation();
     assert!(first.1 > 0);
 
@@ -163,7 +172,8 @@ fn double_fast_state_reuses_sequence_store_after_block_preparation() {
         params,
         first_block.repeat_offsets,
         &mut state,
-    );
+    )
+    .expect("test storage admission");
 
     assert_eq!(state.sequence_store_allocation(), first);
 }
@@ -187,7 +197,8 @@ fn double_fast_hidden_block_emits_compressed_block() {
             fse_tables: &mut fse_tables,
             offset_history: &mut offset_history,
         },
-    );
+    )
+    .expect("test storage admission");
     let (last_block, block_type, block_size) = parse_block_header(&encoded.bytes);
 
     assert!(last_block);
@@ -215,7 +226,8 @@ fn double_fast_hidden_block_emits_rle_for_single_byte_run() {
             fse_tables: &mut fse_tables,
             offset_history: &mut offset_history,
         },
-    );
+    )
+    .expect("test storage admission");
     let (last_block, block_type, block_size) = parse_block_header(&encoded.bytes);
 
     assert!(last_block);
@@ -244,7 +256,8 @@ fn double_fast_hidden_tiny_rle_candidate_stays_raw_like_c() {
             fse_tables: &mut fse_tables,
             offset_history: &mut offset_history,
         },
-    );
+    )
+    .expect("test storage admission");
     let (last_block, block_type, block_size) = parse_block_header(&encoded.bytes);
 
     assert!(last_block);
@@ -272,7 +285,8 @@ fn double_fast_hidden_block_falls_back_to_raw_when_not_smaller() {
             fse_tables: &mut fse_tables,
             offset_history: &mut offset_history,
         },
-    );
+    )
+    .expect("test storage admission");
     let (last_block, block_type, block_size) = parse_block_header(&encoded.bytes);
 
     assert!(!last_block);
@@ -315,7 +329,8 @@ fn double_fast_state_reuses_prepared_allocations_through_compressed_and_raw_bloc
             fse_tables: &mut fse_tables,
             offset_history: &mut offset_history,
         },
-    );
+    )
+    .expect("test storage admission");
     assert_eq!(parse_block_header(&first.bytes).1, BlockType::Compressed);
     let allocation = state.prepared_store_allocation();
     assert!(allocation.0 .1 >= raw_start);
@@ -339,7 +354,8 @@ fn double_fast_state_reuses_prepared_allocations_through_compressed_and_raw_bloc
             fse_tables: &mut fse_tables,
             offset_history: &mut offset_history,
         },
-    );
+    )
+    .expect("test storage admission");
 
     assert_eq!(parse_block_header(&second.bytes).1, BlockType::Raw);
     assert_eq!(state.prepared_store_allocation(), allocation);
@@ -364,14 +380,16 @@ fn double_fast_state_finds_previous_block_prefix_match() {
         params,
         RepeatOffsets::new(),
         &mut state,
-    );
+    )
+    .expect("test storage admission");
     let second = compress_block_double_fast_no_dict_with_state(
         &data,
         second_block_start..data.len(),
         params,
         first.repeat_offsets,
         &mut state,
-    );
+    )
+    .expect("test storage admission");
 
     assert!(second.sequences.iter().any(|sequence| matches!(
         sequence.off_base(),

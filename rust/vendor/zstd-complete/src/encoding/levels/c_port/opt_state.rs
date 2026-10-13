@@ -1,7 +1,5 @@
 //! Optimal-parser state shared by the no-dictionary C optimal strategies.
 
-use alloc::vec::Vec;
-
 use super::{
     greedy::GreedyMatchState,
     opt_match::OptMatchTable,
@@ -81,7 +79,8 @@ impl OptBlockState {
 
     pub(crate) fn new() -> Self {
         let mut opt = ReusableVec::with_capacity(ZSTD_OPT_NUM + 4);
-        opt.resize(ZSTD_OPT_NUM + 4, Optimal::default());
+        opt.resize(ZSTD_OPT_NUM + 4, Optimal::default())
+            .expect("owned legacy codec allocation failed");
         Self {
             match_state: GreedyMatchState::new(),
             attached_match_state: None,
@@ -128,7 +127,7 @@ impl OptBlockState {
         block_size: usize,
     ) -> Result<Self, ArenaError> {
         let mut opt = arena.allocate_reusable_vec(ZSTD_OPT_NUM + 4)?;
-        opt.resize(ZSTD_OPT_NUM + 4, Optimal::default());
+        opt.resize(ZSTD_OPT_NUM + 4, Optimal::default())?;
         Ok(Self {
             match_state: GreedyMatchState::new_in(arena, params, block_size)?,
             attached_match_state: None,
@@ -159,14 +158,19 @@ impl OptBlockState {
         self.price_state.reset_for_frame();
     }
 
-    pub(crate) fn take_sequences(&mut self, min_capacity: usize) -> ReusableVec<StoredSequence> {
-        let mut sequences = core::mem::take(&mut self.sequences);
-        sequences.clear();
-        let capacity = sequences.capacity();
-        if capacity < min_capacity {
-            sequences.reserve(min_capacity - capacity);
-        }
-        sequences
+    pub(crate) fn take_sequences(
+        &mut self,
+        min_capacity: usize,
+    ) -> Result<ReusableVec<StoredSequence>, crate::workspace::CapacityError> {
+        Ok({
+            let mut sequences = core::mem::take(&mut self.sequences);
+            sequences.clear();
+            let capacity = sequences.capacity();
+            if capacity < min_capacity {
+                sequences.reserve(min_capacity)?;
+            }
+            sequences
+        })
     }
 
     pub(crate) fn recycle_sequences(&mut self, mut sequences: ReusableVec<StoredSequence>) {
@@ -204,20 +208,25 @@ impl OptBlockState {
         self.prepared_store = prepared;
     }
 
-    pub(crate) fn take_block_bytes(&mut self, min_capacity: usize) -> Vec<u8> {
-        let mut bytes = core::mem::take(&mut self.block_bytes);
-        bytes.clear();
-        let capacity = bytes.capacity();
-        if capacity < min_capacity {
-            bytes.reserve(min_capacity - capacity);
-        }
-        let (bytes, lease) = bytes.lease_vec();
-        debug_assert!(self.block_bytes_lease.is_none());
-        self.block_bytes_lease = Some(lease);
-        bytes
+    pub(crate) fn take_block_bytes(
+        &mut self,
+        min_capacity: usize,
+    ) -> Result<ReusableVec<u8>, crate::workspace::CapacityError> {
+        Ok({
+            let mut bytes = core::mem::take(&mut self.block_bytes);
+            bytes.clear();
+            let capacity = bytes.capacity();
+            if capacity < min_capacity {
+                bytes.reserve(min_capacity)?;
+            }
+            let (bytes, lease) = bytes.lease_vec();
+            debug_assert!(self.block_bytes_lease.is_none());
+            self.block_bytes_lease = Some(lease);
+            bytes
+        })
     }
 
-    pub(crate) fn recycle_block_bytes(&mut self, bytes: Vec<u8>) {
+    pub(crate) fn recycle_block_bytes(&mut self, bytes: ReusableVec<u8>) {
         let lease = self
             .block_bytes_lease
             .take()

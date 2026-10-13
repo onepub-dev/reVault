@@ -1,0 +1,21 @@
+Rust file inventory unchanged: 230 files.
+test file: huff0/huff0_encoder/tests.rs
+unchanged production prefix, test suffix: fse/fse_encoder/table.rs
+unchanged production prefix, test suffix: kernel/seqstore.rs
+unchanged production prefix, test suffix: encoding/blocks/compressed/sequence_tables/selection/c_fast.rs
+test file: encoding/blocks/compressed/tests.rs
+unchanged production prefix, test suffix: encoding/levels/c_port/opt_encode/target_preference.rs
+test file: encoding/levels/c_port/fast_ext_tests.rs
+test file: encoding/levels/c_port/greedy_tests.rs
+test file: encoding/levels/c_port/target_block_tests.rs
+test file: encoding/levels/c_port/ldm_window_tests.rs
+test file: encoding/levels/c_port/dfast_ext_tests.rs
+test file: encoding/levels/c_port/opt_parser_tests.rs
+test file: encoding/levels/c_port/fast_tests.rs
+test file: encoding/levels/c_port/post_split/tests.rs
+unchanged production prefix, test suffix: encoding/levels/c_port/block_emit.rs
+test file: encoding/levels/c_port/ldm_tests.rs
+test file: encoding/levels/c_port/dfast_tests.rs
+test file: encoding/levels/c_port/greedy_ext_tests.rs
+unchanged production prefix, test suffix: encoding/levels/c_port/post_split.rs
+[32;1m19 changed Rust files classified by reviewed test paths/boundaries; prefixes equal passing compile28 snapshot. Suffix item reachability requires accompanying source review.[0m

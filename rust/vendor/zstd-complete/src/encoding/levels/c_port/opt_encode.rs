@@ -45,7 +45,7 @@ pub(crate) fn encode_block_btopt_no_dict_with_state(
     opt_state: &mut OptBlockState,
     context: GreedyBlockEncodeContext<'_, '_>,
     post_block_splitter: bool,
-) -> GreedyEncodedBlock {
+) -> Result<GreedyEncodedBlock, crate::workspace::CapacityError> {
     encode_block_btopt_no_dict_with_state_and_policy(
         source,
         last_block,
@@ -70,7 +70,7 @@ pub(crate) fn encode_block_btopt_no_dict_with_state_and_policy(
     context: GreedyBlockEncodeContext<'_, '_>,
     post_block_splitter: bool,
     policy: BlockEncodingPolicy,
-) -> GreedyEncodedBlock {
+) -> Result<GreedyEncodedBlock, crate::workspace::CapacityError> {
     encode_block_opt_no_dict_with_state(
         source,
         last_block,
@@ -95,7 +95,7 @@ pub(crate) fn encode_block_btultra_no_dict_with_state(
     opt_state: &mut OptBlockState,
     context: GreedyBlockEncodeContext<'_, '_>,
     post_block_splitter: bool,
-) -> GreedyEncodedBlock {
+) -> Result<GreedyEncodedBlock, crate::workspace::CapacityError> {
     encode_block_btultra_no_dict_with_state_and_policy(
         source,
         last_block,
@@ -120,7 +120,7 @@ pub(crate) fn encode_block_btultra_no_dict_with_state_and_policy(
     context: GreedyBlockEncodeContext<'_, '_>,
     post_block_splitter: bool,
     policy: BlockEncodingPolicy,
-) -> GreedyEncodedBlock {
+) -> Result<GreedyEncodedBlock, crate::workspace::CapacityError> {
     encode_block_opt_no_dict_with_state(
         source,
         last_block,
@@ -147,7 +147,7 @@ fn encode_block_opt_no_dict_with_state(
     strategy: OptParserStrategy,
     post_block_splitter: bool,
     policy: BlockEncodingPolicy,
-) -> GreedyEncodedBlock {
+) -> Result<GreedyEncodedBlock, crate::workspace::CapacityError> {
     encode_block_opt_no_dict_with_state_and_policy(
         source,
         last_block,
@@ -174,7 +174,7 @@ pub(crate) fn encode_block_opt_no_dict_with_state_and_policy(
     strategy: OptParserStrategy,
     post_block_splitter: bool,
     policy: BlockEncodingPolicy,
-) -> GreedyEncodedBlock {
+) -> Result<GreedyEncodedBlock, crate::workspace::CapacityError> {
     encode_block_opt_no_dict_with_state_and_policy_and_ldm(
         source,
         last_block,
@@ -203,7 +203,7 @@ pub(crate) fn encode_block_opt_no_dict_with_state_and_policy_and_ldm(
     post_block_splitter: bool,
     policy: BlockEncodingPolicy,
     ldm_cursor: Option<&mut LdmOptCursor<'_>>,
-) -> GreedyEncodedBlock {
+) -> Result<GreedyEncodedBlock, crate::workspace::CapacityError> {
     encode_block_opt_no_dict_with_state_and_policy_and_ldm_in_mode(
         source,
         last_block,
@@ -232,12 +232,12 @@ pub(crate) fn encode_block_opt_no_dict_with_state_and_policy_and_ldm_in_mode(
     block_encode_mode: BlockEncodeMode,
     policy: BlockEncodingPolicy,
     ldm_cursor: Option<&mut LdmOptCursor<'_>>,
-) -> GreedyEncodedBlock {
+) -> Result<GreedyEncodedBlock, crate::workspace::CapacityError> {
     let block = &source.src[source.block_range.clone()];
-    let mut bytes = opt_state.take_block_bytes(block.len().saturating_add(3));
+    let mut bytes = opt_state.take_block_bytes(block.len().saturating_add(3))?;
 
-    if let Some(encoded) = encode_special_block(block, last_block, repeat_offsets, &mut bytes) {
-        return encoded;
+    if let Some(encoded) = encode_special_block(block, last_block, repeat_offsets, &mut bytes)? {
+        return Ok(encoded);
     }
 
     let mut output = compress_block_opt_no_dict_with_state_and_ldm(
@@ -249,7 +249,7 @@ pub(crate) fn encode_block_opt_no_dict_with_state_and_policy_and_ldm_in_mode(
         strategy,
         ldm_cursor,
         source.loaded_dict_end,
-    );
+    )?;
     if matches!(block_encode_mode, BlockEncodeMode::Normal)
         && config.uses_c_opt_native_sequence_store()
     {
@@ -281,7 +281,7 @@ pub(crate) fn encode_block_opt_no_dict_with_state_and_policy_and_ldm_in_mode(
         repeat_offsets,
         &output,
         opt_state.take_prepared_block(),
-    );
+    )?;
     let output_repeat_offsets = output.repeat_offsets;
     opt_state.recycle_sequences(output.sequences);
     let mut prepared = GreedyPreparedBlock {
@@ -295,7 +295,7 @@ pub(crate) fn encode_block_opt_no_dict_with_state_and_policy_and_ldm_in_mode(
         last_block,
         repeat_offsets,
         &mut prepared,
-    );
+    )?;
     if let Some(target_size) = block_encode_mode.target_c_block_size() {
         let encoded = encode_target_block_with_superblock_fallback(
             block,
@@ -328,10 +328,10 @@ pub(crate) fn encode_block_opt_no_dict_with_state_and_policy_and_ldm_in_mode(
             &mut opt_state.entropy_huffman_scratch,
             &mut opt_state.entropy_fse_scratch,
             bytes,
-        ) {
+        )? {
             Ok(encoded) => {
                 opt_state.recycle_prepared_block(prepared.prepared);
-                return encoded;
+                return Ok(encoded);
             }
             Err(returned) => bytes = returned,
         }
@@ -367,7 +367,7 @@ pub(crate) fn encode_block_opt_ext_dict_with_state_and_policy_and_ldm(
     post_block_splitter: bool,
     policy: BlockEncodingPolicy,
     ldm_cursor: Option<&mut LdmOptCursor<'_>>,
-) -> GreedyEncodedBlock {
+) -> Result<GreedyEncodedBlock, crate::workspace::CapacityError> {
     encode_block_opt_ext_dict_with_state_and_policy_and_ldm_in_mode(
         source,
         last_block,
@@ -396,12 +396,12 @@ pub(crate) fn encode_block_opt_ext_dict_with_state_and_policy_and_ldm_in_mode(
     block_encode_mode: BlockEncodeMode,
     policy: BlockEncodingPolicy,
     ldm_cursor: Option<&mut LdmOptCursor<'_>>,
-) -> GreedyEncodedBlock {
+) -> Result<GreedyEncodedBlock, crate::workspace::CapacityError> {
     let block = &source.src[source.block_range.clone()];
-    let mut bytes = opt_state.take_block_bytes(block.len().saturating_add(3));
+    let mut bytes = opt_state.take_block_bytes(block.len().saturating_add(3))?;
 
-    if let Some(encoded) = encode_special_block(block, last_block, repeat_offsets, &mut bytes) {
-        return encoded;
+    if let Some(encoded) = encode_special_block(block, last_block, repeat_offsets, &mut bytes)? {
+        return Ok(encoded);
     }
 
     let mut output = compress_block_opt_ext_dict_with_state_and_ldm(
@@ -414,7 +414,7 @@ pub(crate) fn encode_block_opt_ext_dict_with_state_and_policy_and_ldm_in_mode(
         strategy,
         ldm_cursor,
         source.loaded_dict_end,
-    );
+    )?;
     if matches!(block_encode_mode, BlockEncodeMode::Normal)
         && config.uses_c_opt_native_sequence_store()
     {
@@ -446,7 +446,7 @@ pub(crate) fn encode_block_opt_ext_dict_with_state_and_policy_and_ldm_in_mode(
         repeat_offsets,
         &output,
         opt_state.take_prepared_block(),
-    );
+    )?;
     let output_repeat_offsets = output.repeat_offsets;
     opt_state.recycle_sequences(output.sequences);
     let mut prepared = GreedyPreparedBlock {
@@ -460,7 +460,7 @@ pub(crate) fn encode_block_opt_ext_dict_with_state_and_policy_and_ldm_in_mode(
         last_block,
         repeat_offsets,
         &mut prepared,
-    );
+    )?;
     if let Some(target_size) = block_encode_mode.target_c_block_size() {
         let encoded = encode_target_block_with_superblock_fallback(
             block,
@@ -493,10 +493,10 @@ pub(crate) fn encode_block_opt_ext_dict_with_state_and_policy_and_ldm_in_mode(
             &mut opt_state.entropy_huffman_scratch,
             &mut opt_state.entropy_fse_scratch,
             bytes,
-        ) {
+        )? {
             Ok(encoded) => {
                 opt_state.recycle_prepared_block(prepared.prepared);
-                return encoded;
+                return Ok(encoded);
             }
             Err(returned) => bytes = returned,
         }
@@ -538,15 +538,15 @@ pub(super) fn encode_stored_opt_block(
     policy: BlockEncodingPolicy,
     context: GreedyBlockEncodeContext<'_, '_>,
     opt_state: &mut OptBlockState,
-    mut bytes: alloc::vec::Vec<u8>,
-) -> GreedyEncodedBlock {
+    mut bytes: crate::workspace::ReusableVec<u8>,
+) -> Result<GreedyEncodedBlock, crate::workspace::CapacityError> {
     let compressed_repeat_offsets = stored.repeat_offsets;
     let literal_store = prepare_stored_literal_words_in(
         block,
         &stored.sequences,
         stored.last_literals,
         opt_state.take_literal_store(),
-    );
+    )?;
     let emission = append_stored_block_or_raw(
         block,
         last_block,
@@ -568,16 +568,16 @@ pub(super) fn encode_stored_opt_block(
     opt_state.recycle_literal_store(literal_store);
     opt_state.recycle_sequences(core::mem::take(&mut stored.sequences));
 
-    match emission {
-        PreparedBlockEmission::Raw | PreparedBlockEmission::Rle => GreedyEncodedBlock {
+    match emission? {
+        PreparedBlockEmission::Raw | PreparedBlockEmission::Rle => Ok(GreedyEncodedBlock {
             bytes,
             repeat_offsets,
             new_huffman_table: None,
-        },
-        PreparedBlockEmission::Compressed { new_huffman_table } => GreedyEncodedBlock {
+        }),
+        PreparedBlockEmission::Compressed { new_huffman_table } => Ok(GreedyEncodedBlock {
             bytes,
             repeat_offsets: compressed_repeat_offsets,
             new_huffman_table,
-        },
+        }),
     }
 }

@@ -23,6 +23,19 @@ impl CommandTestExt for std::process::Command {
         use std::io::{Read, Seek, Write};
         use std::process::Stdio;
         use std::time::{Duration, Instant};
+        // Persistence E2Es run without assuming a desktop/system bus. Tests
+        // of suspend capability explicitly override these policy values.
+        for key in [
+            "LOCKBOX_AGENT_TERMINATE_ON_SUSPEND",
+            "LOCKBOX_AGENT_PREVENT_SLEEP",
+        ] {
+            if !self
+                .get_envs()
+                .any(|(name, _)| name == std::ffi::OsStr::new(key))
+            {
+                self.env(key, "false");
+            }
+        }
         let mut stdout = tempfile::tempfile()?;
         let mut stderr = tempfile::tempfile()?;
         self.stdout(Stdio::from(stdout.try_clone()?));
@@ -151,4 +164,99 @@ pub fn agent_socket_dir(root: &Path) -> PathBuf {
     }
     #[cfg(not(unix))]
     root.to_owned()
+}
+
+/// Owns only a test's private agent namespace and optional synthetic Vault.
+/// Install before initialization so assertion failures also stop the agent.
+pub struct TestAgentGuard {
+    agent: PathBuf,
+    vault: Option<PathBuf>,
+}
+
+impl TestAgentGuard {
+    pub fn new(agent: &Path, vault: Option<&Path>) -> Self {
+        eprintln!("Owned test agent namespace: {}", agent.display());
+        Self {
+            agent: agent.to_owned(),
+            vault: vault.map(Path::to_owned),
+        }
+    }
+
+    fn cleanup(&self) -> std::io::Result<()> {
+        use std::process::{Command, Stdio};
+        use std::time::{Duration, Instant};
+        let mut command = Command::new(env!("CARGO_BIN_EXE_lockbox"));
+        command
+            .args(["session", "stop"])
+            .env("LOCKBOX_SESSION_AGENT_DIR", &self.agent)
+            .env("LOCKBOX_AGENT_TERMINATE_ON_SUSPEND", "false")
+            .env("LOCKBOX_AGENT_PREVENT_SLEEP", "false")
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null());
+        if let Some(vault) = &self.vault {
+            command.env("LOCKBOX_VAULT_DIR", vault);
+        }
+        let mut child = command.spawn()?;
+        let started = Instant::now();
+        loop {
+            if let Some(status) = child.try_wait()? {
+                if !status.success() {
+                    return Err(std::io::Error::other(format!(
+                        "owned test agent stop failed: {status}"
+                    )));
+                }
+                break;
+            }
+            if started.elapsed() >= Duration::from_secs(15) {
+                // This is the child we just spawned, never the agent or an
+                // unrelated PID. Keep the socket endpoint if shutdown was
+                // unconfirmed; an enclosing TempDir may still remove its Vault.
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::TimedOut,
+                    "owned test agent stop timed out",
+                ));
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        let mut cleanup_error = None;
+        for path in std::iter::once(&self.agent).chain(self.vault.iter()) {
+            match std::fs::remove_dir_all(path) {
+                Ok(()) => {}
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                Err(error) => {
+                    if cleanup_error.is_none() {
+                        cleanup_error = Some(error);
+                    }
+                }
+            }
+        }
+        if let Some(error) = cleanup_error {
+            return Err(error);
+        }
+        eprintln!("Owned test agent stopped and fixture directories removed");
+        Ok(())
+    }
+}
+
+impl Drop for TestAgentGuard {
+    fn drop(&mut self) {
+        if let Err(error) = self.cleanup() {
+            if std::thread::panicking() {
+                eprintln!(
+                    "Owned test agent cleanup failed during unwind: {}, endpoint={}",
+                    error.kind(),
+                    self.agent.display()
+                );
+            } else {
+                panic!(
+                    "owned test agent cleanup failed: {}, endpoint={}",
+                    error.kind(),
+                    self.agent.display()
+                );
+            }
+        }
+    }
 }

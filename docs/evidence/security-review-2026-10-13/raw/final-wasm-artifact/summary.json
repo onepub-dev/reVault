@@ -1,0 +1,92 @@
+{
+  "kind": "curated_fresh_wasm_qualification",
+  "base_head": "cc2909a005f4f7065ace3038a1d9459832432402",
+  "runtime": "uncommitted reviewed security/release correction at final publication gate; pre-hook source",
+  "source_manifest_entries": 1522,
+  "source_inputs_unchanged": true,
+  "build": "cargo +1.88.0 build --locked --offline --release -p revault_wasm_bindings --target wasm32-unknown-unknown",
+  "build_exit": 0,
+  "generation": "wasm-bindgen 0.2.128 --target nodejs",
+  "generation_exit": 0,
+  "node": "24.19.0",
+  "lifecycle_exit": 0,
+  "ordinary_checks": [
+    "password roundtrip and wrong-password refusal",
+    "unsigned32 budget range admission",
+    "explicit budget open and persisted reopen",
+    "Bytes8192 then invalid-mode refusal then Auto cache selection and commit/reopen bytes"
+  ],
+  "artifacts": [
+    {
+      "original_path": "/tmp/rv-wasm-final-20261013/generated/revault_wasm_bindings.js",
+      "sha256": "1695dbef349b2cc307bde72e47deb226d403159428f1394dae85d7cd63967137",
+      "bytes": 43551
+    },
+    {
+      "original_path": "/tmp/rv-wasm-final-20261013/generated/revault_wasm_bindings.d.ts",
+      "sha256": "e1cbe8a2ae21c4fa54d1dfac7a03688c0b2e32b39297d404053d9b921c7e0cf9",
+      "bytes": 10635
+    },
+    {
+      "original_path": "/tmp/rv-wasm-final-20261013/generated/revault_wasm_bindings_bg.wasm",
+      "sha256": "9191f2ec8a27e63f20c5098df811dd380a2646abaf5e68df0221abd3fecfadf5",
+      "bytes": 5127041
+    },
+    {
+      "original_path": "/tmp/rv-wasm-final-20261013/generated/revault_wasm_bindings_bg.wasm.d.ts",
+      "sha256": "c7c6a0d739e0a0da18cbc014e12bc3bceb998a7c9fc2b227f52e32f75cfba9ae",
+      "bytes": 7025
+    }
+  ],
+  "original_evidence_metadata_only": [
+    {
+      "original_path": "/tmp/rv-wasm-final-20261013/run.dart",
+      "sha256": "135972405b4b19a77329ec8fc95f8a71df6b07c8f5f62eecedeb05afb6642d99",
+      "bytes": 8184,
+      "contents_retained_here": false
+    },
+    {
+      "original_path": "/tmp/rv-wasm-final-20261013/lifecycle.js",
+      "sha256": "0eb4b2716c81febc45419916e2ee8064831849223a46f225e1628304d53b25a1",
+      "bytes": 1818,
+      "contents_retained_here": false
+    },
+    {
+      "original_path": "/tmp/rv-wasm-final-20261013/build.log",
+      "sha256": "da05c378c9e5d8b248bd342d13802c5c636e135e3bca5ed1c5d2bd8c701c0a75",
+      "bytes": 31389,
+      "contents_retained_here": false
+    },
+    {
+      "original_path": "/tmp/rv-wasm-final-20261013/lifecycle.log",
+      "sha256": "411abe0fd308d97bca8043ae94e434297e9c5ce3d1ac99d5a1199e42b7aa2cbf",
+      "bytes": 171,
+      "contents_retained_here": false
+    },
+    {
+      "original_path": "/tmp/rv-wasm-final-20261013/wasm-bindgen.log",
+      "sha256": "3cadabec897fd961a14ae0f164fbcc2d872da835fd7c259079ac6fab44594c72",
+      "bytes": 15,
+      "contents_retained_here": false
+    },
+    {
+      "original_path": "/tmp/rv-wasm-final-20261013/source.before.sha256",
+      "sha256": "33ada518c962669af6a226466b9a8e1b9b2b4b0fcd35ae2c293db14df55888e5",
+      "bytes": 201293,
+      "contents_retained_here": false
+    },
+    {
+      "original_path": "/tmp/rv-wasm-final-20261013/source.after.sha256",
+      "sha256": "33ada518c962669af6a226466b9a8e1b9b2b4b0fcd35ae2c293db14df55888e5",
+      "bytes": 201293,
+      "contents_retained_here": false
+    },
+    {
+      "original_path": "/tmp/rv-wasm-final-20261013/summary.json",
+      "sha256": "47c9e78d5c85d837823447ddedbd3f466870c9b2442fcc0e2f8313c1516e6fb4",
+      "bytes": 851,
+      "contents_retained_here": false
+    }
+  ],
+  "raw_retention_disposition": "Automatic approval review rejected copying raw scripts/commands/logs because synthetic credential content was not excluded by limited marker scanning. No copy executed. This replacement retains only curated statuses, fixed nonsecret operation descriptions, file sizes and hashes; no raw output, credentials, private Vault/runtime files or test source contents are retained. Existing owned originals remain outside repository evidence. This is not proof of transcript erasure or a full package-conformance result."
+}

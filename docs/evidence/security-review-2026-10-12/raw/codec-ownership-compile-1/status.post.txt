@@ -1,0 +1,29 @@
+ M rust/Cargo.lock
+ M rust/revault_cli/src/commands/files.rs
+ M rust/revault_cli/src/commands/mirror.rs
+ M rust/revault_lockbox_api/Cargo.toml
+ M rust/revault_lockbox_api/src/compression.rs
+ M rust/revault_lockbox_api/src/file_format/page.rs
+ M rust/revault_lockbox_api/src/file_format/page_buffer.rs
+ M rust/revault_lockbox_api/src/keys/key_derivation.rs
+ M rust/revault_lockbox_api/src/keys/key_slot.rs
+ M rust/revault_lockbox_api/src/keys/key_wrap.rs
+ M rust/revault_lockbox_api/src/keys/signing.rs
+ M rust/revault_lockbox_api/src/lockbox.rs
+ M rust/revault_lockbox_api/src/lockbox/extraction.rs
+ M rust/revault_lockbox_api/src/lockbox/files.rs
+ M rust/revault_lockbox_api/src/lockbox/native_file_reader.rs
+ M rust/revault_migrate_archive_v3/legacy/Cargo.toml
+ M rust/revault_vault_api/Cargo.toml
+ M rust/revault_vault_api/src/active_secret.rs
+ M rust/revault_vault_api/src/unix.rs
+ M rust/revault_vault_api/src/windows.rs
+ M rust/vendor/zstd-complete/src/encoding/blocks/compressed.rs
+ M rust/vendor/zstd-complete/src/encoding/levels/c_port/greedy_block.rs
+ M rust/vendor/zstd-complete/src/encoding/levels/c_port/greedy_ext_block.rs
+ M rust/vendor/zstd-complete/src/encoding/levels/c_port/opt_encode.rs
+ M rust/vendor/zstd-complete/src/encoding/levels/c_port/opt_state.rs
+ M rust/vendor/zstd-complete/src/encoding/levels/c_port/sequence_store.rs
+ M rust/vendor/zstd-complete/src/workspace.rs
+?? docs/evidence/security-review-2026-10-12/
+?? rust/revault_lockbox_api/src/lockbox/secure_output.rs

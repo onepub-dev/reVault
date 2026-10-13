@@ -1,0 +1,1 @@
+cargo +1.88.0 test --locked --offline --release -p revault_lockbox_api --lib --features native-block-layout password_work_override -- --test-threads=1

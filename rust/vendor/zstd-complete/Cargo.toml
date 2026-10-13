@@ -16,8 +16,6 @@ name = "zstd-complete"
 version = "0.2.0"
 build = false
 exclude = [
-    "decodecorpus_files/*",
-    "dict_tests/*",
     "fuzz_decodecorpus/*",
 ]
 autolib = false

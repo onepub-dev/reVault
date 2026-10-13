@@ -159,6 +159,12 @@ internal sealed class BindingOperations
         { return Require(RevaultNative.lockbox_open_with_options((IntPtr)archivePointer, (nuint)archive.Length, (IntPtr)keyPointer, (nuint)key.Length, (IntPtr)cacheModeBytesPointer, (nuint)cacheModeBytes.Length, cacheBytes, (IntPtr)workloadBytesPointer, (nuint)workloadBytes.Length, (IntPtr)workerBytesPointer, (nuint)workerBytes.Length, jobs)); }
     }
 
+    public unsafe IntPtr LockboxOpenPasswordWithBudget(byte[] archive, byte[] password, uint maxDerivations)
+    {
+        fixed (byte* archivePointer = archive)
+        fixed (byte* passwordPointer = password)
+        { return Require(RevaultNative.lockbox_open_password_with_budget((IntPtr)archivePointer, (nuint)archive.Length, (IntPtr)passwordPointer, (nuint)password.Length, maxDerivations)); }
+    }
     public unsafe IntPtr LockboxOpenPassword(byte[] archive, byte[] password)
     {
         fixed (byte* archivePointer = archive)
@@ -195,6 +201,14 @@ internal sealed class BindingOperations
         { return Take(RevaultNative.lockbox_get_file(handle, (IntPtr)pathBytesPointer, (nuint)pathBytes.Length)); }
     }
 
+    public unsafe bool LockboxExtractFileWithPolicy(IntPtr handle, string source, string destination, ulong maxFileBytes, ulong maxTotalBytes, nuint maxFiles, bool restorePermissions, bool overwrite)
+    {
+        var sourceBytes = Encoding.UTF8.GetBytes(source);
+        var destinationBytes = Encoding.UTF8.GetBytes(destination);
+        fixed (byte* sourceBytesPointer = sourceBytes)
+        fixed (byte* destinationBytesPointer = destinationBytes)
+        { return Require(RevaultNative.lockbox_extract_file_with_policy(handle, (IntPtr)sourceBytesPointer, (nuint)sourceBytes.Length, (IntPtr)destinationBytesPointer, (nuint)destinationBytes.Length, maxFileBytes, maxTotalBytes, maxFiles, restorePermissions, overwrite)); }
+    }
     public unsafe bool LockboxExtractFile(IntPtr handle, string source, string destination, bool replace)
     {
         var sourceBytes = Encoding.UTF8.GetBytes(source);
@@ -1080,6 +1094,45 @@ internal sealed class BindingOperations
         fixed (byte* idPointer = id)
         fixed (byte* pathBytesPointer = pathBytes)
         { return Require(RevaultNative.vault_directory_remember_lockbox(handle, (IntPtr)idPointer, (nuint)id.Length, (IntPtr)pathBytesPointer, (nuint)pathBytes.Length)); }
+    }
+
+    public unsafe bool VaultDirectorySetLockboxAlias(IntPtr handle, string name, byte[] id)
+    {
+        var nameBytes = Encoding.UTF8.GetBytes(name);
+        fixed (byte* namePointer = nameBytes)
+        fixed (byte* idPointer = id)
+        { return Require(RevaultNative.vault_directory_set_lockbox_alias(handle, (IntPtr)namePointer, (nuint)nameBytes.Length, (IntPtr)idPointer, (nuint)id.Length)); }
+    }
+
+    public unsafe IReadOnlyList<LockboxAlias> VaultDirectoryListLockboxAliases(IntPtr handle)
+    {
+        return Frame(RevaultNative.vault_directory_list_lockbox_aliases(handle), DomainCodec.LockboxAliasList);
+    }
+
+    public unsafe bool VaultDirectoryRemoveLockboxAlias(IntPtr handle, string name)
+    {
+        var nameBytes = Encoding.UTF8.GetBytes(name);
+        fixed (byte* namePointer = nameBytes)
+        { return Require(RevaultNative.vault_directory_remove_lockbox_alias(handle, (IntPtr)namePointer, (nuint)nameBytes.Length)); }
+    }
+
+    public unsafe KnownLockbox VaultDirectoryResolveLockboxAlias(IntPtr handle, string name)
+    {
+        var nameBytes = Encoding.UTF8.GetBytes(name);
+        fixed (byte* namePointer = nameBytes)
+        { return Frame(RevaultNative.vault_directory_resolve_lockbox_alias(handle, (IntPtr)namePointer, (nuint)nameBytes.Length), DomainCodec.KnownLockbox); }
+    }
+
+    public unsafe IReadOnlyList<LockboxAlias> VaultReadOnlyListLockboxAliases(IntPtr handle)
+    {
+        return Frame(RevaultNative.vault_read_only_list_lockbox_aliases(handle), DomainCodec.LockboxAliasList);
+    }
+
+    public unsafe KnownLockbox VaultReadOnlyResolveLockboxAlias(IntPtr handle, string name)
+    {
+        var nameBytes = Encoding.UTF8.GetBytes(name);
+        fixed (byte* namePointer = nameBytes)
+        { return Frame(RevaultNative.vault_read_only_resolve_lockbox_alias(handle, (IntPtr)namePointer, (nuint)nameBytes.Length), DomainCodec.KnownLockbox); }
     }
 
     public unsafe IReadOnlyList<KnownLockbox> VaultDirectoryListKnownLockboxes(IntPtr handle)

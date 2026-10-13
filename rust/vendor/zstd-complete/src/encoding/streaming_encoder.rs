@@ -416,7 +416,8 @@ fn apply_content_size_policy(frame: &mut Vec<u8>, policy: ContentSizePolicy) -> 
         dictionary_id: parsed.dictionary_id().map(u64::from),
         window_size: Some(window_size),
     }
-    .serialize(&mut header);
+    .serialize(&mut header)
+    .expect("owned legacy codec allocation failed");
     frame.splice(..usize::from(old_header_size), header);
     Ok(())
 }
@@ -457,7 +458,8 @@ fn encode_uncompressed_frame(source: &[u8]) -> Vec<u8> {
         dictionary_id: None,
         window_size: None,
     }
-    .serialize(&mut output);
+    .serialize(&mut output)
+    .expect("owned legacy codec allocation failed");
 
     if source.is_empty() {
         BlockHeader {
@@ -465,7 +467,8 @@ fn encode_uncompressed_frame(source: &[u8]) -> Vec<u8> {
             block_type: BlockType::Raw,
             block_size: 0,
         }
-        .serialize(&mut output);
+        .serialize(&mut output)
+        .expect("owned legacy codec allocation failed");
         return output;
     }
 
@@ -475,7 +478,8 @@ fn encode_uncompressed_frame(source: &[u8]) -> Vec<u8> {
             block_type: BlockType::Raw,
             block_size: block.len() as u32,
         }
-        .serialize(&mut output);
+        .serialize(&mut output)
+        .expect("owned legacy codec allocation failed");
         output.extend_from_slice(block);
     }
     output

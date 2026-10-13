@@ -11,26 +11,28 @@ pub(crate) fn load_prefix(
     src: &[u8],
     prefix_len: usize,
     params: CompressionParameters,
-) {
-    debug_assert!(prefix_len <= src.len());
-    if prefix_len <= HASH_READ_SIZE {
-        return;
-    }
+) -> Result<(), crate::workspace::CapacityError> {
+    Ok({
+        debug_assert!(prefix_len <= src.len());
+        if prefix_len <= HASH_READ_SIZE {
+            return Ok(());
+        }
 
-    state.match_state.ensure_tables(params);
-    let target = prefix_len - HASH_READ_SIZE;
-    let min_match = params.min_match.clamp(3, 6);
-    update_tree_no_dict(
-        src,
-        target,
-        prefix_len,
-        min_match,
-        params,
-        &mut state.match_state,
-        prefix_len,
-    );
-    state.match_state.next_to_update = prefix_len;
-    state.match_state.next_to_update3 = prefix_len;
+        state.match_state.ensure_tables(params)?;
+        let target = prefix_len - HASH_READ_SIZE;
+        let min_match = params.min_match.clamp(3, 6);
+        update_tree_no_dict(
+            src,
+            target,
+            prefix_len,
+            min_match,
+            params,
+            &mut state.match_state,
+            prefix_len,
+        );
+        state.match_state.next_to_update = prefix_len;
+        state.match_state.next_to_update3 = prefix_len;
+    })
 }
 
 #[cfg(test)]
@@ -56,7 +58,7 @@ mod tests {
         let params = btopt_params();
         let mut state = OptBlockState::new();
 
-        load_prefix(&mut state, data, data.len(), params);
+        load_prefix(&mut state, data, data.len(), params).expect("test storage admission");
 
         assert_eq!(state.match_state.next_to_update, data.len());
         assert_eq!(state.match_state.next_to_update3, data.len());

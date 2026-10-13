@@ -24,10 +24,9 @@ use crate::file_format::decode_compression_frame_segment_payload_view;
 use crate::lockbox_path::LockboxPath;
 use crate::node_kind::NodeKind;
 use crate::page::{PageObject, PageObjectKind, DEFAULT_PAGE_BYTES};
-use crate::page_buffer::ZeroizingBytes;
+use crate::page_buffer::{SensitiveBytes, ZeroizingBytes};
 use crate::page_object_packer::PageObjectPacker;
 use crate::security::validate_permissions;
-use crate::storage::atomic_file_replacement::AtomicFileReplacement;
 use crate::toc_entry::TocEntry;
 use crate::{Error, Result, WorkloadProfile};
 use sha2::{Digest, Sha256};
@@ -38,6 +37,7 @@ use zeroize::Zeroize;
 #[cfg(any(test, feature = "native-block-layout"))]
 pub(super) enum NativeReadBytes {
     Owned(Vec<u8>),
+    SensitiveOwned(SensitiveBytes),
     Shared {
         frame: Arc<super::CachedCompressionFrame>,
         range: std::ops::Range<usize>,
@@ -47,6 +47,12 @@ pub(super) enum NativeReadBytes {
 
 #[cfg(any(test, feature = "native-block-layout"))]
 impl NativeReadBytes {
+    fn for_internal_write(self, sensitive: bool) -> Self {
+        match self {
+            Self::Owned(bytes) => Self::SensitiveOwned(SensitiveBytes::new(bytes, sensitive)),
+            other => other,
+        }
+    }
     fn ensure_current(&self, storage: &crate::storage::StorageBackend) -> Result<()> {
         if let Self::Shared {
             source_guard: Some((required_end, revision)),
@@ -66,6 +72,7 @@ impl NativeReadBytes {
     fn into_vec(self, storage: &crate::storage::StorageBackend) -> Result<Vec<u8>> {
         match self {
             Self::Owned(bytes) => Ok(bytes),
+            Self::SensitiveOwned(bytes) => Ok(bytes.into_vec()),
             shared @ Self::Shared { .. } => {
                 let mut bytes = ZeroizingBytes::new(shared.to_vec());
                 // Owned results keep the original cache-hit check after copying.
@@ -82,6 +89,7 @@ impl std::ops::Deref for NativeReadBytes {
     fn deref(&self) -> &[u8] {
         match self {
             Self::Owned(bytes) => bytes,
+            Self::SensitiveOwned(bytes) => bytes,
             Self::Shared { frame, range, .. } => &frame.data[range.clone()],
         }
     }
@@ -762,6 +770,7 @@ impl<State> Lockbox<State> {
         let jobs = jobs.max(1);
         let level = self.compression_frame_zstd_level();
         let pipeline = FileImportPipeline::new(level, jobs)
+            .with_sensitive(!self.format_mode.plaintext())
             .with_compression(self.configured_compression())
             .with_native_blocks(cfg!(feature = "native-block-layout") && self.format_mode.0 != 0);
         let queue_bound = jobs.saturating_mul(2).max(1);
@@ -892,14 +901,16 @@ impl<State> Lockbox<State> {
                 return Ok(std::mem::take(&mut *decoded));
             }
         }
-        let mut out = Vec::new();
-        // Reserve raw multi-frame output once. Compressed frames retain the
-        // existing allocation order: reserving the final output before decoder
-        // scratch allocation regressed compressible large-file reads.
-        if entry
-            .chunks
-            .iter()
-            .all(|chunk| chunk.compression == COMPRESSION_NONE)
+        let sensitive = !self.format_mode.plaintext();
+        let mut out = SensitiveBytes::new(Vec::new(), sensitive);
+        // Sensitive output must not grow after plaintext has been copied:
+        // ordinary Vec growth would free an unwiped previous allocation.
+        // Clear compressed output retains the existing allocation order.
+        if sensitive
+            || entry
+                .chunks
+                .iter()
+                .all(|chunk| chunk.compression == COMPRESSION_NONE)
         {
             let capacity = usize::try_from(entry.len).map_err(|_| {
                 Error::SecurityLimitExceeded("file contents exceed addressable memory".to_string())
@@ -908,8 +919,8 @@ impl<State> Lockbox<State> {
                 Error::SecurityLimitExceeded("cannot allocate complete file contents".to_string())
             })?;
         }
-        self.extract_file_to_writer(path, &mut out)?;
-        Ok(out)
+        self.extract_file_to_writer(path, &mut *out)?;
+        Ok(out.into_vec())
     }
 
     /// Extract a file's contents to a writer.
@@ -956,9 +967,13 @@ impl<State> Lockbox<State> {
                 self.read_native_block_chunk_view(entry.len, &chunk, 0..chunk.len, true)?
             } else {
                 NativeReadBytes::Owned(self.read_file_chunk_compression_frame(entry.len, &chunk)?)
-            };
+            }
+            .for_internal_write(!self.format_mode.plaintext());
             #[cfg(not(any(test, feature = "native-block-layout")))]
-            let decoded_chunk = self.read_file_chunk_compression_frame(entry.len, &chunk)?;
+            let decoded_chunk = SensitiveBytes::new(
+                self.read_file_chunk_compression_frame(entry.len, &chunk)?,
+                !self.format_mode.plaintext(),
+            );
             #[cfg(any(test, feature = "native-block-layout"))]
             decoded_chunk.ensure_current(&self.storage)?;
             writer
@@ -990,34 +1005,59 @@ impl<State> Lockbox<State> {
         destination: &Path,
         replace: bool,
     ) -> Result<()> {
-        if !replace {
-            let mut file = std::fs::OpenOptions::new()
-                .write(true)
-                .create_new(true)
-                .open(destination)
-                .map_err(|err| {
-                    if err.kind() == std::io::ErrorKind::AlreadyExists {
-                        Error::AlreadyExists(destination.display().to_string())
-                    } else {
-                        Error::Io(format!("create {}: {err}", destination.display()))
-                    }
-                })?;
-            return self.extract_file_to_writer(source, &mut file);
-        }
+        self.extract_file_to_staged(source, destination, replace, replace, None)
+    }
 
-        if !destination.exists() {
-            return Err(Error::NotFound(destination.display().to_string()));
+    /// Extract one file with limits and permission restoration applied before
+    /// atomic publication. A failed read leaves any existing destination intact.
+    pub fn extract_file_to_with_policy(
+        &self,
+        source: &LockboxPath,
+        destination: &Path,
+        policy: &crate::ExtractPolicy,
+    ) -> Result<()> {
+        let path = source.as_file_path()?;
+        let entry = self
+            .toc_entries
+            .get(path)
+            .filter(|entry| !entry.deleted && entry.node_kind == crate::node_kind::NodeKind::File)
+            .ok_or_else(|| Error::NotFound(source.to_string()))?;
+        if policy.max_files == 0
+            || entry.len > policy.max_file_bytes
+            || entry.len > policy.max_total_bytes
+        {
+            return Err(Error::SecurityLimitExceeded(
+                "file exceeds extraction limits".into(),
+            ));
         }
-        let (replacement, mut temp_file) =
-            AtomicFileReplacement::create_unique(destination, ".lockbox-extract-file")?;
-        let result = self.extract_file_to_writer(source, &mut temp_file);
-        if let Err(err) = result {
-            replacement.discard();
-            return Err(err);
-        }
-        drop(temp_file);
-        replacement.install()?;
-        Ok(())
+        self.extract_file_to_staged(
+            source,
+            destination,
+            policy.overwrite,
+            false,
+            policy.restore_permissions.then_some(entry.permissions),
+        )
+    }
+
+    fn extract_file_to_staged(
+        &self,
+        source: &LockboxPath,
+        destination: &Path,
+        overwrite: bool,
+        require_existing: bool,
+        permissions: Option<u32>,
+    ) -> Result<()> {
+        let map_error = |error: std::io::Error| match error.kind() {
+            std::io::ErrorKind::AlreadyExists => {
+                Error::AlreadyExists(destination.display().to_string())
+            }
+            std::io::ErrorKind::NotFound => Error::NotFound(destination.display().to_string()),
+            _ => Error::Io(error.to_string()),
+        };
+        let mut staged = super::secure_output::StagedFile::at(destination, require_existing)
+            .map_err(map_error)?;
+        self.extract_file_to_writer(source, staged.writer())?;
+        staged.publish(overwrite, permissions).map_err(map_error)
     }
 
     /// Return stored Unix-style permissions for a file or symlink.
@@ -2699,6 +2739,7 @@ impl<'a, State> FilePageWriter<'a, State> {
 
     fn import_pipeline(&self, jobs: usize) -> FileImportPipeline {
         let pipeline = FileImportPipeline::new(self.lockbox.compression_frame_zstd_level(), jobs)
+            .with_sensitive(!self.lockbox.format_mode.plaintext())
             .with_compression(self.lockbox.configured_compression());
         #[cfg(any(test, feature = "native-block-layout"))]
         let pipeline = pipeline.with_native_blocks(self.native_blocks);
@@ -2854,6 +2895,7 @@ impl<'a, State> FilePageWriter<'a, State> {
             segment_offset,
             segment,
             self.lockbox.configured_compression(),
+            !self.lockbox.format_mode.plaintext(),
         )?;
         let object = PageObject::new(PageObjectKind::FileData, object_id, payload);
         let context = PendingSegment {

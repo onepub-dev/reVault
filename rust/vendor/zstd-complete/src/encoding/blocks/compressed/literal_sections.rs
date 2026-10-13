@@ -100,8 +100,11 @@ pub(crate) fn append_huffman_literal_section_with_table(
         size_format,
         size_bits,
         &mut writer,
-    );
-    writer.flush();
+    )
+    .expect("owned legacy codec allocation failed");
+    writer
+        .flush()
+        .expect("owned legacy codec allocation failed");
 
     let byte_size = writer.index() / 8 - start;
     let header_size = compressed_literals_header_len(size_format);
@@ -109,9 +112,13 @@ pub(crate) fn append_huffman_literal_section_with_table(
     if header_size < compressed_literal_header_size(compressed_size)
         || (matches!(mode, HuffmanLiteralMode::Repeat) && compressed_size >= literals.len())
     {
-        writer.reset_to(start * 8);
-        raw_literals(literals, &mut writer);
-        writer.flush();
+        writer
+            .reset_to(start * 8)
+            .expect("owned legacy codec allocation failed");
+        raw_literals(literals, &mut writer).expect("owned legacy codec allocation failed");
+        writer
+            .flush()
+            .expect("owned legacy codec allocation failed");
         return Some(HuffmanLiteralSectionEmission {
             byte_size: writer.index() / 8 - start,
             new_huffman_table: None,
@@ -132,8 +139,10 @@ fn append_raw_literal_section(
 ) -> HuffmanLiteralSectionEmission {
     let start = output.len();
     let mut writer = BitWriter::from(output);
-    raw_literals(literals, &mut writer);
-    writer.flush();
+    raw_literals(literals, &mut writer).expect("owned legacy codec allocation failed");
+    writer
+        .flush()
+        .expect("owned legacy codec allocation failed");
     HuffmanLiteralSectionEmission {
         byte_size: writer.index() / 8 - start,
         new_huffman_table: None,

@@ -51,12 +51,18 @@ impl SharedFSETable {
         }
     }
 
-    fn new_pooled(table: FSETable, pool: &mut FseSharedPool) -> (Self, Option<FSETable>) {
+    fn new_pooled(
+        table: FSETable,
+        pool: &FseSharedPool,
+    ) -> Result<(Self, Option<FSETable>), crate::workspace::CapacityError> {
         let cell = pool
             .cells
-            .iter_mut()
+            .iter()
             .find(|cell| cell.references.get() == 0)
-            .expect("FSE shared-table workspace exhausted");
+            .ok_or(crate::workspace::CapacityError::Exhausted {
+                required: 1,
+                capacity: 0,
+            })?;
         // SAFETY: the zero reference count gives the pool exclusive access.
         let recycled = unsafe { (&mut *cell.table.get()).replace(table) };
         cell.references.set(1);
@@ -67,14 +73,14 @@ impl SharedFSETable {
                 .as_mut()
                 .expect("installed pooled table")
         });
-        (
+        Ok((
             Self {
                 table,
                 storage: SharedFSEStorage::Pooled(NonNull::from(cell)),
                 not_send: PhantomData,
             },
             recycled,
-        )
+        ))
     }
 
     pub(crate) fn try_unwrap(value: Self) -> Result<FSETable, Self> {
@@ -242,12 +248,16 @@ impl FSETable {
         unsafe { self.symbols.get_unchecked(symbol).delta_nb_bits }
     }
 
-    pub(crate) fn write_table<V: AsMut<Vec<u8>>>(&self, writer: &mut BitWriter<V>) {
+    pub(crate) fn write_table<V: crate::workspace::ByteBufferOwner>(
+        &self,
+        writer: &mut BitWriter<V>,
+    ) -> Result<(), crate::workspace::CapacityError> {
         write_normalized_probabilities(
             self.symbols.iter().map(|symbol| symbol.probability),
             self.acc_log(),
             writer,
-        );
+        )?;
+        Ok(())
     }
 
     #[cfg(test)]
@@ -312,14 +322,14 @@ impl FSETableBuildScratch {
                 state_table: arena.allocate_reusable_vec(1 << 12)?,
                 symbols: arena.allocate_reusable_vec(256)?,
                 acc_log: 0,
-            });
+            })?;
         }
         let mut cells = arena.allocate_reusable_vec(9)?;
         for _ in 0..9 {
             cells.push(FseSharedCell {
                 references: Cell::new(0),
                 table: UnsafeCell::new(None),
-            });
+            })?;
         }
         Ok(Self {
             cumulative,
@@ -329,16 +339,19 @@ impl FSETableBuildScratch {
         })
     }
 
-    pub(crate) fn share_table(&mut self, table: FSETable) -> SharedFSETable {
+    pub(crate) fn share_table(
+        &mut self,
+        table: FSETable,
+    ) -> Result<SharedFSETable, crate::workspace::CapacityError> {
         match self.shared_pool.as_mut() {
             Some(pool) => {
-                let (shared, recycled) = SharedFSETable::new_pooled(table, pool);
+                let (shared, recycled) = SharedFSETable::new_pooled(table, pool)?;
                 if let Some(recycled) = recycled {
-                    self.recycle_table(recycled);
+                    self.recycle_table(recycled)?;
                 }
-                shared
+                Ok(shared)
             }
-            None => SharedFSETable::new(table),
+            None => Ok(SharedFSETable::new(table)),
         }
     }
 
@@ -346,15 +359,19 @@ impl FSETableBuildScratch {
         self.shared_pool.is_some()
     }
 
-    pub(crate) fn recycle_table(&mut self, table: FSETable) {
+    pub(crate) fn recycle_table(
+        &mut self,
+        table: FSETable,
+    ) -> Result<(), crate::workspace::CapacityError> {
         let limit = if self.shared_pool.is_some() {
             self.recycled_tables.capacity()
         } else {
             3
         };
         if self.recycled_tables.len() < limit {
-            self.recycled_tables.push(table);
+            self.recycled_tables.push(table)?;
         }
+        Ok(())
     }
 
     fn take_recycled_table(&mut self, state_len: usize, symbol_len: usize) -> Option<FSETable> {
@@ -374,11 +391,33 @@ impl FSETableBuildScratch {
         }
     }
 
+    fn table_for_build(
+        &mut self,
+        state_len: usize,
+        symbol_len: usize,
+        acc_log: u8,
+    ) -> Result<FSETable, crate::workspace::CapacityError> {
+        if let Some(table) = self.take_recycled_table(state_len, symbol_len) {
+            return Ok(table);
+        }
+        if self.shared_pool.is_some() {
+            return Err(crate::workspace::CapacityError::Exhausted {
+                required: 1,
+                capacity: 0,
+            });
+        }
+        Ok(FSETable {
+            state_table: ReusableVec::new(),
+            symbols: ReusableVec::new(),
+            acc_log,
+        })
+    }
+
     fn take_pooled_table(&mut self) -> Option<FSETable> {
-        let pool = self.shared_pool.as_mut()?;
+        let pool = self.shared_pool.as_ref()?;
         let cell = pool
             .cells
-            .iter_mut()
+            .iter()
             .find(|cell| cell.references.get() == 0 && unsafe { (&*cell.table.get()).is_some() })?;
         // SAFETY: no shared handle references this cell.
         unsafe { (&mut *cell.table.get()).take() }
@@ -427,26 +466,21 @@ pub(crate) fn build_rle_table(symbol: u8) -> FSETable {
 )]
 pub(crate) fn build_table_from_probabilities(probs: &[i32], acc_log: u8) -> FSETable {
     build_table_from_probabilities_with_scratch(probs, acc_log, &mut FSETableBuildScratch::new())
+        .expect("owned legacy codec allocation failed")
 }
 
 pub(crate) fn build_table_from_probabilities_with_scratch(
     probs: &[i32],
     acc_log: u8,
     scratch: &mut FSETableBuildScratch,
-) -> FSETable {
+) -> Result<FSETable, crate::workspace::CapacityError> {
     debug_assert!(acc_log <= 12);
     let table_size = 1usize << acc_log;
     scratch.cumulative.clear();
-    scratch.cumulative.resize(probs.len() + 1, 0);
+    scratch.cumulative.resize(probs.len() + 1, 0)?;
     scratch.table_symbols.clear();
-    scratch.table_symbols.resize(table_size, 0);
-    let mut table = scratch
-        .take_recycled_table(table_size, probs.len())
-        .unwrap_or_else(|| FSETable {
-            state_table: ReusableVec::new(),
-            symbols: ReusableVec::new(),
-            acc_log,
-        });
+    scratch.table_symbols.resize(table_size, 0)?;
+    let mut table = scratch.table_for_build(table_size, probs.len(), acc_log)?;
     let cumulative = &mut scratch.cumulative;
     let table_symbols = &mut scratch.table_symbols;
     let mut high_threshold = table_size - 1;
@@ -474,15 +508,15 @@ pub(crate) fn build_table_from_probabilities_with_scratch(
     }
 
     table.state_table.clear();
-    table.state_table.resize(table_size, 0);
+    table.state_table.resize(table_size, 0)?;
     for (decode_index, symbol) in table_symbols.iter().copied().enumerate() {
         let cumulative_entry = &mut cumulative[usize::from(symbol)];
         table.state_table[*cumulative_entry] = (table_size + decode_index) as u16;
         *cumulative_entry += 1;
     }
-    fill_symbol_transforms(probs, acc_log, &mut table.symbols);
+    fill_symbol_transforms(probs, acc_log, &mut table.symbols)?;
     table.acc_log = acc_log;
-    table
+    Ok(table)
 }
 
 pub(crate) fn build_probability_table_for_estimate(probs: &[i32], acc_log: u8) -> FSETable {
@@ -497,32 +531,31 @@ pub(crate) fn build_probability_table_for_estimate_with_scratch(
     probs: &[i32],
     acc_log: u8,
     scratch: &mut FSETableBuildScratch,
-) -> FSETable {
-    let mut table = scratch
-        .take_recycled_table(0, probs.len())
-        .unwrap_or_else(|| FSETable {
-            state_table: ReusableVec::new(),
-            symbols: ReusableVec::new(),
-            acc_log: 0,
-        });
+) -> Result<FSETable, crate::workspace::CapacityError> {
+    let mut table = scratch.table_for_build(0, probs.len(), acc_log)?;
     table.state_table.clear();
-    fill_symbol_transforms(probs, acc_log, &mut table.symbols);
+    fill_symbol_transforms(probs, acc_log, &mut table.symbols)?;
     table.acc_log = acc_log;
-    table
+    Ok(table)
 }
 
 fn symbol_transforms(probs: &[i32], acc_log: u8) -> ReusableVec<SymbolTransform> {
     let mut symbols = ReusableVec::with_capacity(probs.len());
-    fill_symbol_transforms(probs, acc_log, &mut symbols);
+    fill_symbol_transforms(probs, acc_log, &mut symbols)
+        .expect("owned legacy codec allocation failed");
     symbols
 }
 
-fn fill_symbol_transforms(probs: &[i32], acc_log: u8, symbols: &mut ReusableVec<SymbolTransform>) {
+fn fill_symbol_transforms(
+    probs: &[i32],
+    acc_log: u8,
+    symbols: &mut ReusableVec<SymbolTransform>,
+) -> Result<(), crate::workspace::CapacityError> {
     let table_log = u32::from(acc_log);
     let table_size = 1u32 << table_log;
     let mut total = 0u32;
     symbols.clear();
-    symbols.reserve(probs.len());
+    symbols.reserve(probs.len())?;
 
     for probability in probs.iter().copied() {
         let (delta_nb_bits, delta_find_state) = match probability {
@@ -549,8 +582,9 @@ fn fill_symbol_transforms(probs: &[i32], acc_log: u8, symbols: &mut ReusableVec<
             probability,
             delta_nb_bits,
             delta_find_state,
-        });
+        })?;
     }
+    Ok(())
 }
 
 fn highbit32(value: u32) -> u32 {
@@ -582,7 +616,9 @@ pub(crate) fn default_ml_table() -> FSETable {
     build_table_from_probabilities(ML_DIST, 6)
 }
 
-pub(crate) fn default_ml_table_with_scratch(scratch: &mut FSETableBuildScratch) -> FSETable {
+pub(crate) fn default_ml_table_with_scratch(
+    scratch: &mut FSETableBuildScratch,
+) -> Result<FSETable, crate::workspace::CapacityError> {
     build_table_from_probabilities_with_scratch(ML_DIST, 6, scratch)
 }
 
@@ -590,7 +626,9 @@ pub(crate) fn default_ll_table() -> FSETable {
     build_table_from_probabilities(LL_DIST, 6)
 }
 
-pub(crate) fn default_ll_table_with_scratch(scratch: &mut FSETableBuildScratch) -> FSETable {
+pub(crate) fn default_ll_table_with_scratch(
+    scratch: &mut FSETableBuildScratch,
+) -> Result<FSETable, crate::workspace::CapacityError> {
     build_table_from_probabilities_with_scratch(LL_DIST, 6, scratch)
 }
 
@@ -598,7 +636,9 @@ pub(crate) fn default_of_table() -> FSETable {
     build_table_from_probabilities(OF_DIST, 5)
 }
 
-pub(crate) fn default_of_table_with_scratch(scratch: &mut FSETableBuildScratch) -> FSETable {
+pub(crate) fn default_of_table_with_scratch(
+    scratch: &mut FSETableBuildScratch,
+) -> Result<FSETable, crate::workspace::CapacityError> {
     build_table_from_probabilities_with_scratch(OF_DIST, 5, scratch)
 }
 
@@ -625,7 +665,8 @@ mod access_tests {
                     probabilities,
                     table_log,
                     &mut scratch,
-                );
+                )
+                .expect("test storage admission");
                 assert_eq!(reused.acc_log, fresh.acc_log);
                 assert_eq!(reused.state_table, fresh.state_table);
                 assert_eq!(reused.symbols.len(), fresh.symbols.len());
@@ -646,13 +687,17 @@ mod access_tests {
     fn recycled_output_table_reuses_both_owning_allocations() {
         let probabilities = &[8, 6, 4, 3, 2, 1, 1, 1, 1, 1, -1, -1, -1, -1, 0, 0];
         let mut scratch = FSETableBuildScratch::new();
-        let first = build_table_from_probabilities_with_scratch(probabilities, 5, &mut scratch);
+        let first = build_table_from_probabilities_with_scratch(probabilities, 5, &mut scratch)
+            .expect("test storage admission");
         let state_allocation = first.state_table.as_ptr();
         let symbol_allocation = first.symbols.as_ptr();
 
-        scratch.recycle_table(first);
+        scratch
+            .recycle_table(first)
+            .expect("test storage admission");
         assert_eq!(scratch.recycled_table_count(), 1);
-        let second = build_table_from_probabilities_with_scratch(probabilities, 5, &mut scratch);
+        let second = build_table_from_probabilities_with_scratch(probabilities, 5, &mut scratch)
+            .expect("test storage admission");
 
         assert_eq!(scratch.recycled_table_count(), 0);
         assert_eq!(second.state_table.as_ptr(), state_allocation);

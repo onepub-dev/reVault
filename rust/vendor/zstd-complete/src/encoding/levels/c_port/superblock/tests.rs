@@ -252,6 +252,7 @@ fn append_sub_block_literals_basic_emits_raw_literals() {
 
     let emission =
         append_sub_block_literals(&literals, EntropyTableMode::Basic, true, &mut encoded)
+            .expect("test storage admission")
             .expect("basic literal mode is supported");
 
     assert_eq!(
@@ -271,6 +272,7 @@ fn append_sub_block_literals_reports_appended_byte_size() {
     let mut encoded = alloc::vec![0xAA, 0xBB];
 
     let emission = append_sub_block_literals(b"abc", EntropyTableMode::Basic, false, &mut encoded)
+        .expect("test storage admission")
         .expect("basic literal mode is supported");
 
     assert_eq!(emission.byte_size, encoded.len() - prefix_len);
@@ -284,6 +286,7 @@ fn append_sub_block_literals_rle_emits_rle_literals() {
     let mut encoded = Vec::new();
 
     let emission = append_sub_block_literals(&literals, EntropyTableMode::Rle, false, &mut encoded)
+        .expect("test storage admission")
         .expect("rle literal mode is supported");
 
     assert_eq!(emission.byte_size, encoded.len());
@@ -297,6 +300,7 @@ fn append_sub_block_literals_empty_rle_falls_back_to_raw_like_c() {
     let mut encoded = Vec::new();
 
     let emission = append_sub_block_literals(&[], EntropyTableMode::Rle, true, &mut encoded)
+        .expect("test storage admission")
         .expect("empty rle literal mode is supported");
 
     assert_eq!(emission.byte_size, encoded.len());
@@ -315,12 +319,14 @@ fn append_sub_block_literals_defers_huffman_modes_until_tables_are_ported() {
             EntropyTableMode::Compressed,
             true,
             &mut encoded
-        ),
+        )
+        .expect("test storage admission"),
         None
     );
     assert!(encoded.is_empty());
     assert_eq!(
-        append_sub_block_literals(b"literals", EntropyTableMode::Repeat, false, &mut encoded),
+        append_sub_block_literals(b"literals", EntropyTableMode::Repeat, false, &mut encoded)
+            .expect("test storage admission"),
         None
     );
     assert!(encoded.is_empty());
@@ -331,6 +337,7 @@ fn append_sub_block_sequences_empty_emits_zero_sequence_header() {
     let mut encoded = Vec::new();
 
     let emission = append_sub_block_sequences(&[], basic_sequence_modes(), true, &mut encoded)
+        .expect("test storage admission")
         .expect("zero-sequence section is supported");
 
     assert_eq!(
@@ -358,6 +365,7 @@ fn append_supported_sub_block_sequences_with_tables_preserves_empty_entropy_flag
         &mut offset_history,
         &mut encoded,
     )
+    .expect("test storage admission")
     .expect("zero-sequence section is supported");
 
     assert_eq!(
@@ -384,7 +392,8 @@ fn append_sub_block_sequences_defers_non_empty_sequences_until_fse_tables_are_po
             basic_sequence_modes(),
             true,
             &mut encoded
-        ),
+        )
+        .expect("test storage admission"),
         None
     );
     assert_eq!(encoded, [0xAA]);
@@ -421,6 +430,7 @@ fn append_supported_sub_block_sequences_emits_decodable_predefined_sequences() {
     ];
     let mut encoded = alloc::vec![0; BLOCK_HEADER_SIZE];
     append_sub_block_literals(literals, EntropyTableMode::Basic, true, &mut encoded)
+        .expect("test storage admission")
         .expect("basic literals");
     let mut fse_tables = FseTables::new();
     let mut offset_history = OffsetHistory::new();
@@ -432,6 +442,7 @@ fn append_supported_sub_block_sequences_emits_decodable_predefined_sequences() {
         &mut offset_history,
         &mut encoded,
     )
+    .expect("test storage admission")
     .expect("basic sequence modes should encode");
     let content_size = encoded.len() - BLOCK_HEADER_SIZE;
     let header = BlockHeader {
@@ -465,7 +476,8 @@ fn append_supported_sub_block_sequences_defers_repeat_when_entropy_write_is_disa
             &mut fse_tables,
             &mut offset_history,
             &mut encoded,
-        ),
+        )
+        .expect("test storage admission"),
         None
     );
     assert_eq!(encoded, [0xAA]);
@@ -486,7 +498,8 @@ fn append_supported_sub_block_sequences_defers_repeat_without_previous_tables() 
             &mut fse_tables,
             &mut offset_history,
             &mut encoded,
-        ),
+        )
+        .expect("test storage admission"),
         None
     );
     assert_eq!(encoded, [0xAA]);
@@ -507,6 +520,7 @@ fn append_literal_only_sub_block_builds_decodable_raw_literal_block() {
         true,
         &mut encoded,
     )
+    .expect("test storage admission")
     .expect("literal-only basic sub-block is supported");
 
     assert_eq!(
@@ -539,6 +553,7 @@ fn append_literal_only_sub_block_builds_decodable_rle_literal_block() {
         false,
         &mut encoded,
     )
+    .expect("test storage admission")
     .expect("literal-only rle sub-block is supported");
 
     assert_eq!(emission.byte_size, encoded.len());
@@ -563,7 +578,8 @@ fn append_literal_only_sub_block_defers_unsupported_literal_modes() {
             true,
             true,
             &mut encoded,
-        ),
+        )
+        .expect("test storage admission"),
         None
     );
     assert_eq!(encoded, [0xAA]);
@@ -614,6 +630,7 @@ fn append_sequence_sub_block_builds_decodable_basic_sequence_block() {
         &mut offset_history,
         &mut encoded,
     )
+    .expect("test storage admission")
     .expect("basic sequence sub-block should encode");
 
     assert_eq!(emission.byte_size, encoded.len());
@@ -660,6 +677,7 @@ fn append_sequence_sub_block_builds_decodable_rle_sequence_block() {
         &mut offset_history,
         &mut encoded,
     )
+    .expect("test storage admission")
     .expect("uniform sequence codes should encode with RLE metadata");
 
     assert_eq!(emission.byte_size, encoded.len());
@@ -717,6 +735,7 @@ fn append_sequence_sub_block_emits_repeat_sequence_metadata() {
         &mut offset_history,
         &mut encoded,
     )
+    .expect("test storage admission")
     .expect("repeat sequence metadata should encode when previous tables exist");
 
     assert_eq!(emission.byte_size, encoded.len());
@@ -775,6 +794,7 @@ fn append_sequence_sub_block_builds_decodable_compressed_sequence_block() {
         &mut offset_history,
         &mut encoded,
     )
+    .expect("test storage admission")
     .expect("varied sequence codes should encode with compressed FSE metadata");
 
     assert_eq!(emission.byte_size, encoded.len());
@@ -831,6 +851,7 @@ fn append_sequence_sub_block_builds_decodable_mixed_sequence_modes() {
         &mut offset_history,
         &mut encoded,
     )
+    .expect("test storage admission")
     .expect("mixed sequence modes should encode");
 
     assert_eq!(emission.byte_size, encoded.len());

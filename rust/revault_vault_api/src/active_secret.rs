@@ -32,20 +32,15 @@ impl ActiveSecretRegistry {
         self.processes.is_empty()
     }
 
-    pub(crate) fn register(&mut self, pid: u32, kind: SecretActivityKind) -> io::Result<u64> {
-        if self.processes.is_empty() && self.config.prevent_sleep {
-            match SleepInhibitor::acquire_active("reVault secret operation in progress") {
-                Ok(inhibitor) => {
-                    self.sleep_inhibitor = Some(inhibitor);
-                    log_agent_event("active secret suspend inhibitor acquired");
-                }
-                Err(err) => log_agent_event(format!(
-                    "active secret suspend inhibitor unavailable: {err}"
-                )),
-            }
-        }
+    pub(crate) fn terminate_on_suspend(&self) -> bool {
+        self.config.terminate_on_suspend
+    }
 
+    pub(crate) fn register(&mut self, pid: u32, kind: SecretActivityKind) -> io::Result<u64> {
+        validate_pid(pid)?;
         let token = next_token(&self.processes)?;
+        self.ensure_inhibitor()?;
+
         self.processes.insert(
             token,
             ActiveSecretProcess {
@@ -59,6 +54,28 @@ impl ActiveSecretRegistry {
             kind.as_str()
         ));
         Ok(token)
+    }
+
+    fn ensure_inhibitor(&mut self) -> io::Result<()> {
+        if self.sleep_inhibitor.is_none() && self.config.prevent_sleep {
+            match SleepInhibitor::acquire_active("reVault secret operation in progress") {
+                Ok(inhibitor) => {
+                    self.sleep_inhibitor = Some(inhibitor);
+                    log_agent_event("active secret suspend inhibitor acquired");
+                }
+                Err(err) => return Err(io::Error::other(format!(
+                    "requested sleep inhibition unavailable: {err}; explicitly set LOCKBOX_AGENT_PREVENT_SLEEP=false for an unprotected headless session"
+                ))),
+            }
+        }
+        Ok(())
+    }
+
+    pub(crate) fn resumed(&mut self) -> io::Result<()> {
+        if !self.processes.is_empty() {
+            self.ensure_inhibitor()?;
+        }
+        Ok(())
     }
 
     pub(crate) fn unregister(&mut self, pid: u32, token: u64) {
@@ -97,21 +114,9 @@ impl ActiveSecretRegistry {
             return;
         }
 
-        for (_, process) in std::mem::take(&mut self.processes) {
-            log_agent_event(format!(
-                "suspend requested; terminating active secret process pid={} kind={} age_ms={}",
-                process.pid,
-                process.kind.as_str(),
-                elapsed_ms(process.started_at)
-            ));
-            if let Err(err) = terminate_process(process.pid) {
-                log_agent_event(format!(
-                    "active secret process termination failed pid={} kind={} error={err}",
-                    process.pid,
-                    process.kind.as_str()
-                ));
-            }
-        }
+        // Active clients own their suspend watcher and self-termination. The
+        // agent never sends signals to reusable numeric process identifiers.
+        self.processes.clear();
         self.sleep_inhibitor.take();
     }
 
@@ -137,54 +142,41 @@ fn elapsed_ms(started_at: Instant) -> u128 {
     started_at.elapsed().as_millis()
 }
 
-#[cfg(unix)]
-fn terminate_process(pid: u32) -> io::Result<()> {
-    // SAFETY: `kill` is called with a PID supplied by the same-user agent
-    // transport and a constant signal value; it does not retain pointers.
-    let result = unsafe { libc::kill(pid as libc::pid_t, libc::SIGKILL) };
-    if result == 0 {
-        Ok(())
-    } else {
-        Err(io::Error::last_os_error())
+fn validate_pid(pid: u32) -> io::Result<()> {
+    if pid == 0 || pid > i32::MAX as u32 {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "invalid individual process ID",
+        ));
     }
-}
-
-#[cfg(windows)]
-fn terminate_process(pid: u32) -> io::Result<()> {
-    use windows_sys::Win32::Foundation::{CloseHandle, INVALID_HANDLE_VALUE};
-    use windows_sys::Win32::System::Threading::{OpenProcess, TerminateProcess, PROCESS_TERMINATE};
-
-    // SAFETY: `OpenProcess` receives a PID supplied by the same-user agent
-    // transport and returns an owned process handle on success.
-    let handle = unsafe { OpenProcess(PROCESS_TERMINATE, 0, pid) };
-    if handle == INVALID_HANDLE_VALUE || handle.is_null() {
-        return Err(io::Error::last_os_error());
-    }
-    // SAFETY: `handle` is a valid process handle opened for termination.
-    let terminated = unsafe { TerminateProcess(handle, 1) };
-    // SAFETY: The handle is owned by this function and is not used after close.
-    unsafe {
-        CloseHandle(handle);
-    }
-    if terminated == 0 {
-        Err(io::Error::last_os_error())
-    } else {
-        Ok(())
-    }
-}
-
-#[cfg(not(any(unix, windows)))]
-fn terminate_process(_pid: u32) -> io::Result<()> {
-    Err(io::Error::new(
-        io::ErrorKind::Unsupported,
-        "process termination is not supported on this platform",
-    ))
+    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::time::Duration;
+
+    #[test]
+    fn registration_validates_individual_pid_before_state_changes() {
+        let config = AgentConfig {
+            prevent_sleep: false,
+            terminate_on_suspend: false,
+        };
+        let mut registry = ActiveSecretRegistry::new(config);
+        for pid in [0, i32::MAX as u32 + 1, u32::MAX] {
+            assert_eq!(
+                registry
+                    .register(pid, SecretActivityKind::Open)
+                    .unwrap_err()
+                    .kind(),
+                io::ErrorKind::InvalidInput
+            );
+            assert!(registry.is_empty());
+        }
+        assert!(validate_pid(1).is_ok());
+        assert!(validate_pid(i32::MAX as u32).is_ok());
+    }
 
     #[test]
     fn registry_registers_and_unregisters_without_inhibitor() {

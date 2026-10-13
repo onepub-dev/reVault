@@ -1,0 +1,4 @@
+4d07b8c72738554f6f3e4ab012207bc0a336e845559bd33505a85218a0df6f75  rust/revault_vault_api/src/active_secret.rs
+6e0b8365c91a3255066dc8b6ee2d2c4058149d361c1fc156c19cc9cf4a28f86e  rust/revault_vault_api/src/unix.rs
+46520542668ac627e04c16bed0df5915ba5e7ce3eec925a0979e302f76a1e51e  rust/revault_vault_api/src/windows.rs
+cc07beb3bb5c0a050e6a882e4cce416a3fd5c2de1fec55cd25ca12617130f196  rust/Cargo.lock

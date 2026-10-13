@@ -261,6 +261,17 @@ final class ProfileHistory
     public function getGenerations(): mixed { return $this->generations; }
 }
 
+/** A local Vault alias mapping a normalized name to a stable lockbox identity; resolution does not open the target. */
+final class LockboxAlias
+{
+    /** Creates a value from fields returned by the reVault API. */
+    public function __construct(public readonly string $name, public readonly string $lockbox_id) {}
+    /** Case-sensitive normalized NFC alias name. */
+    public function getName(): mixed { return $this->name; }
+    /** Stable binary target identity; verify it when opening the resolved path. */
+    public function getLockboxId(): mixed { return $this->lockbox_id; }
+}
+
 /** A lockbox identifier and host path remembered by the local vault for later discovery. */
 final class KnownLockbox
 {
@@ -369,13 +380,15 @@ final class AgentEntry
 final class SleepSupport
 {
     /** Creates a value from fields returned by the reVault API. */
-    public function __construct(public readonly bool $suspend_notifications, public readonly bool $sleep_inhibition, public readonly bool $supported) {}
-    /** Whether the host reports impending system suspend. */
+    public function __construct(public readonly bool $suspend_notifications, public readonly bool $sleep_inhibition, public readonly bool $supported, public readonly bool $cache_clearing_active) {}
+    /** Whether suspend notification support is compiled for this host. */
     public function getSuspendNotifications(): mixed { return $this->suspend_notifications; }
-    /** Whether the agent can delay sleep while handling secrets. */
+    /** Whether sleep inhibition support is compiled for this host. */
     public function getSleepInhibition(): mixed { return $this->sleep_inhibition; }
-    /** Whether the host supplies enough integration for safe caching. */
+    /** Whether this build includes the host integration; this is not runtime watcher readiness. */
     public function getSupported(): mixed { return $this->supported; }
+    /** Whether the current compatible Session Agent reports an active suspend cache watcher; false when absent or unavailable. Notification delivery is platform-dependent. */
+    public function getCacheClearingActive(): mixed { return $this->cache_clearing_active; }
 }
 
 /** Availability and configuration of the platform credential store used for the Vault passphrase. */
@@ -482,6 +495,15 @@ final class PageInspectionList
     /** @param list<PageInspection> $values */
     public function __construct(public readonly array $values) {}
     /** Returns the ordered PageInspection values. */
+    public function getValues(): array { return $this->values; }
+}
+
+/** Ordered LockboxAlias values returned by the corresponding list operation. */
+final class LockboxAliasList
+{
+    /** @param list<LockboxAlias> $values */
+    public function __construct(public readonly array $values) {}
+    /** Returns the ordered LockboxAlias values. */
     public function getValues(): array { return $this->values; }
 }
 
@@ -659,6 +681,10 @@ final class DomainCodec
     {
         return new ProfileHistory($value->getName() ?? '', $value->getActiveGeneration(), self::tables($value, 'getGenerations', 'ProfileGeneration'));
     }
+    private static function fromLockboxAlias(\Revault\Internal\Transport\LockboxAlias $value): LockboxAlias
+    {
+        return new LockboxAlias($value->getName() ?? '', self::bytes($value, 'getLockboxId'));
+    }
     private static function fromKnownLockbox(\Revault\Internal\Transport\KnownLockbox $value): KnownLockbox
     {
         return new KnownLockbox(self::bytes($value, 'getLockboxId'), $value->getPath() ?? '', $value->getLastSeenUnixMs());
@@ -693,7 +719,7 @@ final class DomainCodec
     }
     private static function fromSleepSupport(\Revault\Internal\Transport\SleepSupport $value): SleepSupport
     {
-        return new SleepSupport($value->getSuspendNotifications(), $value->getSleepInhibition(), $value->getSupported());
+        return new SleepSupport($value->getSuspendNotifications(), $value->getSleepInhibition(), $value->getSupported(), $value->getCacheClearingActive());
     }
     private static function fromPlatformStatus(\Revault\Internal\Transport\PlatformStatus $value): PlatformStatus
     {
@@ -781,6 +807,11 @@ final class DomainCodec
     public static function decodeProfileHistory(string $bytes): ProfileHistory
     {
         return self::fromProfileHistory(\Revault\Internal\Transport\ProfileHistory::getRootAsProfileHistory(ByteBuffer::wrap($bytes)));
+    }
+    /** @internal Decodes a native LockboxAlias result. */
+    public static function decodeLockboxAlias(string $bytes): LockboxAlias
+    {
+        return self::fromLockboxAlias(\Revault\Internal\Transport\LockboxAlias::getRootAsLockboxAlias(ByteBuffer::wrap($bytes)));
     }
     /** @internal Decodes a native KnownLockbox result. */
     public static function decodeKnownLockbox(string $bytes): KnownLockbox
@@ -877,6 +908,12 @@ final class DomainCodec
     {
         $root = \Revault\Internal\Transport\PageInspectionList::getRootAsPageInspectionList(ByteBuffer::wrap($bytes));
         return new PageInspectionList(self::tables($root, 'getValues', 'PageInspection'));
+    }
+    /** @internal Decodes a native LockboxAliasList result. */
+    public static function decodeLockboxAliasList(string $bytes): LockboxAliasList
+    {
+        $root = \Revault\Internal\Transport\LockboxAliasList::getRootAsLockboxAliasList(ByteBuffer::wrap($bytes));
+        return new LockboxAliasList(self::tables($root, 'getValues', 'LockboxAlias'));
     }
     /** @internal Decodes a native KnownLockboxList result. */
     public static function decodeKnownLockboxList(string $bytes): KnownLockboxList

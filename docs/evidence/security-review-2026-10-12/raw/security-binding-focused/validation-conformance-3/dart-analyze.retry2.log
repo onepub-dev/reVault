@@ -1,0 +1,10 @@
+Analyzing conformance.dart...
+
+   info - conformance.dart:565:31 - 'root' is deprecated and shouldn't be used. Use pathTo. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - conformance.dart:685:39 - 'root' is deprecated and shouldn't be used. Use pathTo. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - conformance.dart:697:31 - 'root' is deprecated and shouldn't be used. Use pathTo. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - conformance.dart:701:31 - 'root' is deprecated and shouldn't be used. Use pathTo. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - conformance.dart:706:37 - 'root' is deprecated and shouldn't be used. Use pathTo. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - conformance.dart:964:20 - 'root' is deprecated and shouldn't be used. Use pathTo. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+
+6 issues found.

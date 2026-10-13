@@ -1,0 +1,2 @@
+flatbuffers-25.2.10-py2.py3-none-any.whl ebba5f4d5ea615af3f7fd70fc310636fbb2bbd1f566ac0a23d98dd412de50051 https://files.pythonhosted.org/packages/b8/25/155f9f080d5e4bc0082edfda032ea2bc2b8fab3f4d25d46c1e9dd22a1a89/flatbuffers-25.2.10-py2.py3-none-any.whl
+flatbuffers-25.2.10.tar.gz 97e451377a41262f8d9bd4295cc836133415cc03d8cb966410a4af92eb00d26e https://files.pythonhosted.org/packages/e4/30/eb5dce7994fc71a2f685d98ec33cc660c0a5887db5610137e60d8cbc4489/flatbuffers-25.2.10.tar.gz

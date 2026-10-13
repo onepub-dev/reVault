@@ -3964,7 +3964,20 @@ fn path_backed_compact_logically_rewrites_live_state() {
 
     lb.delete(&p("/stale.txt")).unwrap();
     lb.set_variable(&variable("TOKEN"), "new").unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o640)).unwrap();
+    }
     lb.compact().unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        assert_eq!(
+            std::fs::metadata(&path).unwrap().permissions().mode() & 0o777,
+            0o640
+        );
+    }
     drop(lb);
 
     let reopened = Lockbox::open_path(&path, KEY).unwrap();
@@ -4848,4 +4861,88 @@ fn parallel_encoder_reuses_workspace_across_mixed_short_and_failed_streams() {
             assert_eq!(reopened.get_file(&path).unwrap(), mixed);
         }
     }
+}
+
+#[test]
+fn password_work_override_preserves_ordinary_archive_and_mirror_readability() {
+    let first = password("budget first");
+    let second = password("budget second");
+    let wrong = password("budget other");
+    let mut archive = Lockbox::create_with_password(&first).unwrap();
+    add_file(
+        &mut archive,
+        &p("/budget/data"),
+        b"ordinary retained bytes",
+        false,
+    )
+    .unwrap();
+    archive.commit().unwrap();
+    archive.add_password(&second).unwrap();
+    archive.commit().unwrap();
+    let bytes = archive.to_bytes();
+    assert!(matches!(
+        Lockbox::open_with_password_budget(bytes.clone(), &first, 0),
+        Err(Error::SecurityLimitExceeded(_))
+    ));
+    assert!(matches!(
+        Lockbox::open_with_password_budget(bytes.clone(), &second, 1),
+        Err(Error::SecurityLimitExceeded(_))
+    ));
+    let opened = Lockbox::open_with_password_budget(bytes.clone(), &second, 2).unwrap();
+    assert_eq!(
+        opened.get_file(&p("/budget/data")).unwrap(),
+        b"ordinary retained bytes"
+    );
+    assert_eq!(
+        Lockbox::open_with_password(bytes.clone(), &second)
+            .unwrap()
+            .get_file(&p("/budget/data"))
+            .unwrap(),
+        b"ordinary retained bytes"
+    );
+    // Two distinct slots are sufficient even when their mirror repeats the
+    // same failed wrapping inputs. No archive validity limit was introduced.
+    assert!(matches!(
+        Lockbox::open_with_password_budget(bytes.clone(), &wrong, 2),
+        Err(Error::InvalidKey)
+    ));
+    assert_eq!(archive.to_bytes(), bytes);
+}
+
+#[cfg(feature = "vault-integration")]
+#[test]
+fn password_budget_keeps_successful_unwrap_available_to_backup_candidate() {
+    let password = password("candidate fallback credential");
+    let mut archive = Lockbox::create_with_password(&password).unwrap();
+    add_file(&mut archive, &p("/data"), b"candidate data", false).unwrap();
+    archive.commit().unwrap();
+    let backup =
+        crate::vault_integration::VaultOpen::export_key_directory_backup(&archive).unwrap();
+    let bytes = archive.to_bytes();
+    let mut budget = crate::PasswordWorkBudget::new(&password, 2);
+    // Consider the same legitimate wrapping inputs again for another
+    // candidate; success may not be converted into a cached password miss.
+    for _ in 0..2 {
+        let opened =
+            crate::vault_integration::VaultOpen::key_directory_backup_with_password_budget(
+                &backup,
+                &mut budget,
+            )
+            .unwrap();
+        assert_eq!(
+            opened
+                .open_bytes(bytes.clone())
+                .unwrap()
+                .read_file_range(&p("/data"), 0, 14)
+                .unwrap(),
+            b"candidate data"
+        );
+    }
+    assert!(matches!(
+        crate::vault_integration::VaultOpen::key_directory_backup_with_password_budget(
+            &backup,
+            &mut budget
+        ),
+        Err(Error::SecurityLimitExceeded(_))
+    ));
 }

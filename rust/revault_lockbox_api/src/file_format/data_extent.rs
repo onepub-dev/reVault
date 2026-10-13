@@ -1,7 +1,7 @@
 //! Candidate C's bounded data codec. Descriptors must come from the selected
 //! authenticated index; a stored-byte digest alone does not prove membership.
 use super::allocation_map::Extent;
-use crate::compression::{encode_with_compression, COMPRESSION_NONE, COMPRESSION_ZSTD};
+use crate::compression::{encode_with_compression_sensitive, COMPRESSION_NONE, COMPRESSION_ZSTD};
 use crate::creation_options::FormatMode;
 use crate::crypto::{open_with_nonce, seal_with_random_nonce, strong_checksum};
 use crate::page_buffer::ZeroizingBytes;
@@ -276,7 +276,11 @@ impl Codec {
                 "candidate extent logical limit".into(),
             ));
         }
-        let (codec, encoded) = encode_with_compression(plain, self.mode.options().compression);
+        let (codec, encoded) = encode_with_compression_sensitive(
+            plain,
+            self.mode.options().compression,
+            !self.mode.plaintext(),
+        );
         let mut encoded = ZeroizingBytes::new(encoded);
         let descriptor = Descriptor {
             object,

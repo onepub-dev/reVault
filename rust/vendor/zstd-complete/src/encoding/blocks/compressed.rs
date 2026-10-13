@@ -86,8 +86,8 @@ const EXACT_SEQUENCE_TABLE_MIN_LOG: u8 = 7;
 
 #[derive(Clone, Debug)]
 pub(crate) struct PreparedBlock {
-    pub(crate) literals: Vec<u8>,
-    pub(crate) sequences: Vec<PreparedSequence>,
+    pub(crate) literals: crate::workspace::ReusableVec<u8>,
+    pub(crate) sequences: crate::workspace::ReusableVec<PreparedSequence>,
 }
 
 pub(crate) struct CompressedBlockResult {
@@ -119,39 +119,46 @@ impl PendingStoredEntropyState {
         fse_tables: &mut FseTables,
         offset_history: &mut OffsetHistory,
         mut fse_build_scratch: Option<&mut FSETableBuildScratch>,
-    ) {
-        if let Some(updates) = self.fse_updates.take() {
-            apply_fse_table_update_with_scratch(
-                &mut fse_tables.ll_previous,
-                &mut fse_tables.ll_repeat_valid,
-                updates.ll,
-                fse_build_scratch.as_deref_mut(),
-            );
-            apply_fse_table_update_with_scratch(
-                &mut fse_tables.ml_previous,
-                &mut fse_tables.ml_repeat_valid,
-                updates.ml,
-                fse_build_scratch.as_deref_mut(),
-            );
-            apply_fse_table_update_with_scratch(
-                &mut fse_tables.of_previous,
-                &mut fse_tables.of_repeat_valid,
-                updates.of,
-                fse_build_scratch,
-            );
-        }
-        if let Some(next_offset_history) = self.offset_history.take() {
-            *offset_history = next_offset_history;
-        }
+    ) -> Result<(), crate::workspace::CapacityError> {
+        Ok({
+            if let Some(updates) = self.fse_updates.take() {
+                apply_fse_table_update_with_scratch(
+                    &mut fse_tables.ll_previous,
+                    &mut fse_tables.ll_repeat_valid,
+                    updates.ll,
+                    fse_build_scratch.as_deref_mut(),
+                )?;
+                apply_fse_table_update_with_scratch(
+                    &mut fse_tables.ml_previous,
+                    &mut fse_tables.ml_repeat_valid,
+                    updates.ml,
+                    fse_build_scratch.as_deref_mut(),
+                )?;
+                apply_fse_table_update_with_scratch(
+                    &mut fse_tables.of_previous,
+                    &mut fse_tables.of_repeat_valid,
+                    updates.of,
+                    fse_build_scratch,
+                )?;
+            }
+            if let Some(next_offset_history) = self.offset_history.take() {
+                *offset_history = next_offset_history;
+            }
+        })
     }
 
-    pub(crate) fn discard(&mut self, mut fse_build_scratch: Option<&mut FSETableBuildScratch>) {
-        if let Some(updates) = self.fse_updates.take() {
-            recycle_fse_table_update(updates.ll, fse_build_scratch.as_deref_mut());
-            recycle_fse_table_update(updates.ml, fse_build_scratch.as_deref_mut());
-            recycle_fse_table_update(updates.of, fse_build_scratch);
-        }
-        self.offset_history = None;
+    pub(crate) fn discard(
+        &mut self,
+        mut fse_build_scratch: Option<&mut FSETableBuildScratch>,
+    ) -> Result<(), crate::workspace::CapacityError> {
+        Ok({
+            if let Some(updates) = self.fse_updates.take() {
+                recycle_fse_table_update(updates.ll, fse_build_scratch.as_deref_mut())?;
+                recycle_fse_table_update(updates.ml, fse_build_scratch.as_deref_mut())?;
+                recycle_fse_table_update(updates.of, fse_build_scratch)?;
+            }
+            self.offset_history = None;
+        })
     }
 }
 
@@ -207,9 +214,9 @@ impl PreparedBlock {
 
 pub(crate) fn compress_block_with_config<M: Matcher>(
     state: &mut CompressState<M>,
-    output: &mut Vec<u8>,
+    output: &mut impl crate::workspace::Growable<u8>,
     config: BlockCompressionConfig,
-) -> Option<huff0_encoder::HuffmanTable> {
+) -> Result<Option<huff0_encoder::HuffmanTable>, crate::workspace::CapacityError> {
     let mut config = config;
     if matches!(state.file_profile_hint, CompressionFileProfile::None)
         && likely_dependency_json_lockfile_text(state.matcher.get_last_space())
@@ -253,19 +260,19 @@ pub(crate) fn prepare_block<M: Matcher>(state: &mut CompressState<M>) -> Prepare
     });
 
     PreparedBlock {
-        literals: literals_vec,
-        sequences,
+        literals: crate::workspace::ReusableVec::from_owned(literals_vec),
+        sequences: crate::workspace::ReusableVec::from_owned(sequences),
     }
 }
 
 pub(crate) fn compress_prepared_block(
-    output: &mut Vec<u8>,
+    output: &mut impl crate::workspace::Growable<u8>,
     config: BlockCompressionConfig,
     prepared: PreparedBlockRef<'_>,
     fse_tables: &mut FseTables,
     offset_history: &mut OffsetHistory,
     previous_huff_table: Option<&huff0_encoder::HuffmanTable>,
-) -> Option<huff0_encoder::HuffmanTable> {
+) -> Result<Option<huff0_encoder::HuffmanTable>, crate::workspace::CapacityError> {
     compress_prepared_block_with_huffman_repeat(
         output,
         config,
@@ -278,15 +285,15 @@ pub(crate) fn compress_prepared_block(
 }
 
 pub(crate) fn compress_prepared_block_with_huffman_repeat(
-    output: &mut Vec<u8>,
+    output: &mut impl crate::workspace::Growable<u8>,
     config: BlockCompressionConfig,
     prepared: PreparedBlockRef<'_>,
     fse_tables: &mut FseTables,
     offset_history: &mut OffsetHistory,
     previous_huff_table: Option<&huff0_encoder::HuffmanTable>,
     previous_huff_table_is_valid: bool,
-) -> Option<huff0_encoder::HuffmanTable> {
-    compress_prepared_block_with_stats(
+) -> Result<Option<huff0_encoder::HuffmanTable>, crate::workspace::CapacityError> {
+    Ok(compress_prepared_block_with_stats(
         output,
         config,
         prepared,
@@ -294,25 +301,25 @@ pub(crate) fn compress_prepared_block_with_huffman_repeat(
         offset_history,
         previous_huff_table,
         previous_huff_table_is_valid,
-    )
-    .new_huffman_table
+    )?
+    .new_huffman_table)
 }
 
 pub(crate) fn compress_prepared_block_with_stats(
-    output: &mut Vec<u8>,
+    output: &mut impl crate::workspace::Growable<u8>,
     config: BlockCompressionConfig,
     prepared: PreparedBlockRef<'_>,
     fse_tables: &mut FseTables,
     offset_history: &mut OffsetHistory,
     previous_huff_table: Option<&huff0_encoder::HuffmanTable>,
     previous_huff_table_is_valid: bool,
-) -> CompressedBlockResult {
+) -> Result<CompressedBlockResult, crate::workspace::CapacityError> {
     let mut result = CompressedBlockResult {
         new_huffman_table: None,
         should_emit_raw_block: false,
     };
     let mut next_offset_history = *offset_history;
-    let sequences = encode_sequences_for_history(prepared.sequences, &mut next_offset_history);
+    let sequences = encode_sequences_for_history(prepared.sequences, &mut next_offset_history)?;
 
     // literals section
 
@@ -342,19 +349,19 @@ pub(crate) fn compress_prepared_block_with_stats(
                 prefer_valid_repeat: config.prefer_valid_repeat_huffman,
             },
             &mut writer,
-        ) {
+        )? {
             result.new_huffman_table = Some(table);
         }
     } else {
-        raw_literals(prepared.literals, &mut writer);
+        raw_literals(prepared.literals, &mut writer)?;
     }
 
     // sequences section
 
     if sequences.is_empty() {
-        writer.write_bits(0u8, 8);
+        writer.write_bits(0u8, 8)?;
     } else {
-        encode_seqnum(sequences.len(), &mut writer);
+        encode_seqnum(sequences.len(), &mut writer)?;
 
         // Choose the tables.
         let file_type_small_sequence_predefined_llml_max_sequences =
@@ -386,22 +393,22 @@ pub(crate) fn compress_prepared_block_with_stats(
                 c_fast_heuristics: config.c_fast_sequence_table_heuristics,
                 c_cost_model: config.c_cost_sequence_table_selection,
             },
-        );
+        )?;
 
-        writer.write_bits(encode_fse_table_modes(&ll_mode, &ml_mode, &of_mode), 8);
+        writer.write_bits(encode_fse_table_modes(&ll_mode, &ml_mode, &of_mode), 8)?;
 
-        let mut last_count_size = encode_table_count_size(&ll_mode, &mut writer);
-        let off_count_size = encode_table_count_size(&of_mode, &mut writer);
+        let mut last_count_size = encode_table_count_size(&ll_mode, &mut writer)?;
+        let off_count_size = encode_table_count_size(&of_mode, &mut writer)?;
         if off_count_size != 0 {
             last_count_size = off_count_size;
         }
-        let ml_count_size = encode_table_count_size(&ml_mode, &mut writer);
+        let ml_count_size = encode_table_count_size(&ml_mode, &mut writer)?;
         if ml_count_size != 0 {
             last_count_size = ml_count_size;
         }
 
         let bitstream_start = writer.index();
-        encode_sequences(&sequences, &mut writer, &ll_mode, &ml_mode, &of_mode);
+        encode_sequences(&sequences, &mut writer, &ll_mode, &ml_mode, &of_mode)?;
         let bitstream_size = byte_size_between(bitstream_start, writer.index());
 
         if should_emit_raw_for_legacy_decoder(last_count_size, bitstream_size) {
@@ -427,20 +434,20 @@ pub(crate) fn compress_prepared_block_with_stats(
             of_update,
         );
     }
-    writer.flush();
+    writer.flush()?;
     *offset_history = next_offset_history;
-    result
+    Ok(result)
 }
 
 pub(crate) fn compress_c_prepared_block_with_stats(
-    output: &mut Vec<u8>,
+    output: &mut impl crate::workspace::Growable<u8>,
     config: BlockCompressionConfig,
     prepared: PreparedBlockRef<'_>,
     fse_tables: &mut FseTables,
     offset_history: &mut OffsetHistory,
     previous_huff_table: Option<&huff0_encoder::HuffmanTable>,
     previous_huff_table_is_valid: bool,
-) -> CompressedBlockResult {
+) -> Result<CompressedBlockResult, crate::workspace::CapacityError> {
     debug_assert!(!config.exact_sequence_mode_search);
     let mut result = CompressedBlockResult {
         new_huffman_table: None,
@@ -483,17 +490,17 @@ pub(crate) fn compress_c_prepared_block_with_stats(
                 prefer_valid_repeat: config.prefer_valid_repeat_huffman,
             },
             &mut writer,
-        ) {
+        )? {
             result.new_huffman_table = Some(table);
         }
     } else {
-        raw_literals(prepared.literals, &mut writer);
+        raw_literals(prepared.literals, &mut writer)?;
     }
 
     if prepared.sequences.is_empty() {
-        writer.write_bits(0u8, 8);
+        writer.write_bits(0u8, 8)?;
     } else {
-        encode_seqnum(prepared.sequences.len(), &mut writer);
+        encode_seqnum(prepared.sequences.len(), &mut writer)?;
         let file_type_small_sequence_predefined_llml_max_sequences =
             if prepared.literals.len() >= COMPRESS_LITERALS_SIZE_MIN {
                 config
@@ -528,28 +535,28 @@ pub(crate) fn compress_c_prepared_block_with_stats(
                         sequence_mode_config,
                         *offset_history,
                         None,
-                    )
+                    )?
                 } else {
                     choose_c_fast_sequence_table_modes_from_prepared(
                         prepared.sequences,
                         sequence_mode_config,
                         *offset_history,
                         None,
-                    )
+                    )?
                 };
             next_offset_history = final_offset_history;
             (ll_mode, ml_mode, of_mode)
         } else {
-            choose_c_sequence_table_modes_from_prepared(prepared.sequences, sequence_mode_config)
+            choose_c_sequence_table_modes_from_prepared(prepared.sequences, sequence_mode_config)?
         };
 
-        writer.write_bits(encode_fse_table_modes(&ll_mode, &ml_mode, &of_mode), 8);
-        let mut last_count_size = encode_table_count_size(&ll_mode, &mut writer);
-        let off_count_size = encode_table_count_size(&of_mode, &mut writer);
+        writer.write_bits(encode_fse_table_modes(&ll_mode, &ml_mode, &of_mode), 8)?;
+        let mut last_count_size = encode_table_count_size(&ll_mode, &mut writer)?;
+        let off_count_size = encode_table_count_size(&of_mode, &mut writer)?;
         if off_count_size != 0 {
             last_count_size = off_count_size;
         }
-        let ml_count_size = encode_table_count_size(&ml_mode, &mut writer);
+        let ml_count_size = encode_table_count_size(&ml_mode, &mut writer)?;
         if ml_count_size != 0 {
             last_count_size = ml_count_size;
         }
@@ -562,7 +569,7 @@ pub(crate) fn compress_c_prepared_block_with_stats(
             &ml_mode,
             &of_mode,
             config.c_fast_sequence_emission,
-        );
+        )?;
         let bitstream_size = byte_size_between(bitstream_start, writer.index());
         if should_emit_raw_for_legacy_decoder(last_count_size, bitstream_size) {
             result.should_emit_raw_block = true;
@@ -587,9 +594,9 @@ pub(crate) fn compress_c_prepared_block_with_stats(
             of_update,
         );
     }
-    writer.flush();
+    writer.flush()?;
     *offset_history = next_offset_history;
-    result
+    Ok(result)
 }
 
 /// Compress a native C `SeqStore` representation directly.
@@ -603,7 +610,7 @@ pub(crate) fn compress_c_prepared_block_with_stats(
 /// retained replay entry points remain as exact controls and direct utilities.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn compress_c_stored_block_with_stats(
-    output: &mut Vec<u8>,
+    output: &mut impl crate::workspace::Growable<u8>,
     config: BlockCompressionConfig,
     stored: StoredBlockRef<'_>,
     fse_tables: &mut FseTables,
@@ -612,7 +619,7 @@ pub(crate) fn compress_c_stored_block_with_stats(
     previous_huff_table_is_valid: bool,
     huffman_scratch: Option<&mut huff0_encoder::HuffmanBuildScratch>,
     fse_build_scratch: Option<&mut FSETableBuildScratch>,
-) -> CompressedBlockResult {
+) -> Result<CompressedBlockResult, crate::workspace::CapacityError> {
     compress_c_stored_block_with_stats_impl::<false>(
         output,
         config,
@@ -630,7 +637,7 @@ pub(crate) fn compress_c_stored_block_with_stats(
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn compress_c_stored_block_deferred_with_stats(
-    output: &mut Vec<u8>,
+    output: &mut impl crate::workspace::Growable<u8>,
     config: BlockCompressionConfig,
     stored: StoredBlockRef<'_>,
     fse_tables: &mut FseTables,
@@ -640,7 +647,7 @@ pub(crate) fn compress_c_stored_block_deferred_with_stats(
     huffman_scratch: Option<&mut huff0_encoder::HuffmanBuildScratch>,
     fse_build_scratch: Option<&mut FSETableBuildScratch>,
     pending_state: &mut PendingStoredEntropyState,
-) -> CompressedBlockResult {
+) -> Result<CompressedBlockResult, crate::workspace::CapacityError> {
     compress_c_stored_block_with_stats_impl::<false>(
         output,
         config,
@@ -658,7 +665,7 @@ pub(crate) fn compress_c_stored_block_deferred_with_stats(
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn compress_c_stored_block_with_matcher_history(
-    output: &mut Vec<u8>,
+    output: &mut impl crate::workspace::Growable<u8>,
     config: BlockCompressionConfig,
     stored: StoredBlockRef<'_>,
     fse_tables: &mut FseTables,
@@ -668,7 +675,7 @@ pub(crate) fn compress_c_stored_block_with_matcher_history(
     previous_huff_table_is_valid: bool,
     huffman_scratch: Option<&mut huff0_encoder::HuffmanBuildScratch>,
     fse_build_scratch: Option<&mut FSETableBuildScratch>,
-) -> CompressedBlockResult {
+) -> Result<CompressedBlockResult, crate::workspace::CapacityError> {
     compress_c_stored_block_with_stats_impl::<true>(
         output,
         config,
@@ -686,7 +693,7 @@ pub(crate) fn compress_c_stored_block_with_matcher_history(
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn compress_c_stored_block_deferred_with_matcher_history(
-    output: &mut Vec<u8>,
+    output: &mut impl crate::workspace::Growable<u8>,
     config: BlockCompressionConfig,
     stored: StoredBlockRef<'_>,
     fse_tables: &mut FseTables,
@@ -697,7 +704,7 @@ pub(crate) fn compress_c_stored_block_deferred_with_matcher_history(
     huffman_scratch: Option<&mut huff0_encoder::HuffmanBuildScratch>,
     fse_build_scratch: Option<&mut FSETableBuildScratch>,
     pending_state: &mut PendingStoredEntropyState,
-) -> CompressedBlockResult {
+) -> Result<CompressedBlockResult, crate::workspace::CapacityError> {
     compress_c_stored_block_with_stats_impl::<true>(
         output,
         config,
@@ -715,7 +722,7 @@ pub(crate) fn compress_c_stored_block_deferred_with_matcher_history(
 
 #[allow(clippy::too_many_arguments)]
 fn compress_c_stored_block_with_stats_impl<const MATCHER_HISTORY: bool>(
-    output: &mut Vec<u8>,
+    output: &mut impl crate::workspace::Growable<u8>,
     config: BlockCompressionConfig,
     stored: StoredBlockRef<'_>,
     fse_tables: &mut FseTables,
@@ -726,7 +733,7 @@ fn compress_c_stored_block_with_stats_impl<const MATCHER_HISTORY: bool>(
     huffman_scratch: Option<&mut huff0_encoder::HuffmanBuildScratch>,
     mut fse_build_scratch: Option<&mut FSETableBuildScratch>,
     mut pending_state: Option<&mut PendingStoredEntropyState>,
-) -> CompressedBlockResult {
+) -> Result<CompressedBlockResult, crate::workspace::CapacityError> {
     debug_assert!(!config.exact_sequence_mode_search);
     if fse_build_scratch.is_some()
         && !fse_build_scratch
@@ -780,17 +787,17 @@ fn compress_c_stored_block_with_stats_impl<const MATCHER_HISTORY: bool>(
             huffman_scratch,
             fse_build_scratch.as_deref_mut(),
             &mut writer,
-        ) {
+        )? {
             result.new_huffman_table = Some(table);
         }
     } else {
-        raw_literals(stored.literals, &mut writer);
+        raw_literals(stored.literals, &mut writer)?;
     }
 
     if stored.sequences.is_empty() {
-        writer.write_bits(0u8, 8);
+        writer.write_bits(0u8, 8)?;
     } else {
-        encode_seqnum(stored.sequences.len(), &mut writer);
+        encode_seqnum(stored.sequences.len(), &mut writer)?;
         let file_type_small_sequence_predefined_llml_max_sequences =
             if stored.literals.len() >= COMPRESS_LITERALS_SIZE_MIN {
                 config
@@ -825,28 +832,28 @@ fn compress_c_stored_block_with_stats_impl<const MATCHER_HISTORY: bool>(
                         sequence_mode_config,
                         next_offset_history,
                         fse_build_scratch,
-                    )
+                    )?
                 } else if MATCHER_HISTORY {
                     choose_c_fast_sequence_table_modes_from_stored_with_final_history(
                         stored.sequences,
                         sequence_mode_config,
                         next_offset_history,
                         fse_build_scratch,
-                    )
+                    )?
                 } else if config.c_dfast_compact_sequence_statistics {
                     choose_c_dfast_compact_sequence_table_modes_from_stored(
                         stored.sequences,
                         sequence_mode_config,
                         *offset_history,
                         fse_build_scratch,
-                    )
+                    )?
                 } else {
                     choose_c_fast_sequence_table_modes_from_stored(
                         stored.sequences,
                         sequence_mode_config,
                         *offset_history,
                         fse_build_scratch,
-                    )
+                    )?
                 };
             next_offset_history = final_offset_history;
             (ll_mode, ml_mode, of_mode)
@@ -855,18 +862,18 @@ fn compress_c_stored_block_with_stats_impl<const MATCHER_HISTORY: bool>(
                 stored.sequences,
                 sequence_mode_config,
                 scratch,
-            )
+            )?
         } else {
-            choose_c_sequence_table_modes_from_stored(stored.sequences, sequence_mode_config)
+            choose_c_sequence_table_modes_from_stored(stored.sequences, sequence_mode_config)?
         };
 
-        writer.write_bits(encode_fse_table_modes(&ll_mode, &ml_mode, &of_mode), 8);
-        let mut last_count_size = encode_table_count_size(&ll_mode, &mut writer);
-        let off_count_size = encode_table_count_size(&of_mode, &mut writer);
+        writer.write_bits(encode_fse_table_modes(&ll_mode, &ml_mode, &of_mode), 8)?;
+        let mut last_count_size = encode_table_count_size(&ll_mode, &mut writer)?;
+        let off_count_size = encode_table_count_size(&of_mode, &mut writer)?;
         if off_count_size != 0 {
             last_count_size = off_count_size;
         }
-        let ml_count_size = encode_table_count_size(&ml_mode, &mut writer);
+        let ml_count_size = encode_table_count_size(&ml_mode, &mut writer)?;
         if ml_count_size != 0 {
             last_count_size = ml_count_size;
         }
@@ -879,7 +886,7 @@ fn compress_c_stored_block_with_stats_impl<const MATCHER_HISTORY: bool>(
             &ml_mode,
             &of_mode,
             config.c_fast_sequence_emission,
-        );
+        )?;
         let bitstream_size = byte_size_between(bitstream_start, writer.index());
         if should_emit_raw_for_legacy_decoder(last_count_size, bitstream_size) {
             result.should_emit_raw_block = true;
@@ -912,11 +919,11 @@ fn compress_c_stored_block_with_stats_impl<const MATCHER_HISTORY: bool>(
             );
         }
     }
-    writer.flush();
+    writer.flush()?;
     if let Some(pending_state) = pending_state {
         pending_state.offset_history = Some(next_offset_history);
     } else {
         *offset_history = next_offset_history;
     }
-    result
+    Ok(result)
 }

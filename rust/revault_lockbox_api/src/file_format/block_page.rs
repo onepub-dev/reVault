@@ -5,8 +5,7 @@ use super::encode_block_frame;
 use super::{BlockFrameDescriptor, BlockFrameReader};
 use crate::checked::{read_u16_le, read_u32_le, read_u64_le};
 use crate::compression_frame_manifest::{
-    decode_compression_frame_manifest, encode_compression_frame_manifest, CompressionFrameManifest,
-    CompressionFrameSlice,
+    decode_compression_frame_manifest, CompressionFrameManifest, CompressionFrameSlice,
 };
 use crate::creation_options::FormatMode;
 use crate::crypto::{open_with_nonce, seal_with_random_nonce, strong_checksum};
@@ -169,10 +168,21 @@ fn encode_packet(
         compression_frame_digest: descriptor.index_commitment,
         slices,
     };
-    let manifest_bytes = ZeroizingBytes::new(encode_compression_frame_manifest(&manifest)?);
+    let manifest_bytes = ZeroizingBytes::new(
+        crate::compression_frame_manifest::encode_compression_frame_manifest_sensitive(
+            &manifest,
+            !identity.mode.plaintext(),
+        )?,
+    );
     // Retain the existing manifest decoder's permissions/path/extent validation.
     decode_compression_frame_manifest(&manifest_bytes)?;
-    let mut metadata = ZeroizingBytes::new(descriptor.encode()?.to_vec());
+    let descriptor_bytes = descriptor.encode()?;
+    let capacity = descriptor_bytes
+        .len()
+        .checked_add(manifest_bytes.len())
+        .ok_or(Error::CorruptRecord)?;
+    let mut metadata = ZeroizingBytes::new(Vec::with_capacity(capacity));
+    metadata.extend_from_slice(&descriptor_bytes);
     metadata.extend_from_slice(&manifest_bytes);
     // If raw metadata already fits the smallest padded allocation even an empty
     // compressed stream could achieve, compression cannot save physical space.
@@ -192,9 +202,17 @@ fn encode_packet(
             compression = crate::Compression::None;
         }
     }
-    let (codec, stored) = crate::compression::encode_with_compression(&metadata, compression);
+    let (codec, stored) = crate::compression::encode_with_compression_sensitive(
+        &metadata,
+        compression,
+        !identity.mode.plaintext(),
+    );
     let stored = ZeroizingBytes::new(stored);
-    let mut body = ZeroizingBytes::new(vec![codec]);
+    let capacity = 9usize
+        .checked_add(stored.len())
+        .ok_or(Error::CorruptRecord)?;
+    let mut body = ZeroizingBytes::new(Vec::with_capacity(capacity));
+    body.push(codec);
     body.extend_from_slice(&(metadata.len() as u64).to_le_bytes());
     body.extend_from_slice(&stored);
     let metadata_len = body.len() + if identity.mode.plaintext() { 32 } else { 16 };

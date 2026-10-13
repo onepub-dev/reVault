@@ -54,7 +54,7 @@ pub(super) fn encode_block_opt_no_dict_with_state(
     block_encode_mode: BlockEncodeMode,
     policy: BlockEncodingPolicy,
     ldm_cursor: Option<&mut LdmOptCursor<'_>>,
-) -> GreedyEncodedBlock {
+) -> Result<GreedyEncodedBlock, crate::workspace::CapacityError> {
     let target_mode = block_encode_mode.target_c_block_size().is_some();
     match strategy {
         OptFrameStrategy::BtOpt => {

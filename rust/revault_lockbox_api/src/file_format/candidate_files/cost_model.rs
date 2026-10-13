@@ -5,7 +5,7 @@
 //! emits verified packs and the bounded body to caller-owned sinks. Publication
 //! and cleanup belong to the fresh-image builder, not this model.
 use super::*;
-use crate::compression::{encode_with_compression, COMPRESSION_NONE};
+use crate::compression::{encode_with_compression_sensitive, COMPRESSION_NONE};
 use crate::crypto::strong_checksum;
 use crate::file_format::allocation_map::Extent;
 use crate::page_buffer::ZeroizingBytes;
@@ -183,8 +183,11 @@ pub(super) fn project_into<S: Storage>(
             "cost model catalogue budget".into(),
         ));
     }
-    let (codec, encoded) =
-        encode_with_compression(&body, archive.anchor.mode.options().compression);
+    let (codec, encoded) = encode_with_compression_sensitive(
+        &body,
+        archive.anchor.mode.options().compression,
+        !archive.anchor.mode.plaintext(),
+    );
     let encoded = ZeroizingBytes::new(encoded);
     let decoder_window = body.len().next_power_of_two().max(REGION);
     if codec == COMPRESSION_NONE {

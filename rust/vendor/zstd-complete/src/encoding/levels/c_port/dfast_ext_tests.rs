@@ -21,7 +21,7 @@ fn double_fast_ext_dict_invalidates_repeat_past_dictionary_window_like_c() {
 
     let params = dfast_params();
     let mut state = DFastMatchState::new();
-    load_prefix(&mut state, &combined, dict.len(), params);
+    load_prefix(&mut state, &combined, dict.len(), params).expect("test storage admission");
     let output = compress_block_double_fast_ext_dict_with_state(
         &combined,
         dict.len()..combined.len(),
@@ -30,7 +30,8 @@ fn double_fast_ext_dict_invalidates_repeat_past_dictionary_window_like_c() {
         RepeatOffsets::from_offsets((dict.len() + 2) as u32, 3, 7),
         &mut state,
         dict.len(),
-    );
+    )
+    .expect("test storage admission");
 
     assert!(!output
         .sequences
@@ -48,7 +49,7 @@ fn double_fast_ext_dict_finds_dictionary_offset_match() {
 
     let params = dfast_params();
     let mut state = DFastMatchState::new();
-    load_prefix(&mut state, &combined, dict.len(), params);
+    load_prefix(&mut state, &combined, dict.len(), params).expect("test storage admission");
     let output = compress_block_double_fast_ext_dict_with_state(
         &combined,
         dict.len()..combined.len(),
@@ -57,7 +58,8 @@ fn double_fast_ext_dict_finds_dictionary_offset_match() {
         RepeatOffsets::new(),
         &mut state,
         dict.len(),
-    );
+    )
+    .expect("test storage admission");
 
     assert!(output
         .sequences
@@ -75,7 +77,7 @@ fn double_fast_ext_dict_falls_back_to_regular_when_dictionary_window_expired_lik
 
     let params = dfast_params();
     let mut ext_state = DFastMatchState::new();
-    load_prefix(&mut ext_state, &combined, dict.len(), params);
+    load_prefix(&mut ext_state, &combined, dict.len(), params).expect("test storage admission");
     let mut regular_state = ext_state.clone();
     let block_range = dict.len()..combined.len();
 
@@ -87,7 +89,8 @@ fn double_fast_ext_dict_falls_back_to_regular_when_dictionary_window_expired_lik
         RepeatOffsets::new(),
         &mut ext_state,
         0,
-    );
+    )
+    .expect("test storage admission");
     let regular = compress_block_double_fast_no_dict_with_state_and_loaded_dict(
         &combined,
         block_range,
@@ -95,7 +98,8 @@ fn double_fast_ext_dict_falls_back_to_regular_when_dictionary_window_expired_lik
         RepeatOffsets::new(),
         &mut regular_state,
         0,
-    );
+    )
+    .expect("test storage admission");
 
     assert_eq!(ext, regular);
 }

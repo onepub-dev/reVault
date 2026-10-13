@@ -42,7 +42,8 @@ pub(crate) fn encode_frame_fast_no_dict_with_cctx(src: &[u8], cctx: CctxParamete
         &mut frame_state,
         &mut match_state,
         &mut output,
-    );
+    )
+    .expect("owned legacy codec allocation failed");
     output
 }
 
@@ -51,15 +52,15 @@ pub(crate) fn encode_frame_fast_no_dict_with_cctx_in(
     cctx: CctxParameters,
     frame_state: &mut FrameBlockState,
     match_state: &mut FastMatchState,
-    output: &mut Vec<u8>,
-) {
+    output: &mut impl crate::workspace::Growable<u8>,
+) -> Result<(), crate::workspace::CapacityError> {
     cctx.assert_resolved();
     let block_encode_mode = BlockEncodeMode::from_cctx(cctx);
     let params = cctx.compression;
     output.clear();
-    frame_state.reset_for_frame(params, cctx.max_block_size);
-    match_state.reset_for_frame(params);
-    write_frame_header_no_dict(output, src.len(), params);
+    frame_state.reset_for_frame(params, cctx.max_block_size)?;
+    match_state.reset_for_frame(params)?;
+    write_frame_header_no_dict(output, src.len(), params)?;
 
     if src.is_empty() {
         append_block_fast_no_dict_with_policy(
@@ -77,8 +78,8 @@ pub(crate) fn encode_frame_fast_no_dict_with_cctx_in(
             },
             FrameBlockState::block_policy(true),
             output,
-        );
-        return;
+        )?;
+        return Ok(());
     }
 
     let mut block_start = 0;
@@ -112,15 +113,16 @@ pub(crate) fn encode_frame_fast_no_dict_with_cctx_in(
             policy,
             block_encode_mode,
             output,
-        );
+        )?;
         frame_state.record_encoded_block(
             block_size,
             output.len() - encoded_start,
             encoded_block.repeat_offsets,
             encoded_block.new_huffman_table,
-        );
+        )?;
         block_start = block_end;
     }
+    Ok(())
 }
 
 pub(crate) fn encode_frame_fast_with_dictionary(
@@ -154,7 +156,9 @@ pub(crate) fn encode_frame_fast_with_dictionary_and_cctx(
     let block_encode_mode = BlockEncodeMode::from_cctx(context.cctx);
 
     let mut match_state = FastMatchState::new();
-    match_state.load_cdict_copy_prefix(&context.combined, context.dict_len, params);
+    match_state
+        .load_cdict_copy_prefix(&context.combined, context.dict_len, params)
+        .expect("owned legacy codec allocation failed");
 
     if src.is_empty() {
         append_block_fast_no_dict_with_policy(
@@ -172,7 +176,8 @@ pub(crate) fn encode_frame_fast_with_dictionary_and_cctx(
             },
             FrameBlockState::block_policy(true),
             &mut context.output,
-        );
+        )
+        .expect("owned legacy codec allocation failed");
         return context.output;
     }
 
@@ -212,6 +217,7 @@ pub(crate) fn encode_frame_fast_with_dictionary_and_cctx(
                 block_encode_mode,
                 &mut context.output,
             )
+            .expect("owned legacy codec allocation failed")
         } else {
             append_block_fast_ext_dict_with_state_and_policy_in_mode(
                 FastExtDictBlockSource {
@@ -230,13 +236,17 @@ pub(crate) fn encode_frame_fast_with_dictionary_and_cctx(
                 block_encode_mode,
                 &mut context.output,
             )
+            .expect("owned legacy codec allocation failed")
         };
-        context.frame_state.record_encoded_block(
-            block_size,
-            context.output.len() - encoded_start,
-            encoded_block.repeat_offsets,
-            encoded_block.new_huffman_table,
-        );
+        context
+            .frame_state
+            .record_encoded_block(
+                block_size,
+                context.output.len() - encoded_start,
+                encoded_block.repeat_offsets,
+                encoded_block.new_huffman_table,
+            )
+            .expect("owned legacy codec allocation failed");
         block_start = block_end;
     }
 

@@ -14,8 +14,10 @@ fn ncount_cost_matches_written_table_size() {
         let table = build_table_from_probabilities(probs, acc_log);
         let mut bytes = Vec::new();
         let mut writer = BitWriter::from(&mut bytes);
-        table.write_table(&mut writer);
-        writer.flush();
+        table
+            .write_table(&mut writer)
+            .expect("test storage admission");
+        writer.flush().expect("test storage admission");
 
         assert_eq!(
             ncount_cost_from_probabilities(probs, acc_log),
@@ -43,7 +45,9 @@ fn c_style_ncount_writer_matches_bit_writer_reference() {
     fn reference(probs: &[i32], acc_log: u8) -> Vec<u8> {
         let mut output = Vec::new();
         let mut writer = BitWriter::from(&mut output);
-        writer.write_bits(acc_log - 5, 4);
+        writer
+            .write_bits(acc_log - 5, 4)
+            .expect("test storage admission");
         let mut probabilities = probs.iter().copied();
         let mut probability_counter = 0usize;
         let probability_sum = 1usize << acc_log;
@@ -62,11 +66,17 @@ fn c_style_ncount_writer_matches_bit_writer_reference() {
             let value = (prob + 1) as u32;
 
             if value < low_threshold as u32 {
-                writer.write_bits(value, bits_to_write as usize - 1);
+                writer
+                    .write_bits(value, bits_to_write as usize - 1)
+                    .expect("test storage admission");
             } else if value > mask {
-                writer.write_bits(value + low_threshold as u32, bits_to_write as usize);
+                writer
+                    .write_bits(value + low_threshold as u32, bits_to_write as usize)
+                    .expect("test storage admission");
             } else {
-                writer.write_bits(value, bits_to_write as usize);
+                writer
+                    .write_bits(value, bits_to_write as usize)
+                    .expect("test storage admission");
             }
 
             probability_counter += prob.unsigned_abs() as usize;
@@ -82,15 +92,17 @@ fn c_style_ncount_writer_matches_bit_writer_reference() {
                     }
                     zeros += 1;
                     if zeros == 3 {
-                        writer.write_bits(3u8, 2);
+                        writer.write_bits(3u8, 2).expect("test storage admission");
                         zeros = 0;
                     }
                 }
-                writer.write_bits(zeros, 2);
+                writer.write_bits(zeros, 2).expect("test storage admission");
             }
         }
-        writer.write_bits(0u8, writer.misaligned());
-        writer.dump();
+        writer
+            .write_bits(0u8, writer.misaligned())
+            .expect("test storage admission");
+        writer.dump().expect("test storage admission");
         output
     }
 
@@ -109,7 +121,8 @@ fn c_style_ncount_writer_matches_bit_writer_reference() {
 
     for (probs, acc_log) in cases {
         let mut output = Vec::new();
-        write_normalized_probabilities_bytes(probs.iter().copied(), acc_log, &mut output);
+        write_normalized_probabilities_bytes(probs.iter().copied(), acc_log, &mut output)
+            .expect("test storage admission");
         assert_eq!(output, reference(&probs, acc_log));
     }
 }

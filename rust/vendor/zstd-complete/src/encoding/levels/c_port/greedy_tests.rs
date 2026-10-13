@@ -88,7 +88,8 @@ fn greedy_no_dict_keeps_tiny_blocks_as_last_literals() {
     let data = b"abcdefgh";
 
     let output =
-        compress_block_greedy_no_dict(data, greedy_params(data.len()), RepeatOffsets::new());
+        compress_block_greedy_no_dict(data, greedy_params(data.len()), RepeatOffsets::new())
+            .expect("test storage admission");
 
     assert!(output.sequences.is_empty());
     assert_eq!(output.last_literals, data.len() as u32);
@@ -100,7 +101,8 @@ fn greedy_no_dict_emits_repcode_at_next_position() {
     let data = b"aaaaaaaaaaaaaaaa";
 
     let output =
-        compress_block_greedy_no_dict(data, greedy_params(data.len()), RepeatOffsets::new());
+        compress_block_greedy_no_dict(data, greedy_params(data.len()), RepeatOffsets::new())
+            .expect("test storage admission");
 
     assert_eq!(
         output.sequences,
@@ -119,7 +121,8 @@ fn greedy_no_dict_uses_hash_chain_match() {
     let data = b"abcde12345abcde12345-tail";
 
     let output =
-        compress_block_greedy_no_dict(data, greedy_params(data.len()), RepeatOffsets::new());
+        compress_block_greedy_no_dict(data, greedy_params(data.len()), RepeatOffsets::new())
+            .expect("test storage admission");
 
     assert_eq!(
         output.sequences,
@@ -145,7 +148,8 @@ fn greedy_no_dict_uses_row_matchfinder_when_window_is_large() {
         large_window_greedy_params(),
         RepeatOffsets::new(),
         &mut state,
-    );
+    )
+    .expect("test storage admission");
 
     assert!(!state.tag_table.is_empty());
     assert!(output
@@ -165,7 +169,8 @@ fn greedy_row_matchfinder_stops_at_c_cache_limit() {
         large_window_greedy_params(),
         RepeatOffsets::new(),
         &mut state,
-    );
+    )
+    .expect("test storage admission");
 
     assert!(output.sequences.is_empty());
     assert!(!state.tag_table.is_empty());
@@ -236,14 +241,16 @@ fn greedy_no_dict_state_finds_previous_block_prefix_match() {
         params,
         RepeatOffsets::new(),
         &mut state,
-    );
+    )
+    .expect("test storage admission");
     let second = compress_block_greedy_no_dict_with_state(
         &data,
         second_block_start..data.len(),
         params,
         first.repeat_offsets,
         &mut state,
-    );
+    )
+    .expect("test storage admission");
 
     assert!(second.sequences.iter().any(|sequence| matches!(
         sequence.off_base(),
@@ -264,17 +271,20 @@ fn greedy_loaded_dictionary_keeps_full_dictionary_valid_like_c() {
     let block_range = dictionary.len()..combined.len();
 
     let mut no_loaded_state = GreedyMatchState::new();
-    super::greedy_dict::load_prefix(&mut no_loaded_state, &combined, dictionary.len(), params);
+    super::greedy_dict::load_prefix(&mut no_loaded_state, &combined, dictionary.len(), params)
+        .expect("test storage admission");
     let no_loaded = compress_block_greedy_no_dict_with_state(
         &combined,
         block_range.clone(),
         params,
         RepeatOffsets::new(),
         &mut no_loaded_state,
-    );
+    )
+    .expect("test storage admission");
 
     let mut loaded_state = GreedyMatchState::new();
-    super::greedy_dict::load_prefix(&mut loaded_state, &combined, dictionary.len(), params);
+    super::greedy_dict::load_prefix(&mut loaded_state, &combined, dictionary.len(), params)
+        .expect("test storage admission");
     let loaded = compress_block_greedy_no_dict_with_state_and_loaded_dict(
         &combined,
         block_range,
@@ -282,7 +292,8 @@ fn greedy_loaded_dictionary_keeps_full_dictionary_valid_like_c() {
         RepeatOffsets::new(),
         &mut loaded_state,
         dictionary.len(),
-    );
+    )
+    .expect("test storage admission");
 
     assert!(!has_loaded_dictionary_match(&no_loaded, params));
     assert_loaded_dictionary_match(&loaded, params);
@@ -305,14 +316,16 @@ fn btlazy2_loaded_dictionary_keeps_full_dictionary_valid_like_c() {
         &combined,
         dictionary.len(),
         params,
-    );
+    )
+    .expect("test storage admission");
     let no_loaded = compress_block_btlazy2_no_dict_with_state(
         &combined,
         block_range.clone(),
         params,
         RepeatOffsets::new(),
         &mut no_loaded_state,
-    );
+    )
+    .expect("test storage admission");
 
     let mut loaded_state = GreedyMatchState::new();
     super::greedy_dict::load_binary_tree_prefix(
@@ -320,7 +333,8 @@ fn btlazy2_loaded_dictionary_keeps_full_dictionary_valid_like_c() {
         &combined,
         dictionary.len(),
         params,
-    );
+    )
+    .expect("test storage admission");
     let loaded = compress_block_btlazy2_no_dict_with_state_and_loaded_dict(
         &combined,
         block_range,
@@ -328,7 +342,8 @@ fn btlazy2_loaded_dictionary_keeps_full_dictionary_valid_like_c() {
         RepeatOffsets::new(),
         &mut loaded_state,
         dictionary.len(),
-    );
+    )
+    .expect("test storage admission");
 
     assert!(!has_loaded_dictionary_match(&no_loaded, params));
     assert_loaded_dictionary_match(&loaded, params);
@@ -339,7 +354,8 @@ fn greedy_no_dict_prepared_block_resolves_sequences() {
     let data = b"abcde12345abcde12345-tail";
 
     let prepared =
-        prepare_block_greedy_no_dict(data, greedy_params(data.len()), RepeatOffsets::new());
+        prepare_block_greedy_no_dict(data, greedy_params(data.len()), RepeatOffsets::new())
+            .expect("test storage admission");
 
     assert_eq!(prepared.prepared.literals, b"abcde12345-tail");
     assert_eq!(prepared.prepared.sequences.len(), 1);
@@ -363,7 +379,8 @@ fn greedy_state_reuses_sequence_store_after_block_preparation() {
         params,
         RepeatOffsets::new(),
         &mut state,
-    );
+    )
+    .expect("test storage admission");
     let first = state.sequence_store_allocation();
     assert!(first.1 > 0);
 
@@ -373,7 +390,8 @@ fn greedy_state_reuses_sequence_store_after_block_preparation() {
         params,
         first_block.repeat_offsets,
         &mut state,
-    );
+    )
+    .expect("test storage admission");
 
     assert_eq!(state.sequence_store_allocation(), first);
 }
@@ -405,7 +423,8 @@ fn greedy_normal_native_entropy_recycles_sequence_store_across_blocks() {
             offset_history: &mut offset_history,
         },
         LazyBlockStrategy::Greedy,
-    );
+    )
+    .expect("test storage admission");
     let first_allocation = state.sequence_store_allocation();
     assert!(first_allocation.1 > 0);
 
@@ -426,7 +445,8 @@ fn greedy_normal_native_entropy_recycles_sequence_store_across_blocks() {
             offset_history: &mut offset_history,
         },
         LazyBlockStrategy::Greedy,
-    );
+    )
+    .expect("test storage admission");
 
     assert_eq!(state.sequence_store_allocation(), first_allocation);
 }
@@ -449,7 +469,8 @@ fn greedy_hidden_block_emits_compressed_block() {
             offset_history: &mut offset_history,
         },
         LazyBlockStrategy::Greedy,
-    );
+    )
+    .expect("test storage admission");
     let (last_block, block_type, block_size) = parse_block_header(&encoded.bytes);
 
     assert!(last_block);
@@ -476,7 +497,8 @@ fn greedy_hidden_block_falls_back_to_raw_when_not_smaller() {
             offset_history: &mut offset_history,
         },
         LazyBlockStrategy::Greedy,
-    );
+    )
+    .expect("test storage admission");
     let (last_block, block_type, block_size) = parse_block_header(&encoded.bytes);
 
     assert!(!last_block);
@@ -504,7 +526,8 @@ fn greedy_hidden_block_emits_rle_for_single_byte_run() {
             offset_history: &mut offset_history,
         },
         LazyBlockStrategy::Greedy,
-    );
+    )
+    .expect("test storage admission");
     let (last_block, block_type, block_size) = parse_block_header(&encoded.bytes);
 
     assert!(last_block);
@@ -521,8 +544,8 @@ fn target_block_uses_literal_only_superblock_for_rle_literals() {
     let mut offset_history = OffsetHistory::new();
     let prepared = GreedyPreparedBlock {
         prepared: PreparedBlock {
-            literals: data.to_vec(),
-            sequences: Vec::new(),
+            literals: crate::workspace::ReusableVec::from_owned(data.to_vec()),
+            sequences: crate::workspace::ReusableVec::from_owned(Vec::new()),
         },
         repeat_offsets: RepeatOffsets::new(),
     };
@@ -542,8 +565,9 @@ fn target_block_uses_literal_only_superblock_for_rle_literals() {
             fse_tables: &mut fse_tables,
             offset_history: &mut offset_history,
         },
-        Vec::new(),
-    );
+        crate::workspace::ReusableVec::from_owned(Vec::new()),
+    )
+    .expect("test storage admission");
     let (last_block, block_type, block_size) = parse_block_header(&encoded.bytes);
 
     assert!(last_block);
@@ -562,8 +586,8 @@ fn target_block_keeps_raw_fallback_for_literal_only_non_rle_literals() {
     let mut offset_history = OffsetHistory::new();
     let prepared = GreedyPreparedBlock {
         prepared: PreparedBlock {
-            literals: data.clone(),
-            sequences: Vec::new(),
+            literals: crate::workspace::ReusableVec::from_owned(data.clone()),
+            sequences: crate::workspace::ReusableVec::from_owned(Vec::new()),
         },
         repeat_offsets: RepeatOffsets::new(),
     };
@@ -583,8 +607,9 @@ fn target_block_keeps_raw_fallback_for_literal_only_non_rle_literals() {
             fse_tables: &mut fse_tables,
             offset_history: &mut offset_history,
         },
-        Vec::new(),
-    );
+        crate::workspace::ReusableVec::from_owned(Vec::new()),
+    )
+    .expect("test storage admission");
     let (last_block, block_type, block_size) = parse_block_header(&encoded.bytes);
 
     assert!(!last_block);
@@ -600,8 +625,8 @@ fn target_block_uses_huffman_literal_only_superblock_for_small_text() {
     let mut offset_history = OffsetHistory::new();
     let prepared = GreedyPreparedBlock {
         prepared: PreparedBlock {
-            literals: data.to_vec(),
-            sequences: Vec::new(),
+            literals: crate::workspace::ReusableVec::from_owned(data.to_vec()),
+            sequences: crate::workspace::ReusableVec::from_owned(Vec::new()),
         },
         repeat_offsets: RepeatOffsets::new(),
     };
@@ -621,8 +646,9 @@ fn target_block_uses_huffman_literal_only_superblock_for_small_text() {
             fse_tables: &mut fse_tables,
             offset_history: &mut offset_history,
         },
-        Vec::new(),
-    );
+        crate::workspace::ReusableVec::from_owned(Vec::new()),
+    )
+    .expect("test storage admission");
     let (last_block, block_type, block_size) = parse_block_header(&encoded.bytes);
 
     assert!(last_block);
@@ -656,8 +682,8 @@ fn target_block_uses_sequence_metadata_for_sequence_block() {
     }
     let prepared = GreedyPreparedBlock {
         prepared: PreparedBlock {
-            literals: b"abc".to_vec(),
-            sequences,
+            literals: crate::workspace::ReusableVec::from_owned(b"abc".to_vec()),
+            sequences: crate::workspace::ReusableVec::from_owned(sequences),
         },
         repeat_offsets: RepeatOffsets::new(),
     };
@@ -679,8 +705,9 @@ fn target_block_uses_sequence_metadata_for_sequence_block() {
             fse_tables: &mut fse_tables,
             offset_history: &mut offset_history,
         },
-        Vec::new(),
-    );
+        crate::workspace::ReusableVec::from_owned(Vec::new()),
+    )
+    .expect("test storage admission");
     let (last_block, block_type, block_size) = parse_block_header(&encoded.bytes);
 
     assert!(last_block);
@@ -695,13 +722,13 @@ fn target_block_prefers_basic_sequence_modes_for_single_uniform_sequence() {
     let data = Vec::from([0x07; 1271]);
     let prepared = GreedyPreparedBlock {
         prepared: PreparedBlock {
-            literals: Vec::from([0x07]),
-            sequences: Vec::from([PreparedSequence {
+            literals: crate::workspace::ReusableVec::from_owned(Vec::from([0x07])),
+            sequences: crate::workspace::ReusableVec::from_owned(Vec::from([PreparedSequence {
                 ll: 1,
                 ml: 1270,
                 raw_offset: 1,
                 encoded_offset_value: 1,
-            }]),
+            }])),
         },
         repeat_offsets: RepeatOffsets::new(),
     };
@@ -723,8 +750,9 @@ fn target_block_prefers_basic_sequence_modes_for_single_uniform_sequence() {
             fse_tables: &mut fse_tables,
             offset_history: &mut offset_history,
         },
-        Vec::new(),
-    );
+        crate::workspace::ReusableVec::from_owned(Vec::new()),
+    )
+    .expect("test storage admission");
     let (last_block, block_type, block_size) = parse_block_header(&encoded.bytes);
 
     assert!(last_block);
@@ -757,8 +785,8 @@ fn target_block_accepts_uniform_sequence_code_superblock() {
     }
     let prepared = GreedyPreparedBlock {
         prepared: PreparedBlock {
-            literals,
-            sequences,
+            literals: crate::workspace::ReusableVec::from_owned(literals),
+            sequences: crate::workspace::ReusableVec::from_owned(sequences),
         },
         repeat_offsets: RepeatOffsets::new(),
     };
@@ -780,8 +808,9 @@ fn target_block_accepts_uniform_sequence_code_superblock() {
             fse_tables: &mut fse_tables,
             offset_history: &mut offset_history,
         },
-        Vec::new(),
-    );
+        crate::workspace::ReusableVec::from_owned(Vec::new()),
+    )
+    .expect("test storage admission");
     let (last_block, block_type, block_size) = parse_block_header(&encoded.bytes);
 
     assert!(!last_block);
@@ -814,8 +843,8 @@ fn target_block_preserves_previous_fse_tables_for_repeat_sequence_metadata() {
     }
     let prepared = GreedyPreparedBlock {
         prepared: PreparedBlock {
-            literals: b"abc".to_vec(),
-            sequences,
+            literals: crate::workspace::ReusableVec::from_owned(b"abc".to_vec()),
+            sequences: crate::workspace::ReusableVec::from_owned(sequences),
         },
         repeat_offsets: RepeatOffsets::new(),
     };
@@ -840,8 +869,9 @@ fn target_block_preserves_previous_fse_tables_for_repeat_sequence_metadata() {
             fse_tables: &mut fse_tables,
             offset_history: &mut offset_history,
         },
-        Vec::new(),
-    );
+        crate::workspace::ReusableVec::from_owned(Vec::new()),
+    )
+    .expect("test storage admission");
     let (last_block, block_type, block_size) = parse_block_header(&encoded.bytes);
 
     assert!(last_block);
@@ -871,7 +901,8 @@ fn greedy_hidden_tiny_rle_candidate_stays_raw_like_c() {
             offset_history: &mut offset_history,
         },
         LazyBlockStrategy::Greedy,
-    );
+    )
+    .expect("test storage admission");
     let (last_block, block_type, block_size) = parse_block_header(&encoded.bytes);
 
     assert!(last_block);
@@ -919,6 +950,7 @@ fn lazy_output(data: &[u8]) -> GreedyBlockOutput {
         RepeatOffsets::new(),
         &mut state,
     )
+    .expect("test storage admission")
 }
 
 fn lazy2_output(data: &[u8]) -> GreedyBlockOutput {
@@ -930,6 +962,7 @@ fn lazy2_output(data: &[u8]) -> GreedyBlockOutput {
         RepeatOffsets::new(),
         &mut state,
     )
+    .expect("test storage admission")
 }
 
 fn btlazy2_output(data: &[u8]) -> GreedyBlockOutput {
@@ -941,6 +974,7 @@ fn btlazy2_output(data: &[u8]) -> GreedyBlockOutput {
         RepeatOffsets::new(),
         &mut state,
     )
+    .expect("test storage admission")
 }
 
 fn loaded_dictionary_params(strategy: Strategy) -> CompressionParameters {

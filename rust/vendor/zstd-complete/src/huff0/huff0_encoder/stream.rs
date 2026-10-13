@@ -1,31 +1,33 @@
+use crate::workspace::Growable;
 use alloc::vec::Vec;
 use core::convert::TryFrom;
 
 use crate::bit_io::BitWriter;
 
 /// Encodes one Huffman stream with C's table-log-sized batching strategy.
-pub(super) fn encode_stream<V: AsMut<Vec<u8>>>(
+pub(super) fn encode_stream<V: crate::workspace::ByteBufferOwner>(
     writer: &mut BitWriter<V>,
     codes: &[(u32, u8)],
     max_num_bits: u8,
     data: &[u8],
-) {
+) -> Result<(), crate::workspace::CapacityError> {
     if let Ok(codes) = <&[(u32, u8); 256]>::try_from(codes) {
-        encode_full_table_stream(writer, codes, max_num_bits, data);
+        encode_full_table_stream(writer, codes, max_num_bits, data)?;
     } else {
-        encode_compact_table_stream(writer, codes, max_num_bits, data);
+        encode_compact_table_stream(writer, codes, max_num_bits, data)?;
     }
+    Ok(())
 }
 
 /// Normal emitted tables are built from the complete byte alphabet. Keeping
 /// this loop separate gives safe Rust the same statically bounded code-table
 /// lookup as C's fixed `HUF_CElt CTable[256]`.
-fn encode_full_table_stream<V: AsMut<Vec<u8>>>(
+fn encode_full_table_stream<V: crate::workspace::ByteBufferOwner>(
     writer: &mut BitWriter<V>,
     codes: &[(u32, u8); 256],
     max_num_bits: u8,
     data: &[u8],
-) {
+) -> Result<(), crate::workspace::CapacityError> {
     debug_assert!(max_num_bits > 0);
     let symbols_per_batch = 56 / usize::from(max_num_bits);
     debug_assert!(symbols_per_batch > 0);
@@ -33,7 +35,7 @@ fn encode_full_table_stream<V: AsMut<Vec<u8>>>(
     writer.append_aligned_with(|output| {
         let max_stream_bytes = (data.len() * usize::from(max_num_bits)).div_ceil(8) + 1;
         let mut write_pos = output.len();
-        output.resize(write_pos + max_stream_bytes + 7, 0);
+        output.resize(write_pos + max_stream_bytes + 7, 0)?;
         let mut container = 0u64;
         let mut bit_count = 0usize;
 
@@ -57,18 +59,20 @@ fn encode_full_table_stream<V: AsMut<Vec<u8>>>(
         output[write_pos..write_pos + 8].copy_from_slice(&container.to_le_bytes());
         write_pos += bit_count.div_ceil(8);
         output.truncate(write_pos);
-    });
+        Ok(())
+    })?;
+    Ok(())
 }
 
 /// Full dictionaries and small direct construction tests may retain only the
 /// represented symbol prefix, so preserve a separately generated checked
 /// fallback rather than padding or moving the owning code vector.
-fn encode_compact_table_stream<V: AsMut<Vec<u8>>>(
+fn encode_compact_table_stream<V: crate::workspace::ByteBufferOwner>(
     writer: &mut BitWriter<V>,
     codes: &[(u32, u8)],
     max_num_bits: u8,
     data: &[u8],
-) {
+) -> Result<(), crate::workspace::CapacityError> {
     debug_assert!(max_num_bits > 0);
     let symbols_per_batch = 56 / usize::from(max_num_bits);
     debug_assert!(symbols_per_batch > 0);
@@ -76,7 +80,7 @@ fn encode_compact_table_stream<V: AsMut<Vec<u8>>>(
     writer.append_aligned_with(|output| {
         let max_stream_bytes = (data.len() * usize::from(max_num_bits)).div_ceil(8) + 1;
         let mut write_pos = output.len();
-        output.resize(write_pos + max_stream_bytes + 7, 0);
+        output.resize(write_pos + max_stream_bytes + 7, 0)?;
         let mut container = 0u64;
         let mut bit_count = 0usize;
 
@@ -100,7 +104,9 @@ fn encode_compact_table_stream<V: AsMut<Vec<u8>>>(
         output[write_pos..write_pos + 8].copy_from_slice(&container.to_le_bytes());
         write_pos += bit_count.div_ceil(8);
         output.truncate(write_pos);
-    });
+        Ok(())
+    })?;
+    Ok(())
 }
 
 #[cfg(test)]
@@ -127,16 +133,21 @@ mod tests {
             let mut expected_writer = BitWriter::from(&mut expected);
             for &symbol in data.iter().rev() {
                 let (code, num_bits) = codes[usize::from(symbol)];
-                expected_writer.write_bits(code, usize::from(num_bits));
+                expected_writer
+                    .write_bits(code, usize::from(num_bits))
+                    .expect("test storage admission");
             }
             let bits_to_fill = expected_writer.misaligned();
-            expected_writer.write_bits(1u32, if bits_to_fill == 0 { 8 } else { bits_to_fill });
-            expected_writer.flush();
+            expected_writer
+                .write_bits(1u32, if bits_to_fill == 0 { 8 } else { bits_to_fill })
+                .expect("test storage admission");
+            expected_writer.flush().expect("test storage admission");
 
             let mut actual = Vec::new();
             let mut actual_writer = BitWriter::from(&mut actual);
-            encode_stream(&mut actual_writer, &codes, max_num_bits, &data);
-            actual_writer.flush();
+            encode_stream(&mut actual_writer, &codes, max_num_bits, &data)
+                .expect("test storage admission");
+            actual_writer.flush().expect("test storage admission");
 
             assert_eq!(actual, expected, "table log {max_num_bits}");
         }
@@ -153,16 +164,20 @@ mod tests {
         let mut expected_writer = BitWriter::from(&mut expected);
         for &symbol in data.iter().rev() {
             let (code, num_bits) = codes[usize::from(symbol)];
-            expected_writer.write_bits(code, usize::from(num_bits));
+            expected_writer
+                .write_bits(code, usize::from(num_bits))
+                .expect("test storage admission");
         }
         let bits_to_fill = expected_writer.misaligned();
-        expected_writer.write_bits(1u32, if bits_to_fill == 0 { 8 } else { bits_to_fill });
-        expected_writer.flush();
+        expected_writer
+            .write_bits(1u32, if bits_to_fill == 0 { 8 } else { bits_to_fill })
+            .expect("test storage admission");
+        expected_writer.flush().expect("test storage admission");
 
         let mut actual = Vec::new();
         let mut actual_writer = BitWriter::from(&mut actual);
-        encode_stream(&mut actual_writer, &codes, 3, &data);
-        actual_writer.flush();
+        encode_stream(&mut actual_writer, &codes, 3, &data).expect("test storage admission");
+        actual_writer.flush().expect("test storage admission");
 
         assert_eq!(actual, expected);
     }

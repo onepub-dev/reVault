@@ -20,7 +20,7 @@ pub(in crate::encoding::blocks::compressed) fn build_sequence_table(
     code: impl Fn(&Sequence) -> u8 + Copy,
     max_log: u8,
     table_builder: TableBuilder,
-) -> FSETable {
+) -> Result<FSETable, crate::workspace::CapacityError> {
     let mut counts = [0usize; 256];
     for sequence in sequences {
         counts[usize::from(code(sequence))] += 1;
@@ -35,7 +35,7 @@ pub(in crate::encoding::blocks::compressed) fn build_sequence_table_from_counts(
     last_code: u8,
     max_log: u8,
     table_builder: TableBuilder,
-) -> FSETable {
+) -> Result<FSETable, crate::workspace::CapacityError> {
     let mut counts = *counts.counts();
     build_sequence_table_from_raw_counts(
         &mut counts,
@@ -52,7 +52,7 @@ pub(in crate::encoding::blocks::compressed) fn build_sequence_table_from_counts_
     max_log: u8,
     table_builder: TableBuilder,
     scratch: &mut FSETableBuildScratch,
-) -> FSETable {
+) -> Result<FSETable, crate::workspace::CapacityError> {
     let mut counts = *counts.counts();
     build_sequence_table_from_raw_counts(
         &mut counts,
@@ -76,7 +76,7 @@ pub(in crate::encoding::blocks::compressed) fn build_c_fast_sequence_table_from_
     last_code: u32,
     max_log: u8,
     table_builder: TableBuilder,
-) -> FSETable {
+) -> Result<FSETable, crate::workspace::CapacityError> {
     build_c_fast_sequence_table_from_u32_counts_impl(
         counts,
         total,
@@ -97,7 +97,7 @@ pub(in crate::encoding::blocks::compressed) fn build_c_fast_sequence_table_from_
     max_log: u8,
     table_builder: TableBuilder,
     scratch: &mut FSETableBuildScratch,
-) -> FSETable {
+) -> Result<FSETable, crate::workspace::CapacityError> {
     build_c_fast_sequence_table_from_u32_counts_impl(
         counts,
         total,
@@ -118,7 +118,7 @@ fn build_c_fast_sequence_table_from_u32_counts_impl(
     max_log: u8,
     table_builder: TableBuilder,
     scratch: Option<&mut FSETableBuildScratch>,
-) -> FSETable {
+) -> Result<FSETable, crate::workspace::CapacityError> {
     debug_assert!(total > 0);
     debug_assert!(last_code <= max_symbol);
     debug_assert!((max_symbol as usize) < counts.len());
@@ -159,7 +159,7 @@ fn build_sequence_table_from_raw_counts(
     max_log: u8,
     table_builder: TableBuilder,
     scratch: Option<&mut FSETableBuildScratch>,
-) -> FSETable {
+) -> Result<FSETable, crate::workspace::CapacityError> {
     let original_total = counts.iter().sum::<usize>();
     let original_max_symbol = counts
         .iter()
@@ -214,7 +214,7 @@ pub(in crate::encoding::blocks::compressed) fn build_table_from_probabilities_wi
     probs: &[i32],
     acc_log: u8,
     table_builder: TableBuilder,
-) -> FSETable {
+) -> Result<FSETable, crate::workspace::CapacityError> {
     build_table_from_probabilities_with_builder_and_scratch(probs, acc_log, table_builder, None)
 }
 
@@ -223,17 +223,17 @@ pub(in crate::encoding::blocks::compressed) fn build_table_from_probabilities_wi
     acc_log: u8,
     table_builder: TableBuilder,
     scratch: Option<&mut FSETableBuildScratch>,
-) -> FSETable {
+) -> Result<FSETable, crate::workspace::CapacityError> {
     match table_builder {
         TableBuilder::Full => match scratch {
             Some(scratch) => build_table_from_probabilities_with_scratch(probs, acc_log, scratch),
-            None => build_table_from_probabilities(probs, acc_log),
+            None => Ok(build_table_from_probabilities(probs, acc_log)),
         },
         TableBuilder::ProbabilityOnly => match scratch {
             Some(scratch) => {
                 build_probability_table_for_estimate_with_scratch(probs, acc_log, scratch)
             }
-            None => build_probability_table_for_estimate(probs, acc_log),
+            None => Ok(build_probability_table_for_estimate(probs, acc_log)),
         },
     }
 }

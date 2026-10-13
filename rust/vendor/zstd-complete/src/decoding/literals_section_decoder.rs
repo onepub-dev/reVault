@@ -14,43 +14,50 @@ use alloc::vec::Vec;
 // facade from decoder-owned plaintext storage.
 pub(crate) trait LiteralOutput {
     fn len(&self) -> usize;
-    fn reserve(&mut self, additional: usize);
-    fn extend_bytes(&mut self, bytes: &[u8]);
-    fn resize(&mut self, length: usize, byte: u8);
-    fn push(&mut self, byte: u8);
+    fn reserve(&mut self, additional: usize) -> Result<(), crate::workspace::CapacityError>;
+    fn extend_bytes(&mut self, bytes: &[u8]) -> Result<(), crate::workspace::CapacityError>;
+    fn resize(&mut self, length: usize, byte: u8) -> Result<(), crate::workspace::CapacityError>;
+    fn push(&mut self, byte: u8) -> Result<(), crate::workspace::CapacityError>;
 }
 impl LiteralOutput for Vec<u8> {
     fn len(&self) -> usize {
         Vec::len(self)
     }
-    fn reserve(&mut self, additional: usize) {
-        Vec::reserve(self, additional);
+    fn reserve(&mut self, additional: usize) -> Result<(), crate::workspace::CapacityError> {
+        self.try_reserve(additional)
+            .map_err(|_| crate::workspace::CapacityError::AllocationFailed)
     }
-    fn extend_bytes(&mut self, bytes: &[u8]) {
+    fn extend_bytes(&mut self, bytes: &[u8]) -> Result<(), crate::workspace::CapacityError> {
+        LiteralOutput::reserve(self, bytes.len())?;
         self.extend_from_slice(bytes);
+        Ok(())
     }
-    fn resize(&mut self, length: usize, byte: u8) {
+    fn resize(&mut self, length: usize, byte: u8) -> Result<(), crate::workspace::CapacityError> {
+        LiteralOutput::reserve(self, length.saturating_sub(self.len()))?;
         Vec::resize(self, length, byte);
+        Ok(())
     }
-    fn push(&mut self, byte: u8) {
+    fn push(&mut self, byte: u8) -> Result<(), crate::workspace::CapacityError> {
+        LiteralOutput::reserve(self, 1)?;
         Vec::push(self, byte);
+        Ok(())
     }
 }
 impl LiteralOutput for WipingBytes {
     fn len(&self) -> usize {
         self.as_slice().len()
     }
-    fn reserve(&mut self, additional: usize) {
-        WipingBytes::reserve(self, additional);
+    fn reserve(&mut self, additional: usize) -> Result<(), crate::workspace::CapacityError> {
+        WipingBytes::reserve(self, additional)
     }
-    fn extend_bytes(&mut self, bytes: &[u8]) {
-        self.extend_from_slice(bytes);
+    fn extend_bytes(&mut self, bytes: &[u8]) -> Result<(), crate::workspace::CapacityError> {
+        self.extend_from_slice(bytes)
     }
-    fn resize(&mut self, length: usize, byte: u8) {
-        WipingBytes::resize(self, length, byte);
+    fn resize(&mut self, length: usize, byte: u8) -> Result<(), crate::workspace::CapacityError> {
+        WipingBytes::resize(self, length, byte)
     }
-    fn push(&mut self, byte: u8) {
-        WipingBytes::push(self, byte);
+    fn push(&mut self, byte: u8) -> Result<(), crate::workspace::CapacityError> {
+        WipingBytes::push(self, byte)
     }
 }
 
@@ -65,7 +72,7 @@ fn push_literal(
             expected,
         });
     }
-    target.push(byte);
+    target.push(byte)?;
     Ok(())
 }
 
@@ -96,11 +103,11 @@ pub(crate) fn decode_literals(
     }
     match section.ls_type {
         LiteralsSectionType::Raw => {
-            target.extend_bytes(&source[0..section.regenerated_size as usize]);
+            target.extend_bytes(&source[0..section.regenerated_size as usize])?;
             Ok(section.regenerated_size)
         }
         LiteralsSectionType::RLE => {
-            target.resize(target.len() + section.regenerated_size as usize, source[0]);
+            target.resize(target.len() + section.regenerated_size as usize, source[0])?;
             Ok(1)
         }
         LiteralsSectionType::Compressed | LiteralsSectionType::Treeless => {
@@ -127,7 +134,7 @@ fn decompress_literals(
     let compressed_size = section.compressed_size.ok_or(err::MissingCompressedSize)? as usize;
     let num_streams = section.num_streams.ok_or(err::MissingNumStreams)?;
 
-    target.reserve(section.regenerated_size as usize);
+    target.reserve(section.regenerated_size as usize)?;
     let source = &source[0..compressed_size];
     let mut bytes_read = 0;
 

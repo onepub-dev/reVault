@@ -39,7 +39,7 @@ base = [name for name in tables if name not in wrappers]
 list_types = {
     "StreamChunkList": "StreamChunk", "PageInspectionList": "PageInspection", "LockboxEntryList": "LockboxEntry",
     "VariableList": "Variable", "KeySlotList": "KeySlot", "FormDefinitionList": "FormDefinition",
-    "FormRecordList": "FormRecord", "ContactList": "Contact", "KnownLockboxList": "KnownLockbox",
+    "FormRecordList": "FormRecord", "ContactList": "Contact", "LockboxAliasList": "LockboxAlias", "KnownLockboxList": "KnownLockbox",
     "AccessSlotLabelList": "AccessSlotLabel", "AgentEntryList": "AgentEntry", "ProfileHistoryList": "ProfileHistory",
 }
 

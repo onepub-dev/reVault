@@ -189,14 +189,18 @@ fn encode_frame_opt_no_dict_resolved(
     let block_encode_mode = BlockEncodeMode::from_cctx(cctx);
     let ldm_sequences = if cctx.ldm.enable_ldm == ParamSwitch::Enable {
         let mut ldm_table = LdmHashTable::new(cctx.ldm);
-        Some(generate_sequences_no_dict(src, cctx.ldm, &mut ldm_table))
+        Some(
+            generate_sequences_no_dict(src, cctx.ldm, &mut ldm_table)
+                .expect("owned LDM allocation failed"),
+        )
     } else {
         None
     };
     let mut ldm_store = ldm_sequences
         .as_ref()
         .map(|result| LdmRawSeqStore::new(&result.sequences));
-    write_frame_header_no_dict(&mut output, src.len(), params);
+    write_frame_header_no_dict(&mut output, src.len(), params)
+        .expect("owned legacy codec allocation failed");
     let mut frame_state = FrameBlockState::new(params, cctx.max_block_size);
     let mut opt_state = OptBlockState::new();
     opt_state.reset_for_frame(params);
@@ -223,7 +227,8 @@ fn encode_frame_opt_no_dict_resolved(
             block_encode_mode,
             FrameBlockState::block_policy(true),
             None,
-        );
+        )
+        .expect("owned legacy codec allocation failed");
         output.extend_from_slice(&encoded_block.bytes);
         return output;
     }
@@ -242,7 +247,8 @@ fn encode_frame_opt_no_dict_resolved(
             && strategy == OptFrameStrategy::BtUltra2
             && src[block_start..block_end].len() > ZSTD_PREDEF_THRESHOLD
         {
-            prime_btultra2_stats_no_dict(src, block_start..block_end, params, &mut opt_state);
+            prime_btultra2_stats_no_dict(src, block_start..block_end, params, &mut opt_state)
+                .expect("owned legacy codec allocation failed");
         }
         let mut ldm_cursor =
             ldm_store.map(|store| LdmOptCursor::from_store_for_block(store, block_size as u32));
@@ -271,6 +277,7 @@ fn encode_frame_opt_no_dict_resolved(
                 policy,
                 ldm_cursor.as_mut(),
             )
+            .expect("owned legacy codec allocation failed")
         } else {
             encode_block_opt_ext_dict_with_state_and_policy_and_ldm_in_mode(
                 GreedyExtDictBlockSource {
@@ -290,17 +297,20 @@ fn encode_frame_opt_no_dict_resolved(
                 policy,
                 ldm_cursor.as_mut(),
             )
+            .expect("owned legacy codec allocation failed")
         };
         if let Some(store) = ldm_store.as_mut() {
             store.skip_bytes(block_size as u32);
         }
         let encoded_size = encoded_block.bytes.len();
-        frame_state.record_encoded_block(
-            block_size,
-            encoded_size,
-            encoded_block.repeat_offsets,
-            encoded_block.new_huffman_table,
-        );
+        frame_state
+            .record_encoded_block(
+                block_size,
+                encoded_size,
+                encoded_block.repeat_offsets,
+                encoded_block.new_huffman_table,
+            )
+            .expect("owned legacy codec allocation failed");
         output.extend_from_slice(&encoded_block.bytes);
         opt_state.recycle_block_bytes(encoded_block.bytes);
         block_start = block_end;
@@ -316,8 +326,8 @@ pub(crate) fn encode_frame_opt_no_dict_with_cctx_in(
     frame_state: &mut FrameBlockState,
     opt_state: &mut OptBlockState,
     mut ldm_workspace: Option<&mut LdmWorkspace>,
-    output: &mut Vec<u8>,
-) {
+    output: &mut impl crate::workspace::Growable<u8>,
+) -> Result<(), crate::workspace::CapacityError> {
     let params = cctx.compression;
     let block_encode_mode = BlockEncodeMode::from_cctx(cctx);
     output.clear();
@@ -325,9 +335,9 @@ pub(crate) fn encode_frame_opt_no_dict_with_cctx_in(
         params,
         cctx.max_block_size,
         Some(&mut opt_state.entropy_huffman_scratch),
-    );
+    )?;
     opt_state.reset_for_frame(params);
-    write_frame_header_no_dict(output, src.len(), params);
+    write_frame_header_no_dict(output, src.len(), params)?;
     let mut dict_limit = 0_usize;
 
     if src.is_empty() {
@@ -351,10 +361,10 @@ pub(crate) fn encode_frame_opt_no_dict_with_cctx_in(
             block_encode_mode,
             FrameBlockState::block_policy(true),
             None,
-        );
-        output.extend_from_slice(&encoded_block.bytes);
+        )?;
+        output.extend_from_slice(&encoded_block.bytes)?;
         opt_state.recycle_block_bytes(encoded_block.bytes);
-        return;
+        return Ok(());
     }
 
     let mut ldm_sequences = if cctx.ldm.enable_ldm == ParamSwitch::Enable {
@@ -362,7 +372,7 @@ pub(crate) fn encode_frame_opt_no_dict_with_cctx_in(
             ldm_workspace
                 .as_deref_mut()
                 .expect("enabled LDM requires a prepared workspace")
-                .generate(src, cctx.ldm),
+                .generate(src, cctx.ldm)?,
         )
     } else {
         None
@@ -385,7 +395,7 @@ pub(crate) fn encode_frame_opt_no_dict_with_cctx_in(
             && strategy == OptFrameStrategy::BtUltra2
             && block_size > ZSTD_PREDEF_THRESHOLD
         {
-            prime_btultra2_stats_no_dict(src, block_start..block_end, params, opt_state);
+            prime_btultra2_stats_no_dict(src, block_start..block_end, params, opt_state)?;
         }
         let block_context = GreedyBlockEncodeContext {
             previous_huff_table: frame_state.last_huff_table.as_ref(),
@@ -412,7 +422,7 @@ pub(crate) fn encode_frame_opt_no_dict_with_cctx_in(
                 block_encode_mode,
                 policy,
                 ldm_cursor.as_mut(),
-            )
+            )?
         } else {
             encode_block_opt_ext_dict_with_state_and_policy_and_ldm_in_mode(
                 GreedyExtDictBlockSource {
@@ -431,7 +441,7 @@ pub(crate) fn encode_frame_opt_no_dict_with_cctx_in(
                 block_encode_mode,
                 policy,
                 ldm_cursor.as_mut(),
-            )
+            )?
         };
         if let Some(store) = ldm_store.as_mut() {
             store.skip_bytes(block_size as u32);
@@ -443,14 +453,15 @@ pub(crate) fn encode_frame_opt_no_dict_with_cctx_in(
             encoded_block.repeat_offsets,
             encoded_block.new_huffman_table,
             Some(&mut opt_state.entropy_huffman_scratch),
-        );
-        output.extend_from_slice(&encoded_block.bytes);
+        )?;
+        output.extend_from_slice(&encoded_block.bytes)?;
         opt_state.recycle_block_bytes(encoded_block.bytes);
         block_start = block_end;
     }
     if let (Some(workspace), Some(result)) = (ldm_workspace, ldm_sequences.take()) {
         workspace.recycle(result);
     }
+    Ok(())
 }
 
 fn encode_frame_opt_with_dictionary(
@@ -498,12 +509,15 @@ fn encode_frame_opt_with_dictionary_with_cctx(
             context.cctx.ldm,
             &mut ldm_table,
         );
-        Some(generate_sequences_with_prefix(
-            &context.combined,
-            context.dict_len..context.combined.len(),
-            context.cctx.ldm,
-            &mut ldm_table,
-        ))
+        Some(
+            generate_sequences_with_prefix(
+                &context.combined,
+                context.dict_len..context.combined.len(),
+                context.cctx.ldm,
+                &mut ldm_table,
+            )
+            .expect("owned LDM allocation failed"),
+        )
     } else {
         None
     };
@@ -524,7 +538,8 @@ fn encode_frame_opt_with_dictionary_with_cctx(
         )
     });
     if attached_dictionary.is_none() {
-        load_prefix(&mut opt_state, &context.combined, context.dict_len, params);
+        load_prefix(&mut opt_state, &context.combined, context.dict_len, params)
+            .expect("owned legacy codec allocation failed");
     }
 
     if src.is_empty() {
@@ -548,7 +563,8 @@ fn encode_frame_opt_with_dictionary_with_cctx(
             block_encode_mode,
             FrameBlockState::block_policy(true),
             None,
-        );
+        )
+        .expect("owned legacy codec allocation failed");
         context.output.extend_from_slice(&encoded_block.bytes);
         return context.output;
     }
@@ -571,7 +587,8 @@ fn encode_frame_opt_with_dictionary_with_cctx(
                 block_start..block_end,
                 params,
                 &mut opt_state,
-            );
+            )
+            .expect("owned legacy codec allocation failed");
         }
 
         let mut ldm_cursor =
@@ -601,6 +618,7 @@ fn encode_frame_opt_with_dictionary_with_cctx(
                 policy,
                 ldm_cursor.as_mut(),
             )
+            .expect("owned legacy codec allocation failed")
         } else if loaded_dict_end == 0 {
             encode_block_opt_no_dict_with_state(
                 GreedyBlockSource {
@@ -619,6 +637,7 @@ fn encode_frame_opt_with_dictionary_with_cctx(
                 policy,
                 ldm_cursor.as_mut(),
             )
+            .expect("owned legacy codec allocation failed")
         } else {
             encode_block_opt_ext_dict_with_state_and_policy_and_ldm_in_mode(
                 GreedyExtDictBlockSource {
@@ -638,17 +657,21 @@ fn encode_frame_opt_with_dictionary_with_cctx(
                 policy,
                 ldm_cursor.as_mut(),
             )
+            .expect("owned legacy codec allocation failed")
         };
         if let Some(store) = ldm_store.as_mut() {
             store.skip_bytes(block_size as u32);
         }
         let encoded_size = encoded_block.bytes.len();
-        context.frame_state.record_encoded_block(
-            block_size,
-            encoded_size,
-            encoded_block.repeat_offsets,
-            encoded_block.new_huffman_table,
-        );
+        context
+            .frame_state
+            .record_encoded_block(
+                block_size,
+                encoded_size,
+                encoded_block.repeat_offsets,
+                encoded_block.new_huffman_table,
+            )
+            .expect("owned legacy codec allocation failed");
         context.output.extend_from_slice(&encoded_block.bytes);
         opt_state.recycle_block_bytes(encoded_block.bytes);
         block_start = block_end;

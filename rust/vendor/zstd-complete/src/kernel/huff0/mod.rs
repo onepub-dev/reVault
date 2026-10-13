@@ -22,22 +22,23 @@ pub type HuffmanCode = (u32, u8);
 /// valid canonical table for `max_num_bits`, and `data` must contain at least
 /// four bytes.
 pub unsafe fn encode_four_streams(
-    output: &mut Vec<u8>,
+    output: &mut impl crate::workspace::Growable<u8>,
     codes: &[HuffmanCode; 256],
     max_num_bits: u8,
     data: &[u8],
     bmi2: bool,
-) {
+) -> Result<(), crate::workspace::CapacityError> {
     #[cfg(target_arch = "x86_64")]
     if bmi2 {
         // SAFETY: the caller obtains `bmi2` from a cached CPUID check.
-        unsafe { encode_four_streams_bmi2(output, codes, max_num_bits, data) };
-        return;
+        unsafe { encode_four_streams_bmi2(output, codes, max_num_bits, data)? };
+        return Ok(());
     }
 
     #[cfg(not(target_arch = "x86_64"))]
     let _ = bmi2;
-    encode_four_streams_body(output, codes, max_num_bits, data);
+    encode_four_streams_body(output, codes, max_num_bits, data)?;
+    Ok(())
 }
 
 #[cfg(target_arch = "x86_64")]
@@ -53,21 +54,22 @@ pub unsafe fn encode_four_streams(
     link_section = ".text.sorted.020.ruzstd.huffman.emit.bmi2"
 )]
 unsafe fn encode_four_streams_bmi2(
-    output: &mut Vec<u8>,
+    output: &mut impl crate::workspace::Growable<u8>,
     codes: &[HuffmanCode; 256],
     max_num_bits: u8,
     data: &[u8],
-) {
-    encode_four_streams_body(output, codes, max_num_bits, data);
+) -> Result<(), crate::workspace::CapacityError> {
+    encode_four_streams_body(output, codes, max_num_bits, data)?;
+    Ok(())
 }
 
 #[inline(always)]
 fn encode_four_streams_body(
-    output: &mut Vec<u8>,
+    output: &mut impl crate::workspace::Growable<u8>,
     codes: &[HuffmanCode; 256],
     max_num_bits: u8,
     data: &[u8],
-) {
+) -> Result<(), crate::workspace::CapacityError> {
     assert!(data.len() >= 4);
     debug_assert!((1..=11).contains(&max_num_bits));
 
@@ -84,19 +86,19 @@ fn encode_four_streams_body(
         .iter()
         .map(|stream| tight_stream_bound(stream.len(), max_num_bits))
         .sum::<usize>();
-    output.resize(jump_table + 6 + payload_bound + 7, 0);
+    output.resize(jump_table + 6 + payload_bound + 7, 0)?;
     let mut sizes = [0usize; 3];
     let mut write_pos = jump_table + 6;
 
     for (index, stream) in streams.iter().copied().enumerate() {
         let start = write_pos;
         write_pos = match max_num_bits {
-            11 => encode_stream::<5>(output.as_mut_slice(), write_pos, codes, stream),
-            10 => encode_stream::<5>(output.as_mut_slice(), write_pos, codes, stream),
-            9 => encode_stream::<6>(output.as_mut_slice(), write_pos, codes, stream),
-            8 => encode_stream::<7>(output.as_mut_slice(), write_pos, codes, stream),
-            7 => encode_stream::<8>(output.as_mut_slice(), write_pos, codes, stream),
-            _ => encode_stream::<9>(output.as_mut_slice(), write_pos, codes, stream),
+            11 => encode_stream::<5>(&mut output[..], write_pos, codes, stream),
+            10 => encode_stream::<5>(&mut output[..], write_pos, codes, stream),
+            9 => encode_stream::<6>(&mut output[..], write_pos, codes, stream),
+            8 => encode_stream::<7>(&mut output[..], write_pos, codes, stream),
+            7 => encode_stream::<8>(&mut output[..], write_pos, codes, stream),
+            _ => encode_stream::<9>(&mut output[..], write_pos, codes, stream),
         };
         if index < sizes.len() {
             sizes[index] = write_pos - start;
@@ -109,6 +111,7 @@ fn encode_four_streams_body(
         output[offset..offset + 2].copy_from_slice(&size.to_le_bytes());
     }
     output.truncate(write_pos);
+    Ok(())
 }
 
 fn tight_stream_bound(source_size: usize, max_num_bits: u8) -> usize {
@@ -302,7 +305,11 @@ mod tests {
     use alloc::vec::Vec;
     use core::convert::TryFrom;
 
-    fn encode_reference_stream(output: &mut Vec<u8>, codes: &[HuffmanCode; 256], data: &[u8]) {
+    fn encode_reference_stream(
+        output: &mut impl crate::workspace::Growable<u8>,
+        codes: &[HuffmanCode; 256],
+        data: &[u8],
+    ) {
         let mut container = 0u64;
         let mut bit_count = 0usize;
         for &symbol in data.iter().rev() {
@@ -310,7 +317,9 @@ mod tests {
             container |= u64::from(code) << bit_count;
             bit_count += usize::from(num_bits);
             while bit_count >= 8 {
-                output.push(container as u8);
+                output
+                    .push(container as u8)
+                    .expect("test storage admission");
                 container >>= 8;
                 bit_count -= 8;
             }
@@ -318,7 +327,9 @@ mod tests {
         container |= 1 << bit_count;
         bit_count += 1;
         while bit_count != 0 {
-            output.push(container as u8);
+            output
+                .push(container as u8)
+                .expect("test storage admission");
             container >>= 8;
             bit_count = bit_count.saturating_sub(8);
         }
@@ -356,7 +367,10 @@ mod tests {
 
             let mut actual = Vec::new();
             // SAFETY: the generated table and input satisfy the encoder contract.
-            unsafe { encode_four_streams(&mut actual, &codes, max_num_bits, &data, false) };
+            unsafe {
+                encode_four_streams(&mut actual, &codes, max_num_bits, &data, false)
+                    .expect("test storage admission")
+            };
             assert_eq!(actual, expected, "table log {max_num_bits}");
         }
     }
@@ -381,8 +395,10 @@ mod tests {
             let mut bmi2 = Vec::new();
             // SAFETY: the generated table is valid and this test is BMI2-gated.
             unsafe {
-                encode_four_streams(&mut default, &codes, max_num_bits, &data, false);
-                encode_four_streams(&mut bmi2, &codes, max_num_bits, &data, true);
+                encode_four_streams(&mut default, &codes, max_num_bits, &data, false)
+                    .expect("test storage admission");
+                encode_four_streams(&mut bmi2, &codes, max_num_bits, &data, true)
+                    .expect("test storage admission");
             }
             assert_eq!(bmi2, default);
         }

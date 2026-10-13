@@ -7,6 +7,7 @@ use ml_dsa::{
     SigningKey as MlDsaSigningKey, VerifyingKey as MlDsaVerifyingKey,
 };
 use std::fmt;
+use zeroize::Zeroizing;
 
 use crate::commit_auth::{
     CommitSignature, SIGNATURE_ALGORITHM_ED25519, SIGNATURE_ALGORITHM_ML_DSA_65,
@@ -23,7 +24,8 @@ const ML_DSA_SEED_LEN: usize = 32;
 
 /// Hybrid owner signing keypair used to authenticate writable commits.
 ///
-/// Private material is retained in secure memory and is omitted from `Debug`.
+/// The private record uses secure memory. Expanded signing keys use the
+/// cryptographic libraries' zeroizing owners and are omitted from `Debug`.
 pub struct OwnerSigningKeyPair {
     private_key_bytes: SecretVec,
     public_key: OwnerSigningPublicKey,
@@ -45,10 +47,10 @@ impl OwnerSigningKeyPair {
     }
     /// Generates a fresh Ed25519 and ML-DSA-65 hybrid signing keypair.
     pub fn generate() -> Result<Self> {
-        let mut ed25519_seed = [0_u8; ED25519_SEED_LEN];
-        let mut ml_dsa65_seed = [0_u8; ML_DSA_SEED_LEN];
-        getrandom::fill(&mut ed25519_seed).map_err(|err| Error::Io(err.to_string()))?;
-        getrandom::fill(&mut ml_dsa65_seed).map_err(|err| Error::Io(err.to_string()))?;
+        let mut ed25519_seed = Zeroizing::new([0_u8; ED25519_SEED_LEN]);
+        let mut ml_dsa65_seed = Zeroizing::new([0_u8; ML_DSA_SEED_LEN]);
+        getrandom::fill(&mut *ed25519_seed).map_err(|err| Error::Io(err.to_string()))?;
+        getrandom::fill(&mut *ml_dsa65_seed).map_err(|err| Error::Io(err.to_string()))?;
         Self::from_seeds(ed25519_seed, ml_dsa65_seed)
     }
 
@@ -77,11 +79,11 @@ impl OwnerSigningKeyPair {
     }
 
     fn from_seeds(
-        ed25519_seed: [u8; ED25519_SEED_LEN],
-        ml_dsa65_seed: [u8; ML_DSA_SEED_LEN],
+        ed25519_seed: Zeroizing<[u8; ED25519_SEED_LEN]>,
+        ml_dsa65_seed: Zeroizing<[u8; ML_DSA_SEED_LEN]>,
     ) -> Result<Self> {
         let ed25519 = Ed25519SigningKey::from_bytes(&ed25519_seed);
-        let ml_dsa65_seed = ml_dsa::Seed::from(ml_dsa65_seed);
+        let ml_dsa65_seed = Zeroizing::new(ml_dsa::Seed::from(*ml_dsa65_seed));
         let ml_dsa65 = MlDsaSigningKey::<MlDsa65>::from_seed(&ml_dsa65_seed);
         let public_key = OwnerSigningPublicKey {
             ed25519_public_key: ed25519.verifying_key().to_bytes(),
@@ -285,15 +287,18 @@ fn encode_private_key_record(
     Ok(out)
 }
 
-fn decode_private_key_record(
-    bytes: &[u8],
-) -> Result<([u8; ED25519_SEED_LEN], [u8; ML_DSA_SEED_LEN])> {
+type SigningSeeds = (
+    Zeroizing<[u8; ED25519_SEED_LEN]>,
+    Zeroizing<[u8; ML_DSA_SEED_LEN]>,
+);
+
+fn decode_private_key_record(bytes: &[u8]) -> Result<SigningSeeds> {
     let mut reader = Reader::new(bytes);
     reader.magic(SIGNING_PRIVATE_MAGIC)?;
     reader.version()?;
     reader.algorithm()?;
-    let ed25519_seed = reader.array32()?;
-    let ml_dsa65_seed = reader.array32_bytes()?;
+    let ed25519_seed = Zeroizing::new(reader.array32()?);
+    let ml_dsa65_seed = Zeroizing::new(reader.array32_bytes()?);
     reader.done()?;
     Ok((ed25519_seed, ml_dsa65_seed))
 }

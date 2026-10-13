@@ -1,0 +1,1 @@
+cargo +1.88.0 metadata --offline --format-version 1

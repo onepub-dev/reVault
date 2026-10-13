@@ -53,92 +53,105 @@ pub(super) fn table_description_bytes_from_weights(weights: &[u8]) -> Vec<u8> {
     }
 }
 
-pub(super) fn table_description_bytes_from_weights_reusing(weights: &[u8], output: &mut Vec<u8>) {
+pub(super) fn table_description_bytes_from_weights_reusing(
+    weights: &[u8],
+    output: &mut impl crate::workspace::Growable<u8>,
+) -> Result<(), crate::workspace::CapacityError> {
     let weights = &weights[..weights.len() - 1];
     if weights.len() <= 16 {
         output.clear();
-        output.reserve(1 + weights.len().div_ceil(2));
-        output.push(weights.len() as u8 + 127);
+        output.reserve(1 + weights.len().div_ceil(2))?;
+        output.push(weights.len() as u8 + 127)?;
         let pairs = weights.chunks_exact(2);
         let remainder = pairs.remainder();
         for pair in pairs {
-            output.push((pair[0] << 4) | pair[1]);
+            output.push((pair[0] << 4) | pair[1])?;
         }
         if let Some(&weight) = remainder.first() {
-            output.push(weight << 4);
+            output.push(weight << 4)?;
         }
-        return;
+        return Ok(());
     }
 
     let fse_unusable = c_huff_weight_fse_is_unusable(weights);
     if raw_weight_table_is_supported(weights) && fse_unusable {
-        write_raw_weight_table(weights, output);
-        return;
+        write_raw_weight_table(weights, output)?;
+        return Ok(());
     }
 
-    encode_weight_table_fse_reusing(weights, fse_unusable, output);
+    encode_weight_table_fse_reusing(weights, fse_unusable, output)?;
     let compressed_size = output.len().saturating_sub(1);
     if (compressed_size <= 1 || compressed_size >= weights.len() / 2)
         && raw_weight_table_is_supported(weights)
     {
-        write_raw_weight_table(weights, output);
+        write_raw_weight_table(weights, output)?;
     }
+    Ok(())
 }
 
 pub(super) fn table_description_bytes_from_weights_reusing_with_fse_scratch(
     weights: &[u8],
-    output: &mut Vec<u8>,
+    output: &mut impl crate::workspace::Growable<u8>,
     fse_scratch: &mut FSETableBuildScratch,
-) {
+) -> Result<(), crate::workspace::CapacityError> {
     let weights = &weights[..weights.len() - 1];
     if weights.len() <= 16 {
         output.clear();
-        output.reserve(1 + weights.len().div_ceil(2));
-        output.push(weights.len() as u8 + 127);
+        output.reserve(1 + weights.len().div_ceil(2))?;
+        output.push(weights.len() as u8 + 127)?;
         let pairs = weights.chunks_exact(2);
         let remainder = pairs.remainder();
         for pair in pairs {
-            output.push((pair[0] << 4) | pair[1]);
+            output.push((pair[0] << 4) | pair[1])?;
         }
         if let Some(&weight) = remainder.first() {
-            output.push(weight << 4);
+            output.push(weight << 4)?;
         }
-        return;
+        return Ok(());
     }
 
     let fse_unusable = c_huff_weight_fse_is_unusable(weights);
     if raw_weight_table_is_supported(weights) && fse_unusable {
-        write_raw_weight_table(weights, output);
-        return;
+        write_raw_weight_table(weights, output)?;
+        return Ok(());
     }
 
-    encode_weight_table_fse_reusing_with_scratch(weights, fse_unusable, output, fse_scratch);
+    encode_weight_table_fse_reusing_with_scratch(weights, fse_unusable, output, fse_scratch)?;
     let compressed_size = output.len().saturating_sub(1);
     if (compressed_size <= 1 || compressed_size >= weights.len() / 2)
         && raw_weight_table_is_supported(weights)
     {
-        write_raw_weight_table(weights, output);
+        write_raw_weight_table(weights, output)?;
     }
+    Ok(())
 }
 
-fn write_raw_weight_table(weights: &[u8], output: &mut Vec<u8>) {
+fn write_raw_weight_table(
+    weights: &[u8],
+    output: &mut impl crate::workspace::Growable<u8>,
+) -> Result<(), crate::workspace::CapacityError> {
     output.clear();
-    output.reserve(1 + weights.len().div_ceil(2));
-    output.push(weights.len() as u8 + 127);
+    output.reserve(1 + weights.len().div_ceil(2))?;
+    output.push(weights.len() as u8 + 127)?;
     let pairs = weights.chunks_exact(2);
     let remainder = pairs.remainder();
     for pair in pairs {
-        output.push((pair[0] << 4) | pair[1]);
+        output.push((pair[0] << 4) | pair[1])?;
     }
     if let Some(&weight) = remainder.first() {
-        output.push(weight << 4);
+        output.push(weight << 4)?;
     }
+    Ok(())
 }
 
-fn encode_weight_table_fse_reusing(weights: &[u8], fse_unusable: bool, output: &mut Vec<u8>) {
+fn encode_weight_table_fse_reusing(
+    weights: &[u8],
+    fse_unusable: bool,
+    output: &mut impl crate::workspace::Growable<u8>,
+) -> Result<(), crate::workspace::CapacityError> {
     output.clear();
     let mut writer = BitWriter::from(output);
-    writer.write_bits(0u8, 8);
+    writer.write_bits(0u8, 8)?;
     let size_idx = writer.index() - 8;
     let idx_before = writer.index();
     let max_symbol = weights.iter().copied().max().unwrap_or(0) as usize;
@@ -149,44 +162,47 @@ fn encode_weight_table_fse_reusing(weights: &[u8], fse_unusable: bool, output: &
         fse_encoder::build_table_from_data(weights.iter().copied(), table_log, true)
     };
     let mut encoder = FSEEncoder::new(table, &mut writer);
-    encoder.encode_interleaved(weights);
+    encoder.encode_interleaved(weights)?;
     let encoded_len = (writer.index() - idx_before) / 8;
     assert!(encoded_len < 128);
-    writer.change_bits(size_idx, encoded_len as u8, 8);
-    writer.flush();
+    writer.change_bits(size_idx, encoded_len as u8, 8)?;
+    writer.flush()?;
+    Ok(())
 }
 
 fn encode_weight_table_fse_reusing_with_scratch(
     weights: &[u8],
     fse_unusable: bool,
-    output: &mut Vec<u8>,
+    output: &mut impl crate::workspace::Growable<u8>,
     scratch: &mut FSETableBuildScratch,
-) {
+) -> Result<(), crate::workspace::CapacityError> {
     output.clear();
     let mut writer = BitWriter::from(output);
-    writer.write_bits(0u8, 8);
+    writer.write_bits(0u8, 8)?;
     let size_idx = writer.index() - 8;
     let idx_before = writer.index();
     let max_symbol = weights.iter().copied().max().unwrap_or(0) as usize;
     let table_log = fse_encoder::optimal_table_log(6, weights.len(), max_symbol);
     let table = if !fse_unusable {
-        fse_encoder::build_huffman_weight_table_from_data_with_scratch(weights, 6, scratch)
+        fse_encoder::build_huffman_weight_table_from_data_with_scratch(weights, 6, scratch)?
     } else {
         fse_encoder::build_table_from_data_with_scratch(
             weights.iter().copied(),
             table_log,
             true,
             scratch,
-        )
+        )?
     };
     let mut encoder = FSEEncoder::new(table, &mut writer);
-    encoder.encode_interleaved(weights);
+    let encoded_result = encoder.encode_interleaved(weights);
     let table = encoder.into_table();
-    scratch.recycle_table(table);
+    scratch.recycle_table(table)?;
+    encoded_result?;
     let encoded_len = (writer.index() - idx_before) / 8;
     assert!(encoded_len < 128);
-    writer.change_bits(size_idx, encoded_len as u8, 8);
-    writer.flush();
+    writer.change_bits(size_idx, encoded_len as u8, 8)?;
+    writer.flush()?;
+    Ok(())
 }
 
 fn small_weight_table_description_bytes(weights: &[u8]) -> Vec<u8> {
@@ -244,7 +260,9 @@ pub(super) fn weights_from_codes(codes: &[(u32, u8)], max_num_bits: u8) -> Vec<u
 pub(super) fn encode_weight_table_fse_bytes(weights: &[u8], fse_unusable: bool) -> Vec<u8> {
     let mut encoded = Vec::new();
     let mut writer = BitWriter::from(&mut encoded);
-    writer.write_bits(0u8, 8);
+    writer
+        .write_bits(0u8, 8)
+        .expect("owned legacy codec allocation failed");
     let size_idx = writer.index() - 8;
     let idx_before = writer.index();
     let max_symbol = weights.iter().copied().max().unwrap_or(0) as usize;
@@ -255,11 +273,17 @@ pub(super) fn encode_weight_table_fse_bytes(weights: &[u8], fse_unusable: bool) 
         fse_encoder::build_table_from_data(weights.iter().copied(), table_log, true)
     };
     let mut encoder = FSEEncoder::new(table, &mut writer);
-    encoder.encode_interleaved(weights);
+    encoder
+        .encode_interleaved(weights)
+        .expect("owned legacy codec allocation failed");
     let encoded_len = (writer.index() - idx_before) / 8;
     assert!(encoded_len < 128);
-    writer.change_bits(size_idx, encoded_len as u8, 8);
-    writer.flush();
+    writer
+        .change_bits(size_idx, encoded_len as u8, 8)
+        .expect("owned legacy codec allocation failed");
+    writer
+        .flush()
+        .expect("owned legacy codec allocation failed");
     encoded
 }
 
@@ -273,7 +297,7 @@ mod raw_weight_tests {
         for count in 1..=128 {
             let weights: Vec<u8> = (0..count).map(|symbol| (symbol % 12) as u8).collect();
             let mut reused = vec![0xff; 80];
-            write_raw_weight_table(&weights, &mut reused);
+            write_raw_weight_table(&weights, &mut reused).expect("test storage admission");
             for encoded in [raw_weight_table_bytes(&weights), reused] {
                 assert_eq!(encoded[0] as usize, count + 127);
                 assert_eq!(encoded.len(), 1 + count.div_ceil(2));

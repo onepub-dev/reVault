@@ -60,14 +60,16 @@ pub(super) fn store_match(
     ip: &mut usize,
     off_base: OffBase,
     match_length: usize,
-) {
-    sequences.push(StoredSequence::new(
-        (*ip - *anchor) as u32,
-        off_base,
-        match_length as u32,
-    ));
-    *ip += match_length;
-    *anchor = *ip;
+) -> Result<(), crate::workspace::CapacityError> {
+    Ok({
+        sequences.push(StoredSequence::new(
+            (*ip - *anchor) as u32,
+            off_base,
+            match_length as u32,
+        ))?;
+        *ip += match_length;
+        *anchor = *ip;
+    })
 }
 
 fn hash4(value: u32, h_bits: u32) -> usize {

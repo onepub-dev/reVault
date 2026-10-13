@@ -1557,6 +1557,8 @@ _ROUTES = {
 # END generated file operation route
     'lockbox_open': (('bytes', 'bytes'), 'handle:Lockbox', False),
     'lockbox_open_with_options': (('bytes', 'bytes', 'text', 'value', 'text', 'text', 'value'), 'handle:Lockbox', False),
+    'lockbox_open_password_with_budget': (('bytes', 'bytes', 'value'), 'handle:Lockbox', False),
+    'lockbox_extract_file_with_policy': (('handle', 'text', 'text', 'value', 'value', 'value', 'value', 'value'), 'bool', False),
     'lockbox_open_password': (('bytes', 'bytes'), 'handle:Lockbox', False),
     'lockbox_open_contact': (('bytes', 'handle'), 'handle:Lockbox', False),
     'lockbox_add_file': (('handle', 'text', 'bytes', 'value'), 'bool', False),
@@ -1701,6 +1703,12 @@ _ROUTES = {
     'vault_directory_list_profile_generations': (('handle', 'text'), 'message:ProfileHistory', False),
     'vault_directory_rotate_private_key': (('handle', 'text'), 'message:ProfileHistory', False),
     'vault_directory_remember_lockbox': (('handle', 'bytes', 'text'), 'bool', False),
+    'vault_directory_set_lockbox_alias': (('handle', 'text', 'bytes',), 'bool', False),
+    'vault_directory_list_lockbox_aliases': (('handle',), 'message:LockboxAliasList', False),
+    'vault_directory_remove_lockbox_alias': (('handle', 'text',), 'bool', False),
+    'vault_directory_resolve_lockbox_alias': (('handle', 'text',), 'message:KnownLockbox', False),
+    'vault_read_only_list_lockbox_aliases': (('handle',), 'message:LockboxAliasList', False),
+    'vault_read_only_resolve_lockbox_alias': (('handle', 'text',), 'message:KnownLockbox', False),
     'vault_directory_list_known_lockboxes': (('handle',), 'message:KnownLockboxList', False),
     'vault_directory_forget_lockbox': (('handle', 'text'), 'bool', False),
     'vault_directory_remember_access_slot_label': (('handle', 'bytes', 'value', 'text'), 'bool', False),
@@ -1766,3 +1774,44 @@ _ROUTES = {
 }
 
 __all__ = ['Revault', 'Vault', 'ReadOnlyVault', 'Lockbox', 'ContactKeyPair', 'ContactPublicKey', 'WrappedContactKey', 'ProfileSigningKeyPair', 'ProfileSigningPublicKey', 'AgentSession', 'AgentActivity', 'SecretString', 'SecretBytes', 'LockboxCacheMode', 'LockboxWorkload', 'LockboxWorker', 'AgentActivityKind', 'KeyExportFormat']
+def _Vault_lockbox_open_password_with_budget(self, archive, password, max_derivations):
+    """Open with an explicit per-credential KDF allowance for a trusted archive."""
+    if isinstance(max_derivations, bool) or not isinstance(max_derivations, int) or not 0 <= max_derivations <= 0xffffffff:
+        raise ValueError('max_derivations must be an unsigned 32-bit integer')
+    return _call(self, 'lockbox_open_password_with_budget', (archive, password, max_derivations))
+Revault.lockbox_open_password_with_budget = _Vault_lockbox_open_password_with_budget
+
+def _Lockbox_extract_file_with_policy(self, source, destination, max_file_bytes, max_total_bytes, max_files, restore_permissions, overwrite):
+    """Apply limits and final permissions before atomic file publication."""
+    return _call(self, 'lockbox_extract_file_with_policy', (source, destination, max_file_bytes, max_total_bytes, max_files, restore_permissions, overwrite))
+Lockbox.extract_file_with_policy = _Lockbox_extract_file_with_policy
+
+def _VaultDirectory_set_lockbox_alias(self, name, id):
+    """Manage persisted aliases using core validation."""
+    return _call(self, 'vault_directory_set_lockbox_alias', (name, id))
+VaultDirectory.set_lockbox_alias = _VaultDirectory_set_lockbox_alias
+
+def _VaultDirectory_list_lockbox_aliases(self):
+    """Manage persisted aliases using core validation."""
+    return _call(self, 'vault_directory_list_lockbox_aliases', ())
+VaultDirectory.list_lockbox_aliases = _VaultDirectory_list_lockbox_aliases
+
+def _VaultDirectory_remove_lockbox_alias(self, name):
+    """Manage persisted aliases using core validation."""
+    return _call(self, 'vault_directory_remove_lockbox_alias', (name,))
+VaultDirectory.remove_lockbox_alias = _VaultDirectory_remove_lockbox_alias
+
+def _VaultDirectory_resolve_lockbox_alias(self, name):
+    """Resolve metadata; verify target identity when opening its path."""
+    return _call(self, 'vault_directory_resolve_lockbox_alias', (name,))
+VaultDirectory.resolve_lockbox_alias = _VaultDirectory_resolve_lockbox_alias
+
+def _ReadOnlyVaultDirectory_list_lockbox_aliases(self):
+    """Manage persisted aliases using core validation."""
+    return _call(self, 'vault_read_only_list_lockbox_aliases', ())
+ReadOnlyVaultDirectory.list_lockbox_aliases = _ReadOnlyVaultDirectory_list_lockbox_aliases
+
+def _ReadOnlyVaultDirectory_resolve_lockbox_alias(self, name):
+    """Resolve metadata; verify target identity when opening its path."""
+    return _call(self, 'vault_read_only_resolve_lockbox_alias', (name,))
+ReadOnlyVaultDirectory.resolve_lockbox_alias = _ReadOnlyVaultDirectory_resolve_lockbox_alias

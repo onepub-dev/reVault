@@ -30,107 +30,6 @@ pub enum VariableValueRef<'a> {
     Secret(&'a SecretString),
 }
 
-#[cfg(test)]
-mod commitment_lifecycle_tests {
-    use super::*;
-    use crate::storage::StorageBackend;
-
-    #[test]
-    fn authenticated_variable_tree_persists_multiple_pages_and_secret_lifecycle() {
-        let key = b"synthetic-variable-lifecycle-key";
-        let mut archive = Lockbox::create_in_memory_with_options(crate::LockboxCreateOptions::new(
-            crate::Encryption::Encrypted(crate::LockboxProtection::ContentKey(
-                crate::SecretVec::try_from_slice(key).unwrap(),
-            )),
-            crate::Signing::None,
-        ))
-        .unwrap();
-        let initial = "initial-".repeat(128);
-        for index in 0..256 {
-            archive
-                .set_variable(
-                    &VariableName::new(format!("VAR_{index:04}")).unwrap(),
-                    &initial,
-                )
-                .unwrap();
-        }
-        let secret_name = VariableName::new("SECRET").unwrap();
-        archive
-            .set_secret_variable(
-                &secret_name,
-                &SecretString::try_from_slice(b"first-secret").unwrap(),
-            )
-            .unwrap();
-        archive.commit().unwrap();
-        assert!(matches!(
-            archive.variable_root,
-            Some(VariableTreeNode::Internal(_))
-        ));
-        let options = crate::LockboxOptions {
-            cache_limit: crate::CacheLimit::Bytes(0),
-            ..Default::default()
-        };
-        let mut reopened = Lockbox::open_storage(
-            StorageBackend::memory(archive.to_bytes()),
-            key,
-            options.clone(),
-        )
-        .unwrap();
-        for index in 0..256 {
-            assert_eq!(
-                reopened
-                    .get_variable(&VariableName::new(format!("VAR_{index:04}")).unwrap())
-                    .unwrap()
-                    .as_deref(),
-                Some(initial.as_str())
-            );
-        }
-        reopened
-            .set_variable(&VariableName::new("VAR_0000").unwrap(), "replacement")
-            .unwrap();
-        for index in 1..256 {
-            reopened
-                .delete_variable(&VariableName::new(format!("VAR_{index:04}")).unwrap())
-                .unwrap();
-        }
-        reopened
-            .set_secret_variable(
-                &secret_name,
-                &SecretString::try_from_slice(b"second-secret").unwrap(),
-            )
-            .unwrap();
-        reopened.commit().unwrap();
-        let reopened =
-            Lockbox::open_storage(StorageBackend::memory(reopened.to_bytes()), key, options)
-                .unwrap();
-        assert_eq!(
-            reopened
-                .get_variable(&VariableName::new("VAR_0000").unwrap())
-                .unwrap()
-                .as_deref(),
-            Some("replacement")
-        );
-        for index in 1..256 {
-            assert!(reopened
-                .get_variable(&VariableName::new(format!("VAR_{index:04}")).unwrap())
-                .unwrap()
-                .is_none());
-        }
-        let mut secret = None;
-        reopened
-            .visit_variables(|name, value| {
-                if name == &secret_name {
-                    if let VariableValueRef::Secret(value) = value {
-                        secret = Some(value.with_str(|value| value == "second-secret")?);
-                    }
-                }
-                Ok(())
-            })
-            .unwrap();
-        assert_eq!(secret, Some(true));
-    }
-}
-
 fn ensure_variable_name_available(
     variables: &BTreeMap<VariableName, VariableValue>,
     requested: &VariableName,
@@ -836,5 +735,103 @@ impl<State> Lockbox<State> {
         content_key.zeroize();
         payload.zeroize()?;
         result.map(|offset| (offset, commitment))
+    }
+}
+
+#[cfg(test)]
+mod commitment_lifecycle_tests {
+    use super::*;
+    use crate::storage::StorageBackend;
+
+    #[test]
+    fn authenticated_variable_tree_persists_multiple_pages_and_secret_lifecycle() {
+        let key = b"synthetic-variable-lifecycle-key";
+        let mut archive = Lockbox::create_in_memory_with_options(crate::LockboxCreateOptions::new(
+            crate::Encryption::Encrypted(crate::LockboxProtection::ContentKey(
+                crate::SecretVec::try_from_slice(key).unwrap(),
+            )),
+            crate::Signing::None,
+        ))
+        .unwrap();
+        let initial = "initial-".repeat(128);
+        for index in 0..256 {
+            archive
+                .set_variable(
+                    &VariableName::new(format!("VAR_{index:04}")).unwrap(),
+                    &initial,
+                )
+                .unwrap();
+        }
+        let secret_name = VariableName::new("SECRET").unwrap();
+        archive
+            .set_secret_variable(
+                &secret_name,
+                &SecretString::try_from_slice(b"first-secret").unwrap(),
+            )
+            .unwrap();
+        archive.commit().unwrap();
+        assert!(matches!(
+            archive.variable_root,
+            Some(VariableTreeNode::Internal(_))
+        ));
+        let options = crate::LockboxOptions {
+            cache_limit: crate::CacheLimit::Bytes(0),
+            ..Default::default()
+        };
+        let mut reopened =
+            Lockbox::open_storage(StorageBackend::memory(archive.to_bytes()), key, options)
+                .unwrap();
+        for index in 0..256 {
+            assert_eq!(
+                reopened
+                    .get_variable(&VariableName::new(format!("VAR_{index:04}")).unwrap())
+                    .unwrap()
+                    .as_deref(),
+                Some(initial.as_str())
+            );
+        }
+        reopened
+            .set_variable(&VariableName::new("VAR_0000").unwrap(), "replacement")
+            .unwrap();
+        for index in 1..256 {
+            reopened
+                .delete_variable(&VariableName::new(format!("VAR_{index:04}")).unwrap())
+                .unwrap();
+        }
+        reopened
+            .set_secret_variable(
+                &secret_name,
+                &SecretString::try_from_slice(b"second-secret").unwrap(),
+            )
+            .unwrap();
+        reopened.commit().unwrap();
+        let reopened =
+            Lockbox::open_storage(StorageBackend::memory(reopened.to_bytes()), key, options)
+                .unwrap();
+        assert_eq!(
+            reopened
+                .get_variable(&VariableName::new("VAR_0000").unwrap())
+                .unwrap()
+                .as_deref(),
+            Some("replacement")
+        );
+        for index in 1..256 {
+            assert!(reopened
+                .get_variable(&VariableName::new(format!("VAR_{index:04}")).unwrap())
+                .unwrap()
+                .is_none());
+        }
+        let mut secret = None;
+        reopened
+            .visit_variables(|name, value| {
+                if name == &secret_name {
+                    if let VariableValueRef::Secret(value) = value {
+                        secret = Some(value.with_str(|value| value == "second-secret")?);
+                    }
+                }
+                Ok(())
+            })
+            .unwrap();
+        assert_eq!(secret, Some(true));
     }
 }

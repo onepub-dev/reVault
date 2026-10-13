@@ -1,0 +1,2 @@
+    Checking zstd-complete v0.2.0 (/tmp/revault-codec-fixed-storage-compile28/crate)
+error: could not compile `zstd-complete` (lib test) due to 303 previous errors; 16 warnings emitted

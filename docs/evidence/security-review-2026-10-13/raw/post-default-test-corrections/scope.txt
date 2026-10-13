@@ -1,0 +1,1 @@
+Applied after complete default API result711/0/18 and before native capture. Four CLI test fixtures, one already-qualified codec test assertion, one generator-only version provenance helper. No production runtime change, no fixture generation, no signing material retained. Before/after exact source and base-relative patches preserved.

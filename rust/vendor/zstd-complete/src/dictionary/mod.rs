@@ -180,8 +180,14 @@ pub fn train_dictionary<S: AsRef<[u8]>>(
 
 fn append_fse_description(output: &mut Vec<u8>, table: crate::fse::fse_encoder::FSETable) {
     let mut writer = BitWriter::new();
-    table.write_table(&mut writer);
-    output.extend_from_slice(&writer.dump());
+    table
+        .write_table(&mut writer)
+        .expect("owned dictionary table allocation failed");
+    output.extend_from_slice(
+        &writer
+            .dump()
+            .expect("owned dictionary output allocation failed"),
+    );
 }
 
 /// A set of values that are used during dictionary construction.

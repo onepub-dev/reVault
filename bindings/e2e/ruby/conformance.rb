@@ -174,6 +174,7 @@ def advanced_archive
   password_box = API.lockbox_create_password('archive password'); password_box.add_file('/password.txt', 'password protected', false); password_box.commit
   password_archive = password_box.to_bytes; password_box.free; pass('lockbox_create_password')
   password_open = API.lockbox_open_password(password_archive, 'archive password'); password_open.get_file('/password.txt'); password_open.free; pass('lockbox_open_password', 2)
+  budget_open = API.lockbox_open_password_with_budget(password_archive, 'archive password', 1); check(budget_open.get_file('/password.txt') == 'password protected', 'budget password bytes'); budget_open.free; pass('lockbox_open_password_with_budget', 2)
   contact_box = API.lockbox_create_contact(public_key); contact_box.add_file('/contact.txt', 'contact protected', false); contact_box.commit
   contact_archive = contact_box.to_bytes; contact_box.free; pass('lockbox_create_contact')
   contact_open = API.lockbox_open_contact(contact_archive, contact); contact_open.get_file('/contact.txt'); contact_open.free; pass('lockbox_open_contact', 2)
@@ -181,6 +182,7 @@ def advanced_archive
   signed_contact = API.lockbox_create_contact_with_signing_key(public_key, signing); signed_contact.commit; signed_contact.free; pass('lockbox_create_contact_with_signing_key')
   signed = API.lockbox_create_with_signing_key(key, signing); signed.commit; signed.free; pass('lockbox_create_with_signing_key', 2)
   extract = Dir.mktmpdir('revault-ruby-extract-'); box.extract_file('/account.txt', File.join(extract, 'account.txt'), false); pass('lockbox_extract_file', 2)
+  box.extract_file_with_policy('/account.txt', File.join(extract, 'account.txt'), 1 << 20, 1 << 20, 1, true, true); check(File.binread(File.join(extract, 'account.txt')) == box.get_file('/account.txt'), 'policy extracted bytes'); pass('lockbox_extract_file_with_policy', 2)
   tree = File.join(extract, 'tree'); Dir.mkdir(tree); box.extract_directory(tree, 1 << 20, 4 << 20, 100, false, true, false); pass('lockbox_extract_directory', 2)
   box.delete_form_record('/account.form'); pass('lockbox_delete_form_record')
   box.free; public_key.public_free; contact.free; signing.free
@@ -218,6 +220,12 @@ def vault_lifecycle
   pass('vault_directory_store_backup'); pass('vault_directory_backup_count'); pass('vault_directory_load_backup', 3)
   vault.remember_lockbox(id, '/tmp/example.lbox'); vault.list_known_lockboxes
   pass('vault_directory_remember_lockbox'); pass('vault_directory_list_known_lockboxes')
+  vault.set_lockbox_alias('portable', id); vault.set_lockbox_alias('portable', id)
+  check(vault.list_lockbox_aliases.values.length == 1 && vault.list_lockbox_aliases.values[0].name == 'portable', 'alias repeat and list')
+  check(vault.resolve_lockbox_alias('portable').path == '/tmp/example.lbox', 'alias resolution')
+  pass('vault_directory_set_lockbox_alias', 2); pass('vault_directory_list_lockbox_aliases', 2); pass('vault_directory_resolve_lockbox_alias')
+  vault.remove_lockbox_alias('portable'); vault.remove_lockbox_alias('portable')
+  check(vault.list_lockbox_aliases.values.empty?, 'alias removal repeat'); pass('vault_directory_remove_lockbox_alias', 3)
   vault.remember_access_slot_label(id, 7, 'primary'); vault.list_access_slot_labels(id); vault.find_access_slot_labels(id, 'primary')
   pass('vault_directory_remember_access_slot_label'); pass('vault_directory_list_access_slot_labels'); pass('vault_directory_find_access_slot_labels')
   vault.remember_password(id, password); vault.remembered_password(id)
@@ -230,6 +238,7 @@ def vault_lifecycle
   pass('vault_directory_forget_access_slot_label'); pass('vault_directory_forget_lockbox'); pass('vault_directory_delete_contact')
   vault.delete_private_key('alice'); vault.restore_private_key('alice', profile, owner, true)
   pass('vault_directory_delete_private_key', 2); pass('vault_directory_restore_private_key', 2)
+  vault.remember_lockbox(id, '/tmp/example.lbox'); vault.set_lockbox_alias('portable', id)
   vault.free; pass('vault_directory_free')
   # Release the writable vault before an independent path-based probe.
   check(API.vault_directory_probe_structure_version(root, password) == current, 'vault probe')
@@ -238,6 +247,9 @@ def vault_lifecycle
   readonly.list_profile_names; readonly.list_contact_names; readonly.list_form_aliases; readonly.list_known_lockboxes
   pass('vault_read_only_open'); pass('vault_read_only_list_profile_names', 2); pass('vault_read_only_list_contact_names')
   pass('vault_read_only_list_form_aliases', 2); pass('vault_read_only_list_known_lockboxes')
+  check(readonly.list_lockbox_aliases.values.length == 1 && readonly.list_lockbox_aliases.values[0].name == 'portable', 'persisted read-only alias')
+  check(readonly.resolve_lockbox_alias('portable').path == '/tmp/example.lbox', 'read-only alias resolution')
+  pass('vault_read_only_list_lockbox_aliases', 2); pass('vault_read_only_resolve_lockbox_alias')
   readonly.free; pass('vault_read_only_free')
   API.vault_directory_change_password(root, password, changed); pass('vault_directory_change_password')
   Revault::Vault.open(root, changed).free; pass('vault_directory_open'); puts("ARTIFACT\truby\tvault-opened\t#{root}")

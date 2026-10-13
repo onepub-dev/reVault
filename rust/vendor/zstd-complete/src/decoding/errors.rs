@@ -254,6 +254,7 @@ impl core::fmt::Display for BlockSizeError {
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum DecompressBlockError {
+    Capacity(crate::workspace::CapacityError),
     BlockContentReadError(Error),
     MalformedSectionHeader {
         expected_len: usize,
@@ -284,6 +285,7 @@ impl std::error::Error for DecompressBlockError {
 impl core::fmt::Display for DecompressBlockError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
+            Self::Capacity(error) => write!(f, "decoder storage admission failed: {error:?}"),
             DecompressBlockError::BlockContentReadError(e) => {
                 write!(f, "Error while reading the block content: {e}")
             }
@@ -417,6 +419,7 @@ impl core::fmt::Display for DecodeBufferError {
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum DictionaryDecodeError {
+    Capacity(crate::workspace::CapacityError),
     NotEnoughBytes,
     BadMagicNum { got: [u8; 4] },
     FSETableError(FSETableError),
@@ -437,6 +440,7 @@ impl std::error::Error for DictionaryDecodeError {
 impl core::fmt::Display for DictionaryDecodeError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
+            Self::Capacity(error) => write!(f, "decoder storage admission failed: {error:?}"),
             DictionaryDecodeError::NotEnoughBytes => write!(
                 f,
                 "The raw bytes did not contain a full valid zstd dictionary"
@@ -470,6 +474,7 @@ impl From<HuffmanTableError> for DictionaryDecodeError {
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum FrameDecoderError {
+    Capacity(crate::workspace::CapacityError),
     ReadFrameHeaderError(ReadFrameHeaderError),
     FrameHeaderError(FrameHeaderError),
     WindowSizeTooBig { requested: u64 },
@@ -506,6 +511,7 @@ impl StdError for FrameDecoderError {
 impl core::fmt::Display for FrameDecoderError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> ::core::fmt::Result {
         match self {
+            Self::Capacity(error) => write!(f, "decoder storage admission failed: {error:?}"),
             FrameDecoderError::ReadFrameHeaderError(e) => {
                 write!(f, "{e:?}")
             }
@@ -590,6 +596,7 @@ impl From<ReadFrameHeaderError> for FrameDecoderError {
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum DecompressLiteralsError {
+    Capacity(crate::workspace::CapacityError),
     MissingCompressedSize,
     MissingNumStreams,
     GetBitsError(GetBitsError),
@@ -618,6 +625,7 @@ impl std::error::Error for DecompressLiteralsError {
 impl core::fmt::Display for DecompressLiteralsError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
+            Self::Capacity(error) => write!(f, "decoder storage admission failed: {error:?}"),
             DecompressLiteralsError::MissingCompressedSize => {
                 write!(f,
                     "compressed size was none even though it must be set to something for compressed literals",
@@ -741,6 +749,7 @@ impl From<DecodeBufferError> for ExecuteSequencesError {
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum DecodeSequenceError {
+    Capacity(crate::workspace::CapacityError),
     GetBitsError(GetBitsError),
     FSEDecoderError(FSEDecoderError),
     FSETableError(FSETableError),
@@ -770,6 +779,7 @@ impl std::error::Error for DecodeSequenceError {
 impl core::fmt::Display for DecodeSequenceError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
+            Self::Capacity(error) => write!(f, "decoder storage admission failed: {error:?}"),
             DecodeSequenceError::GetBitsError(e) => write!(f, "{e:?}"),
             DecodeSequenceError::FSEDecoderError(e) => write!(f, "{e:?}"),
             DecodeSequenceError::FSETableError(e) => write!(f, "{e:?}"),
@@ -907,6 +917,7 @@ impl core::fmt::Display for SequencesHeaderParseError {
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum FSETableError {
+    Capacity(crate::workspace::CapacityError),
     AccLogIsZero,
     AccLogTooBig {
         got: u8,
@@ -936,6 +947,7 @@ impl std::error::Error for FSETableError {
 impl core::fmt::Display for FSETableError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
+            Self::Capacity(error) => write!(f, "table storage admission failed: {error:?}"),
             FSETableError::AccLogIsZero => write!(f, "Acclog must be at least 1"),
             FSETableError::AccLogTooBig { got, max } => {
                 write!(
@@ -1006,6 +1018,7 @@ impl From<GetBitsError> for FSEDecoderError {
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum HuffmanTableError {
+    Capacity(crate::workspace::CapacityError),
     GetBitsError(GetBitsError),
     FSEDecoderError(FSEDecoderError),
     FSETableError(FSETableError),
@@ -1059,6 +1072,7 @@ impl StdError for HuffmanTableError {
 impl core::fmt::Display for HuffmanTableError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> ::core::fmt::Result {
         match self {
+            Self::Capacity(error) => write!(f, "table storage admission failed: {error:?}"),
             HuffmanTableError::GetBitsError(e) => write!(f, "{e:?}"),
             HuffmanTableError::FSEDecoderError(e) => write!(f, "{e:?}"),
             HuffmanTableError::FSETableError(e) => write!(f, "{e:?}"),
@@ -1167,5 +1181,47 @@ impl StdError for HuffmanDecoderError {
 impl From<GetBitsError> for HuffmanDecoderError {
     fn from(val: GetBitsError) -> Self {
         Self::GetBitsError(val)
+    }
+}
+
+impl From<crate::workspace::CapacityError> for FSETableError {
+    fn from(error: crate::workspace::CapacityError) -> Self {
+        Self::Capacity(error)
+    }
+}
+
+impl From<crate::workspace::CapacityError> for HuffmanTableError {
+    fn from(error: crate::workspace::CapacityError) -> Self {
+        Self::Capacity(error)
+    }
+}
+
+impl From<crate::workspace::CapacityError> for DictionaryDecodeError {
+    fn from(error: crate::workspace::CapacityError) -> Self {
+        Self::Capacity(error)
+    }
+}
+
+impl From<crate::workspace::CapacityError> for FrameDecoderError {
+    fn from(error: crate::workspace::CapacityError) -> Self {
+        Self::Capacity(error)
+    }
+}
+
+impl From<crate::workspace::CapacityError> for DecompressBlockError {
+    fn from(error: crate::workspace::CapacityError) -> Self {
+        Self::Capacity(error)
+    }
+}
+
+impl From<crate::workspace::CapacityError> for DecompressLiteralsError {
+    fn from(error: crate::workspace::CapacityError) -> Self {
+        Self::Capacity(error)
+    }
+}
+
+impl From<crate::workspace::CapacityError> for DecodeSequenceError {
+    fn from(error: crate::workspace::CapacityError) -> Self {
+        Self::Capacity(error)
     }
 }

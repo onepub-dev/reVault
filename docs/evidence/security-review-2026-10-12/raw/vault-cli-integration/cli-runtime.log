@@ -1,0 +1,449 @@
+warning: associated function `new` is never used
+  --> revault_lockbox_api/src/compression/encode_workspace.rs:63:19
+   |
+62 | impl EncoderFrame {
+   | ----------------- associated function in this implementation
+63 |     pub(crate) fn new(input: &[u8], probe: bool) -> Self {
+   |                   ^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: associated function `open_bytes_with_password` is never used
+   --> revault_lockbox_api/src/lockbox/key_management.rs:749:19
+    |
+201 | impl Lockbox {
+    | ------------ associated function in this implementation
+...
+749 |     pub(crate) fn open_bytes_with_password(
+    |                   ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `encode_compression_frame_manifest` is never used
+  --> revault_lockbox_api/src/model/compression_frame_manifest.rs:49:15
+   |
+49 | pub(crate) fn encode_compression_frame_manifest(
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: `revault_lockbox_api` (lib) generated 3 warnings
+warning: revault_key_server@0.0.37: reVault key/topology server production operation requires a separate commercial license from OnePub IP Pty Ltd; see revault_key_server/LICENSE
+    Finished `release` profile [optimized] target(s) in 0.19s
+     Running unittests src/main.rs (target/release/deps/lockbox-b8134cfac1cb1280)
+
+running 44 tests
+test commands::completion::tests::candidate_filter_is_static_and_secret_free ... ok
+test commands::completion::tests::powershell_managed_block_preserves_user_profile_content ... ok
+test commands::completion::tests::shell_detection_handles_unix_windows_and_ambiguity ... ok
+test commands::completion::tests::shell_override_accepts_supported_names_and_aliases ... ok
+test commands::error_output::tests::api_errors_have_labels_and_recovery_guidance ... ok
+test commands::error_output::tests::colour_is_only_added_when_requested ... ok
+test commands::error_output::tests::errors_have_stable_exit_codes ... ok
+test commands::error_output::tests::low_level_prefixes_are_replaced_with_plain_language ... ok
+test commands::error_output::tests::newer_api_format_errors_direct_upgrade_instead_of_migration ... ok
+test commands::error_output::tests::newer_vault_format_errors_direct_upgrade_instead_of_migration ... ok
+test commands::error_output::tests::structured_error_is_readable_without_colour ... ok
+test commands::filters::tests::shared_rules_match_paths_and_globs ... ok
+test commands::form::move_tests::root_glob_only_matches_root_records ... ok
+test commands::form::move_tests::root_glob_preserves_form_record_names ... ok
+test commands::help::migration_inventory_tests::conventional_command_aliases_are_consistent ... ok
+test commands::help::migration_inventory_tests::batch_commands_accept_multiple_values_and_singletons_reject_them ... ok
+test commands::help::migration_inventory_tests::create_usage_requires_an_explicit_lockbox_name ... ok
+test commands::help::migration_inventory_tests::direct_migration_options_conflict_with_nested_commands ... ok
+test commands::help::migration_inventory_tests::print_complete_command_inventory ... ignored, developer inventory aid; coverage is enforced by the E2E contract suite
+test commands::help::migration_inventory_tests::migration_command_and_option_inventory_is_explicit ... ok
+test commands::help::migration_inventory_tests::secret_options_consistently_support_short_s ... ok
+test commands::helpers::tests::selectors_and_environment_names ... ok
+test commands::migrate::tests::direct_migration_identity_is_stable_and_destination_specific ... ok
+test commands::migrate::tests::direct_migration_key_is_random_and_zeroizing ... ok
+test commands::migrate::tests::exporter_registry_and_capability_contract_are_exact ... ok
+test commands::help::migration_inventory_tests::required_positionals_are_enforced_by_clap ... ok
+test commands::migrate::tests::resume_rejects_a_changed_source ... ok
+test commands::mirror::tests::source_inventory_is_disk_backed_and_tree_changes_are_rejected ... ok
+test commands::mirror_index::tests::grows_and_resolves_binary_keys_without_loading_the_table ... ok
+test commands::output::tests::human_sizes_use_compact_decimal_units ... ok
+test commands::session::argument_tests::session_format_is_inherited_by_auto_open_status ... ok
+test commands::session::argument_tests::session_format_is_rejected_for_non_output_commands ... ok
+test commands::variables::move_tests::nested_glob_preserves_paths_below_its_fixed_prefix ... ok
+test commands::variables::move_tests::root_glob_preserves_variable_names ... ok
+test commands::vault::tests::contact_fingerprint_hex_uses_lowercase_pairs ... ok
+test commands::vault::tests::contact_name_defaults_from_email ... ok
+test commands::vault::tests::fingerprint_channel_requires_receiver_initiated_second_channel ... ok
+test commands::vault::tests::fingerprint_code_uses_lowercase_crockford_and_accepts_uppercase ... ok
+test commands::vault::tests::publish_defaults_to_redundant_topology_bootstrap ... ok
+test commands::vault::tests::publish_expiry_uses_human_readable_utc_time ... ok
+test commands::vault::tests::publish_rate_limit_error_is_short ... ok
+test commands::vault::tests::publish_smtp_error_is_short ... ok
+test commands::vault::tests::receive_publish_advice_requires_contact_initiated_trusted_channel ... ok
+test commands::migrate::tests::interrupted_replace_is_finished_from_the_encrypted_journal ... ok
+
+test result: ok. 43 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 1.45s
+
+     Running tests/agent_flow.rs (target/release/deps/agent_flow-77c4e28230fbd886)
+
+running 2 tests
+test open_and_open_key_complete_real_session_flows ... ignored, serial E2E contract for the platform Session Agent
+test open_populates_cache_and_close_clears_it ... ok
+
+test result: ok. 1 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 7.08s
+
+     Running tests/aliases.rs (target/release/deps/aliases-5d849b7ac119140a)
+
+running 21 tests
+test alias_forget_handles_externally_removed_file_and_move_refusal_preserves_destination ... ok
+test alias_destinations_are_refused_without_overwriting_existing_files ... ok
+test alias_lifecycle_persists_and_tracks_identity ... ok
+test aliases_never_fall_back_and_reject_replaced_or_forgotten_targets ... ok
+test aliases_survive_backup_and_restore_and_locked_helpers_do_not_prompt ... ok
+test completion_exposes_names_only_and_retains_assignment_destination ... ok
+test create_alias_collisions_warn_and_preserve_both_lockboxes ... ok
+test create_registers_derived_and_explicit_aliases_with_readback ... ok
+test create_rejects_invalid_aliases_and_does_not_register_failed_creations ... ok
+test environment_child ... ok
+test format_three_reader_refuses_unicode_format_four_vault_without_mutation ... ok
+test create_validates_options_and_vault_before_creating_an_archive ... ok
+test lockbox_alias_creation_refuses_existing_target_including_extensionless_name ... ok
+test helpers_read_normal_and_secret_fields_and_reject_invalid_destinations ... ok
+test migration_alias_selector_exports_and_imports_with_independent_readback ... ok
+test representative_archive_routes_accept_alias_selector ... ok
+test new_names_reserve_at_but_host_paths_do_not ... ok
+test session_default_alias_reads_follow_lockbox_move ... ok
+test unicode_alias_helpers_normalize_lookup_and_completion_prefixes ... ok
+test unicode_alias_lifecycle_normalizes_and_preserves_persisted_values ... ok
+test unicode_creation_derives_names_and_preserves_normalization_collisions ... ok
+
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 76.23s
+
+     Running tests/cli_flow.rs (target/release/deps/cli_flow-cb29573fe936d28c)
+
+running 78 tests
+test add_accepts_jobs_option_for_large_files ... ok
+test access_subcommands_manage_lockbox_access ... FAILED
+test add_recursive_dot_imports_the_current_directory_contents ... ok
+test auto_open_lockboxes_uses_remembered_password ... ok
+test auto_open_lockboxes_with_vault_profile_allows_first_add ... ok
+test auto_open_scope_commands_persist_without_a_platform_secret_store ... ok
+test clap_errors_are_not_double_prefixed ... ok
+test add_can_default_destination_and_list_recursively ... ok
+test cli_env_rename_and_visualize_flow ... ok
+test command_first_lockbox_is_rejected_for_lockbox_scoped_commands ... ok
+test content_key_create_registers_an_alias_for_the_empty_lockbox ... FAILED
+test create_defaults_lbox_extension_and_reports_before_prompting ... FAILED
+test create_refuses_to_overwrite_existing_lockbox ... FAILED
+test cli_secret_variables_require_explicit_source_and_redact_export ... ok
+test direct_migration_requires_an_output_or_explicit_replacement ... ok
+test directory_remove_requires_recursive_flag ... ok
+test doctor_and_session_report_agent_state ... ok
+test description_commands_support_every_value_source_and_clear ... ok
+test doctor_lockbox_reports_closed_metadata_and_open_guidance ... ok
+test doctor_recover_detects_and_completes_interrupted_cleanup ... FAILED
+test file_env_and_developer_aliases_execute_real_flows ... ok
+test doctor_lockbox_adds_open_checks_when_opened ... ok
+test form_interactive_edit_handles_definition_history_and_mismatched_record ... ok
+test form_definitions_and_records_flow ... ok
+test form_set_secret_upgrades_a_normal_field ... ok
+test help_is_grouped_and_commands_have_specific_help ... ok
+test interactive_create_and_profile_open_reuse_the_prompted_vault ... ok
+test lbx_binary_is_alias_for_revault_cli ... ok
+test interactive_password_open_distinguishes_vault_and_lockbox_passwords ... ok
+test missing_lockbox_errors_are_cli_specific ... ok
+test list_commands_support_table_tsv_and_json_formats ... ok
+test move_lockbox_file_attempt_points_to_vault_command ... ok
+test negative_cli_errors_remain_specific ... ok
+test open_list_flag_is_not_supported ... ok
+test open_requires_explicit_vault_init ... ok
+test ordinary_write_capable_open_completes_interrupted_cleanup_automatically ... ok
+test open_accepts_password_sources_and_session_duration ... FAILED
+test owner_signed_password_create_requires_explicit_vault_init ... ok
+test plain_filesystem_move_reports_stale_session_default_clearly ... ok
+test profile_only_open_never_falls_back_to_a_password_prompt ... ok
+test read_only_archive_supports_cli_listing_and_byte_exact_extraction ... ok
+test recover_reports_and_writes_recovered_lockbox ... ok
+test removing_last_lockbox_key_has_cli_guidance ... ok
+test remove_requires_confirmation_and_reports_count ... ok
+test session_and_close_report_empty_cache_and_already_closed_state ... ok
+test session_default_sets_default_lockbox_for_commands ... FAILED
+test target_first_lockbox_is_rejected_for_global_commands ... ok
+test top_level_help_pins_command_groups_and_hidden_commands ... ok
+test unambiguous_misspelled_top_level_commands_are_not_treated_as_lockboxes ... ok
+test variable_set_secret_upgrades_a_normal_variable ... ok
+test vault_backup_and_restore_round_trip_encrypted_vault ... ok
+test vault_beget_creates_an_independent_profile_and_local_contact ... ok
+test vault_beget_supports_custom_output_contact_and_no_contact ... FAILED
+test vault_commands_execute_real_flows ... ok
+test vault_form_definitions_can_be_used_and_captured ... ok
+test vault_init_existing_is_noop_unless_verify_is_requested ... ok
+test vault_init_generated_pass_phrase_accepts_stored_confirmation ... ok
+test vault_init_generated_pass_phrase_requires_stored_confirmation ... ok
+test session_default_lockbox_applies_to_lockbox_argument_variants has been running for over 60 seconds
+test session_default_lockbox_applies_to_lockbox_argument_variants ... ok
+test vault_init_prompt_mentions_minimum_pass_phrase_length ... ok
+test vault_init_rejects_blank_pass_phrase ... ok
+test vault_init_verify_wrong_password_reports_vault_specific_error ... ok
+test vault_init_overwrite_replaces_existing_vault_with_warning ... ok
+test vault_lockbox_list_reports_owner_size_and_path ... FAILED
+test vault_lockbox_move_across_filesystems_preserves_content ... ok
+test vault_lockbox_remembers_an_existing_lockbox_by_absolute_path ... FAILED
+test vault_lockbox_move_updates_file_vault_and_default_session ... ok
+test vault_profile_create_names_default_and_rejects_public_key_output ... ok
+test vault_passphrase_changes_password_and_creates_backup ... ok
+test vault_profile_export_reports_missing_output ... ok
+test vault_profile_fingerprint_displays_publish_fingerprint ... ok
+test vault_profile_fingerprint_without_email_is_actionable ... ok
+test vault_profile_remove_requires_confirmation_and_force_bypasses_it ... ok
+test vault_profile_restore_replaces_default_profile_and_signing_key ... ok
+test vault_profile_rotate_history_and_access_refresh_flow ... FAILED
+test vault_publish_without_profile_email_is_actionable ... ok
+test version_is_available_for_installers_and_package_managers ... ok
+test vault_profile_public_export_and_backup_restore_are_accepted_by_cli ... ok
+
+failures:
+
+---- access_subcommands_manage_lockbox_access stdout ----
+CLI start: test=access_subcommands_manage_lockbox_access pid=1867175
+CLI end: test=access_subcommands_manage_lockbox_access pid=1867175 elapsed=1.228585876s status=exit status: 0
+CLI start: test=access_subcommands_manage_lockbox_access pid=1867196
+CLI end: test=access_subcommands_manage_lockbox_access pid=1867196 elapsed=1.002941314s status=exit status: 0
+CLI start: test=access_subcommands_manage_lockbox_access pid=1867201
+CLI end: test=access_subcommands_manage_lockbox_access pid=1867201 elapsed=1.203624685s status=exit status: 0
+CLI start: test=access_subcommands_manage_lockbox_access pid=1867216
+CLI end: test=access_subcommands_manage_lockbox_access pid=1867216 elapsed=802.482057ms status=exit status: 0
+CLI start: test=access_subcommands_manage_lockbox_access pid=1867318
+CLI end: test=access_subcommands_manage_lockbox_access pid=1867318 elapsed=1.203754536s status=exit status: 0
+CLI start: test=access_subcommands_manage_lockbox_access pid=1867324
+CLI end: test=access_subcommands_manage_lockbox_access pid=1867324 elapsed=802.602478ms status=exit status: 0
+CLI start: test=access_subcommands_manage_lockbox_access pid=1867327
+CLI end: test=access_subcommands_manage_lockbox_access pid=1867327 elapsed=802.475347ms status=exit status: 0
+CLI start: test=access_subcommands_manage_lockbox_access pid=1867331
+CLI end: test=access_subcommands_manage_lockbox_access pid=1867331 elapsed=1.203779686s status=exit status: 1
+CLI start: test=access_subcommands_manage_lockbox_access pid=1867334
+CLI end: test=access_subcommands_manage_lockbox_access pid=1867334 elapsed=802.577589ms status=exit status: 1
+CLI start: test=access_subcommands_manage_lockbox_access pid=1867371
+CLI end: test=access_subcommands_manage_lockbox_access pid=1867371 elapsed=1.730138894s status=signal: 6 (SIGABRT) (core dumped)
+
+thread 'access_subcommands_manage_lockbox_access' panicked at revault_cli/tests/cli_flow.rs:7275:5:
+command failed
+status: signal: 6 (SIGABRT) (core dumped)
+stdout:
+
+stderr:
+
+thread 'main' panicked at vendor/zstd-complete/src/workspace.rs:377:13:
+assertion `left == right` failed: static workspace vector moved
+  left: 0x55f17b3b2ce0
+ right: 0x55f17b3e3ee0
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+free(): chunks in smallbin corrupted
+
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- content_key_create_registers_an_alias_for_the_empty_lockbox stdout ----
+CLI start: test=content_key_create_registers_an_alias_for_the_empty_lockbox pid=1867682
+CLI end: test=content_key_create_registers_an_alias_for_the_empty_lockbox pid=1867682 elapsed=1.128464639s status=exit status: 101
+
+thread 'content_key_create_registers_an_alias_for_the_empty_lockbox' panicked at revault_cli/tests/cli_flow.rs:7275:5:
+command failed
+status: exit status: 101
+stdout:
+Creating lockbox: /home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_cli/../target/test-tmp/lockbox-raw-create-1867172-18ddec67f44eac22-8/raw.lbox
+Lockbox created: /home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_cli/../target/test-tmp/lockbox-raw-create-1867172-18ddec67f44eac22-8/raw.lbox
+
+stderr:
+
+thread 'main' panicked at vendor/zstd-complete/src/workspace.rs:378:13:
+assertion `left == right` failed: static workspace vector grew
+  left: 494
+ right: 247
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+---- create_defaults_lbox_extension_and_reports_before_prompting stdout ----
+CLI start: test=create_defaults_lbox_extension_and_reports_before_prompting pid=1867714
+CLI end: test=create_defaults_lbox_extension_and_reports_before_prompting pid=1867714 elapsed=1.228405343s status=exit status: 0
+CLI start: test=create_defaults_lbox_extension_and_reports_before_prompting pid=1867726
+CLI end: test=create_defaults_lbox_extension_and_reports_before_prompting pid=1867726 elapsed=927.904499ms status=signal: 11 (SIGSEGV) (core dumped)
+
+thread 'create_defaults_lbox_extension_and_reports_before_prompting' panicked at revault_cli/tests/cli_flow.rs:7275:5:
+command failed
+status: signal: 11 (SIGSEGV) (core dumped)
+stdout:
+Creating lockbox: /home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_cli/../target/test-tmp/lockbox-create-extension-1867172-18ddec67f44eac22-9/project.lbox
+Lockbox created: /home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_cli/../target/test-tmp/lockbox-create-extension-1867172-18ddec67f44eac22-9/project.lbox
+
+stderr:
+
+thread 'main' panicked at vendor/zstd-complete/src/workspace.rs:377:13:
+assertion `left == right` failed: static workspace vector moved
+  left: 0x639d6ca42f30
+ right: 0x639d6ca4f8e0
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+---- create_refuses_to_overwrite_existing_lockbox stdout ----
+CLI start: test=create_refuses_to_overwrite_existing_lockbox pid=1867767
+CLI end: test=create_refuses_to_overwrite_existing_lockbox pid=1867767 elapsed=1.128418597s status=signal: 11 (SIGSEGV) (core dumped)
+
+thread 'create_refuses_to_overwrite_existing_lockbox' panicked at revault_cli/tests/cli_flow.rs:7275:5:
+command failed
+status: signal: 11 (SIGSEGV) (core dumped)
+stdout:
+Creating lockbox: /home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_cli/../target/test-tmp/lockbox-create-no-overwrite-1867172-18ddec67f44eac22-10/safe.lbox
+Lockbox created: /home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_cli/../target/test-tmp/lockbox-create-no-overwrite-1867172-18ddec67f44eac22-10/safe.lbox
+
+stderr:
+
+thread 'main' panicked at vendor/zstd-complete/src/workspace.rs:377:13:
+assertion `left == right` failed: static workspace vector moved
+  left: 0x5dc5b0e23850
+ right: 0x5dc5b0e14750
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+---- doctor_recover_detects_and_completes_interrupted_cleanup stdout ----
+CLI start: test=doctor_recover_detects_and_completes_interrupted_cleanup pid=1867949
+CLI end: test=doctor_recover_detects_and_completes_interrupted_cleanup pid=1867949 elapsed=25.324436ms status=exit status: 0
+
+thread 'doctor_recover_detects_and_completes_interrupted_cleanup' panicked at revault_cli/tests/cli_flow.rs:2860:5:
+assertion failed: diagnosis_stdout.contains("state: cleanup required")
+
+---- open_accepts_password_sources_and_session_duration stdout ----
+CLI start: test=open_accepts_password_sources_and_session_duration pid=1868533
+CLI end: test=open_accepts_password_sources_and_session_duration pid=1868533 elapsed=1.228395644s status=exit status: 0
+CLI start: test=open_accepts_password_sources_and_session_duration pid=1868571
+CLI end: test=open_accepts_password_sources_and_session_duration pid=1868571 elapsed=1.228673146s status=signal: 6 (SIGABRT) (core dumped)
+
+thread 'open_accepts_password_sources_and_session_duration' panicked at revault_cli/tests/cli_flow.rs:7275:5:
+command failed
+status: signal: 6 (SIGABRT) (core dumped)
+stdout:
+
+stderr:
+
+thread 'main' panicked at vendor/zstd-complete/src/workspace.rs:377:13:
+assertion `left == right` failed: static workspace vector moved
+  left: 0x60a0407e5850
+ right: 0x60a0407bad60
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+free(): chunks in smallbin corrupted
+
+
+---- session_default_sets_default_lockbox_for_commands stdout ----
+CLI start: test=session_default_sets_default_lockbox_for_commands pid=1868877
+CLI end: test=session_default_sets_default_lockbox_for_commands pid=1868877 elapsed=1.228376613s status=exit status: 0
+CLI start: test=session_default_sets_default_lockbox_for_commands pid=1868889
+CLI end: test=session_default_sets_default_lockbox_for_commands pid=1868889 elapsed=1.303689021s status=exit status: 0
+CLI start: test=session_default_sets_default_lockbox_for_commands pid=1868894
+CLI end: test=session_default_sets_default_lockbox_for_commands pid=1868894 elapsed=25.376286ms status=exit status: 0
+CLI start: test=session_default_sets_default_lockbox_for_commands pid=1868897
+CLI end: test=session_default_sets_default_lockbox_for_commands pid=1868897 elapsed=376.207227ms status=exit status: 0
+CLI start: test=session_default_sets_default_lockbox_for_commands pid=1868919
+CLI end: test=session_default_sets_default_lockbox_for_commands pid=1868919 elapsed=802.403317ms status=exit status: 0
+CLI start: test=session_default_sets_default_lockbox_for_commands pid=1868921
+CLI end: test=session_default_sets_default_lockbox_for_commands pid=1868921 elapsed=401.36451ms status=exit status: 1
+CLI start: test=session_default_sets_default_lockbox_for_commands pid=1868923
+CLI end: test=session_default_sets_default_lockbox_for_commands pid=1868923 elapsed=802.490237ms status=exit status: 0
+CLI start: test=session_default_sets_default_lockbox_for_commands pid=1868927
+CLI end: test=session_default_sets_default_lockbox_for_commands pid=1868927 elapsed=802.478028ms status=exit status: 0
+CLI start: test=session_default_sets_default_lockbox_for_commands pid=1868929
+CLI end: test=session_default_sets_default_lockbox_for_commands pid=1868929 elapsed=1.203523843s status=signal: 6 (SIGABRT) (core dumped)
+
+thread 'session_default_sets_default_lockbox_for_commands' panicked at revault_cli/tests/cli_flow.rs:7275:5:
+command failed
+status: signal: 6 (SIGABRT) (core dumped)
+stdout:
+
+stderr:
+
+thread 'main' panicked at vendor/zstd-complete/src/workspace.rs:377:13:
+assertion `left == right` failed: static workspace vector moved
+  left: 0x5d5d1597cda0
+ right: 0x5d5d1597ca40
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+free(): chunks in smallbin corrupted
+
+
+---- vault_beget_supports_custom_output_contact_and_no_contact stdout ----
+CLI start: test=vault_beget_supports_custom_output_contact_and_no_contact pid=1869087
+CLI end: test=vault_beget_supports_custom_output_contact_and_no_contact pid=1869087 elapsed=1.328735693s status=exit status: 0
+CLI start: test=vault_beget_supports_custom_output_contact_and_no_contact pid=1869114
+CLI end: test=vault_beget_supports_custom_output_contact_and_no_contact pid=1869114 elapsed=3.033261268s status=exit status: 1
+
+thread 'vault_beget_supports_custom_output_contact_and_no_contact' panicked at revault_cli/tests/cli_flow.rs:7275:5:
+command failed
+status: exit status: 1
+stdout:
+
+stderr:
+Error:
+  Session Agent did not start
+
+
+---- vault_lockbox_list_reports_owner_size_and_path stdout ----
+CLI start: test=vault_lockbox_list_reports_owner_size_and_path pid=1869454
+CLI end: test=vault_lockbox_list_reports_owner_size_and_path pid=1869454 elapsed=1.228436424s status=exit status: 0
+CLI start: test=vault_lockbox_list_reports_owner_size_and_path pid=1869473
+CLI end: test=vault_lockbox_list_reports_owner_size_and_path pid=1869473 elapsed=1.303841293s status=exit status: 0
+CLI start: test=vault_lockbox_list_reports_owner_size_and_path pid=1869498
+CLI end: test=vault_lockbox_list_reports_owner_size_and_path pid=1869498 elapsed=802.342006ms status=exit status: 0
+
+thread 'vault_lockbox_list_reports_owner_size_and_path' panicked at revault_cli/tests/cli_flow.rs:4224:5:
+assertion `left == right` failed
+  left: "unsigned"
+ right: "signed"
+
+---- vault_lockbox_remembers_an_existing_lockbox_by_absolute_path stdout ----
+CLI start: test=vault_lockbox_remembers_an_existing_lockbox_by_absolute_path pid=1869582
+CLI end: test=vault_lockbox_remembers_an_existing_lockbox_by_absolute_path pid=1869582 elapsed=1.128218136s status=exit status: 0
+CLI start: test=vault_lockbox_remembers_an_existing_lockbox_by_absolute_path pid=1869594
+CLI end: test=vault_lockbox_remembers_an_existing_lockbox_by_absolute_path pid=1869594 elapsed=677.132446ms status=signal: 11 (SIGSEGV) (core dumped)
+
+thread 'vault_lockbox_remembers_an_existing_lockbox_by_absolute_path' panicked at revault_cli/tests/cli_flow.rs:7275:5:
+command failed
+status: signal: 11 (SIGSEGV) (core dumped)
+stdout:
+
+stderr:
+
+thread 'main' panicked at vendor/zstd-complete/src/workspace.rs:377:13:
+assertion `left == right` failed: static workspace vector moved
+  left: 0x5bce1d70cfb0
+ right: 0x5bce1d6ca310
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+---- vault_profile_rotate_history_and_access_refresh_flow stdout ----
+CLI start: test=vault_profile_rotate_history_and_access_refresh_flow pid=1869841
+CLI end: test=vault_profile_rotate_history_and_access_refresh_flow pid=1869841 elapsed=1.228544305s status=exit status: 0
+CLI start: test=vault_profile_rotate_history_and_access_refresh_flow pid=1869854
+CLI end: test=vault_profile_rotate_history_and_access_refresh_flow pid=1869854 elapsed=1.002918224s status=exit status: 101
+
+thread 'vault_profile_rotate_history_and_access_refresh_flow' panicked at revault_cli/tests/cli_flow.rs:7275:5:
+command failed
+status: exit status: 101
+stdout:
+Creating lockbox: /home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_cli/../target/t/lb-profile-refresh-1867172-18ddec67f44eac22-63/published.lbox
+Lockbox created: /home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_cli/../target/t/lb-profile-refresh-1867172-18ddec67f44eac22-63/published.lbox
+
+stderr:
+
+thread 'main' panicked at vendor/zstd-complete/src/workspace.rs:377:13:
+assertion `left == right` failed: static workspace vector moved
+  left: 0x591829cea2d0
+ right: 0x591829cc3f70
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+
+failures:
+    access_subcommands_manage_lockbox_access
+    content_key_create_registers_an_alias_for_the_empty_lockbox
+    create_defaults_lbox_extension_and_reports_before_prompting
+    create_refuses_to_overwrite_existing_lockbox
+    doctor_recover_detects_and_completes_interrupted_cleanup
+    open_accepts_password_sources_and_session_duration
+    session_default_sets_default_lockbox_for_commands
+    vault_beget_supports_custom_output_contact_and_no_contact
+    vault_lockbox_list_reports_owner_size_and_path
+    vault_lockbox_remembers_an_existing_lockbox_by_absolute_path
+    vault_profile_rotate_history_and_access_refresh_flow
+
+test result: FAILED. 67 passed; 11 failed; 0 ignored; 0 measured; 0 filtered out; finished in 247.35s
+
+error: test failed, to rerun pass `-p revault_cli --test cli_flow`

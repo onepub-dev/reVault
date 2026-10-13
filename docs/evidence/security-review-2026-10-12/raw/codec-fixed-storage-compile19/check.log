@@ -1,0 +1,1259 @@
+    Checking zstd-complete v0.2.0 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/vendor/zstd-complete)
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/bit_io/bit_writer.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `alloc::vec::Vec`
+  --> vendor/zstd-complete/src/decoding/sequence_section_decoder.rs:11:5
+   |
+11 | use alloc::vec::Vec;
+   |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/block_header.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/blocks/compressed/estimate.rs:7:5
+  |
+7 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/blocks/compressed/literals.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/frame_header.rs:4:5
+  |
+4 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:6:5
+  |
+6 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/c_frame_header.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/mode.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/target.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/mode.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/target.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_block/special.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/opt_path.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/superblock_sequences.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/kernel/huff0/mod.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/fse/fse_encoder.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder/stream.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder/table.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/dfast.rs:196:5
+    |
+195 |   ) -> DFastBlockOutput {
+    |        ---------------- expected `DFastBlockOutput` because of return type
+196 | /     compress_block_double_fast_no_dict_codegen(
+197 | |         src,
+198 | |         block_range,
+199 | |         params,
+...   |
+202 | |         loaded_dict_end,
+203 | |     )
+    | |_____^ expected `DFastBlockOutput`, found `Result<DFastBlockOutput, CapacityError>`
+    |
+    = note: expected struct `DFastBlockOutput`
+                 found enum `Result<DFastBlockOutput, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<DFastBlockOutput, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+203 |     ).expect("REASON")
+    |      +++++++++++++++++
+
+error[E0599]: no method named `fill` found for enum `Result` in the current scope
+    --> vendor/zstd-complete/src/encoding/levels/c_port/fast.rs:130:41
+     |
+130  |         self.table_for(params.hash_log).fill(INVALID_INDEX);
+     |                                         ^^^^ method not found in `Result<&mut [u32], CapacityError>`
+     |
+note: the method `fill` exists on the type `&mut [u32]`
+    --> /home/bsutton/.rustup/toolchains/1.88.0-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/slice/mod.rs:3648:5
+     |
+3648 | /     pub fn fill(&mut self, value: T)
+3649 | |     where
+3650 | |         T: Clone,
+     | |_________________^
+help: consider using `Result::expect` to unwrap the `&mut [u32]` value, panicking if the value is a `Result::Err`
+     |
+130  |         self.table_for(params.hash_log).expect("REASON").fill(INVALID_INDEX);
+     |                                        +++++++++++++++++
+
+error[E0608]: cannot index into a value of type `Result<&mut [u32], CapacityError>`
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast.rs:154:23
+    |
+154 |             hash_table[hash] = ip as u32;
+    |                       ^^^^^^
+
+error[E0599]: no method named `fill` found for enum `Result` in the current scope
+    --> vendor/zstd-complete/src/encoding/levels/c_port/fast.rs:171:20
+     |
+171  |         hash_table.fill(0);
+     |                    ^^^^ method not found in `Result<&mut [u32], CapacityError>`
+     |
+note: the method `fill` exists on the type `&mut [u32]`
+    --> /home/bsutton/.rustup/toolchains/1.88.0-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/slice/mod.rs:3648:5
+     |
+3648 | /     pub fn fill(&mut self, value: T)
+3649 | |     where
+3650 | |         T: Clone,
+     | |_________________^
+help: consider using `Result::expect` to unwrap the `&mut [u32]` value, panicking if the value is a `Result::Err`
+     |
+171  |         hash_table.expect("REASON").fill(0);
+     |                   +++++++++++++++++
+
+error[E0599]: no method named `len` found for enum `Result` in the current scope
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast.rs:173:55
+    |
+173 |         let mut tagged_table = vec![0_u32; hash_table.len()];
+    |                                                       ^^^ method not found in `Result<&mut [u32], CapacityError>`
+    |
+note: the method `len` exists on the type `&mut [u32]`
+   --> /home/bsutton/.rustup/toolchains/1.88.0-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/slice/mod.rs:115:5
+    |
+115 |     pub const fn len(&self) -> usize {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: items from traits can only be used if the trait is implemented and in scope
+note: `LiteralOutput` defines an item `len`, perhaps you need to implement it
+   --> vendor/zstd-complete/src/decoding/literals_section_decoder.rs:15:1
+    |
+15  | pub(crate) trait LiteralOutput {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+help: consider using `Result::expect` to unwrap the `&mut [u32]` value, panicking if the value is a `Result::Err`
+    |
+173 |         let mut tagged_table = vec![0_u32; hash_table.expect("REASON").len()];
+    |                                                      +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast.rs:195:20
+    |
+195 |             *dst = tagged >> SHORT_CACHE_TAG_BITS;
+    |             ----   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `&mut [u32]`, found `u32`
+    |             |
+    |             expected due to the type of this binding
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast.rs:244:5
+    |
+243 |   ) -> FastBlockOutput {
+    |        --------------- expected `FastBlockOutput` because of return type
+244 | /     compress_block_fast_no_dict_codegen(
+245 | |         src,
+246 | |         block_range,
+247 | |         params,
+...   |
+250 | |         loaded_dict_end,
+251 | |     )
+    | |_____^ expected `FastBlockOutput`, found `Result<FastBlockOutput, CapacityError>`
+    |
+    = note: expected struct `FastBlockOutput`
+                 found enum `Result<FastBlockOutput, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<FastBlockOutput, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+251 |     ).expect("REASON")
+    |      +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast.rs:301:13
+    |
+292 |         crate::kernel::fast::select_block(params.min_match)(
+    |         --------------------------------------------------- arguments to this function are incorrect
+...
+301 |             state.table_for(params.hash_log),
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `&mut [u32]`, found `Result<&mut [u32], CapacityError>`
+    |
+    = note: expected mutable reference `&mut [u32]`
+                            found enum `Result<&mut [u32], CapacityError>`
+help: use the `?` operator to extract the `Result<&mut [u32], CapacityError>` value, propagating a `Result::Err` value to the caller
+    |
+301 |             state.table_for(params.hash_log)?,
+    |                                             +
+
+error[E0608]: cannot index into a value of type `Result<&mut [u32], CapacityError>`
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast.rs:442:39
+    |
+442 |         let mut match_idx = hash_table[hash0] as usize;
+    |                                       ^^^^^^^
+
+error[E0608]: cannot index into a value of type `Result<&mut [u32], CapacityError>`
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast.rs:446:23
+    |
+446 |             hash_table[hash0] = current0 as u32;
+    |                       ^^^^^^^
+
+error[E0608]: cannot index into a value of type `Result<&mut [u32], CapacityError>`
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast.rs:457:27
+    |
+457 |                 hash_table[hash1] = ip1 as u32;
+    |                           ^^^^^^^
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast.rs:468:52
+    |
+468 |                 fill_after_match::<MIN_MATCH>(src, hash_table, hlog, current0, ip0, ilimit);
+    |                 -----------------------------      ^^^^^^^^^^ expected `&mut [u32]`, found `Result<&mut [u32], CapacityError>`
+    |                 |
+    |                 arguments to this function are incorrect
+    |
+    = note: expected mutable reference `&mut [u32]`
+                            found enum `Result<&mut [u32], CapacityError>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast.rs:639:4
+    |
+639 | fn fill_after_match<const MIN_MATCH: u32>(
+    |    ^^^^^^^^^^^^^^^^
+640 |     src: &[u8],
+641 |     hash_table: &mut [u32],
+    |     ----------------------
+help: consider using `Result::expect` to unwrap the `Result<&mut [u32], CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+468 |                 fill_after_match::<MIN_MATCH>(src, hash_table.expect("REASON"), hlog, current0, ip0, ilimit);
+    |                                                              +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast.rs:471:21
+    |
+469 |                 consume_immediate_repcodes::<MIN_MATCH>(
+    |                 --------------------------------------- arguments to this function are incorrect
+470 |                     src,
+471 |                     hash_table,
+    |                     ^^^^^^^^^^ expected `&mut [u32]`, found `Result<&mut [u32], CapacityError>`
+    |
+    = note: expected mutable reference `&mut [u32]`
+                            found enum `Result<&mut [u32], CapacityError>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast.rs:659:4
+    |
+659 | fn consume_immediate_repcodes<const MIN_MATCH: u32>(
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+660 |     src: &[u8],
+661 |     hash_table: &mut [u32],
+    |     ----------------------
+help: consider using `Result::expect` to unwrap the `Result<&mut [u32], CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+471 |                     hash_table.expect("REASON"),
+    |                               +++++++++++++++++
+
+error[E0608]: cannot index into a value of type `Result<&mut [u32], CapacityError>`
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast.rs:485:27
+    |
+485 |                 hash_table[hash1] = ip1 as u32;
+    |                           ^^^^^^^
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast.rs:506:52
+    |
+506 |                 fill_after_match::<MIN_MATCH>(src, hash_table, hlog, current0, ip0, ilimit);
+    |                 -----------------------------      ^^^^^^^^^^ expected `&mut [u32]`, found `Result<&mut [u32], CapacityError>`
+    |                 |
+    |                 arguments to this function are incorrect
+    |
+    = note: expected mutable reference `&mut [u32]`
+                            found enum `Result<&mut [u32], CapacityError>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast.rs:639:4
+    |
+639 | fn fill_after_match<const MIN_MATCH: u32>(
+    |    ^^^^^^^^^^^^^^^^
+640 |     src: &[u8],
+641 |     hash_table: &mut [u32],
+    |     ----------------------
+help: consider using `Result::expect` to unwrap the `Result<&mut [u32], CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+506 |                 fill_after_match::<MIN_MATCH>(src, hash_table.expect("REASON"), hlog, current0, ip0, ilimit);
+    |                                                              +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast.rs:509:21
+    |
+507 |                 consume_immediate_repcodes::<MIN_MATCH>(
+    |                 --------------------------------------- arguments to this function are incorrect
+508 |                     src,
+509 |                     hash_table,
+    |                     ^^^^^^^^^^ expected `&mut [u32]`, found `Result<&mut [u32], CapacityError>`
+    |
+    = note: expected mutable reference `&mut [u32]`
+                            found enum `Result<&mut [u32], CapacityError>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast.rs:659:4
+    |
+659 | fn consume_immediate_repcodes<const MIN_MATCH: u32>(
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+660 |     src: &[u8],
+661 |     hash_table: &mut [u32],
+    |     ----------------------
+help: consider using `Result::expect` to unwrap the `Result<&mut [u32], CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+509 |                     hash_table.expect("REASON"),
+    |                               +++++++++++++++++
+
+error[E0608]: cannot index into a value of type `Result<&mut [u32], CapacityError>`
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast.rs:522:35
+    |
+522 |             match_idx = hash_table[hash1] as usize;
+    |                                   ^^^^^^^
+
+error[E0608]: cannot index into a value of type `Result<&mut [u32], CapacityError>`
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast.rs:530:23
+    |
+530 |             hash_table[hash0] = current0 as u32;
+    |                       ^^^^^^^
+
+error[E0608]: cannot index into a value of type `Result<&mut [u32], CapacityError>`
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast.rs:534:31
+    |
+534 |                     hash_table[hash1] = ip1 as u32;
+    |                               ^^^^^^^
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast.rs:556:52
+    |
+556 |                 fill_after_match::<MIN_MATCH>(src, hash_table, hlog, current0, ip0, ilimit);
+    |                 -----------------------------      ^^^^^^^^^^ expected `&mut [u32]`, found `Result<&mut [u32], CapacityError>`
+    |                 |
+    |                 arguments to this function are incorrect
+    |
+    = note: expected mutable reference `&mut [u32]`
+                            found enum `Result<&mut [u32], CapacityError>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast.rs:639:4
+    |
+639 | fn fill_after_match<const MIN_MATCH: u32>(
+    |    ^^^^^^^^^^^^^^^^
+640 |     src: &[u8],
+641 |     hash_table: &mut [u32],
+    |     ----------------------
+help: consider using `Result::expect` to unwrap the `Result<&mut [u32], CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+556 |                 fill_after_match::<MIN_MATCH>(src, hash_table.expect("REASON"), hlog, current0, ip0, ilimit);
+    |                                                              +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast.rs:559:21
+    |
+557 |                 consume_immediate_repcodes::<MIN_MATCH>(
+    |                 --------------------------------------- arguments to this function are incorrect
+558 |                     src,
+559 |                     hash_table,
+    |                     ^^^^^^^^^^ expected `&mut [u32]`, found `Result<&mut [u32], CapacityError>`
+    |
+    = note: expected mutable reference `&mut [u32]`
+                            found enum `Result<&mut [u32], CapacityError>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast.rs:659:4
+    |
+659 | fn consume_immediate_repcodes<const MIN_MATCH: u32>(
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+660 |     src: &[u8],
+661 |     hash_table: &mut [u32],
+    |     ----------------------
+help: consider using `Result::expect` to unwrap the `Result<&mut [u32], CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+559 |                     hash_table.expect("REASON"),
+    |                               +++++++++++++++++
+
+error[E0608]: cannot index into a value of type `Result<&mut [u32], CapacityError>`
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast.rs:572:35
+    |
+572 |             match_idx = hash_table[hash1] as usize;
+    |                                   ^^^^^^^
+
+error[E0608]: cannot index into a value of type `Result<&mut [u32], CapacityError>`
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_ext.rs:153:39
+    |
+153 |         let mut match_idx = hash_table[hash0] as usize;
+    |                                       ^^^^^^^
+
+error[E0608]: cannot index into a value of type `Result<&mut [u32], CapacityError>`
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_ext.rs:157:23
+    |
+157 |             hash_table[hash0] = current0 as u32;
+    |                       ^^^^^^^
+
+error[E0608]: cannot index into a value of type `Result<&mut [u32], CapacityError>`
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_ext.rs:165:27
+    |
+165 |                 hash_table[hash1] = ip1 as u32;
+    |                           ^^^^^^^
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_ext.rs:176:52
+    |
+176 |                 fill_after_match::<MIN_MATCH>(src, hash_table, hlog, current0, ip0, ilimit);
+    |                 -----------------------------      ^^^^^^^^^^ expected `&mut [u32]`, found `Result<&mut [u32], CapacityError>`
+    |                 |
+    |                 arguments to this function are incorrect
+    |
+    = note: expected mutable reference `&mut [u32]`
+                            found enum `Result<&mut [u32], CapacityError>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_ext.rs:372:4
+    |
+372 | fn fill_after_match<const MIN_MATCH: u32>(
+    |    ^^^^^^^^^^^^^^^^
+373 |     src: &[u8],
+374 |     hash_table: &mut [u32],
+    |     ----------------------
+help: consider using `Result::expect` to unwrap the `Result<&mut [u32], CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+176 |                 fill_after_match::<MIN_MATCH>(src, hash_table.expect("REASON"), hlog, current0, ip0, ilimit);
+    |                                                              +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_ext.rs:179:21
+    |
+177 |                 consume_immediate_repcodes::<MIN_MATCH>(
+    |                 --------------------------------------- arguments to this function are incorrect
+178 |                     src,
+179 |                     hash_table,
+    |                     ^^^^^^^^^^ expected `&mut [u32]`, found `Result<&mut [u32], CapacityError>`
+    |
+    = note: expected mutable reference `&mut [u32]`
+                            found enum `Result<&mut [u32], CapacityError>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_ext.rs:392:4
+    |
+392 | fn consume_immediate_repcodes<const MIN_MATCH: u32>(
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+393 |     src: &[u8],
+394 |     hash_table: &mut [u32],
+    |     ----------------------
+help: consider using `Result::expect` to unwrap the `Result<&mut [u32], CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+179 |                     hash_table.expect("REASON"),
+    |                               +++++++++++++++++
+
+error[E0608]: cannot index into a value of type `Result<&mut [u32], CapacityError>`
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_ext.rs:195:27
+    |
+195 |                 hash_table[hash1] = ip1 as u32;
+    |                           ^^^^^^^
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_ext.rs:198:21
+    |
+196 |                 store_offset_match::<MIN_MATCH>(
+    |                 ------------------------------- arguments to this function are incorrect
+197 |                     src,
+198 |                     hash_table,
+    |                     ^^^^^^^^^^ expected `&mut [u32]`, found `Result<&mut [u32], CapacityError>`
+    |
+    = note: expected mutable reference `&mut [u32]`
+                            found enum `Result<&mut [u32], CapacityError>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_ext.rs:287:4
+    |
+287 | fn store_offset_match<const MIN_MATCH: u32>(
+    |    ^^^^^^^^^^^^^^^^^^
+288 |     src: &[u8],
+289 |     hash_table: &mut [u32],
+    |     ----------------------
+help: consider using `Result::expect` to unwrap the `Result<&mut [u32], CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+198 |                     hash_table.expect("REASON"),
+    |                               +++++++++++++++++
+
+error[E0608]: cannot index into a value of type `Result<&mut [u32], CapacityError>`
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_ext.rs:215:35
+    |
+215 |             match_idx = hash_table[hash1] as usize;
+    |                                   ^^^^^^^
+
+error[E0608]: cannot index into a value of type `Result<&mut [u32], CapacityError>`
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_ext.rs:223:23
+    |
+223 |             hash_table[hash0] = current0 as u32;
+    |                       ^^^^^^^
+
+error[E0608]: cannot index into a value of type `Result<&mut [u32], CapacityError>`
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_ext.rs:227:31
+    |
+227 |                     hash_table[hash1] = ip1 as u32;
+    |                               ^^^^^^^
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_ext.rs:231:21
+    |
+229 |                 store_offset_match::<MIN_MATCH>(
+    |                 ------------------------------- arguments to this function are incorrect
+230 |                     src,
+231 |                     hash_table,
+    |                     ^^^^^^^^^^ expected `&mut [u32]`, found `Result<&mut [u32], CapacityError>`
+    |
+    = note: expected mutable reference `&mut [u32]`
+                            found enum `Result<&mut [u32], CapacityError>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_ext.rs:287:4
+    |
+287 | fn store_offset_match<const MIN_MATCH: u32>(
+    |    ^^^^^^^^^^^^^^^^^^
+288 |     src: &[u8],
+289 |     hash_table: &mut [u32],
+    |     ----------------------
+help: consider using `Result::expect` to unwrap the `Result<&mut [u32], CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+231 |                     hash_table.expect("REASON"),
+    |                               +++++++++++++++++
+
+error[E0608]: cannot index into a value of type `Result<&mut [u32], CapacityError>`
+   --> vendor/zstd-complete/src/encoding/levels/c_port/fast_ext.rs:248:35
+    |
+248 |             match_idx = hash_table[hash1] as usize;
+    |                                   ^^^^^^^
+
+error[E0308]: mismatched types
+  --> vendor/zstd-complete/src/encoding/levels/c_port/greedy/lazy.rs:41:16
+   |
+39 |   ) -> GreedyBlockOutput {
+   |        ----------------- expected `GreedyBlockOutput` because of return type
+40 |       if SEARCH == SEARCH_ROW_HASH {
+41 |           return compress_block_row_no_dict_codegen::<DEPTH>(
+   |  ________________^
+42 | |             src,
+43 | |             block_range,
+44 | |             params,
+...  |
+47 | |             loaded_dict_end,
+48 | |         );
+   | |_________^ expected `GreedyBlockOutput`, found `Result<GreedyBlockOutput, CapacityError>`
+   |
+   = note: expected struct `GreedyBlockOutput`
+                found enum `Result<GreedyBlockOutput, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<GreedyBlockOutput, CapacityError>` value, panicking if the value is a `Result::Err`
+   |
+48 |         ).expect("REASON");
+   |          +++++++++++++++++
+
+error[E0277]: cannot add-assign `Result<usize, CapacityError>` to `{integer}`
+   --> vendor/zstd-complete/src/encoding/levels/c_port/ldm/sequence.rs:144:27
+    |
+144 |             last_literals += chunk_last_literals;
+    |                           ^^ no implementation for `{integer} += Result<usize, CapacityError>`
+    |
+    = help: the trait `AddAssign<Result<usize, CapacityError>>` is not implemented for `{integer}`
+    = help: the following other types implement trait `AddAssign<Rhs>`:
+              `f128` implements `AddAssign<&f128>`
+              `f128` implements `AddAssign`
+              `f16` implements `AddAssign<&f16>`
+              `f16` implements `AddAssign`
+              `f32` implements `AddAssign<&f32>`
+              `f32` implements `AddAssign`
+              `f64` implements `AddAssign<&f64>`
+              `f64` implements `AddAssign`
+            and 24 others
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/ldm/sequence.rs:147:29
+    |
+121 |     let mut last_literals = 0;
+    |                             - expected due to this value
+...
+147 |             last_literals = chunk_last_literals;
+    |                             ^^^^^^^^^^^^^^^^^^^ expected `usize`, found `Result<usize, CapacityError>`
+    |
+    = note: expected type `usize`
+               found enum `Result<usize, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<usize, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+147 |             last_literals = chunk_last_literals.expect("REASON");
+    |                                                +++++++++++++++++
+
+error[E0308]: mismatched types
+  --> vendor/zstd-complete/src/encoding/levels/c_port/opt_encode/attached.rs:52:84
+   |
+52 |     if let Some(encoded) = encode_special_block(block, last_block, repeat_offsets, &mut bytes)? {
+   |                            --------------------                                    ^^^^^^^^^^ expected `&mut ReusableVec<u8>`, found `&mut Result<ReusableVec<u8>, ...>`
+   |                            |
+   |                            arguments to this function are incorrect
+   |
+   = note: expected mutable reference `&mut ReusableVec<_>`
+              found mutable reference `&mut Result<ReusableVec<_>, CapacityError>`
+note: function defined here
+  --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_block/special.rs:10:44
+   |
+10 | pub(in crate::encoding::levels::c_port) fn encode_special_block(
+   |                                            ^^^^^^^^^^^^^^^^^^^^
+...
+14 |     bytes: &mut crate::workspace::ReusableVec<u8>,
+   |     ---------------------------------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/opt_encode/attached.rs:87:13
+    |
+77  |         return encode_stored_opt_block(
+    |                ----------------------- arguments to this function are incorrect
+...
+87  |             bytes,
+    |             ^^^^^ expected `ReusableVec<u8>`, found `Result<ReusableVec<u8>, CapacityError>`
+    |
+    = note: expected struct `ReusableVec<_>`
+                 found enum `Result<ReusableVec<_>, CapacityError>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/opt_encode.rs:531:15
+    |
+531 | pub(super) fn encode_stored_opt_block(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^
+...
+541 |     mut bytes: crate::workspace::ReusableVec<u8>,
+    |     --------------------------------------------
+help: use the `?` operator to extract the `Result<ReusableVec<u8>, CapacityError>` value, propagating a `Result::Err` value to the caller
+    |
+87  |             bytes?,
+    |                  +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/opt_encode/attached.rs:124:13
+    |
+113 |         let encoded = encode_target_block_with_superblock_fallback(
+    |                       -------------------------------------------- arguments to this function are incorrect
+...
+124 |             bytes,
+    |             ^^^^^ expected `ReusableVec<u8>`, found `Result<ReusableVec<u8>, CapacityError>`
+    |
+    = note: expected struct `ReusableVec<_>`
+                 found enum `Result<ReusableVec<_>, CapacityError>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/target_block.rs:42:15
+    |
+42  | pub(super) fn encode_target_block_with_superblock_fallback(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+48  |     bytes: crate::workspace::ReusableVec<u8>,
+    |     ----------------------------------------
+help: use the `?` operator to extract the `Result<ReusableVec<u8>, CapacityError>` value, propagating a `Result::Err` value to the caller
+    |
+124 |             bytes?,
+    |                  +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/opt_encode/attached.rs:143:13
+    |
+130 |         match encode_split_block(
+    |               ------------------ arguments to this function are incorrect
+...
+143 |             bytes,
+    |             ^^^^^ expected `ReusableVec<u8>`, found `Result<ReusableVec<u8>, CapacityError>`
+    |
+    = note: expected struct `ReusableVec<_>`
+                 found enum `Result<ReusableVec<_>, CapacityError>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/post_split.rs:73:15
+    |
+73  | pub(super) fn encode_split_block(
+    |               ^^^^^^^^^^^^^^^^^^
+...
+86  |     mut bytes: crate::workspace::ReusableVec<u8>,
+    |     --------------------------------------------
+help: use the `?` operator to extract the `Result<ReusableVec<u8>, CapacityError>` value, propagating a `Result::Err` value to the caller
+    |
+143 |             bytes?,
+    |                  +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/opt_encode/attached.rs:149:38
+    |
+50  |     let mut bytes = opt_state.take_block_bytes(block.len().saturating_add(3));
+    |                     --------------------------------------------------------- expected due to this value
+...
+149 |             Err(returned) => bytes = returned,
+    |                                      ^^^^^^^^ expected `Result<ReusableVec<u8>, CapacityError>`, found `ReusableVec<u8>`
+    |
+    = note: expected enum `Result<ReusableVec<_>, CapacityError>`
+             found struct `ReusableVec<_>`
+help: try wrapping the expression in `core::prelude::v1::Ok`
+    |
+149 |             Err(returned) => bytes = core::prelude::v1::Ok(returned),
+    |                                      ++++++++++++++++++++++        +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/opt_encode/attached.rs:164:9
+    |
+153 |     let encoded = encode_prepared_block(
+    |                   --------------------- arguments to this function are incorrect
+...
+164 |         bytes,
+    |         ^^^^^ expected `ReusableVec<u8>`, found `Result<ReusableVec<u8>, CapacityError>`
+    |
+    = note: expected struct `ReusableVec<_>`
+                 found enum `Result<ReusableVec<_>, CapacityError>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_block.rs:493:15
+    |
+493 | pub(super) fn encode_prepared_block(
+    |               ^^^^^^^^^^^^^^^^^^^^^
+...
+504 |     mut bytes: crate::workspace::ReusableVec<u8>,
+    |     --------------------------------------------
+help: use the `?` operator to extract the `Result<ReusableVec<u8>, CapacityError>` value, propagating a `Result::Err` value to the caller
+    |
+164 |         bytes?,
+    |              +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/opt_encode.rs:239:84
+    |
+239 |     if let Some(encoded) = encode_special_block(block, last_block, repeat_offsets, &mut bytes)? {
+    |                            --------------------                                    ^^^^^^^^^^ expected `&mut ReusableVec<u8>`, found `&mut Result<ReusableVec<u8>, ...>`
+    |                            |
+    |                            arguments to this function are incorrect
+    |
+    = note: expected mutable reference `&mut ReusableVec<_>`
+               found mutable reference `&mut Result<ReusableVec<_>, CapacityError>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_block/special.rs:10:44
+    |
+10  | pub(in crate::encoding::levels::c_port) fn encode_special_block(
+    |                                            ^^^^^^^^^^^^^^^^^^^^
+...
+14  |     bytes: &mut crate::workspace::ReusableVec<u8>,
+    |     ---------------------------------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/opt_encode.rs:274:13
+    |
+264 |         return encode_stored_opt_block(
+    |                ----------------------- arguments to this function are incorrect
+...
+274 |             bytes,
+    |             ^^^^^ expected `ReusableVec<u8>`, found `Result<ReusableVec<u8>, CapacityError>`
+    |
+    = note: expected struct `ReusableVec<_>`
+                 found enum `Result<ReusableVec<_>, CapacityError>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/opt_encode.rs:531:15
+    |
+531 | pub(super) fn encode_stored_opt_block(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^
+...
+541 |     mut bytes: crate::workspace::ReusableVec<u8>,
+    |     --------------------------------------------
+help: use the `?` operator to extract the `Result<ReusableVec<u8>, CapacityError>` value, propagating a `Result::Err` value to the caller
+    |
+274 |             bytes?,
+    |                  +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/opt_encode.rs:311:13
+    |
+300 |         let encoded = encode_target_block_with_superblock_fallback(
+    |                       -------------------------------------------- arguments to this function are incorrect
+...
+311 |             bytes,
+    |             ^^^^^ expected `ReusableVec<u8>`, found `Result<ReusableVec<u8>, CapacityError>`
+    |
+    = note: expected struct `ReusableVec<_>`
+                 found enum `Result<ReusableVec<_>, CapacityError>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/target_block.rs:42:15
+    |
+42  | pub(super) fn encode_target_block_with_superblock_fallback(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+48  |     bytes: crate::workspace::ReusableVec<u8>,
+    |     ----------------------------------------
+help: use the `?` operator to extract the `Result<ReusableVec<u8>, CapacityError>` value, propagating a `Result::Err` value to the caller
+    |
+311 |             bytes?,
+    |                  +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/opt_encode.rs:330:13
+    |
+317 |         match encode_split_block(
+    |               ------------------ arguments to this function are incorrect
+...
+330 |             bytes,
+    |             ^^^^^ expected `ReusableVec<u8>`, found `Result<ReusableVec<u8>, CapacityError>`
+    |
+    = note: expected struct `ReusableVec<_>`
+                 found enum `Result<ReusableVec<_>, CapacityError>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/post_split.rs:73:15
+    |
+73  | pub(super) fn encode_split_block(
+    |               ^^^^^^^^^^^^^^^^^^
+...
+86  |     mut bytes: crate::workspace::ReusableVec<u8>,
+    |     --------------------------------------------
+help: use the `?` operator to extract the `Result<ReusableVec<u8>, CapacityError>` value, propagating a `Result::Err` value to the caller
+    |
+330 |             bytes?,
+    |                  +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/opt_encode.rs:336:38
+    |
+237 |     let mut bytes = opt_state.take_block_bytes(block.len().saturating_add(3));
+    |                     --------------------------------------------------------- expected due to this value
+...
+336 |             Err(returned) => bytes = returned,
+    |                                      ^^^^^^^^ expected `Result<ReusableVec<u8>, CapacityError>`, found `ReusableVec<u8>`
+    |
+    = note: expected enum `Result<ReusableVec<_>, CapacityError>`
+             found struct `ReusableVec<_>`
+help: try wrapping the expression in `core::prelude::v1::Ok`
+    |
+336 |             Err(returned) => bytes = core::prelude::v1::Ok(returned),
+    |                                      ++++++++++++++++++++++        +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/opt_encode.rs:351:9
+    |
+340 |     let encoded = encode_prepared_block(
+    |                   --------------------- arguments to this function are incorrect
+...
+351 |         bytes,
+    |         ^^^^^ expected `ReusableVec<u8>`, found `Result<ReusableVec<u8>, CapacityError>`
+    |
+    = note: expected struct `ReusableVec<_>`
+                 found enum `Result<ReusableVec<_>, CapacityError>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_block.rs:493:15
+    |
+493 | pub(super) fn encode_prepared_block(
+    |               ^^^^^^^^^^^^^^^^^^^^^
+...
+504 |     mut bytes: crate::workspace::ReusableVec<u8>,
+    |     --------------------------------------------
+help: use the `?` operator to extract the `Result<ReusableVec<u8>, CapacityError>` value, propagating a `Result::Err` value to the caller
+    |
+351 |         bytes?,
+    |              +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/opt_encode.rs:403:84
+    |
+403 |     if let Some(encoded) = encode_special_block(block, last_block, repeat_offsets, &mut bytes)? {
+    |                            --------------------                                    ^^^^^^^^^^ expected `&mut ReusableVec<u8>`, found `&mut Result<ReusableVec<u8>, ...>`
+    |                            |
+    |                            arguments to this function are incorrect
+    |
+    = note: expected mutable reference `&mut ReusableVec<_>`
+               found mutable reference `&mut Result<ReusableVec<_>, CapacityError>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_block/special.rs:10:44
+    |
+10  | pub(in crate::encoding::levels::c_port) fn encode_special_block(
+    |                                            ^^^^^^^^^^^^^^^^^^^^
+...
+14  |     bytes: &mut crate::workspace::ReusableVec<u8>,
+    |     ---------------------------------------------
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/opt_encode.rs:439:13
+    |
+429 |         return encode_stored_opt_block(
+    |                ----------------------- arguments to this function are incorrect
+...
+439 |             bytes,
+    |             ^^^^^ expected `ReusableVec<u8>`, found `Result<ReusableVec<u8>, CapacityError>`
+    |
+    = note: expected struct `ReusableVec<_>`
+                 found enum `Result<ReusableVec<_>, CapacityError>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/opt_encode.rs:531:15
+    |
+531 | pub(super) fn encode_stored_opt_block(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^
+...
+541 |     mut bytes: crate::workspace::ReusableVec<u8>,
+    |     --------------------------------------------
+help: use the `?` operator to extract the `Result<ReusableVec<u8>, CapacityError>` value, propagating a `Result::Err` value to the caller
+    |
+439 |             bytes?,
+    |                  +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/opt_encode.rs:476:13
+    |
+465 |         let encoded = encode_target_block_with_superblock_fallback(
+    |                       -------------------------------------------- arguments to this function are incorrect
+...
+476 |             bytes,
+    |             ^^^^^ expected `ReusableVec<u8>`, found `Result<ReusableVec<u8>, CapacityError>`
+    |
+    = note: expected struct `ReusableVec<_>`
+                 found enum `Result<ReusableVec<_>, CapacityError>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/target_block.rs:42:15
+    |
+42  | pub(super) fn encode_target_block_with_superblock_fallback(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+48  |     bytes: crate::workspace::ReusableVec<u8>,
+    |     ----------------------------------------
+help: use the `?` operator to extract the `Result<ReusableVec<u8>, CapacityError>` value, propagating a `Result::Err` value to the caller
+    |
+476 |             bytes?,
+    |                  +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/opt_encode.rs:495:13
+    |
+482 |         match encode_split_block(
+    |               ------------------ arguments to this function are incorrect
+...
+495 |             bytes,
+    |             ^^^^^ expected `ReusableVec<u8>`, found `Result<ReusableVec<u8>, CapacityError>`
+    |
+    = note: expected struct `ReusableVec<_>`
+                 found enum `Result<ReusableVec<_>, CapacityError>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/post_split.rs:73:15
+    |
+73  | pub(super) fn encode_split_block(
+    |               ^^^^^^^^^^^^^^^^^^
+...
+86  |     mut bytes: crate::workspace::ReusableVec<u8>,
+    |     --------------------------------------------
+help: use the `?` operator to extract the `Result<ReusableVec<u8>, CapacityError>` value, propagating a `Result::Err` value to the caller
+    |
+495 |             bytes?,
+    |                  +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/opt_encode.rs:501:38
+    |
+401 |     let mut bytes = opt_state.take_block_bytes(block.len().saturating_add(3));
+    |                     --------------------------------------------------------- expected due to this value
+...
+501 |             Err(returned) => bytes = returned,
+    |                                      ^^^^^^^^ expected `Result<ReusableVec<u8>, CapacityError>`, found `ReusableVec<u8>`
+    |
+    = note: expected enum `Result<ReusableVec<_>, CapacityError>`
+             found struct `ReusableVec<_>`
+help: try wrapping the expression in `core::prelude::v1::Ok`
+    |
+501 |             Err(returned) => bytes = core::prelude::v1::Ok(returned),
+    |                                      ++++++++++++++++++++++        +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/opt_encode.rs:516:9
+    |
+505 |     let encoded = encode_prepared_block(
+    |                   --------------------- arguments to this function are incorrect
+...
+516 |         bytes,
+    |         ^^^^^ expected `ReusableVec<u8>`, found `Result<ReusableVec<u8>, CapacityError>`
+    |
+    = note: expected struct `ReusableVec<_>`
+                 found enum `Result<ReusableVec<_>, CapacityError>`
+note: function defined here
+   --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_block.rs:493:15
+    |
+493 | pub(super) fn encode_prepared_block(
+    |               ^^^^^^^^^^^^^^^^^^^^^
+...
+504 |     mut bytes: crate::workspace::ReusableVec<u8>,
+    |     --------------------------------------------
+help: use the `?` operator to extract the `Result<ReusableVec<u8>, CapacityError>` value, propagating a `Result::Err` value to the caller
+    |
+516 |         bytes?,
+    |              +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/opt_parser.rs:306:37
+    |
+304 |   ) -> GreedyBlockOutput {
+    |        ----------------- expected `GreedyBlockOutput` because of return type
+305 |       match strategy {
+306 |           OptParserStrategy::BtOpt => compress_block_opt_with_state_and_ldm_mls_level::<
+    |  _____________________________________^
+307 | |             MLS,
+308 | |             false,
+309 | |             WITH_LDM,
+...   |
+320 | |             bounds,
+321 | |         ),
+    | |_________^ expected `GreedyBlockOutput`, found `Result<GreedyBlockOutput, CapacityError>`
+    |
+    = note: expected struct `GreedyBlockOutput`
+                 found enum `Result<GreedyBlockOutput, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<GreedyBlockOutput, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+321 |         ).expect("REASON"),
+    |          +++++++++++++++++
+
+error[E0599]: no method named `push` found for enum `Result` in the current scope
+   --> vendor/zstd-complete/src/encoding/levels/c_port/opt_parser.rs:505:23
+    |
+505 |             sequences.push(StoredSequence::new(
+    |             ----------^^^^ method not found in `Result<ReusableVec<StoredSequence>, CapacityError>`
+    |
+note: the method `push` exists on the type `ReusableVec<StoredSequence>`
+   --> vendor/zstd-complete/src/workspace.rs:346:5
+    |
+346 |     pub fn push(&mut self, value: T) -> Result<(), CapacityError> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: items from traits can only be used if the trait is implemented and in scope
+    = note: the following traits define an item `push`, perhaps you need to implement one of them:
+            candidate #1: `Growable`
+            candidate #2: `LiteralOutput`
+help: use the `?` operator to extract the `ReusableVec<StoredSequence>` value, propagating a `Result::Err` value to the caller
+    |
+505 |             sequences?.push(StoredSequence::new(
+    |                      +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/opt_parser.rs:522:9
+    |
+522 |         sequences,
+    |         ^^^^^^^^^ expected `ReusableVec<StoredSequence>`, found `Result<ReusableVec<StoredSequence>, ...>`
+    |
+    = note: expected struct `ReusableVec<_>`
+                 found enum `Result<ReusableVec<_>, CapacityError>`
+help: use the `?` operator to extract the `Result<ReusableVec<StoredSequence>, CapacityError>` value, propagating a `Result::Err` value to the caller
+    |
+522 |         sequences: sequences?,
+    |                  ++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/sequence_store.rs:239:9
+    |
+224 |   ) -> PreparedStoreWords {
+    |        ------------------ expected `PreparedStoreWords` because of return type
+...
+239 | /         crate::kernel::seqstore::prepare_stored_sequences_in(
+240 | |             src,
+241 | |             initial_repeat_offsets.as_offsets(),
+242 | |             sequence_words,
+243 | |             last_literals,
+244 | |             reuse,
+245 | |         )
+    | |_________^ expected `PreparedStoreWords`, found `Result<PreparedStoreWords, ...>`
+    |
+    = note: expected struct `PreparedStoreWords`
+                 found enum `Result<PreparedStoreWords, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<PreparedStoreWords, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+245 |         ).expect("REASON")
+    |          +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/encoding/levels/c_port/sequence_store.rs:268:9
+    |
+254 |   ) -> PreparedStoreWords {
+    |        ------------------ expected `PreparedStoreWords` because of return type
+...
+268 | /         crate::kernel::seqstore::prepare_stored_literals_in(
+269 | |             src,
+270 | |             sequence_words,
+271 | |             last_literals,
+272 | |             reuse,
+273 | |         )
+    | |_________^ expected `PreparedStoreWords`, found `Result<PreparedStoreWords, ...>`
+    |
+    = note: expected struct `PreparedStoreWords`
+                 found enum `Result<PreparedStoreWords, CapacityError>`
+help: consider using `Result::expect` to unwrap the `Result<PreparedStoreWords, CapacityError>` value, panicking if the value is a `Result::Err`
+    |
+273 |         ).expect("REASON")
+    |          +++++++++++++++++
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/huff0/huff0_encoder/table.rs:523:68
+    |
+523 |         let leaf_count = match build_huffman_tree(counts, nodes) { Some(value) => value, None => return Ok(None) };
+    |                                ---------------------------------   ^^^^^^^^^^^ expected `Result<Option<usize>, CapacityError>`, found `Option<_>`
+    |                                |
+    |                                this expression has type `Result<Option<usize>, CapacityError>`
+    |
+    = note: expected enum `Result<Option<usize>, CapacityError>`
+               found enum `Option<_>`
+help: try wrapping the pattern in `core::prelude::v1::Ok`
+    |
+523 |         let leaf_count = match build_huffman_tree(counts, nodes) { core::prelude::v1::Ok(Some(value)) => value, None => return Ok(None) };
+    |                                                                    ++++++++++++++++++++++           +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/huff0/huff0_encoder/table.rs:523:90
+    |
+523 |         let leaf_count = match build_huffman_tree(counts, nodes) { Some(value) => value, None => return Ok(None) };
+    |                                ---------------------------------                         ^^^^ expected `Result<Option<usize>, CapacityError>`, found `Option<_>`
+    |                                |
+    |                                this expression has type `Result<Option<usize>, CapacityError>`
+    |
+    = note: expected enum `Result<Option<usize>, CapacityError>`
+               found enum `Option<_>`
+help: try wrapping the pattern in `core::prelude::v1::Ok`
+    |
+523 |         let leaf_count = match build_huffman_tree(counts, nodes) { Some(value) => value, core::prelude::v1::Ok(None) => return Ok(None) };
+    |                                                                                          ++++++++++++++++++++++    +
+
+error[E0277]: the `?` operator can only be used on `Option`s, not `Result`s, in a function that returns `Option`
+  --> vendor/zstd-complete/src/huff0/huff0_encoder/tree.rs:55:55
+   |
+51 | / fn base_code_lengths_with_nodes(
+52 | |     counts: &[usize],
+53 | |     nodes: &mut impl crate::workspace::Growable<HuffmanNode>,
+54 | | ) -> Option<BaseCodeLengths> {
+   | |____________________________- this function returns an `Option`
+55 |       let leaf_count = build_huffman_tree(counts, nodes)?;
+   |                                                         ^ use `.ok()?` if you want to discard the `Result<Infallible, CapacityError>` error information
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/huff0/huff0_encoder/tree.rs:58:42
+    |
+58  |     let mut symbols = Vec::with_capacity(leaf_count);
+    |                       ------------------ ^^^^^^^^^^ expected `usize`, found `Option<usize>`
+    |                       |
+    |                       arguments to this function are incorrect
+    |
+    = note: expected type `usize`
+               found enum `Option<usize>`
+note: associated function defined here
+   --> /home/bsutton/.rustup/toolchains/1.88.0-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/vec/mod.rs:494:12
+    |
+494 |     pub fn with_capacity(capacity: usize) -> Self {
+    |            ^^^^^^^^^^^^^
+help: use the `?` operator to extract the `Option<usize>` value, propagating an `Option::None` value to the caller
+    |
+58  |     let mut symbols = Vec::with_capacity(leaf_count?);
+    |                                                    +
+
+error[E0308]: mismatched types
+   --> vendor/zstd-complete/src/huff0/huff0_encoder/tree.rs:60:20
+    |
+60  |     for idx in 1..=leaf_count {
+    |                ----^^^^^^^^^^
+    |                |   |
+    |                |   expected integer, found `Option<usize>`
+    |                arguments to this function are incorrect
+    |
+    = note: expected type `{integer}`
+               found enum `Option<usize>`
+note: associated function defined here
+   --> /home/bsutton/.rustup/toolchains/1.88.0-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/ops/range.rs:378:18
+    |
+378 |     pub const fn new(start: Idx, end: Idx) -> Self {
+    |                  ^^^
+help: use the `?` operator to extract the `Option<usize>` value, propagating an `Option::None` value to the caller
+    |
+60  |     for idx in 1..=leaf_count? {
+    |                              +
+
+error[E0369]: binary operation `<` cannot be applied to type `Result<usize, CapacityError>`
+   --> vendor/zstd-complete/src/huff0/huff0_encoder/tree.rs:295:34
+    |
+295 |         debug_assert!(lower_rank < RANK_POSITION_TABLE_SIZE - 1);
+    |                       ---------- ^ ---------------------------- usize
+    |                       |
+    |                       Result<usize, CapacityError>
+    |
+note: the foreign item type `Result<usize, CapacityError>` doesn't implement `PartialOrd<usize>`
+   --> /home/bsutton/.rustup/toolchains/1.88.0-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/result.rs:548:1
+    |
+548 | pub enum Result<T, E> {
+    | ^^^^^^^^^^^^^^^^^^^^^ not implement `PartialOrd<usize>`
+
+error[E0277]: the type `[c_sorted_huffman_nodes_into::RankPosition]` cannot be indexed by `Result<usize, CapacityError>`
+   --> vendor/zstd-complete/src/huff0/huff0_encoder/tree.rs:296:23
+    |
+296 |         rank_position[lower_rank].base += 1;
+    |                       ^^^^^^^^^^ slice indices are of type `usize` or ranges of `usize`
+    |
+    = help: the trait `SliceIndex<[c_sorted_huffman_nodes_into::RankPosition]>` is not implemented for `Result<usize, CapacityError>`
+    = note: required for `[c_sorted_huffman_nodes_into::RankPosition]` to implement `Index<Result<usize, CapacityError>>`
+    = note: 1 redundant requirement hidden
+    = note: required for `[c_sorted_huffman_nodes_into::RankPosition; 192]` to implement `Index<Result<usize, CapacityError>>`
+
+error[E0369]: cannot add `{integer}` to `Result<usize, CapacityError>`
+   --> vendor/zstd-complete/src/huff0/huff0_encoder/tree.rs:318:38
+    |
+318 |         let rank = rank_index(count) + 1;
+    |                    ----------------- ^ - {integer}
+    |                    |
+    |                    Result<usize, CapacityError>
+    |
+note: the foreign item type `Result<usize, CapacityError>` doesn't implement `Add<{integer}>`
+   --> /home/bsutton/.rustup/toolchains/1.88.0-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/result.rs:548:1
+    |
+548 | pub enum Result<T, E> {
+    | ^^^^^^^^^^^^^^^^^^^^^ not implement `Add<{integer}>`
+
+Some errors have detailed explanations: E0277, E0308, E0369, E0599, E0608.
+For more information about an error, try `rustc --explain E0277`.
+warning: `zstd-complete` (lib) generated 20 warnings
+error: could not compile `zstd-complete` (lib) due to 68 previous errors; 20 warnings emitted

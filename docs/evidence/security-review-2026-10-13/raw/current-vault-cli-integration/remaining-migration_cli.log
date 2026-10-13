@@ -1,0 +1,519 @@
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/bit_io/bit_writer.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `alloc::vec::Vec`
+  --> vendor/zstd-complete/src/decoding/sequence_section_decoder.rs:11:5
+   |
+11 | use alloc::vec::Vec;
+   |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/block_header.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/blocks/compressed/estimate.rs:7:5
+  |
+7 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/blocks/compressed/literals.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/frame_header.rs:4:5
+  |
+4 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:6:5
+  |
+6 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/c_frame_header.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/mode.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/target.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/mode.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/target.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_block/special.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/opt_path.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/superblock_sequences.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/kernel/huff0/mod.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/fse/fse_encoder.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder/stream.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder/table.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: method `len` is never used
+  --> vendor/zstd-complete/src/fixed_storage.rs:38:19
+   |
+23 | impl<T> FixedStorage<T> {
+   | ----------------------- method in this implementation
+...
+38 |     pub(crate) fn len(&self) -> usize { self.len }
+   |                   ^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: `zstd-complete` (lib) generated 21 warnings (run `cargo fix --lib -p zstd-complete` to apply 20 suggestions)
+warning: associated function `new` is never used
+  --> revault_lockbox_api/src/compression/encode_workspace.rs:63:19
+   |
+62 | impl EncoderFrame {
+   | ----------------- associated function in this implementation
+63 |     pub(crate) fn new(input: &[u8], probe: bool) -> Self {
+   |                   ^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: associated function `open_bytes_with_password` is never used
+   --> revault_lockbox_api/src/lockbox/key_management.rs:749:19
+    |
+201 | impl Lockbox {
+    | ------------ associated function in this implementation
+...
+749 |     pub(crate) fn open_bytes_with_password(
+    |                   ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `encode_compression_frame_manifest` is never used
+  --> revault_lockbox_api/src/model/compression_frame_manifest.rs:49:15
+   |
+49 | pub(crate) fn encode_compression_frame_manifest(
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: `revault_lockbox_api` (lib) generated 3 warnings
+warning: revault_key_server@0.0.37: reVault key/topology server production operation requires a separate commercial license from OnePub IP Pty Ltd; see revault_key_server/LICENSE
+    Finished `release` profile [optimized] target(s) in 0.17s
+     Running tests/migration_cli.rs (target/release/deps/migration_cli-c8a2ed1e0ad1509c)
+
+running 11 tests
+test archive_migration_commands_and_options_execute_end_to_end ... FAILED
+test archive_v1_contact_only_migration_uses_keys_from_the_current_vault ... FAILED
+test archive_v1_migrates_end_to_end_with_the_historical_exporter ... FAILED
+test lockbox_v1_with_description_migrates_and_default_error_names_its_path ... FAILED
+test migrated_mirror_preserves_configuration_and_update_lifecycle ... FAILED
+test vault_migration_commands_and_options_execute_end_to_end ... FAILED
+test automatic_historical_exporter_install_hides_cargo_output ... FAILED
+test vault_structure_v2_in_container_v1_migrates_end_to_end ... FAILED
+   Compiling syn v2.0.119
+   Compiling password-hash v0.5.0
+   Compiling blake2 v0.10.6
+   Compiling ed25519 v3.0.0
+   Compiling revault_page_api v0.0.4
+   Compiling ml-dsa v0.1.1
+   Compiling zstd-complete v0.1.0
+   Compiling argon2 v0.5.3
+   Compiling revault_migration_format v0.0.4
+test vault_v1_replace_uses_the_explicit_historical_exporter ... FAILED
+    Blocking waiting for file lock on build directory
+   Compiling enumflags2_derive v0.7.12
+   Compiling tracing-attributes v0.1.31
+   Compiling async-recursion v1.1.1
+   Compiling curve25519-dalek-derive v0.1.1
+   Compiling enumflags2 v0.7.12
+   Compiling curve25519-dalek v5.0.0
+   Compiling zvariant v5.15.0
+   Compiling tracing v0.1.44
+   Compiling ed25519-dalek v3.0.0
+   Compiling x25519-dalek v3.0.0
+   Compiling revault_lockbox_api v0.0.9
+   Compiling zbus_names v4.3.4
+   Compiling zbus_macros v5.19.0
+   Compiling zbus v5.19.0
+   Compiling secret-service v5.1.0
+   Compiling zbus-secret-service-keyring-store v1.0.1
+   Compiling keyring v4.2.0
+   Compiling revault_vault_api v0.0.10
+   Compiling revault_migrate_vault_v2 v0.0.31 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_migrate_vault_v2)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 14.07s
+   Compiling rustix v1.1.4
+   Compiling curve25519-dalek v5.0.0
+   Compiling argon2 v0.6.0
+   Compiling ml-kem v0.3.2
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/bit_io/bit_writer.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `alloc::vec::Vec`
+  --> vendor/zstd-complete/src/decoding/sequence_section_decoder.rs:11:5
+   |
+11 | use alloc::vec::Vec;
+   |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/block_header.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/blocks/compressed/estimate.rs:7:5
+  |
+7 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/blocks/compressed/literals.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/frame_header.rs:4:5
+  |
+4 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/block_emit.rs:6:5
+  |
+6 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/c_frame_header.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/mode.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/dfast_block/target.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/mode.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/fast_block/target.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/greedy_block/special.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/opt_path.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/encoding/levels/c_port/superblock_sequences.rs:3:5
+  |
+3 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/kernel/huff0/mod.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/fse/fse_encoder.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder/stream.rs:2:5
+  |
+2 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: unused import: `alloc::vec::Vec`
+ --> vendor/zstd-complete/src/huff0/huff0_encoder/table.rs:1:5
+  |
+1 | use alloc::vec::Vec;
+  |     ^^^^^^^^^^^^^^^
+
+warning: method `len` is never used
+  --> vendor/zstd-complete/src/fixed_storage.rs:38:19
+   |
+23 | impl<T> FixedStorage<T> {
+   | ----------------------- method in this implementation
+...
+38 |     pub(crate) fn len(&self) -> usize { self.len }
+   |                   ^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: `zstd-complete` (lib) generated 21 warnings (run `cargo fix --lib -p zstd-complete` to apply 20 suggestions)
+   Compiling revault_migration_format v0.0.35 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_migration_format)
+   Compiling ed25519-dalek v3.0.0
+   Compiling x25519-dalek v3.0.0
+   Compiling revault_archive_v3_reader v0.0.1 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_migrate_archive_v3/legacy)
+   Compiling polling v3.11.0
+   Compiling tempfile v3.27.0
+   Compiling async-io v2.6.0
+   Compiling async-signal v0.2.14
+   Compiling async-process v2.5.0
+   Compiling zbus v5.19.0
+test vault_v2_replace_preserves_profile_keys_and_supports_password_profiles ... FAILED
+   Compiling secret-service v5.1.0
+   Compiling revault_vault_v3_reader v0.0.1 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_migrate_archive_v3/legacy_vault)
+   Compiling revault_migrate_archive_v3 v0.0.1 (/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_migrate_archive_v3)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 24.25s
+test vault_v3_container_upgrade_preserves_profiles_and_enables_compaction ... FAILED
+
+failures:
+
+---- archive_migration_commands_and_options_execute_end_to_end stdout ----
+CLI start: test=archive_migration_commands_and_options_execute_end_to_end pid=2047074
+CLI end: test=archive_migration_commands_and_options_execute_end_to_end pid=2047074 elapsed=3.032972987s status=exit status: 1
+
+thread 'archive_migration_commands_and_options_execute_end_to_end' panicked at revault_cli/tests/migration_cli.rs:769:5:
+command failed
+stdout:
+
+stderr:
+Error:
+  Session Agent did not start
+
+
+---- archive_v1_contact_only_migration_uses_keys_from_the_current_vault stdout ----
+CLI start: test=archive_v1_contact_only_migration_uses_keys_from_the_current_vault pid=2047073
+CLI end: test=archive_v1_contact_only_migration_uses_keys_from_the_current_vault pid=2047073 elapsed=3.032961457s status=exit status: 1
+
+thread 'archive_v1_contact_only_migration_uses_keys_from_the_current_vault' panicked at revault_cli/tests/migration_cli.rs:769:5:
+command failed
+stdout:
+
+stderr:
+Error:
+  Session Agent did not start
+
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- archive_v1_migrates_end_to_end_with_the_historical_exporter stdout ----
+CLI start: test=archive_v1_migrates_end_to_end_with_the_historical_exporter pid=2047101
+CLI end: test=archive_v1_migrates_end_to_end_with_the_historical_exporter pid=2047101 elapsed=3.039910743s status=exit status: 1
+
+thread 'archive_v1_migrates_end_to_end_with_the_historical_exporter' panicked at revault_cli/tests/migration_cli.rs:769:5:
+command failed
+stdout:
+
+stderr:
+Error:
+  Session Agent did not start
+
+
+---- lockbox_v1_with_description_migrates_and_default_error_names_its_path stdout ----
+CLI start: test=lockbox_v1_with_description_migrates_and_default_error_names_its_path pid=2047560
+CLI end: test=lockbox_v1_with_description_migrates_and_default_error_names_its_path pid=2047560 elapsed=3.035118464s status=exit status: 1
+
+thread 'lockbox_v1_with_description_migrates_and_default_error_names_its_path' panicked at revault_cli/tests/migration_cli.rs:769:5:
+command failed
+stdout:
+
+stderr:
+Error:
+  Session Agent did not start
+
+
+---- migrated_mirror_preserves_configuration_and_update_lifecycle stdout ----
+CLI start: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2047887
+CLI end: test=migrated_mirror_preserves_configuration_and_update_lifecycle pid=2047887 elapsed=3.033763327s status=exit status: 1
+
+thread 'migrated_mirror_preserves_configuration_and_update_lifecycle' panicked at revault_cli/tests/migration_cli.rs:769:5:
+command failed
+stdout:
+
+stderr:
+Error:
+  Session Agent did not start
+
+
+---- vault_migration_commands_and_options_execute_end_to_end stdout ----
+CLI start: test=vault_migration_commands_and_options_execute_end_to_end pid=2047923
+CLI end: test=vault_migration_commands_and_options_execute_end_to_end pid=2047923 elapsed=3.033427763s status=exit status: 1
+
+thread 'vault_migration_commands_and_options_execute_end_to_end' panicked at revault_cli/tests/migration_cli.rs:769:5:
+command failed
+stdout:
+
+stderr:
+Error:
+  Session Agent did not start
+
+
+---- automatic_historical_exporter_install_hides_cargo_output stdout ----
+CLI start: test=automatic_historical_exporter_install_hides_cargo_output pid=2048208
+CLI end: test=automatic_historical_exporter_install_hides_cargo_output pid=2048208 elapsed=3.033002488s status=exit status: 1
+
+thread 'automatic_historical_exporter_install_hides_cargo_output' panicked at revault_cli/tests/migration_cli.rs:769:5:
+command failed
+stdout:
+
+stderr:
+Error:
+  Session Agent did not start
+
+
+---- vault_structure_v2_in_container_v1_migrates_end_to_end stdout ----
+CLI start: test=vault_structure_v2_in_container_v1_migrates_end_to_end pid=2048231
+CLI end: test=vault_structure_v2_in_container_v1_migrates_end_to_end pid=2048231 elapsed=3.033057138s status=exit status: 1
+
+thread 'vault_structure_v2_in_container_v1_migrates_end_to_end' panicked at revault_cli/tests/migration_cli.rs:784:5:
+output was:
+Error:
+  Session Agent did not start
+
+
+---- vault_v1_replace_uses_the_explicit_historical_exporter stdout ----
+CLI start: test=vault_v1_replace_uses_the_explicit_historical_exporter pid=2048236
+CLI end: test=vault_v1_replace_uses_the_explicit_historical_exporter pid=2048236 elapsed=3.033690667s status=exit status: 1
+
+thread 'vault_v1_replace_uses_the_explicit_historical_exporter' panicked at revault_cli/tests/migration_cli.rs:769:5:
+command failed
+stdout:
+
+stderr:
+Error:
+  Session Agent did not start
+
+
+---- vault_v2_replace_preserves_profile_keys_and_supports_password_profiles stdout ----
+CLI start: test=vault_v2_replace_preserves_profile_keys_and_supports_password_profiles pid=2048886
+CLI end: test=vault_v2_replace_preserves_profile_keys_and_supports_password_profiles pid=2048886 elapsed=3.033616055s status=exit status: 1
+
+thread 'vault_v2_replace_preserves_profile_keys_and_supports_password_profiles' panicked at revault_cli/tests/migration_cli.rs:769:5:
+command failed
+stdout:
+
+stderr:
+Error:
+  Session Agent did not start
+
+
+---- vault_v3_container_upgrade_preserves_profiles_and_enables_compaction stdout ----
+CLI start: test=vault_v3_container_upgrade_preserves_profiles_and_enables_compaction pid=2050438
+CLI end: test=vault_v3_container_upgrade_preserves_profiles_and_enables_compaction pid=2050438 elapsed=3.033102418s status=exit status: 1
+
+thread 'vault_v3_container_upgrade_preserves_profiles_and_enables_compaction' panicked at revault_cli/tests/migration_cli.rs:769:5:
+command failed
+stdout:
+
+stderr:
+Error:
+  Session Agent did not start
+
+
+
+failures:
+    archive_migration_commands_and_options_execute_end_to_end
+    archive_v1_contact_only_migration_uses_keys_from_the_current_vault
+    archive_v1_migrates_end_to_end_with_the_historical_exporter
+    automatic_historical_exporter_install_hides_cargo_output
+    lockbox_v1_with_description_migrates_and_default_error_names_its_path
+    migrated_mirror_preserves_configuration_and_update_lifecycle
+    vault_migration_commands_and_options_execute_end_to_end
+    vault_structure_v2_in_container_v1_migrates_end_to_end
+    vault_v1_replace_uses_the_explicit_historical_exporter
+    vault_v2_replace_preserves_profile_keys_and_supports_password_profiles
+    vault_v3_container_upgrade_preserves_profiles_and_enables_compaction
+
+test result: FAILED. 0 passed; 11 failed; 0 ignored; 0 measured; 0 filtered out; finished in 51.03s
+
+error: test failed, to rerun pass `-p revault_cli --test migration_cli`

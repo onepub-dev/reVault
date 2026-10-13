@@ -198,6 +198,58 @@ fn export_fixture(dir: &Path, manifest: &Manifest, output: &Path) {
     }
 }
 
+// The optional archive owner fingerprint was absent in historical exporters.
+// Only its explicit null representation is equivalent to omission. A real
+// fingerprint remains part of the comparison, including for signed archives.
+fn canonical_snapshot_record(value: &Value) -> Value {
+    let mut value = value.clone();
+    if value["artifact"] == "archive" && value["record"]["type"] == "start" {
+        if let Some(body) = value["record"]["value"].as_object_mut() {
+            if body.get("owner_fingerprint") == Some(&Value::Null) {
+                body.remove("owner_fingerprint");
+            }
+        }
+    }
+    value
+}
+
+#[test]
+fn historical_optional_owner_normalization_preserves_real_fingerprints() {
+    let absent =
+        json!({"artifact":"archive","record":{"type":"start","value":{"description":null}}});
+    let mut explicit_null = absent.clone();
+    explicit_null["record"]["value"]["owner_fingerprint"] = Value::Null;
+    assert_eq!(
+        canonical_snapshot_record(&absent),
+        canonical_snapshot_record(&explicit_null)
+    );
+    let mut signed = absent.clone();
+    signed["record"]["value"]["owner_fingerprint"] = json!("owner-a");
+    let mut different = signed.clone();
+    different["record"]["value"]["owner_fingerprint"] = json!("owner-b");
+    assert_ne!(
+        canonical_snapshot_record(&signed),
+        canonical_snapshot_record(&absent)
+    );
+    assert_ne!(
+        canonical_snapshot_record(&signed),
+        canonical_snapshot_record(&different)
+    );
+    assert_eq!(canonical_snapshot_record(&signed), signed);
+    let mut missing_description = absent.clone();
+    missing_description["record"]["value"]
+        .as_object_mut()
+        .unwrap()
+        .remove("description");
+    assert_ne!(
+        canonical_snapshot_record(&absent),
+        canonical_snapshot_record(&missing_description)
+    );
+    let other =
+        json!({"artifact":"vault","record":{"type":"start","value":{"owner_fingerprint":null}}});
+    assert_eq!(canonical_snapshot_record(&other), other);
+}
+
 fn assert_snapshot(path: &Path, expected: &[Value], fixture: &Path) {
     let actual = snapshot(path);
     assert_eq!(
@@ -207,7 +259,12 @@ fn assert_snapshot(path: &Path, expected: &[Value], fixture: &Path) {
         fixture.display()
     );
     for (index, (actual, expected)) in actual.iter().zip(expected).enumerate() {
-        assert_eq!(actual, expected, "record {index}: {}", fixture.display());
+        assert_eq!(
+            canonical_snapshot_record(actual),
+            canonical_snapshot_record(expected),
+            "record {index}: {}",
+            fixture.display()
+        );
     }
 }
 
@@ -224,6 +281,7 @@ fn archive_key_directory(path: &Path) -> Vec<u8> {
 fn assert_imported_archive_snapshot(
     source: &Path,
     imported: &Path,
+    assigned_owner: &str,
     expected: &[Value],
     fixture: &Path,
 ) {
@@ -246,7 +304,28 @@ fn assert_imported_archive_snapshot(
         "access slots changed: {}",
         fixture.display()
     );
+    let mut expected = expected.to_vec();
+    for record in &mut expected {
+        if record["record"]["type"] == "start" {
+            let owner = &mut record["record"]["value"]["owner_fingerprint"];
+            if owner.is_null() {
+                *owner = json!(assigned_owner);
+            } else {
+                assert_eq!(
+                    owner.as_str(),
+                    Some(assigned_owner),
+                    "established owner must be preserved"
+                );
+            }
+        }
+    }
     let mut actual = snapshot(imported);
+    assert_eq!(
+        archive_owner_fingerprint(imported, ARTIFACT_PASSWORD)
+            .unwrap()
+            .as_deref(),
+        Some(assigned_owner)
+    );
     let original_start = expected
         .iter()
         .find(|r| r["record"]["type"] == "start")
@@ -258,10 +337,10 @@ fn assert_imported_archive_snapshot(
         }
     }
     assert_eq!(actual.len(), expected.len());
-    for (index, (actual, expected)) in actual.iter().zip(expected).enumerate() {
+    for (index, (actual, expected)) in actual.iter().zip(&expected).enumerate() {
         assert_eq!(
-            actual,
-            expected,
+            canonical_snapshot_record(actual),
+            canonical_snapshot_record(expected),
             "imported record {index}: {}",
             fixture.display()
         );
@@ -426,7 +505,13 @@ fn every_retained_native_version_migrates_to_current() {
                 dir.display()
             );
             export_archive(&archive, &reexport, ARTIFACT_PASSWORD, [2; 16]).unwrap();
-            assert_imported_archive_snapshot(&upgraded, &reexport, &expected, &dir);
+            assert_imported_archive_snapshot(
+                &upgraded,
+                &reexport,
+                &signer.fingerprint().unwrap(),
+                &expected,
+                &dir,
+            );
             assert_eq!(archive.list_mirror_projects().unwrap().len(), 2);
             assert_eq!(
                 archive

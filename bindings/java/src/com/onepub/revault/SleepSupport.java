@@ -6,13 +6,15 @@ public final class SleepSupport {
   private final boolean suspendNotifications;
   private final boolean sleepInhibition;
   private final boolean supported;
+  private final boolean cacheClearingActive;
 
   /** Creates an application-owned SleepSupport value. */
-  public SleepSupport(boolean suspendNotifications, boolean sleepInhibition, boolean supported) {
+  public SleepSupport(boolean suspendNotifications, boolean sleepInhibition, boolean supported, boolean cacheClearingActive) {
     this.view = null;
     this.suspendNotifications = suspendNotifications;
     this.sleepInhibition = sleepInhibition;
     this.supported = supported;
+    this.cacheClearingActive = cacheClearingActive;
   }
 
   SleepSupport(com.onepub.revault.internal.SleepSupport view) {
@@ -20,21 +22,27 @@ public final class SleepSupport {
     this.suspendNotifications = false;
     this.sleepInhibition = false;
     this.supported = false;
+    this.cacheClearingActive = false;
   }
 
-  /** Whether the host reports impending system suspend. */
+  /** Whether suspend notification support is compiled for this host. */
   public boolean suspendNotifications() {
     return view == null ? suspendNotifications : view.suspendNotifications();
   }
 
-  /** Whether the agent can delay sleep while handling secrets. */
+  /** Whether sleep inhibition support is compiled for this host. */
   public boolean sleepInhibition() {
     return view == null ? sleepInhibition : view.sleepInhibition();
   }
 
-  /** Whether the host supplies enough integration for safe caching. */
+  /** Whether this build includes the host integration; this is not runtime watcher readiness. */
   public boolean supported() {
     return view == null ? supported : view.supported();
+  }
+
+  /** Whether the current compatible Session Agent reports an active suspend cache watcher; false when absent or unavailable. Notification delivery is platform-dependent. */
+  public boolean cacheClearingActive() {
+    return view == null ? cacheClearingActive : view.cacheClearingActive();
   }
 
 }

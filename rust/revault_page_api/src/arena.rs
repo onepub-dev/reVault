@@ -46,9 +46,7 @@ impl Arena {
     }
 
     pub(crate) fn allocate(&mut self, arena_index: usize) -> Option<Allocation> {
-        if self.memory.is_none() {
-            return None;
-        }
+        self.memory.as_ref()?;
         let slot_index = self.free.pop()?;
         let slot = &mut self.slots[slot_index];
         slot.live = true;

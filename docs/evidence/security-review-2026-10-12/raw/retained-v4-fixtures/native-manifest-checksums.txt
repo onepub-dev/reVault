@@ -1,0 +1,2 @@
+e420a4dc6e032b5af2fef14552fe0091975263e9217304afdf585f9aaafc00ce  rust/revault_migration/tests/retained/archive-v4/native.bin
+613c155f1a09e14e10ec97432c5b38935964406b9c14fca6aea24ff8ae15357e  rust/revault_migration/tests/retained/vault-v3-container-v4/native.bin

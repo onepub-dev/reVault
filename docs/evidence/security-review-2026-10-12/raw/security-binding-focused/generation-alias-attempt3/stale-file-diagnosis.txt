@@ -1,0 +1,5 @@
+Stale output path: bindings/flatbuffers/__pycache__/model_docs.cpython-314.pyc
+37b9cfb10e6b973079b9fcbed8a4e6abc963fa7b44701164e0e30349b6ddd912  bindings/flatbuffers/__pycache__/model_docs.cpython-314.pyc
+bindings/flatbuffers/__pycache__/model_docs.cpython-314.pyc: data
+2/tmp/.tmpyWp8sH/bindings/flatbuffers/model_docs.py
+The generator copies tracked repository files into a random tempfile::TempDir, runs Python model generators there, then compares every file under the temporary tree without excluding __pycache__. Python imports model_docs.py and emits bytecode with the temporary absolute source path shown above. The generated file is copied into the repository as an ignored file. A subsequent status recomputation creates bytecode from a different temp path, so it reports exactly 1 stale file repeatedly. The attempt-3 before/after manifest of generated binding outputs (excluding __pycache__) was identical.

@@ -14,25 +14,35 @@ pub(crate) fn compress_block_btopt_no_dict(
     src: &[u8],
     params: CompressionParameters,
     repeat_offsets: RepeatOffsets,
-) -> GreedyBlockOutput {
-    let mut state = OptBlockState::new();
-    compress_block_btopt_no_dict_with_state(src, 0..src.len(), params, repeat_offsets, &mut state)
+) -> Result<GreedyBlockOutput, crate::workspace::CapacityError> {
+    Ok({
+        let mut state = OptBlockState::new();
+        compress_block_btopt_no_dict_with_state(
+            src,
+            0..src.len(),
+            params,
+            repeat_offsets,
+            &mut state,
+        )?
+    })
 }
 
 pub(crate) fn compress_block_btultra_no_dict(
     src: &[u8],
     params: CompressionParameters,
     repeat_offsets: RepeatOffsets,
-) -> GreedyBlockOutput {
-    let mut state = OptBlockState::new();
-    compress_block_opt_no_dict_with_state(
-        src,
-        0..src.len(),
-        params,
-        repeat_offsets,
-        &mut state,
-        OptParserStrategy::BtUltra,
-    )
+) -> Result<GreedyBlockOutput, crate::workspace::CapacityError> {
+    Ok({
+        let mut state = OptBlockState::new();
+        compress_block_opt_no_dict_with_state(
+            src,
+            0..src.len(),
+            params,
+            repeat_offsets,
+            &mut state,
+            OptParserStrategy::BtUltra,
+        )?
+    })
 }
 
 pub(crate) fn compress_block_btopt_no_dict_with_state(
@@ -41,15 +51,17 @@ pub(crate) fn compress_block_btopt_no_dict_with_state(
     params: CompressionParameters,
     repeat_offsets: RepeatOffsets,
     state: &mut OptBlockState,
-) -> GreedyBlockOutput {
-    compress_block_opt_no_dict_with_state(
-        src,
-        block_range,
-        params,
-        repeat_offsets,
-        state,
-        OptParserStrategy::BtOpt,
-    )
+) -> Result<GreedyBlockOutput, crate::workspace::CapacityError> {
+    Ok({
+        compress_block_opt_no_dict_with_state(
+            src,
+            block_range,
+            params,
+            repeat_offsets,
+            state,
+            OptParserStrategy::BtOpt,
+        )?
+    })
 }
 
 pub(crate) fn compress_block_btultra_no_dict_with_state(
@@ -58,15 +70,17 @@ pub(crate) fn compress_block_btultra_no_dict_with_state(
     params: CompressionParameters,
     repeat_offsets: RepeatOffsets,
     state: &mut OptBlockState,
-) -> GreedyBlockOutput {
-    compress_block_opt_no_dict_with_state(
-        src,
-        block_range,
-        params,
-        repeat_offsets,
-        state,
-        OptParserStrategy::BtUltra,
-    )
+) -> Result<GreedyBlockOutput, crate::workspace::CapacityError> {
+    Ok({
+        compress_block_opt_no_dict_with_state(
+            src,
+            block_range,
+            params,
+            repeat_offsets,
+            state,
+            OptParserStrategy::BtUltra,
+        )?
+    })
 }
 
 pub(crate) fn prime_btultra2_stats_no_dict(
@@ -74,15 +88,17 @@ pub(crate) fn prime_btultra2_stats_no_dict(
     block_range: Range<usize>,
     params: CompressionParameters,
     state: &mut OptBlockState,
-) {
-    let mut prime_state = OptBlockState::new();
-    prime_state.price_state = state.price_state.clone();
-    let _ = compress_block_btultra_no_dict_with_state(
-        src,
-        block_range,
-        params,
-        RepeatOffsets::new(),
-        &mut prime_state,
-    );
-    state.price_state = prime_state.price_state;
+) -> Result<(), crate::workspace::CapacityError> {
+    Ok({
+        let mut prime_state = OptBlockState::new();
+        prime_state.price_state = state.price_state.clone();
+        let _ = compress_block_btultra_no_dict_with_state(
+            src,
+            block_range,
+            params,
+            RepeatOffsets::new(),
+            &mut prime_state,
+        )?;
+        state.price_state = prime_state.price_state;
+    })
 }

@@ -230,6 +230,14 @@ type ProfileHistory struct {
 	Generations []ProfileGeneration
 }
 
+// LockboxAlias represents a local Vault alias mapping a normalized name to a stable lockbox identity; resolution does not open the target.
+type LockboxAlias struct {
+	// Name: Case-sensitive normalized NFC alias name.
+	Name string
+	// LockboxId: Stable binary target identity; verify it when opening the resolved path.
+	LockboxId []byte
+}
+
 // KnownLockbox represents a lockbox identifier and host path remembered by the local vault for later discovery.
 type KnownLockbox struct {
 	// LockboxId: Stable binary identifier of the remembered lockbox.
@@ -312,12 +320,14 @@ type AgentEntry struct {
 
 // SleepSupport represents the host capabilities used to protect cached secrets across suspend and sleep.
 type SleepSupport struct {
-	// SuspendNotifications: Whether the host reports impending system suspend.
+	// SuspendNotifications: Whether suspend notification support is compiled for this host.
 	SuspendNotifications bool
-	// SleepInhibition: Whether the agent can delay sleep while handling secrets.
+	// SleepInhibition: Whether sleep inhibition support is compiled for this host.
 	SleepInhibition bool
-	// Supported: Whether the host supplies enough integration for safe caching.
+	// Supported: Whether this build includes the host integration; this is not runtime watcher readiness.
 	Supported bool
+	// CacheClearingActive: Whether the current compatible Session Agent reports an active suspend cache watcher; false when absent or unavailable. Notification delivery is platform-dependent.
+	CacheClearingActive bool
 }
 
 // PlatformCredentialStatus represents availability and configuration of the platform credential store used for the Vault passphrase.
@@ -622,6 +632,19 @@ func decodeProfileHistory(bytes []byte) *ProfileHistory {
 	return domainProfileHistory(transport.GetRootAsProfileHistory(bytes, 0).UnPack())
 }
 
+func domainLockboxAlias(value *transport.LockboxAliasT) *LockboxAlias {
+	if value == nil {
+		return nil
+	}
+	result := &LockboxAlias{}
+	result.Name = value.Name
+	result.LockboxId = append([]byte(nil), value.LockboxId...)
+	return result
+}
+func decodeLockboxAlias(bytes []byte) *LockboxAlias {
+	return domainLockboxAlias(transport.GetRootAsLockboxAlias(bytes, 0).UnPack())
+}
+
 func domainKnownLockbox(value *transport.KnownLockboxT) *KnownLockbox {
 	if value == nil {
 		return nil
@@ -742,6 +765,7 @@ func domainSleepSupport(value *transport.SleepSupportT) *SleepSupport {
 	result.SuspendNotifications = value.SuspendNotifications
 	result.SleepInhibition = value.SleepInhibition
 	result.Supported = value.Supported
+	result.CacheClearingActive = value.CacheClearingActive
 	return result
 }
 func decodeSleepSupport(bytes []byte) *SleepSupport {
@@ -865,6 +889,15 @@ func decodeContactList(bytes []byte) []Contact {
 	result := make([]Contact, 0, len(source))
 	for _, value := range source {
 		result = append(result, *domainContact(value))
+	}
+	return result
+}
+
+func decodeLockboxAliasList(bytes []byte) []LockboxAlias {
+	source := transport.GetRootAsLockboxAliasList(bytes, 0).UnPack().Values
+	result := make([]LockboxAlias, 0, len(source))
+	for _, value := range source {
+		result = append(result, *domainLockboxAlias(value))
 	}
 	return result
 }

@@ -1,0 +1,13 @@
+pub fn static_roundtrip(input: &[u8]) -> Result<Vec<u8>, String> {
+    use zstd_complete::encoding::{CompressionLevel, EncoderWorkspace};
+    let level = CompressionLevel::DEFAULT;
+    let mut workspace = EncoderWorkspace::new(level, input.len()).map_err(|e| format!("workspace: {e:?}"))?;
+    let mut compressed = vec![0; EncoderWorkspace::required_output_size(input.len()).map_err(|e| format!("bound: {e:?}"))?];
+    let encoded = workspace.encode_into(input, &mut compressed).map_err(|e| format!("encode: {e:?}"))?.to_vec();
+    let mut decoded = vec![0; input.len()];
+    let length = zstd_complete::decoding::FrameDecoder::new()
+        .decode_all(&encoded, &mut decoded)
+        .map_err(|e| format!("decode: {e:?}"))?;
+    decoded.truncate(length);
+    Ok(decoded)
+}

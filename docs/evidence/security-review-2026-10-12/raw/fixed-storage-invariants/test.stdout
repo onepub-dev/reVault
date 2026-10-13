@@ -1,0 +1,10 @@
+
+running 5 tests
+test clone_failure_tracks_only_successfully_initialized_elements ... ok
+test full_capacity_refusal_preserves_initialized_prefix_and_storage ... ok
+test ownership_transfer_preserves_full_pointer_capacity_and_single_drop ... ok
+test truncate_removes_ownership_before_calling_a_destructor ... ok
+test zero_and_overflow_admission_are_checked_without_allocating ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

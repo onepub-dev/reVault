@@ -15,25 +15,27 @@ pub(crate) fn load_prefix(
     src: &[u8],
     prefix_len: usize,
     params: CompressionParameters,
-) {
-    debug_assert!(prefix_len <= src.len());
-    if prefix_len <= HASH_READ_SIZE {
-        return;
-    }
+) -> Result<(), crate::workspace::CapacityError> {
+    Ok({
+        debug_assert!(prefix_len <= src.len());
+        if prefix_len <= HASH_READ_SIZE {
+            return Ok(());
+        }
 
-    state.ensure_tables(params);
-    let target = prefix_len - HASH_READ_SIZE;
-    let min_match = params.min_match.clamp(4, 6);
+        state.ensure_tables(params)?;
+        let target = prefix_len - HASH_READ_SIZE;
+        let min_match = params.min_match.clamp(4, 6);
 
-    if row_match_finder_enabled(params) {
-        state.tag_table.fill(0);
-        load_dictionary_rows(src, target, params, min_match, state);
-    } else {
-        load_dictionary_hash_chain(src, target, params, min_match, state);
-    }
+        if row_match_finder_enabled(params) {
+            state.tag_table.fill(0);
+            load_dictionary_rows(src, target, params, min_match, state);
+        } else {
+            load_dictionary_hash_chain(src, target, params, min_match, state);
+        }
 
-    state.next_to_update = prefix_len;
-    state.next_to_update3 = prefix_len;
+        state.next_to_update = prefix_len;
+        state.next_to_update3 = prefix_len;
+    })
 }
 
 pub(crate) fn load_binary_tree_prefix(
@@ -41,18 +43,20 @@ pub(crate) fn load_binary_tree_prefix(
     src: &[u8],
     prefix_len: usize,
     params: CompressionParameters,
-) {
-    debug_assert!(prefix_len <= src.len());
-    if prefix_len <= HASH_READ_SIZE {
-        return;
-    }
+) -> Result<(), crate::workspace::CapacityError> {
+    Ok({
+        debug_assert!(prefix_len <= src.len());
+        if prefix_len <= HASH_READ_SIZE {
+            return Ok(());
+        }
 
-    state.ensure_tables(params);
-    let target = prefix_len - HASH_READ_SIZE;
-    let min_match = params.min_match.clamp(4, 6);
-    load_dictionary_binary_tree(src, target, prefix_len, params, min_match, state);
-    state.next_to_update = prefix_len;
-    state.next_to_update3 = prefix_len;
+        state.ensure_tables(params)?;
+        let target = prefix_len - HASH_READ_SIZE;
+        let min_match = params.min_match.clamp(4, 6);
+        load_dictionary_binary_tree(src, target, prefix_len, params, min_match, state);
+        state.next_to_update = prefix_len;
+        state.next_to_update3 = prefix_len;
+    })
 }
 
 #[cfg(test)]
@@ -102,7 +106,7 @@ mod tests {
         let params = chain_params();
         let mut state = GreedyMatchState::new();
 
-        load_prefix(&mut state, data, data.len(), params);
+        load_prefix(&mut state, data, data.len(), params).expect("test storage admission");
 
         assert_eq!(state.next_to_update, data.len());
         assert_eq!(state.next_to_update3, data.len());
@@ -115,10 +119,10 @@ mod tests {
         let data = b"row-dictionary-prefix-row-dictionary-prefix-row";
         let params = row_params();
         let mut state = GreedyMatchState::new();
-        state.ensure_tables(params);
+        state.ensure_tables(params).expect("test storage admission");
         state.tag_table.fill(0xFF);
 
-        load_prefix(&mut state, data, data.len(), params);
+        load_prefix(&mut state, data, data.len(), params).expect("test storage admission");
 
         assert_eq!(state.next_to_update, data.len());
         assert_eq!(state.next_to_update3, data.len());
@@ -132,7 +136,8 @@ mod tests {
         let params = btlazy2_params();
         let mut state = GreedyMatchState::new();
 
-        load_binary_tree_prefix(&mut state, data, data.len(), params);
+        load_binary_tree_prefix(&mut state, data, data.len(), params)
+            .expect("test storage admission");
 
         assert_eq!(state.next_to_update, data.len());
         assert_eq!(state.next_to_update3, data.len());

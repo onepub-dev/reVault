@@ -2,7 +2,7 @@
 //! existing compression/AEAD with a separate derived-key domain. Caller must first
 //! authenticate the publication and verify its stored-byte commitment.
 use super::*;
-use crate::compression::{encode_with_compression, COMPRESSION_NONE, COMPRESSION_ZSTD};
+use crate::compression::{encode_with_compression_sensitive, COMPRESSION_NONE, COMPRESSION_ZSTD};
 use crate::crypto::{open_with_nonce, seal_with_random_nonce};
 use crate::page_buffer::ZeroizingBytes;
 use sha2::Sha256;
@@ -38,7 +38,11 @@ impl Codec {
                 "inline catalogue decoded limit".into(),
             ));
         }
-        let (codec, encoded) = encode_with_compression(plain, self.mode.options().compression);
+        let (codec, encoded) = encode_with_compression_sensitive(
+            plain,
+            self.mode.options().compression,
+            !self.mode.plaintext(),
+        );
         let encoded = ZeroizingBytes::new(encoded);
         let body_len = PRIVATE_BYTES - HEADER - if self.key.is_some() { 16 } else { 0 };
         if BODY_HEADER + encoded.len() > body_len {

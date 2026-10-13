@@ -6,8 +6,8 @@ use crate::blocks::block::BlockType;
 #[test]
 fn prepared_chunk_splits_literals_and_source_span() {
     let prepared = PreparedBlock {
-        literals: b"aabbtail".to_vec(),
-        sequences: vec![
+        literals: crate::workspace::ReusableVec::from_owned(b"aabbtail".to_vec()),
+        sequences: crate::workspace::ReusableVec::from_owned(vec![
             PreparedSequence {
                 ll: 2,
                 ml: 3,
@@ -20,7 +20,7 @@ fn prepared_chunk_splits_literals_and_source_span() {
                 raw_offset: 7,
                 encoded_offset_value: 0,
             },
-        ],
+        ]),
     };
     let block = b"aa123bb45678tail";
     let prefixes = sequence_prefixes(&prepared);
@@ -39,22 +39,22 @@ fn prepared_chunk_splits_literals_and_source_span() {
 #[test]
 fn partition_offcode_resolution_rewrites_repcodes_after_raw_partition_like_c() {
     let first_partition = PreparedBlock {
-        literals: b"a".to_vec(),
-        sequences: vec![PreparedSequence {
+        literals: crate::workspace::ReusableVec::from_owned(b"a".to_vec()),
+        sequences: crate::workspace::ReusableVec::from_owned(vec![PreparedSequence {
             ll: 1,
             ml: 3,
             raw_offset: 4,
             encoded_offset_value: OffBase::offset_to_c_value(4),
-        }],
+        }]),
     };
     let second_partition = PreparedBlock {
-        literals: b"b".to_vec(),
-        sequences: vec![PreparedSequence {
+        literals: crate::workspace::ReusableVec::from_owned(b"b".to_vec()),
+        sequences: crate::workspace::ReusableVec::from_owned(vec![PreparedSequence {
             ll: 1,
             ml: 3,
             raw_offset: 4,
             encoded_offset_value: 1,
-        }],
+        }]),
     };
     let initial_repeats = RepeatOffsets::new();
     let mut compression_repeats = initial_repeats;
@@ -85,13 +85,13 @@ fn partition_offcode_resolution_rewrites_repcodes_after_raw_partition_like_c() {
 #[test]
 fn partition_offcode_resolution_borrows_when_no_rewrite_is_needed() {
     let partition = PreparedBlock {
-        literals: b"a".to_vec(),
-        sequences: vec![PreparedSequence {
+        literals: crate::workspace::ReusableVec::from_owned(b"a".to_vec()),
+        sequences: crate::workspace::ReusableVec::from_owned(vec![PreparedSequence {
             ll: 1,
             ml: 3,
             raw_offset: 4,
             encoded_offset_value: OffBase::offset_to_c_value(4),
-        }],
+        }]),
     };
     let mut compression_repeats = RepeatOffsets::new();
     let mut decompression_repeats = RepeatOffsets::new();
@@ -110,8 +110,8 @@ fn partition_offcode_resolution_borrows_when_no_rewrite_is_needed() {
 #[test]
 fn derive_block_splits_refuses_tiny_sequence_counts() {
     let prepared = PreparedBlock {
-        literals: vec![b'a'; 8],
-        sequences: vec![
+        literals: crate::workspace::ReusableVec::from_owned(vec![b'a'; 8]),
+        sequences: crate::workspace::ReusableVec::from_owned(vec![
             PreparedSequence {
                 ll: 1,
                 ml: 3,
@@ -119,7 +119,7 @@ fn derive_block_splits_refuses_tiny_sequence_counts() {
                 encoded_offset_value: 0,
             };
             4
-        ],
+        ]),
     };
     let block = [b'a'; 20];
     let prefixes = sequence_prefixes(&prepared);
@@ -166,8 +166,8 @@ fn derive_block_splits_finds_cheaper_halves() {
         });
     }
     let prepared = PreparedBlock {
-        literals,
-        sequences,
+        literals: crate::workspace::ReusableVec::from_owned(literals),
+        sequences: crate::workspace::ReusableVec::from_owned(sequences),
     };
     let prefixes = sequence_prefixes(&prepared);
     let mut estimate_scratch = EstimateScratch::new();
@@ -194,8 +194,8 @@ fn derive_block_splits_finds_cheaper_halves() {
 fn estimate_partition_size_does_not_use_rle_emission_cost_like_c() {
     let block = [0x44; 64];
     let prepared = PreparedBlock {
-        literals: block.to_vec(),
-        sequences: Vec::new(),
+        literals: crate::workspace::ReusableVec::from_owned(block.to_vec()),
+        sequences: crate::workspace::ReusableVec::from_owned(Vec::new()),
     };
     let prefixes = sequence_prefixes(&prepared);
 
@@ -212,7 +212,8 @@ fn estimate_partition_size_does_not_use_rle_emission_cost_like_c() {
             offset_history: OffsetHistory::new(),
             previous_huff_table: None,
         },
-    );
+    )
+    .expect("test storage admission");
 
     assert_eq!(estimate, 6);
 }
@@ -221,8 +222,8 @@ fn estimate_partition_size_does_not_use_rle_emission_cost_like_c() {
 fn estimate_partition_size_keeps_tiny_literals_raw_like_c_entropy_stats() {
     let block = [0x44; 63];
     let prepared = PreparedBlock {
-        literals: block.to_vec(),
-        sequences: Vec::new(),
+        literals: crate::workspace::ReusableVec::from_owned(block.to_vec()),
+        sequences: crate::workspace::ReusableVec::from_owned(Vec::new()),
     };
     let prefixes = sequence_prefixes(&prepared);
 
@@ -239,7 +240,8 @@ fn estimate_partition_size_keeps_tiny_literals_raw_like_c_entropy_stats() {
             offset_history: OffsetHistory::new(),
             previous_huff_table: None,
         },
-    );
+    )
+    .expect("test storage admission");
 
     assert_eq!(estimate, block.len() + 5);
 }
@@ -255,8 +257,8 @@ fn estimate_partition_size_does_not_cap_to_raw_block_size_like_c() {
         block.push(state as u8);
     }
     let prepared = PreparedBlock {
-        literals: block.clone(),
-        sequences: Vec::new(),
+        literals: crate::workspace::ReusableVec::from_owned(block.clone()),
+        sequences: crate::workspace::ReusableVec::from_owned(Vec::new()),
     };
     let prefixes = sequence_prefixes(&prepared);
 
@@ -273,7 +275,8 @@ fn estimate_partition_size_does_not_cap_to_raw_block_size_like_c() {
             offset_history: OffsetHistory::new(),
             previous_huff_table: None,
         },
-    );
+    )
+    .expect("test storage admission");
 
     assert_eq!(estimate, block.len() + 5);
 }
@@ -298,8 +301,8 @@ fn partition_can_emit_rle_after_first_block_like_c() {
 fn encode_rle_candidate_partition(policy: BlockEncodingPolicy) -> GreedyEncodedBlock {
     let block = [0x44; 32];
     let prepared = PreparedBlock {
-        literals: block.to_vec(),
-        sequences: Vec::new(),
+        literals: crate::workspace::ReusableVec::from_owned(block.to_vec()),
+        sequences: crate::workspace::ReusableVec::from_owned(Vec::new()),
     };
     let mut fse_tables = FseTables::new();
     let mut offset_history = OffsetHistory::new();
