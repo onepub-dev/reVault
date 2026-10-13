@@ -1,4 +1,6 @@
 //! Public API baseline for form snapshots; no experimental-format internals.
+mod common;
+
 use revault_lockbox_api::{
     Compression, Encryption, FormFieldDefinition, FormFieldKind, FormRecord, FormTypeId, FormValue,
     Lockbox, LockboxCreateOptions, LockboxOpen, LockboxPath, LockboxProtection,
@@ -939,4 +941,60 @@ fn public_form_definition_resolution_revision_and_empty_creation_all_modes() {
             routed
         );
     }
+}
+
+#[test]
+fn oversized_normal_form_value_cannot_publish_over_prior_record() {
+    let temp = common::public_api_unique_dir("form-wire-refusal");
+    std::fs::create_dir_all(&temp).unwrap();
+    let file = temp.join("form-limit.lbox");
+    let key = [97; 32];
+    let owner = OwnerSigningKeyPair::generate().unwrap();
+    let mut archive = Lockbox::create_file(
+        &file,
+        LockboxProtection::ContentKey(SecretVec::try_from_slice(&key).unwrap()),
+        &owner,
+    )
+    .unwrap();
+    let path = LockboxPath::new("/record").unwrap();
+    archive
+        .define_form_with_type_id(
+            FormTypeId::new("12345678-1234-1234-1234-123456789abc").unwrap(),
+            "bounded",
+            "Bounded",
+            vec![field("text", "Text", FormFieldKind::Text)],
+        )
+        .unwrap();
+    archive
+        .create_form_record(&path, "bounded", "Record")
+        .unwrap();
+    archive
+        .set_form_field_normal(&path, "text", "previous persisted value")
+        .unwrap();
+    archive.commit().unwrap();
+    let oversized = "x".repeat(usize::from(u16::MAX) + 1);
+    let result = archive
+        .set_form_field_normal(&path, "text", &oversized)
+        .and_then(|_| archive.commit());
+    assert!(matches!(
+        result,
+        Err(revault_lockbox_api::Error::InvalidInput(_))
+    ));
+    archive.abort().unwrap();
+    drop(archive);
+    let reopened = Lockbox::open(
+        &file,
+        LockboxOpen::ContentKey(SecretVec::try_from_slice(&key).unwrap()),
+    )
+    .unwrap();
+    let record = reopened.get_form_record(&path).unwrap().unwrap();
+    captured(
+        &record,
+        "text",
+        "Text",
+        FormFieldKind::Text,
+        "previous persisted value",
+    );
+    drop(reopened);
+    std::fs::remove_dir_all(&temp).unwrap();
 }
