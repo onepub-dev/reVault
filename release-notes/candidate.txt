@@ -2,6 +2,11 @@ Release all
 CLI: 0.5.0
 Bindings: 0.5.0
 
+- Record verified bounded extraction memory correction
+- fix: decrypt owned file pages in place under wiping guards
+- fix: retain validated file page payloads without duplicate buffers
+- fix: avoid cloning archive metadata for extraction workers
+- Prepare all release: CLI 0.5.0, bindings 0.5.0
 - Isolate historical reader documentation outputs for release checks
 - Prepare all release: CLI 0.5.0, bindings 0.5.0
 - Fix #310: patch historical migration decoder and document archive limits
