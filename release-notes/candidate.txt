@@ -2,6 +2,8 @@ Release all
 CLI: 0.5.0
 Bindings: 0.5.0
 
+- Fix installed carrier gates and preserve Rust 1.88 consumers
+- Prepare all release: CLI 0.5.0, bindings 0.5.0
 - Fix isolated release conformance and cross-platform carrier fixtures
 - Prepare all release: CLI 0.5.0, bindings 0.5.0
 - Keep agent deadlines valid after buffered peer closure
