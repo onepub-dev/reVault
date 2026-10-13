@@ -756,6 +756,9 @@ enum DomainCodec {
     static func contactList(_ data: Data) -> [Contact] {
         var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__ContactList = getRoot(byteBuffer: &buffer); return root.unpack().values.compactMap { $0 }.map(convert)
     }
+    static func lockboxAliasList(_ data: Data) -> [LockboxAlias] {
+        var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__LockboxAliasList = getRoot(byteBuffer: &buffer); return root.unpack().values.compactMap { $0 }.map(convert)
+    }
     static func knownLockboxList(_ data: Data) -> [KnownLockbox] {
         var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__KnownLockboxList = getRoot(byteBuffer: &buffer); return root.unpack().values.compactMap { $0 }.map(convert)
     }

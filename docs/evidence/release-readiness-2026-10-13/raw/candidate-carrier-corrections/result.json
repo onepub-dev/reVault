@@ -1,0 +1,44 @@
+{
+  "base_candidate": "1acd23f2ef9c6e0094fd3d575b0d88180d71a2f9",
+  "scope": "focused tooling and carrier fixture correction; replacement candidate CI pending",
+  "native_c": {
+    "required_operations": 229,
+    "pass_rows": 242,
+    "artifact_rows": 4,
+    "native_rows": 1,
+    "phase_rows": {
+      "core": 201,
+      "agent": 35,
+      "platform": 9,
+      "last_error": 1
+    },
+    "verified": true,
+    "archive_sha256": "743e160a802937131e9c978d83916bcd3060b151c82ab762a50b3119f580a844",
+    "tool_sha256": "6f7f1505a36ba46d128ce4c25d64deaf23801172ff8032fa6aec9d37b4c621c2",
+    "tool_source_sha256": "823cb3df780e70f83aa87070510a1d4a11e05e5665899699d2af47791fb6b688",
+    "owned_fixture_cleanup": true
+  },
+  "tooling_build_exit": 0,
+  "tooling_all_target_clippy_exit": 0,
+  "loopback_publication": {
+    "passed": 2,
+    "failed": 0,
+    "ignored": 0
+  },
+  "dart": {
+    "format": 0,
+    "fatal_analyze": 0,
+    "doc_warnings": 0,
+    "doc_errors": 0
+  },
+  "binding_inventory": {
+    "abi_declarations": 230,
+    "operations": 229
+  },
+  "prior_attempts": [
+    "keyring startup collision; core and agent passed",
+    "same collision under isolated HOME/XDG",
+    "all phases passed but verifier refused install under rust/target"
+  ],
+  "remaining": "actual replacement candidate platform/package matrix, standalone fuzz, final resource/product acceptance; no reVault publication yet"
+}

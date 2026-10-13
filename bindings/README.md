@@ -70,7 +70,8 @@ The JavaScript bundle step is required after transport generation; regenerating
 TypeScript alone does not refresh `generated/flatbuffers.js`. Review generated
 source and bundle changes together.
 
-Full transport regeneration requires `flatc` 25.2.10 on `PATH`. Generated
+Full transport regeneration requires `flatc` 25.2.10 and Dart on `PATH`.
+Generated Dart is formatted with language version 3.10 to match the lint gate. Generated
 files live only in internal package locations; Ruby, Lua, and C use small
 private readers because the official compiler does not provide a suitable
 generator for those targets.

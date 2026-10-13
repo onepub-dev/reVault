@@ -695,7 +695,8 @@ final class Vault extends Owned {
   /// ```dart
   /// vault.setLockboxAlias('team', lockbox.id);
   /// ```
-  void setLockboxAlias(String name, Uint8List id) => runtime.operations.vaultDirectorySetLockboxAlias(handle, name, id);
+  void setLockboxAlias(String name, Uint8List id) =>
+      runtime.operations.vaultDirectorySetLockboxAlias(handle, name, id);
 
   /// Lists aliases without opening their target archives.
   ///
@@ -703,7 +704,8 @@ final class Vault extends Owned {
   /// ```dart
   /// final aliases = vault.listLockboxAliases();
   /// ```
-  List<LockboxAlias> listLockboxAliases() => runtime.operations.vaultDirectoryListLockboxAliases(handle);
+  List<LockboxAlias> listLockboxAliases() =>
+      runtime.operations.vaultDirectoryListLockboxAliases(handle);
 
   /// Removes only the alias, preserving its target and remembered path.
   ///
@@ -711,7 +713,8 @@ final class Vault extends Owned {
   /// ```dart
   /// vault.removeLockboxAlias('team');
   /// ```
-  void removeLockboxAlias(String name) => runtime.operations.vaultDirectoryRemoveLockboxAlias(handle, name);
+  void removeLockboxAlias(String name) =>
+      runtime.operations.vaultDirectoryRemoveLockboxAlias(handle, name);
 
   /// Resolves metadata; verify target identity before opening its path.
   ///
@@ -719,7 +722,8 @@ final class Vault extends Owned {
   /// ```dart
   /// final target = vault.resolveLockboxAlias('team');
   /// ```
-  KnownLockbox resolveLockboxAlias(String name) => runtime.operations.vaultDirectoryResolveLockboxAlias(handle, name);
+  KnownLockbox resolveLockboxAlias(String name) =>
+      runtime.operations.vaultDirectoryResolveLockboxAlias(handle, name);
 
   /// Lists remembered Lockbox identifiers and host paths.
   ///

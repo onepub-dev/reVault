@@ -443,6 +443,7 @@ static void advanced_archive() {
 }
 
 static void vault_lifecycle() {
+  const auto alias_path = fs::absolute(artifact_root() / "remembered-alias-target.lbox").string();
   const auto root = artifact_root() / "vault";
   fs::create_directories(root);
   const std::string password = "vault password";
@@ -514,13 +515,13 @@ static void vault_lifecycle() {
     pass("vault_directory_store_backup");
     pass("vault_directory_backup_count");
     pass("vault_directory_load_backup", 3);
-    vault.remember_lockbox(id, "/tmp/example.lbox");
+    vault.remember_lockbox(id, alias_path);
     check(vault.list_known_lockboxes().size() == 1, "known lockboxes");
     pass("vault_directory_remember_lockbox");
     pass("vault_directory_list_known_lockboxes");
     vault.set_lockbox_alias("portable", id); vault.set_lockbox_alias("portable", id);
     check(vault.list_lockbox_aliases().size() == 1 && vault.list_lockbox_aliases()[0].name == "portable", "alias repeat and list");
-    check(vault.resolve_lockbox_alias("portable").path == "/tmp/example.lbox", "alias resolution");
+    check(vault.resolve_lockbox_alias("portable").path == alias_path, "alias resolution");
     pass("vault_directory_set_lockbox_alias", 2); pass("vault_directory_list_lockbox_aliases", 2); pass("vault_directory_resolve_lockbox_alias");
     vault.remove_lockbox_alias("portable"); vault.remove_lockbox_alias("portable");
     check(vault.list_lockbox_aliases().empty(), "alias removal repeat"); pass("vault_directory_remove_lockbox_alias", 3);
@@ -551,7 +552,7 @@ static void vault_lifecycle() {
     check(vault.list_form_aliases().size() > 0, "form aliases");
     pass("vault_directory_list_form_aliases");
     vault.forget_access_slot_label(id, 7);
-    vault.forget_lockbox("/tmp/example.lbox");
+    vault.forget_lockbox(alias_path);
     vault.delete_contact("bob");
     pass("vault_directory_forget_access_slot_label");
     pass("vault_directory_forget_lockbox");
@@ -562,7 +563,7 @@ static void vault_lifecycle() {
     check(vault.private_key_exists("alice"), "private key restored");
     pass("vault_directory_delete_private_key", 2);
     pass("vault_directory_restore_private_key", 2);
-    vault.remember_lockbox(id, "/tmp/example.lbox"); vault.set_lockbox_alias("portable", id);
+    vault.remember_lockbox(id, alias_path); vault.set_lockbox_alias("portable", id);
   }
   pass("vault_directory_free");
   // The writable vault's scope must end before an independent path probe.
@@ -577,7 +578,7 @@ static void vault_lifecycle() {
     (void)readonly.list_known_lockboxes();
     pass("vault_read_only_open");
     check(readonly.list_lockbox_aliases().size() == 1 && readonly.list_lockbox_aliases()[0].name == "portable", "persisted read-only alias");
-    check(readonly.resolve_lockbox_alias("portable").path == "/tmp/example.lbox", "read-only alias resolution");
+    check(readonly.resolve_lockbox_alias("portable").path == alias_path, "read-only alias resolution");
     pass("vault_read_only_list_lockbox_aliases", 2); pass("vault_read_only_resolve_lockbox_alias");
     pass("vault_read_only_list_profile_names", 2);
     pass("vault_read_only_list_contact_names");

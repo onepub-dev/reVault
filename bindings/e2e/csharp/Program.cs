@@ -176,6 +176,7 @@ static class Conformance
 
     static void VaultLifecycle()
     {
+        var aliasPath = Path.GetFullPath(Path.Combine(Root(), "remembered-alias-target.lbox"));
         var root = Path.Combine(Root(), "vault"); Directory.CreateDirectory(root); var password = Bytes("vault password"); var changed = Bytes("new vault password");
         var id = Enumerable.Range(0, 16).Select(i => (byte)(0xa0 + i)).ToArray(); using var profile = Api.GenerateContactKeyPair(); using var contact = Api.GenerateContactKeyPair();
         using var contactPublic = contact.PublicKey(); using var owner = Api.GenerateProfileSigningKeyPair(); using var ownerPublic = owner.PublicKey();
@@ -193,10 +194,10 @@ static class Conformance
             vault.StoreContactSigningKey("bob", ownerPublic); using (var loaded = vault.LoadContactSigningKey("bob")) Check(loaded != null, "signing contact"); Pass("vault_directory_store_contact_signing_key"); Pass("vault_directory_load_contact_signing_key");
             Check(vault.ListPrivateKeys().Count > 0 && vault.ListPrivateKeyNames().Count > 0 && vault.ListContactNames().Count > 0, "lists"); Pass("vault_directory_list_private_keys"); Pass("vault_directory_list_private_key_names"); Pass("vault_directory_list_contact_names");
             vault.StoreBackup(id, Bytes("encrypted backup bytes")); Check(vault.BackupCount == 1 && vault.LoadBackup(id).SequenceEqual(Bytes("encrypted backup bytes")), "backup"); Pass("vault_directory_store_backup"); Pass("vault_directory_backup_count"); Pass("vault_directory_load_backup", 3);
-            vault.RememberLockbox(id, "/tmp/example.lbox"); Check(vault.ListKnownLockboxes().Count == 1, "known"); Pass("vault_directory_remember_lockbox"); Pass("vault_directory_list_known_lockboxes");
+            vault.RememberLockbox(id, aliasPath); Check(vault.ListKnownLockboxes().Count == 1, "known"); Pass("vault_directory_remember_lockbox"); Pass("vault_directory_list_known_lockboxes");
             vault.SetLockboxAlias("portable", id); vault.SetLockboxAlias("portable", id);
             Check(vault.ListLockboxAliases().Count == 1 && vault.ListLockboxAliases()[0].Name == "portable", "alias repeat and list");
-            Check(vault.ResolveLockboxAlias("portable").Path == "/tmp/example.lbox", "alias resolution");
+            Check(vault.ResolveLockboxAlias("portable").Path == aliasPath, "alias resolution");
             Pass("vault_directory_set_lockbox_alias", 2); Pass("vault_directory_list_lockbox_aliases", 2); Pass("vault_directory_resolve_lockbox_alias");
             vault.RemoveLockboxAlias("portable"); vault.RemoveLockboxAlias("portable");
             Check(vault.ListLockboxAliases().Count == 0, "alias removal repeat"); Pass("vault_directory_remove_lockbox_alias", 3);
@@ -205,13 +206,13 @@ static class Conformance
             var vaultForm = vault.DefineForm("login", "Login", "Login form", Fields()); Check(vaultForm.TypeId.Length > 0 && vault.ResolveForm("login").TypeId.Length > 0 && vault.ListForms().Count > 0, "forms"); Pass("vault_directory_define_form"); Pass("vault_directory_resolve_form"); Pass("vault_directory_list_forms");
             Check(vault.ListFormRevisions(vaultForm.TypeId).Count > 0, "vault revisions"); Pass("vault_directory_list_form_revisions", 2);
             Check(vault.SeedForms() > 0, "seed"); Pass("vault_directory_seed_forms"); Check(vault.ListFormAliases().Count > 0, "aliases"); Pass("vault_directory_list_form_aliases");
-            vault.ForgetAccessSlotLabel(id, 7); vault.ForgetLockbox("/tmp/example.lbox"); vault.DeleteContact("bob"); Pass("vault_directory_forget_access_slot_label"); Pass("vault_directory_forget_lockbox"); Pass("vault_directory_delete_contact");
+            vault.ForgetAccessSlotLabel(id, 7); vault.ForgetLockbox(aliasPath); vault.DeleteContact("bob"); Pass("vault_directory_forget_access_slot_label"); Pass("vault_directory_forget_lockbox"); Pass("vault_directory_delete_contact");
             vault.DeletePrivateKey("alice"); Check(!vault.PrivateKeyExists("alice"), "deleted"); vault.RestorePrivateKey("alice", profile, owner, true); Check(vault.PrivateKeyExists("alice"), "restored"); Pass("vault_directory_delete_private_key", 2); Pass("vault_directory_restore_private_key", 2);
-            vault.RememberLockbox(id, "/tmp/example.lbox"); vault.SetLockboxAlias("portable", id);
+            vault.RememberLockbox(id, aliasPath); vault.SetLockboxAlias("portable", id);
         }
         Pass("vault_directory_free"); using (var readOnlyVault = Api.OpenReadOnlyVault(root, password)) { Check(readOnlyVault.ListProfileNames().Count > 0, "readonly profiles"); _ = readOnlyVault.ListContactNames(); Check(readOnlyVault.ListFormAliases().Count > 0, "readonly forms"); _ = readOnlyVault.ListKnownLockboxes(); Pass("vault_read_only_open"); Pass("vault_read_only_list_profile_names", 2); Pass("vault_read_only_list_contact_names"); Pass("vault_read_only_list_form_aliases", 2); Pass("vault_read_only_list_known_lockboxes");
  Check(readOnlyVault.ListLockboxAliases().Count == 1 && readOnlyVault.ListLockboxAliases()[0].Name == "portable", "persisted read-only alias");
-            Check(readOnlyVault.ResolveLockboxAlias("portable").Path == "/tmp/example.lbox", "read-only alias resolution");
+            Check(readOnlyVault.ResolveLockboxAlias("portable").Path == aliasPath, "read-only alias resolution");
             Pass("vault_read_only_list_lockbox_aliases", 2); Pass("vault_read_only_resolve_lockbox_alias"); } Pass("vault_read_only_free");
         // Both writable and read-only handles are closed before the path probe.
         Check(Api.ProbeVaultStructureVersion(root, password) == Api.CurrentVaultStructureVersion, "vault probe"); Pass("vault_directory_probe_structure_version", 2);

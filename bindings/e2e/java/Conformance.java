@@ -301,6 +301,7 @@ public final class Conformance {
   }
 
   private static void vaultLifecycle() throws Exception {
+    var aliasPath = artifactRoot().resolve("remembered-alias-target.lbox").toAbsolutePath().toString();
     var root = artifactRoot().resolve("vault"); Files.createDirectories(root);
     var password = "vault password".getBytes(); var newPassword = "new vault password".getBytes();
     var id = new byte[16]; for (int i = 0; i < id.length; i++) id[i] = (byte) (0xa0 + i);
@@ -348,12 +349,12 @@ public final class Conformance {
         vault.storeBackup(id, "encrypted backup bytes".getBytes()); check(vault.backupCount() == 1, "count");
         check(Arrays.equals(vault.loadBackup(id), "encrypted backup bytes".getBytes()), "backup");
         pass("vault_directory_store_backup"); pass("vault_directory_backup_count"); pass("vault_directory_load_backup", 3);
-        vault.rememberLockbox(id, "/tmp/example.lbox");
+        vault.rememberLockbox(id, aliasPath);
         check(vault.listKnownLockboxes().size() == 1, "known");
         pass("vault_directory_remember_lockbox"); pass("vault_directory_list_known_lockboxes");
         vault.setLockboxAlias("portable", id); vault.setLockboxAlias("portable", id);
         check(vault.listLockboxAliases().size() == 1 && vault.listLockboxAliases().get(0).name().equals("portable"), "alias repeat and list");
-        check(vault.resolveLockboxAlias("portable").path().equals("/tmp/example.lbox"), "alias resolution");
+        check(vault.resolveLockboxAlias("portable").path().equals(aliasPath), "alias resolution");
         pass("vault_directory_set_lockbox_alias", 2); pass("vault_directory_list_lockbox_aliases", 2); pass("vault_directory_resolve_lockbox_alias");
         vault.removeLockboxAlias("portable"); vault.removeLockboxAlias("portable");
         check(vault.listLockboxAliases().isEmpty(), "alias removal repeat"); pass("vault_directory_remove_lockbox_alias", 3);
@@ -373,13 +374,13 @@ public final class Conformance {
         pass("vault_directory_list_form_revisions", 2);
         check(vault.seedForms() > 0, "seed"); pass("vault_directory_seed_forms");
         check(vault.listFormAliases().size() > 0, "aliases"); pass("vault_directory_list_form_aliases");
-        vault.forgetAccessSlotLabel(id, 7); vault.forgetLockbox("/tmp/example.lbox"); vault.deleteContact("bob");
+        vault.forgetAccessSlotLabel(id, 7); vault.forgetLockbox(aliasPath); vault.deleteContact("bob");
         pass("vault_directory_forget_access_slot_label"); pass("vault_directory_forget_lockbox");
         pass("vault_directory_delete_contact");
         vault.deletePrivateKey("alice"); check(!vault.privateKeyExists("alice"), "deleted");
         vault.restorePrivateKey("alice", profile, owner, true); check(vault.privateKeyExists("alice"), "restored");
         pass("vault_directory_delete_private_key", 2); pass("vault_directory_restore_private_key", 2);
-        vault.rememberLockbox(id, "/tmp/example.lbox"); vault.setLockboxAlias("portable", id);
+        vault.rememberLockbox(id, aliasPath); vault.setLockboxAlias("portable", id);
       }
       pass("vault_directory_free");
       // The writable vault's scope must end before an independent path probe.
@@ -394,7 +395,7 @@ public final class Conformance {
         pass("vault_read_only_list_contact_names"); pass("vault_read_only_list_form_aliases", 2);
         pass("vault_read_only_list_known_lockboxes");
         check(readonly.listLockboxAliases().size() == 1 && readonly.listLockboxAliases().get(0).name().equals("portable"), "persisted read-only alias");
-        check(readonly.resolveLockboxAlias("portable").path().equals("/tmp/example.lbox"), "read-only alias resolution");
+        check(readonly.resolveLockboxAlias("portable").path().equals(aliasPath), "read-only alias resolution");
         pass("vault_read_only_list_lockbox_aliases", 2); pass("vault_read_only_resolve_lockbox_alias");
       }
       pass("vault_read_only_free");

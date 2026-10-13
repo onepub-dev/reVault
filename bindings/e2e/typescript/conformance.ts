@@ -197,6 +197,7 @@ function advancedArchive() {
 }
 
 function vaultLifecycle() {
+  const aliasPath = path.resolve(artifactRoot(), 'remembered-alias-target.lbox');
   const root = path.join(artifactRoot(), 'vault'); fs.mkdirSync(root, { recursive: true });
   const password = 'vault password'; const changed = 'new vault password';
   const id = Buffer.from(Array.from({ length: 16 }, (_, index) => 0xa0 + index));
@@ -227,11 +228,11 @@ function vaultLifecycle() {
   pass('vault_directory_list_private_keys'); pass('vault_directory_list_private_key_names'); pass('vault_directory_list_contact_names');
   vault.storeBackup(id, 'encrypted backup bytes'); vault.backupCount(); check(equal(vault.loadBackup(id), 'encrypted backup bytes'), 'backup');
   pass('vault_directory_store_backup'); pass('vault_directory_backup_count'); pass('vault_directory_load_backup', 3);
-  vault.rememberLockbox(id, '/tmp/example.lbox'); vault.listKnownLockboxes();
+  vault.rememberLockbox(id, aliasPath); vault.listKnownLockboxes();
   pass('vault_directory_remember_lockbox'); pass('vault_directory_list_known_lockboxes');
   vault.setLockboxAlias('portable', id); vault.setLockboxAlias('portable', id);
   check(vault.listLockboxAliases().length === 1 && vault.listLockboxAliases()[0].name === 'portable', 'alias repeat and list');
-  check(vault.resolveLockboxAlias('portable').path === '/tmp/example.lbox', 'alias resolution');
+  check(vault.resolveLockboxAlias('portable').path === aliasPath, 'alias resolution');
   pass('vault_directory_set_lockbox_alias', 2); pass('vault_directory_list_lockbox_aliases', 2); pass('vault_directory_resolve_lockbox_alias');
   vault.removeLockboxAlias('portable'); vault.removeLockboxAlias('portable');
   check(vault.listLockboxAliases().length === 0, 'alias removal repeat'); pass('vault_directory_remove_lockbox_alias', 3);
@@ -243,11 +244,11 @@ function vaultLifecycle() {
   pass('vault_directory_define_form'); pass('vault_directory_resolve_form'); pass('vault_directory_list_forms');
   vault.listFormRevisions(vaultForm.typeId); pass('vault_directory_list_form_revisions', 2);
   vault.seedForms(); pass('vault_directory_seed_forms'); vault.listFormAliases(); pass('vault_directory_list_form_aliases');
-  vault.forgetAccessSlotLabel(id, 7); vault.forgetLockbox('/tmp/example.lbox'); vault.deleteContact('bob');
+  vault.forgetAccessSlotLabel(id, 7); vault.forgetLockbox(aliasPath); vault.deleteContact('bob');
   pass('vault_directory_forget_access_slot_label'); pass('vault_directory_forget_lockbox'); pass('vault_directory_delete_contact');
   vault.deletePrivateKey('alice'); vault.restorePrivateKey('alice', profile, owner, true);
   pass('vault_directory_delete_private_key', 2); pass('vault_directory_restore_private_key', 2);
-  vault.rememberLockbox(id, '/tmp/example.lbox'); vault.setLockboxAlias('portable', id);
+  vault.rememberLockbox(id, aliasPath); vault.setLockboxAlias('portable', id);
   vault.free(); pass('vault_directory_free');
   // Release the writable vault before an independent path-based probe.
   check(api.vaultDirectoryProbeStructureVersion(root, password) === currentVersion, 'vault structure probe');
@@ -257,7 +258,7 @@ function vaultLifecycle() {
   pass('vault_read_only_list_profile_names', 2); pass('vault_read_only_list_contact_names');
   pass('vault_read_only_list_form_aliases', 2); pass('vault_read_only_list_known_lockboxes');
   check(readonly.listLockboxAliases().length === 1 && readonly.listLockboxAliases()[0].name === 'portable', 'persisted read-only alias');
-  check(readonly.resolveLockboxAlias('portable').path === '/tmp/example.lbox', 'read-only alias resolution');
+  check(readonly.resolveLockboxAlias('portable').path === aliasPath, 'read-only alias resolution');
   pass('vault_read_only_list_lockbox_aliases', 2); pass('vault_read_only_resolve_lockbox_alias');
   readonly.free(); pass('vault_read_only_free');
   api.vaultDirectoryChangePassword(root, password, changed); pass('vault_directory_change_password');

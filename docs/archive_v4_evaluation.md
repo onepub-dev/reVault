@@ -287,6 +287,17 @@ after the required gates pass. Performance optimization remains paused. The
 is authoritative for qualification status; the older evidence below is not a
 release-ready claim.
 
+## Default 0.5 release gate applicability — 2026-10-13
+
+The selected release remains default architecture A. The A4 contender-versus-A
+comparison below applies to adopting alternative architectures B/C and is not
+applicable to this release decision. There is no self-comparison pass, nor a new
+measurement against the withdrawn codec control. Product G11 comparisons with
+ZIP and PGP and the decimal 100,000,000-byte memory ceiling remain required,
+alongside correctness, platform, installation and migration qualification.
+The PGP product criterion is distinct from A4's 1.05 bound; unresolved product
+interpretation must not be converted into a passing statistical claim.
+
 ## Current goal reconciliation — 2026-10-09
 
 Main's current G1–G11 goals supersede the earlier goal numbering. G11 requires

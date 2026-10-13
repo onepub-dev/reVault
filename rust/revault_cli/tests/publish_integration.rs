@@ -305,6 +305,10 @@ fn run_output_in(bin: &str, args: &[&str], vault_root: &PathBuf, agent_root: &Pa
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_root)
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(agent_root))
         .env("LOCKBOX_VAULT_DIR", vault_root)
+        // This owned loopback fixture tests publication and persisted receive,
+        // not host suspend capability. Do not inherit the developer's policy.
+        .env("LOCKBOX_AGENT_PREVENT_SLEEP", "false")
+        .env("LOCKBOX_AGENT_TERMINATE_ON_SUSPEND", "false")
         .output()
         .unwrap();
     println!("CLI status: {}", output.status);

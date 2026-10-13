@@ -316,12 +316,12 @@ static void expect_alias_count(RevaultBuffer value, size_t count) {
   buffer_free(value);
 }
 
-static void expect_alias_target(RevaultBuffer value, const uint8_t *id, size_t id_len) {
+static void expect_alias_target(RevaultBuffer value, const uint8_t *id, size_t id_len, const char *expected_path) {
   Bytes payload = framed_payload(value);
   Bytes actual_id = flatbuffer_bytes(payload, 1);
   Bytes path = flatbuffer_bytes(payload, 2);
   CHECK(actual_id.len == id_len && memcmp(actual_id.ptr, id, id_len) == 0, "alias target identity");
-  CHECK(path.len == 17 && memcmp(path.ptr, "/tmp/example.lbox", 17) == 0, "alias target path");
+  CHECK(path.len == strlen(expected_path) && memcmp(path.ptr, expected_path, path.len) == 0, "alias target path");
   buffer_free(value);
 }
 
@@ -723,6 +723,13 @@ static void expect_framed_nonempty(RevaultBuffer value, const char *message) {
 }
 
 static void vault_lifecycle(void) {
+  char alias_path[512];
+  artifact_path(alias_path, sizeof(alias_path), "remembered-alias-target.lbox");
+#ifdef _WIN32
+  CHECK((strlen(alias_path) > 2 && alias_path[1] == ':' && (alias_path[2] == '/' || alias_path[2] == '\\')) || (alias_path[0] == '\\' && alias_path[1] == '\\'), "alias fixture requires an absolute artifact root");
+#else
+  CHECK(alias_path[0] == '/', "alias fixture requires an absolute artifact root");
+#endif
   char root[512];
   artifact_path(root, sizeof(root), "vault");
   (void)mkdir(root, 0700);
@@ -853,7 +860,7 @@ static void vault_lifecycle(void) {
   PASS(vault_directory_load_backup, 3);
 
   CHECK(vault_directory_remember_lockbox(vault, id, sizeof(id),
-                                         "/tmp/example.lbox", 17),
+                                         alias_path, strlen(alias_path)),
         "remember lockbox");
   expect_framed_nonempty(vault_directory_list_known_lockboxes(vault),
                          "known lockboxes");
@@ -862,7 +869,7 @@ static void vault_lifecycle(void) {
   CHECK(vault_directory_set_lockbox_alias(vault, "portable", 8, id, sizeof(id)), "set alias");
   CHECK(vault_directory_set_lockbox_alias(vault, "portable", 8, id, sizeof(id)), "repeat alias");
   expect_alias_count(vault_directory_list_lockbox_aliases(vault), 1);
-  expect_alias_target(vault_directory_resolve_lockbox_alias(vault, "portable", 8), id, sizeof(id));
+  expect_alias_target(vault_directory_resolve_lockbox_alias(vault, "portable", 8), id, sizeof(id), alias_path);
   PASS(vault_directory_set_lockbox_alias, 2); PASS(vault_directory_list_lockbox_aliases, 1); PASS(vault_directory_resolve_lockbox_alias, 2);
   CHECK(vault_directory_remove_lockbox_alias(vault, "portable", 8), "remove alias");
   CHECK(vault_directory_remove_lockbox_alias(vault, "portable", 8), "repeat alias removal");
@@ -930,7 +937,7 @@ static void vault_lifecycle(void) {
 
   CHECK(vault_directory_forget_access_slot_label(vault, id, sizeof(id), 7),
         "forget access label");
-  CHECK(vault_directory_forget_lockbox(vault, "/tmp/example.lbox", 17),
+  CHECK(vault_directory_forget_lockbox(vault, alias_path, strlen(alias_path)),
         "forget lockbox");
   CHECK(vault_directory_delete_contact(vault, "bob", 3), "delete contact");
   PASS(vault_directory_forget_access_slot_label, 1);
@@ -967,13 +974,13 @@ static void vault_lifecycle(void) {
   PASS(vault_directory_free, 1);
   void *alias_writer = vault_directory_open(root, strlen(root), password, sizeof(password) - 1);
   CHECK(alias_writer != NULL, "reopen alias writer");
-  CHECK(vault_directory_remember_lockbox(alias_writer, id, sizeof(id), "/tmp/example.lbox", 17), "remember persisted alias target");
+  CHECK(vault_directory_remember_lockbox(alias_writer, id, sizeof(id), alias_path, strlen(alias_path)), "remember persisted alias target");
   CHECK(vault_directory_set_lockbox_alias(alias_writer, "portable", 8, id, sizeof(id)), "persist alias");
   vault_directory_free(alias_writer);
   void *read_only = vault_read_only_open(root, strlen(root), password, sizeof(password) - 1);
   CHECK(read_only != NULL, "open read-only vault");
   expect_alias_count(vault_read_only_list_lockbox_aliases(read_only), 1);
-  expect_alias_target(vault_read_only_resolve_lockbox_alias(read_only, "portable", 8), id, sizeof(id));
+  expect_alias_target(vault_read_only_resolve_lockbox_alias(read_only, "portable", 8), id, sizeof(id), alias_path);
   PASS(vault_read_only_list_lockbox_aliases, 1); PASS(vault_read_only_resolve_lockbox_alias, 2);
   expect_framed_nonempty(vault_read_only_list_profile_names(read_only), "read-only profiles");
   RevaultBuffer read_only_contacts = vault_read_only_list_contact_names(read_only);

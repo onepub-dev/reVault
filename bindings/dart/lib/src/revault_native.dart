@@ -218,10 +218,48 @@ typedef _LockboxOpenWithOptionsDart =
       int,
       int,
     );
-typedef _LockboxOpenPasswordWithBudgetNative = ffi.Pointer<ffi.Void> Function(ffi.Pointer<ffi.Uint8>, ffi.Size, ffi.Pointer<ffi.Uint8>, ffi.Size, ffi.Uint32);
-typedef _LockboxOpenPasswordWithBudgetDart = ffi.Pointer<ffi.Void> Function(ffi.Pointer<ffi.Uint8>, int, ffi.Pointer<ffi.Uint8>, int, int);
-typedef _LockboxExtractFileWithPolicyNative = ffi.Bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, ffi.Size, ffi.Pointer<ffi.Uint8>, ffi.Size, ffi.Uint64, ffi.Uint64, ffi.Size, ffi.Bool, ffi.Bool);
-typedef _LockboxExtractFileWithPolicyDart = bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int, ffi.Pointer<ffi.Uint8>, int, int, int, int, bool, bool);
+typedef _LockboxOpenPasswordWithBudgetNative =
+    ffi.Pointer<ffi.Void> Function(
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Uint32,
+    );
+typedef _LockboxOpenPasswordWithBudgetDart =
+    ffi.Pointer<ffi.Void> Function(
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      int,
+    );
+typedef _LockboxExtractFileWithPolicyNative =
+    ffi.Bool Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Uint64,
+      ffi.Uint64,
+      ffi.Size,
+      ffi.Bool,
+      ffi.Bool,
+    );
+typedef _LockboxExtractFileWithPolicyDart =
+    bool Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      int,
+      int,
+      int,
+      bool,
+      bool,
+    );
 typedef _LockboxOpenPasswordNative =
     ffi.Pointer<ffi.Void> Function(
       ffi.Pointer<ffi.Uint8>,
@@ -1317,18 +1355,50 @@ typedef _VaultDirectoryRememberLockboxDart =
       ffi.Pointer<ffi.Uint8>,
       int,
     );
-typedef _VaultDirectorySetLockboxAliasNative = ffi.Bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, ffi.Size, ffi.Pointer<ffi.Uint8>, ffi.Size);
-typedef _VaultDirectorySetLockboxAliasDart = bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int, ffi.Pointer<ffi.Uint8>, int);
-typedef _VaultDirectoryListLockboxAliasesNative = RevaultBuffer Function(ffi.Pointer<ffi.Void>);
-typedef _VaultDirectoryListLockboxAliasesDart = RevaultBuffer Function(ffi.Pointer<ffi.Void>);
-typedef _VaultDirectoryRemoveLockboxAliasNative = ffi.Bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, ffi.Size);
-typedef _VaultDirectoryRemoveLockboxAliasDart = bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int);
-typedef _VaultDirectoryResolveLockboxAliasNative = RevaultBuffer Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, ffi.Size);
-typedef _VaultDirectoryResolveLockboxAliasDart = RevaultBuffer Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int);
-typedef _VaultReadOnlyListLockboxAliasesNative = RevaultBuffer Function(ffi.Pointer<ffi.Void>);
-typedef _VaultReadOnlyListLockboxAliasesDart = RevaultBuffer Function(ffi.Pointer<ffi.Void>);
-typedef _VaultReadOnlyResolveLockboxAliasNative = RevaultBuffer Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, ffi.Size);
-typedef _VaultReadOnlyResolveLockboxAliasDart = RevaultBuffer Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int);
+typedef _VaultDirectorySetLockboxAliasNative =
+    ffi.Bool Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _VaultDirectorySetLockboxAliasDart =
+    bool Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+    );
+typedef _VaultDirectoryListLockboxAliasesNative =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>);
+typedef _VaultDirectoryListLockboxAliasesDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>);
+typedef _VaultDirectoryRemoveLockboxAliasNative =
+    ffi.Bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, ffi.Size);
+typedef _VaultDirectoryRemoveLockboxAliasDart =
+    bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int);
+typedef _VaultDirectoryResolveLockboxAliasNative =
+    RevaultBuffer Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _VaultDirectoryResolveLockboxAliasDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int);
+typedef _VaultReadOnlyListLockboxAliasesNative =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>);
+typedef _VaultReadOnlyListLockboxAliasesDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>);
+typedef _VaultReadOnlyResolveLockboxAliasNative =
+    RevaultBuffer Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+    );
+typedef _VaultReadOnlyResolveLockboxAliasDart =
+    RevaultBuffer Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int);
 typedef _VaultDirectoryListKnownLockboxesNative =
     RevaultBuffer Function(ffi.Pointer<ffi.Void>);
 typedef _VaultDirectoryListKnownLockboxesDart =
@@ -1895,10 +1965,33 @@ external ffi.Pointer<ffi.Void> _native_lockbox_open_with_options(
   int p11,
 );
 
-@ffi.Native<_LockboxOpenPasswordWithBudgetNative>(symbol: 'lockbox_open_password_with_budget', assetId: _assetId)
-external ffi.Pointer<ffi.Void> _native_lockbox_open_password_with_budget(ffi.Pointer<ffi.Uint8> p0, int p1, ffi.Pointer<ffi.Uint8> p2, int p3, int p4);
-@ffi.Native<_LockboxExtractFileWithPolicyNative>(symbol: 'lockbox_extract_file_with_policy', assetId: _assetId)
-external bool _native_lockbox_extract_file_with_policy(ffi.Pointer<ffi.Void> p0, ffi.Pointer<ffi.Uint8> p1, int p2, ffi.Pointer<ffi.Uint8> p3, int p4, int p5, int p6, int p7, bool p8, bool p9);
+@ffi.Native<_LockboxOpenPasswordWithBudgetNative>(
+  symbol: 'lockbox_open_password_with_budget',
+  assetId: _assetId,
+)
+external ffi.Pointer<ffi.Void> _native_lockbox_open_password_with_budget(
+  ffi.Pointer<ffi.Uint8> p0,
+  int p1,
+  ffi.Pointer<ffi.Uint8> p2,
+  int p3,
+  int p4,
+);
+@ffi.Native<_LockboxExtractFileWithPolicyNative>(
+  symbol: 'lockbox_extract_file_with_policy',
+  assetId: _assetId,
+)
+external bool _native_lockbox_extract_file_with_policy(
+  ffi.Pointer<ffi.Void> p0,
+  ffi.Pointer<ffi.Uint8> p1,
+  int p2,
+  ffi.Pointer<ffi.Uint8> p3,
+  int p4,
+  int p5,
+  int p6,
+  int p7,
+  bool p8,
+  bool p9,
+);
 @ffi.Native<_LockboxOpenPasswordNative>(
   symbol: 'lockbox_open_password',
   assetId: _assetId,
@@ -3215,18 +3308,58 @@ external bool _native_vault_directory_remember_lockbox(
   int p4,
 );
 
-@ffi.Native<_VaultDirectorySetLockboxAliasNative>(symbol: 'vault_directory_set_lockbox_alias', assetId: _assetId)
-external bool _native_vault_directory_set_lockbox_alias(ffi.Pointer<ffi.Void> p0, ffi.Pointer<ffi.Uint8> p1, int p2, ffi.Pointer<ffi.Uint8> p3, int p4);
-@ffi.Native<_VaultDirectoryListLockboxAliasesNative>(symbol: 'vault_directory_list_lockbox_aliases', assetId: _assetId)
-external RevaultBuffer _native_vault_directory_list_lockbox_aliases(ffi.Pointer<ffi.Void> p0);
-@ffi.Native<_VaultDirectoryRemoveLockboxAliasNative>(symbol: 'vault_directory_remove_lockbox_alias', assetId: _assetId)
-external bool _native_vault_directory_remove_lockbox_alias(ffi.Pointer<ffi.Void> p0, ffi.Pointer<ffi.Uint8> p1, int p2);
-@ffi.Native<_VaultDirectoryResolveLockboxAliasNative>(symbol: 'vault_directory_resolve_lockbox_alias', assetId: _assetId)
-external RevaultBuffer _native_vault_directory_resolve_lockbox_alias(ffi.Pointer<ffi.Void> p0, ffi.Pointer<ffi.Uint8> p1, int p2);
-@ffi.Native<_VaultReadOnlyListLockboxAliasesNative>(symbol: 'vault_read_only_list_lockbox_aliases', assetId: _assetId)
-external RevaultBuffer _native_vault_read_only_list_lockbox_aliases(ffi.Pointer<ffi.Void> p0);
-@ffi.Native<_VaultReadOnlyResolveLockboxAliasNative>(symbol: 'vault_read_only_resolve_lockbox_alias', assetId: _assetId)
-external RevaultBuffer _native_vault_read_only_resolve_lockbox_alias(ffi.Pointer<ffi.Void> p0, ffi.Pointer<ffi.Uint8> p1, int p2);
+@ffi.Native<_VaultDirectorySetLockboxAliasNative>(
+  symbol: 'vault_directory_set_lockbox_alias',
+  assetId: _assetId,
+)
+external bool _native_vault_directory_set_lockbox_alias(
+  ffi.Pointer<ffi.Void> p0,
+  ffi.Pointer<ffi.Uint8> p1,
+  int p2,
+  ffi.Pointer<ffi.Uint8> p3,
+  int p4,
+);
+@ffi.Native<_VaultDirectoryListLockboxAliasesNative>(
+  symbol: 'vault_directory_list_lockbox_aliases',
+  assetId: _assetId,
+)
+external RevaultBuffer _native_vault_directory_list_lockbox_aliases(
+  ffi.Pointer<ffi.Void> p0,
+);
+@ffi.Native<_VaultDirectoryRemoveLockboxAliasNative>(
+  symbol: 'vault_directory_remove_lockbox_alias',
+  assetId: _assetId,
+)
+external bool _native_vault_directory_remove_lockbox_alias(
+  ffi.Pointer<ffi.Void> p0,
+  ffi.Pointer<ffi.Uint8> p1,
+  int p2,
+);
+@ffi.Native<_VaultDirectoryResolveLockboxAliasNative>(
+  symbol: 'vault_directory_resolve_lockbox_alias',
+  assetId: _assetId,
+)
+external RevaultBuffer _native_vault_directory_resolve_lockbox_alias(
+  ffi.Pointer<ffi.Void> p0,
+  ffi.Pointer<ffi.Uint8> p1,
+  int p2,
+);
+@ffi.Native<_VaultReadOnlyListLockboxAliasesNative>(
+  symbol: 'vault_read_only_list_lockbox_aliases',
+  assetId: _assetId,
+)
+external RevaultBuffer _native_vault_read_only_list_lockbox_aliases(
+  ffi.Pointer<ffi.Void> p0,
+);
+@ffi.Native<_VaultReadOnlyResolveLockboxAliasNative>(
+  symbol: 'vault_read_only_resolve_lockbox_alias',
+  assetId: _assetId,
+)
+external RevaultBuffer _native_vault_read_only_resolve_lockbox_alias(
+  ffi.Pointer<ffi.Void> p0,
+  ffi.Pointer<ffi.Uint8> p1,
+  int p2,
+);
 @ffi.Native<_VaultDirectoryListKnownLockboxesNative>(
   symbol: 'vault_directory_list_known_lockboxes',
   assetId: _assetId,
@@ -3839,8 +3972,16 @@ final class RevaultNative {
             _LockboxOpenWithOptionsNative,
             _LockboxOpenWithOptionsDart
           >('lockbox_open_with_options'),
-      _lockbox_open_password_with_budget = library.lookupFunction<_LockboxOpenPasswordWithBudgetNative, _LockboxOpenPasswordWithBudgetDart>('lockbox_open_password_with_budget'),
-      _lockbox_extract_file_with_policy = library.lookupFunction<_LockboxExtractFileWithPolicyNative, _LockboxExtractFileWithPolicyDart>('lockbox_extract_file_with_policy'),
+      _lockbox_open_password_with_budget = library
+          .lookupFunction<
+            _LockboxOpenPasswordWithBudgetNative,
+            _LockboxOpenPasswordWithBudgetDart
+          >('lockbox_open_password_with_budget'),
+      _lockbox_extract_file_with_policy = library
+          .lookupFunction<
+            _LockboxExtractFileWithPolicyNative,
+            _LockboxExtractFileWithPolicyDart
+          >('lockbox_extract_file_with_policy'),
       _lockbox_open_password = library
           .lookupFunction<_LockboxOpenPasswordNative, _LockboxOpenPasswordDart>(
             'lockbox_open_password',
@@ -4485,12 +4626,36 @@ final class RevaultNative {
             _VaultDirectoryRememberLockboxNative,
             _VaultDirectoryRememberLockboxDart
           >('vault_directory_remember_lockbox'),
-      _vault_directory_set_lockbox_alias = library.lookupFunction<_VaultDirectorySetLockboxAliasNative, _VaultDirectorySetLockboxAliasDart>('vault_directory_set_lockbox_alias'),
-      _vault_directory_list_lockbox_aliases = library.lookupFunction<_VaultDirectoryListLockboxAliasesNative, _VaultDirectoryListLockboxAliasesDart>('vault_directory_list_lockbox_aliases'),
-      _vault_directory_remove_lockbox_alias = library.lookupFunction<_VaultDirectoryRemoveLockboxAliasNative, _VaultDirectoryRemoveLockboxAliasDart>('vault_directory_remove_lockbox_alias'),
-      _vault_directory_resolve_lockbox_alias = library.lookupFunction<_VaultDirectoryResolveLockboxAliasNative, _VaultDirectoryResolveLockboxAliasDart>('vault_directory_resolve_lockbox_alias'),
-      _vault_read_only_list_lockbox_aliases = library.lookupFunction<_VaultReadOnlyListLockboxAliasesNative, _VaultReadOnlyListLockboxAliasesDart>('vault_read_only_list_lockbox_aliases'),
-      _vault_read_only_resolve_lockbox_alias = library.lookupFunction<_VaultReadOnlyResolveLockboxAliasNative, _VaultReadOnlyResolveLockboxAliasDart>('vault_read_only_resolve_lockbox_alias'),
+      _vault_directory_set_lockbox_alias = library
+          .lookupFunction<
+            _VaultDirectorySetLockboxAliasNative,
+            _VaultDirectorySetLockboxAliasDart
+          >('vault_directory_set_lockbox_alias'),
+      _vault_directory_list_lockbox_aliases = library
+          .lookupFunction<
+            _VaultDirectoryListLockboxAliasesNative,
+            _VaultDirectoryListLockboxAliasesDart
+          >('vault_directory_list_lockbox_aliases'),
+      _vault_directory_remove_lockbox_alias = library
+          .lookupFunction<
+            _VaultDirectoryRemoveLockboxAliasNative,
+            _VaultDirectoryRemoveLockboxAliasDart
+          >('vault_directory_remove_lockbox_alias'),
+      _vault_directory_resolve_lockbox_alias = library
+          .lookupFunction<
+            _VaultDirectoryResolveLockboxAliasNative,
+            _VaultDirectoryResolveLockboxAliasDart
+          >('vault_directory_resolve_lockbox_alias'),
+      _vault_read_only_list_lockbox_aliases = library
+          .lookupFunction<
+            _VaultReadOnlyListLockboxAliasesNative,
+            _VaultReadOnlyListLockboxAliasesDart
+          >('vault_read_only_list_lockbox_aliases'),
+      _vault_read_only_resolve_lockbox_alias = library
+          .lookupFunction<
+            _VaultReadOnlyResolveLockboxAliasNative,
+            _VaultReadOnlyResolveLockboxAliasDart
+          >('vault_read_only_resolve_lockbox_alias'),
       _vault_directory_list_known_lockboxes = library
           .lookupFunction<
             _VaultDirectoryListKnownLockboxesNative,
@@ -4805,8 +4970,10 @@ final class RevaultNative {
       // END generated file operation asset
       _lockbox_open = _native_lockbox_open,
       _lockbox_open_with_options = _native_lockbox_open_with_options,
-      _lockbox_open_password_with_budget = _native_lockbox_open_password_with_budget,
-      _lockbox_extract_file_with_policy = _native_lockbox_extract_file_with_policy,
+      _lockbox_open_password_with_budget =
+          _native_lockbox_open_password_with_budget,
+      _lockbox_extract_file_with_policy =
+          _native_lockbox_extract_file_with_policy,
       _lockbox_open_password = _native_lockbox_open_password,
       _lockbox_open_contact = _native_lockbox_open_contact,
       _lockbox_add_file = _native_lockbox_add_file,
@@ -4975,12 +5142,18 @@ final class RevaultNative {
           _native_vault_directory_rotate_private_key,
       _vault_directory_remember_lockbox =
           _native_vault_directory_remember_lockbox,
-      _vault_directory_set_lockbox_alias = _native_vault_directory_set_lockbox_alias,
-      _vault_directory_list_lockbox_aliases = _native_vault_directory_list_lockbox_aliases,
-      _vault_directory_remove_lockbox_alias = _native_vault_directory_remove_lockbox_alias,
-      _vault_directory_resolve_lockbox_alias = _native_vault_directory_resolve_lockbox_alias,
-      _vault_read_only_list_lockbox_aliases = _native_vault_read_only_list_lockbox_aliases,
-      _vault_read_only_resolve_lockbox_alias = _native_vault_read_only_resolve_lockbox_alias,
+      _vault_directory_set_lockbox_alias =
+          _native_vault_directory_set_lockbox_alias,
+      _vault_directory_list_lockbox_aliases =
+          _native_vault_directory_list_lockbox_aliases,
+      _vault_directory_remove_lockbox_alias =
+          _native_vault_directory_remove_lockbox_alias,
+      _vault_directory_resolve_lockbox_alias =
+          _native_vault_directory_resolve_lockbox_alias,
+      _vault_read_only_list_lockbox_aliases =
+          _native_vault_read_only_list_lockbox_aliases,
+      _vault_read_only_resolve_lockbox_alias =
+          _native_vault_read_only_resolve_lockbox_alias,
       _vault_directory_list_known_lockboxes =
           _native_vault_directory_list_known_lockboxes,
       _vault_directory_forget_lockbox = _native_vault_directory_forget_lockbox,
@@ -5220,9 +5393,43 @@ final class RevaultNative {
     jobs,
   );
   final _LockboxOpenPasswordWithBudgetDart _lockbox_open_password_with_budget;
-  ffi.Pointer<ffi.Void> lockbox_open_password_with_budget(ffi.Pointer<ffi.Uint8> archive, int archiveLen, ffi.Pointer<ffi.Uint8> password, int passwordLen, int maxDerivations) => _lockbox_open_password_with_budget(archive, archiveLen, password, passwordLen, maxDerivations);
+  ffi.Pointer<ffi.Void> lockbox_open_password_with_budget(
+    ffi.Pointer<ffi.Uint8> archive,
+    int archiveLen,
+    ffi.Pointer<ffi.Uint8> password,
+    int passwordLen,
+    int maxDerivations,
+  ) => _lockbox_open_password_with_budget(
+    archive,
+    archiveLen,
+    password,
+    passwordLen,
+    maxDerivations,
+  );
   final _LockboxExtractFileWithPolicyDart _lockbox_extract_file_with_policy;
-  bool lockbox_extract_file_with_policy(ffi.Pointer<ffi.Void> handle, ffi.Pointer<ffi.Uint8> source, int sourceLen, ffi.Pointer<ffi.Uint8> destination, int destinationLen, int maxFileBytes, int maxTotalBytes, int maxFiles, bool restorePermissions, bool overwrite) => _lockbox_extract_file_with_policy(handle, source, sourceLen, destination, destinationLen, maxFileBytes, maxTotalBytes, maxFiles, restorePermissions, overwrite);
+  bool lockbox_extract_file_with_policy(
+    ffi.Pointer<ffi.Void> handle,
+    ffi.Pointer<ffi.Uint8> source,
+    int sourceLen,
+    ffi.Pointer<ffi.Uint8> destination,
+    int destinationLen,
+    int maxFileBytes,
+    int maxTotalBytes,
+    int maxFiles,
+    bool restorePermissions,
+    bool overwrite,
+  ) => _lockbox_extract_file_with_policy(
+    handle,
+    source,
+    sourceLen,
+    destination,
+    destinationLen,
+    maxFileBytes,
+    maxTotalBytes,
+    maxFiles,
+    restorePermissions,
+    overwrite,
+  );
   final _LockboxOpenPasswordDart _lockbox_open_password;
   ffi.Pointer<ffi.Void> lockbox_open_password(
     ffi.Pointer<ffi.Uint8> archive,
@@ -6132,17 +6339,44 @@ final class RevaultNative {
     int path_len,
   ) => _vault_directory_remember_lockbox(handle, id, id_len, path, path_len);
   final _VaultDirectorySetLockboxAliasDart _vault_directory_set_lockbox_alias;
-  bool vault_directory_set_lockbox_alias(ffi.Pointer<ffi.Void> p0, ffi.Pointer<ffi.Uint8> p1, int p2, ffi.Pointer<ffi.Uint8> p3, int p4) => _vault_directory_set_lockbox_alias(p0, p1, p2, p3, p4);
-  final _VaultDirectoryListLockboxAliasesDart _vault_directory_list_lockbox_aliases;
-  RevaultBuffer vault_directory_list_lockbox_aliases(ffi.Pointer<ffi.Void> p0) => _vault_directory_list_lockbox_aliases(p0);
-  final _VaultDirectoryRemoveLockboxAliasDart _vault_directory_remove_lockbox_alias;
-  bool vault_directory_remove_lockbox_alias(ffi.Pointer<ffi.Void> p0, ffi.Pointer<ffi.Uint8> p1, int p2) => _vault_directory_remove_lockbox_alias(p0, p1, p2);
-  final _VaultDirectoryResolveLockboxAliasDart _vault_directory_resolve_lockbox_alias;
-  RevaultBuffer vault_directory_resolve_lockbox_alias(ffi.Pointer<ffi.Void> p0, ffi.Pointer<ffi.Uint8> p1, int p2) => _vault_directory_resolve_lockbox_alias(p0, p1, p2);
-  final _VaultReadOnlyListLockboxAliasesDart _vault_read_only_list_lockbox_aliases;
-  RevaultBuffer vault_read_only_list_lockbox_aliases(ffi.Pointer<ffi.Void> p0) => _vault_read_only_list_lockbox_aliases(p0);
-  final _VaultReadOnlyResolveLockboxAliasDart _vault_read_only_resolve_lockbox_alias;
-  RevaultBuffer vault_read_only_resolve_lockbox_alias(ffi.Pointer<ffi.Void> p0, ffi.Pointer<ffi.Uint8> p1, int p2) => _vault_read_only_resolve_lockbox_alias(p0, p1, p2);
+  bool vault_directory_set_lockbox_alias(
+    ffi.Pointer<ffi.Void> p0,
+    ffi.Pointer<ffi.Uint8> p1,
+    int p2,
+    ffi.Pointer<ffi.Uint8> p3,
+    int p4,
+  ) => _vault_directory_set_lockbox_alias(p0, p1, p2, p3, p4);
+  final _VaultDirectoryListLockboxAliasesDart
+  _vault_directory_list_lockbox_aliases;
+  RevaultBuffer vault_directory_list_lockbox_aliases(
+    ffi.Pointer<ffi.Void> p0,
+  ) => _vault_directory_list_lockbox_aliases(p0);
+  final _VaultDirectoryRemoveLockboxAliasDart
+  _vault_directory_remove_lockbox_alias;
+  bool vault_directory_remove_lockbox_alias(
+    ffi.Pointer<ffi.Void> p0,
+    ffi.Pointer<ffi.Uint8> p1,
+    int p2,
+  ) => _vault_directory_remove_lockbox_alias(p0, p1, p2);
+  final _VaultDirectoryResolveLockboxAliasDart
+  _vault_directory_resolve_lockbox_alias;
+  RevaultBuffer vault_directory_resolve_lockbox_alias(
+    ffi.Pointer<ffi.Void> p0,
+    ffi.Pointer<ffi.Uint8> p1,
+    int p2,
+  ) => _vault_directory_resolve_lockbox_alias(p0, p1, p2);
+  final _VaultReadOnlyListLockboxAliasesDart
+  _vault_read_only_list_lockbox_aliases;
+  RevaultBuffer vault_read_only_list_lockbox_aliases(
+    ffi.Pointer<ffi.Void> p0,
+  ) => _vault_read_only_list_lockbox_aliases(p0);
+  final _VaultReadOnlyResolveLockboxAliasDart
+  _vault_read_only_resolve_lockbox_alias;
+  RevaultBuffer vault_read_only_resolve_lockbox_alias(
+    ffi.Pointer<ffi.Void> p0,
+    ffi.Pointer<ffi.Uint8> p1,
+    int p2,
+  ) => _vault_read_only_resolve_lockbox_alias(p0, p1, p2);
   final _VaultDirectoryListKnownLockboxesDart
   _vault_directory_list_known_lockboxes;
   RevaultBuffer vault_directory_list_known_lockboxes(

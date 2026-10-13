@@ -189,6 +189,7 @@ def advanced_archive
 end
 
 def vault_lifecycle
+  alias_path = File.expand_path(File.join(artifact_root, 'remembered-alias-target.lbox'))
   root = File.join(artifact_root, 'vault'); FileUtils.mkdir_p(root)
   password = 'vault password'; changed = 'new vault password'; id = (0xa0..0xaf).to_a.pack('C*')
   profile = API.key_contact_generate; contact = API.key_contact_generate
@@ -218,11 +219,11 @@ def vault_lifecycle
   pass('vault_directory_list_private_keys'); pass('vault_directory_list_private_key_names'); pass('vault_directory_list_contact_names')
   vault.store_backup(id, 'encrypted backup bytes'); vault.backup_count; check(vault.load_backup(id) == 'encrypted backup bytes', 'backup')
   pass('vault_directory_store_backup'); pass('vault_directory_backup_count'); pass('vault_directory_load_backup', 3)
-  vault.remember_lockbox(id, '/tmp/example.lbox'); vault.list_known_lockboxes
+  vault.remember_lockbox(id, alias_path); vault.list_known_lockboxes
   pass('vault_directory_remember_lockbox'); pass('vault_directory_list_known_lockboxes')
   vault.set_lockbox_alias('portable', id); vault.set_lockbox_alias('portable', id)
   check(vault.list_lockbox_aliases.values.length == 1 && vault.list_lockbox_aliases.values[0].name == 'portable', 'alias repeat and list')
-  check(vault.resolve_lockbox_alias('portable').path == '/tmp/example.lbox', 'alias resolution')
+  check(vault.resolve_lockbox_alias('portable').path == alias_path, 'alias resolution')
   pass('vault_directory_set_lockbox_alias', 2); pass('vault_directory_list_lockbox_aliases', 2); pass('vault_directory_resolve_lockbox_alias')
   vault.remove_lockbox_alias('portable'); vault.remove_lockbox_alias('portable')
   check(vault.list_lockbox_aliases.values.empty?, 'alias removal repeat'); pass('vault_directory_remove_lockbox_alias', 3)
@@ -234,11 +235,11 @@ def vault_lifecycle
   pass('vault_directory_define_form'); pass('vault_directory_resolve_form'); pass('vault_directory_list_forms')
   vault.list_form_revisions(vault_form.type_id); pass('vault_directory_list_form_revisions', 2)
   vault.seed_forms; pass('vault_directory_seed_forms'); vault.list_form_aliases; pass('vault_directory_list_form_aliases')
-  vault.forget_access_slot_label(id, 7); vault.forget_lockbox('/tmp/example.lbox'); vault.delete_contact('bob')
+  vault.forget_access_slot_label(id, 7); vault.forget_lockbox(alias_path); vault.delete_contact('bob')
   pass('vault_directory_forget_access_slot_label'); pass('vault_directory_forget_lockbox'); pass('vault_directory_delete_contact')
   vault.delete_private_key('alice'); vault.restore_private_key('alice', profile, owner, true)
   pass('vault_directory_delete_private_key', 2); pass('vault_directory_restore_private_key', 2)
-  vault.remember_lockbox(id, '/tmp/example.lbox'); vault.set_lockbox_alias('portable', id)
+  vault.remember_lockbox(id, alias_path); vault.set_lockbox_alias('portable', id)
   vault.free; pass('vault_directory_free')
   # Release the writable vault before an independent path-based probe.
   check(API.vault_directory_probe_structure_version(root, password) == current, 'vault probe')
@@ -248,7 +249,7 @@ def vault_lifecycle
   pass('vault_read_only_open'); pass('vault_read_only_list_profile_names', 2); pass('vault_read_only_list_contact_names')
   pass('vault_read_only_list_form_aliases', 2); pass('vault_read_only_list_known_lockboxes')
   check(readonly.list_lockbox_aliases.values.length == 1 && readonly.list_lockbox_aliases.values[0].name == 'portable', 'persisted read-only alias')
-  check(readonly.resolve_lockbox_alias('portable').path == '/tmp/example.lbox', 'read-only alias resolution')
+  check(readonly.resolve_lockbox_alias('portable').path == alias_path, 'read-only alias resolution')
   pass('vault_read_only_list_lockbox_aliases', 2); pass('vault_read_only_resolve_lockbox_alias')
   readonly.free; pass('vault_read_only_free')
   API.vault_directory_change_password(root, password, changed); pass('vault_directory_change_password')

@@ -32,19 +32,28 @@ Read [Migrating between versions](../maintain-and-recover/migrating-between-vers
 
 ## Migration checks for a release
 
-Release preparation tests permanently retained Lockbox and Vault files from
-historical writers. The repository keeps archive fixtures for formats v1–v3 and
-Vault fixtures for structures v1–v3, including both historical container formats
-used by Vault structure v2. Each fixture contains the content types supported by
-its writer, a content manifest, test credentials and a checksum.
+Release preparation checks permanently retained Lockbox and Vault files from
+historical writers. The repository keeps archive fixtures for formats v1–v4 and
+Vault fixtures for structures v1–v3, including the historical structure-v2
+containers and the current structure-v3/container-v4 combination. Each fixture
+records its producing versions, supported logical content and checksums.
 
-Every retained fixture is migrated directly to the current native format, reopened,
-and compared with its saved logical contents. Tests also update migrated mirrors
-and Vault credentials and reopen them to verify persistence. Release checks fail
-if a format version or the current Vault/container combination lacks a fixture.
-New versions add fixtures; old fixture bytes are never regenerated during tests.
-The artifacts live in Git and the release tags, rather than in the published
-runtime library package.
+Fixtures with the required owner material are migrated to the current native
+format, independently reopened and compared with saved logical contents. The
+immutable signed v2/v3 originals do not retain their original private owner keys:
+their coverage is authenticated export plus refusal to replace the established
+owner, with source bytes and destination absence checked. Separate ordinary
+v2/v3 fixtures with known synthetic owners exercise successful migration,
+subsequent mutation and persisted reopen. Those positive tests do not turn an
+unavailable historical owner key into a successful retained-fixture migration.
+
+The new v4 fixture includes clearly marked public test-only signing material so
+its established owner can be preserved through the complete lifecycle. It must
+never be used for real data. Tests also update migrated mirrors and Vault
+credentials and reopen them to verify persistence. Release checks require every
+supported format version and the current Vault/container combination. New
+versions add fixtures; historical fixture bytes are never regenerated to pass.
+The artifacts live in Git and release tags, not the published runtime library.
 
 ## Documentation for a release
 

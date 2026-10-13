@@ -1114,6 +1114,17 @@ fn generate_flatbuffers(repository: &Path) -> Result {
         }
     }
 
+    // Match the required binding lint gate so regeneration does not restore
+    // unformatted Dart output. Limit formatting to generator-owned files.
+    let status = Command::new("dart")
+        .current_dir(&repository)
+        .args(["format", "--language-version=3.10"])
+        .arg(repository.join("bindings/dart/lib/src/domain_models.dart"))
+        .arg(repository.join("bindings/dart/lib/src/generated/flatbuffers"))
+        .status()?;
+    if !status.success() {
+        return Err(format!("generated Dart formatting failed with {status}").into());
+    }
     Ok(())
 }
 

@@ -4,7 +4,7 @@ Status: in progress; no release-ready claim. Brett has authorized completing pre
 
 Brett requested preparation for release after accepting the current performance checkpoint. Performance experiments remain paused. The working scope is the current default format-4 implementation on `issue-310-zip-read-performance`, for compatibility line `0.5.x`, under the release-preparation instruction. Alternative archive layouts remain experimental and are not activated by this work. Published baseline checked on GitHub: CLI `0.4.1` and bindings `0.4.1`.
 
-The security checkpoint is committed as `788d4a03`, followed by the workflow-only interoperability correction `99f31937`. Final dependency routing and approved retained-fixture qualification are in progress, so the final release candidate is not yet frozen. Final evidence must identify the actual committed candidate, features, toolchain and artifacts. Earlier checks cannot qualify later edits. Preserve the unrelated dirty main checkout.
+The security checkpoint `788d4a03` was followed by registry routing and retained-fixture qualification at `0300ee65`, installed-consumer checks at `5cdeda3d`, and the agent deadline correction at `352a180a`. The first 0.5 candidate `1acd23f2` entered prepare-all run `38367390629`; its Linux native conformance exposed a missing explicit headless fixture policy. That candidate is not qualified, and a corrected tooling/documentation checkpoint will replace it. Final evidence must identify the actual committed candidate, features, toolchain and artifacts. Earlier checks cannot qualify later edits. Preserve the unrelated dirty main checkout.
 
 ## Required work and evidence
 
@@ -58,8 +58,9 @@ passed on Linux and Windows but failed on macOS. The Unicode diagnostic identifi
 `Session Agent read deadline: Invalid argument (os error 22)`; the nonblocking
 absolute-deadline correction passed 13 Unix unit tests, Vault library Clippy
 with warnings denied, and the normal CLI agent-cache lifecycle (one pass; the
-separate serial lifecycle remains ignored in that invocation). It still requires
-macOS execution. The constructor enables nonblocking I/O once; poll waits use the
+separate serial lifecycle remains ignored in that invocation). The subsequent candidate run passed the actual macOS platform runtime job
+`115196263197`, including agent IPC and filesystem checks; that closes this
+specific runtime regression, not the entire candidate matrix. The constructor enables nonblocking I/O once; poll waits use the
 same absolute deadline, including partial progress, interrupted waits and buffered
 replies after peer closure. No deadline error is suppressed. The Rust workflow recorded 16 passing jobs, the same macOS IPC failure,
 and three jobs cancelled by a newer branch workflow; cancelled jobs are incomplete.
@@ -338,3 +339,51 @@ Original failed attempts and source/artifact manifests remain in owned evidence
 storage. Raw credential-bearing fixture output is not copied into this summary.
 Final platform, package, wire-documentation and resource gates still precede
 release promotion.
+
+## First 0.5 candidate conformance correction
+
+Prepare-all run `38367390629`, source `1acd23f2ef9c6e0094fd3d575b0d88180d71a2f9`,
+created no release tags or published reVault packages. Linux x86-64 and AArch64
+native-package conformance failed when their CI Session Agent requested sleep
+inhibition unavailable from the runner's D-Bus policy. The conformance fixture now
+explicitly disables both sleep inhibition and process suspend termination,
+including the installed Rust consumer. Dedicated capability/refusal tests remain
+unchanged; these package lifecycles do not establish suspend protection. Preserve
+the failed candidate rather than interpreting setup failure as package success.
+
+The same candidate exposed Windows alias fixtures that assumed `/tmp` was a
+fully qualified path, an omitted generated Swift alias-list decoder, and required
+Dart formatting. The correction uses each carrier's owned absolute artifact path,
+retains exact alias identity/path assertions, adds the generator's alias-list
+mapping, and normalizes only the generator-owned Dart outputs during generation.
+The facade's required Dart format, fatal analysis and documentation checks pass;
+required tooling Clippy and binding inventory checks pass. The inventory reports
+230 ABI declarations and 229 operations; older workflow labels saying 219 are not
+an authoritative count.
+
+The local C package compiled and passed its core and agent phases. Its platform
+phase twice failed because `--login` left Secret Service unregistered and D-Bus
+activation collided with the first keyring daemon. A private HOME/XDG retry
+preserved that diagnosis. The fixture correction owns a foreground unlocked
+keyring, private temporary state, nonactivating readiness and exact bus-owner PID
+checks, with child cleanup on success or error. The corrected installed run passed all 229 required operations: 242 PASS rows,
+four artifact rows and one native-artifact row. Core/agent/platform/last-error
+phase row counts were 201/35/9/1. An intervening run passed all phases but the
+verifier rejected its install path under rust/target; the final run used an owned
+/tmp install root and passed the unchanged verifier. Tooling build and all-target
+Clippy passed. Private Vault/keyring/runtime state and owned processes were
+cleaned up. See [focused checkpoint evidence](raw/candidate-carrier-corrections/result.json).
+
+Both corrected local loopback publication lifecycles passed (2/2) after making
+their headless policy explicit. The original CI failure retains only safe status
+and byte counts, so its underlying child stderr cannot be reconstructed. The
+helper audit found no additional agent-using fixture omission; dedicated suspend
+capability and refusal tests are unchanged. Actual Windows and Swift execution
+and the full replacement candidate remain required.
+
+CLI publication must include `revault_archive_v3_reader`,
+`revault_vault_v3_reader`, and `revault_migrate_archive_v3` before the current
+migration/CLI crates. Verify both `revault-migrate-archive-v3` and
+`revault-migrate-vault-v3` binaries and their handshakes after registry publication.
+Final installed Rust verification must remove candidate-only core path patches
+and exercise persisted creation and independent reopen through registry packages.

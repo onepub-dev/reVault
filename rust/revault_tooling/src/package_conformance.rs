@@ -203,7 +203,9 @@ fn prepare_rust_package(repository: &Path, packages: &Path, work: &Path) -> Resu
             .arg("--target-dir")
             .arg(repository.join("rust/target"))
             .env("REVAULT_E2E_ARTIFACT_DIR", &artifacts)
-            .env("LOCKBOX_PLATFORM_SECRET_STORE", "disabled"),
+            .env("LOCKBOX_PLATFORM_SECRET_STORE", "disabled")
+            .env("LOCKBOX_AGENT_PREVENT_SLEEP", "false")
+            .env("LOCKBOX_AGENT_TERMINATE_ON_SUSPEND", "false"),
     );
     let consumer_result = consumer_result.and_then(|_| {
         run_status(
@@ -214,7 +216,9 @@ fn prepare_rust_package(repository: &Path, packages: &Path, work: &Path) -> Resu
                 .arg(repository.join("rust/target"))
                 .args(["--", "--interop", "rust"])
                 .env("REVAULT_E2E_ARTIFACT_DIR", &artifacts)
-                .env("LOCKBOX_PLATFORM_SECRET_STORE", "disabled"),
+                .env("LOCKBOX_PLATFORM_SECRET_STORE", "disabled")
+                .env("LOCKBOX_AGENT_PREVENT_SLEEP", "false")
+                .env("LOCKBOX_AGENT_TERMINATE_ON_SUSPEND", "false"),
         )
     });
     // Attempt cleanup even when the consumer fails; never retain its synthetic

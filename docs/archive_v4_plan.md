@@ -33,10 +33,16 @@ registry dependency and retained-fixture gates have now passed at checkpoint
 gate was strengthened at `5cdeda3d`. The macOS agent deadline correction still
 requires actual platform qualification before candidate promotion.
 
-The A4 timing threshold applies only against the designated matched-policy
-candidate-A control. It is not a numerical PGP threshold. The final ZIP/PGP
-protocol and applicable controls must be frozen before samples; earlier narrow
-performance results do not establish complete release acceptance.
+The A4 timing threshold is a contender-versus-matched-candidate-A architecture
+comparison. This release selects default A; it does not promote B or C, so that
+architecture-comparison gate is not applicable to this release decision. No
+A-versus-itself pass or new result against a withdrawn unsafe control is claimed.
+Existing accepted, narrowly scoped runtime trials remain historical evidence.
+Product G11 ZIP/PGP reads and writes, the 100 MB resource ceiling, and all
+functional/platform/migration gates still apply. A4 is not a numerical PGP
+threshold. Freeze final product comparisons before sampling; current comparisons
+measure the security-corrected implementation without inventing historical
+nonregression evidence.
 
 ### Historical optimization pause
 

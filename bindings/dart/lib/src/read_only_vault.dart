@@ -54,7 +54,8 @@ final class ReadOnlyVault extends Owned {
   /// ```dart
   /// final aliases = vault.listLockboxAliases();
   /// ```
-  List<LockboxAlias> listLockboxAliases() => runtime.operations.vaultReadOnlyListLockboxAliases(handle);
+  List<LockboxAlias> listLockboxAliases() =>
+      runtime.operations.vaultReadOnlyListLockboxAliases(handle);
 
   /// Resolves metadata; verify target identity before opening its path.
   ///
@@ -62,7 +63,8 @@ final class ReadOnlyVault extends Owned {
   /// ```dart
   /// final target = vault.resolveLockboxAlias('team');
   /// ```
-  KnownLockbox resolveLockboxAlias(String name) => runtime.operations.vaultReadOnlyResolveLockboxAlias(handle, name);
+  KnownLockbox resolveLockboxAlias(String name) =>
+      runtime.operations.vaultReadOnlyResolveLockboxAlias(handle, name);
 
   /// Lists remembered Lockbox identifiers and host paths.
   ///

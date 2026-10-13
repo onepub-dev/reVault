@@ -243,7 +243,9 @@ final class Lockbox extends Owned implements ffi.Finalizable {
         options: options,
       );
     }
-    if (vault != null) return _openUsingVault(path, vault, signingKey, options, mode);
+    if (vault != null) {
+      return _openUsingVault(path, vault, signingKey, options, mode);
+    }
     Vault? defaultVault;
     try {
       defaultVault = Vault.open();
@@ -328,13 +330,8 @@ final class Lockbox extends Owned implements ffi.Finalizable {
     ProfileSigningKeyPair? signingKey,
     LockboxOptions? options,
     String mode,
-  ) => _file(
-    path,
-    mode,
-    vault: vault,
-    signingKey: signingKey,
-    options: options,
-  );
+  ) =>
+      _file(path, mode, vault: vault, signingKey: signingKey, options: options);
 
   static void _requireOneCredential(
     SecretString? password,
@@ -396,7 +393,24 @@ final class Lockbox extends Owned implements ffi.Finalizable {
   /// ```dart
   /// lockbox.extractFile('/docs/readme.txt', '/tmp/readme.txt');
   /// ```
-  void extractFileWithPolicy(String source, String destination, {required int maxFileBytes, required int maxTotalBytes, required int maxFiles, bool restorePermissions = false, bool overwrite = false}) => runtime.operations.lockboxExtractFileWithPolicy(handle, source, destination, maxFileBytes, maxTotalBytes, maxFiles, restorePermissions, overwrite);
+  void extractFileWithPolicy(
+    String source,
+    String destination, {
+    required int maxFileBytes,
+    required int maxTotalBytes,
+    required int maxFiles,
+    bool restorePermissions = false,
+    bool overwrite = false,
+  }) => runtime.operations.lockboxExtractFileWithPolicy(
+    handle,
+    source,
+    destination,
+    maxFileBytes,
+    maxTotalBytes,
+    maxFiles,
+    restorePermissions,
+    overwrite,
+  );
 
   /// Extracts using the existing replacement-only API semantics.
   void extractFile(String source, String destination, {bool replace = false}) =>
