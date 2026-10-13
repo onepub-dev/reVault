@@ -1,6 +1,6 @@
 [package]
 name = "revault_archive_v3_reader"
-version = "0.0.4"
+version = "0.0.5"
 edition = "2021"
 rust-version = "1.88"
 license-file = "LICENSE"
@@ -30,7 +30,7 @@ ed25519-dalek = "3"
 getrandom = "0.4"
 hkdf = "0.13"
 hmac = { version = "0.13", features = ["zeroize"] }
-revault_page_api = { version = "0.0.37", path = "../../revault_page_api" }
+revault_page_api = { version = "0.0.38", path = "../../revault_page_api" }
 ml-dsa = { version = "0.1", features = ["getrandom", "zeroize"] }
 ml-kem = { version = "0.3.2", features = ["getrandom"] }
 sha2 = { version = "0.11", features = ["zeroize"] }
