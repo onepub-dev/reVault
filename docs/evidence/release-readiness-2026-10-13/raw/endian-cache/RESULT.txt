@@ -1,0 +1,7 @@
+Checkpoint 788d4a0307d2a8e46864c50da6c5e1a1598f3e01
+Workflow run 38355816399 failed on three architecture consumers opening the transferred x64 fixture with CorruptRecord.
+Producer job 115158326944 restored lockbox-endian-x64-v5 and skipped the current writer.
+Artifact length 2509184; SHA256 b7487cf8c6ffe2e1cbf76705b9c1be9317460033826803558728645354f82132.
+Header prefix 4c4258344844520004001800c0000000 identifies format4; it is not evidence of a format3 fixture. Exact producing source is unestablished.
+Both generated-fixture cache keys now include github.sha, requiring the writer from the tested commit. Cargo caches are unchanged. This corrects current-writer test provenance; the cause of the observed open failure remains unresolved until the fresh-producer workflow completes. Historical compatibility remains a separate retained-fixture gate.
+Original logs and artifact remain in /tmp/revault-compression-ignored-release-20261013 (ci-endian-full.log, ci-endian-failures.log, endian-x64/lockbox-x64.lbx).

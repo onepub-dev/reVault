@@ -36,7 +36,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: interop-cache/lockbox-x64.lbx
-          key: lockbox-endian-x64-${{ env.LOCKBOX_INTEROP_FIXTURE_VERSION }}
+          key: lockbox-endian-x64-${{ env.LOCKBOX_INTEROP_FIXTURE_VERSION }}-${{ github.sha }}
 
       - name: Install Rust
         if: steps.x64-fixture-cache.outputs.cache-hit != 'true'
@@ -198,7 +198,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: interop/lockbox-s390x.lbx
-          key: lockbox-endian-s390x-${{ env.LOCKBOX_INTEROP_FIXTURE_VERSION }}
+          key: lockbox-endian-s390x-${{ env.LOCKBOX_INTEROP_FIXTURE_VERSION }}-${{ github.sha }}
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@1.88.0
