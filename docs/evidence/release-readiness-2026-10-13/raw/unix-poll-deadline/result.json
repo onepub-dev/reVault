@@ -1,0 +1,16 @@
+{
+  "results": {
+    "unix_tests": {
+      "exit": 0,
+      "wall_seconds": 5.208001
+    },
+    "vault_clippy": {
+      "exit": 0,
+      "wall_seconds": 2.70793
+    },
+    "agent_flow": {
+      "exit": 0,
+      "wall_seconds": 54.288656
+    }
+  }
+}

@@ -280,7 +280,12 @@ Retain old benchmark guarantees and epochs, checkpoint the accepted security
 implementation. The later instruction to finish security supersedes the prior
 usage cutoff for this task. New comparable performance baselines require a new
 user instruction; performance remains paused even after security checkpointing.
-No release is authorized.
+That historical instruction did not authorize release. The later explicit
+instruction now authorizes completing preparation and releasing reVault 0.5 only
+after the required gates pass. Performance optimization remains paused. The
+[current release checklist](evidence/release-readiness-2026-10-13/README.md)
+is authoritative for qualification status; the older evidence below is not a
+release-ready claim.
 
 ## Current goal reconciliation — 2026-10-09
 

@@ -39,7 +39,13 @@ was published successfully; an independent registry download matches the exact
 approved SHA-256 `acce3e08f5aa28b5dc1738f46c3a8a65e0daa28dca2dae579cc48bc398958e9d`.
 The withdrawn 0.2.1 artifact was not published. See [publication evidence](raw/published-codec/result.json).
 Direct registry dependency/standalone consumer checks and fresh retained-fixture
-qualification remain in progress; no reVault package is published.
+qualification passed at `0300ee65`; the historical signed fixtures without their
+original owner key retain explicit authenticated export/refusal coverage, not a
+false successful-import claim. No reVault package is published. The subsequent
+`5cdeda3d` checkpoint adds the persisted oversized-form refusal lifecycle and an
+installed Rust facade create/reopen gate. Its release driver build, required
+Clippy check and two driver unit tests passed; the actual installed consumer
+execution remains a candidate package gate.
 
 All four explicitly selected mandatory compression regression tests passed once
 at the post-hook runtime checkpoint. The subsequent resource preflight has not
@@ -47,9 +53,19 @@ run: it will be re-frozen on the final registry-routed CLI after remaining fixes
 The exact-current-writer endian workflow passed all six jobs after binding fixture
 cache keys to the producer commit. The first run's cached format-4 artifact had
 unknown producer provenance and failed opening; that evidence remains preserved.
-IPC smoke failed before Vault initialization on Linux/macOS, while Windows passed;
-an explicit headless test precondition is queued/applied for focused validation,
-without treating the status-only failure as proof of a particular OS cause.
+At exact `0300ee65`, Endian Interop passed all six jobs. Agent IPC and Unicode
+passed on Linux and Windows but failed on macOS. The Unicode diagnostic identifies
+`Session Agent read deadline: Invalid argument (os error 22)`; the nonblocking
+absolute-deadline correction passed 13 Unix unit tests, Vault library Clippy
+with warnings denied, and the normal CLI agent-cache lifecycle (one pass; the
+separate serial lifecycle remains ignored in that invocation). It still requires
+macOS execution. The constructor enables nonblocking I/O once; poll waits use the
+same absolute deadline, including partial progress, interrupted waits and buffered
+replies after peer closure. No deadline error is suppressed. The Rust workflow recorded 16 passing jobs, the same macOS IPC failure,
+and three jobs cancelled by a newer branch workflow; cancelled jobs are incomplete.
+The fuzz job failed before execution because its pinned tool was already installed;
+`5cdeda3d` makes that installation idempotent without changing its version. No fuzz
+execution pass follows from that setup correction.
 
 
 The codec ownership correction is implemented and focused-qualified. Borrowed

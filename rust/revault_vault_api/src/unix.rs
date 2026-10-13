@@ -311,7 +311,7 @@ fn request(message: &SecretVec) -> io::Result<AgentResponse> {
 }
 
 fn request_started_agent(message: &SecretVec) -> io::Result<AgentResponse> {
-    let mut stream = DeadlineStream::new(connect_started_agent()?);
+    let mut stream = DeadlineStream::new(connect_started_agent()?)?;
     message
         .with_bytes(|message| stream.write_all(message))
         .map_err(io::Error::other)??;
@@ -324,7 +324,7 @@ fn request_started_agent(message: &SecretVec) -> io::Result<AgentResponse> {
 
 fn request_control(message: &[u8]) -> io::Result<ControlResponse> {
     ensure_agent()?;
-    let mut stream = DeadlineStream::new(connect_started_agent()?);
+    let mut stream = DeadlineStream::new(connect_started_agent()?)?;
     stream.write_all(message)?;
     stream
         .stream
@@ -431,7 +431,7 @@ fn handle_client(
         return Ok(false);
     }
     let peer_pid = peer_credentials(&stream)?.pid;
-    let mut stream = DeadlineStream::new(stream);
+    let mut stream = DeadlineStream::new(stream)?;
     let request = read_agent_frame(&mut stream, max_message_bytes())?;
     let (stop, response) = match request {
         AgentFrame::Cache(request) => {
@@ -809,11 +809,14 @@ struct DeadlineStream {
 }
 
 impl DeadlineStream {
-    fn new(stream: UnixStream) -> Self {
-        Self {
+    fn new(stream: UnixStream) -> io::Result<Self> {
+        stream
+            .set_nonblocking(true)
+            .map_err(|e| transport_context("nonblocking mode", e))?;
+        Ok(Self {
             stream,
             deadline: Instant::now() + Duration::from_secs(10),
-        }
+        })
     }
 
     fn remaining(&self) -> io::Result<Duration> {
@@ -824,27 +827,73 @@ impl DeadlineStream {
                 io::Error::new(io::ErrorKind::TimedOut, "agent request deadline expired")
             })
     }
+
+    fn wait_ready(&self, events: libc::c_short) -> io::Result<()> {
+        use std::os::fd::AsRawFd;
+        loop {
+            let remaining = self.remaining()?;
+            // Round upward, then recheck the absolute deadline before I/O.
+            let millis =
+                remaining.as_millis() + u128::from(remaining.subsec_nanos() % 1_000_000 != 0);
+            let timeout = millis.min(libc::c_int::MAX as u128) as libc::c_int;
+            let mut descriptor = libc::pollfd {
+                fd: self.stream.as_raw_fd(),
+                events,
+                revents: 0,
+            };
+            // SAFETY: descriptor is live for this call; poll borrows exactly one
+            // initialized pollfd and does not retain its address.
+            let result = unsafe { libc::poll(&mut descriptor, 1, timeout) };
+            if result < 0 {
+                let error = io::Error::last_os_error();
+                if error.kind() == io::ErrorKind::Interrupted {
+                    continue;
+                }
+                return Err(transport_context("readiness wait", error));
+            }
+            if result == 0 {
+                continue;
+            }
+            if descriptor.revents & libc::POLLNVAL != 0 {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "Session Agent readiness descriptor invalid",
+                ));
+            }
+            // HUP/ERR also permit an I/O attempt: drain buffered replies or
+            // obtain the socket's actual EOF/error without changing options.
+            return Ok(());
+        }
+    }
 }
 
 impl Read for DeadlineStream {
     fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
-        self.stream
-            .set_read_timeout(Some(self.remaining()?))
-            .map_err(|e| transport_context("read deadline", e))?;
-        self.stream
-            .read(buffer)
-            .map_err(|e| transport_context("read", e))
+        loop {
+            self.remaining()?;
+            match self.stream.read(buffer) {
+                Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
+                    self.wait_ready(libc::POLLIN)?
+                }
+                Err(error) if error.kind() == io::ErrorKind::Interrupted => continue,
+                result => return result.map_err(|e| transport_context("read", e)),
+            }
+        }
     }
 }
 
 impl Write for DeadlineStream {
     fn write(&mut self, buffer: &[u8]) -> io::Result<usize> {
-        self.stream
-            .set_write_timeout(Some(self.remaining()?))
-            .map_err(|e| transport_context("write deadline", e))?;
-        self.stream
-            .write(buffer)
-            .map_err(|e| transport_context("write", e))
+        loop {
+            self.remaining()?;
+            match self.stream.write(buffer) {
+                Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
+                    self.wait_ready(libc::POLLOUT)?
+                }
+                Err(error) if error.kind() == io::ErrorKind::Interrupted => continue,
+                result => return result.map_err(|e| transport_context("write", e)),
+            }
+        }
     }
 
     fn flush(&mut self) -> io::Result<()> {
@@ -1018,11 +1067,12 @@ mod tests {
     #[test]
     fn request_deadline_is_shared_by_reads_and_writes() {
         let (left, mut right) = UnixStream::pair().unwrap();
-        let mut stream = DeadlineStream::new(left);
+        let mut stream = DeadlineStream::new(left).unwrap();
         right.write_all(b"a").unwrap();
         let mut byte = [0];
         stream.read_exact(&mut byte).unwrap();
         assert_eq!(&byte, b"a");
+        right.write_all(b"b").unwrap();
         stream.deadline = Instant::now() - Duration::from_secs(1);
         assert_eq!(
             stream.read(&mut byte).unwrap_err().kind(),
@@ -1032,6 +1082,47 @@ mod tests {
             stream.write(b"b").unwrap_err().kind(),
             io::ErrorKind::TimedOut
         );
+    }
+
+    #[test]
+    fn buffered_framed_reply_is_read_after_peer_closes() {
+        let (left, mut right) = UnixStream::pair().unwrap();
+        let response = encode_control_ok_response().unwrap();
+        right.write_all(&response).unwrap();
+        drop(right);
+        let stream = DeadlineStream::new(left).unwrap();
+        let frame = read_plain_frame(stream, max_message_bytes()).unwrap();
+        assert_eq!(frame, response);
+        assert!(matches!(
+            parse_control_response(&frame).unwrap(),
+            ControlResponse::Ok
+        ));
+    }
+
+    #[test]
+    fn idle_read_obeys_absolute_deadline() {
+        let (left, _right) = UnixStream::pair().unwrap();
+        let mut stream = DeadlineStream::new(left).unwrap();
+        stream.deadline = Instant::now() + Duration::from_millis(20);
+        assert_eq!(
+            stream.read(&mut [0]).unwrap_err().kind(),
+            io::ErrorKind::TimedOut
+        );
+    }
+
+    #[test]
+    fn stalled_write_obeys_absolute_deadline() {
+        let (left, _right) = UnixStream::pair().unwrap();
+        let mut stream = DeadlineStream::new(left).unwrap();
+        stream.deadline = Instant::now() + Duration::from_millis(20);
+        let bytes = [7u8; 4096];
+        let error = loop {
+            match stream.write_all(&bytes) {
+                Ok(()) => continue,
+                Err(error) => break error,
+            }
+        };
+        assert_eq!(error.kind(), io::ErrorKind::TimedOut);
     }
 
     #[test]

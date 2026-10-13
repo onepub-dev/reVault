@@ -21,6 +21,25 @@ the separate component checkpoint below. This merge does not qualify the format
 or erase failures.
 
 ## Current position and next work
+
+The current instruction is to complete preparation and release the default
+format-4 implementation as reVault 0.5 after its required gates pass. This
+supersedes earlier release-authorization statements below. Performance tuning
+remains paused; final acceptance measurements are release verification, not a new
+optimization campaign. See the [current release checklist](evidence/release-readiness-2026-10-13/README.md)
+for source identities, platform/package gates and remaining blockers. The
+registry dependency and retained-fixture gates have now passed at checkpoint
+`0300ee65`; no reVault artifact has been published. The installed Rust consumer
+gate was strengthened at `5cdeda3d`. The macOS agent deadline correction still
+requires actual platform qualification before candidate promotion.
+
+The A4 timing threshold applies only against the designated matched-policy
+candidate-A control. It is not a numerical PGP threshold. The final ZIP/PGP
+protocol and applicable controls must be frozen before samples; earlier narrow
+performance results do not establish complete release acceptance.
+
+### Historical optimization pause
+
 The [worker workspace and last-use trial](evidence/extraction-workspace-2026-10-12/RESULTS.md)
 passed its fixed 112-extraction aggregate gates. Candidate CLI peaks were
 43–68 MB across the four plaintext many-file cohorts. Large compressed extraction
@@ -28,9 +47,9 @@ had a slower median and narrowly passed the aggregate 5% timing limit
 (upper bound 1.04986893); per-stratum noninferiority is not established.
 All 74 focused test executions and the WASM password/setter lifecycle checks
 passed. The observed conservative CLI-plus-agent bound was at most 76.60 MB,
-including preparation, within this limited plaintext workload scope. Work pauses
-at this checkpoint at the user's request; no further optimization or release is
-planned. The earlier full-suite pass does not qualify these subsequent changes.
+including preparation, within this limited plaintext workload scope. Optimization
+paused at this checkpoint at the user's request. Subsequent security and release
+instructions supersede the earlier no-release plan. The earlier full-suite pass does not qualify these subsequent changes.
 
 The [current many-file extraction screen](evidence/many-file-current-2026-10-12/RESULTS.md)
 completed 16 verified extractions across raw/compressed 256-file and 1,024-file
