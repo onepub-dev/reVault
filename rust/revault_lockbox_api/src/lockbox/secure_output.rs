@@ -358,6 +358,11 @@ mod native {
             .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "invalid output name"))?;
         let new = std::ffi::CString::new(new.as_bytes())
             .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "invalid output name"))?;
+        // Android exposes the constant as c_int but renameat2 takes c_uint.
+        #[cfg(target_os = "android")]
+        let flags = libc::RENAME_NOREPLACE as libc::c_uint;
+        #[cfg(not(target_os = "android"))]
+        let flags = libc::RENAME_NOREPLACE;
         // SAFETY: both directory descriptors are held live by the borrowed Dir
         // handles, and both C strings remain valid for the duration of this call.
         if unsafe {
@@ -366,7 +371,7 @@ mod native {
                 old.as_ptr(),
                 to.as_raw_fd(),
                 new.as_ptr(),
-                libc::RENAME_NOREPLACE,
+                flags,
             )
         } != 0
         {

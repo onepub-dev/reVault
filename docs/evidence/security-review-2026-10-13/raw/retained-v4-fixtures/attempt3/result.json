@@ -1,0 +1,35 @@
+{
+  "head": "99f319371e31ac2ee368bdf5d957ad3798d0c68f",
+  "toolchain": {
+    "rustc": "rustc 1.88.0 (6b00bc388 2025-06-23)",
+    "cargo": "cargo 1.88.0 (873a06493 2025-05-10)"
+  },
+  "producing_source_manifest_sha256": "9157587681d199a571eac3f3b142d209f8f36ac14fbfee3d93c7e2e20ea5231b",
+  "source_inputs_unchanged": true,
+  "historical_21_files_unchanged": true,
+  "results": {
+    "build": {
+      "exit": 0,
+      "wall_seconds": 83.39
+    },
+    "archive-v4": {
+      "exit": 0,
+      "wall_seconds": 6.299
+    },
+    "vault-v3-container-v4": {
+      "exit": 0,
+      "wall_seconds": 4.168
+    },
+    "matrix": {
+      "exit": 101,
+      "wall_seconds": 18.899
+    }
+  },
+  "new_fixture_directories": [
+    "archive-v4",
+    "vault-v3-container-v4"
+  ],
+  "first_attempts_preserved_at": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/target/retained-fixture-first-attempt-20261013",
+  "private_test_key_bytes_not_logged": true,
+  "completed_expected_steps": true
+}

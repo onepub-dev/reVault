@@ -502,14 +502,17 @@ mod reclamation_tests {
     #[test]
     fn pressure_reclaims_only_empty_backing_and_preserves_live_and_stale_identity() {
         let mut heap = SecureHeap::new();
+        // Distinct classes even on platforms with 16 KiB OS pages.
+        let stale_capacity = 8192.max(memory_region::page_size());
+        let next_capacity = stale_capacity * 2;
         let live = heap.allocate(64).unwrap();
         heap.write(live, 0, b"retained").unwrap();
-        let stale = heap.allocate(8192).unwrap();
+        let stale = heap.allocate(stale_capacity).unwrap();
         heap.write(stale, 0, b"old secret").unwrap();
         heap.free(stale).unwrap();
         let mut calls = 0;
         let next = heap
-            .allocate_with(16384, &mut |size| {
+            .allocate_with(next_capacity, &mut |size| {
                 calls += 1;
                 if calls == 1 {
                     Err(Error::WeakAllocationDisabled)
@@ -531,7 +534,7 @@ mod reclamation_tests {
             heap.validate_allocation(stale),
             Err(Error::CorruptAllocation)
         );
-        let restored = heap.allocate(8192).unwrap();
+        let restored = heap.allocate(stale_capacity).unwrap();
         assert_eq!(restored.arena, stale.arena);
         assert_eq!(restored.slot, stale.slot);
         assert_ne!(restored.generation, stale.generation);
@@ -540,7 +543,9 @@ mod reclamation_tests {
             Err(Error::CorruptAllocation)
         );
         assert!(heap
-            .with_mut_slice(restored, 8192, |bytes| bytes.iter().all(|b| *b == 0))
+            .with_mut_slice(restored, stale_capacity, |bytes| bytes
+                .iter()
+                .all(|b| *b == 0))
             .unwrap());
         heap.check_canaries(restored).unwrap();
         heap.free(restored).unwrap();
@@ -551,13 +556,16 @@ mod reclamation_tests {
     #[test]
     fn pressure_retry_is_bounded_and_failed_rehydration_keeps_metadata_reusable() {
         let mut heap = SecureHeap::new();
+        // Distinct classes even on platforms with 16 KiB OS pages.
+        let stale_capacity = 8192.max(memory_region::page_size());
+        let next_capacity = stale_capacity * 2;
         let live = heap.allocate(64).unwrap();
         heap.write(live, 0, b"alive").unwrap();
-        let stale = heap.allocate(8192).unwrap();
+        let stale = heap.allocate(stale_capacity).unwrap();
         heap.free(stale).unwrap();
         let mut calls = 0;
         let error = heap
-            .allocate_with(16384, &mut |_| {
+            .allocate_with(next_capacity, &mut |_| {
                 calls += 1;
                 Err(Error::WeakAllocationDisabled)
             })
@@ -567,7 +575,7 @@ mod reclamation_tests {
         assert!(!heap.arenas[stale.arena].has_backing());
         let mut attempts = 0;
         assert_eq!(
-            heap.allocate_with(8192, &mut |_| {
+            heap.allocate_with(stale_capacity, &mut |_| {
                 attempts += 1;
                 Err(Error::WeakAllocationDisabled)
             })
@@ -579,7 +587,7 @@ mod reclamation_tests {
             heap.validate_allocation(stale),
             Err(Error::CorruptAllocation)
         );
-        let restored = heap.allocate(8192).unwrap();
+        let restored = heap.allocate(stale_capacity).unwrap();
         assert_eq!(restored.arena, stale.arena);
         assert_ne!(restored.generation, stale.generation);
         assert_eq!(

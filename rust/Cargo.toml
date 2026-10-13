@@ -30,7 +30,5 @@ opt-level = 3
 inherits = "release"
 lto = "thin"
 
-# Temporary correctness patch: 0.2.0 reverses raw Huffman-weight nibbles and can
-# emit valid Zstd streams that decode to incorrect content. See vendor/PATCHES.md.
-[patch.crates-io]
-zstd-complete = { path = "vendor/zstd-complete" }
+# Corrected codec is published as zstd-complete 0.3.0. The historical
+# vendor snapshot is no longer used to resolve this workspace.

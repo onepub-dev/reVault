@@ -1,4 +1,12 @@
-# Local Zstd correctness and performance patches
+# Historical local Zstd correctness and performance patches
+
+The current API and format-3 migration reader now require the published
+`zstd-complete` 0.3.0 release. The workspace path patch has been removed. This
+directory is retained as a historical source snapshot and is not used by Cargo
+to resolve those dependencies. The explicitly approved published archive has
+SHA-256 `acce3e08f5aa28b5dc1738f46c3a8a65e0daa28dca2dae579cc48bc398958e9d`;
+an independent crates.io download matched. Registry-backed consumer and release
+qualification are recorded separately in the release-readiness evidence.
 
 `zstd-complete/` is the published `zstd-complete` 0.2.0 source, with its original
 licenses and notices. The original encoder correction puts the first raw Huffman
@@ -114,10 +122,10 @@ not assert publication or completed cross-platform qualification.
 
 ## Release boundary
 
-This workspace patch is a local build dependency fix, not release qualification.
-Cargo does not carry workspace patches into separately published crates. Before
-publishing reVault crates, publish/obtain a verified corrected Zstd release, update
-the direct dependency and lockfile, remove this vendor patch, and verify an
-isolated packaged/install build. Do not publish a package that silently resolves
-the known-bad encoder. Existing corrupted payload cannot be repaired by changing
+The corrected dependency has been published with separate explicit authorization;
+this does not authorize publishing reVault or qualify its release. Direct dependency
+requirements and lockfiles must resolve the corrected registry release, and isolated
+packaged/install checks must pass. Cargo does not propagate workspace path patches
+into published crates, which is why the active path patch was removed. Do not publish
+a package that silently resolves the known-bad encoder. Existing corrupted payload cannot be repaired by changing
 the decoder; independently verify source contents when available.

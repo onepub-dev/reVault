@@ -1,0 +1,22 @@
+{
+  "kind": "vault",
+  "native_version": 3,
+  "container_version": 4,
+  "writer": "revault_lockbox_api 0.0.41; revault_vault_api 0.0.42 (workspace); source-manifest SHA-256 9157587681d199a571eac3f3b142d209f8f36ac14fbfee3d93c7e2e20ea5231b",
+  "migrated_archive_mode": null,
+  "sha256": "51f40bf00359b2a21cf790de8c961a82cbdf0b7765b9068992f12985bf6d9988",
+  "password": "PUBLIC fixture password - never use outside tests",
+  "coverage": [
+    "profile-key-and-signing-generations",
+    "retired-generation",
+    "profile-email",
+    "signed-contact",
+    "unsigned-contact",
+    "form-definitions",
+    "known-lockbox",
+    "access-label",
+    "remembered-password",
+    "key-directory-backup",
+    "password-profile"
+  ]
+}

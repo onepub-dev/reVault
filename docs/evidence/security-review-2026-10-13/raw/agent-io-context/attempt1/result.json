@@ -1,0 +1,31 @@
+{
+  "head": "99f319371e31ac2ee368bdf5d957ad3798d0c68f",
+  "source_manifest_sha256_before": "9e808439962668655caa87620ce2ae5da5ebcc25821c06c4b71ba13c87d3e35f",
+  "source_manifest_sha256_after": "9e808439962668655caa87620ce2ae5da5ebcc25821c06c4b71ba13c87d3e35f",
+  "source_inputs_unchanged": true,
+  "lock_before_sha256": "db2431e009af9501eebbc9c3e20963348d7d87ce45488d3a93d42af956fcf00e",
+  "lock_after_sha256": "db2431e009af9501eebbc9c3e20963348d7d87ce45488d3a93d42af956fcf00e",
+  "results": {
+    "unix_agent_tests_build": {
+      "exit": 0,
+      "wall_seconds": 16.634,
+      "counts": null
+    },
+    "unix_agent_tests": {
+      "exit": 0,
+      "wall_seconds": 0.174,
+      "counts": {
+        "passed": 10,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered": 25
+      }
+    },
+    "vault_clippy": {
+      "exit": 0,
+      "wall_seconds": 6.968,
+      "counts": null
+    }
+  }
+}

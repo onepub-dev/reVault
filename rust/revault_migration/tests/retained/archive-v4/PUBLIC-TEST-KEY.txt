@@ -1,0 +1,1 @@
+PUBLIC TEST-ONLY signing key for this synthetic immutable format-4 fixture. Anyone may know this key. Never use it for production, personal data, authentication, or another fixture.

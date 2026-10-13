@@ -1,0 +1,48 @@
+{
+  "head": "99f319371e31ac2ee368bdf5d957ad3798d0c68f",
+  "source_manifest_sha256_before": "e2bccbd3093ea6f1733f655e2ad82538a131b272cfba926b3a96d22528bded2f",
+  "source_manifest_sha256_after": "e2bccbd3093ea6f1733f655e2ad82538a131b272cfba926b3a96d22528bded2f",
+  "source_inputs_unchanged": true,
+  "historical_21_files_unchanged": true,
+  "all_retained_fixtures_unchanged": true,
+  "results": {
+    "compile": {
+      "exit": 0,
+      "wall_seconds": 15.57,
+      "counts": null
+    },
+    "retained_fixtures": {
+      "exit": 0,
+      "wall_seconds": 64.913,
+      "counts": {
+        "passed": 3,
+        "failed": 0,
+        "ignored": 1,
+        "measured": 0,
+        "filtered": 0
+      }
+    },
+    "migration_flow_v2": {
+      "exit": 0,
+      "wall_seconds": 1.36,
+      "counts": {
+        "passed": 1,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered": 7
+      }
+    },
+    "archive_v4_known_owner": {
+      "exit": 0,
+      "wall_seconds": 20.415,
+      "counts": {
+        "passed": 1,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered": 0
+      }
+    }
+  }
+}

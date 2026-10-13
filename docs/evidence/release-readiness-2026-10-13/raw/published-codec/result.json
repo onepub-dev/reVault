@@ -1,0 +1,12 @@
+{
+  "package": "zstd-complete",
+  "version": "0.3.0",
+  "approved_sha256": "acce3e08f5aa28b5dc1738f46c3a8a65e0daa28dca2dae579cc48bc398958e9d",
+  "cargo_publish_exit": 0,
+  "source_unchanged": true,
+  "registry_download_sha256": "acce3e08f5aa28b5dc1738f46c3a8a65e0daa28dca2dae579cc48bc398958e9d",
+  "registry_download_matches_approved": true,
+  "authorization": "Explicit user approval for corrected zstd-complete 0.3.0 only; no reVault publication.",
+  "qualification_report": "/tmp/revault-zstd-030-security-package/FINAL-REPORT.md",
+  "old_0_2_1": "withdrawn; never published by this task"
+}

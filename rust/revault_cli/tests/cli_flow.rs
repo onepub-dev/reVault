@@ -3616,6 +3616,26 @@ fn access_subcommands_manage_lockbox_access() {
         &vault_root,
         &agent_root,
     );
+    // Revocation rekeys the archive and deliberately evicts the old cache.
+    let closed = run_output_without_lockbox_password(
+        bin,
+        &[lockbox.to_str().unwrap(), "access", "ls"],
+        &vault_root,
+        &agent_root,
+    )
+    .test_output()
+    .unwrap();
+    assert!(!closed.status.success());
+    assert!(String::from_utf8_lossy(&closed.stderr).contains("Lockbox is closed"));
+    let reopened = run_output_without_lockbox_password(
+        bin,
+        &[lockbox.to_str().unwrap(), "open-key", "sharee2"],
+        &vault_root,
+        &agent_root,
+    )
+    .test_output()
+    .unwrap();
+    assert_success(&reopened);
     let access = run_output_without_lockbox_password(
         bin,
         &[lockbox.to_str().unwrap(), "access", "ls", "--format", "tsv"],
@@ -4206,6 +4226,8 @@ fn vault_init_prompt_mentions_minimum_pass_phrase_length() {
         .args(["vault", "init"])
         .env("LOCKBOX_PASSWORD", "test-lockbox-password")
         .env_remove("LOCKBOX_VAULT_PASSWORD")
+        .env("LOCKBOX_AGENT_TERMINATE_ON_SUSPEND", "false")
+        .env("LOCKBOX_AGENT_PREVENT_SLEEP", "false")
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(&agent_root))
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(&agent_root))
         .env("LOCKBOX_VAULT_DIR", &vault_root)
@@ -4242,6 +4264,8 @@ fn vault_init_generated_pass_phrase_requires_stored_confirmation() {
         .args(["vault", "init"])
         .env("LOCKBOX_PASSWORD", "test-lockbox-password")
         .env_remove("LOCKBOX_VAULT_PASSWORD")
+        .env("LOCKBOX_AGENT_TERMINATE_ON_SUSPEND", "false")
+        .env("LOCKBOX_AGENT_PREVENT_SLEEP", "false")
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(&agent_root))
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(&agent_root))
         .env("LOCKBOX_VAULT_DIR", &vault_root)
@@ -4628,6 +4652,8 @@ fn vault_init_generated_pass_phrase_accepts_stored_confirmation() {
         .args(["vault", "init"])
         .env("LOCKBOX_PASSWORD", "test-lockbox-password")
         .env_remove("LOCKBOX_VAULT_PASSWORD")
+        .env("LOCKBOX_AGENT_TERMINATE_ON_SUSPEND", "false")
+        .env("LOCKBOX_AGENT_PREVENT_SLEEP", "false")
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(&agent_root))
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(&agent_root))
         .env("LOCKBOX_VAULT_DIR", &vault_root)
@@ -4639,7 +4665,10 @@ fn vault_init_generated_pass_phrase_accepts_stored_confirmation() {
     child.stdin.as_mut().unwrap().write_all(b"\ny\n").unwrap();
     let output = child.wait_with_output().unwrap();
 
-    assert_success(&output);
+    assert!(
+        output.status.success(),
+        "synthetic Vault initialization failed; recovery output suppressed"
+    );
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("Generated Vault passphrase:"));
     assert!(stdout.contains("Continue after storing it? [y/N]:"));
@@ -4664,6 +4693,8 @@ fn interactive_create_and_profile_open_reuse_the_prompted_vault() {
         .env_remove("LOCKBOX_PASSWORD")
         .env_remove("LOCKBOX_VAULT_PASSWORD")
         .env("LOCKBOX_PLATFORM_SECRET_STORE", "disabled")
+        .env("LOCKBOX_AGENT_TERMINATE_ON_SUSPEND", "false")
+        .env("LOCKBOX_AGENT_PREVENT_SLEEP", "false")
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(&agent_root))
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(&agent_root))
         .env("LOCKBOX_VAULT_DIR", &vault_root)
@@ -4677,7 +4708,10 @@ fn interactive_create_and_profile_open_reuse_the_prompted_vault() {
         .unwrap()
         .write_all(format!("2\n{vault_password}\n{vault_password}\n").as_bytes())
         .unwrap();
-    assert_success(&init.wait_with_output().unwrap());
+    assert!(
+        init.wait_with_output().unwrap().status.success(),
+        "synthetic Vault initialization failed; recovery output suppressed"
+    );
 
     let mut create = Command::new(bin)
         .args([lockbox.to_str().unwrap(), "create"])
@@ -4685,6 +4719,8 @@ fn interactive_create_and_profile_open_reuse_the_prompted_vault() {
         .env_remove("LOCKBOX_PASSWORD")
         .env_remove("LOCKBOX_VAULT_PASSWORD")
         .env("LOCKBOX_PLATFORM_SECRET_STORE", "disabled")
+        .env("LOCKBOX_AGENT_TERMINATE_ON_SUSPEND", "false")
+        .env("LOCKBOX_AGENT_PREVENT_SLEEP", "false")
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(&agent_root))
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(&agent_root))
         .env("LOCKBOX_VAULT_DIR", &vault_root)
@@ -4710,6 +4746,8 @@ fn interactive_create_and_profile_open_reuse_the_prompted_vault() {
         .env_remove("LOCKBOX_PASSWORD")
         .env_remove("LOCKBOX_VAULT_PASSWORD")
         .env("LOCKBOX_PLATFORM_SECRET_STORE", "disabled")
+        .env("LOCKBOX_AGENT_TERMINATE_ON_SUSPEND", "false")
+        .env("LOCKBOX_AGENT_PREVENT_SLEEP", "false")
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(&agent_root))
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(&agent_root))
         .env("LOCKBOX_VAULT_DIR", &vault_root)
@@ -4741,6 +4779,8 @@ fn interactive_create_and_profile_open_reuse_the_prompted_vault() {
         .env_remove("LOCKBOX_PASSWORD")
         .env_remove("LOCKBOX_VAULT_PASSWORD")
         .env("LOCKBOX_PLATFORM_SECRET_STORE", "disabled")
+        .env("LOCKBOX_AGENT_TERMINATE_ON_SUSPEND", "false")
+        .env("LOCKBOX_AGENT_PREVENT_SLEEP", "false")
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(&agent_root))
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(&agent_root))
         .env("LOCKBOX_VAULT_DIR", &vault_root)
@@ -4781,6 +4821,8 @@ fn interactive_password_open_distinguishes_vault_and_lockbox_passwords() {
         .env_remove("LOCKBOX_KEY")
         .env("LOCKBOX_VAULT_PASSWORD", vault_password)
         .env("LOCKBOX_PLATFORM_SECRET_STORE", "disabled")
+        .env("LOCKBOX_AGENT_TERMINATE_ON_SUSPEND", "false")
+        .env("LOCKBOX_AGENT_PREVENT_SLEEP", "false")
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(&agent_root))
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(&agent_root))
         .env("LOCKBOX_VAULT_DIR", &vault_root)
@@ -4794,6 +4836,8 @@ fn interactive_password_open_distinguishes_vault_and_lockbox_passwords() {
         .env("LOCKBOX_PASSWORD", lockbox_password)
         .env("LOCKBOX_VAULT_PASSWORD", vault_password)
         .env("LOCKBOX_PLATFORM_SECRET_STORE", "disabled")
+        .env("LOCKBOX_AGENT_TERMINATE_ON_SUSPEND", "false")
+        .env("LOCKBOX_AGENT_PREVENT_SLEEP", "false")
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(&agent_root))
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(&agent_root))
         .env("LOCKBOX_VAULT_DIR", &vault_root)
@@ -4807,6 +4851,8 @@ fn interactive_password_open_distinguishes_vault_and_lockbox_passwords() {
         .env_remove("LOCKBOX_PASSWORD")
         .env_remove("LOCKBOX_VAULT_PASSWORD")
         .env("LOCKBOX_PLATFORM_SECRET_STORE", "disabled")
+        .env("LOCKBOX_AGENT_TERMINATE_ON_SUSPEND", "false")
+        .env("LOCKBOX_AGENT_PREVENT_SLEEP", "false")
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(&agent_root))
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(&agent_root))
         .env("LOCKBOX_VAULT_DIR", &vault_root)
@@ -4850,18 +4896,25 @@ fn profile_only_open_never_falls_back_to_a_password_prompt() {
         .env_remove("LOCKBOX_KEY")
         .env("LOCKBOX_VAULT_PASSWORD", original_password)
         .env("LOCKBOX_PLATFORM_SECRET_STORE", "disabled")
+        .env("LOCKBOX_AGENT_TERMINATE_ON_SUSPEND", "false")
+        .env("LOCKBOX_AGENT_PREVENT_SLEEP", "false")
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(&agent_root))
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(&agent_root))
         .env("LOCKBOX_VAULT_DIR", &vault_root)
         .test_output()
         .unwrap();
-    assert_success(&init);
+    assert!(
+        init.status.success(),
+        "synthetic Vault initialization failed; recovery output suppressed"
+    );
 
     let create = Command::new(bin)
         .args([lockbox.to_str().unwrap(), "create"])
         .env_remove("LOCKBOX_KEY")
         .env("LOCKBOX_VAULT_PASSWORD", original_password)
         .env("LOCKBOX_PLATFORM_SECRET_STORE", "disabled")
+        .env("LOCKBOX_AGENT_TERMINATE_ON_SUSPEND", "false")
+        .env("LOCKBOX_AGENT_PREVENT_SLEEP", "false")
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(&agent_root))
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(&agent_root))
         .env("LOCKBOX_VAULT_DIR", &vault_root)
@@ -4874,12 +4927,17 @@ fn profile_only_open_never_falls_back_to_a_password_prompt() {
         .env_remove("LOCKBOX_KEY")
         .env("LOCKBOX_VAULT_PASSWORD", replacement_password)
         .env("LOCKBOX_PLATFORM_SECRET_STORE", "disabled")
+        .env("LOCKBOX_AGENT_TERMINATE_ON_SUSPEND", "false")
+        .env("LOCKBOX_AGENT_PREVENT_SLEEP", "false")
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(&agent_root))
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(&agent_root))
         .env("LOCKBOX_VAULT_DIR", &vault_root)
         .test_output()
         .unwrap();
-    assert_success(&replace);
+    assert!(
+        replace.status.success(),
+        "synthetic Vault initialization failed; recovery output suppressed"
+    );
 
     let mut open = Command::new(bin)
         .args([lockbox.to_str().unwrap(), "open"])
@@ -4887,6 +4945,8 @@ fn profile_only_open_never_falls_back_to_a_password_prompt() {
         .env_remove("LOCKBOX_PASSWORD")
         .env_remove("LOCKBOX_VAULT_PASSWORD")
         .env("LOCKBOX_PLATFORM_SECRET_STORE", "disabled")
+        .env("LOCKBOX_AGENT_TERMINATE_ON_SUSPEND", "false")
+        .env("LOCKBOX_AGENT_PREVENT_SLEEP", "false")
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(&agent_root))
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(&agent_root))
         .env("LOCKBOX_VAULT_DIR", &vault_root)
@@ -7261,6 +7321,8 @@ fn run_output_in_with_stdin(
         .args(args)
         .env("LOCKBOX_KEY", "test-key")
         .env("LOCKBOX_VAULT_PASSWORD", "test-vault-password")
+        .env("LOCKBOX_AGENT_TERMINATE_ON_SUSPEND", "false")
+        .env("LOCKBOX_AGENT_PREVENT_SLEEP", "false")
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(agent_root))
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(agent_root))
         .env("LOCKBOX_VAULT_DIR", vault_root)
@@ -7325,6 +7387,8 @@ fn run_output_without_lockbox_password(
     command
         .args(args)
         .env("LOCKBOX_VAULT_PASSWORD", "test-vault-password")
+        .env("LOCKBOX_AGENT_TERMINATE_ON_SUSPEND", "false")
+        .env("LOCKBOX_AGENT_PREVENT_SLEEP", "false")
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(agent_root))
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(agent_root))
         .env("LOCKBOX_VAULT_DIR", vault_root);
@@ -7364,6 +7428,8 @@ fn run_output_without_content_key_with_stdin(
         .args(args)
         .env("LOCKBOX_PASSWORD", "test-lockbox-password")
         .env("LOCKBOX_VAULT_PASSWORD", "test-vault-password")
+        .env("LOCKBOX_AGENT_TERMINATE_ON_SUSPEND", "false")
+        .env("LOCKBOX_AGENT_PREVENT_SLEEP", "false")
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(agent_root))
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(agent_root))
         .env("LOCKBOX_VAULT_DIR", vault_root)

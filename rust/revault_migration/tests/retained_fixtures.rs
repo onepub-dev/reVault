@@ -456,7 +456,8 @@ fn historical_fixtures_export_with_frozen_readers() {
 }
 
 #[test]
-fn every_retained_native_version_migrates_to_current() {
+fn retained_versions_cover_migration_or_established_owner_refusal() {
+    let mut unavailable_owners = std::collections::BTreeSet::new();
     let mut covered = std::collections::BTreeSet::new();
     for entry in fs::read_dir(root()).unwrap() {
         let dir = entry.unwrap().path();
@@ -473,8 +474,36 @@ fn every_retained_native_version_migrates_to_current() {
             )),
             "duplicate version"
         );
-        let expected: Vec<Value> =
+        let mut expected: Vec<Value> =
             serde_json::from_slice(&fs::read(dir.join("expected.json")).unwrap()).unwrap();
+        // Historical snapshots predate the owner field. Authenticate the native
+        // archive independently before supplementing only that omitted field.
+        if manifest.kind == "archive" && matches!(manifest.native_version, 2 | 3) {
+            let bytes = fs::read(dir.join("native.bin")).unwrap();
+            assert_eq!(digest(&bytes), manifest.sha256);
+            let credential = archive_v3::SecretString::try_from_slice(PASSWORD).unwrap();
+            let archive = archive_v3::Lockbox::open_bytes(
+                bytes,
+                archive_v3::LockboxOpen::Password(&credential),
+            )
+            .unwrap();
+            let owner = archive.owner_inspection().unwrap().fingerprint.unwrap();
+            let starts: Vec<_> = expected
+                .iter_mut()
+                .filter(|record| {
+                    record["artifact"] == "archive" && record["record"]["type"] == "start"
+                })
+                .collect();
+            assert_eq!(starts.len(), 1);
+            for start in starts {
+                let body = start["record"]["value"].as_object_mut().unwrap();
+                if let Some(previous) = body.get("owner_fingerprint") {
+                    assert_eq!(previous, &json!(owner));
+                } else {
+                    body.insert("owner_fingerprint".into(), json!(owner));
+                }
+            }
+        }
         assert!(!expected.is_empty());
         require_content_inventory(&manifest, &expected);
         let temp = tempfile::tempdir().unwrap();
@@ -494,7 +523,49 @@ fn every_retained_native_version_migrates_to_current() {
             verify_archive_artifact(&upgraded, ARTIFACT_PASSWORD).unwrap();
             assert_snapshot(&upgraded, &expected, &dir);
             let destination = temp.path().join("current.lbox");
-            let signer = OwnerSigningKeyPair::generate().unwrap();
+            let established = archive_owner_fingerprint(&upgraded, ARTIFACT_PASSWORD).unwrap();
+            if established.is_some() && !dir.join("PUBLIC-TEST-owner-private.bin").exists() {
+                // These immutable historical fixtures have no retained owner
+                // private key. Verify refusal, not a fictitious successful import.
+                assert!(matches!(manifest.native_version, 2 | 3));
+                let before = fs::read(&upgraded).unwrap();
+                let wrong_owner = OwnerSigningKeyPair::generate().unwrap();
+                assert_ne!(Some(wrong_owner.fingerprint().unwrap()), established);
+                let error =
+                    import_archive(&upgraded, ARTIFACT_PASSWORD, &destination, &wrong_owner)
+                        .unwrap_err();
+                assert!(matches!(error, MigrationError::InvalidHeader(ref message)
+                    if message == "the established owner's signing key is required"));
+                assert!(!destination.exists());
+                assert_eq!(fs::read(&upgraded).unwrap(), before);
+                assert_eq!(
+                    digest(&fs::read(dir.join("native.bin")).unwrap()),
+                    manifest.sha256
+                );
+                assert!(unavailable_owners.insert(manifest.native_version));
+                eprintln!("verified retained archive v{} export and owner refusal; positive migration requires original owner key", manifest.native_version);
+                continue;
+            }
+            let signer = if let Some(owner) = established.as_deref() {
+                // Deliberately PUBLIC TEST-ONLY signing identity, retained only
+                // for this synthetic immutable fixture. Never a production key.
+                let record = fs::read(dir.join("PUBLIC-TEST-owner-private.bin")).unwrap();
+                let expected_hash =
+                    fs::read_to_string(dir.join("PUBLIC-TEST-owner-private.sha256")).unwrap();
+                assert_eq!(digest(&record), expected_hash.trim());
+                let signer = OwnerSigningKeyPair::from_private_key_record(
+                    revault_lockbox_api::SecretVec::try_from_slice(&record).unwrap(),
+                )
+                .unwrap();
+                assert_eq!(
+                    signer.fingerprint().unwrap(),
+                    owner,
+                    "retain the established signing owner"
+                );
+                signer
+            } else {
+                OwnerSigningKeyPair::generate().unwrap()
+            };
             import_archive(&upgraded, ARTIFACT_PASSWORD, &destination, &signer).unwrap();
             let archive = Lockbox::open(&destination, LockboxOpen::Password(&password())).unwrap();
             assert_eq!(archive.format_version(), LOCKBOX_FORMAT_VERSION);
@@ -565,6 +636,9 @@ fn every_retained_native_version_migrates_to_current() {
             manifest.kind, manifest.native_version
         );
     }
+    assert_eq!(unavailable_owners, [2, 3].into_iter().collect());
+    // Positive known-owner v2/v3 migration is exercised separately by ordinary
+    // ephemeral fixtures; these retained originals are not counted as imports.
     // Pin known historical combinations as well as the current versions.
     // Vault structure and archive container versions advance independently.
     for required in [

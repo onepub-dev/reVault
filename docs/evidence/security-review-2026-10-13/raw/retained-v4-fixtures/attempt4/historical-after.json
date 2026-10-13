@@ -1,0 +1,23 @@
+{
+  "rust/revault_migration/tests/retained/archive-v1/expected.json": "d7c6c6ad791731320b8d2e183b5a7583adc8285f9d1ac98cf88e76d9a06cdc67",
+  "rust/revault_migration/tests/retained/archive-v1/manifest.json": "2fa8fa0ea754f0ec04a71f2b540126ffc0d0efa28913bde6eebcb44efe1b76aa",
+  "rust/revault_migration/tests/retained/archive-v1/native.bin": "ef53dea31af12311f13acc65b8487cf26a24336a7ac6c72ac162e17bb52897f9",
+  "rust/revault_migration/tests/retained/archive-v2/expected.json": "40487826ab6f3d106d06820c5d4e5056e8f0423da197db5f82fc336f617c5c40",
+  "rust/revault_migration/tests/retained/archive-v2/manifest.json": "8e97cfbf0a5688c8634eb80958abd4a29a95451c168c42e576445922e74ca1b8",
+  "rust/revault_migration/tests/retained/archive-v2/native.bin": "016d42f2911e2e2f244b543ba70ef7055964f744d94807f947c463fd2973bbf3",
+  "rust/revault_migration/tests/retained/archive-v3/expected.json": "73a044448821e138c3b968518248c84e8255bad0c8572d9f1ee986ba14fce16a",
+  "rust/revault_migration/tests/retained/archive-v3/manifest.json": "3f1a472512d777ce5802b0e46ed171a67322b3968a79b8743e3385dd80faf9c5",
+  "rust/revault_migration/tests/retained/archive-v3/native.bin": "74d54e25ada3c80d5261a7d0940a40ef377ab34d8f8ecc0c84b9e773781e941b",
+  "rust/revault_migration/tests/retained/vault-v1/expected.json": "9ce06824b19e09542d4ad8efc301d6694c84beb2269b747d1e4d14434bbcdf1b",
+  "rust/revault_migration/tests/retained/vault-v1/manifest.json": "4384751bd5374ed7ea87a27e13fa0b91c5d37f20e8478ee73476bc383c6ca424",
+  "rust/revault_migration/tests/retained/vault-v1/native.bin": "dd2eea87e6c93e6f263ea1dd949941b62954e056ca4ac6557906e3af2cd8d8bd",
+  "rust/revault_migration/tests/retained/vault-v2-container-v1/expected.json": "80de911df232b2d9294ef262c796fcaa07fc8a81fcf77f0c9834fbf8824d4996",
+  "rust/revault_migration/tests/retained/vault-v2-container-v1/manifest.json": "1428d749c93a424730672098f26020832d72794d33fb57942b44c80668c5b285",
+  "rust/revault_migration/tests/retained/vault-v2-container-v1/native.bin": "de1ad3b017681e482ffb9669f53c0267f017ee70570f65091b87df2968cd049f",
+  "rust/revault_migration/tests/retained/vault-v2/expected.json": "b7d32a4f1d8c450517c13cd71026077e2adb5463cc60ab0075e0d45126062b89",
+  "rust/revault_migration/tests/retained/vault-v2/manifest.json": "a7b158590a7909464f9eeca9e6f8f0154cf461d7f02b119dcf953085ef50da85",
+  "rust/revault_migration/tests/retained/vault-v2/native.bin": "2e071d1af7a7cb2da9dd2e6a3ae71f85e83dad24ff8a69e0ff30b951d7ae608a",
+  "rust/revault_migration/tests/retained/vault-v3/expected.json": "26d10dc29aedb73812c33ddfece304efa25b41e3b5853b60fee1670da5941815",
+  "rust/revault_migration/tests/retained/vault-v3/manifest.json": "ef0f6de408fa4e0ef3e1ecbcfecc6e9bcd75be0528805a1fd0aa49904f66a3ac",
+  "rust/revault_migration/tests/retained/vault-v3/native.bin": "1c3bd129acb93e5700216fa5f83ce9f94aa93606e2cf65d24b8e043384d918ef"
+}

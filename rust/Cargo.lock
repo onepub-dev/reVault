@@ -2364,7 +2364,7 @@ dependencies = [
  "windows-sys 0.61.2",
  "x25519-dalek 3.0.0",
  "zeroize",
- "zstd-complete 0.2.0",
+ "zstd-complete 0.3.0",
 ]
 
 [[package]]
@@ -2549,7 +2549,7 @@ dependencies = [
  "x25519-dalek 3.0.0",
  "zeroize",
  "zip",
- "zstd-complete 0.2.0",
+ "zstd-complete 0.3.0",
 ]
 
 [[package]]
@@ -4337,7 +4337,9 @@ dependencies = [
 
 [[package]]
 name = "zstd-complete"
-version = "0.2.0"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "acce3e08f5aa28b5dc1738f46c3a8a65e0daa28dca2dae579cc48bc398958e9d"
 dependencies = [
  "twox-hash",
 ]

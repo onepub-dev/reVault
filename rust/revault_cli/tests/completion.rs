@@ -261,7 +261,27 @@ fn completion_generate_and_explicit_path_cover_all_commands_for_every_shell() {
 
 #[test]
 fn bash_completion_sources_and_registers_all_four_commands() {
-    if Command::new("bash").arg("--version").output().is_err() {
+    // Windows PATH may contain a WSL launcher without an installed distro.
+    let bash = std::env::var_os("REVAULT_TEST_BASH")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| {
+            if cfg!(windows) {
+                PathBuf::from(r"C:\Program Files\Git\bin\bash.exe")
+            } else {
+                PathBuf::from("bash")
+            }
+        });
+    if !Command::new(&bash)
+        .arg("--version")
+        .output()
+        .is_ok_and(|out| out.status.success())
+    {
+        assert!(
+            std::env::var_os("CI").is_none(),
+            "required Bash executable unavailable: {}",
+            bash.display()
+        );
+        eprintln!("Bash completion was not exercised: no working Bash executable");
         return;
     }
 
@@ -276,7 +296,7 @@ fn bash_completion_sources_and_registers_all_four_commands() {
     assert!(installed.status.success(), "{installed:?}");
 
     let path = path.to_string_lossy().into_owned();
-    let registrations = Command::new("bash")
+    let registrations = Command::new(&bash)
         .args([
             "-c",
             "source \"$1\" && complete -p lockbox && complete -p lbx && complete -p lbxv && complete -p lbxx",

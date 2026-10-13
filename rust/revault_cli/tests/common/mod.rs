@@ -169,6 +169,7 @@ pub fn agent_socket_dir(root: &Path) -> PathBuf {
 /// Owns only a test's private agent namespace and optional synthetic Vault.
 /// Install before initialization so assertion failures also stop the agent.
 pub struct TestAgentGuard {
+    binary: PathBuf,
     agent: PathBuf,
     vault: Option<PathBuf>,
 }
@@ -177,6 +178,10 @@ impl TestAgentGuard {
     pub fn new(agent: &Path, vault: Option<&Path>) -> Self {
         eprintln!("Owned test agent namespace: {}", agent.display());
         Self {
+            binary: std::env::var_os("REVAULT_HEADLESS_CLI")
+                .or_else(|| option_env!("CARGO_BIN_EXE_lockbox").map(Into::into))
+                .map(PathBuf::from)
+                .expect("owned agent cleanup requires the supplied installed or Cargo test CLI"),
             agent: agent.to_owned(),
             vault: vault.map(Path::to_owned),
         }
@@ -185,7 +190,7 @@ impl TestAgentGuard {
     fn cleanup(&self) -> std::io::Result<()> {
         use std::process::{Command, Stdio};
         use std::time::{Duration, Instant};
-        let mut command = Command::new(env!("CARGO_BIN_EXE_lockbox"));
+        let mut command = Command::new(&self.binary);
         command
             .args(["session", "stop"])
             .env("LOCKBOX_SESSION_AGENT_DIR", &self.agent)

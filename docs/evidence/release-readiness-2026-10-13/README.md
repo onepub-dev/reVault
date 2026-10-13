@@ -1,10 +1,10 @@
 # Release preparation — 2026-10-13
 
-Status: in progress; no release-ready claim or publication authorization.
+Status: in progress; no release-ready claim. Brett has authorized completing preparation and then releasing reVault 0.5 once the required gates pass. The separately approved corrected Zstd dependency is published.
 
 Brett requested preparation for release after accepting the current performance checkpoint. Performance experiments remain paused. The working scope is the current default format-4 implementation on `issue-310-zip-read-performance`, for compatibility line `0.5.x`, under the release-preparation instruction. Alternative archive layouts remain experimental and are not activated by this work. Published baseline checked on GitHub: CLI `0.4.1` and bindings `0.4.1`.
 
-The candidate is not yet frozen: `cc2909a0` is the last committed performance checkpoint, followed by uncommitted security remediation. Final evidence must identify the actual committed candidate, features, toolchain and artifacts. Earlier checks cannot qualify later edits. Preserve the unrelated dirty main checkout.
+The security checkpoint is committed as `788d4a03`, followed by the workflow-only interoperability correction `99f31937`. Final dependency routing and approved retained-fixture qualification are in progress, so the final release candidate is not yet frozen. Final evidence must identify the actual committed candidate, features, toolchain and artifacts. Earlier checks cannot qualify later edits. Preserve the unrelated dirty main checkout.
 
 ## Required work and evidence
 
@@ -13,13 +13,13 @@ The candidate is not yet frozen: `cc2909a0` is the last committed performance ch
 | Security remediation | Active review covers private extraction, agent transport/process identity, secret lifetimes, codec ownership and password derivation budgets. | Resolve confirmed findings, review changes, run focused validators and ordinary persisted lifecycles; retain limitations and failed attempts. |
 | Default runtime integration | Current default/native library suites and ordinary package targets pass at recorded epochs; subsequent narrow fixes have focused qualification. | Complete current-source API, Vault, CLI, migration and relevant feature suites with exact counts and ignored-test accounting. |
 | Binding consistency | Additive policy/budget/alias mappings, parity and recorded carrier/package lifecycles pass; platform and final dependency routing remain open. | Binding declaration/parity checks plus persisted CLI-to-binding and binding-to-CLI round trips. |
-| Migration fixtures | Source inventory lacks archive format 4 and Vault structure 3/container 4, both required by retained fixture assertions. | Add only the new generators and immutable fixtures with producing source/version provenance; run the entire retained matrix and subsequent mutation checks. Never regenerate historical fixtures to pass. |
+| Migration fixtures | Approved new archive-4 and Vault-3/container-4 fixtures are generated; all 21 historical files remain unchanged. The corrected retained suite passes with explicit authenticated export/refusal coverage for immutable signed v2/v3 originals; separate known-owner v2/v3 positive migration tests pass. | Add only the new generators and immutable fixtures with producing source/version provenance; run the entire retained matrix and subsequent mutation checks. Never regenerate historical fixtures to pass. |
 | Compatibility contract | No stable 0.5 release appears in the checked release list; 0.4 is format 3. | Validate migration from supported historical formats, documented read support, matching CLI/binding archive exchange and persisted Vault compatibility. Do not claim old 0.4 readers can read format 4. |
-| Compression dependency packaging | Workspace uses a patched vendored `zstd-complete`; patches do not propagate to independently published Cargo consumers. | Establish corrected distributable dependency route and validate isolated packaged consumers. Local workspace success is insufficient. Dependency publication requires separate authorization. |
+| Compression dependency packaging | Approved `zstd-complete 0.3.0` is published with the exact reviewed checksum; workspace, Rust facade and fuzz locks now use the registry route. Fresh registry-only consumer tests pass 2/2 and the protected ABI lifecycle passes 1/1. | Preserve exact artifact and resolution evidence; complete final packaged binding checks. |
 | Supported platforms | Linux focused tests and Windows library cross-checks provide partial evidence only. | Actual supported Windows/macOS runtime CI, native package/install lifecycles, permission/agent tests and portable WASM checks on the final candidate. Address platform behavior regressions before readiness. |
 | Dependencies and quality | Rustls advisory update passed an earlier audit; later dependencies/features changed. | Final locked dependency audit, required lint/static checks, formatting through tracked hook and appropriate post-format verification. |
-| Candidate preparation | No final source/artifact identity exists yet. | Commit and push isolated work, run reviewed prepare-only release workflow, retain package hashes and install/conformance results. Do not invoke publish, create release tags or deploy. |
-| Documentation | Existing plan contains historical failures and experimental architecture gates. | Reconcile current release scope, format contract, migration/support matrix, release notes and known limitations against evidence. Preserve historical reports unchanged. |
+| Candidate preparation | No final source/artifact identity exists yet. | Commit and push isolated work, run reviewed prepare-only release workflow, retain package hashes and install/conformance results. Promote only the successfully qualified immutable candidate through the authorized release workflow. |
+| Documentation | Existing plan contains historical failures and experimental architecture gates. The reviewed selected-default v4 wire specification and conformance index are now installed in ARCHIVE_FORMAT.md; experimental layouts remain excluded. | Reconcile current release scope, format contract, migration/support matrix, release notes and known limitations against evidence. Preserve historical reports unchanged. |
 
 ## Performance claims
 
@@ -27,10 +27,30 @@ The accepted checkpoint is a limited four-cohort plaintext extraction result, no
 
 ## Publication boundary
 
-Local release builds, tests and nonpublishing candidate preparation are authorized. Publishing packages, release tags or production deployments requires explicit user authorization after a concrete candidate is ready to review.
+Brett explicitly authorized completing release preparation and then releasing reVault 0.5. That authorization does not waive failing gates: candidate preparation and qualification come first, followed by promotion of the verified immutable artifacts. Performance optimization remains paused.
 
 The active remediation record is the [security review](../security-review-2026-10-12/README.md); the [archive-v4 plan](../../archive_v4_plan.md) retains historical performance and integration evidence. Release preparation must selectively port the reviewed release-infrastructure corrections from main without replacing format-4 runtime sources or touching unrelated main-checkout work.
 ## Current preparation checkpoint
+
+The user confirmed current format 4 for the 0.5 line and separately approved
+both the corrected dependency publication and durable, clearly marked public
+test-only signing material for the new immutable fixture. `zstd-complete 0.3.0`
+was published successfully; an independent registry download matches the exact
+approved SHA-256 `acce3e08f5aa28b5dc1738f46c3a8a65e0daa28dca2dae579cc48bc398958e9d`.
+The withdrawn 0.2.1 artifact was not published. See [publication evidence](raw/published-codec/result.json).
+Direct registry dependency/standalone consumer checks and fresh retained-fixture
+qualification remain in progress; no reVault package is published.
+
+All four explicitly selected mandatory compression regression tests passed once
+at the post-hook runtime checkpoint. The subsequent resource preflight has not
+run: it will be re-frozen on the final registry-routed CLI after remaining fixes.
+The exact-current-writer endian workflow passed all six jobs after binding fixture
+cache keys to the producer commit. The first run's cached format-4 artifact had
+unknown producer provenance and failed opening; that evidence remains preserved.
+IPC smoke failed before Vault initialization on Linux/macOS, while Windows passed;
+an explicit headless test precondition is queued/applied for focused validation,
+without treating the status-only failure as proof of a particular OS cause.
+
 
 The codec ownership correction is implemented and focused-qualified. Borrowed
 workspace storage is now fixed-capacity with pre-mutation admission and explicit
@@ -129,18 +149,14 @@ and logs because limited marker checks did not establish absence of synthetic
 credentials; no such raw copy executed. The original owned evidence remains
 outside the repository. This limitation is explicit, not a claim of transcript
 erasure. No publication or full-platform/final-candidate acceptance is implied.
-Retained-fixture generation and its signed-v4 matrix remain permission-held.
-Four scheduled compression regression checks remain for quiet-host validation;
-fixture-maintenance writers and external crash corpora are not enabled.
+The two explicitly approved current-format fixture generators completed; historical files remained unchanged. The corrected retained matrix passes with immutable historical export/refusal distinguished from separate positive known-owner migration. All four scheduled compression regression checks passed at their recorded pre-routing source epoch. External crash corpora and unrelated fixture-maintenance writers remain excluded.
 
 Both required Clippy scopes passed in the isolated Rust 1.88 snapshot with
 warnings denied: production workspace and bindings/tooling/WASM wrappers.
 The final CLI all-target lint also passed after fixture cleanup and logging fixes.
 Workspace rustdoc passed with warnings denied and all features, documenting the
 two historical duplicate-name readers separately without dropping any selected
-package. Original output-collision failures remain recorded. The standalone Rust
-facade documentation command is blocked before compilation by its stale lockfile
-under `--locked`; corrected registry dependency routing remains a release blocker.
+package. Original output-collision failures remain recorded. The earlier standalone Rust facade documentation attempt was blocked by its stale lockfile. Registry routing and that lockfile are now corrected; its final static/package qualification remains separately tracked.
 The reviewed 17 source files and workflow were transferred byte-for-byte only
 after native-library completion, with exact preimage checks and preserved
 [consolidation evidence](../security-review-2026-10-13/raw/post-native-consolidation/).
@@ -202,22 +218,16 @@ dependencies, zero advisories and no warnings. The database revision is
 Any later dependency-routing change requires its own applicable audit.
 
 The old Zstd 0.2.1 proposal is withdrawn. The replacement is a source-incompatible
-0.3.0 proposal with public API notes included in its package. Selected packaged
+0.3.0 release with public API notes included in its package. Selected packaged
 qualification passed 777 library, 14 workspace and six documentation tests, with
 explicit exclusions recorded. A mismatched ordinary fixture assertion was corrected
 and passed separately; exact-package consumers passed. Final prose-only packaging
 preserves those runtime/test/dependency identities. Rust 1.87 library compilation
 passes. Final artifact SHA-256 is
 `acce3e08f5aa28b5dc1738f46c3a8a65e0daa28dca2dae579cc48bc398958e9d`.
-This is not an unfiltered package-suite or complete caller-integration claim, and
-no publication is authorized.
+This is not an unfiltered package-suite claim. The exact artifact was explicitly approved, published, and independently downloaded with the same checksum. Fresh registry-only consumer tests pass 2/2; the protected ABI lifecycle passes 1/1. All three current lockfile advisory audits report zero vulnerabilities and warnings.
 
-The retained v4 fixture still needs permission for durable, clearly public
-synthetic signing material. Automatic approval review rejected that action; it
-remains on hold. Historical fixtures and their hashes remain unchanged. Do not
-substitute another key-storage route. Final migration, platform CI, dependency
-routing and release resource gates remain outstanding. Performance
-optimization stays paused; no release or deployment is authorized.
+The earlier retained-key action was rejected by automatic approval review and held. Brett subsequently explicitly approved clearly public test-only signing material for the new immutable v4 fixture. Generation has completed with all 21 historical files unchanged; the corrected retained matrix and separate known-owner v2/v3 lifecycles pass. Final candidate platform/package CI, inter-version compatibility and release resource gates remain outstanding. Performance optimization stays paused; release is authorized only after qualification.
 
 ## Mandatory final resource verification inventory
 
@@ -230,7 +240,7 @@ failed gate remains a release blocker; performance optimization stays paused.
 | --- | --- |
 | G11 plaintext read/write versus ZIP; protected read/write versus PGP; 100 MB total CLI RSS | Still requires current-candidate qualification. Compression-only ZIP is not the protected PGP control, and helper-excluded process RSS is not total CLI memory. |
 | Realistic primary corpus | Disk-backed 1 GiB single-file and 10,000 files of 64 KiB (625 MiB), including build and independent reopen/extraction; preserve compression/security distinctions. |
-| Primary comparison statistics | The plan specifies 30 paired observations plus three warm-up pairs, alternating order, paired log ratios and 10,000 fixed-seed bootstrap draws; A3 upper 95% bound at most 1.00 and protected A4 guard at most 1.05. Freeze exact applicable controls before execution. |
+| Primary comparison statistics | The plan specifies 30 paired observations plus three warm-up pairs, alternating order, paired log ratios and 10,000 fixed-seed bootstrap draws; A3 upper 95% bound at most 1.00; A4 upper bound at most 1.05 against candidate A with matched policies. A4 is not an established PGP comparison threshold. Freeze exact applicable controls before execution. |
 | Existing public ZIP and protected-ZIP screens | Three measured repetitions per group are descriptive only. Protected ZIP comparisons deliberately have unequal protection; neither establishes the PGP gate. |
 | Existing helper-memory and many-file screens | Eight and 16 descriptive operations respectively; earlier helper inventory limitations remain explicit. They predate security changes and do not qualify this candidate. |
 | Accepted four-cohort extraction experiment | Its 112 operations use 12 measured pairs per cohort and retention-specific gates. It does not replace the final ZIP/PGP or complete workload matrix. |
@@ -270,13 +280,45 @@ unchanged during both captures. See `raw/vault-cli-integration/` and
 
 The previously tested Zstd 0.2.1 attempt-5 artifact is **not qualified for
 publication**: its isolated tests did not establish caller integration safety.
-Any pending publication approval is suspended until a corrected replacement
-artifact is reviewed and qualified. The published 0.2.0 public `ReusableVec`
-exposes mutable Vec behavior, so a safe replacement may require a new dependency
-compatibility version. No replacement version or artifact is approved yet.
+At that time, pending approval was suspended until a corrected replacement was qualified. Published 0.2.0 exposed mutable `ReusableVec` behavior, requiring a new dependency compatibility version. The subsequently corrected and explicitly approved 0.3.0 publication is recorded in the current checkpoint above; 0.2.1 remains withdrawn.
 All original package and integration results remain preserved.
 
 At that checkpoint, source publication, platform CI and resource measurements were
 held until focused normal/property validation of the ownership correction. Performance
-optimization remains paused. This result supersedes earlier pending/pass-only
-checkpoint descriptions; it is not a release-ready conclusion.
+optimization remains paused. This historical result superseded the then-current pass-only descriptions; later corrected-source results are recorded above. It is not a release-ready conclusion.
+
+## Registry and platform-correction checkpoint
+
+Published Zstd 0.3.0 is now resolved from the registry by the workspace, standalone
+Rust facade and fuzz lockfiles. All three advisory audits pass with no warnings;
+the fresh registry-only codec consumer passes 2 tests and the protected ABI
+lifecycle passes 1. Standalone facade rustdoc passes with warnings denied. Its
+current source version is still pre-candidate; these results do not qualify the
+future version-staged 0.5 package.
+
+The focused platform-fixture tranche passes 8 password/access CLI tests, 8
+completion tests, 3 page-reclamation tests and 2 Linux headless tests. The Unix
+transport tranche passes 10 tests and Vault library Clippy. Android compilation
+and actual Windows/macOS behavior remain CI requirements; operation-only error
+context has been added to diagnose the unresolved macOS Unicode initialization
+error without logging endpoints or credentials. Error kinds are preserved; raw
+OS codes remain in display text but are no longer returned by raw_os_error for
+wrapped transport errors.
+
+Wire-spec review identified two further form defects: collection capacity was
+not admitted against remaining bytes, and u16 string lengths could truncate.
+Both are corrected without changing previously valid encodings. Two ordinary
+admission validators, three persisted form lifecycles and API library Clippy pass.
+
+Approved current fixtures were generated with reconstructable producer-source
+evidence and all 21 historical files unchanged. The retained suite passes 3
+tests with its maintenance writer ignored; separate known-owner v2 and v3
+migration lifecycles each pass. Historical originals whose owner key was never
+retained are explicitly export/refusal evidence, not fictitious successful
+imports or permission to replace an established owner.
+
+See the [curated correction summary](raw/platform-corrections/summary.json).
+Original failed attempts and source/artifact manifests remain in owned evidence
+storage. Raw credential-bearing fixture output is not copied into this summary.
+Final platform, package, wire-documentation and resource gates still precede
+release promotion.

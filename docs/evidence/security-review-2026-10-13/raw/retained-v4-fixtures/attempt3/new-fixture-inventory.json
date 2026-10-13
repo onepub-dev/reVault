@@ -1,0 +1,51 @@
+{
+  "archive-v4": [
+    {
+      "path": "PUBLIC-TEST-KEY.txt",
+      "bytes": 182,
+      "sha256": "832f76a6549afa30a3a84aa67fcd2a76111f187e4a5c51530eb8594480fe4b4b"
+    },
+    {
+      "path": "PUBLIC-TEST-owner-private.bin",
+      "bytes": 80,
+      "sha256": "33821d2e42f9d5896275a388ad03d0530640834fc49244d342be369f7b422b3b"
+    },
+    {
+      "path": "PUBLIC-TEST-owner-private.sha256",
+      "bytes": 64,
+      "sha256": "0a6c7b5ea525450cd7cf3d9d51b6411b5a1591338384c8db10bf491e167f4894"
+    },
+    {
+      "path": "expected.json",
+      "bytes": 13562,
+      "sha256": "798adaf1e729ab2b735baab53256ae09549874ef953c6e40e26934a10e8a1db1"
+    },
+    {
+      "path": "manifest.json",
+      "bytes": 889,
+      "sha256": "9eccd4d9a3a10a0cabeb76ee6fb7754e58833154f8115f2b7da84ab6f9c2c9cb"
+    },
+    {
+      "path": "native.bin",
+      "bytes": 1359232,
+      "sha256": "3464c6aa66e77ec6a9b61ce0a0b04b8242548fc624fcadae53106f5fd6307773"
+    }
+  ],
+  "vault-v3-container-v4": [
+    {
+      "path": "expected.json",
+      "bytes": 11949,
+      "sha256": "5f45f36ce1978eecea720f6dace0e85719c407a51dc45346646af468f671d9be"
+    },
+    {
+      "path": "manifest.json",
+      "bytes": 720,
+      "sha256": "77f3926fdefd6f59aa6746bb3433adcb37888422e8631cfec393825651d11597"
+    },
+    {
+      "path": "native.bin",
+      "bytes": 1581440,
+      "sha256": "51f40bf00359b2a21cf790de8c961a82cbdf0b7765b9068992f12985bf6d9988"
+    }
+  ]
+}

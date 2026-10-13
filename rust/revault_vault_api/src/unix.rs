@@ -315,7 +315,10 @@ fn request_started_agent(message: &SecretVec) -> io::Result<AgentResponse> {
     message
         .with_bytes(|message| stream.write_all(message))
         .map_err(io::Error::other)??;
-    stream.stream.shutdown(std::net::Shutdown::Write)?;
+    stream
+        .stream
+        .shutdown(std::net::Shutdown::Write)
+        .map_err(|e| transport_context("request write shutdown", e))?;
     parse_response(read_secure_frame(stream, max_message_bytes())?)
 }
 
@@ -323,7 +326,10 @@ fn request_control(message: &[u8]) -> io::Result<ControlResponse> {
     ensure_agent()?;
     let mut stream = DeadlineStream::new(connect_started_agent()?);
     stream.write_all(message)?;
-    stream.stream.shutdown(std::net::Shutdown::Write)?;
+    stream
+        .stream
+        .shutdown(std::net::Shutdown::Write)
+        .map_err(|e| transport_context("request write shutdown", e))?;
     parse_control_response(&read_plain_frame(stream, max_message_bytes())?)
 }
 
@@ -340,10 +346,20 @@ fn connect_started_agent() -> io::Result<UnixStream> {
     })
 }
 
+// Operation names contain no endpoint, credential or message data. Preserve
+// ErrorKind because retry/refusal logic uses it; retain the OS error in Display.
+fn transport_context(operation: &'static str, error: io::Error) -> io::Error {
+    io::Error::new(error.kind(), format!("Session Agent {operation}: {error}"))
+}
+
 fn connect_socket() -> io::Result<UnixStream> {
-    let address = socket2::SockAddr::unix(socket_path())?;
-    let socket = socket2::Socket::new(socket2::Domain::UNIX, socket2::Type::STREAM, None)?;
-    socket.connect_timeout(&address, Duration::from_secs(3))?;
+    let address = socket2::SockAddr::unix(socket_path())
+        .map_err(|e| transport_context("socket address", e))?;
+    let socket = socket2::Socket::new(socket2::Domain::UNIX, socket2::Type::STREAM, None)
+        .map_err(|e| transport_context("socket creation", e))?;
+    socket
+        .connect_timeout(&address, Duration::from_secs(3))
+        .map_err(|e| transport_context("connect", e))?;
     let descriptor: std::os::fd::OwnedFd = socket.into();
     Ok(descriptor.into())
 }
@@ -812,15 +828,23 @@ impl DeadlineStream {
 
 impl Read for DeadlineStream {
     fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
-        self.stream.set_read_timeout(Some(self.remaining()?))?;
-        self.stream.read(buffer)
+        self.stream
+            .set_read_timeout(Some(self.remaining()?))
+            .map_err(|e| transport_context("read deadline", e))?;
+        self.stream
+            .read(buffer)
+            .map_err(|e| transport_context("read", e))
     }
 }
 
 impl Write for DeadlineStream {
     fn write(&mut self, buffer: &[u8]) -> io::Result<usize> {
-        self.stream.set_write_timeout(Some(self.remaining()?))?;
-        self.stream.write(buffer)
+        self.stream
+            .set_write_timeout(Some(self.remaining()?))
+            .map_err(|e| transport_context("write deadline", e))?;
+        self.stream
+            .write(buffer)
+            .map_err(|e| transport_context("write", e))
     }
 
     fn flush(&mut self) -> io::Result<()> {

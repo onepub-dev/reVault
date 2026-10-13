@@ -1,0 +1,64 @@
+{
+  "head": "99f319371e31ac2ee368bdf5d957ad3798d0c68f",
+  "source_manifest_sha256_before": "848305d6e5d05eaafbcdbbacba93b365547b5adbac14c4a2cc9b1fbc6c41348c",
+  "source_manifest_sha256_after": "848305d6e5d05eaafbcdbbacba93b365547b5adbac14c4a2cc9b1fbc6c41348c",
+  "source_inputs_unchanged": true,
+  "cargo_lock_sha256_before": "db2431e009af9501eebbc9c3e20963348d7d87ce45488d3a93d42af956fcf00e",
+  "cargo_lock_sha256_after": "db2431e009af9501eebbc9c3e20963348d7d87ce45488d3a93d42af956fcf00e",
+  "results": {
+    "compile": {
+      "exit": 0,
+      "wall_seconds": 41.937,
+      "counts": null
+    },
+    "wire_admission_tests": {
+      "exit": 0,
+      "wall_seconds": 0.163,
+      "counts": {
+        "passed": 2,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered": 729
+      }
+    },
+    "form_lifecycle_1": {
+      "exit": 0,
+      "wall_seconds": 1.738,
+      "counts": {
+        "passed": 1,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered": 3
+      }
+    },
+    "form_lifecycle_2": {
+      "exit": 0,
+      "wall_seconds": 0.768,
+      "counts": {
+        "passed": 1,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered": 3
+      }
+    },
+    "form_lifecycle_3": {
+      "exit": 0,
+      "wall_seconds": 1.351,
+      "counts": {
+        "passed": 1,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered": 3
+      }
+    },
+    "api_clippy": {
+      "exit": 0,
+      "wall_seconds": 4.068,
+      "counts": null
+    }
+  }
+}

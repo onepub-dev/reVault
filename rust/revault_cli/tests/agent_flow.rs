@@ -403,8 +403,12 @@ fn run_output(bin: &str, agent_dir: &PathBuf, vault_dir: &PathBuf, args: &[&str]
 
 fn command(bin: &str, agent_dir: &PathBuf, vault_dir: &PathBuf, args: &[&str]) -> Command {
     let mut command = Command::new(bin);
+    // This fixture verifies IPC/cache behavior on headless CI. Suspend
+    // capability admission and refusal are covered separately by headless.rs.
     command
         .args(args)
+        .env("LOCKBOX_AGENT_TERMINATE_ON_SUSPEND", "false")
+        .env("LOCKBOX_AGENT_PREVENT_SLEEP", "false")
         .env("LOCKBOX_PASSWORD", "test-password")
         .env("LOCKBOX_VAULT_PASSWORD", "test-vault-password")
         .env("LOCKBOX_PLATFORM_SECRET_STORE", "disabled")

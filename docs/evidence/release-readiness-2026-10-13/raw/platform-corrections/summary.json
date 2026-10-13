@@ -1,0 +1,52 @@
+{
+  "base_head": "99f319371e31ac2ee368bdf5d957ad3798d0c68f",
+  "scope": "Uncommitted reviewed correction batch; exact test epochs retained separately. No final release qualification claim.",
+  "dependency": {
+    "version": "zstd-complete 0.3.0",
+    "registry_checksum": "acce3e08f5aa28b5dc1738f46c3a8a65e0daa28dca2dae579cc48bc398958e9d",
+    "published_exact_approved_artifact": true,
+    "registry_consumer_tests": 2,
+    "protected_abi_lifecycle_tests": 1,
+    "advisory_audits": {
+      "workspace": 423,
+      "rust_facade": 246,
+      "fuzz": 125,
+      "vulnerabilities": 0,
+      "warnings": 0
+    }
+  },
+  "focused_cli": {
+    "password_access": 8,
+    "completion": 8,
+    "page_reclamation": 3,
+    "linux_headless": 2,
+    "failures": 0,
+    "selected_ignored": 0
+  },
+  "agent_transport": {
+    "unix_tests": 10,
+    "vault_library_clippy": "passed",
+    "macos_einval": "unresolved; operation-only error context added; actual CI required",
+    "android": "target unavailable locally; CI required"
+  },
+  "forms": {
+    "admission_validators": 2,
+    "public_persisted_lifecycles": 3,
+    "api_library_clippy": "passed",
+    "scope": "Bound count-driven allocation and reject unrepresentable u16 strings before write; no valid wire change."
+  },
+  "migration": {
+    "retained_tests_passed": 3,
+    "retained_maintenance_ignored": 1,
+    "known_owner_v2": 1,
+    "known_owner_v3": 1,
+    "historical_files_unchanged": 21,
+    "scope": "Immutable v2/v3 originals cover authenticated export and owner refusal; separate known-owner cases cover successful migration. Current v4 fixture covers import/mutation."
+  },
+  "remaining": [
+    "Actual platform CI for narrow corrections",
+    "Final installed binding/package matrix and extracted Rust consumer lifecycle",
+    "Final candidate source/version freeze",
+    "Mandatory resource/statistical acceptance; optimization paused"
+  ]
+}

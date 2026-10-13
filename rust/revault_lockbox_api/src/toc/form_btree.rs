@@ -310,7 +310,7 @@ fn decode_form_leaf_metadata(payload: &[u8]) -> Result<ParsedFormNode> {
         return Err(Error::CorruptRecord);
     }
     let mut reader = FormNodeReader::new(&payload[FORM_NODE_PREFIX_BYTES..]);
-    let count = reader.u32()? as usize;
+    let count = reader.count(3)?;
     let mut entries = Vec::with_capacity(count);
     for _ in 0..count {
         let key = reader.string()?;
@@ -390,7 +390,7 @@ fn decode_definition(reader: &mut FormNodeReader<'_>) -> Result<FormDefinition> 
     } else {
         String::new()
     };
-    let count = reader.u32()? as usize;
+    let count = reader.count(6)?;
     let mut fields = Vec::with_capacity(count);
     for _ in 0..count {
         fields.push(FormFieldDefinition {
@@ -450,7 +450,7 @@ fn decode_record(reader: &mut FormNodeReader<'_>) -> Result<ParsedFormRecord> {
     if definition_revision == 0 {
         return Err(Error::CorruptRecord);
     }
-    let count = reader.u32()? as usize;
+    let count = reader.count(8)?;
     let mut values = Vec::with_capacity(count);
     for _ in 0..count {
         let field_id = FormFieldDefinition::validated_id(&reader.string()?)?;
@@ -500,7 +500,10 @@ fn validate_form_tree_key(key: &str) -> Result<()> {
 }
 
 fn put_string_secure(out: &mut SecureVec, value: &str) -> Result<()> {
-    out.try_extend_from_slice(&(value.len() as u16).to_le_bytes())?;
+    let len = u16::try_from(value.len()).map_err(|_| {
+        Error::InvalidInput("form string exceeds the 65535-byte wire limit".to_string())
+    })?;
+    out.try_extend_from_slice(&len.to_le_bytes())?;
     out.try_extend_from_slice(value.as_bytes())?;
     Ok(())
 }
@@ -571,6 +574,16 @@ struct FormNodeReader<'a> {
 impl<'a> FormNodeReader<'a> {
     fn new(bytes: &'a [u8]) -> Self {
         Self { bytes, offset: 0 }
+    }
+
+    // Admit collection capacity from the bytes still available, before reserving.
+    // The minima include only fixed prefixes; later parsing validates all values.
+    fn count(&mut self, minimum_entry_bytes: usize) -> Result<usize> {
+        let count = self.u32()? as usize;
+        if count > (self.bytes.len() - self.offset) / minimum_entry_bytes {
+            return Err(Error::CorruptRecord);
+        }
+        Ok(count)
     }
 
     fn u8(&mut self) -> Result<u8> {
@@ -645,5 +658,53 @@ impl<'a> FormNodeReader<'a> {
         } else {
             Err(Error::CorruptRecord)
         }
+    }
+}
+
+#[cfg(test)]
+mod wire_admission_tests {
+    use super::*;
+
+    #[test]
+    fn collection_admission_matches_remaining_fixed_prefixes() {
+        for minimum in [3, 6, 8] {
+            let mut bytes = 2u32.to_le_bytes().to_vec();
+            bytes.resize(4 + 2 * minimum, 0);
+            assert_eq!(FormNodeReader::new(&bytes).count(minimum).unwrap(), 2);
+            bytes.pop();
+            assert!(matches!(
+                FormNodeReader::new(&bytes).count(minimum),
+                Err(Error::CorruptRecord)
+            ));
+            assert_eq!(
+                FormNodeReader::new(&0u32.to_le_bytes())
+                    .count(minimum)
+                    .unwrap(),
+                0
+            );
+        }
+    }
+
+    #[test]
+    fn string_wire_limit_is_checked_before_output_mutation() {
+        let mut output = SecureVec::new();
+        output.try_extend_from_slice(b"prefix").unwrap();
+        let oversized = "x".repeat(usize::from(u16::MAX) + 1);
+        assert!(matches!(
+            put_string_secure(&mut output, &oversized),
+            Err(Error::InvalidInput(_))
+        ));
+        output
+            .with_bytes(|bytes| assert_eq!(bytes, b"prefix"))
+            .unwrap();
+        let boundary = "x".repeat(usize::from(u16::MAX));
+        put_string_secure(&mut output, &boundary).unwrap();
+        output
+            .with_bytes(|bytes| {
+                let mut reader = FormNodeReader::new(&bytes[6..]);
+                assert_eq!(reader.string().unwrap(), boundary);
+                reader.done().unwrap();
+            })
+            .unwrap();
     }
 }

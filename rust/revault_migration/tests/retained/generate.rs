@@ -66,8 +66,22 @@ fn retain(kind: &str, version: u32, writer: &str, bytes: &[u8], coverage: &[&str
     );
 }
 
+// Public synthetic fixture material explicitly approved for durable retention.
+// Historical fixtures remain unchanged; this key must never protect real data.
+macro_rules! retain_fixture_owner {
+    (4, $signer:ident) => {
+        $signer.private_key_record().unwrap().with_bytes(|bytes| {
+            let dir = root().join("archive-v4");
+            write_new(&dir.join("PUBLIC-TEST-owner-private.bin"), bytes);
+            write_new(&dir.join("PUBLIC-TEST-owner-private.sha256"), digest(bytes).as_bytes());
+            write_new(&dir.join("PUBLIC-TEST-KEY.txt"), b"PUBLIC TEST-ONLY signing key for this synthetic immutable format-4 fixture. Anyone may know this key. Never use it for production, personal data, authentication, or another fixture.\n");
+        }).unwrap();
+    };
+    ($other:tt, $signer:ident) => {};
+}
+
 macro_rules! archive_generator {
-    ($function:ident, $api:ident, $version:expr, $writer:expr $(, $strict:expr)?) => {
+    ($function:ident, $api:ident, $version:tt, $writer:expr $(, $strict:expr)?) => {
         fn $function() {
             use $api as api;
             let password = api::SecretString::try_from_slice(PASSWORD).unwrap();
@@ -138,6 +152,7 @@ macro_rules! archive_generator {
                 "form-revisions", "all-eight-field-kinds", "empty-form", "mirror-remove", "mirror-retain",
                 "mirror-rules-and-identity", "password-and-contact-access", "committed-replacement-and-deletion",
             ]);
+            retain_fixture_owner!($version, signer);
         }
     }
 }
