@@ -1,6 +1,6 @@
 # In-place owned-page decryption — 2026-10-14
 
-Status: 53 focused tests and all-target Clippy pass; resource qualification pending.
+Status: 53 focused tests, all-target Clippy and the fixed two-mode resource screen pass. Full release qualification remains pending.
 The [prior owned-page correction](../owned-page-memory-2026-10-14/README.md) passed
 its plaintext 10,000-file screen with a conditional CLI-plus-helper bound of
 93,937,664 bytes. The encrypted owner-signed case stopped at extraction: CLI RSS
@@ -30,5 +30,19 @@ Crypto 2, page 18, buffer 3, cache 20 and extraction 10 tests pass, as does all-
 Clippy with warnings denied. Input manifests match before and after validation.
 
 [Sanitized results](results.json) preserve the exact prior failure and focused
-scope. Fresh uninstrumented checkpoint resource qualification is still required,
-followed by immutable candidate/platform/mutation-fuzz and remaining release gates.
+scope. The fresh uninstrumented checkpoint `4bca4fa3f280` then passed the same
+two-mode screen, once per mode, with 10,000 files, four workers and unchanged
+100,000,000-byte admission. Both public lifecycles independently verified persisted
+bytes and modes, stopped their owned helper and removed private state. Source and
+binary identity checks passed afterward.
+
+The plaintext CLI peak was 84,877,312 bytes and its conditional CLI-plus-helper
+upper bound was 93,962,240 bytes. The encrypted owner-signed CLI peak was
+87,568,384 bytes and its bound was 96,677,888 bytes. Setup and control commands are
+included. These are bounded workload results, not a universal memory guarantee or
+a statistical comparison. [Sanitized resource evidence](resource-screen.json)
+records identities and scope. All earlier failed attempts remain unchanged.
+
+An immutable replacement candidate, required platform/binding validation, a fresh
+explicit mutation-fuzz run, and the remaining fixed comparison gates are still
+required before publication.

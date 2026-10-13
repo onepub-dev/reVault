@@ -21,8 +21,12 @@ The subsequent [owned FileData correction](../owned-page-memory-2026-10-14/READM
 passed the plaintext case at a 93,937,664-byte conditional bound, while protected
 extraction still failed at 114,122,752 bytes of CLI RSS. The new
 [in-place owned decryption correction](../in-place-page-memory-2026-10-14/README.md)
-passes 53 focused tests and all-target Clippy; its exact resource qualification is
-pending. None of these partial results qualifies the release. Current c17 CI is
+passes 53 focused tests and all-target Clippy. Its exact `4bca4fa3f280` build also
+passes the fixed two-mode 10,000-file screen: conditional CLI-plus-helper bounds
+are 93,962,240 bytes plaintext and 96,677,888 bytes encrypted owner-signed, with
+persisted bytes/modes, cleanup and identities verified. This closes the targeted
+screen, not the statistical comparison or complete release qualification. A new
+immutable candidate and fresh mutation-fuzz validation remain required. Current c17 CI is
 independently pending its Linux secure-API step. The recorded three lockfile audits
 remain clean; the earlier six-case screen is only a scoped positive.
 

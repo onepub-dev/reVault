@@ -35,5 +35,9 @@
     },
     "evidence": "/tmp/revault-in-place-page-tests-161849d9"
   },
-  "new_resource_qualification": "pending exact checkpoint build/admission and fixed two-mode screen"
+  "new_resource_qualification": {
+    "limited_screen_passed": true,
+    "evidence": "resource-screen.json",
+    "full_release_qualification": false
+  }
 }
