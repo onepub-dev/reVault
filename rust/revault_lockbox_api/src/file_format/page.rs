@@ -356,10 +356,132 @@ impl PageObjectKind {
     }
 }
 
+/// Payload ranges are created only after complete page/object validation.
+/// Ordinary clones copy the range, so detached objects do not retain a page.
+pub(crate) struct OwnedPageRange {
+    bytes: std::sync::Arc<SensitiveBytes>,
+    range: std::ops::Range<usize>,
+}
+
+impl std::fmt::Debug for OwnedPageRange {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("OwnedPageRange")
+            .field("len", &self.range.len())
+            .finish()
+    }
+}
+
+enum PageDecodeBytes<'a> {
+    Borrowed {
+        bytes: &'a [u8],
+        range: std::ops::Range<usize>,
+    },
+    Owned {
+        bytes: SensitiveBytes,
+        range: std::ops::Range<usize>,
+    },
+}
+
+impl<'a> PageDecodeBytes<'a> {
+    fn borrowed(bytes: &'a [u8]) -> Self {
+        Self::Borrowed {
+            bytes,
+            range: 0..bytes.len(),
+        }
+    }
+
+    fn owned(bytes: SensitiveBytes) -> Self {
+        let len = bytes.len();
+        Self::Owned {
+            bytes,
+            range: 0..len,
+        }
+    }
+
+    fn as_slice(&self) -> &[u8] {
+        match self {
+            Self::Borrowed { bytes, range } => &bytes[range.clone()],
+            Self::Owned { bytes, range } => &bytes[range.clone()],
+        }
+    }
+
+    fn narrow(mut self, selected: std::ops::Range<usize>) -> Result<Self> {
+        self.as_slice()
+            .get(selected.clone())
+            .ok_or(Error::CorruptRecord)?;
+        let range = match &mut self {
+            Self::Borrowed { range, .. } | Self::Owned { range, .. } => range,
+        };
+        let start = range
+            .start
+            .checked_add(selected.start)
+            .ok_or(Error::CorruptRecord)?;
+        let end = range
+            .start
+            .checked_add(selected.end)
+            .ok_or(Error::CorruptRecord)?;
+        *range = start..end;
+        Ok(self)
+    }
+
+    fn materialize(
+        self,
+        descriptors: Vec<PageObjectDescriptor>,
+        share: bool,
+    ) -> Result<Vec<PageObject>> {
+        if share {
+            if let Self::Owned { bytes, range } = self {
+                // Match Normal payload's existing full-capacity destruction
+                // contract, including unused headers and truncated tail bytes.
+                let bytes = std::sync::Arc::new(SensitiveBytes::new(bytes.into_vec(), true));
+                return descriptors
+                    .into_iter()
+                    .map(|object| {
+                        let start = range
+                            .start
+                            .checked_add(object.payload.start)
+                            .ok_or(Error::CorruptRecord)?;
+                        let end = range
+                            .start
+                            .checked_add(object.payload.end)
+                            .ok_or(Error::CorruptRecord)?;
+                        bytes.get(start..end).ok_or(Error::CorruptRecord)?;
+                        Ok(PageObject {
+                            kind: object.kind,
+                            id: object.id,
+                            payload: PagePayload::OwnedRange(OwnedPageRange {
+                                bytes: std::sync::Arc::clone(&bytes),
+                                range: start..end,
+                            }),
+                        })
+                    })
+                    .collect();
+            }
+        }
+        descriptors
+            .into_iter()
+            .map(|object| {
+                let payload = self
+                    .as_slice()
+                    .get(object.payload)
+                    .ok_or(Error::CorruptRecord)?;
+                Ok(PageObject::new(object.kind, object.id, payload.to_vec()))
+            })
+            .collect()
+    }
+}
+
+struct PageObjectDescriptor {
+    kind: PageObjectKind,
+    id: u64,
+    payload: std::ops::Range<usize>,
+}
+
 #[derive(Debug)]
 pub(crate) enum PagePayload {
     Normal(Vec<u8>),
     Secure(SecureVec),
+    OwnedRange(OwnedPageRange),
 }
 
 impl PagePayload {
@@ -374,6 +496,7 @@ impl PagePayload {
     pub(crate) fn len(&self) -> usize {
         match self {
             Self::Normal(payload) => payload.len(),
+            Self::OwnedRange(payload) => payload.range.len(),
             Self::Secure(payload) => payload.len(),
         }
     }
@@ -381,6 +504,7 @@ impl PagePayload {
     pub(crate) fn with_bytes<R>(&self, f: impl FnOnce(&[u8]) -> R) -> Result<R> {
         match self {
             Self::Normal(payload) => Ok(f(payload)),
+            Self::OwnedRange(payload) => Ok(f(&payload.bytes[payload.range.clone()])),
             Self::Secure(payload) => {
                 secure_read_access(|access| payload.with_bytes_in(access, f)).map_err(Into::into)
             }
@@ -390,13 +514,16 @@ impl PagePayload {
     pub(crate) fn try_clone(&self) -> Result<Self> {
         match self {
             Self::Normal(payload) => Ok(Self::Normal(payload.clone())),
+            Self::OwnedRange(payload) => {
+                Ok(Self::Normal(payload.bytes[payload.range.clone()].to_vec()))
+            }
             Self::Secure(payload) => Ok(Self::Secure(payload.try_clone()?)),
         }
     }
 
     pub(crate) fn as_secure(&self) -> Option<&SecureVec> {
         match self {
-            Self::Normal(_) => None,
+            Self::Normal(_) | Self::OwnedRange(_) => None,
             Self::Secure(payload) => Some(payload),
         }
     }
@@ -796,20 +923,42 @@ pub(crate) fn decode_page_with_format(
     key: &[u8],
     mode: crate::creation_options::FormatMode,
 ) -> Result<DecodedPage> {
+    decode_page_input(PageDecodeBytes::borrowed(page), lockbox_id, key, mode)
+}
+
+pub(crate) fn decode_owned_page_with_format(
+    page: Vec<u8>,
+    lockbox_id: LockboxId,
+    key: &[u8],
+    mode: crate::creation_options::FormatMode,
+) -> Result<DecodedPage> {
+    decode_page_input(
+        PageDecodeBytes::owned(SensitiveBytes::new(page, false)),
+        lockbox_id,
+        key,
+        mode,
+    )
+}
+
+fn decode_page_input(
+    input: PageDecodeBytes<'_>,
+    lockbox_id: LockboxId,
+    key: &[u8],
+    mode: crate::creation_options::FormatMode,
+) -> Result<DecodedPage> {
+    let allow_shared = matches!(&input, PageDecodeBytes::Owned { .. });
+    let page = input.as_slice();
     if page.len() < PAGE_HEADER_LEN {
         return Err(Error::Truncated);
     }
-    if &page[0..8] != PAGE_MAGIC {
-        return Err(Error::CorruptRecord);
-    }
-    if read_u16_le(&page[8..10])? != PAGE_VERSION {
+    if &page[0..8] != PAGE_MAGIC || read_u16_le(&page[8..10])? != PAGE_VERSION {
         return Err(Error::CorruptRecord);
     }
     let flags = read_u16_le(&page[10..12])?;
     if flags & !(PAGE_FLAG_CLEAR_TEXT | PAGE_FLAG_UNPADDED) != 0 {
         return Err(Error::CorruptRecord);
     }
-    physical_page_size_from_page_slice(page)?;
+    let physical_len = physical_page_size_from_page_slice(page)?;
     let header_len = read_u32_le(&page[12..16])? as usize;
     if header_len != PAGE_HEADER_LEN || header_len > page.len() {
         return Err(Error::CorruptRecord);
@@ -821,17 +970,16 @@ pub(crate) fn decode_page_with_format(
     if page[PAGE_CHECKSUM_START..PAGE_HEADER_LEN] != expected_digest {
         return Err(Error::CorruptRecord);
     }
-
     let page_id = read_u64_le(&page[16..24])?;
     let sequence = read_u64_le(&page[24..32])?;
     let nonce = &page[32..44];
     let stored_body_len = read_u32_le(&page[44..48])? as usize;
-    if header_len + stored_body_len > page.len() {
-        return Err(Error::Truncated);
-    }
-    let stored_body = &page[header_len..header_len + stored_body_len];
-    let decrypted;
-    let body = if flags & PAGE_FLAG_CLEAR_TEXT != 0 {
+    let stored_end = header_len
+        .checked_add(stored_body_len)
+        .ok_or(Error::Truncated)?;
+    let stored_body = page.get(header_len..stored_end).ok_or(Error::Truncated)?;
+    let sensitive = flags & PAGE_FLAG_CLEAR_TEXT == 0;
+    let body = if !sensitive {
         if nonce.iter().any(|byte| *byte != 0) || stored_body.len() < 32 {
             return Err(Error::CorruptRecord);
         }
@@ -839,7 +987,7 @@ pub(crate) fn decode_page_with_format(
         if digest != strong_checksum(body) {
             return Err(Error::CorruptRecord);
         }
-        body
+        input.narrow(header_len + 32..stored_end)?
     } else {
         let aad = page_aad(
             lockbox_id,
@@ -847,37 +995,60 @@ pub(crate) fn decode_page_with_format(
             sequence,
             flags,
             stored_body_len as u32,
-            physical_page_size_from_page_slice(page)? as u64,
+            physical_len as u64,
         );
-        decrypted = ZeroizingBytes::new(open_with_nonce(stored_body, key, nonce, &aad)?);
-        decrypted.as_slice()
+        let decrypted = SensitiveBytes::new(open_with_nonce(stored_body, key, nonce, &aad)?, true);
+        // Ciphertext is no longer needed after authentication. Do not retain it
+        // while parsing or materializing plaintext object payloads.
+        drop(input);
+        PageDecodeBytes::owned(decrypted)
     };
+    let body_bytes = body.as_slice();
     if mode.0 != 0
         && mode.options().compression == crate::Compression::None
-        && body.get(1) == Some(&COMPRESSION_NORMAL)
-        && body.get(24) != Some(&COMPRESSION_NONE)
+        && body_bytes.get(1) == Some(&COMPRESSION_NORMAL)
+        && body_bytes.get(24) != Some(&COMPRESSION_NONE)
     {
         return Err(Error::CorruptRecord);
     }
-    let sensitive = flags & PAGE_FLAG_CLEAR_TEXT == 0;
-    let objects = match decode_page_body_plaintext(body, sensitive)? {
-        Cow::Borrowed(bytes) => decode_object_stream(bytes)?,
-        Cow::Owned(bytes) => decode_object_stream(&SensitiveBytes::new(bytes, sensitive))?,
+    // Preserve the original canonical-control checks before moving ownership.
+    let canonical_body = body_bytes.get(1) == Some(&COMPRESSION_NONE)
+        && body_bytes.get(2..4) == Some(&[0, 0][..])
+        && body_bytes.get(12..16) == Some(&[0, 0, 0, 0][..]);
+    let raw_body = body_bytes.get(1) == Some(&COMPRESSION_NONE);
+    let decoded = match decode_page_body_plaintext(body_bytes, sensitive)? {
+        Cow::Borrowed(bytes) => {
+            // The legacy compression envelope permits trailing body bytes.
+            // Preserve the parser's exact borrowed subslice, not a suffix guess.
+            let start = (bytes.as_ptr() as usize)
+                .checked_sub(body_bytes.as_ptr() as usize)
+                .ok_or(Error::CorruptRecord)?;
+            let end = start.checked_add(bytes.len()).ok_or(Error::CorruptRecord)?;
+            let selected = body_bytes.get(start..end).ok_or(Error::CorruptRecord)?;
+            if selected.as_ptr() != bytes.as_ptr() {
+                return Err(Error::CorruptRecord);
+            }
+            body.narrow(start..end)?
+        }
+        Cow::Owned(bytes) => {
+            let bytes = SensitiveBytes::new(bytes, sensitive);
+            drop(body);
+            PageDecodeBytes::owned(bytes)
+        }
     };
-    if objects
+    let descriptors = decode_object_descriptors(decoded.as_slice())?;
+    if descriptors
         .iter()
         .any(|object| is_canonical_control_kind(object.kind))
     {
-        let [object] = objects.as_slice() else {
+        let [object] = descriptors.as_slice() else {
             return Err(Error::CorruptRecord);
         };
-        if body.get(1) != Some(&COMPRESSION_NONE)
-            || body[2..4] != [0; 2]
-            || body[12..16] != [0; 4]
+        if !canonical_body
             || object.id != sequence
-            || physical_page_size_from_page_slice(page)?
+            || physical_len
                 != canonical_control_page_len_from_flags(
-                    object.payload_len(),
+                    object.payload.len(),
                     flags & PAGE_FLAG_UNPADDED != 0,
                     flags & PAGE_FLAG_CLEAR_TEXT != 0,
                 )?
@@ -885,16 +1056,22 @@ pub(crate) fn decode_page_with_format(
             return Err(Error::CorruptRecord);
         }
     }
-    // Key-directory bootstrap/recovery can run before a trustworthy archive
-    // header is available. Its public, self-describing page extent is checked
-    // above; every private/content page must match the persisted archive policy.
-    if !page_objects_are_clear_text(&objects)? {
+    let public_objects = page_kinds_are_clear_text(descriptors.iter().map(|object| object.kind))?;
+    if !public_objects {
         validate_padding_flag(flags, mode)?;
     }
-    let clear_text = mode.plaintext() || page_objects_are_clear_text(&objects)?;
-    if clear_text != (flags & PAGE_FLAG_CLEAR_TEXT != 0) {
+    if (mode.plaintext() || public_objects) != (flags & PAGE_FLAG_CLEAR_TEXT != 0) {
         return Err(Error::CorruptRecord);
     }
+    // Keep metadata, mixed pages, and whole-page compression on the original
+    // independently owned payload representation and cache-accounting behavior.
+    let share = allow_shared
+        && raw_body
+        && !descriptors.is_empty()
+        && descriptors
+            .iter()
+            .all(|object| object.kind == PageObjectKind::FileData);
+    let objects = decoded.materialize(descriptors, share)?;
     Ok(DecodedPage {
         page_id,
         sequence,
@@ -1429,14 +1606,20 @@ pub(crate) fn page_decode_slice(bytes: &[u8], offset: usize) -> Option<&[u8]> {
 }
 
 fn page_objects_are_clear_text(objects: &[PageObject]) -> Result<bool> {
-    let clear_text = objects
-        .iter()
-        .any(|object| object.kind.is_clear_text_page_object());
-    if clear_text
-        && objects
-            .iter()
-            .any(|object| !object.kind.is_clear_text_page_object())
-    {
+    page_kinds_are_clear_text(objects.iter().map(|object| object.kind))
+}
+
+fn page_kinds_are_clear_text(kinds: impl Iterator<Item = PageObjectKind>) -> Result<bool> {
+    let mut clear_text = false;
+    let mut private = false;
+    for kind in kinds {
+        if kind.is_clear_text_page_object() {
+            clear_text = true;
+        } else {
+            private = true;
+        }
+    }
+    if clear_text && private {
         return Err(Error::CorruptRecord);
     }
     Ok(clear_text)
@@ -1573,7 +1756,7 @@ fn append_object_stream(out: &mut Vec<u8>, objects: &[PageObject]) -> Result<()>
     Ok(())
 }
 
-fn decode_object_stream(bytes: &[u8]) -> Result<Vec<PageObject>> {
+fn decode_object_descriptors(bytes: &[u8]) -> Result<Vec<PageObjectDescriptor>> {
     if bytes.len() < 4 {
         return Err(Error::CorruptRecord);
     }
@@ -1584,32 +1767,38 @@ fn decode_object_stream(bytes: &[u8]) -> Result<Vec<PageObject>> {
     let mut offset = 4usize;
     let mut objects = Vec::with_capacity(count);
     for _ in 0..count {
-        if offset + 20 > bytes.len() {
-            return Err(Error::CorruptRecord);
-        }
-        let kind = PageObjectKind::from_u8(bytes[offset])?;
-        let version = bytes[offset + 1];
-        let flags = read_u16_le(&bytes[offset + 2..offset + 4])?;
+        let header_end = offset.checked_add(20).ok_or(Error::CorruptRecord)?;
+        let header = bytes.get(offset..header_end).ok_or(Error::CorruptRecord)?;
+        let kind = PageObjectKind::from_u8(header[0])?;
+        let version = header[1];
+        let flags = read_u16_le(&header[2..4])?;
         if version != 1 || flags != 0 {
             return Err(Error::CorruptRecord);
         }
-        let id = read_u64_le(&bytes[offset + 4..offset + 12])?;
-        let payload_len = read_u64_le(&bytes[offset + 12..offset + 20])? as usize;
-        offset += 20;
-        if offset + payload_len > bytes.len() {
-            return Err(Error::CorruptRecord);
-        }
-        objects.push(PageObject::new(
+        let id = read_u64_le(&header[4..12])?;
+        let payload_len =
+            usize::try_from(read_u64_le(&header[12..20])?).map_err(|_| Error::CorruptRecord)?;
+        let end = header_end
+            .checked_add(payload_len)
+            .ok_or(Error::CorruptRecord)?;
+        bytes.get(header_end..end).ok_or(Error::CorruptRecord)?;
+        objects.push(PageObjectDescriptor {
             kind,
             id,
-            bytes[offset..offset + payload_len].to_vec(),
-        ));
-        offset += payload_len;
+            payload: header_end..end,
+        });
+        offset = end;
     }
     if offset != bytes.len() {
         return Err(Error::CorruptRecord);
     }
     Ok(objects)
+}
+
+#[cfg(test)]
+fn decode_object_stream(bytes: &[u8]) -> Result<Vec<PageObject>> {
+    let descriptors = decode_object_descriptors(bytes)?;
+    PageDecodeBytes::borrowed(bytes).materialize(descriptors, false)
 }
 
 fn page_aad(
@@ -1635,6 +1824,251 @@ fn page_aad(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn owned_metadata_mixed_control_and_compressed_fallbacks_match_borrowed() {
+        use crate::{EncryptionMode, SizePadding};
+        let archive = LockboxId::from_bytes([82; 16]);
+        for encryption in [EncryptionMode::None, EncryptionMode::ChaCha20Poly1305] {
+            let mode = owned_test_mode(encryption, SizePadding::Default);
+            for objects in [
+                vec![PageObject::new(PageObjectKind::TocLeaf, 7, vec![3; 200])],
+                vec![
+                    PageObject::new(PageObjectKind::FileData, 6, vec![4; 100]),
+                    PageObject::new(PageObjectKind::TocLeaf, 7, vec![3; 200]),
+                ],
+                vec![PageObject::new(PageObjectKind::CommitRoot, 7, vec![3; 392])],
+            ] {
+                let size = page_size_for_encoded_objects_with_format(&objects, mode).unwrap();
+                let page =
+                    encode_page_with_format(size, archive, 4096, 7, b"owned", &objects, mode)
+                        .unwrap();
+                let a = decode_page_with_format(&page, archive, b"owned", mode).unwrap();
+                let b = decode_owned_page_with_format(page, archive, b"owned", mode).unwrap();
+                assert_eq!(a.objects, objects);
+                assert_eq!(b.objects, objects);
+                assert!(b
+                    .objects
+                    .iter()
+                    .all(|v| matches!(&v.payload, PagePayload::Normal(_))));
+            }
+            let objects = vec![PageObject::new(
+                PageObjectKind::FileData,
+                7,
+                vec![0x53; 1500],
+            )];
+            let stream = encode_object_stream(&objects).unwrap();
+            let compressed = crate::compression::encode_page_body(&stream);
+            assert_eq!(compressed[8], crate::compression::COMPRESSION_ZSTD);
+            let mut body = vec![PAGE_BODY_VERSION, COMPRESSION_NORMAL, 0, 0];
+            body.extend_from_slice(&(stream.len() as u64).to_le_bytes());
+            body.extend_from_slice(&[0; 4]);
+            body.extend_from_slice(&compressed);
+            let page = owned_test_wrap_body(&body, mode);
+            let a = decode_page_with_format(&page, archive, b"owned", mode).unwrap();
+            let b = decode_owned_page_with_format(page.clone(), archive, b"owned", mode).unwrap();
+            assert_eq!(a.objects, objects);
+            assert_eq!(b.objects, objects);
+            assert!(b
+                .objects
+                .iter()
+                .all(|v| matches!(&v.payload, PagePayload::Normal(_))));
+            let wrong = owned_test_mode(
+                if encryption == EncryptionMode::None {
+                    EncryptionMode::ChaCha20Poly1305
+                } else {
+                    EncryptionMode::None
+                },
+                SizePadding::Default,
+            );
+            assert!(matches!(
+                decode_page_with_format(&page, archive, b"owned", wrong),
+                Err(Error::CorruptRecord)
+            ));
+            assert!(matches!(
+                decode_owned_page_with_format(page, archive, b"owned", wrong),
+                Err(Error::CorruptRecord)
+            ));
+        }
+    }
+
+    fn owned_test_mode(
+        encryption: crate::EncryptionMode,
+        padding: crate::SizePadding,
+    ) -> crate::creation_options::FormatMode {
+        crate::creation_options::FormatMode::new(crate::LockboxFormatOptions {
+            encryption,
+            signing: crate::SigningMode::None,
+            compression: crate::Compression::default(),
+            size_padding: padding,
+        })
+    }
+
+    #[test]
+    fn owned_filedata_pages_share_backing_but_detached_clones_do_not() {
+        use crate::{EncryptionMode, SizePadding};
+        let archive = LockboxId::from_bytes([81; 16]);
+        for encryption in [EncryptionMode::None, EncryptionMode::ChaCha20Poly1305] {
+            for padding in [SizePadding::Default, SizePadding::None] {
+                let mode = owned_test_mode(encryption, padding);
+                let expected = vec![
+                    PageObject::new(PageObjectKind::FileData, 10, vec![5; 3000]),
+                    PageObject::new(PageObjectKind::FileData, 11, vec![7; 2000]),
+                ];
+                let size = page_size_for_encoded_objects_with_format(&expected, mode).unwrap();
+                let page =
+                    encode_page_with_format(size, archive, 4096, 11, b"owned", &expected, mode)
+                        .unwrap();
+                let borrowed = decode_page_with_format(&page, archive, b"owned", mode).unwrap();
+                assert!(borrowed
+                    .objects
+                    .iter()
+                    .all(|v| matches!(&v.payload, PagePayload::Normal(_))));
+                let owned = decode_owned_page_with_format(page, archive, b"owned", mode).unwrap();
+                assert_eq!(owned.objects, borrowed.objects);
+                let (PagePayload::OwnedRange(first), PagePayload::OwnedRange(second)) =
+                    (&owned.objects[0].payload, &owned.objects[1].payload)
+                else {
+                    panic!("shared file page");
+                };
+                assert!(std::sync::Arc::ptr_eq(&first.bytes, &second.bytes));
+                let weak = std::sync::Arc::downgrade(&first.bytes);
+                let detached = owned.objects[0].clone();
+                assert!(matches!(&detached.payload, PagePayload::Normal(_)));
+                drop(owned);
+                assert!(weak.upgrade().is_none());
+                assert_eq!(detached, expected[0]);
+            }
+        }
+    }
+
+    // Valid envelope wrapping makes malformed inner records reach the shared
+    // descriptor parser instead of failing only the outer checksum/AEAD.
+    fn owned_test_wrap_body(body: &[u8], mode: crate::creation_options::FormatMode) -> Vec<u8> {
+        let archive = LockboxId::from_bytes([82; 16]);
+        let flags = if mode.plaintext() {
+            PAGE_FLAG_CLEAR_TEXT
+        } else {
+            0
+        };
+        let mut page = vec![0; 4096];
+        let (nonce, stored) = if mode.plaintext() {
+            let mut stored = strong_checksum(body).to_vec();
+            stored.extend_from_slice(body);
+            ([0; 12], stored)
+        } else {
+            let aad = page_aad(archive, 4096, 7, flags, (body.len() + 16) as u32, 4096);
+            seal_with_random_nonce(body, b"owned", &aad).unwrap()
+        };
+        page[..8].copy_from_slice(PAGE_MAGIC);
+        page[8..10].copy_from_slice(&PAGE_VERSION.to_le_bytes());
+        page[10..12].copy_from_slice(&flags.to_le_bytes());
+        page[12..16].copy_from_slice(&(PAGE_HEADER_LEN as u32).to_le_bytes());
+        page[16..24].copy_from_slice(&4096u64.to_le_bytes());
+        page[24..32].copy_from_slice(&7u64.to_le_bytes());
+        page[32..44].copy_from_slice(&nonce);
+        page[44..48].copy_from_slice(&(stored.len() as u32).to_le_bytes());
+        page[48..56].copy_from_slice(&4096u64.to_le_bytes());
+        let digest = strong_checksum(&page[..PAGE_CHECKSUM_START]);
+        page[PAGE_CHECKSUM_START..PAGE_HEADER_LEN].copy_from_slice(&digest);
+        page[PAGE_HEADER_LEN..PAGE_HEADER_LEN + stored.len()].copy_from_slice(&stored);
+        page
+    }
+
+    #[test]
+    fn owned_and_borrowed_inner_validation_and_legacy_tail_match() {
+        use crate::{EncryptionMode, SizePadding};
+        let archive = LockboxId::from_bytes([82; 16]);
+        let expected = vec![PageObject::new(
+            PageObjectKind::FileData,
+            7,
+            b"payload".to_vec(),
+        )];
+        let stream = encode_object_stream(&expected).unwrap();
+        for encryption in [EncryptionMode::None, EncryptionMode::ChaCha20Poly1305] {
+            let mode = owned_test_mode(encryption, SizePadding::Default);
+            for corruption in 0..5 {
+                let mut bad = stream.clone();
+                match corruption {
+                    0 => bad[..4].copy_from_slice(&10000u32.to_le_bytes()),
+                    1 => bad[5] = 2,
+                    2 => bad[6] = 1,
+                    3 => bad[16..24].copy_from_slice(&u64::MAX.to_le_bytes()),
+                    _ => bad.push(0),
+                }
+                let mut body = vec![PAGE_BODY_VERSION, COMPRESSION_NONE, 0, 0];
+                body.extend_from_slice(&(bad.len() as u64).to_le_bytes());
+                body.extend_from_slice(&[0; 4]);
+                body.extend_from_slice(&bad);
+                let page = owned_test_wrap_body(&body, mode);
+                let a = decode_page_with_format(&page, archive, b"owned", mode).unwrap_err();
+                let b = decode_owned_page_with_format(page, archive, b"owned", mode).unwrap_err();
+                assert!(matches!(a, Error::CorruptRecord));
+                assert!(matches!(b, Error::CorruptRecord));
+            }
+            // Existing legacy compression envelopes accept trailing body bytes
+            // after their declared raw stream. They are not part of that stream.
+            let mut body = vec![PAGE_BODY_VERSION, COMPRESSION_NORMAL, 0, 0];
+            body.extend_from_slice(&(stream.len() as u64).to_le_bytes());
+            body.extend_from_slice(&[0; 4]);
+            body.extend_from_slice(&(stream.len() as u64).to_le_bytes());
+            body.push(COMPRESSION_NONE);
+            body.extend_from_slice(&(stream.len() as u64).to_le_bytes());
+            body.extend_from_slice(&stream);
+            body.extend_from_slice(b"ignored legacy tail");
+            let page = owned_test_wrap_body(&body, mode);
+            let a = decode_page_with_format(&page, archive, b"owned", mode).unwrap();
+            let b = decode_owned_page_with_format(page, archive, b"owned", mode).unwrap();
+            assert_eq!(a.objects, expected);
+            assert_eq!(b.objects, expected);
+            assert!(b
+                .objects
+                .iter()
+                .all(|v| matches!(&v.payload, PagePayload::Normal(_))));
+        }
+    }
+
+    #[test]
+    fn owned_filedata_last_owner_and_authenticated_error_wipe_live_capacity() {
+        use crate::{EncryptionMode, SizePadding};
+        let archive = LockboxId::from_bytes([82; 16]);
+        let mode = owned_test_mode(EncryptionMode::ChaCha20Poly1305, SizePadding::Default);
+        let objects = vec![PageObject::new(
+            PageObjectKind::FileData,
+            7,
+            vec![0x59; 500],
+        )];
+        let size = page_size_for_encoded_objects_with_format(&objects, mode).unwrap();
+        let page =
+            encode_page_with_format(size, archive, 4096, 7, b"owned", &objects, mode).unwrap();
+        let (decoded, before) = crate::page_buffer::observe_sensitive_drops(|| {
+            decode_owned_page_with_format(page, archive, b"owned", mode).unwrap()
+        });
+        assert!(
+            before.is_empty(),
+            "successful shared plaintext remains owned"
+        );
+        let PagePayload::OwnedRange(range) = &decoded.objects[0].payload else {
+            panic!("shared owner");
+        };
+        let retained = std::sync::Arc::clone(&range.bytes);
+        let (_, first_drop) = crate::page_buffer::observe_sensitive_drops(|| drop(decoded));
+        assert!(first_drop.is_empty());
+        let (_, last_drop) = crate::page_buffer::observe_sensitive_drops(|| drop(retained));
+        assert_eq!(last_drop.len(), 1);
+        assert!(last_drop[0].2 && last_drop[0].1 >= last_drop[0].0 && last_drop[0].0 > 500);
+
+        let mut body = vec![PAGE_BODY_VERSION, COMPRESSION_NONE, 0, 0];
+        body.extend_from_slice(&4u64.to_le_bytes());
+        body.extend_from_slice(&[0; 4]);
+        body.extend_from_slice(&10000u32.to_le_bytes());
+        let malformed = owned_test_wrap_body(&body, mode);
+        let (result, failed_drop) = crate::page_buffer::observe_sensitive_drops(|| {
+            decode_owned_page_with_format(malformed, archive, b"owned", mode)
+        });
+        assert!(matches!(result, Err(Error::CorruptRecord)));
+        assert_eq!(failed_drop.len(), 1);
+        assert!(failed_drop[0].2 && failed_drop[0].1 >= failed_drop[0].0);
+    }
 
     #[test]
     fn canonical_control_extent_matches_writer_across_modes_and_boundaries() {

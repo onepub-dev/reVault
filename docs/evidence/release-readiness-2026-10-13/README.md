@@ -16,13 +16,15 @@ stopped the run before content verification. Cleanup passed. The retained 528
 observations form an incomplete failed campaign, not a comparison pass.
 
 The [extraction worker correction](../extraction-worker-memory-2026-10-14/README.md)
-removes four unnecessary complete metadata copies while preserving worker count,
-authentication, page-cache ownership and extraction policy. Ten focused extraction
-tests and all-target Clippy pass; exact checkpoint resource qualification and a
-replacement immutable candidate remain required. Current c17 CI is independently
-pending its Linux secure-API step; success there cannot override this resource
-failure. The three c17 lockfile audits are clean at the recorded official database
-revision. The earlier six-case screen remains a limited positive for its workloads.
+removes unnecessary metadata copies, but its exact d0 checkpoint screen still
+failed at 100,524,032 bytes of CLI RSS. A single diagnostic attributed substantial
+same-page stored-buffer/object-copy overlap. The resulting
+[owned FileData page correction](../owned-page-memory-2026-10-14/README.md) passes
+51 focused tests and all-target Clippy; uninstrumented resource qualification and
+a replacement immutable candidate remain required. Current c17 CI is independently
+pending its Linux secure-API step; success cannot override the memory failures.
+The three c17 lockfile audits remain clean at their recorded database revision.
+The earlier six-case screen remains a limited positive for its workloads.
 
 ## Historical rustdoc correction checkpoint
 

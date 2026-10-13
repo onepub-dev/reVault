@@ -38,6 +38,8 @@ impl Drop for SensitiveBytes {
     fn drop(&mut self) {
         if self.sensitive {
             zeroize_bytes(&mut self.bytes);
+            #[cfg(test)]
+            observe_sensitive_drop(&mut self.bytes);
         }
     }
 }
@@ -241,4 +243,50 @@ mod tests {
         }
         zeroize_bytes(&mut Vec::new());
     }
+}
+
+#[cfg(test)]
+thread_local! {
+    static SENSITIVE_DROP_OBSERVATIONS: std::cell::RefCell<Option<Vec<(usize, usize, bool)>>> = const { std::cell::RefCell::new(None) };
+}
+
+#[cfg(test)]
+pub(crate) fn observe_sensitive_drops<T>(
+    operation: impl FnOnce() -> T,
+) -> (T, Vec<(usize, usize, bool)>) {
+    struct Reset;
+    impl Drop for Reset {
+        fn drop(&mut self) {
+            let _ = SENSITIVE_DROP_OBSERVATIONS.try_with(|v| {
+                v.borrow_mut().take();
+            });
+        }
+    }
+    SENSITIVE_DROP_OBSERVATIONS.with(|v| {
+        assert!(v.borrow().is_none());
+        *v.borrow_mut() = Some(Vec::new());
+    });
+    let reset = Reset;
+    let result = operation();
+    let observations = SENSITIVE_DROP_OBSERVATIONS.with(|v| v.borrow_mut().take().unwrap());
+    drop(reset);
+    (result, observations)
+}
+
+#[cfg(test)]
+fn observe_sensitive_drop(bytes: &mut Vec<u8>) {
+    if bytes.capacity() == 0 {
+        return;
+    }
+    let _ = SENSITIVE_DROP_OBSERVATIONS.try_with(|observations| {
+        if let Some(values) = observations.borrow_mut().as_mut() {
+            let zeroed = bytes.iter().all(|v| *v == 0)
+                && bytes.spare_capacity_mut().iter().all(|v| {
+                    // SAFETY: Called immediately after zeroize_bytes, which
+                    // initializes every spare byte. The allocation is still live.
+                    unsafe { *v.assume_init_ref() == 0 }
+                });
+            values.push((bytes.len(), bytes.capacity(), zeroed));
+        }
+    });
 }

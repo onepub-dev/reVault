@@ -26,7 +26,8 @@ use crate::creation_options::FormatMode;
 use crate::fast_hash::FastBuildHasher;
 use crate::lockbox_id::LockboxId;
 use crate::page::{
-    decode_page_with_format, decode_single_object_page_secure_with_format, encode_page_with_format,
+    decode_owned_page_with_format, decode_single_object_page_secure_with_format,
+    encode_page_with_format,
 };
 use crate::page::{
     encode_single_object_page_secure, DecodedPage, PageObject, PageObjectKind,
@@ -435,7 +436,7 @@ impl PageCache {
                 if bytes.get(..PAGE_HEADER_LEN) != Some(header.as_slice()) {
                     return Err(Error::CorruptRecord);
                 }
-                decode_page_with_format(&bytes, lockbox_id, key, mode)?
+                decode_owned_page_with_format(bytes, lockbox_id, key, mode)?
             }
             (PageSecurity::Secure, PageReadKey::Secure(content_key)) => {
                 let mut bytes = storage.read_at_secure(offset, read_len)?;
