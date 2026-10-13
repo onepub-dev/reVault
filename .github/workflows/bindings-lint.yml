@@ -95,10 +95,25 @@ jobs:
             --exclude revault_cli \
             --exclude revault_tooling \
             --exclude xtask \
+            --exclude revault_archive_v1_initial_reader \
+            --exclude revault_archive_v1_legacy_reader \
+            --exclude revault_archive_v1_reader \
+            --exclude revault_vault_v1_reader \
+            --exclude revault_vault_v2_container_v1_reader \
             --exclude revault_archive_v3_reader \
             --exclude revault_vault_v3_reader
           # Historical readers intentionally retain the current libraries' names.
           # Document them separately to prevent Cargo's output filename collisions.
+          cargo doc --locked --no-deps --all-features -p revault_archive_v1_initial_reader \
+            --target-dir target/docs-revault_archive_v1_initial_reader
+          cargo doc --locked --no-deps --all-features -p revault_archive_v1_legacy_reader \
+            --target-dir target/docs-revault_archive_v1_legacy_reader
+          cargo doc --locked --no-deps --all-features -p revault_archive_v1_reader \
+            --target-dir target/docs-revault_archive_v1_reader
+          cargo doc --locked --no-deps --all-features -p revault_vault_v1_reader \
+            --target-dir target/docs-revault_vault_v1_reader
+          cargo doc --locked --no-deps --all-features -p revault_vault_v2_container_v1_reader \
+            --target-dir target/docs-revault_vault_v2_container_v1_reader
           cargo doc --locked --no-deps --all-features -p revault_archive_v3_reader \
             --target-dir target/docs-archive-v3-reader
           cargo doc --locked --no-deps --all-features -p revault_vault_v3_reader \
