@@ -38,6 +38,9 @@ async-io = "2"
 futures-lite = "2"
 secret-service = { version = "=5.1.0", features = ["rt-async-io-crypto-rust"] }
 zbus = { version = "5", default-features = false, features = ["async-io", "blocking-api"] }
+# Keep fresh edition-2021 consumers compatible with the declared Rust 1.88 MSRV.
+# zbus accepts newer uuid releases whose MSRV exceeds ours.
+uuid = ">=1.8, <1.27"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 keyring = { version = "4.2.0", default-features = false, features = ["v1"] }

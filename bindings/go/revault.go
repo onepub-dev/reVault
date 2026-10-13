@@ -502,9 +502,13 @@ func OpenFile(path string, contentKey []byte, signer *ProfileSigningKeyPair) (*L
 // Unsigned archives accept a nil signer for writes; signed archives require their owner key.
 func OpenFileWithAccess(path string, contentKey []byte, signer *ProfileSigningKeyPair, writable bool) (*Lockbox, error) {
 	var signing unsafe.Pointer
-	if signer != nil { signing = signer.handle }
+	if signer != nil {
+		signing = signer.handle
+	}
 	mode := "read"
-	if writable { mode = "write" }
+	if writable {
+		mode = "write"
+	}
 	return lockboxFile(path, mode, "content-key", contentKey, nil, signing, LockboxOptions{CacheMode: "bytes", CacheBytes: 64 << 20, Workload: "interactive", Worker: "auto"})
 }
 
@@ -533,12 +537,14 @@ func OpenWithOptions(archive, key []byte, options LockboxOptions) (*Lockbox, err
 
 // OpenWithPasswordBudget sets a per-credential KDF work allowance.
 func OpenWithPasswordBudget(archive, password []byte, maxDerivations uint32) (*Lockbox, error) {
- return adoptLockbox(C.lockbox_open_password_with_budget(bytePointer(archive), C.size_t(len(archive)), bytePointer(password), C.size_t(len(password)), C.uint32_t(maxDerivations)))
+	return adoptLockbox(C.lockbox_open_password_with_budget(bytePointer(archive), C.size_t(len(archive)), bytePointer(password), C.size_t(len(password)), C.uint32_t(maxDerivations)))
 }
+
 // ExtractFileWithPolicy applies limits and final permissions before publication.
 func (box *Lockbox) ExtractFileWithPolicy(source, destination string, maxFileBytes, maxTotalBytes uint64, maxFiles uint, restorePermissions, overwrite bool) error {
- return require(bool(C.lockbox_extract_file_with_policy(box.handle, charPointer(source), C.size_t(len(source)), charPointer(destination), C.size_t(len(destination)), C.uint64_t(maxFileBytes), C.uint64_t(maxTotalBytes), C.size_t(maxFiles), C.bool(restorePermissions), C.bool(overwrite))))
+	return require(bool(C.lockbox_extract_file_with_policy(box.handle, charPointer(source), C.size_t(len(source)), charPointer(destination), C.size_t(len(destination)), C.uint64_t(maxFileBytes), C.uint64_t(maxTotalBytes), C.size_t(maxFiles), C.bool(restorePermissions), C.bool(overwrite))))
 }
+
 // OpenWithPassword opens with password.
 func OpenWithPassword(archive, password []byte) (*Lockbox, error) {
 	return adoptLockbox(C.lockbox_open_password(bytePointer(archive), C.size_t(len(archive)), bytePointer(password), C.size_t(len(password))))
@@ -1287,16 +1293,24 @@ func (vault *vaultStore) RememberLockbox(id []byte, path string) error {
 
 // ListKnownLockboxes lists known lockboxes.
 // SetLockboxAlias Sets or replaces a normalized alias for a remembered identity.
-func (vault *vaultStore) SetLockboxAlias(name string, id []byte) error { return require(bool(C.vault_directory_set_lockbox_alias(vault.handle, charPointer(name), C.size_t(len(name)), bytePointer(id), C.size_t(len(id))))) }
+func (vault *vaultStore) SetLockboxAlias(name string, id []byte) error {
+	return require(bool(C.vault_directory_set_lockbox_alias(vault.handle, charPointer(name), C.size_t(len(name)), bytePointer(id), C.size_t(len(id)))))
+}
 
 // ListLockboxAliases Lists aliases without opening their targets.
-func (vault *vaultStore) ListLockboxAliases() ([]LockboxAlias, error) { return decodeResult(C.vault_directory_list_lockbox_aliases(vault.handle), decodeLockboxAliasList) }
+func (vault *vaultStore) ListLockboxAliases() ([]LockboxAlias, error) {
+	return decodeResult(C.vault_directory_list_lockbox_aliases(vault.handle), decodeLockboxAliasList)
+}
 
 // RemoveLockboxAlias Removes only the alias, preserving the target.
-func (vault *vaultStore) RemoveLockboxAlias(name string) error { return require(bool(C.vault_directory_remove_lockbox_alias(vault.handle, charPointer(name), C.size_t(len(name))))) }
+func (vault *vaultStore) RemoveLockboxAlias(name string) error {
+	return require(bool(C.vault_directory_remove_lockbox_alias(vault.handle, charPointer(name), C.size_t(len(name)))))
+}
 
 // ResolveLockboxAlias Resolves metadata; verify target identity before opening its path.
-func (vault *vaultStore) ResolveLockboxAlias(name string) (*KnownLockbox, error) { return decodeResult(C.vault_directory_resolve_lockbox_alias(vault.handle, charPointer(name), C.size_t(len(name))), decodeKnownLockbox) }
+func (vault *vaultStore) ResolveLockboxAlias(name string) (*KnownLockbox, error) {
+	return decodeResult(C.vault_directory_resolve_lockbox_alias(vault.handle, charPointer(name), C.size_t(len(name))), decodeKnownLockbox)
+}
 
 // ListKnownLockboxes lists remembered identities and paths.
 func (vault *vaultStore) ListKnownLockboxes() ([]KnownLockbox, error) {
@@ -1398,10 +1412,14 @@ func (vault *ReadOnlyVault) ListFormAliases() ([]string, error) {
 
 // ListKnownLockboxes lists known lockboxes.
 // ListLockboxAliases Lists aliases without opening their targets.
-func (vault *ReadOnlyVault) ListLockboxAliases() ([]LockboxAlias, error) { return decodeResult(C.vault_read_only_list_lockbox_aliases(vault.handle), decodeLockboxAliasList) }
+func (vault *ReadOnlyVault) ListLockboxAliases() ([]LockboxAlias, error) {
+	return decodeResult(C.vault_read_only_list_lockbox_aliases(vault.handle), decodeLockboxAliasList)
+}
 
 // ResolveLockboxAlias Resolves metadata; verify target identity before opening its path.
-func (vault *ReadOnlyVault) ResolveLockboxAlias(name string) (*KnownLockbox, error) { return decodeResult(C.vault_read_only_resolve_lockbox_alias(vault.handle, charPointer(name), C.size_t(len(name))), decodeKnownLockbox) }
+func (vault *ReadOnlyVault) ResolveLockboxAlias(name string) (*KnownLockbox, error) {
+	return decodeResult(C.vault_read_only_resolve_lockbox_alias(vault.handle, charPointer(name), C.size_t(len(name))), decodeKnownLockbox)
+}
 
 // ListKnownLockboxes lists remembered identities and paths.
 func (vault *ReadOnlyVault) ListKnownLockboxes() ([]KnownLockbox, error) {

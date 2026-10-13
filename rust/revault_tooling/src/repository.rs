@@ -1114,6 +1114,16 @@ fn generate_flatbuffers(repository: &Path) -> Result {
         }
     }
 
+    // flatc Go output needs canonical Go formatting as well as the model
+    // generator (which already formats its own domain_models.go output).
+    let status = Command::new("gofmt")
+        .arg("-w")
+        .arg(repository.join("bindings/go/internal/transport/revault_bindings_generated.go"))
+        .status()?;
+    if !status.success() {
+        return Err(format!("generated Go formatting failed with {status}").into());
+    }
+
     // Match the required binding lint gate so regeneration does not restore
     // unformatted Dart output. Limit formatting to generator-owned files.
     let status = Command::new("dart")

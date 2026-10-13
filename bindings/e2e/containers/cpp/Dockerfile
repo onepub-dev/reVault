@@ -1,7 +1,7 @@
 FROM revault-e2e-native:local
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential cmake dbus-x11 gnome-keyring libsecret-tools \
+    build-essential cmake dbus-x11 gnome-keyring libsecret-tools libglib2.0-bin \
     libdbus-1-dev pkg-config python3 \
     && rm -rf /var/lib/apt/lists/*
 

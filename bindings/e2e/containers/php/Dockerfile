@@ -4,7 +4,7 @@ FROM composer:2 AS composer
 
 FROM php:8.3-cli-bookworm
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    dbus-x11 gnome-keyring libsecret-tools libdbus-1-3 python3 git unzip libffi-dev \
+    dbus-x11 gnome-keyring libsecret-tools libglib2.0-bin libdbus-1-3 python3 git unzip libffi-dev \
     && docker-php-ext-configure ffi --with-ffi \
     && docker-php-ext-install ffi \
     && rm -rf /var/lib/apt/lists/*

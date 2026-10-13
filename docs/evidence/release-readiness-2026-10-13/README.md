@@ -4,7 +4,32 @@ Status: in progress; no release-ready claim. Brett has authorized completing pre
 
 Brett requested preparation for release after accepting the current performance checkpoint. Performance experiments remain paused. The working scope is the current default format-4 implementation on `issue-310-zip-read-performance`, for compatibility line `0.5.x`, under the release-preparation instruction. Alternative archive layouts remain experimental and are not activated by this work. Published baseline checked on GitHub: CLI `0.4.1` and bindings `0.4.1`.
 
-The security checkpoint `788d4a03` was followed by registry routing and retained-fixture qualification at `0300ee65`, installed-consumer checks at `5cdeda3d`, and the agent deadline correction at `352a180a`. The first 0.5 candidate `1acd23f2` entered prepare-all run `38367390629`; its Linux native conformance exposed a missing explicit headless fixture policy. That candidate is not qualified, and a corrected tooling/documentation checkpoint will replace it. Final evidence must identify the actual committed candidate, features, toolchain and artifacts. Earlier checks cannot qualify later edits. Preserve the unrelated dirty main checkout.
+The security checkpoint `788d4a03` was followed by registry routing and retained-fixture qualification at `0300ee65`, installed-consumer checks at `5cdeda3d`, and the agent deadline correction at `352a180a`. The first 0.5 candidate `1acd23f2` entered prepare-all run `38367390629`; its Linux native conformance exposed a missing explicit headless fixture policy. That candidate and the later `f67a01dc` candidate are not qualified; the latest package correction checkpoint below supersedes their current status. Final evidence must identify the actual committed candidate, features, toolchain and artifacts. Earlier checks cannot qualify later edits. Preserve the unrelated dirty main checkout.
+
+## Latest package correction checkpoint
+
+The second candidate `f67a01dc` (prepare run `38373486321`) is not qualified.
+Its required gates exposed Go/Python formatting, Ruby/Lua alias facade mappings,
+a missing `gdbus` utility in Linux images, and fresh Rust 1.88 consumer resolution
+of a newer incompatible UUID. The correction batch fixes those specific causes.
+The Linux Vault dependency now constrains UUID below 1.27; ordinary edition-2021
+resolver-2 consumers remain supported. Root, facade and E2E lock changes add only
+the direct dependency edge and retain UUID 1.26.0.
+
+The extracted `revault-api 0.5.0` package passed its ordinary persisted archive/
+Vault lifecycle and a separate installed-package interop invocation on Rust 1.88.
+Ruby and Lua each passed all 229 conformance checks, including persisted aliases,
+with an owned Secret Service whose bus-owner PID was verified. These local runs
+use the previously qualified native library in pinned Trixie containers; final
+Bookworm package/platform CI remains required. Tooling, Go, Python and JS/TypeScript
+checks passed at their recorded source epochs. See [curated results](raw/package-gate-corrections/result.json).
+
+The actual bounded mutation-sequence fuzz job passed at `f674b7ab` in
+[run 38373225520](https://github.com/onepub-dev/reVault/actions/runs/38373225520);
+`f67a01dc` changes only release versions/build manifests from that checkpoint.
+The earlier fuzz installation failure below is historical. No release resource
+samples have started. A replacement immutable candidate, final platform/package
+gates and the required resource/comparator acceptance still precede publication.
 
 ## Required work and evidence
 

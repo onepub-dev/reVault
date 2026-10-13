@@ -149,6 +149,8 @@ module Revault
     extern 'bool vault_cache_lockbox_password(void *, void *, size_t, void *, size_t, uint64_t)'
     extern 'bool vault_close_lockbox(void *, void *, size_t)'
     extern 'bool vault_close_all(void *)'
+    extern 'char vault_directory_set_lockbox_alias(void *, void *, size_t, void *, size_t)'
+    extern 'char vault_directory_remove_lockbox_alias(void *, void *, size_t)'
     extern 'void vault_free(void *)'
   end
 
@@ -216,9 +218,7 @@ module Revault
     extern 'void ruby_vault_directory_load_backup(void *, void *, size_t, void *)'
     extern 'void ruby_vault_directory_list_profile_generations(void *, void *, size_t, void *)'
     extern 'void ruby_vault_directory_rotate_private_key(void *, void *, size_t, void *)'
-    extern 'char vault_directory_set_lockbox_alias(void *, void *, size_t, void *, size_t)'
     extern 'void ruby_vault_directory_list_lockbox_aliases(void *, void *)'
-    extern 'char vault_directory_remove_lockbox_alias(void *, void *, size_t)'
     extern 'void ruby_vault_directory_resolve_lockbox_alias(void *, void *, size_t, void *)'
     extern 'void ruby_vault_read_only_list_lockbox_aliases(void *, void *)'
     extern 'void ruby_vault_read_only_resolve_lockbox_alias(void *, void *, size_t, void *)'

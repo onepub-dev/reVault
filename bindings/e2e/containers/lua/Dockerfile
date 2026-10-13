@@ -2,7 +2,7 @@ FROM revault-e2e-native:local AS native
 
 FROM debian:bookworm
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates dbus-x11 gnome-keyring libsecret-tools libdbus-1-3 \
+    ca-certificates dbus-x11 gnome-keyring libsecret-tools libglib2.0-bin libdbus-1-3 \
     luajit luarocks python3 build-essential liblua5.1-0-dev \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /workspace

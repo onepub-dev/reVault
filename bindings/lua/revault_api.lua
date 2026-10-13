@@ -315,6 +315,7 @@ local child_fields = {
   FormRecord = { { "values", "FormValue", true } },
   FormRecordList = { { "values", "FormRecord", true } },
   KeySlotList = { { "values", "KeySlot", true } },
+  LockboxAliasList = { { "values", "LockboxAlias", true } },
   KnownLockboxList = { { "values", "KnownLockbox", true } },
   LockboxEntryList = { { "entries", "LockboxEntry", true } },
   OptionalFormRecord = { { "value", "FormRecord", false } },
@@ -412,6 +413,12 @@ model("KeySlot")
 --- Ordered KeySlot values returned by the corresponding list operation.
 -- @type KeySlotList
 model("KeySlotList")
+--- A local Vault alias mapping a normalized name to a stable lockbox identity; resolution does not open the target.
+-- @type LockboxAlias
+model("LockboxAlias")
+--- Ordered LockboxAlias values returned by the corresponding list operation.
+-- @type LockboxAliasList
+model("LockboxAliasList")
 --- A lockbox identifier and host path remembered by the local vault for later discovery.
 -- @type KnownLockbox
 model("KnownLockbox")

@@ -945,7 +945,11 @@ fn secret_service_bus_query(method: &str) -> Result<String> {
         .arg("org.freedesktop.secrets")
         .output()?;
     if !output.status.success() {
-        return Err("owned Secret Service bus query failed".into());
+        return Err(format!(
+            "owned Secret Service bus query {method} failed with {}",
+            output.status
+        )
+        .into());
     }
     Ok(String::from_utf8(output.stdout)?.trim().to_string())
 }
