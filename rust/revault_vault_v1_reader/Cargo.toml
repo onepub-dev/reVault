@@ -2,7 +2,7 @@
 edition = "2021"
 rust-version = "1.88"
 name = "revault_vault_v1_reader"
-version = "0.0.1"
+version = "0.0.2"
 build = false
 exclude = ["AGENT_SLEEP_VM_TESTING.md"]
 autolib = false
@@ -34,7 +34,7 @@ version = "0.4"
 
 [dependencies.revault_lockbox_api]
 package = "revault_archive_v1_initial_reader"
-version = "0.0.1"
+version = "0.0.2"
 path = "../revault_archive_v1_initial_reader"
 features = ["vault-integration"]
 
