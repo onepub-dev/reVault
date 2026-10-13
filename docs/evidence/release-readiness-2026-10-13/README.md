@@ -6,7 +6,36 @@ Brett requested preparation for release after accepting the current performance 
 
 The security checkpoint `788d4a03` was followed by registry routing and retained-fixture qualification at `0300ee65`, installed-consumer checks at `5cdeda3d`, and the agent deadline correction at `352a180a`. The first 0.5 candidate `1acd23f2` entered prepare-all run `38367390629`; its Linux native conformance exposed a missing explicit headless fixture policy. That candidate and the later `f67a01dc` candidate are not qualified; the latest package correction checkpoint below supersedes their current status. Final evidence must identify the actual committed candidate, features, toolchain and artifacts. Earlier checks cannot qualify later edits. Preserve the unrelated dirty main checkout.
 
-## Current candidate qualification
+## Current qualification checkpoint
+
+The fourth immutable candidate is `7cb57d5667c6308b0ee91793f195b84db5378800`,
+in [prepare run 38386958471](https://github.com/onepub-dev/reVault/actions/runs/38386958471).
+It must not be promoted: a fresh clean-database audit identified vulnerable ruzstd
+0.8.3 in the historical format-1 migration readers. The current format-4 decoder
+and facade/fuzz audits were unaffected. Five explicit compatibility reader packages
+now preserve the distinct historical implementations while routing to patched
+ruzstd 0.9.1. The [remediation checkpoint](../historical-migration-decoder-2026-10-13/README.md)
+records nine decoder passes, six selected/retained migration passes, five clean
+Clippy package gates, unchanged historical fixtures and clean audits of all three
+locks. A replacement committed candidate is still required.
+
+The exact fourth-candidate CLI also passed the bounded six-case resource screen:
+two protected owner-signed writes and four plaintext many-file extractions, with
+verified bytes, modes, identities and cleanup. The largest conditional conservative
+CLI-plus-owned-agent bound was 95,035,392 bytes, including setup observations.
+These are limited workload results, not the full release performance gate or a
+universal 100 MB guarantee. The full fixed ZIP/PGP comparison has not started;
+the new historical dependency fix must be reflected in final candidate identity.
+Sanitized [write](../historical-migration-decoder-2026-10-13/resource-preflight/write-resource-summary.json)
+and [extraction](../historical-migration-decoder-2026-10-13/resource-preflight/extract-resource-summary.json)
+summaries are retained; raw records were preserved with a verified relocation map.
+
+The user-requested [archive limits manual](../../../manual/maintain-and-recover/archive-limits.md)
+distinguishes field encodings, practical metadata limits and extraction defaults.
+Post-release issues 330 and 331 cover broader limits investigation and CLI numeric
+extraction overrides; they do not restart optimization during this release.
+
+## Historical third-candidate qualification
 
 The third immutable candidate is `353ded7da454de970a075819add09073e4190e28`,
 prepared from correction checkpoint `ec8a0729` in

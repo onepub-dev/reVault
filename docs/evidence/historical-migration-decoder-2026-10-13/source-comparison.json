@@ -1,0 +1,69 @@
+{
+  "original_provenance_path": "/tmp/revault-historical-readers-source-20261013-attempt3/provenance.json",
+  "packages": [
+    {
+      "package": "revault_archive_v1_initial_reader",
+      "original_package": "revault_lockbox_api-0.0.2",
+      "current_files": 73,
+      "original_files": 73,
+      "changed_or_missing_paths": [
+        "compression.rs"
+      ],
+      "allowed_source_difference": [
+        "compression.rs"
+      ],
+      "comparison_passed": true,
+      "current_compression_sha256": "38baace8b0b9ad94db7efdd72a470c0b5c2c807442c6ed2e7756291c6c3167cc",
+      "original_compression_sha256": "0c895b256dd692c9cc1880a1b712de477a217b8c591293fcdca8c3629340c987"
+    },
+    {
+      "package": "revault_archive_v1_legacy_reader",
+      "original_package": "revault_lockbox_api-0.0.3",
+      "current_files": 73,
+      "original_files": 73,
+      "changed_or_missing_paths": [
+        "compression.rs"
+      ],
+      "allowed_source_difference": [
+        "compression.rs"
+      ],
+      "comparison_passed": true,
+      "current_compression_sha256": "38baace8b0b9ad94db7efdd72a470c0b5c2c807442c6ed2e7756291c6c3167cc",
+      "original_compression_sha256": "0c895b256dd692c9cc1880a1b712de477a217b8c591293fcdca8c3629340c987"
+    },
+    {
+      "package": "revault_archive_v1_reader",
+      "original_package": "revault_lockbox_api-0.0.6",
+      "current_files": 73,
+      "original_files": 73,
+      "changed_or_missing_paths": [
+        "compression.rs"
+      ],
+      "allowed_source_difference": [
+        "compression.rs"
+      ],
+      "comparison_passed": true,
+      "current_compression_sha256": "38baace8b0b9ad94db7efdd72a470c0b5c2c807442c6ed2e7756291c6c3167cc",
+      "original_compression_sha256": "0c895b256dd692c9cc1880a1b712de477a217b8c591293fcdca8c3629340c987"
+    },
+    {
+      "package": "revault_vault_v1_reader",
+      "original_package": "revault_vault_api-0.0.2",
+      "current_files": 16,
+      "original_files": 16,
+      "changed_or_missing_paths": [],
+      "allowed_source_difference": [],
+      "comparison_passed": true
+    },
+    {
+      "package": "revault_vault_v2_container_v1_reader",
+      "original_package": "revault_vault_api-0.0.6",
+      "current_files": 16,
+      "original_files": 16,
+      "changed_or_missing_paths": [],
+      "allowed_source_difference": [],
+      "comparison_passed": true
+    }
+  ],
+  "all_comparisons_passed": true
+}

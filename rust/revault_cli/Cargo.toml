@@ -103,8 +103,8 @@ revault_vault_api_structure_v2 = { package = "revault_vault_api", version = "=0.
 revault_lockbox_api_structure_v2 = { package = "revault_lockbox_api", version = "=0.0.9" }
 revault_lockbox_api = { path = "../revault_lockbox_api", features = ["test-support"] , version = "0.0.45" }
 revault_key_server = { path = "../revault_key_server" , version = "0.0.41" }
-revault_vault_api_v1 = { package = "revault_vault_api", version = "=0.0.2" }
-revault_lockbox_api_v1 = { package = "revault_lockbox_api", version = "=0.0.3" }
-revault_lockbox_api_vault_v1 = { package = "revault_lockbox_api", version = "=0.0.2" }
-revault_vault_api_container_v1 = { package = "revault_vault_api", version = "=0.0.6" }
-revault_lockbox_api_container_v1 = { package = "revault_lockbox_api", version = "=0.0.6" }
+revault_vault_api_v1 = { package = "revault_vault_v1_reader", version = "0.0.1", path = "../revault_vault_v1_reader" }
+revault_lockbox_api_v1 = { package = "revault_archive_v1_legacy_reader", version = "0.0.1", path = "../revault_archive_v1_legacy_reader" }
+revault_lockbox_api_vault_v1 = { package = "revault_archive_v1_initial_reader", version = "0.0.1", path = "../revault_archive_v1_initial_reader" }
+revault_vault_api_container_v1 = { package = "revault_vault_v2_container_v1_reader", version = "0.0.1", path = "../revault_vault_v2_container_v1_reader" }
+revault_lockbox_api_container_v1 = { package = "revault_archive_v1_reader", version = "0.0.1", path = "../revault_archive_v1_reader" }

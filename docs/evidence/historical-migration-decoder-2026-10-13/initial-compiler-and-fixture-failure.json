@@ -1,0 +1,142 @@
+{
+  "head_before": "7cb57d5667c6308b0ee91793f195b84db5378800",
+  "head_after": "7cb57d5667c6308b0ee91793f195b84db5378800",
+  "lock_sha256_before": "50840bcd53b04323e8f0f5e837ba3574a6c7c89f46583425d938f5b80a9b7273",
+  "lock_sha256_after": "50840bcd53b04323e8f0f5e837ba3574a6c7c89f46583425d938f5b80a9b7273",
+  "input_count": 1065,
+  "rust_source_manifest_unchanged": true,
+  "checks": [
+    {
+      "kind": "check",
+      "package": "revault_archive_v1_initial_reader",
+      "command": {
+        "executable": "/home/bsutton/.cargo/bin/cargo",
+        "args": [
+          "+1.88.0",
+          "check",
+          "--locked",
+          "--offline",
+          "-p",
+          "revault_archive_v1_initial_reader"
+        ],
+        "cwd": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust"
+      },
+      "exit_code": 0,
+      "elapsed_ms": 5812,
+      "stdout_path": "/tmp/revault-historical-readers-check-7cb57d5/compiler-tests/check-revault_archive_v1_initial_reader.stdout.txt",
+      "stderr_path": "/tmp/revault-historical-readers-check-7cb57d5/compiler-tests/check-revault_archive_v1_initial_reader.stderr.txt"
+    },
+    {
+      "kind": "check",
+      "package": "revault_archive_v1_legacy_reader",
+      "command": {
+        "executable": "/home/bsutton/.cargo/bin/cargo",
+        "args": [
+          "+1.88.0",
+          "check",
+          "--locked",
+          "--offline",
+          "-p",
+          "revault_archive_v1_legacy_reader"
+        ],
+        "cwd": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust"
+      },
+      "exit_code": 0,
+      "elapsed_ms": 1774,
+      "stdout_path": "/tmp/revault-historical-readers-check-7cb57d5/compiler-tests/check-revault_archive_v1_legacy_reader.stdout.txt",
+      "stderr_path": "/tmp/revault-historical-readers-check-7cb57d5/compiler-tests/check-revault_archive_v1_legacy_reader.stderr.txt"
+    },
+    {
+      "kind": "check",
+      "package": "revault_archive_v1_reader",
+      "command": {
+        "executable": "/home/bsutton/.cargo/bin/cargo",
+        "args": [
+          "+1.88.0",
+          "check",
+          "--locked",
+          "--offline",
+          "-p",
+          "revault_archive_v1_reader"
+        ],
+        "cwd": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust"
+      },
+      "exit_code": 0,
+      "elapsed_ms": 2168,
+      "stdout_path": "/tmp/revault-historical-readers-check-7cb57d5/compiler-tests/check-revault_archive_v1_reader.stdout.txt",
+      "stderr_path": "/tmp/revault-historical-readers-check-7cb57d5/compiler-tests/check-revault_archive_v1_reader.stderr.txt"
+    },
+    {
+      "kind": "check",
+      "package": "revault_vault_v1_reader",
+      "command": {
+        "executable": "/home/bsutton/.cargo/bin/cargo",
+        "args": [
+          "+1.88.0",
+          "check",
+          "--locked",
+          "--offline",
+          "-p",
+          "revault_vault_v1_reader"
+        ],
+        "cwd": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust"
+      },
+      "exit_code": 0,
+      "elapsed_ms": 10222,
+      "stdout_path": "/tmp/revault-historical-readers-check-7cb57d5/compiler-tests/check-revault_vault_v1_reader.stdout.txt",
+      "stderr_path": "/tmp/revault-historical-readers-check-7cb57d5/compiler-tests/check-revault_vault_v1_reader.stderr.txt"
+    },
+    {
+      "kind": "check",
+      "package": "revault_vault_v2_container_v1_reader",
+      "command": {
+        "executable": "/home/bsutton/.cargo/bin/cargo",
+        "args": [
+          "+1.88.0",
+          "check",
+          "--locked",
+          "--offline",
+          "-p",
+          "revault_vault_v2_container_v1_reader"
+        ],
+        "cwd": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust"
+      },
+      "exit_code": 0,
+      "elapsed_ms": 9676,
+      "stdout_path": "/tmp/revault-historical-readers-check-7cb57d5/compiler-tests/check-revault_vault_v2_container_v1_reader.stdout.txt",
+      "stderr_path": "/tmp/revault-historical-readers-check-7cb57d5/compiler-tests/check-revault_vault_v2_container_v1_reader.stderr.txt"
+    }
+  ],
+  "tests": [
+    {
+      "package": "revault_archive_v1_initial_reader",
+      "command": {
+        "executable": "/home/bsutton/.cargo/bin/cargo",
+        "args": [
+          "+1.88.0",
+          "test",
+          "--locked",
+          "--offline",
+          "-p",
+          "revault_archive_v1_initial_reader",
+          "--lib",
+          "compatibility_decoder_tests",
+          "--",
+          "--test-threads=1"
+        ],
+        "cwd": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust"
+      },
+      "exit_code": 101,
+      "elapsed_ms": 29500,
+      "result_line": "test result: FAILED. 1 passed; 2 failed; 0 ignored; 0 measured; 212 filtered out; finished in 0.01s",
+      "passed": 1,
+      "failed": 2,
+      "ignored": 0,
+      "gate_passed": false,
+      "stdout_path": "/tmp/revault-historical-readers-check-7cb57d5/compiler-tests/test-revault_archive_v1_initial_reader.stdout.txt",
+      "stderr_path": "/tmp/revault-historical-readers-check-7cb57d5/compiler-tests/test-revault_archive_v1_initial_reader.stderr.txt"
+    }
+  ],
+  "failed_at": "test:revault_archive_v1_initial_reader",
+  "scope": "Five package compiler checks and three selected ordinary compatibility tests per archive core only; no broad, malformed, crash, or corpus tests."
+}

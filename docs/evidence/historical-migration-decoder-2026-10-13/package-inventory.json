@@ -1,0 +1,290 @@
+{
+  "head_before": "7cb57d5667c6308b0ee91793f195b84db5378800",
+  "head_after": "7cb57d5667c6308b0ee91793f195b84db5378800",
+  "source_input_count": 1065,
+  "source_unchanged": true,
+  "package_metadata_command": {
+    "executable": "/home/bsutton/.cargo/bin/cargo",
+    "args": [
+      "+1.88.0",
+      "metadata",
+      "--locked",
+      "--offline",
+      "--format-version",
+      "1"
+    ],
+    "cwd": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust"
+  },
+  "selected_packages": [
+    {
+      "name": "revault_archive_v1_initial_reader",
+      "version": "0.0.1",
+      "manifest_path": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_archive_v1_initial_reader/Cargo.toml"
+    },
+    {
+      "name": "revault_archive_v1_legacy_reader",
+      "version": "0.0.1",
+      "manifest_path": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_archive_v1_legacy_reader/Cargo.toml"
+    },
+    {
+      "name": "revault_archive_v1_reader",
+      "version": "0.0.1",
+      "manifest_path": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_archive_v1_reader/Cargo.toml"
+    },
+    {
+      "name": "revault_vault_v1_reader",
+      "version": "0.0.1",
+      "manifest_path": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_vault_v1_reader/Cargo.toml"
+    },
+    {
+      "name": "revault_vault_v2_container_v1_reader",
+      "version": "0.0.1",
+      "manifest_path": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/revault_vault_v2_container_v1_reader/Cargo.toml"
+    }
+  ],
+  "package_lists": [
+    {
+      "package": "revault_archive_v1_initial_reader",
+      "command": {
+        "executable": "/home/bsutton/.cargo/bin/cargo",
+        "args": [
+          "+1.88.0",
+          "package",
+          "--list",
+          "--locked",
+          "--offline",
+          "--allow-dirty",
+          "-p",
+          "revault_archive_v1_initial_reader"
+        ],
+        "cwd": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust"
+      },
+      "exit_code": 0,
+      "elapsed_ms": 168,
+      "listed_file_count": 80,
+      "required_file_check": [
+        {
+          "path": "Cargo.toml",
+          "included": true
+        },
+        {
+          "path": "README.md",
+          "included": true
+        },
+        {
+          "path": "LICENSE",
+          "included": true
+        },
+        {
+          "path": "PROVENANCE.json",
+          "included": true
+        },
+        {
+          "path": "src/lib.rs",
+          "included": true
+        },
+        {
+          "path": "src/compression.rs",
+          "included": true
+        }
+      ],
+      "missing_required": [],
+      "list_only": true,
+      "stdout_path": "/tmp/revault-historical-readers-check-7cb57d5/package-lists-attempt1/revault_archive_v1_initial_reader.files.txt",
+      "stderr_path": "/tmp/revault-historical-readers-check-7cb57d5/package-lists-attempt1/revault_archive_v1_initial_reader.stderr.txt"
+    },
+    {
+      "package": "revault_archive_v1_legacy_reader",
+      "command": {
+        "executable": "/home/bsutton/.cargo/bin/cargo",
+        "args": [
+          "+1.88.0",
+          "package",
+          "--list",
+          "--locked",
+          "--offline",
+          "--allow-dirty",
+          "-p",
+          "revault_archive_v1_legacy_reader"
+        ],
+        "cwd": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust"
+      },
+      "exit_code": 0,
+      "elapsed_ms": 165,
+      "listed_file_count": 80,
+      "required_file_check": [
+        {
+          "path": "Cargo.toml",
+          "included": true
+        },
+        {
+          "path": "README.md",
+          "included": true
+        },
+        {
+          "path": "LICENSE",
+          "included": true
+        },
+        {
+          "path": "PROVENANCE.json",
+          "included": true
+        },
+        {
+          "path": "src/lib.rs",
+          "included": true
+        },
+        {
+          "path": "src/compression.rs",
+          "included": true
+        }
+      ],
+      "missing_required": [],
+      "list_only": true,
+      "stdout_path": "/tmp/revault-historical-readers-check-7cb57d5/package-lists-attempt1/revault_archive_v1_legacy_reader.files.txt",
+      "stderr_path": "/tmp/revault-historical-readers-check-7cb57d5/package-lists-attempt1/revault_archive_v1_legacy_reader.stderr.txt"
+    },
+    {
+      "package": "revault_archive_v1_reader",
+      "command": {
+        "executable": "/home/bsutton/.cargo/bin/cargo",
+        "args": [
+          "+1.88.0",
+          "package",
+          "--list",
+          "--locked",
+          "--offline",
+          "--allow-dirty",
+          "-p",
+          "revault_archive_v1_reader"
+        ],
+        "cwd": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust"
+      },
+      "exit_code": 0,
+      "elapsed_ms": 164,
+      "listed_file_count": 80,
+      "required_file_check": [
+        {
+          "path": "Cargo.toml",
+          "included": true
+        },
+        {
+          "path": "README.md",
+          "included": true
+        },
+        {
+          "path": "LICENSE",
+          "included": true
+        },
+        {
+          "path": "PROVENANCE.json",
+          "included": true
+        },
+        {
+          "path": "src/lib.rs",
+          "included": true
+        },
+        {
+          "path": "src/compression.rs",
+          "included": true
+        }
+      ],
+      "missing_required": [],
+      "list_only": true,
+      "stdout_path": "/tmp/revault-historical-readers-check-7cb57d5/package-lists-attempt1/revault_archive_v1_reader.files.txt",
+      "stderr_path": "/tmp/revault-historical-readers-check-7cb57d5/package-lists-attempt1/revault_archive_v1_reader.stderr.txt"
+    },
+    {
+      "package": "revault_vault_v1_reader",
+      "command": {
+        "executable": "/home/bsutton/.cargo/bin/cargo",
+        "args": [
+          "+1.88.0",
+          "package",
+          "--list",
+          "--locked",
+          "--offline",
+          "--allow-dirty",
+          "-p",
+          "revault_vault_v1_reader"
+        ],
+        "cwd": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust"
+      },
+      "exit_code": 0,
+      "elapsed_ms": 165,
+      "listed_file_count": 23,
+      "required_file_check": [
+        {
+          "path": "Cargo.toml",
+          "included": true
+        },
+        {
+          "path": "README.md",
+          "included": true
+        },
+        {
+          "path": "LICENSE",
+          "included": true
+        },
+        {
+          "path": "PROVENANCE.json",
+          "included": true
+        },
+        {
+          "path": "src/lib.rs",
+          "included": true
+        }
+      ],
+      "missing_required": [],
+      "list_only": true,
+      "stdout_path": "/tmp/revault-historical-readers-check-7cb57d5/package-lists-attempt1/revault_vault_v1_reader.files.txt",
+      "stderr_path": "/tmp/revault-historical-readers-check-7cb57d5/package-lists-attempt1/revault_vault_v1_reader.stderr.txt"
+    },
+    {
+      "package": "revault_vault_v2_container_v1_reader",
+      "command": {
+        "executable": "/home/bsutton/.cargo/bin/cargo",
+        "args": [
+          "+1.88.0",
+          "package",
+          "--list",
+          "--locked",
+          "--offline",
+          "--allow-dirty",
+          "-p",
+          "revault_vault_v2_container_v1_reader"
+        ],
+        "cwd": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust"
+      },
+      "exit_code": 0,
+      "elapsed_ms": 167,
+      "listed_file_count": 23,
+      "required_file_check": [
+        {
+          "path": "Cargo.toml",
+          "included": true
+        },
+        {
+          "path": "README.md",
+          "included": true
+        },
+        {
+          "path": "LICENSE",
+          "included": true
+        },
+        {
+          "path": "PROVENANCE.json",
+          "included": true
+        },
+        {
+          "path": "src/lib.rs",
+          "included": true
+        }
+      ],
+      "missing_required": [],
+      "list_only": true,
+      "stdout_path": "/tmp/revault-historical-readers-check-7cb57d5/package-lists-attempt1/revault_vault_v2_container_v1_reader.files.txt",
+      "stderr_path": "/tmp/revault-historical-readers-check-7cb57d5/package-lists-attempt1/revault_vault_v2_container_v1_reader.stderr.txt"
+    }
+  ],
+  "qualification_limit": "Cargo package --list and metadata inspection only. No crate archive was assembled, built, published, or consumed from a registry."
+}

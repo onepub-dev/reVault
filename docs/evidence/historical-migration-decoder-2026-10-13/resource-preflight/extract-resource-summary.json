@@ -1,0 +1,41 @@
+{
+  "setup_cli_peak_bytes": 77234176.0,
+  "setup_conservative_cli_agent_bound_bytes": 85979136.0,
+  "setup_commands": 16,
+  "setup_elapsed_in_operation_timing": false,
+  "operations": [
+    {
+      "case": "256-files-64mib",
+      "cli_peak_bytes": 59965440.0,
+      "conservative_cli_agent_bound_bytes": 68718592.0,
+      "hard_cli_failure": false,
+      "recorded_process_bound_below_limit": true
+    },
+    {
+      "case": "1024-files-1gib",
+      "cli_peak_bytes": 68509696.0,
+      "conservative_cli_agent_bound_bytes": 76865536.0,
+      "hard_cli_failure": false,
+      "recorded_process_bound_below_limit": true
+    },
+    {
+      "case": "256-source-files-64mib",
+      "cli_peak_bytes": 43278336.0,
+      "conservative_cli_agent_bound_bytes": 51576832.0,
+      "hard_cli_failure": false,
+      "recorded_process_bound_below_limit": true
+    },
+    {
+      "case": "1024-source-files-1gib",
+      "cli_peak_bytes": 49401856.0,
+      "conservative_cli_agent_bound_bytes": 58036224.0,
+      "hard_cli_failure": false,
+      "recorded_process_bound_below_limit": true
+    }
+  ],
+  "hard_failure": false,
+  "completed_prefix": 4,
+  "planned_operations": 4,
+  "limited_screen_only": true,
+  "full_release_gates_satisfied": false
+}

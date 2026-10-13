@@ -1,0 +1,67 @@
+[
+  {
+    "file": "metadata-summary.json",
+    "original_path": "/tmp/revault-historical-readers-check-7cb57d5/metadata-summary.json",
+    "sha256": "5f2b38aef1a11fb1afef3fc4fef92167c93970476a2b22db67698921ee20fa5d"
+  },
+  {
+    "file": "source-comparison.json",
+    "original_path": "/tmp/revault-historical-readers-check-7cb57d5/extracted-source-comparison.json",
+    "sha256": "0b3174d11fd680425f8daac17204ec26da18429fd7ef4bae1d32c6bb40a87f9b"
+  },
+  {
+    "file": "initial-compiler-and-fixture-failure.json",
+    "original_path": "/tmp/revault-historical-readers-check-7cb57d5/compiler-tests/summary.json",
+    "sha256": "11686d2b58bc14afcb062cf13ca13bfb805683bce34444728eeec50b84ca150b"
+  },
+  {
+    "file": "focused-decoder-tests.json",
+    "original_path": "/tmp/revault-historical-readers-check-7cb57d5/focused-attempt2/summary.json",
+    "sha256": "65cde521a38d5a115e7968409760895c3fb2f50c3dc1b56ebdc7bc2891b96dfd"
+  },
+  {
+    "file": "initial-clippy.json",
+    "original_path": "/tmp/revault-historical-readers-check-7cb57d5/focused-attempt2b-clippy/summary.json",
+    "sha256": "59202d74c2cea99287b561c08752b82f1640292f97154cccf62f40be8a89b64b"
+  },
+  {
+    "file": "corrected-clippy.json",
+    "original_path": "/tmp/revault-historical-readers-check-7cb57d5/clippy-attempt3/summary.json",
+    "sha256": "fbb86f6b74755773d41c69a2f56701dca6a028b6bedff7f67f3fb9ee71cdae38"
+  },
+  {
+    "file": "migration-tests.json",
+    "original_path": "/tmp/revault-historical-readers-check-7cb57d5/migration-validation-attempt1/summary.json",
+    "sha256": "460c210ed6c8b1cadfe71821f6138f6ab86b269e49f638e55a1500f2999d34cd"
+  },
+  {
+    "file": "fixture-identities-before.json",
+    "original_path": "/tmp/revault-historical-readers-check-7cb57d5/migration-validation-attempt1/source-fixtures.before.json",
+    "sha256": "61ab9842afa64bcb65049822461021c78efc4fe53c25501bc28367b298dc0beb"
+  },
+  {
+    "file": "fixture-identities-after.json",
+    "original_path": "/tmp/revault-historical-readers-check-7cb57d5/migration-validation-attempt1/source-fixtures.after.json",
+    "sha256": "61ab9842afa64bcb65049822461021c78efc4fe53c25501bc28367b298dc0beb"
+  },
+  {
+    "file": "package-inventory.json",
+    "original_path": "/tmp/revault-historical-readers-check-7cb57d5/package-lists-attempt1/summary.json",
+    "sha256": "ab9ed2afc451fb6e7d145f1751753639ed8e9aabc35ffcd9288e2b0449257299"
+  },
+  {
+    "file": "clean-audit-before-remediation.json",
+    "original_path": "/tmp/revault-final-audit-7cb57d5/clean-db-attempt/summary.json",
+    "sha256": "e76062f7dcddab1b6543a5920109fef058c117fa55cbdb6477ee37c64a1071ac"
+  },
+  {
+    "file": "clean-audit-after-remediation.json",
+    "original_path": "/tmp/revault-final-audit-7cb57d5/historical-reader-lock-attempt2/summary.json",
+    "sha256": "d764f7f19f4ad824e1ab61e0bc710d90918e2e917e65c92b9b5b9d06caa6e076"
+  },
+  {
+    "file": "audit-manifest-reconciliation.md",
+    "original_path": "/tmp/revault-advisory-manifest-reconciliation.md",
+    "sha256": "577584b44f0b9fa1995b40fead18b35d4b8a5f1d0062bbd83a3b40fb6c53489b"
+  }
+]

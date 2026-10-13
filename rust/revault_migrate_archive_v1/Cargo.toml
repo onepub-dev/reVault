@@ -16,8 +16,8 @@ path = "src/bin/revault-migrate-archive-v1.rs"
 getrandom = "0.4"
 revault_migration_format = "=0.0.4"
 # Historical readers are deliberately pinned outside the current core API.
-revault_lockbox_api_v1 = { package = "revault_lockbox_api", version = "=0.0.6", features = ["migration"] }
-revault_vault_api = { version = "=0.0.6" }
+revault_lockbox_api_v1 = { package = "revault_archive_v1_reader", version = "0.0.1", path = "../revault_archive_v1_reader", features = ["migration"] }
+revault_vault_api = { package = "revault_vault_v2_container_v1_reader", version = "0.0.1", path = "../revault_vault_v2_container_v1_reader" }
 sha2 = "0.11"
 zeroize = "1.9"
 

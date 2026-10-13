@@ -505,6 +505,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "005ec2760ca554fae18df7a11195552ec576cd665632a881bc011d5bb2fd4d80"
 dependencies = [
  "find-msvc-tools",
+ "jobserver",
+ "libc",
  "shlex",
 ]
 
@@ -1661,6 +1663,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682"
 
 [[package]]
+name = "jobserver"
+version = "0.1.35"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1c00acbd29eabad4a2392fa0e921c874934dbbf4194312ad20f04a0ed67a3cb3"
+dependencies = [
+ "getrandom 0.4.3",
+ "libc",
+]
+
+[[package]]
 name = "js-sys"
 version = "0.3.105"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2343,6 +2355,73 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d6f6ff9a378485b298a5286656da665ba74413d36db0979633275d2e708145d4"
 
 [[package]]
+name = "revault_archive_v1_initial_reader"
+version = "0.0.1"
+dependencies = [
+ "argon2 0.5.3",
+ "chacha20poly1305",
+ "ed25519-dalek 2.2.0",
+ "getrandom 0.4.3",
+ "hkdf 0.13.0",
+ "libc",
+ "ml-dsa",
+ "ml-kem",
+ "revault_page_api 0.0.2",
+ "ruzstd",
+ "sha2 0.11.0",
+ "sysinfo",
+ "unicode-normalization",
+ "x25519-dalek 2.0.1",
+ "zeroize",
+ "zstd",
+]
+
+[[package]]
+name = "revault_archive_v1_legacy_reader"
+version = "0.0.1"
+dependencies = [
+ "argon2 0.5.3",
+ "chacha20poly1305",
+ "ed25519-dalek 2.2.0",
+ "getrandom 0.4.3",
+ "hkdf 0.13.0",
+ "libc",
+ "ml-dsa",
+ "ml-kem",
+ "revault_page_api 0.0.2",
+ "ruzstd",
+ "sha2 0.11.0",
+ "sysinfo",
+ "unicode-normalization",
+ "x25519-dalek 2.0.1",
+ "zeroize",
+ "zstd",
+]
+
+[[package]]
+name = "revault_archive_v1_reader"
+version = "0.0.1"
+dependencies = [
+ "argon2 0.5.3",
+ "chacha20poly1305",
+ "ed25519-dalek 3.0.0",
+ "getrandom 0.4.3",
+ "hkdf 0.13.0",
+ "libc",
+ "ml-dsa",
+ "ml-kem",
+ "revault_page_api 0.0.4",
+ "ruzstd",
+ "serde_json",
+ "sha2 0.11.0",
+ "unicode-normalization",
+ "windows-sys 0.61.2",
+ "x25519-dalek 3.0.0",
+ "zeroize",
+ "zstd",
+]
+
+[[package]]
 name = "revault_archive_v3_reader"
 version = "0.0.5"
 dependencies = [
@@ -2386,19 +2465,19 @@ dependencies = [
  "clap_complete",
  "getrandom 0.4.3",
  "libc",
+ "revault_archive_v1_initial_reader",
+ "revault_archive_v1_legacy_reader",
+ "revault_archive_v1_reader",
  "revault_archive_v3_reader",
  "revault_key_server",
- "revault_lockbox_api 0.0.2",
- "revault_lockbox_api 0.0.3",
  "revault_lockbox_api 0.0.45",
- "revault_lockbox_api 0.0.6",
  "revault_lockbox_api 0.0.9",
  "revault_migration",
  "revault_publish_protocol",
  "revault_vault_api 0.0.10",
- "revault_vault_api 0.0.2",
  "revault_vault_api 0.0.46",
- "revault_vault_api 0.0.6",
+ "revault_vault_v1_reader",
+ "revault_vault_v2_container_v1_reader",
  "revault_vault_v3_reader",
  "serde",
  "serde_json",
@@ -2425,76 +2504,6 @@ dependencies = [
  "tokio",
  "toml",
  "windows-sys 0.61.2",
-]
-
-[[package]]
-name = "revault_lockbox_api"
-version = "0.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7ef1070fa8dae0ba91e40059f9e1ecbfd1e21d6292ecd77c400bb89c1491656b"
-dependencies = [
- "argon2 0.5.3",
- "chacha20poly1305",
- "ed25519-dalek 2.2.0",
- "getrandom 0.4.3",
- "hkdf 0.13.0",
- "libc",
- "ml-dsa",
- "ml-kem",
- "revault_page_api 0.0.2",
- "ruzstd",
- "sha2 0.11.0",
- "sysinfo",
- "unicode-normalization",
- "x25519-dalek 2.0.1",
- "zeroize",
-]
-
-[[package]]
-name = "revault_lockbox_api"
-version = "0.0.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "604c71693460ce50d79d2fdd463fa69dd18e5ba67040cb2b6449850b992ceda7"
-dependencies = [
- "argon2 0.5.3",
- "chacha20poly1305",
- "ed25519-dalek 2.2.0",
- "getrandom 0.4.3",
- "hkdf 0.13.0",
- "libc",
- "ml-dsa",
- "ml-kem",
- "revault_page_api 0.0.2",
- "ruzstd",
- "sha2 0.11.0",
- "sysinfo",
- "unicode-normalization",
- "x25519-dalek 2.0.1",
- "zeroize",
-]
-
-[[package]]
-name = "revault_lockbox_api"
-version = "0.0.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a272de0c5ba56160535b1807f1b4f964d198f8cd785a0d42b8b4fca4fe62d20f"
-dependencies = [
- "argon2 0.5.3",
- "chacha20poly1305",
- "ed25519-dalek 3.0.0",
- "getrandom 0.4.3",
- "hkdf 0.13.0",
- "libc",
- "ml-dsa",
- "ml-kem",
- "revault_page_api 0.0.4",
- "ruzstd",
- "serde_json",
- "sha2 0.11.0",
- "unicode-normalization",
- "windows-sys 0.61.2",
- "x25519-dalek 3.0.0",
- "zeroize",
 ]
 
 [[package]]
@@ -2557,9 +2566,9 @@ name = "revault_migrate_archive_v1"
 version = "0.0.39"
 dependencies = [
  "getrandom 0.4.3",
- "revault_lockbox_api 0.0.6",
+ "revault_archive_v1_reader",
  "revault_migration_format 0.0.4",
- "revault_vault_api 0.0.6",
+ "revault_vault_v2_container_v1_reader",
  "serde_json",
  "sha2 0.11.0",
  "tempfile",
@@ -2584,11 +2593,11 @@ name = "revault_migrate_vault_v1"
 version = "0.0.38"
 dependencies = [
  "getrandom 0.4.3",
- "revault_lockbox_api 0.0.2",
- "revault_lockbox_api 0.0.6",
+ "revault_archive_v1_initial_reader",
+ "revault_archive_v1_reader",
  "revault_migration_format 0.0.4",
- "revault_vault_api 0.0.2",
- "revault_vault_api 0.0.6",
+ "revault_vault_v1_reader",
+ "revault_vault_v2_container_v1_reader",
  "serde_json",
  "sha2 0.11.0",
  "tempfile",
@@ -2612,11 +2621,11 @@ name = "revault_migration"
 version = "0.0.43"
 dependencies = [
  "getrandom 0.4.3",
+ "revault_archive_v1_initial_reader",
+ "revault_archive_v1_legacy_reader",
+ "revault_archive_v1_reader",
  "revault_archive_v3_reader",
- "revault_lockbox_api 0.0.2",
- "revault_lockbox_api 0.0.3",
  "revault_lockbox_api 0.0.45",
- "revault_lockbox_api 0.0.6",
  "revault_lockbox_api 0.0.9",
  "revault_migrate_archive_v1",
  "revault_migrate_archive_v3",
@@ -2624,9 +2633,9 @@ dependencies = [
  "revault_migrate_vault_v2",
  "revault_migration_format 0.0.39",
  "revault_vault_api 0.0.10",
- "revault_vault_api 0.0.2",
  "revault_vault_api 0.0.46",
- "revault_vault_api 0.0.6",
+ "revault_vault_v1_reader",
+ "revault_vault_v2_container_v1_reader",
  "revault_vault_v3_reader",
  "serde",
  "serde_json",
@@ -2732,52 +2741,6 @@ dependencies = [
 
 [[package]]
 name = "revault_vault_api"
-version = "0.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f0525f1ba72e46dc029e5e3cb505faa6bdd59b96875e6a5da0e1e20afa897564"
-dependencies = [
- "base64ct",
- "chacha20poly1305",
- "dbus",
- "getrandom 0.4.3",
- "keyring",
- "libc",
- "objc2-core-foundation",
- "objc2-io-kit",
- "revault_lockbox_api 0.0.2",
- "serde",
- "serde_json",
- "sha2 0.11.0",
- "windows-sys 0.59.0",
- "zeroize",
-]
-
-[[package]]
-name = "revault_vault_api"
-version = "0.0.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d1047ce6055fdec4e3339981499daa83e9d45fc79c9f7a231b23dab788a2f0e8"
-dependencies = [
- "base64ct",
- "chacha20poly1305",
- "dbus",
- "getrandom 0.4.3",
- "keyring",
- "libc",
- "objc2-core-foundation",
- "objc2-io-kit",
- "revault_lockbox_api 0.0.6",
- "secret-service",
- "serde",
- "serde_json",
- "sha2 0.11.0",
- "windows-sys 0.61.2",
- "zbus",
- "zeroize",
-]
-
-[[package]]
-name = "revault_vault_api"
 version = "0.0.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1b8fd53a76d0406b8b3c2f3b8e96a07fe28a2491bc92166d6020ca388f6f1a9c"
@@ -2827,6 +2790,48 @@ dependencies = [
  "sha2 0.11.0",
  "socket2",
  "uuid",
+ "windows-sys 0.61.2",
+ "zbus",
+ "zeroize",
+]
+
+[[package]]
+name = "revault_vault_v1_reader"
+version = "0.0.1"
+dependencies = [
+ "base64ct",
+ "chacha20poly1305",
+ "dbus",
+ "getrandom 0.4.3",
+ "keyring",
+ "libc",
+ "objc2-core-foundation",
+ "objc2-io-kit",
+ "revault_archive_v1_initial_reader",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+ "windows-sys 0.59.0",
+ "zeroize",
+]
+
+[[package]]
+name = "revault_vault_v2_container_v1_reader"
+version = "0.0.1"
+dependencies = [
+ "base64ct",
+ "chacha20poly1305",
+ "dbus",
+ "getrandom 0.4.3",
+ "keyring",
+ "libc",
+ "objc2-core-foundation",
+ "objc2-io-kit",
+ "revault_archive_v1_reader",
+ "secret-service",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
  "windows-sys 0.61.2",
  "zbus",
  "zeroize",
@@ -2955,9 +2960,9 @@ checksum = "cf54715a573b99ac80df0bc206da022bcd442c974952c7b9720069370852e21f"
 
 [[package]]
 name = "ruzstd"
-version = "0.8.3"
+version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a7c1c839d570d835527c9a5e4db7cb2198683a988cb9d7293fc8674e6bd58fc8"
+checksum = "69e4ce4a039f42bf25920b95667e4d789e98749ab11bbb8d2c2936f788421bb5"
 dependencies = [
  "twox-hash",
 ]
@@ -4328,6 +4333,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "zstd"
+version = "0.13.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e91ee311a569c327171651566e07972200e76fcfe2242a4fa446149a3881c08a"
+dependencies = [
+ "zstd-safe",
+]
+
+[[package]]
 name = "zstd-complete"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4343,6 +4357,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "acce3e08f5aa28b5dc1738f46c3a8a65e0daa28dca2dae579cc48bc398958e9d"
 dependencies = [
  "twox-hash",
+]
+
+[[package]]
+name = "zstd-safe"
+version = "7.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8f49c4d5f0abb602a93fb8736af2a4f4dd9512e36f7f570d66e65ff867ed3b9d"
+dependencies = [
+ "zstd-sys",
+]
+
+[[package]]
+name = "zstd-sys"
+version = "2.1.0+zstd.1.5.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0ef0a8027ec3ee71300ab3bcbcd0393f434aa72b91ca6d635a39941deae8eea0"
+dependencies = [
+ "cc",
+ "pkg-config",
 ]
 
 [[package]]

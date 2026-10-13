@@ -1,0 +1,88 @@
+{
+  "source_head_before": "7cb57d5667c6308b0ee91793f195b84db5378800",
+  "source_head_after": "7cb57d5667c6308b0ee91793f195b84db5378800",
+  "cargo_audit_version": "cargo-audit 0.22.2",
+  "database_url": "https://github.com/RustSec/advisory-db.git",
+  "database_revision_before_audit": "d8325cf4f578e2df4cc5b98a30e9f46b3b88e9f0",
+  "database_commit_date": "2026-10-13T12:39:39+02:00",
+  "database_tracked_manifest_sha256_before": "51e7cc39b344143bc82cfc9abdb103405880c90bc99bfece3780e006999853bc",
+  "database_tracked_manifest_sha256_after": "51e7cc39b344143bc82cfc9abdb103405880c90bc99bfece3780e006999853bc",
+  "database_revision_after_audit": "d8325cf4f578e2df4cc5b98a30e9f46b3b88e9f0",
+  "database_status_before_audit": "",
+  "database_status_after_audit": "",
+  "database_clean_and_unchanged": true,
+  "locks_unchanged": true,
+  "lock_hashes_before": {
+    "workspace": "08ae182b587940f8e616d799ff0e046f9d1526c9619522a20e5e4c6ed5fe367f",
+    "facade": "af055380aa738d3fb81f48139f20b9b49780b5f76c9cec5afb47ea222b3a8bd5",
+    "fuzz": "6deee9b4c3f6f937033a6c8b9557811604a78a8c03f0f8f62a488c0d7d1b692e"
+  },
+  "audits": {
+    "workspace": {
+      "lock_path": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/Cargo.lock",
+      "lock_sha256_before": "08ae182b587940f8e616d799ff0e046f9d1526c9619522a20e5e4c6ed5fe367f",
+      "lock_sha256_after": "08ae182b587940f8e616d799ff0e046f9d1526c9619522a20e5e4c6ed5fe367f",
+      "command": {
+        "executable": "/home/bsutton/.cargo/bin/cargo-audit",
+        "args": [
+          "audit",
+          "--db",
+          "/tmp/revault-final-audit-7cb57d5/clean-db",
+          "--file",
+          "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/Cargo.lock",
+          "--format",
+          "json",
+          "--no-fetch"
+        ]
+      },
+      "exit_code": 1,
+      "elapsed_ms": 291,
+      "stdout_path": "/tmp/revault-final-audit-7cb57d5/clean-db-attempt/workspace.stdout.json",
+      "stderr_path": "/tmp/revault-final-audit-7cb57d5/clean-db-attempt/workspace.stderr.txt"
+    },
+    "facade": {
+      "lock_path": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/bindings/rust/Cargo.lock",
+      "lock_sha256_before": "af055380aa738d3fb81f48139f20b9b49780b5f76c9cec5afb47ea222b3a8bd5",
+      "lock_sha256_after": "af055380aa738d3fb81f48139f20b9b49780b5f76c9cec5afb47ea222b3a8bd5",
+      "command": {
+        "executable": "/home/bsutton/.cargo/bin/cargo-audit",
+        "args": [
+          "audit",
+          "--db",
+          "/tmp/revault-final-audit-7cb57d5/clean-db",
+          "--file",
+          "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/bindings/rust/Cargo.lock",
+          "--format",
+          "json",
+          "--no-fetch"
+        ]
+      },
+      "exit_code": 0,
+      "elapsed_ms": 150,
+      "stdout_path": "/tmp/revault-final-audit-7cb57d5/clean-db-attempt/facade.stdout.json",
+      "stderr_path": "/tmp/revault-final-audit-7cb57d5/clean-db-attempt/facade.stderr.txt"
+    },
+    "fuzz": {
+      "lock_path": "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/fuzz/Cargo.lock",
+      "lock_sha256_before": "6deee9b4c3f6f937033a6c8b9557811604a78a8c03f0f8f62a488c0d7d1b692e",
+      "lock_sha256_after": "6deee9b4c3f6f937033a6c8b9557811604a78a8c03f0f8f62a488c0d7d1b692e",
+      "command": {
+        "executable": "/home/bsutton/.cargo/bin/cargo-audit",
+        "args": [
+          "audit",
+          "--db",
+          "/tmp/revault-final-audit-7cb57d5/clean-db",
+          "--file",
+          "/home/bsutton/git/.codex.workspaces/revault-issue-310-zip-read-performance/rust/fuzz/Cargo.lock",
+          "--format",
+          "json",
+          "--no-fetch"
+        ]
+      },
+      "exit_code": 0,
+      "elapsed_ms": 127,
+      "stdout_path": "/tmp/revault-final-audit-7cb57d5/clean-db-attempt/fuzz.stdout.json",
+      "stderr_path": "/tmp/revault-final-audit-7cb57d5/clean-db-attempt/fuzz.stderr.txt"
+    }
+  }
+}
