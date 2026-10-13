@@ -1,0 +1,85 @@
+diff --git a/.github/workflows/bindings-lint.yml b/.github/workflows/bindings-lint.yml
+index 0cc08010..ff202f6f 100644
+--- a/.github/workflows/bindings-lint.yml
++++ b/.github/workflows/bindings-lint.yml
+@@ -213,7 +213,8 @@ jobs:
+           python -m twine check build/registry/python/*
+           dotnet pack bindings/csharp/RevaultBindings.csproj -warnaserror -o build/registry/nuget
+           composer validate --working-dir bindings/php --strict --no-check-publish
+-          gem build bindings/ruby/revault_api.gemspec --output build/registry/revault_api.gem
++          (cd bindings/ruby && gem build revault_api.gemspec --output ../../build/registry/revault_api.gem)
++          ruby -rrubygems/package -e 'files = Gem::Package.new("build/registry/revault_api.gem").contents; required = %w[revault_api.rb lib/revault/vault.rb lib/revault/native_library.rb lib/revault/domain_models.rb lib/revault/binding_operations.rb native/revault_ruby_shim.c]; abort "Ruby package payload incomplete" unless (required - files).empty?'
+           luarocks lint bindings/lua/revault_api-0.2.0-1.rockspec
+           cargo package --locked --manifest-path bindings/rust/Cargo.toml \
+             --config 'patch.crates-io.revault_lockbox_api.path="rust/revault_lockbox_api"' \
+diff --git a/bindings/swift/Sources/RevaultConformance/main.swift b/bindings/swift/Sources/RevaultConformance/main.swift
+index 7f110d64..04fbfdaf 100644
+--- a/bindings/swift/Sources/RevaultConformance/main.swift
++++ b/bindings/swift/Sources/RevaultConformance/main.swift
+@@ -154,7 +154,7 @@ func advancedArchive() throws {
+     let signedPassword = try api.lockboxCreatePasswordWithProfileSigningKey(data("archive password"), signing); try signedPassword.commit(); try signedPassword.free(); pass("lockbox_create_password_with_signing_key")
+     let signedContact = try api.lockboxCreateContactWithProfileSigningKey(publicKey, signing); try signedContact.commit(); try signedContact.free(); pass("lockbox_create_contact_with_signing_key")
+     let signed = try api.lockboxCreateWithProfileSigningKey(key, signing); try signed.commit(); try signed.free(); pass("lockbox_create_with_signing_key", 2)
+-    let extract = "/tmp/revault-swift-extract"; try resetDirectory(extract); try box.extractFile("/account.txt", extract + "/account.txt", false); pass("lockbox_extract_file", 2)
++    let extract = "/tmp/revault-swift-extract"; try resetDirectory(extract); try check(box.extractFile("/account.txt", extract + "/account.txt", false), "legacy extraction result"); try check(Data(contentsOf: URL(fileURLWithPath: extract + "/account.txt")) == box.getFile("/account.txt"), "legacy extracted bytes"); pass("lockbox_extract_file", 2)
+     try box.extractFileWithPolicy("/account.txt", extract + "/account.txt", 1048576, 1048576, 1, true, true); try check(Data(contentsOf: URL(fileURLWithPath: extract + "/account.txt")) == box.getFile("/account.txt"), "policy extracted bytes"); pass("lockbox_extract_file_with_policy", 2)
+     let tree = extract + "/tree"; try makeDirectory(tree); try box.extractDirectory(tree, 1 << 20, 4 << 20, 100, false, true, false); pass("lockbox_extract_directory", 2)
+     try box.deleteFormRecord("/account.form"); pass("lockbox_delete_form_record")
+diff --git a/rust/revault_vault_api/tests/vault_api.rs b/rust/revault_vault_api/tests/vault_api.rs
+index 82dd501e..05eaa463 100644
+--- a/rust/revault_vault_api/tests/vault_api.rs
++++ b/rust/revault_vault_api/tests/vault_api.rs
+@@ -506,18 +506,27 @@ fn vault_open_uses_key_directory_backup_when_embedded_directory_is_corrupt() {
+         let _directory = EnvVarGuard::set("LOCKBOX_VAULT_DIR", &vault_root);
+         let _password = EnvVarGuard::set("LOCKBOX_VAULT_PASSWORD", "vault-password");
+         let vault = Vault::new(MemoryStore::default());
+-        let mut opened = if signed {
++        let opened = if signed {
+             vault.open_lockbox_with_signing_key(&path, LockboxOpen::Password(&password), &owner)
+         } else {
+             vault.open_lockbox_with(&path, LockboxOpen::Password(&password))
+         }
+         .unwrap();
+         assert_eq!(opened.get_file(&p("/secret.txt")).unwrap(), b"bravo");
++        // Windows enforces the writable archive's file lock against a second
++        // reader. Drop without committing before observing persisted bytes.
++        drop(opened);
+         assert_eq!(
+             fs::read(&path).unwrap(),
+             damaged,
+             "opening must not publish repairs"
+         );
++        let mut opened = if signed {
++            vault.open_lockbox_with_signing_key(&path, LockboxOpen::Password(&password), &owner)
++        } else {
++            vault.open_lockbox_with(&path, LockboxOpen::Password(&password))
++        }
++        .unwrap();
+         opened.commit().unwrap();
+         drop(opened);
+         // The repaired archive must reopen without access to the Vault backup.
+@@ -691,15 +700,22 @@ fn unsigned_contact_backup_preserves_recipient_write_access() {
+     // No public API deliberately damages committed directory copies.
+     corrupt_key_directories(&path);
+     let damaged = fs::read(&path).unwrap();
+-    let mut restored = VaultOpen::key_directory_backup_with_contact(&backup, &contact)
++    let restored = VaultOpen::key_directory_backup_with_contact(&backup, &contact)
+         .unwrap()
+         .open_path_for_write(&path, revault_lockbox_api::Signing::None)
+         .unwrap();
+-    assert_eq!(fs::read(&path).unwrap(), damaged);
+     assert_eq!(
+         restored.get_file(&p("/data")).unwrap(),
+         b"unsigned recipient content"
+     );
++    // Observe storage after releasing the mandatory Windows writer lock; this
++    // first recovered handle is deliberately dropped without a commit.
++    drop(restored);
++    assert_eq!(fs::read(&path).unwrap(), damaged);
++    let mut restored = VaultOpen::key_directory_backup_with_contact(&backup, &contact)
++        .unwrap()
++        .open_path_for_write(&path, revault_lockbox_api::Signing::None)
++        .unwrap();
+     restored
+         .add_file(&p("/added"), b"recipient addition", false)
+         .unwrap();

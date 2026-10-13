@@ -506,18 +506,27 @@ fn vault_open_uses_key_directory_backup_when_embedded_directory_is_corrupt() {
         let _directory = EnvVarGuard::set("LOCKBOX_VAULT_DIR", &vault_root);
         let _password = EnvVarGuard::set("LOCKBOX_VAULT_PASSWORD", "vault-password");
         let vault = Vault::new(MemoryStore::default());
-        let mut opened = if signed {
+        let opened = if signed {
             vault.open_lockbox_with_signing_key(&path, LockboxOpen::Password(&password), &owner)
         } else {
             vault.open_lockbox_with(&path, LockboxOpen::Password(&password))
         }
         .unwrap();
         assert_eq!(opened.get_file(&p("/secret.txt")).unwrap(), b"bravo");
+        // Windows enforces the writable archive's file lock against a second
+        // reader. Drop without committing before observing persisted bytes.
+        drop(opened);
         assert_eq!(
             fs::read(&path).unwrap(),
             damaged,
             "opening must not publish repairs"
         );
+        let mut opened = if signed {
+            vault.open_lockbox_with_signing_key(&path, LockboxOpen::Password(&password), &owner)
+        } else {
+            vault.open_lockbox_with(&path, LockboxOpen::Password(&password))
+        }
+        .unwrap();
         opened.commit().unwrap();
         drop(opened);
         // The repaired archive must reopen without access to the Vault backup.
@@ -691,15 +700,22 @@ fn unsigned_contact_backup_preserves_recipient_write_access() {
     // No public API deliberately damages committed directory copies.
     corrupt_key_directories(&path);
     let damaged = fs::read(&path).unwrap();
-    let mut restored = VaultOpen::key_directory_backup_with_contact(&backup, &contact)
+    let restored = VaultOpen::key_directory_backup_with_contact(&backup, &contact)
         .unwrap()
         .open_path_for_write(&path, revault_lockbox_api::Signing::None)
         .unwrap();
-    assert_eq!(fs::read(&path).unwrap(), damaged);
     assert_eq!(
         restored.get_file(&p("/data")).unwrap(),
         b"unsigned recipient content"
     );
+    // Observe storage after releasing the mandatory Windows writer lock; this
+    // first recovered handle is deliberately dropped without a commit.
+    drop(restored);
+    assert_eq!(fs::read(&path).unwrap(), damaged);
+    let mut restored = VaultOpen::key_directory_backup_with_contact(&backup, &contact)
+        .unwrap()
+        .open_path_for_write(&path, revault_lockbox_api::Signing::None)
+        .unwrap();
     restored
         .add_file(&p("/added"), b"recipient addition", false)
         .unwrap();

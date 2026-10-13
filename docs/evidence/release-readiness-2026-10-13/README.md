@@ -6,7 +6,53 @@ Brett requested preparation for release after accepting the current performance 
 
 The security checkpoint `788d4a03` was followed by registry routing and retained-fixture qualification at `0300ee65`, installed-consumer checks at `5cdeda3d`, and the agent deadline correction at `352a180a`. The first 0.5 candidate `1acd23f2` entered prepare-all run `38367390629`; its Linux native conformance exposed a missing explicit headless fixture policy. That candidate and the later `f67a01dc` candidate are not qualified; the latest package correction checkpoint below supersedes their current status. Final evidence must identify the actual committed candidate, features, toolchain and artifacts. Earlier checks cannot qualify later edits. Preserve the unrelated dirty main checkout.
 
-## Latest package correction checkpoint
+## Current candidate qualification
+
+The third immutable candidate is `353ded7da454de970a075819add09073e4190e28`,
+prepared from correction checkpoint `ec8a0729` in
+[run 38381172126](https://github.com/onepub-dev/reVault/actions/runs/38381172126).
+It is not qualified. The required Swift compile gate rejected an unused extraction
+result. Windows x64 and ARM64 installed-package checks each reported 22 passing
+Vault integration tests and three failures: two tests attempted a second filesystem
+read while holding the archive's mandatory writer lock, followed by one poisoned
+test-mutex cascade. The archive opens had succeeded; the failures were at the
+independent byte assertions, not at recovery admission.
+
+The correction checks Swift's returned Boolean and compares extracted bytes before
+the policy extraction overwrites the file. Swift 6.1.3 package inspection, build
+with warnings denied, and its one test pass in the recorded isolated environment.
+The Vault tests now drop the first recovered handle without committing, compare
+persisted bytes independently, then reopen through the same credentials and owner
+for mutation and commit. Runtime authentication and file locking are unchanged;
+the two corrected Linux lifecycles and the Vault integration-target Clippy gate pass. Replacement Windows CI remains required to qualify the platform correction.
+
+The two corrected Vault lifecycles, the original poisoned-cache test in a fresh
+process, and one supplementary cache lifecycle pass locally; Vault integration-test
+Clippy also passes with warnings denied. All registry-native validation commands
+listed in the workflow pass at this correction epoch. See the
+[curated correction results](raw/candidate-353-corrections/checkpoint.json),
+[local command/artifact results](raw/candidate-353-corrections/local-results.json)
+and [independent CI results](raw/candidate-353-corrections/independent-ci.json).
+Exact `353ded7d` Endian Interop passed all six jobs with current-writer fixture
+steps; Agent IPC passed on Linux, macOS and Windows. These are scoped positives,
+not qualification of the failed candidate or its replacement.
+
+Local registry validation also found that the workflow's repository-root Ruby gem
+command produced an incomplete artifact despite exiting successfully. Validation
+now builds from the package directory, matching the existing publication and
+installed-consumer paths, and checks actual gem payload entries. The corrected gem
+contains the facade, implementation modules and native shim. The exact commands, source epochs and artifact hashes are recorded in the
+curated results; none of these commands publishes a package.
+
+The exact third-candidate CLI passed an untimed process-accounting admission:
+two ordinary 8 MiB plaintext and encrypted/owner-signed lifecycles, 24 thread-clone
+calls, zero non-thread child-creation calls, verified bytes/modes and owned-service
+cleanup. This is neither a timing result nor the 100 MB gate. No resource samples
+have run. The six-case screen remains disarmed and must be pinned to the corrected
+candidate before execution; the full fixed comparison additionally requires that
+screen, frozen inputs and the declared ZIP/PGP interpretation.
+
+## Earlier package correction checkpoint
 
 The second candidate `f67a01dc` (prepare run `38373486321`) is not qualified.
 Its required gates exposed Go/Python formatting, Ruby/Lua alias facade mappings,
@@ -37,13 +83,13 @@ gates and the required resource/comparator acceptance still precede publication.
 | --- | --- | --- |
 | Security remediation | Active review covers private extraction, agent transport/process identity, secret lifetimes, codec ownership and password derivation budgets. | Resolve confirmed findings, review changes, run focused validators and ordinary persisted lifecycles; retain limitations and failed attempts. |
 | Default runtime integration | Current default/native library suites and ordinary package targets pass at recorded epochs; subsequent narrow fixes have focused qualification. | Complete current-source API, Vault, CLI, migration and relevant feature suites with exact counts and ignored-test accounting. |
-| Binding consistency | Additive policy/budget/alias mappings, parity and recorded carrier/package lifecycles pass; platform and final dependency routing remain open. | Binding declaration/parity checks plus persisted CLI-to-binding and binding-to-CLI round trips. |
+| Binding consistency | Additive policy/budget/alias mappings, parity, registry routing and recorded carrier/package lifecycles pass; final replacement platform/package qualification remains open. | Binding declaration/parity checks plus persisted CLI-to-binding and binding-to-CLI round trips. |
 | Migration fixtures | Approved new archive-4 and Vault-3/container-4 fixtures are generated; all 21 historical files remain unchanged. The corrected retained suite passes with explicit authenticated export/refusal coverage for immutable signed v2/v3 originals; separate known-owner v2/v3 positive migration tests pass. | Add only the new generators and immutable fixtures with producing source/version provenance; run the entire retained matrix and subsequent mutation checks. Never regenerate historical fixtures to pass. |
 | Compatibility contract | No stable 0.5 release appears in the checked release list; 0.4 is format 3. | Validate migration from supported historical formats, documented read support, matching CLI/binding archive exchange and persisted Vault compatibility. Do not claim old 0.4 readers can read format 4. |
 | Compression dependency packaging | Approved `zstd-complete 0.3.0` is published with the exact reviewed checksum; workspace, Rust facade and fuzz locks now use the registry route. Fresh registry-only consumer tests pass 2/2 and the protected ABI lifecycle passes 1/1. | Preserve exact artifact and resolution evidence; complete final packaged binding checks. |
 | Supported platforms | Linux focused tests and Windows library cross-checks provide partial evidence only. | Actual supported Windows/macOS runtime CI, native package/install lifecycles, permission/agent tests and portable WASM checks on the final candidate. Address platform behavior regressions before readiness. |
 | Dependencies and quality | Rustls advisory update passed an earlier audit; later dependencies/features changed. | Final locked dependency audit, required lint/static checks, formatting through tracked hook and appropriate post-format verification. |
-| Candidate preparation | No final source/artifact identity exists yet. | Commit and push isolated work, run reviewed prepare-only release workflow, retain package hashes and install/conformance results. Promote only the successfully qualified immutable candidate through the authorized release workflow. |
+| Candidate preparation | Third candidate `353ded7d` has an exact source identity but failed required Swift/Windows test gates; the reviewed corrections require a replacement candidate. | Commit and push isolated work, run reviewed prepare-only release workflow, retain package hashes and install/conformance results. Promote only the successfully qualified immutable candidate through the authorized release workflow. |
 | Documentation | Existing plan contains historical failures and experimental architecture gates. The reviewed selected-default v4 wire specification and conformance index are now installed in ARCHIVE_FORMAT.md; experimental layouts remain excluded. | Reconcile current release scope, format contract, migration/support matrix, release notes and known limitations against evidence. Preserve historical reports unchanged. |
 
 ## Performance claims
@@ -55,7 +101,7 @@ The accepted checkpoint is a limited four-cohort plaintext extraction result, no
 Brett explicitly authorized completing release preparation and then releasing reVault 0.5. That authorization does not waive failing gates: candidate preparation and qualification come first, followed by promotion of the verified immutable artifacts. Performance optimization remains paused.
 
 The active remediation record is the [security review](../security-review-2026-10-12/README.md); the [archive-v4 plan](../../archive_v4_plan.md) retains historical performance and integration evidence. Release preparation must selectively port the reviewed release-infrastructure corrections from main without replacing format-4 runtime sources or touching unrelated main-checkout work.
-## Current preparation checkpoint
+## Earlier security and format checkpoints
 
 The user confirmed current format 4 for the 0.5 line and separately approved
 both the corrected dependency publication and durable, clearly marked public
@@ -89,9 +135,9 @@ specific runtime regression, not the entire candidate matrix. The constructor en
 same absolute deadline, including partial progress, interrupted waits and buffered
 replies after peer closure. No deadline error is suppressed. The Rust workflow recorded 16 passing jobs, the same macOS IPC failure,
 and three jobs cancelled by a newer branch workflow; cancelled jobs are incomplete.
-The fuzz job failed before execution because its pinned tool was already installed;
+The historical fuzz job failed before execution because its pinned tool was already installed;
 `5cdeda3d` makes that installation idempotent without changing its version. No fuzz
-execution pass follows from that setup correction.
+execution pass follows from that setup correction alone; the later actual successful mutation-sequence run is recorded in the package checkpoint above.
 
 
 The codec ownership correction is implemented and focused-qualified. Borrowed

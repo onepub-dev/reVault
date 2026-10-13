@@ -154,7 +154,7 @@ func advancedArchive() throws {
     let signedPassword = try api.lockboxCreatePasswordWithProfileSigningKey(data("archive password"), signing); try signedPassword.commit(); try signedPassword.free(); pass("lockbox_create_password_with_signing_key")
     let signedContact = try api.lockboxCreateContactWithProfileSigningKey(publicKey, signing); try signedContact.commit(); try signedContact.free(); pass("lockbox_create_contact_with_signing_key")
     let signed = try api.lockboxCreateWithProfileSigningKey(key, signing); try signed.commit(); try signed.free(); pass("lockbox_create_with_signing_key", 2)
-    let extract = "/tmp/revault-swift-extract"; try resetDirectory(extract); try box.extractFile("/account.txt", extract + "/account.txt", false); pass("lockbox_extract_file", 2)
+    let extract = "/tmp/revault-swift-extract"; try resetDirectory(extract); try check(box.extractFile("/account.txt", extract + "/account.txt", false), "legacy extraction result"); try check(Data(contentsOf: URL(fileURLWithPath: extract + "/account.txt")) == box.getFile("/account.txt"), "legacy extracted bytes"); pass("lockbox_extract_file", 2)
     try box.extractFileWithPolicy("/account.txt", extract + "/account.txt", 1048576, 1048576, 1, true, true); try check(Data(contentsOf: URL(fileURLWithPath: extract + "/account.txt")) == box.getFile("/account.txt"), "policy extracted bytes"); pass("lockbox_extract_file_with_policy", 2)
     let tree = extract + "/tree"; try makeDirectory(tree); try box.extractDirectory(tree, 1 << 20, 4 << 20, 100, false, true, false); pass("lockbox_extract_directory", 2)
     try box.deleteFormRecord("/account.form"); pass("lockbox_delete_form_record")

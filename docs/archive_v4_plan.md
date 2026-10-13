@@ -30,8 +30,10 @@ optimization campaign. See the [current release checklist](evidence/release-read
 for source identities, platform/package gates and remaining blockers. The
 registry dependency and retained-fixture gates have now passed at checkpoint
 `0300ee65`; no reVault artifact has been published. The installed Rust consumer
-gate was strengthened at `5cdeda3d`. The macOS agent deadline correction still
-requires actual platform qualification before candidate promotion.
+gate was strengthened at `5cdeda3d`. The macOS agent deadline correction passed
+the actual platform runtime job `115196263197`. That specific regression is
+closed; the current candidate and remaining release gates are tracked in the
+release checklist, without promoting earlier platform evidence to a full pass.
 
 The A4 timing threshold is a contender-versus-matched-candidate-A architecture
 comparison. This release selects default A; it does not promote B or C, so that

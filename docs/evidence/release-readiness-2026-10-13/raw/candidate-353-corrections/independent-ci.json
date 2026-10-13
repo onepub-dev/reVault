@@ -1,0 +1,23 @@
+{
+  "candidate": "353ded7da454de970a075819add09073e4190e28",
+  "qualification_scope": "Independent endian and Session Agent IPC workflows only; the prepare-all candidate is not qualified.",
+  "verification": "Live gh run view JSON: status completed, conclusion success, exact headSha, and individual job/step results inspected.",
+  "endian": {
+    "run_id": 38381172567,
+    "status": "completed",
+    "conclusion": "success",
+    "job_ids": [115241672248, 115242501268, 115242501300, 115242501483, 115243274479, 115243327832],
+    "successful_jobs": 6,
+    "coverage": ["x64 fixture production", "x64 to macOS arm64", "x64 to Linux arm64 and arm64 fixture production", "x64 to s390x and s390x fixture production", "s390x to x64", "Linux arm64 to x64"],
+    "producer_evidence": "Create x64 fixture step 6 succeeded; Verify x64 fixture and create s390x fixture step 9 succeeded. Alternate cached s390x verify-only step 10 skipped as expected. Workflow fixture cache key contains github.sha."
+  },
+  "agent_ipc": {
+    "run_id": 38381172538,
+    "status": "completed",
+    "conclusion": "success",
+    "job_ids": [115241671778, 115241671977, 115241672192],
+    "successful_jobs": 3,
+    "coverage": ["macOS agent IPC smoke and transport security", "Windows agent IPC smoke and transport security", "Ubuntu agent IPC smoke and transport security"]
+  },
+  "applicability": "A replacement candidate must record its source delta before reusing this runtime evidence; this record does not claim qualification of a future revision."
+}

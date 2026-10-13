@@ -213,7 +213,8 @@ jobs:
           python -m twine check build/registry/python/*
           dotnet pack bindings/csharp/RevaultBindings.csproj -warnaserror -o build/registry/nuget
           composer validate --working-dir bindings/php --strict --no-check-publish
-          gem build bindings/ruby/revault_api.gemspec --output build/registry/revault_api.gem
+          (cd bindings/ruby && gem build revault_api.gemspec --output ../../build/registry/revault_api.gem)
+          ruby -rrubygems/package -e 'files = Gem::Package.new("build/registry/revault_api.gem").contents; required = %w[revault_api.rb lib/revault/vault.rb lib/revault/native_library.rb lib/revault/domain_models.rb lib/revault/binding_operations.rb native/revault_ruby_shim.c]; abort "Ruby package payload incomplete" unless (required - files).empty?'
           luarocks lint bindings/lua/revault_api-0.2.0-1.rockspec
           cargo package --locked --manifest-path bindings/rust/Cargo.toml \
             --config 'patch.crates-io.revault_lockbox_api.path="rust/revault_lockbox_api"' \
