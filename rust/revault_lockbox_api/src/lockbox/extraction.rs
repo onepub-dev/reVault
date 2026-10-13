@@ -10,6 +10,106 @@ use std::fs;
 use std::io::Write;
 use std::path::{Component, Path, PathBuf};
 
+// Workers consume already authenticated entry references from the parent's plan.
+// Keep the data-page reader, but do not duplicate unrelated archive metadata for
+// every thread. This private wrapper deliberately exposes no Lockbox/Deref API:
+// its empty metadata collections are not a general-purpose archive view.
+struct ExtractionWorker {
+    reader: Lockbox<super::ReadOnly>,
+}
+
+impl ExtractionWorker {
+    fn new<State>(parent: &Lockbox<State>) -> Result<Self> {
+        if !parent.pending_small_files.is_empty() {
+            return Err(Error::InvalidOperation(
+                "parallel extraction requires flushed small files".into(),
+            ));
+        }
+        let source = &parent.staged;
+        Ok(Self {
+            reader: Lockbox {
+                format_mode: parent.format_mode,
+                storage: parent.storage.clone(),
+                key: parent.key.try_clone()?,
+                staged: super::StagedLockboxState {
+                    control_reservations: Default::default(),
+                    commit_chain: source.commit_chain.clone(),
+                    published_sequence: source.published_sequence,
+                    header_slot: source.header_slot,
+                    header_generation: source.header_generation,
+                    cleanup_sequence: source.cleanup_sequence,
+                    cleanup_completed_ranges: source.cleanup_completed_ranges,
+                    cleanup_completed_pages: source.cleanup_completed_pages,
+                    cleanup_completed_bytes: source.cleanup_completed_bytes,
+                    toc_tree: Default::default(),
+                    toc_root_commitment: source.toc_root_commitment,
+                    variable_root_offset: source.variable_root_offset,
+                    variable_root_commitment: source.variable_root_commitment,
+                    form_root_commitment: source.form_root_commitment,
+                    free_index_offset: source.free_index_offset,
+                    free_index_commitment: source.free_index_commitment,
+                    post_cleanup_free_index_offset: source.post_cleanup_free_index_offset,
+                    post_cleanup_free_index_commitment: source.post_cleanup_free_index_commitment,
+                    redaction_manifest_offset: source.redaction_manifest_offset,
+                    redaction_manifest_commitment: source.redaction_manifest_commitment,
+                    redaction_range_count: source.redaction_range_count,
+                    redaction_total_bytes: source.redaction_total_bytes,
+                    key_directory: source.key_directory,
+                    poisoned: source.poisoned.clone(),
+                    key_slots: Vec::new(),
+                    toc_entries: BTreeMap::new(),
+                    variables: std::cell::RefCell::new(Some(BTreeMap::new())),
+                    variable_root: None,
+                    variable_leaves: Vec::new(),
+                    dirty_variables: false,
+                    forms: super::FormStore::loaded(),
+                    free_space: Default::default(),
+                    record_ref_counts: Default::default(),
+                    pending_redactions: BTreeMap::new(),
+                    pending_redaction_object_count: 0,
+                    redacted_free_slots: Vec::new(),
+                    pending_small_files: BTreeMap::new(),
+                    pending_small_file_bytes: 0,
+                    pending_symlinks: BTreeMap::new(),
+                    mirror_mutation_root: None,
+                    needs_packing: false,
+                    access_widening_pending: false,
+                },
+                lockbox_id: parent.lockbox_id,
+                read_only: true,
+                owner_signing_key: None,
+                // Preserve cached and uncommitted data pages. PageCache clones
+                // retain shared page owners and independent eviction bookkeeping.
+                page_manager: std::cell::RefCell::new(parent.page_manager.borrow().clone()),
+                compression_frame_cache: Default::default(),
+                import_stats: Default::default(),
+                workload_profile: parent.workload_profile,
+                worker_policy: parent.worker_policy,
+                transaction_start_len: parent.transaction_start_len,
+                trim_origin_len: parent.trim_origin_len,
+                preparing: parent.preparing,
+                rollback_required: parent.rollback_required,
+                state: std::marker::PhantomData,
+            },
+        })
+    }
+
+    fn extract(
+        &self,
+        entry: &TocEntry,
+        root: &OutputRoot,
+        relative: &Path,
+        policy: &ExtractPolicy,
+    ) -> Result<()> {
+        self.reader
+            .extract_file_entry_to_root(entry, root, relative, policy)
+    }
+
+    fn retire(&self, last_use: &mut ExtractionLastUse, entry: &TocEntry, index: usize) {
+        last_use.retire(&self.reader, entry, index);
+    }
+}
+
 struct ExtractionLastUse {
     frames: BTreeMap<u64, usize>,
     pages: BTreeMap<u64, usize>,
@@ -247,16 +347,16 @@ impl<State: Send> Lockbox<State> {
         let parallel_result = std::thread::scope(|scope| {
             let mut handles = Vec::new();
             for job in worker_jobs {
-                let worker = self.try_clone()?;
+                let worker = ExtractionWorker::new(self)?;
                 handles.push(scope.spawn(move || {
                     let extract_job = || {
                         let mut last_use =
                             retire_after_last_use.then(|| ExtractionLastUse::new(&job));
                         for (index, (_, entry)) in job.into_iter().enumerate() {
                             let relative = extraction_relative(&entry.path)?;
-                            worker.extract_file_entry_to_root(entry, root, &relative, policy)?;
+                            worker.extract(entry, root, &relative, policy)?;
                             if let Some(last_use) = &mut last_use {
-                                last_use.retire(&worker, entry, index);
+                                worker.retire(last_use, entry, index);
                             }
                         }
                         Ok(())
@@ -555,6 +655,80 @@ mod tests {
     }
 
     #[test]
+    fn extraction_worker_keeps_dirty_payloads_without_archive_metadata() {
+        let mut parent = Lockbox::create("worker dirty payload");
+        let path = crate::LockboxPath::new("/large.bin").unwrap();
+        parent.add_file(&path, b"old", false).unwrap();
+        parent.commit().unwrap();
+        let expected: Vec<u8> = (0..2 * 1024 * 1024).map(|i| (i % 251) as u8).collect();
+        parent.add_file(&path, &expected, true).unwrap();
+        assert!(parent.pending_small_files.is_empty());
+        assert!(parent.page_manager.borrow().has_dirty_pages());
+        assert!(!parent.toc_entries.is_empty());
+        let worker = ExtractionWorker::new(&parent).unwrap();
+        assert!(worker.reader.toc_entries.is_empty());
+        assert!(worker.reader.toc_tree.root.is_none());
+        assert!(worker.reader.toc_tree.leaves.is_empty());
+        assert!(worker.reader.record_ref_counts.is_empty());
+        assert!(worker.reader.key_slots.is_empty());
+        assert!(worker.reader.owner_signing_key.is_none());
+        assert!(worker.reader.read_only);
+        assert!(worker.reader.page_manager.borrow().has_dirty_pages());
+        let entry = parent.toc_entries.get(path.as_str()).unwrap();
+        let mut actual = Vec::new();
+        worker
+            .reader
+            .write_file_entry_cached(entry, &mut actual)
+            .unwrap();
+        assert_eq!(actual, expected);
+        drop(worker);
+        assert!(parent.page_manager.borrow().has_dirty_pages());
+        assert_eq!(
+            parent
+                .read_file_range(&path, 0, expected.len() as u64)
+                .unwrap(),
+            expected
+        );
+    }
+
+    #[test]
+    fn extraction_worker_rejects_changed_frame_digest_and_pending_small_files() {
+        let mut parent = Lockbox::create("worker digest");
+        let path = crate::LockboxPath::new("/file").unwrap();
+        parent
+            .add_file(&path, b"authenticated file", false)
+            .unwrap();
+        assert!(matches!(
+            ExtractionWorker::new(&parent),
+            Err(Error::InvalidOperation(_))
+        ));
+        parent.commit().unwrap();
+        let mut entry = parent.toc_entries.get(path.as_str()).unwrap().clone();
+        assert!(!entry.chunks.is_empty());
+        let worker = ExtractionWorker::new(&parent).unwrap();
+        let mut actual = Vec::new();
+        worker
+            .reader
+            .write_file_entry_cached(&entry, &mut actual)
+            .unwrap();
+        assert_eq!(actual, b"authenticated file");
+        // Keep every length, offset and slice valid; change only the committed
+        // digest. A fresh worker must reject via the authenticated frame path.
+        entry.chunks[0].compression_frame_digest[0] ^= 1;
+        let worker = ExtractionWorker::new(&parent).unwrap();
+        let mut rejected = Vec::new();
+        assert!(matches!(
+            worker.reader.write_file_entry_cached(&entry, &mut rejected),
+            Err(Error::CorruptRecord)
+        ));
+        assert!(rejected.is_empty());
+        assert_eq!(
+            parent.read_file_range(&path, 0, 18).unwrap(),
+            b"authenticated file"
+        );
+    }
+
+    #[test]
     fn private_tree_publication_preserves_nested_files() {
         let parent = unique_test_root("private-tree-publication");
         fs::create_dir_all(&parent).unwrap();
@@ -679,7 +853,6 @@ mod tests {
         drop(lockbox);
         let _ = fs::remove_dir_all(&root);
     }
-    // Conditional draft: insert in lockbox/extraction.rs tests only after retention.
     #[test]
     fn last_use_retirement_preserves_later_shared_frames_pages_and_parent() {
         use crate::page::{DecodedPage, PageObject, PageObjectKind};
@@ -726,7 +899,7 @@ mod tests {
                 4096,
             );
         }
-        let worker = parent.try_clone().unwrap();
+        let worker = ExtractionWorker::new(&parent).unwrap().reader;
         let held = worker
             .page_manager
             .borrow_mut()
@@ -812,10 +985,20 @@ mod tests {
         assert!(weak.upgrade().is_none());
     }
 
-    // Retained-only integration draft for lockbox/extraction.rs tests.
     #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn protected_compressed_parallel_extraction_preserves_all_file_bytes() {
+        compressed_parallel_extraction_preserves_all_file_bytes(true);
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn plaintext_compressed_parallel_extraction_preserves_all_file_bytes() {
+        compressed_parallel_extraction_preserves_all_file_bytes(false);
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn compressed_parallel_extraction_preserves_all_file_bytes(protected: bool) {
         let root = unique_test_root("protected-parallel-workspace");
         fs::create_dir_all(&root).unwrap();
         let archive = root.join("source.lbox");
@@ -825,10 +1008,18 @@ mod tests {
         let mut writer = Lockbox::create_file_with_options(
             &archive,
             crate::LockboxCreateOptions::new(
-                crate::Encryption::Encrypted(crate::LockboxProtection::ContentKey(
-                    crate::SecretVec::try_from_slice(&key).unwrap(),
-                )),
-                crate::Signing::Owner(&signer),
+                if protected {
+                    crate::Encryption::Encrypted(crate::LockboxProtection::ContentKey(
+                        crate::SecretVec::try_from_slice(&key).unwrap(),
+                    ))
+                } else {
+                    crate::Encryption::None
+                },
+                if protected {
+                    crate::Signing::Owner(&signer)
+                } else {
+                    crate::Signing::None
+                },
             ),
         )
         .unwrap();
@@ -848,7 +1039,11 @@ mod tests {
         let archive_before = fs::read(&archive).unwrap();
         let mut reader = Lockbox::open(
             &archive,
-            crate::LockboxOpen::ContentKey(crate::SecretVec::try_from_slice(&key).unwrap()),
+            if protected {
+                crate::LockboxOpen::ContentKey(crate::SecretVec::try_from_slice(&key).unwrap())
+            } else {
+                crate::LockboxOpen::Unencrypted
+            },
         )
         .unwrap();
         reader.set_workload_profile(crate::WorkloadProfile::ExtractMany);

@@ -8,6 +8,24 @@ The security checkpoint `788d4a03` was followed by registry routing and retained
 
 ## Current qualification checkpoint
 
+Candidate `c17c21128730f66e5b8a4bed4ddd6c3b101f0555` must not be promoted:
+the fixed comparison stopped on an observed **148,746,240-byte CLI RSS** peak
+during the 10,000-file plaintext extraction used to verify a warm-up write.
+The command exited successfully; the frozen 100,000,000-byte resource guard
+stopped the run before content verification. Cleanup passed. The retained 528
+observations form an incomplete failed campaign, not a comparison pass.
+
+The [extraction worker correction](../extraction-worker-memory-2026-10-14/README.md)
+removes four unnecessary complete metadata copies while preserving worker count,
+authentication, page-cache ownership and extraction policy. Ten focused extraction
+tests and all-target Clippy pass; exact checkpoint resource qualification and a
+replacement immutable candidate remain required. Current c17 CI is independently
+pending its Linux secure-API step; success there cannot override this resource
+failure. The three c17 lockfile audits are clean at the recorded official database
+revision. The earlier six-case screen remains a limited positive for its workloads.
+
+## Historical rustdoc correction checkpoint
+
 Candidate `f3b69ee0bbc99117616b6a3e125111de319fb445`, prepared from historical-reader correction `682fd600`, is ineligible for promotion because its required rustdoc job encountered colliding library output names. The [focused workflow correction](../rustdoc-reader-isolation-2026-10-13/README.md) passes all six affected commands while retaining warnings-as-errors and every package. Replacement candidate CI is required. Its fresh CLI build passed; all three exact candidate locks passed advisory audit against clean official database revision `d8325cf4f578e2df4cc5b98a30e9f46b3b88e9f0` (1,309 advisories, no ignored advisories or findings). No timing samples were run on f3.
 
 ## Historical fourth-candidate qualification
