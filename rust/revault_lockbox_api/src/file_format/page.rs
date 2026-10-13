@@ -997,11 +997,37 @@ fn decode_page_input(
             stored_body_len as u32,
             physical_len as u64,
         );
-        let decrypted = SensitiveBytes::new(open_with_nonce(stored_body, key, nonce, &aad)?, true);
-        // Ciphertext is no longer needed after authentication. Do not retain it
-        // while parsing or materializing plaintext object payloads.
-        drop(input);
-        PageDecodeBytes::owned(decrypted)
+        let nonce = array_12(nonce)?;
+        match input {
+            PageDecodeBytes::Owned { bytes, range } => {
+                // Before any mutation, the entire allocation becomes sensitive:
+                // authentication failures and later parse errors wipe all capacity.
+                let mut bytes = SensitiveBytes::new(bytes.into_vec(), true);
+                let start = range
+                    .start
+                    .checked_add(header_len)
+                    .ok_or(Error::CorruptRecord)?;
+                let end = range
+                    .start
+                    .checked_add(stored_end)
+                    .ok_or(Error::CorruptRecord)?;
+                let encrypted = bytes.get_mut(start..end).ok_or(Error::Truncated)?;
+                let len = crate::crypto::open_in_place_with_nonce(encrypted, key, &nonce, &aad)?;
+                let end = start.checked_add(len).ok_or(Error::CorruptRecord)?;
+                PageDecodeBytes::Owned {
+                    bytes,
+                    range: start..end,
+                }
+            }
+            PageDecodeBytes::Borrowed { bytes, range } => {
+                let page = &bytes[range];
+                let decrypted = SensitiveBytes::new(
+                    open_with_nonce(&page[header_len..stored_end], key, &nonce, &aad)?,
+                    true,
+                );
+                PageDecodeBytes::owned(decrypted)
+            }
+        }
     };
     let body_bytes = body.as_slice();
     if mode.0 != 0
@@ -1923,6 +1949,8 @@ mod tests {
                     .objects
                     .iter()
                     .all(|v| matches!(&v.payload, PagePayload::Normal(_))));
+                let original_pointer = page.as_ptr();
+                let original_capacity = page.capacity();
                 let owned = decode_owned_page_with_format(page, archive, b"owned", mode).unwrap();
                 assert_eq!(owned.objects, borrowed.objects);
                 let (PagePayload::OwnedRange(first), PagePayload::OwnedRange(second)) =
@@ -1931,6 +1959,8 @@ mod tests {
                     panic!("shared file page");
                 };
                 assert!(std::sync::Arc::ptr_eq(&first.bytes, &second.bytes));
+                assert_eq!(first.bytes.as_ptr(), original_pointer);
+                assert_eq!(first.bytes.capacity(), original_capacity);
                 let weak = std::sync::Arc::downgrade(&first.bytes);
                 let detached = owned.objects[0].clone();
                 assert!(matches!(&detached.payload, PagePayload::Normal(_)));
@@ -2068,6 +2098,17 @@ mod tests {
         assert!(matches!(result, Err(Error::CorruptRecord)));
         assert_eq!(failed_drop.len(), 1);
         assert!(failed_drop[0].2 && failed_drop[0].1 >= failed_drop[0].0);
+        let mut invalid_tag = owned_test_wrap_body(&body, mode);
+        let stored_len = read_u32_le(&invalid_tag[44..48]).unwrap() as usize;
+        invalid_tag[PAGE_HEADER_LEN + stored_len - 1] ^= 1;
+        let capacity = invalid_tag.capacity();
+        let (result, auth_drop) = crate::page_buffer::observe_sensitive_drops(|| {
+            decode_owned_page_with_format(invalid_tag, archive, b"owned", mode)
+        });
+        assert!(matches!(result, Err(Error::InvalidKey)));
+        assert_eq!(auth_drop.len(), 1);
+        assert_eq!(auth_drop[0].1, capacity);
+        assert!(auth_drop[0].2);
     }
 
     #[test]

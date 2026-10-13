@@ -1,0 +1,39 @@
+{
+  "release_ready": false,
+  "base_commit": "161849d9a8ba7527d846a97e00182048da77fe59",
+  "previous_screen": {
+    "plaintext_verified": true,
+    "plaintext_cli_hwm_bytes": 84955136,
+    "plaintext_helper_hwm_bytes": 8982528,
+    "plaintext_conditional_bound_bytes": 93937664,
+    "protected_verified": false,
+    "protected_cli_hwm_bytes": 114122752,
+    "protected_helper_hwm_bytes": 8269824,
+    "hard_failure": true,
+    "limit_bytes": 100000000,
+    "cleanup_verified": true,
+    "source_identity_after": true,
+    "evidence": "/tmp/revault-worker-resource-screen-161849d9a8ba/terminal.json"
+  },
+  "focused": {
+    "crypto": 2,
+    "page": 18,
+    "page_buffer": 3,
+    "page_cache": 20,
+    "extraction": 10,
+    "failures": 0,
+    "ignored": 0,
+    "all_target_clippy_warnings_denied": true,
+    "manifest": {
+      "command_count": 6,
+      "commands_completed": 6,
+      "last_exit_code": 0,
+      "source_identity_unchanged": true,
+      "input_count": 1090,
+      "manifest_sha256": "51e4a8ed303d11b3789bf3b9f16bcd1c32e5bb99df3929955794b4ca95962b78",
+      "after_manifest_sha256": "51e4a8ed303d11b3789bf3b9f16bcd1c32e5bb99df3929955794b4ca95962b78"
+    },
+    "evidence": "/tmp/revault-in-place-page-tests-161849d9"
+  },
+  "new_resource_qualification": "pending exact checkpoint build/admission and fixed two-mode screen"
+}

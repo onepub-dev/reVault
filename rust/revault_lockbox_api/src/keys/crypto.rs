@@ -59,6 +59,31 @@ pub(crate) fn open_with_nonce(
         .map_err(|_| Error::InvalidKey)
 }
 
+/// Authenticate/decrypt an already guarded owned page body without allocating
+/// a second body. The caller must retain its wiping owner on every exit.
+pub(crate) fn open_in_place_with_nonce(
+    payload: &mut [u8],
+    key: &[u8],
+    nonce: &[u8],
+    aad: &[u8],
+) -> Result<usize> {
+    if nonce.len() != 12 {
+        return Err(Error::CorruptRecord);
+    }
+    // Aead::decrypt reports InvalidKey for a missing/truncated tag as well.
+    let message_len = payload.len().checked_sub(16).ok_or(Error::InvalidKey)?;
+    let mut content_key = derive_content_key(key);
+    let cipher = ChaCha20Poly1305::new(&Key::from(content_key));
+    content_key.zeroize();
+    let nonce = Nonce::try_from(nonce).map_err(|_| Error::CorruptRecord)?;
+    let (message, tag_bytes) = payload.split_at_mut(message_len);
+    let tag = Tag::try_from(&*tag_bytes).map_err(|_| Error::CorruptRecord)?;
+    cipher
+        .decrypt_inout_detached(&nonce, aad, message.into(), &tag)
+        .map_err(|_| Error::InvalidKey)?;
+    Ok(message_len)
+}
+
 pub(crate) fn open_with_content_key_secure(
     payload: &mut SecureVec,
     content_key: &[u8; 32],
@@ -163,6 +188,76 @@ fn derive_content_key(key: &[u8]) -> [u8; 32] {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn owned_in_place_open_matches_allocating_authentication_and_errors() {
+        let key = b"in-place test key";
+        let aad = b"authenticated test header";
+        let plaintext = vec![0x6a; 4097];
+        let (nonce, ciphertext) = seal_with_random_nonce(&plaintext, key, aad).unwrap();
+        let mut cases = vec![(
+            ciphertext.clone(),
+            key.to_vec(),
+            nonce.to_vec(),
+            aad.to_vec(),
+        )];
+        for index in [0, ciphertext.len() - 1] {
+            let mut changed = ciphertext.clone();
+            changed[index] ^= 1;
+            cases.push((changed, key.to_vec(), nonce.to_vec(), aad.to_vec()));
+        }
+        cases.push((
+            ciphertext.clone(),
+            b"wrong key".to_vec(),
+            nonce.to_vec(),
+            aad.to_vec(),
+        ));
+        cases.push((
+            ciphertext.clone(),
+            key.to_vec(),
+            nonce.to_vec(),
+            b"wrong header".to_vec(),
+        ));
+        let mut wrong_nonce = nonce;
+        wrong_nonce[0] ^= 1;
+        cases.push((
+            ciphertext.clone(),
+            key.to_vec(),
+            wrong_nonce.to_vec(),
+            aad.to_vec(),
+        ));
+        for len in [0, 1, 15] {
+            cases.push((
+                ciphertext[..len].to_vec(),
+                key.to_vec(),
+                nonce.to_vec(),
+                aad.to_vec(),
+            ));
+        }
+        for len in [0, 11, 13] {
+            cases.push((ciphertext.clone(), key.to_vec(), vec![0; len], aad.to_vec()));
+        }
+        for (index, (input, key, nonce, aad)) in cases.into_iter().enumerate() {
+            let expected = open_with_nonce(&input, &key, &nonce, &aad);
+            let mut guarded = crate::page_buffer::SensitiveBytes::new(input, true);
+            let pointer = guarded.as_ptr();
+            let capacity = guarded.capacity();
+            let actual = open_in_place_with_nonce(&mut guarded, &key, &nonce, &aad);
+            assert_eq!(guarded.as_ptr(), pointer);
+            assert_eq!(guarded.capacity(), capacity);
+            match (expected, actual) {
+                (Ok(expected), Ok(len)) => {
+                    assert_eq!(index, 0);
+                    assert_eq!(&guarded[..len], expected);
+                    assert_eq!(expected, plaintext);
+                }
+                (Err(expected), Err(actual)) => assert_eq!(
+                    std::mem::discriminant(&expected),
+                    std::mem::discriminant(&actual)
+                ),
+                _ => panic!("allocating and in-place authentication differ"),
+            }
+        }
+    }
 
     #[test]
     fn seal_with_random_nonce_uses_unique_nonce() {
