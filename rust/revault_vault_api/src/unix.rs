@@ -359,25 +359,28 @@ fn request(message: &SecretVec) -> io::Result<AgentResponse> {
 }
 
 fn request_started_agent(message: &SecretVec) -> io::Result<AgentResponse> {
-    let mut stream = DeadlineStream::new(connect_started_agent()?)?;
+    exchange_cache_frame(connect_started_agent()?, message)
+}
+
+fn exchange_cache_frame(stream: UnixStream, message: &SecretVec) -> io::Result<AgentResponse> {
+    // Framing supplies the request boundary; do not race the peer close with a half-close.
+    let mut stream = DeadlineStream::new(stream)?;
     message
         .with_bytes(|message| stream.write_all(message))
         .map_err(io::Error::other)??;
-    stream
-        .stream
-        .shutdown(std::net::Shutdown::Write)
-        .map_err(|e| transport_context("request write shutdown", e))?;
     parse_response(read_secure_frame(stream, max_message_bytes())?)
 }
 
 fn request_control(message: &[u8]) -> io::Result<ControlResponse> {
     ensure_agent()?;
-    let mut stream = DeadlineStream::new(connect_started_agent()?)?;
+    exchange_control_frame(connect_started_agent()?, message)
+}
+
+fn exchange_control_frame(stream: UnixStream, message: &[u8]) -> io::Result<ControlResponse> {
+    let mut stream = DeadlineStream::new(stream)?;
+    // The peer reads an explicit frame length and may close after replying.
+    // Half-closing here is unnecessary and can race that close on macOS.
     stream.write_all(message)?;
-    stream
-        .stream
-        .shutdown(std::net::Shutdown::Write)
-        .map_err(|e| transport_context("request write shutdown", e))?;
     parse_control_response(&read_plain_frame(stream, max_message_bytes())?)
 }
 
@@ -1178,6 +1181,66 @@ mod tests {
             stream.write(b"b").unwrap_err().kind(),
             io::ErrorKind::TimedOut
         );
+    }
+
+    fn assert_client_write_side_stays_open(stream: &mut DeadlineStream) {
+        let mut byte = [0u8; 1];
+        assert_eq!(
+            stream.stream.read(&mut byte).unwrap_err().kind(),
+            io::ErrorKind::WouldBlock
+        );
+    }
+
+    #[test]
+    fn cache_exchange_reads_reply_without_request_eof() {
+        let (client, server) = UnixStream::pair().unwrap();
+        let peer = thread::spawn(move || {
+            let mut server = DeadlineStream::new(server).unwrap();
+            let AgentFrame::Cache(frame) =
+                read_agent_frame(&mut server, max_message_bytes()).unwrap()
+            else {
+                panic!("expected cache frame")
+            };
+            assert!(matches!(parse_request(&frame).unwrap(), AgentRequest::Info));
+            assert_client_write_side_stays_open(&mut server);
+            write_agent_reply(
+                &mut server,
+                AgentReply::Cache(encode_info_response().unwrap()),
+            )
+            .unwrap();
+        });
+        assert!(matches!(
+            exchange_cache_frame(client, &encode_info().unwrap()).unwrap(),
+            AgentResponse::Info(_, _, _)
+        ));
+        peer.join().unwrap();
+    }
+
+    #[test]
+    fn control_exchange_reads_reply_without_request_eof() {
+        let (client, server) = UnixStream::pair().unwrap();
+        let message = encode_unregister_secret_activity(std::process::id(), 7).unwrap();
+        let expected = message.clone();
+        let peer = thread::spawn(move || {
+            let mut server = DeadlineStream::new(server).unwrap();
+            let AgentFrame::Control(frame) =
+                read_agent_frame(&mut server, max_message_bytes()).unwrap()
+            else {
+                panic!("expected control frame")
+            };
+            assert_eq!(frame, expected);
+            assert_client_write_side_stays_open(&mut server);
+            write_agent_reply(
+                &mut server,
+                AgentReply::Control(encode_control_ok_response().unwrap()),
+            )
+            .unwrap();
+        });
+        assert!(matches!(
+            exchange_control_frame(client, &message).unwrap(),
+            ControlResponse::Ok
+        ));
+        peer.join().unwrap();
     }
 
     #[test]

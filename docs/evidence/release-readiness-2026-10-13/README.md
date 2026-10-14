@@ -8,6 +8,15 @@ The security checkpoint `788d4a03` was followed by registry routing and retained
 
 ## Current qualification checkpoint
 
+The bf491 candidate failed three macOS installed-package jobs. The
+[framed transport correction](../unix-framed-transport-2026-10-14/README.md)
+removes redundant client socket half-closes and passes focused Linux tests and
+strict lint. Actual macOS qualification, a successful candidate seal and the
+actual-distribution resource/comparison gates remain required. No versions were
+advanced for this correction. Timed measurements remain held.
+
+## Historical d337 qualification checkpoint
+
 Candidate `d33734a2a0b64ea13a1782c65a97be5d87dd6608` is not qualified for promotion.
 Its fixed comparison completed all 1,320 observations with content, mode, cleanup
 and identity checks, but the plaintext ZIP read gate failed for 64 MiB source
