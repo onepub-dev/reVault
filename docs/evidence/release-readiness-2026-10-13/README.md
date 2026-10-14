@@ -8,6 +8,38 @@ The security checkpoint `788d4a03` was followed by registry routing and retained
 
 ## Current qualification checkpoint
 
+Candidate `d33734a2a0b64ea13a1782c65a97be5d87dd6608` is not qualified for promotion.
+Its fixed comparison completed all 1,320 observations with content, mode, cleanup
+and identity checks, but the plaintext ZIP read gate failed for 64 MiB source
+(ratio 3.201; 95% interval 3.160–3.239) and raw data (2.545; 2.461–2.630).
+The 1 GiB and 10,000-file read cells passed that gate. Three conservative
+CLI-plus-agent high-water sums exceeded 100,000,000 bytes; no individual process
+exceeded the limit in those observations, and simultaneous excess was not
+established. Those bounds remain inconclusive, not cleared resource passes.
+
+The required Linux API job exceeded GitHub's six-hour limit: the default library
+completed 721 passed / 18 ignored, while the subsequent external-source library
+was cancelled. The prepare seal was skipped. A coverage-preserving matrix split
+retains every command and gives ordinary and external-source commands separate
+required jobs. Exact-candidate mutation fuzz, six endian jobs and three IPC jobs
+passed; they do not override the missing prepare seal or resource/statistical gates.
+
+The [Unix readiness correction](../unix-readiness-2026-10-14/README.md) replaces
+fixed accept-loop sleeps with bounded listener readiness polling. Focused tests,
+strict lint and one matching causal diagnostic pass. It has no new statistical
+performance claim. The next qualification will use the actual distributed Linux
+artifact: the completed campaign measured the default release profile, whereas
+cargo-dist uses thin LTO. Artifact equivalence has not been established.
+
+A separate tested next-harness operation boundary checks remaining allocations
+on each destination filesystem plus a 2 GiB free-space reserve, with exclusive
+owned directories and verified cleanup. It removes historical evidence scans and
+the artificial global disk cap only from the next harness. All frozen campaigns
+remain unchanged. A smaller coverage/cost plan with reusable read archives is
+under review; no new campaign is authorized merely by this checkpoint.
+
+## Historical c17 resource correction checkpoint
+
 Candidate `c17c21128730f66e5b8a4bed4ddd6c3b101f0555` must not be promoted:
 the fixed comparison stopped on an observed **148,746,240-byte CLI RSS** peak
 during the 10,000-file plaintext extraction used to verify a warm-up write.

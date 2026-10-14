@@ -77,10 +77,58 @@ pub(crate) fn serve_agent() -> io::Result<()> {
                     log_agent_event("agent exiting after idle timeout");
                     return Ok(());
                 }
-                thread::sleep(Duration::from_millis(100));
+                wait_for_agent_connection(&listener, Instant::now() + Duration::from_millis(100))?;
             }
             Err(err) => return Err(err),
         }
+    }
+}
+// Keep the existing maintenance cadence, but wake immediately for a queued
+// connection instead of delaying every sequential control request by 100 ms.
+fn wait_for_agent_connection(listener: &UnixListener, deadline: Instant) -> io::Result<()> {
+    use std::os::fd::AsRawFd;
+    loop {
+        let remaining = deadline.saturating_duration_since(Instant::now());
+        if remaining.is_zero() {
+            return Ok(());
+        }
+        let timeout = remaining
+            .as_millis()
+            .saturating_add(u128::from(remaining.subsec_nanos() % 1_000_000 != 0))
+            .min(i32::MAX as u128) as i32;
+        let mut descriptor = libc::pollfd {
+            fd: listener.as_raw_fd(),
+            events: libc::POLLIN,
+            revents: 0,
+        };
+        // SAFETY: the listener owns this live descriptor throughout the call;
+        // poll receives one initialized pollfd and retains no pointer to it.
+        let result = unsafe { libc::poll(&mut descriptor, 1, timeout) };
+        if result < 0 {
+            let error = io::Error::last_os_error();
+            if error.kind() == io::ErrorKind::Interrupted {
+                continue;
+            }
+            return Err(error);
+        }
+        if result == 0 {
+            return Ok(());
+        }
+        if descriptor.revents & libc::POLLNVAL != 0 {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "invalid Session Agent listener",
+            ));
+        }
+        if descriptor.revents & (libc::POLLERR | libc::POLLHUP) != 0 {
+            return Err(io::Error::other("Session Agent listener unavailable"));
+        }
+        if descriptor.revents & libc::POLLIN != 0 {
+            return Ok(());
+        }
+        return Err(io::Error::other(
+            "unexpected Session Agent listener readiness",
+        ));
     }
 }
 
@@ -1063,6 +1111,54 @@ fn runtime_dir_belongs_to_current_user(path: &Path) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    struct ListenerTestDirectory(PathBuf);
+    impl ListenerTestDirectory {
+        fn new() -> Self {
+            let path = unique_test_dir("listener");
+            fs::create_dir(&path).unwrap();
+            Self(path)
+        }
+        fn path(&self) -> &Path {
+            &self.0
+        }
+    }
+    impl Drop for ListenerTestDirectory {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+
+    #[test]
+    fn listener_readiness_accepts_a_connection_without_changing_nonblocking_mode() {
+        let directory = ListenerTestDirectory::new();
+        let path = directory.path().join("listener.sock");
+        let listener = UnixListener::bind(&path).unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let peer = UnixStream::connect(&path).unwrap();
+        wait_for_agent_connection(&listener, Instant::now() + Duration::from_secs(1)).unwrap();
+        let (accepted, _) = listener.accept().unwrap();
+        drop((accepted, peer));
+        assert_eq!(
+            listener.accept().unwrap_err().kind(),
+            io::ErrorKind::WouldBlock
+        );
+    }
+
+    #[test]
+    fn listener_readiness_timeout_returns_for_maintenance() {
+        let directory = ListenerTestDirectory::new();
+        let listener = UnixListener::bind(directory.path().join("listener.sock")).unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let deadline = Instant::now() + Duration::from_millis(5);
+        wait_for_agent_connection(&listener, deadline).unwrap();
+        assert!(Instant::now() >= deadline);
+        assert_eq!(
+            listener.accept().unwrap_err().kind(),
+            io::ErrorKind::WouldBlock
+        );
+        wait_for_agent_connection(&listener, Instant::now() - Duration::from_secs(1)).unwrap();
+    }
 
     #[test]
     fn request_deadline_is_shared_by_reads_and_writes() {
