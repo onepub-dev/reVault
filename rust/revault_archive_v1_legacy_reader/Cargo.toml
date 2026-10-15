@@ -2,6 +2,7 @@
 edition = "2021"
 rust-version = "1.88"
 name = "revault_archive_v1_legacy_reader"
+publish = false
 version = "0.0.4"
 build = false
 autolib = false
@@ -9,8 +10,7 @@ autobins = false
 autoexamples = false
 autotests = false
 autobenches = false
-description = "Frozen historical reVault compatibility reader for isolated migration"
-documentation = "https://docs.rs/revault_archive_v1_legacy_reader"
+description = "Unpublished historical archive fixture support for migration regression tests"
 readme = "README.md"
 license-file = "LICENSE"
 repository = "https://github.com/onepub-dev/reVault"

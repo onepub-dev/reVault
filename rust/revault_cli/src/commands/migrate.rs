@@ -665,7 +665,7 @@ fn exporter_release(kind: ArtifactKind, source_version: u32) -> Option<ExporterR
     match (kind, source_version) {
         (ArtifactKind::Vault, 3) => Some(ExporterRelease {
             package: "revault_migrate_archive_v3",
-            version: "0.0.1",
+            version: "0.0.8",
             binary: "revault-migrate-vault-v3",
             protocol: 3,
             artifact: "vault",
@@ -674,7 +674,7 @@ fn exporter_release(kind: ArtifactKind, source_version: u32) -> Option<ExporterR
         }),
         (ArtifactKind::Archive, 2 | 3) => Some(ExporterRelease {
             package: "revault_migrate_archive_v3",
-            version: "0.0.1",
+            version: "0.0.8",
             binary: "revault-migrate-archive-v3",
             protocol: 3,
             artifact: "archive",
@@ -1403,6 +1403,17 @@ mod tests {
 
     #[test]
     fn exporter_registry_and_capability_contract_are_exact() {
+        // The first public v3 exporter release is 0.0.8; 0.0.1 was never
+        // published. Vault and archive migration must use that same release.
+        for (kind, version) in [
+            (ArtifactKind::Vault, 3),
+            (ArtifactKind::Archive, 2),
+            (ArtifactKind::Archive, 3),
+        ] {
+            let release = exporter_release(kind, version).unwrap();
+            assert_eq!(release.package, "revault_migrate_archive_v3");
+            assert_eq!(release.version, "0.0.8");
+        }
         let vault_v2 = exporter_release(ArtifactKind::Vault, 2).unwrap();
         assert_eq!(vault_v2.package, "revault_migrate_vault_v2");
         assert!(capabilities_match(

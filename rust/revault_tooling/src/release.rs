@@ -1430,7 +1430,6 @@ pub(crate) const CLI_PUBLISH_PACKAGES: &[&str] = &[
     "revault_lockbox_api",
     "revault_migration_format",
     "revault_archive_v1_initial_reader",
-    "revault_archive_v1_legacy_reader",
     "revault_archive_v1_reader",
     "revault_vault_v1_reader",
     "revault_vault_v2_container_v1_reader",
@@ -1675,6 +1674,7 @@ mod tests {
 
     #[test]
     fn cli_publication_excludes_binding_implementation_crates() {
+        assert!(!CLI_PUBLISH_PACKAGES.contains(&"revault_archive_v1_legacy_reader"));
         assert!(CLI_PUBLISH_PACKAGES.contains(&"revault_cli"));
         assert!(!CLI_PUBLISH_PACKAGES.contains(&"revault_bindings"));
         assert!(!CLI_PUBLISH_PACKAGES.contains(&"revault_wasm_bindings"));

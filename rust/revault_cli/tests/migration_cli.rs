@@ -744,6 +744,17 @@ impl Fixture {
 }
 
 fn build_selected_exporter(package: &str, binary: &str) -> PathBuf {
+    // Release verification can run this same persisted-content lifecycle with
+    // binaries installed from crates.io, without substituting workspace builds.
+    if let Some(root) = std::env::var_os("REVAULT_TEST_INSTALLED_EXPORTERS") {
+        let path = PathBuf::from(root).join(format!("{binary}{}", std::env::consts::EXE_SUFFIX));
+        assert!(
+            path.is_file(),
+            "installed exporter missing: {}",
+            path.display()
+        );
+        return path;
+    }
     // Cargo's actual artifact path is authoritative for debug/release and
     // CARGO_TARGET_DIR; the test executable's sibling directory is not.
     let output = Command::new(env!("CARGO"))
