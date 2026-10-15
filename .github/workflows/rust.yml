@@ -33,6 +33,9 @@ concurrency:
 
 jobs:
   headless-install:
+    # Generated preparation commits are checked by the required candidate call.
+    # This ordinary marker never suppresses release tag-push workflows.
+    if: github.event_name != 'push' || github.ref != 'refs/heads/main' || !startsWith(github.event.head_commit.message, '[release candidate] Prepare ')
     name: Linux CLI installation without desktop development packages
     runs-on: ubuntu-latest
     container: rust:1.88-bookworm
@@ -64,6 +67,7 @@ jobs:
         run: cargo test --locked -p revault_tooling --features installed-cli-tests --test installed_headless -- --nocapture
 
   tooling-msrv:
+    if: github.event_name != 'push' || github.ref != 'refs/heads/main' || !startsWith(github.event.head_commit.message, '[release candidate] Prepare ')
     name: Workspace and Rust binding / Rust 1.88
     runs-on: ubuntu-latest
 
@@ -95,6 +99,7 @@ jobs:
         run: cargo check --manifest-path ../bindings/rust/Cargo.toml
 
   linux-quality:
+    if: github.event_name != 'push' || github.ref != 'refs/heads/main' || !startsWith(github.event.head_commit.message, '[release candidate] Prepare ')
     name: Linux formatting and Clippy
     runs-on: ubuntu-latest
 
@@ -146,6 +151,7 @@ jobs:
           -- -D warnings
 
   linux-tests:
+    if: github.event_name != 'push' || github.ref != 'refs/heads/main' || !startsWith(github.event.head_commit.message, '[release candidate] Prepare ')
     name: Linux tests / ${{ matrix.group }}
     runs-on: ubuntu-latest
     strategy:
@@ -229,6 +235,7 @@ jobs:
           ${{ matrix.command }}
 
   platform:
+    if: github.event_name != 'push' || github.ref != 'refs/heads/main' || !startsWith(github.event.head_commit.message, '[release candidate] Prepare ')
     name: platform ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 40
@@ -290,6 +297,7 @@ jobs:
         run: cargo test -p revault_cli --test agent_flow -- --nocapture
 
   cli-e2e:
+    if: github.event_name != 'push' || github.ref != 'refs/heads/main' || !startsWith(github.event.head_commit.message, '[release candidate] Prepare ')
     name: CLI E2E / ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
@@ -427,6 +435,7 @@ jobs:
         run: cargo check --locked --manifest-path fuzz/Cargo.toml
 
   portable-core:
+    if: github.event_name != 'push' || github.ref != 'refs/heads/main' || !startsWith(github.event.head_commit.message, '[release candidate] Prepare ')
     name: core ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
     strategy:
@@ -475,6 +484,7 @@ jobs:
         run: cargo check -p revault_secure_memory --target ${{ matrix.target }} --lib
 
   network-integration:
+    if: github.event_name != 'push' || github.ref != 'refs/heads/main' || !startsWith(github.event.head_commit.message, '[release candidate] Prepare ')
     name: network integration
     runs-on: ubuntu-latest
     timeout-minutes: 20

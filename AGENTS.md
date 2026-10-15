@@ -33,6 +33,21 @@ build and tag that revision of `main`. Do not release directly from
 `issue-310-zip-read-performance` or any other non-main branch.
 This policy does not itself authorize publishing or deploying a release.
 
+Do not put GitHub CI-skip directives (including `[skip ci]`, `[ci skip]`,
+`[no ci]`, `[skip actions]`, `[actions skip]`, or `skip-checks: true`) in
+release-source commits. They also suppress the tag-push workflow required for
+Dart's pub.dev trusted publication. Never move an existing release tag to
+repair this mistake.
+
+Only generated release-preparation commits may use the ordinary prefix
+`[release candidate] Prepare `. For their main-branch push, Rust and bindings
+lint jobs already owned by the explicit release-candidate workflow skip the
+duplicate run. Candidate calls still run those checks in full, and publication
+requires the successful sealed candidate for that exact source. If preparation
+is interrupted before dispatch, resume candidate validation before publication.
+Distinct fuzz and Unicode checks remain enabled; the marker is not a general
+CI bypass and must not be added to ordinary implementation commits.
+
 ## Release Version Compatibility Contract
 
 The CLI and all language bindings use compatibility lines to guarantee

@@ -29,6 +29,8 @@ permissions:
 
 jobs:
   lint:
+    # The explicit candidate call owns this check for generated preparation commits.
+    if: github.event_name != 'push' || github.ref != 'refs/heads/main' || !startsWith(github.event.head_commit.message, '[release candidate] Prepare ')
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4

@@ -1404,6 +1404,71 @@ fn candidate_listing(runs: &[Value]) -> String {
     output
 }
 
+fn dart_tag_needs_creation(refs: &Value, tag: &str, source_sha: &str) -> Result<bool> {
+    let name = format!("refs/tags/{tag}");
+    let refs = refs
+        .as_array()
+        .ok_or("GitHub returned invalid tag references")?;
+    let Some(existing) = refs.iter().find(|reference| reference["ref"] == name) else {
+        return Ok(true);
+    };
+    if existing["object"]["type"] != "commit" || existing["object"]["sha"] != source_sha {
+        return Err(format!(
+            "Tag {tag} already refers to another object; release tags cannot be moved"
+        )
+        .into());
+    }
+    Ok(false)
+}
+
+fn require_tag_push_enabled(message: &str) -> Result<()> {
+    let message = message.to_ascii_lowercase();
+    if [
+        "[skip ci]",
+        "[ci skip]",
+        "[no ci]",
+        "[skip actions]",
+        "[actions skip]",
+    ]
+    .iter()
+    .any(|directive| message.contains(directive))
+        || message.lines().any(|line| {
+            line.trim().eq_ignore_ascii_case("skip-checks: true")
+                || line.trim().eq_ignore_ascii_case("skip-checks:true")
+        })
+    {
+        return Err("Candidate commit suppresses tag-push workflows with a CI skip directive; Dart OIDC publication cannot run. Prepare a new source commit without the directive before publishing; never move an existing release tag.".into());
+    }
+    Ok(())
+}
+
+fn ensure_dart_publication_tag(gh: &GitHub, candidate: &Candidate) -> Result<()> {
+    if candidate.scope == Scope::Cli {
+        return Ok(());
+    }
+    let commit = gh.api(&format!("git/commits/{}", candidate.source_sha))?;
+    require_tag_push_enabled(
+        commit["message"]
+            .as_str()
+            .ok_or("Missing candidate commit message")?,
+    )?;
+    let tag = format!("revault-dart-v{}", candidate.bindings_version);
+    let refs = gh.api(&format!("git/matching-refs/tags/{tag}"))?;
+    if dart_tag_needs_creation(&refs, &tag, &candidate.source_sha)? {
+        // pub.dev requires a tag-push event. This runs in the user's publish
+        // command, using their gh credentials, never CI's GITHUB_TOKEN (whose
+        // tag creation would suppress the required workflow).
+        if std::env::var("GITHUB_ACTIONS").as_deref() == Ok("true") {
+            return Err("Create the Dart release tag through release publish with user GitHub credentials, outside GitHub Actions".into());
+        }
+        gh.post(
+            "git/refs",
+            json!({"ref":format!("refs/tags/{tag}"),"sha":candidate.source_sha}),
+        )?;
+    }
+    Ok(())
+}
+
 pub fn publish(options: PublishSelection) -> Result<()> {
     let args = options.selection;
     let gh = GitHub::new(&args.repository)?;
@@ -1426,6 +1491,7 @@ pub fn publish(options: PublishSelection) -> Result<()> {
     if remote["object"]["sha"] != c.source_sha {
         return Err("Candidate branch moved; prepare a new candidate".into());
     }
+    ensure_dart_publication_tag(&gh, &c)?;
     display(&c);
     // Recover the same publication run on any machine, including after an interrupted dispatch.
     let title = format!("publish {} {id}", c.scope.name());
@@ -1815,9 +1881,8 @@ fn prepare_versions(
             "commit",
             "-m",
             &format!(
-                // Only push/PR checks honor this marker. The explicit candidate
-                // dispatch owns required checks for this generated revision.
-                "Prepare {} release: CLI {cli}, bindings {bindings} [skip ci]",
+                // Skip directives also suppress Dart's required tag-push event.
+                "[release candidate] Prepare {} release: CLI {cli}, bindings {bindings}",
                 scope.name()
             ),
         ],
@@ -2036,6 +2101,39 @@ fn update_dependencies(table: &mut toml_edit::Table, versions: &BTreeMap<String,
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn dart_publication_refuses_source_commit_skip_directives() {
+        for directive in [
+            "[skip ci]",
+            "[ci skip]",
+            "[no ci]",
+            "[skip actions]",
+            "[actions skip]",
+            "skip-checks: true",
+            "skip-checks:true",
+        ] {
+            assert!(require_tag_push_enabled(&format!("Release\n\n{directive}")).is_err());
+        }
+        assert!(require_tag_push_enabled("Prepare all release: CLI 0.5.2, bindings 0.5.2").is_ok());
+    }
+
+    #[test]
+    fn dart_publication_tag_is_created_once_and_never_moved() {
+        let tag = "revault-dart-v0.5.1";
+        let sha = "validated-source";
+        assert!(dart_tag_needs_creation(&json!([]), tag, sha).unwrap());
+        let existing =
+            json!([{"ref":format!("refs/tags/{tag}"),"object":{"type":"commit","sha":sha}}]);
+        assert!(!dart_tag_needs_creation(&existing, tag, sha).unwrap());
+        assert!(dart_tag_needs_creation(&existing, tag, "other-source").is_err());
+        let annotated =
+            json!([{"ref":format!("refs/tags/{tag}"),"object":{"type":"tag","sha":sha}}]);
+        assert!(dart_tag_needs_creation(&annotated, tag, sha).is_err());
+        let prefix = json!([{"ref":format!("refs/tags/{tag}0"),"object":{"type":"commit","sha":"other-source"}}]);
+        assert!(dart_tag_needs_creation(&prefix, tag, sha).unwrap());
+        assert!(dart_tag_needs_creation(&json!({"error":"unavailable"}), tag, sha).is_err());
+    }
 
     #[test]
     fn public_versions_share_the_declared_compatibility_line() {
@@ -2399,7 +2497,8 @@ version = "1.0.0"
         .unwrap();
         let (cli, bindings) = prepare_versions(root, Scope::All, None, None).unwrap();
         let message = output(root, "git", &["log", "-1", "--format=%B"]).unwrap();
-        assert!(message.contains("[skip ci]"));
+        assert!(require_tag_push_enabled(&message).is_ok());
+        assert!(message.starts_with("[release candidate] Prepare "));
         let workflow = include_str!("../../../.github/workflows/release-candidate.yml");
         assert!(workflow.contains("workflow_dispatch:"));
         assert!(workflow.contains("needs.source-checks.result == 'success'"));
