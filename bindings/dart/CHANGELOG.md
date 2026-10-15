@@ -1,3 +1,33 @@
+## 0.5.1
+
+- Prepare frozen exporter dependencies before offline CLI tests
+- Use registered release identity and resolve Dart helper dependencies
+- Repair merged API coverage and fuzz workspace validation
+- Publish migration dependencies and retirement notices through trusted CI
+- Consolidate historical migrations and validate releases from main
+- Merge format-4 development into main and preserve integrated CLI fixes
+- Restore deferred format-4 sources for main integration
+- Fix published v3 exporter pin and keep legacy fixtures unpublished
+- Record published CLI 0.4.1 compatibility line
+- Prepare cli release: CLI 0.4.1, bindings
+- Regenerate CLI MSI definition for all four binaries
+- Keep IPC smoke credentials private and separate build timeout
+- Refresh Rust binding locks after native D-Bus removal
+- Fix release readiness checks for the format-3 CLI
+- Allow release preparation from prerelease source versions
+- Merge recovery and alias-list fixes into #327
+- Merge main into #327 and preserve standalone creation
+- Recover historical archives with current CLI and preserve access
+- Merge alias resolution fixes into migration branch
+- Fix historical migration unlock and add bulk migration
+- Resolve bare lockbox names through local files and aliases
+- Update documentation for plural CLI command groups
+- Use plural CLI groups and fix Vault container migration
+- Restore format-3 compatibility and defer v4 recovery
+- Fix #327: register lockbox aliases during create
+- Unify lockbox selection and require explicit archive creation
+- Fix exact variable moves and renames
+
 ## 0.5.0-dev.1
 
 - Reserve the 0.5.x compatibility line for archive format 4 development.
