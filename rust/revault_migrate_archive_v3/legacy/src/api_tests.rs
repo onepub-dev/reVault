@@ -1,0 +1,3896 @@
+use crate::{
+    CacheLimit, ContactKeyPair, ContactPublicKey, Error, ExtractPolicy, FormFieldDefinition,
+    FormFieldKind, FormRecord, FormValue, ListOptions, Lockbox, LockboxEntry, LockboxEntryKind,
+    LockboxKeySlotAlgorithm, LockboxKeySlotProtection, LockboxOpen, LockboxOptions, LockboxPath,
+    LockboxProtection, MirrorProject, OwnerSigningKeyPair, RecoveryReportOptions, RecoveryScanner,
+    Result, SecretString, SecretVec, VariableName, VariableNamePattern, VariableSensitivity,
+    VariableValueRef, WorkerPolicy, WorkloadProfile, MAX_KEY_SLOT_NAME_BYTES,
+};
+use std::io::{Cursor, Read, Seek, SeekFrom, Write};
+
+const KEY: &[u8] = b"correct horse battery staple";
+const HEADER_LEN: usize = crate::constants::HEADER_LEN;
+const PAGE_BYTES: usize = 8 * 1024 * 1024;
+const PAGE_QUANTUM_BYTES: usize = 1024;
+
+fn p(path: impl AsRef<str>) -> LockboxPath {
+    LockboxPath::new(path).unwrap()
+}
+
+fn variable(name: impl AsRef<str>) -> VariableName {
+    VariableName::new(name).unwrap()
+}
+
+fn signing_key() -> OwnerSigningKeyPair {
+    OwnerSigningKeyPair::generate().unwrap()
+}
+
+fn add_file<State>(
+    lb: &mut Lockbox<State>,
+    path: &LockboxPath,
+    data: &[u8],
+    replace: bool,
+) -> Result<()>
+where
+    State: crate::WritableLockboxState,
+{
+    Lockbox::add_file(lb, path, data, replace)
+}
+
+fn add_file_with_permissions<State>(
+    lb: &mut Lockbox<State>,
+    path: &LockboxPath,
+    data: &[u8],
+    permissions: u32,
+    replace: bool,
+) -> Result<()>
+where
+    State: crate::WritableLockboxState,
+{
+    Lockbox::add_file_with_permissions(lb, path, data, permissions, replace)
+}
+
+fn add_file_from_reader<State>(
+    lb: &mut Lockbox<State>,
+    path: &LockboxPath,
+    reader: impl Read,
+    replace: bool,
+) -> Result<()>
+where
+    State: crate::WritableLockboxState,
+{
+    Lockbox::add_file_from_reader(lb, path, reader, replace)
+}
+
+fn add_file_from_path<State>(
+    lb: &mut Lockbox<State>,
+    source: &std::path::Path,
+    destination: &LockboxPath,
+    replace: bool,
+) -> Result<()>
+where
+    State: crate::WritableLockboxState,
+{
+    Lockbox::add_file_from_path(lb, source, destination, replace)
+}
+
+fn add_symlink<State>(
+    lb: &mut Lockbox<State>,
+    path: &LockboxPath,
+    target: &LockboxPath,
+    replace: bool,
+) -> Result<()>
+where
+    State: crate::WritableLockboxState,
+{
+    Lockbox::add_symlink(lb, path, target, replace)
+}
+
+fn create_form_record<State>(
+    lb: &mut Lockbox<State>,
+    path: &LockboxPath,
+    type_reference: &str,
+    name: &str,
+) -> Result<FormRecord>
+where
+    State: crate::WritableLockboxState,
+{
+    Lockbox::create_form_record(lb, path, type_reference, name)
+}
+
+#[test]
+fn create_put_get_list_stat_commit_open() {
+    let mut lb = Lockbox::create(KEY);
+    add_file(&mut lb, &p("/docs/a.txt"), b"alpha", false).unwrap();
+    add_file(&mut lb, &p("/docs/b.txt"), b"bravo", false).unwrap();
+
+    assert_eq!(lb.get_file(&p("/docs/a.txt")).unwrap(), b"alpha");
+    assert_eq!(lb.read_file_range(&p("/docs/b.txt"), 1, 3).unwrap(), b"rav");
+    assert_eq!(
+        lb.stat(&p("/docs/a.txt")),
+        Some(LockboxEntry {
+            path: p("/docs/a.txt"),
+            kind: LockboxEntryKind::File,
+            len: 5,
+            permissions: 0o600,
+        })
+    );
+
+    assert_eq!(lb.list(ListOptions::new(&p("/docs"))).unwrap().count(), 2);
+
+    lb.commit().unwrap();
+    let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), KEY).unwrap();
+    assert_eq!(reopened.get_file(&p("/docs/a.txt")).unwrap(), b"alpha");
+    assert_eq!(reopened.get_file(&p("/docs/b.txt")).unwrap(), b"bravo");
+}
+
+#[test]
+fn write_to_path_and_open_path_round_trip() {
+    let path = std::env::temp_dir().join(format!("lockbox-path-{}.lbx", std::process::id()));
+    let _ = std::fs::remove_file(&path);
+
+    let mut lb = Lockbox::create(KEY);
+    add_file(&mut lb, &p("/docs/a.txt"), b"alpha", false).unwrap();
+    lb.commit().unwrap();
+    lb.write_to_path(&path).unwrap();
+
+    let reopened = Lockbox::open_path(&path, KEY).unwrap();
+    assert_eq!(reopened.get_file(&p("/docs/a.txt")).unwrap(), b"alpha");
+    assert_eq!(reopened.to_bytes(), std::fs::read(&path).unwrap());
+
+    let _ = std::fs::remove_file(&path);
+}
+
+#[test]
+fn create_path_writes_file_backed_lockbox() {
+    let path = std::env::temp_dir().join(format!("lockbox-create-path-{}.lbx", std::process::id()));
+    let _ = std::fs::remove_file(&path);
+
+    let mut lb = Lockbox::create_path(&path, KEY).unwrap();
+    add_file(&mut lb, &p("/docs/a.txt"), b"alpha", false).unwrap();
+    lb.commit().unwrap();
+
+    let bytes_on_disk = std::fs::read(&path).unwrap();
+    assert_eq!(
+        Lockbox::open_bytes_with_key(bytes_on_disk.clone(), KEY)
+            .unwrap()
+            .get_file(&p("/docs/a.txt"))
+            .unwrap(),
+        b"alpha"
+    );
+    drop(lb);
+    assert_eq!(
+        Lockbox::open_path(&path, KEY).unwrap().to_bytes(),
+        bytes_on_disk
+    );
+
+    let _ = std::fs::remove_file(&path);
+}
+
+#[test]
+fn create_path_refuses_to_overwrite_existing_file() {
+    let path = std::env::temp_dir().join(format!(
+        "lockbox-create-existing-path-{}.lbx",
+        std::process::id()
+    ));
+    let _ = std::fs::remove_file(&path);
+    std::fs::write(&path, b"existing").unwrap();
+
+    let result = Lockbox::create_path(&path, KEY);
+
+    assert!(matches!(result, Err(Error::AlreadyExists(_))));
+    assert_eq!(std::fs::read(&path).unwrap(), b"existing");
+
+    let _ = std::fs::remove_file(&path);
+}
+
+#[test]
+fn small_files_are_staged_until_commit_then_packed() {
+    let mut lb = Lockbox::create(KEY);
+    let before = lb.to_bytes().len();
+
+    add_file(&mut lb, &p("/tiny.txt"), b"x", false).unwrap();
+
+    assert_eq!(lb.to_bytes().len(), before);
+    assert_eq!(lb.get_file(&p("/tiny.txt")).unwrap(), b"x");
+
+    lb.commit().unwrap();
+    let after = lb.to_bytes().len();
+
+    assert!(after - before <= 4 * PAGE_BYTES);
+    assert_eq!(lb.get_file(&p("/tiny.txt")).unwrap(), b"x");
+}
+
+#[test]
+fn add_file_stages_small_disk_files_until_commit() {
+    let source = std::env::temp_dir().join(format!(
+        "lockbox-small-source-{}-{}.txt",
+        std::process::id(),
+        "add-file"
+    ));
+    std::fs::write(&source, b"tiny source file").unwrap();
+
+    let mut lb = Lockbox::create(KEY);
+    let before = lb.to_bytes().len();
+    add_file_from_path(&mut lb, &source, &p("/from-disk.txt"), false).unwrap();
+
+    assert_eq!(lb.to_bytes().len(), before);
+    assert_eq!(
+        lb.get_file(&p("/from-disk.txt")).unwrap(),
+        b"tiny source file"
+    );
+
+    lb.commit().unwrap();
+    let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), KEY).unwrap();
+    assert_eq!(
+        reopened.get_file(&p("/from-disk.txt")).unwrap(),
+        b"tiny source file"
+    );
+
+    let _ = std::fs::remove_file(&source);
+}
+
+#[test]
+fn verified_path_import_checks_the_exact_imported_bytes() {
+    use sha2::{Digest, Sha256};
+
+    let source = temp_path("verified-path-import-source");
+    std::fs::write(&source, b"planned bytes").unwrap();
+    let expected: [u8; 32] = Sha256::digest(b"planned bytes").into();
+    let mut lb = Lockbox::create(KEY);
+    lb.add_file_from_path_verified(&source, &p("/verified.txt"), false, &expected)
+        .unwrap();
+    assert_eq!(lb.get_file(&p("/verified.txt")).unwrap(), b"planned bytes");
+
+    let wrong: [u8; 32] = Sha256::digest(b"different bytes").into();
+    let result = lb.add_file_from_path_verified(&source, &p("/wrong.txt"), false, &wrong);
+    assert!(matches!(result, Err(Error::InvalidOperation(_))));
+
+    let _ = std::fs::remove_file(source);
+}
+
+#[test]
+fn small_variable_pages_use_variable_page_quantum() {
+    let mut lb = Lockbox::create(KEY);
+    let before = lb.to_bytes().len();
+
+    lb.set_variable(&variable("TOKEN"), "x").unwrap();
+
+    lb.commit().unwrap();
+    let variable_page = lb
+        .inspector()
+        .inspect_pages()
+        .unwrap()
+        .into_iter()
+        .find(|page| {
+            page.objects
+                .iter()
+                .any(|object| object.kind == "variable-leaf" && object.payload_len > 0)
+        })
+        .unwrap();
+    assert!(variable_page.page_size as usize >= PAGE_QUANTUM_BYTES);
+    assert_eq!(variable_page.page_size as usize % PAGE_QUANTUM_BYTES, 0);
+    assert!(variable_page.unused_bytes < variable_page.page_size);
+    assert!(lb.inspector().inspect_pages().unwrap().iter().any(|page| {
+        page.objects
+            .iter()
+            .any(|object| object.kind == "variable-leaf" && object.payload_len > 0)
+    }));
+    let after = lb.to_bytes().len();
+
+    assert!(after > before);
+    assert_eq!(
+        lb.get_variable(&variable("TOKEN")).unwrap().as_deref(),
+        Some("x")
+    );
+}
+
+#[test]
+fn variable_scan_fails_closed_when_variable_page_is_corrupt() {
+    let mut lb = Lockbox::create(KEY);
+    lb.set_variable(&variable("TOKEN"), "x").unwrap();
+    lb.commit().unwrap();
+
+    let variable_page = lb
+        .inspector()
+        .inspect_pages()
+        .unwrap()
+        .into_iter()
+        .find(|page| {
+            page.objects
+                .iter()
+                .any(|object| object.kind == "variable-leaf")
+        })
+        .unwrap();
+    let mut bytes = lb.to_bytes();
+    bytes[variable_page.offset as usize + crate::file_format::page::PAGE_HEADER_LEN + 8] ^= 0x55;
+
+    let reopened = Lockbox::open_bytes_with_key(bytes, KEY).unwrap();
+    assert!(reopened.get_variable(&variable("TOKEN")).is_err());
+}
+
+#[test]
+fn invalid_paths_are_rejected() {
+    for path in [
+        "",
+        "relative.txt",
+        "/../escape.txt",
+        "/safe/../escape.txt",
+        "/safe/./file.txt",
+        "/safe//file.txt",
+        "/C:/windows.txt",
+        "/safe/name:ads",
+        "//server/share/file.txt",
+        "/safe\\windows\\path.txt",
+        "/safe/\0nul.txt",
+        "/safe/\nnewline.txt",
+    ] {
+        assert!(
+            matches!(LockboxPath::new(path), Err(Error::InvalidPath(_))),
+            "path should be rejected: {path:?}"
+        );
+    }
+
+    assert!(matches!(
+        LockboxPath::new("relative"),
+        Err(Error::InvalidPath(_))
+    ));
+    assert!(matches!(
+        LockboxPath::new("/safe/.."),
+        Err(Error::InvalidPath(_))
+    ));
+
+    let mut lb = Lockbox::create(KEY);
+    for path in ["/", "/dir/"] {
+        let path = LockboxPath::new(path).expect("directory lockbox path should be valid");
+        assert!(
+            matches!(
+                add_file(&mut lb, &path, b"x", false),
+                Err(Error::InvalidPath(_))
+            ),
+            "file API should reject directory-only path: {path:?}"
+        );
+    }
+}
+
+#[test]
+fn add_file_requires_explicit_replace_intent() {
+    let mut lb = Lockbox::create(KEY);
+    let path = p("/docs/a.txt");
+
+    assert!(!lb.exists(&path));
+    assert!(matches!(
+        add_file(&mut lb, &path, b"missing", true),
+        Err(Error::NotFound(_))
+    ));
+    assert!(!lb.exists(&p("/docs")));
+
+    add_file(&mut lb, &path, b"alpha", false).unwrap();
+    assert!(lb.exists(&path));
+    assert!(matches!(
+        add_file(&mut lb, &path, b"bravo", false),
+        Err(Error::AlreadyExists(_))
+    ));
+
+    add_file(&mut lb, &path, b"bravo", true).unwrap();
+    assert_eq!(lb.get_file(&path).unwrap(), b"bravo");
+}
+
+#[test]
+fn path_depth_and_length_limits_are_enforced() {
+    let too_deep = format!("/{}", vec!["x"; 65].join("/"));
+    let too_long = format!("/{}", "a".repeat(4097));
+
+    assert!(matches!(
+        LockboxPath::new(&too_deep),
+        Err(Error::InvalidPath(_))
+    ));
+    assert!(matches!(
+        LockboxPath::new(&too_long),
+        Err(Error::InvalidPath(_))
+    ));
+}
+
+#[test]
+fn unicode_paths_round_trip() {
+    let mut lb = Lockbox::create(KEY);
+    add_file(&mut lb, &p("/docs/résumé.pdf"), b"cv", false).unwrap();
+    add_file(&mut lb, &p("/写真/旅行.jpg"), b"photo", false).unwrap();
+    add_file(&mut lb, &p("/客户/合同.txt"), b"contract", false).unwrap();
+    lb.commit().unwrap();
+
+    let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), KEY).unwrap();
+    assert_eq!(reopened.get_file(&p("/docs/résumé.pdf")).unwrap(), b"cv");
+    assert_eq!(reopened.get_file(&p("/写真/旅行.jpg")).unwrap(), b"photo");
+    assert_eq!(
+        reopened.get_file(&p("/客户/合同.txt")).unwrap(),
+        b"contract"
+    );
+}
+
+#[test]
+fn unicode_paths_are_canonicalized_to_nfc_for_storage_and_lookup() {
+    let mut lb = Lockbox::create(KEY);
+    let decomposed = "/docs/re\u{0301}sume\u{0301}.pdf";
+    let composed = "/docs/résumé.pdf";
+
+    add_file(&mut lb, &p(decomposed), b"cv", false).unwrap();
+    lb.commit().unwrap();
+
+    let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), KEY).unwrap();
+    assert_eq!(reopened.get_file(&p(composed)).unwrap(), b"cv");
+    assert_eq!(reopened.get_file(&p(decomposed)).unwrap(), b"cv");
+    assert!(reopened.stat(&p(composed)).is_some());
+    let listed = reopened
+        .list(ListOptions::new(&p("/docs")))
+        .unwrap()
+        .collect::<Result<Vec<_>>>()
+        .unwrap();
+    assert_eq!(listed[0].path, composed);
+}
+
+#[test]
+fn unicode_normalization_collisions_replace_same_lockbox_path() {
+    let mut lb = Lockbox::create(KEY);
+    add_file(
+        &mut lb,
+        &p("/docs/re\u{0301}sume\u{0301}.pdf"),
+        b"one",
+        false,
+    )
+    .unwrap();
+    add_file(&mut lb, &p("/docs/résumé.pdf"), b"two", true).unwrap();
+    lb.commit().unwrap();
+
+    let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), KEY).unwrap();
+    assert_eq!(reopened.get_file(&p("/docs/résumé.pdf")).unwrap(), b"two");
+    assert_eq!(
+        reopened
+            .list(ListOptions::new(&p("/docs")))
+            .unwrap()
+            .count(),
+        1
+    );
+}
+
+#[test]
+fn unicode_bidi_and_invisible_controls_are_rejected() {
+    for path in [
+        "/docs/report\u{202e}fdp.txt",
+        "/docs/report\u{2066}.txt",
+        "/docs/zero\u{200b}width.txt",
+        "/docs/joiner\u{200d}.txt",
+        "/docs/variation\u{fe0f}.txt",
+        "/docs/c1\u{0085}.txt",
+    ] {
+        assert!(
+            matches!(LockboxPath::new(path), Err(Error::InvalidPath(_))),
+            "path should be rejected: {path:?}"
+        );
+    }
+}
+
+#[test]
+fn empty_and_large_files_round_trip() {
+    let large: Vec<u8> = (0..128_000).map(|i| (i % 251) as u8).collect();
+    let mut lb = Lockbox::create(KEY);
+    add_file(&mut lb, &p("/empty.bin"), b"", false).unwrap();
+    add_file(&mut lb, &p("/large.bin"), &large, false).unwrap();
+    lb.commit().unwrap();
+
+    let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), KEY).unwrap();
+    assert_eq!(reopened.get_file(&p("/empty.bin")).unwrap(), b"");
+    assert_eq!(reopened.get_file(&p("/large.bin")).unwrap(), large);
+    assert_eq!(
+        reopened
+            .read_file_range(&p("/large.bin"), 12_345, 100)
+            .unwrap(),
+        large[12_345..12_445]
+    );
+}
+
+#[test]
+fn file_content_can_be_loaded_and_extracted_with_streaming_apis() {
+    let mut lb = Lockbox::create(KEY);
+    let content = vec![42u8; 8 * 1024 * 1024 + 123];
+
+    add_file_from_reader(
+        &mut lb,
+        &p("/large/stream.bin"),
+        Cursor::new(&content),
+        false,
+    )
+    .unwrap();
+
+    let mut extracted = Vec::new();
+    lb.extract_file_to_writer(&p("/large/stream.bin"), &mut extracted)
+        .unwrap();
+    assert_eq!(extracted, content);
+}
+
+#[test]
+fn open_file_reader_supports_read_and_seek() {
+    let mut lb = Lockbox::create(KEY);
+    add_file(&mut lb, &p("/docs/a.txt"), b"alpha-bravo-charlie", false).unwrap();
+
+    let mut file = lb.open_file(&p("/docs/a.txt")).unwrap();
+    let mut first = [0u8; 5];
+    file.read_exact(&mut first).unwrap();
+    assert_eq!(&first, b"alpha");
+
+    assert_eq!(file.seek(SeekFrom::Start(6)).unwrap(), 6);
+    let mut second = [0u8; 5];
+    file.read_exact(&mut second).unwrap();
+    assert_eq!(&second, b"bravo");
+
+    assert_eq!(file.seek(SeekFrom::End(-7)).unwrap(), 12);
+    let mut tail = String::new();
+    file.read_to_string(&mut tail).unwrap();
+    assert_eq!(tail, "charlie");
+}
+
+#[test]
+fn mutable_file_handle_overwrites_appends_flushes_and_closes() {
+    let mut lb = Lockbox::create(KEY);
+    add_file(&mut lb, &p("/docs/a.txt"), b"alpha-bravo", false).unwrap();
+
+    {
+        let mut file = lb
+            .open_file_for_write(&p("/docs/a.txt"), Default::default())
+            .unwrap();
+        file.seek(SeekFrom::Start(6)).unwrap();
+        file.write_all(b"delta").unwrap();
+        file.seek(SeekFrom::End(0)).unwrap();
+        file.write_all(b"-echo").unwrap();
+        file.flush().unwrap();
+        assert_eq!(file.len(), 16);
+    }
+
+    assert_eq!(lb.get_file(&p("/docs/a.txt")).unwrap(), b"alpha-delta-echo");
+
+    {
+        let mut file = lb
+            .open_file_for_write(&p("/docs/a.txt"), Default::default())
+            .unwrap();
+        file.seek(SeekFrom::Start(0)).unwrap();
+        file.write_all(b"ALPHA").unwrap();
+        file.close().unwrap();
+    }
+
+    assert_eq!(lb.get_file(&p("/docs/a.txt")).unwrap(), b"ALPHA-delta-echo");
+}
+
+#[test]
+fn mutable_file_handle_can_create_and_truncate_files() {
+    let mut lb = Lockbox::create(KEY);
+
+    {
+        let mut file = lb
+            .open_file_for_write(
+                &p("/generated/files/created.txt"),
+                crate::OpenFileOptions::create(),
+            )
+            .unwrap();
+        file.write_all(b"created").unwrap();
+        file.close().unwrap();
+    }
+    assert!(lb.is_dir(&p("/generated")));
+    assert!(lb.is_dir(&p("/generated/files")));
+    assert_eq!(
+        lb.get_file(&p("/generated/files/created.txt")).unwrap(),
+        b"created"
+    );
+
+    {
+        let mut file = lb
+            .open_file_for_write(
+                &p("/generated/files/created.txt"),
+                crate::OpenFileOptions::create_truncate(),
+            )
+            .unwrap();
+        assert_eq!(file.len(), 0);
+        file.write_all(b"new").unwrap();
+        file.close().unwrap();
+    }
+    assert_eq!(
+        lb.get_file(&p("/generated/files/created.txt")).unwrap(),
+        b"new"
+    );
+
+    assert!(matches!(
+        lb.open_file_for_write(&p("/missing.txt"), Default::default()),
+        Err(Error::NotFound(_))
+    ));
+}
+
+#[test]
+fn seek_past_eof_then_read_does_not_extend_but_write_creates_sparse_gap() {
+    let mut lb = Lockbox::create(KEY);
+    {
+        let mut file = lb
+            .open_file_for_write(&p("/sparse.bin"), crate::OpenFileOptions::create())
+            .unwrap();
+        file.write_all(b"head").unwrap();
+        file.seek(SeekFrom::Start(4096)).unwrap();
+        let mut one = [0u8; 1];
+        assert_eq!(file.read(&mut one).unwrap(), 0);
+        assert_eq!(file.len(), 4);
+        file.write_all(b"tail").unwrap();
+        assert_eq!(file.len(), 4100);
+        file.close().unwrap();
+    }
+
+    assert_eq!(
+        lb.read_file_range(&p("/sparse.bin"), 0, 4).unwrap(),
+        b"head"
+    );
+    assert_eq!(
+        lb.read_file_range(&p("/sparse.bin"), 4, 4092).unwrap(),
+        vec![0; 4092]
+    );
+    assert_eq!(
+        lb.read_file_range(&p("/sparse.bin"), 4096, 4).unwrap(),
+        b"tail"
+    );
+
+    let mut extracted = Vec::new();
+    lb.extract_file_to_writer(&p("/sparse.bin"), &mut extracted)
+        .unwrap();
+    assert_eq!(extracted.len(), 4100);
+    assert_eq!(&extracted[..4], b"head");
+    assert!(extracted[4..4096].iter().all(|byte| *byte == 0));
+    assert_eq!(&extracted[4096..], b"tail");
+
+    lb.commit().unwrap();
+    let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), KEY).unwrap();
+    assert_eq!(reopened.stat(&p("/sparse.bin")).unwrap().len, 4100);
+    assert_eq!(
+        reopened
+            .read_file_range(&p("/sparse.bin"), 4090, 10)
+            .unwrap(),
+        [vec![0; 6], b"tail".to_vec()].concat()
+    );
+}
+
+#[test]
+fn sparse_file_does_not_materialize_entire_gap_on_commit() {
+    let mut dense = Lockbox::create(KEY);
+    let mut dense_data = vec![0u8; 8 * 1024 * 1024];
+    fill_randomish(&mut dense_data);
+    add_file(&mut dense, &p("/dense.bin"), &dense_data, false).unwrap();
+    dense.commit().unwrap();
+    let dense_len = dense.to_bytes().len();
+
+    let mut sparse = Lockbox::create(KEY);
+    {
+        let mut file = sparse
+            .open_file_for_write(&p("/sparse.bin"), crate::OpenFileOptions::create())
+            .unwrap();
+        file.write_all(b"head").unwrap();
+        file.seek(SeekFrom::Start(8 * 1024 * 1024)).unwrap();
+        file.write_all(b"tail").unwrap();
+        file.close().unwrap();
+    }
+    sparse.commit().unwrap();
+    let sparse_len = sparse.to_bytes().len();
+
+    assert!(
+        sparse_len + PAGE_BYTES < dense_len,
+        "sparse lockbox should avoid storing the hole: sparse={sparse_len} dense={dense_len}"
+    );
+}
+
+#[test]
+fn mutable_file_handle_preserves_clean_chunks_around_dirty_page() {
+    let mut lb = Lockbox::create(KEY);
+    let mut data = vec![0u8; 5 * 1024 * 1024];
+    fill_randomish(&mut data);
+    add_file(&mut lb, &p("/large.bin"), &data, false).unwrap();
+    let before_pages = count_pages(&lb.to_bytes());
+
+    {
+        let mut file = lb
+            .open_file_for_write(&p("/large.bin"), Default::default())
+            .unwrap();
+        file.seek(SeekFrom::Start(2 * 1024 * 1024 + 17)).unwrap();
+        file.write_all(b"PATCHED").unwrap();
+        file.close().unwrap();
+    }
+
+    let mut expected = data;
+    expected[2 * 1024 * 1024 + 17..2 * 1024 * 1024 + 24].copy_from_slice(b"PATCHED");
+    assert_eq!(lb.get_file(&p("/large.bin")).unwrap(), expected);
+    assert!(
+        count_pages(&lb.to_bytes()) <= before_pages + 3,
+        "partial write should not rewrite every chunk"
+    );
+}
+
+#[test]
+fn content_streaming_reports_logical_and_physical_chunks() {
+    let mut lb = Lockbox::create(KEY);
+    let mut data = vec![0u8; 3 * 1024 * 1024 + 11];
+    fill_randomish(&mut data);
+    add_file(&mut lb, &p("/stream/large.bin"), &data, false).unwrap();
+    add_file(&mut lb, &p("/stream/small.txt"), b"tiny", false).unwrap();
+
+    let mut logical = Vec::new();
+    lb.stream_content(Default::default(), |chunk, reader| {
+        let mut bytes = Vec::new();
+        reader.read_to_end(&mut bytes).unwrap();
+        logical.push((
+            chunk.path,
+            chunk.file_offset,
+            chunk.len,
+            chunk.sparse,
+            bytes,
+        ));
+        Ok(())
+    })
+    .unwrap();
+
+    assert!(logical.iter().any(|(path, _, _, _, bytes)| {
+        path.as_str() == "/stream/small.txt" && bytes == b"tiny"
+    }));
+    let reconstructed = logical
+        .iter()
+        .filter(|(path, _, _, _, _)| path.as_str() == "/stream/large.bin")
+        .fold(Vec::new(), |mut out, (_, _, _, _, bytes)| {
+            out.extend_from_slice(bytes);
+            out
+        });
+    assert_eq!(reconstructed, data);
+
+    let mut physical_offsets = Vec::new();
+    lb.stream_content(
+        crate::ContentStreamOptions {
+            order: crate::ContentStreamOrder::Physical,
+        },
+        |chunk, reader| {
+            let mut sink = Vec::new();
+            reader.read_to_end(&mut sink).unwrap();
+            if let Some(offset) = chunk.physical_offset {
+                physical_offsets.push(offset);
+            }
+            Ok(())
+        },
+    )
+    .unwrap();
+    assert!(physical_offsets.windows(2).all(|pair| pair[0] <= pair[1]));
+}
+
+#[test]
+fn content_keys_can_be_wrapped_with_hybrid_contact_key() {
+    let key_pair = ContactKeyPair::generate().unwrap();
+    let content_key = [9u8; 32];
+
+    let wrapped = key_pair.encrypt(&content_key).unwrap();
+    let unwrapped = key_pair.decrypt(&wrapped).unwrap();
+
+    assert_eq!(unwrapped, content_key);
+    assert!(!wrapped.encrypted_key().is_empty());
+}
+
+#[test]
+fn hybrid_wraps_for_same_contact_do_not_share_key_exchange_material() {
+    let key_pair = ContactKeyPair::generate().unwrap();
+    let content_key = [9u8; 32];
+
+    let first = key_pair.encrypt(&content_key).unwrap();
+    let second = key_pair.encrypt(&content_key).unwrap();
+
+    assert_ne!(
+        first.x25519_ephemeral_public_key(),
+        second.x25519_ephemeral_public_key()
+    );
+    assert_ne!(first.ciphertext_bytes(), second.ciphertext_bytes());
+    assert_eq!(key_pair.decrypt(&first).unwrap(), content_key);
+    assert_eq!(key_pair.decrypt(&second).unwrap(), content_key);
+}
+
+#[test]
+fn contact_slot_labels_are_not_persisted() {
+    let alice = ContactKeyPair::generate().unwrap();
+    let bob = ContactKeyPair::generate().unwrap();
+    let mut lb = Lockbox::create_with_contact(&alice.public_key()).unwrap();
+
+    lb.add_contact_named("bob-laptop", &bob.public_key())
+        .unwrap();
+    lb.commit().unwrap();
+
+    let bytes = lb.to_bytes();
+    assert!(!String::from_utf8_lossy(&bytes).contains("bob-laptop"));
+
+    let reopened = Lockbox::open_with_contact(lb.to_bytes(), &bob).unwrap();
+    let contact_slot = reopened
+        .list_key_slots()
+        .into_iter()
+        .find(|slot| slot.protection == LockboxKeySlotProtection::Contact)
+        .expect("contact slot");
+
+    assert_eq!(
+        contact_slot.algorithm,
+        LockboxKeySlotAlgorithm::X25519MlKem768ChaCha20Poly1305
+    );
+}
+
+#[test]
+fn contact_slot_names_are_bounded() {
+    let alice = ContactKeyPair::generate().unwrap();
+    let bob = ContactKeyPair::generate().unwrap();
+    let mut lb = Lockbox::create_with_contact(&alice.public_key()).unwrap();
+    let too_long = "a".repeat(MAX_KEY_SLOT_NAME_BYTES + 1);
+
+    assert!(matches!(
+        lb.add_contact_named(too_long, &bob.public_key()),
+        Err(Error::InvalidInput(message)) if message.contains("access name exceeds")
+    ));
+    assert!(matches!(
+        lb.add_contact_named("bob/laptop", &bob.public_key()),
+        Err(Error::InvalidInput(message)) if message.contains("ASCII letters")
+    ));
+}
+
+#[test]
+fn password_slots_open_the_random_content_key() {
+    let share_password = password("share-password");
+    let mut lb = Lockbox::create_with_password(&share_password).unwrap();
+    let lockbox_id = lb.lockbox_id();
+    add_file(&mut lb, &p("/docs/a.txt"), b"alpha", false).unwrap();
+    lb.commit().unwrap();
+
+    let bytes = lb.to_bytes();
+    assert!(matches!(
+        Lockbox::open_with_password(bytes.clone(), &password("wrong-password")),
+        Err(Error::InvalidKey)
+    ));
+
+    let reopened = Lockbox::open_with_password(bytes, &share_password).unwrap();
+    assert_eq!(reopened.lockbox_id(), lockbox_id);
+    assert_eq!(reopened.get_file(&p("/docs/a.txt")).unwrap(), b"alpha");
+    let slot = &reopened.list_key_slots()[0];
+    assert_eq!(slot.protection, LockboxKeySlotProtection::Password);
+    assert_eq!(
+        slot.algorithm,
+        LockboxKeySlotAlgorithm::Argon2idChaCha20Poly1305
+    );
+}
+
+#[test]
+fn password_open_recovers_when_header_is_corrupt() {
+    let share_password = password("share-password");
+    let mut lb = Lockbox::create_with_password(&share_password).unwrap();
+    add_file(&mut lb, &p("/docs/a.txt"), b"alpha", false).unwrap();
+    lb.commit().unwrap();
+
+    let mut bytes = lb.to_bytes();
+    bytes[0] ^= 0xff;
+
+    let reopened = Lockbox::open_with_password(bytes, &share_password).unwrap();
+    assert_eq!(reopened.get_file(&p("/docs/a.txt")).unwrap(), b"alpha");
+}
+
+#[test]
+fn password_open_recovers_when_primary_key_directory_is_corrupt() {
+    let share_password = password("share-password");
+    let mut lb = Lockbox::create_with_password(&share_password).unwrap();
+    add_file(&mut lb, &p("/docs/a.txt"), b"alpha", false).unwrap();
+    lb.commit().unwrap();
+
+    let mut bytes = lb.to_bytes();
+    let primary_key_directory_offset = crate::file_format::read_header(&bytes)
+        .unwrap()
+        .key_directory_offset as usize;
+    bytes[primary_key_directory_offset] ^= 0xff;
+
+    let reopened = Lockbox::open_with_password(bytes, &share_password).unwrap();
+    assert_eq!(reopened.get_file(&p("/docs/a.txt")).unwrap(), b"alpha");
+}
+
+#[test]
+fn multiple_key_slots_are_tried_until_one_opens() {
+    let alice = ContactKeyPair::generate().unwrap();
+    let bob = ContactKeyPair::generate().unwrap();
+    let outsider = ContactKeyPair::generate().unwrap();
+    let bob_public = ContactPublicKey::from_bytes(&bob.public_key().to_bytes()).unwrap();
+
+    let mut lb = Lockbox::create_with_contact(&alice.public_key()).unwrap();
+    lb.add_contact(&bob_public).unwrap();
+    let backup_password = password("backup-password");
+    lb.add_password(&backup_password).unwrap();
+    add_file(&mut lb, &p("/shared/report.txt"), b"report", false).unwrap();
+    lb.commit().unwrap();
+
+    let bytes = lb.to_bytes();
+    assert!(matches!(
+        Lockbox::open_with_contact(bytes.clone(), &outsider),
+        Err(Error::InvalidKey)
+    ));
+
+    let by_bob = Lockbox::open_with_contact(bytes.clone(), &bob).unwrap();
+    assert_eq!(
+        by_bob.get_file(&p("/shared/report.txt")).unwrap(),
+        b"report"
+    );
+
+    let by_password = Lockbox::open_with_password(bytes, &backup_password).unwrap();
+    assert_eq!(
+        by_password.get_file(&p("/shared/report.txt")).unwrap(),
+        b"report"
+    );
+    assert_eq!(by_password.list_key_slots().len(), 3);
+}
+
+#[test]
+fn key_slots_can_be_removed_and_passwords_changed() {
+    let old_password = password("old-password");
+    let temporary_password = password("temporary-password");
+    let new_password = password("new-password");
+    let mut lb = Lockbox::create_with_password(&old_password).unwrap();
+    let extra_id = lb.add_password(&temporary_password).unwrap();
+    lb.delete_key(extra_id).unwrap();
+    lb.replace_password(&old_password, &new_password).unwrap();
+    add_file(&mut lb, &p("/docs/a.txt"), b"alpha", false).unwrap();
+    lb.commit().unwrap();
+
+    let bytes = lb.to_bytes();
+    assert!(matches!(
+        Lockbox::open_with_password(bytes.clone(), &old_password),
+        Err(Error::InvalidKey)
+    ));
+    assert!(matches!(
+        Lockbox::open_with_password(bytes.clone(), &temporary_password),
+        Err(Error::InvalidKey)
+    ));
+
+    let reopened = Lockbox::open_with_password(bytes, &new_password).unwrap();
+    assert_eq!(reopened.get_file(&p("/docs/a.txt")).unwrap(), b"alpha");
+    assert_eq!(reopened.list_key_slots().len(), 1);
+}
+
+#[test]
+fn key_slot_removal_compacts_old_key_material() {
+    let primary_password = password("primary-password");
+    let temporary_password = password("temporary-password");
+    let mut lb = Lockbox::create_with_password(&primary_password).unwrap();
+    let temporary_id = lb.add_password(&temporary_password).unwrap();
+    add_file(&mut lb, &p("/docs/a.txt"), b"alpha", false).unwrap();
+    lb.commit().unwrap();
+    let before = lb.to_bytes().len();
+
+    lb.delete_key(temporary_id).unwrap();
+    let bytes = lb.to_bytes();
+
+    assert!(bytes.len() <= before);
+    assert!(matches!(
+        Lockbox::open_with_password(bytes.clone(), &temporary_password),
+        Err(Error::InvalidKey)
+    ));
+    let reopened = Lockbox::open_with_password(bytes, &primary_password).unwrap();
+    assert_eq!(reopened.get_file(&p("/docs/a.txt")).unwrap(), b"alpha");
+    assert_eq!(reopened.list_key_slots().len(), 1);
+}
+
+#[test]
+fn path_backed_key_slot_removal_compacts_and_remains_file_backed() {
+    let path = temp_path("path-backed-key-compaction");
+    let primary_password = password("primary-password");
+    let temporary_password = password("temporary-password");
+    let mut lb = Lockbox::create_file(
+        &path,
+        LockboxProtection::Password(&primary_password),
+        &signing_key(),
+    )
+    .unwrap();
+    let temporary_id = lb.add_password(&temporary_password).unwrap();
+    add_file(&mut lb, &p("/docs/a.txt"), b"alpha", false).unwrap();
+    lb.commit().unwrap();
+    let before = std::fs::metadata(&path).unwrap().len();
+
+    lb.delete_key(temporary_id).unwrap();
+    add_file(&mut lb, &p("/docs/b.txt"), b"bravo", false).unwrap();
+    lb.commit().unwrap();
+    let after = std::fs::metadata(&path).unwrap().len();
+
+    assert!(after <= before + 4 * PAGE_BYTES as u64);
+    drop(lb);
+    assert!(matches!(
+        Lockbox::open(&path, LockboxOpen::Password(&temporary_password)),
+        Err(Error::InvalidKey)
+    ));
+    let reopened = Lockbox::open(&path, LockboxOpen::Password(&primary_password)).unwrap();
+    assert_eq!(reopened.get_file(&p("/docs/a.txt")).unwrap(), b"alpha");
+    assert_eq!(reopened.get_file(&p("/docs/b.txt")).unwrap(), b"bravo");
+
+    let _ = std::fs::remove_file(path);
+}
+
+#[test]
+fn path_backed_content_key_replacement_true_revokes_removed_contact() {
+    let path = temp_path("path-backed-contact-rekey");
+    let alice = ContactKeyPair::generate().unwrap();
+    let bob = ContactKeyPair::generate().unwrap();
+    let signing_key = signing_key();
+    let mut lb = Lockbox::create_file(
+        &path,
+        LockboxProtection::ContactPublicKey {
+            name: Some("alice".to_string()),
+            contact: alice.public_key(),
+        },
+        &signing_key,
+    )
+    .unwrap();
+    lb.add_contact_named("bob", &bob.public_key()).unwrap();
+    add_file(&mut lb, &p("/docs/a.txt"), b"alpha", false).unwrap();
+    lb.commit().unwrap();
+
+    let new_slots = lb
+        .replace_content_key_with_contacts(&[("bob".to_string(), bob.public_key())])
+        .unwrap();
+
+    assert_eq!(new_slots.len(), 1);
+    assert_eq!(new_slots[0].0, "bob");
+    drop(lb);
+    assert!(matches!(
+        Lockbox::open(&path, LockboxOpen::ContactKeyPair(alice)),
+        Err(Error::InvalidKey)
+    ));
+    let reopened = Lockbox::open(&path, LockboxOpen::ContactKeyPair(bob)).unwrap();
+    assert_eq!(reopened.get_file(&p("/docs/a.txt")).unwrap(), b"alpha");
+
+    let _ = std::fs::remove_file(path);
+}
+
+#[test]
+fn oversized_key_directories_are_rejected() {
+    let share_password = password("share-password");
+    let mut lb = Lockbox::create_with_password(&share_password).unwrap();
+    lb.commit().unwrap();
+
+    let mut bytes = lb.to_bytes();
+    let mut offset = 64usize;
+    while offset + 24 <= bytes.len() {
+        if bytes.get(offset..offset + 8) == Some(b"LBX1KEY\0".as_slice()) {
+            bytes[offset + 16..offset + 24].copy_from_slice(&(2 * 1024 * 1024u64).to_le_bytes());
+            offset += 64;
+        } else {
+            offset += 1;
+        }
+    }
+
+    assert!(matches!(
+        Lockbox::open_with_password(bytes, &share_password),
+        Err(Error::SecurityLimitExceeded(_) | Error::InvalidKey | Error::CorruptHeader)
+    ));
+}
+
+#[test]
+fn compressible_page_content_uses_less_space_than_raw_chunks() {
+    let mut lb = Lockbox::create(KEY);
+    let compressible = vec![b'a'; 2 * 1024 * 1024];
+
+    add_file(&mut lb, &p("/compressible.bin"), &compressible, false).unwrap();
+    let vault_len = lb.to_bytes().len();
+
+    assert!(vault_len < 4 * PAGE_BYTES);
+    assert_eq!(lb.get_file(&p("/compressible.bin")).unwrap(), compressible);
+}
+
+#[test]
+fn compressible_large_file_uses_fewer_pages_than_incompressible_large_file() {
+    let compressible = vec![0u8; 16 * 1024 * 1024];
+    let mut incompressible = vec![0u8; compressible.len()];
+    fill_randomish(&mut incompressible);
+
+    let mut compressible_box = Lockbox::create(KEY);
+    add_file(
+        &mut compressible_box,
+        &p("/compressible.bin"),
+        &compressible,
+        false,
+    )
+    .unwrap();
+    compressible_box.commit().unwrap();
+
+    let mut incompressible_box = Lockbox::create(KEY);
+    add_file(
+        &mut incompressible_box,
+        &p("/incompressible.bin"),
+        &incompressible,
+        false,
+    )
+    .unwrap();
+    incompressible_box.commit().unwrap();
+
+    let compressible_len = compressible_box.to_bytes().len();
+    let incompressible_len = incompressible_box.to_bytes().len();
+    assert!(
+        compressible_len + PAGE_BYTES <= incompressible_len,
+        "compressible vault should save space: {compressible_len} vs {incompressible_len}"
+    );
+    assert_eq!(
+        compressible_box.get_file(&p("/compressible.bin")).unwrap(),
+        compressible
+    );
+    assert_eq!(
+        incompressible_box
+            .get_file(&p("/incompressible.bin"))
+            .unwrap(),
+        incompressible
+    );
+}
+
+#[test]
+fn many_small_files_are_packed_into_shared_pages_after_commit() {
+    let mut lb = Lockbox::create(KEY);
+    let initial_len = lb.to_bytes().len();
+    for i in 0..20 {
+        add_file(&mut lb, &p(format!("/packed/file-{i}.txt")), b"tiny", false).unwrap();
+    }
+    assert_eq!(lb.to_bytes().len(), initial_len);
+
+    lb.commit().unwrap();
+
+    let bytes = lb.to_bytes();
+    let len_after_first_commit = bytes.len();
+    assert!(len_after_first_commit <= initial_len + 4 * PAGE_BYTES);
+
+    for i in 20..30 {
+        add_file(&mut lb, &p(format!("/packed/file-{i}.txt")), b"tiny", false).unwrap();
+    }
+    lb.commit().unwrap();
+    assert!(lb.to_bytes().len() <= len_after_first_commit + 4 * PAGE_BYTES);
+
+    let mut damaged = bytes.clone();
+    damaged[0..8].fill(0);
+    damaged[crate::file_format::header_v2::SLOT_LEN..crate::file_format::header_v2::SLOT_LEN + 8]
+        .fill(0);
+    let report = RecoveryScanner::scan_bytes(damaged, KEY);
+    assert_eq!(report.intact_file_count, 20);
+}
+
+#[test]
+fn deleting_packed_file_redacts_original_page_and_preserves_other_files() {
+    let mut lb = Lockbox::create(KEY);
+    add_file(&mut lb, &p("/packed/a.txt"), b"alpha", false).unwrap();
+    add_file(&mut lb, &p("/packed/b.txt"), b"bravo", false).unwrap();
+    lb.commit().unwrap();
+    let before = lb.to_bytes();
+    let packed_pages_before = count_pages(&before);
+
+    lb.delete(&p("/packed/a.txt")).unwrap();
+    lb.commit().unwrap();
+
+    let after = lb.to_bytes();
+    assert_eq!(
+        Lockbox::open_bytes_with_key(after.clone(), KEY)
+            .unwrap()
+            .get_file(&p("/packed/b.txt"))
+            .unwrap(),
+        b"bravo"
+    );
+    assert!(matches!(
+        Lockbox::open_bytes_with_key(after.clone(), KEY)
+            .unwrap()
+            .get_file(&p("/packed/a.txt")),
+        Err(Error::NotFound(_))
+    ));
+    assert!(count_pages(&after) >= packed_pages_before);
+    assert!(page_offsets(&before)
+        .into_iter()
+        .any(|offset| after[offset..offset + 8].iter().all(|byte| *byte == 0)));
+}
+
+fn fill_randomish(buf: &mut [u8]) {
+    for (i, byte) in buf.iter_mut().enumerate() {
+        let mut value = i as u64;
+        value = value.wrapping_add(0x9e37_79b9_7f4a_7c15);
+        value = (value ^ (value >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
+        value = (value ^ (value >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
+        *byte = (value ^ (value >> 31)) as u8;
+    }
+}
+
+fn count_pages(bytes: &[u8]) -> usize {
+    page_offsets(bytes).len()
+}
+
+fn page_offsets(bytes: &[u8]) -> Vec<usize> {
+    let mut offsets = Vec::new();
+    let mut index = 0usize;
+    while index + 8 <= bytes.len() {
+        if bytes.get(index..index + 8) == Some(b"LBX1PAG\0".as_slice()) {
+            offsets.push(index);
+            if let Some(page_size) = page_size_at(bytes, index) {
+                index = index.saturating_add(page_size);
+            } else {
+                index += 1;
+            }
+        } else {
+            index += 1;
+        }
+    }
+    offsets
+}
+
+fn page_size_at(bytes: &[u8], offset: usize) -> Option<usize> {
+    if offset + 48 > bytes.len() {
+        return None;
+    }
+    let header_len = u32::from_le_bytes(bytes[offset + 12..offset + 16].try_into().ok()?) as usize;
+    let stored_body_len =
+        u32::from_le_bytes(bytes[offset + 44..offset + 48].try_into().ok()?) as usize;
+    let stored_len = header_len.checked_add(stored_body_len)?;
+    Some(stored_len.checked_add(PAGE_QUANTUM_BYTES - 1)? / PAGE_QUANTUM_BYTES * PAGE_QUANTUM_BYTES)
+}
+
+#[test]
+fn toc_round_trips_when_toc_payload_exceeds_minimum_page_body() {
+    let mut lb = Lockbox::create(KEY);
+    let payload = b"x";
+
+    for i in 0..220 {
+        let component = toc_overflow_component(i);
+        add_file(
+            &mut lb,
+            &p(format!("/toc-overflow/{component}")),
+            payload,
+            false,
+        )
+        .unwrap();
+    }
+    lb.commit().unwrap();
+
+    let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), KEY).unwrap();
+    let entries = reopened
+        .list(ListOptions {
+            recursive: true,
+            ..ListOptions::new(&p("/toc-overflow"))
+        })
+        .unwrap()
+        .collect::<Result<Vec<_>>>()
+        .unwrap();
+
+    assert_eq!(entries.len(), 220);
+    assert!(reopened
+        .inspector()
+        .inspect_pages()
+        .unwrap()
+        .iter()
+        .any(
+            |page| page.objects.iter().any(|object| object.kind == "toc-leaf")
+                && page.page_size as usize > PAGE_QUANTUM_BYTES
+        ));
+    assert_eq!(
+        reopened
+            .get_file(&p(format!("/toc-overflow/{}", toc_overflow_component(219))))
+            .unwrap(),
+        payload
+    );
+}
+
+fn toc_overflow_component(index: usize) -> String {
+    let mut out = format!("file-{index:03}-");
+    let mut value = index as u64 ^ 0x6a09_e667_f3bc_c909;
+    while out.len() < 230 {
+        value = value.wrapping_add(0x9e37_79b9_7f4a_7c15).rotate_left(17) ^ 0xbf58_476d_1ce4_e5b9;
+        out.push_str(&format!("{value:016x}"));
+    }
+    out.push_str(".txt");
+    out
+}
+
+#[test]
+fn toc_btree_create_round_trips_multiple_leaves() {
+    let mut lb = Lockbox::create(KEY);
+    for i in 0..300 {
+        add_file(
+            &mut lb,
+            &p(format!("/toc-create/file-{i:03}.txt")),
+            b"create",
+            false,
+        )
+        .unwrap();
+    }
+    lb.commit().unwrap();
+
+    let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), KEY).unwrap();
+    assert_eq!(
+        reopened
+            .list(ListOptions {
+                recursive: true,
+                ..ListOptions::new(&p("/toc-create"))
+            })
+            .unwrap()
+            .count(),
+        300
+    );
+    assert_eq!(
+        reopened.get_file(&p("/toc-create/file-299.txt")).unwrap(),
+        b"create"
+    );
+}
+
+#[test]
+fn toc_btree_append_round_trips_across_commits() {
+    let mut lb = Lockbox::create(KEY);
+    for i in 0..180 {
+        add_file(
+            &mut lb,
+            &p(format!("/toc-append/file-{i:03}.txt")),
+            b"before",
+            false,
+        )
+        .unwrap();
+    }
+    lb.commit().unwrap();
+    for i in 180..360 {
+        add_file(
+            &mut lb,
+            &p(format!("/toc-append/file-{i:03}.txt")),
+            b"after",
+            false,
+        )
+        .unwrap();
+    }
+    lb.commit().unwrap();
+
+    let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), KEY).unwrap();
+    assert_eq!(
+        reopened
+            .list(ListOptions {
+                recursive: true,
+                ..ListOptions::new(&p("/toc-append"))
+            })
+            .unwrap()
+            .count(),
+        360
+    );
+    assert_eq!(
+        reopened.get_file(&p("/toc-append/file-000.txt")).unwrap(),
+        b"before"
+    );
+    assert_eq!(
+        reopened.get_file(&p("/toc-append/file-359.txt")).unwrap(),
+        b"after"
+    );
+}
+
+#[test]
+fn toc_btree_delete_round_trips_across_commits() {
+    let mut lb = Lockbox::create(KEY);
+    for i in 0..300 {
+        add_file(
+            &mut lb,
+            &p(format!("/toc-delete/file-{i:03}.txt")),
+            b"data",
+            false,
+        )
+        .unwrap();
+    }
+    lb.commit().unwrap();
+    for i in (0..300).step_by(3) {
+        lb.delete(&p(format!("/toc-delete/file-{i:03}.txt")))
+            .unwrap();
+    }
+    lb.commit().unwrap();
+
+    let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), KEY).unwrap();
+    assert_eq!(
+        reopened
+            .list(ListOptions {
+                recursive: true,
+                ..ListOptions::new(&p("/toc-delete"))
+            })
+            .unwrap()
+            .count(),
+        200
+    );
+    assert!(matches!(
+        reopened.get_file(&p("/toc-delete/file-000.txt")),
+        Err(Error::NotFound(_))
+    ));
+    assert_eq!(
+        reopened.get_file(&p("/toc-delete/file-001.txt")).unwrap(),
+        b"data"
+    );
+}
+
+#[test]
+fn appending_after_commit_preserves_existing_files() {
+    let mut lb = Lockbox::create(KEY);
+    add_file(&mut lb, &p("/docs/a.txt"), b"alpha", false).unwrap();
+    lb.commit().unwrap();
+    let len_after_first_commit = lb.to_bytes().len();
+
+    add_file(&mut lb, &p("/docs/b.txt"), b"bravo", false).unwrap();
+    lb.commit().unwrap();
+
+    assert!(lb.to_bytes().len() > len_after_first_commit);
+    let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), KEY).unwrap();
+    assert_eq!(reopened.get_file(&p("/docs/a.txt")).unwrap(), b"alpha");
+    assert_eq!(reopened.get_file(&p("/docs/b.txt")).unwrap(), b"bravo");
+    assert_eq!(
+        reopened
+            .list(ListOptions::new(&p("/docs")))
+            .unwrap()
+            .count(),
+        2
+    );
+}
+
+#[test]
+fn delete_removes_file_after_commit_and_reopen() {
+    let mut lb = Lockbox::create(KEY);
+    add_file(&mut lb, &p("/docs/a.txt"), b"alpha", false).unwrap();
+    add_file(&mut lb, &p("/docs/b.txt"), b"bravo", false).unwrap();
+    lb.commit().unwrap();
+
+    lb.delete(&p("/docs/a.txt")).unwrap();
+    assert!(matches!(
+        lb.get_file(&p("/docs/a.txt")),
+        Err(Error::NotFound(_))
+    ));
+    lb.commit().unwrap();
+
+    let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), KEY).unwrap();
+    assert!(matches!(
+        reopened.get_file(&p("/docs/a.txt")),
+        Err(Error::NotFound(_))
+    ));
+    assert_eq!(reopened.get_file(&p("/docs/b.txt")).unwrap(), b"bravo");
+    assert_eq!(
+        reopened
+            .list(ListOptions::new(&p("/docs")))
+            .unwrap()
+            .count(),
+        1
+    );
+}
+
+#[test]
+fn file_backed_mirror_recursive_removals_persist_after_reopen() {
+    let path = temp_path("mirror-recursive-removals");
+    let host_file = temp_path("mirror-recursive-removals-source");
+    std::fs::write(&host_file, b"content").unwrap();
+    let mut lb = Lockbox::create_path(&path, KEY).unwrap();
+    lb.set_workload_profile(WorkloadProfile::BulkImport);
+    lb.create_mirror_project(
+        MirrorProject {
+            name: "house".to_string(),
+            source: "/tmp/house-source".to_string(),
+            destination: p("/house"),
+            includes: Vec::new(),
+            excludes: Vec::new(),
+            missing_file_policy: crate::MirrorMissingFilePolicy::Remove,
+            strict: false,
+            host_identity: None,
+        },
+        false,
+    )
+    .unwrap();
+    lb.with_mirror_project_mutation("house", |lb, _| {
+        for directory in 0..4 {
+            lb.create_dir(&p(format!("/house/directory-{directory}")), true)?;
+            for file in 0..23 {
+                lb.add_file_from_path(
+                    &host_file,
+                    &p(format!("/house/directory-{directory}/file-{file:02}.txt")),
+                    false,
+                )?;
+            }
+        }
+        Ok(())
+    })
+    .unwrap();
+    lb.commit().unwrap();
+    let owner = lb.require_owner_signing_key().unwrap().try_clone().unwrap();
+    drop(lb);
+
+    let mut lb = Lockbox::open_path(&path, KEY).unwrap();
+    lb.set_owner_signing_key(owner.try_clone().unwrap());
+    lb.set_workload_profile(WorkloadProfile::BulkImport);
+    lb.with_mirror_project_mutation("house", |lb, _| {
+        lb.add_file_from_path(&host_file, &p("/house/directory-0/file-00.txt"), true)?;
+        lb.delete(&p("/house/directory-0/file-01.txt"))?;
+        lb.add_file_from_path(&host_file, &p("/house/directory-0/new.txt"), false)
+    })
+    .unwrap();
+    lb.commit().unwrap();
+    drop(lb);
+
+    let mut lb = Lockbox::open_path(&path, KEY).unwrap();
+    lb.set_owner_signing_key(owner);
+    lb.set_workload_profile(WorkloadProfile::BulkImport);
+    lb.with_mirror_project_mutation("house", |lb, _| {
+        lb.remove_dir_recursive(&p("/house/directory-0"))?;
+        lb.remove_dir_recursive(&p("/house/directory-1"))?;
+        lb.delete(&p("/house/directory-2/file-00.txt"))
+    })
+    .unwrap();
+    lb.commit().unwrap();
+    drop(lb);
+
+    let reopened = Lockbox::open_path(&path, KEY).unwrap();
+    let paths = reopened
+        .list(ListOptions {
+            recursive: true,
+            ..ListOptions::new(&p("/house"))
+        })
+        .unwrap()
+        .map(|entry| entry.unwrap().path.to_string())
+        .collect::<Vec<_>>();
+    assert!(!paths
+        .iter()
+        .any(|path| path.starts_with("/house/directory-0")));
+    assert!(!paths
+        .iter()
+        .any(|path| path.starts_with("/house/directory-1")));
+    assert!(!paths
+        .iter()
+        .any(|path| path == "/house/directory-2/file-00.txt"));
+    assert_eq!(
+        paths.iter().filter(|path| path.ends_with(".txt")).count(),
+        45
+    );
+}
+
+#[test]
+fn deleted_file_space_can_be_reused_by_appended_content() {
+    let mut lb = Lockbox::create(KEY);
+    add_file(&mut lb, &p("/docs/remove.bin"), &[1; 1024], false).unwrap();
+    lb.commit().unwrap();
+    let len_after_first_commit = lb.to_bytes().len();
+
+    lb.delete(&p("/docs/remove.bin")).unwrap();
+    add_file(&mut lb, &p("/docs/replacement.bin"), &[2; 1024], false).unwrap();
+    lb.commit().unwrap();
+
+    let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), KEY).unwrap();
+    assert!(matches!(
+        reopened.get_file(&p("/docs/remove.bin")),
+        Err(Error::NotFound(_))
+    ));
+    assert_eq!(
+        reopened.get_file(&p("/docs/replacement.bin")).unwrap(),
+        [2; 1024]
+    );
+    assert!(reopened.to_bytes().len() <= len_after_first_commit + 5 * PAGE_BYTES);
+}
+
+#[test]
+fn decoded_page_cache_records_hits_and_can_be_trimmed() {
+    let mut lb = Lockbox::create_with_options(
+        KEY,
+        LockboxOptions {
+            cache_limit: CacheLimit::Bytes(128 * 1024 * 1024),
+            ..LockboxOptions::default()
+        },
+    );
+    add_file(&mut lb, &p("/docs/a.txt"), b"alpha", false).unwrap();
+    lb.commit().unwrap();
+    let reopened = Lockbox::open_bytes_with_key_options(
+        lb.to_bytes(),
+        KEY,
+        LockboxOptions {
+            cache_limit: CacheLimit::Bytes(128 * 1024 * 1024),
+            ..LockboxOptions::default()
+        },
+    )
+    .unwrap();
+
+    reopened.get_file(&p("/docs/a.txt")).unwrap();
+    reopened.get_file(&p("/docs/a.txt")).unwrap();
+    let stats = reopened.inspector().cache_stats();
+    assert!(stats.entries > 0);
+    assert!(stats.hits > 0);
+}
+
+#[test]
+fn decoded_page_cache_can_be_disabled() {
+    let mut lb = Lockbox::create_with_options(
+        KEY,
+        LockboxOptions {
+            cache_limit: CacheLimit::Disabled,
+            ..LockboxOptions::default()
+        },
+    );
+    add_file(&mut lb, &p("/docs/a.txt"), b"alpha", false).unwrap();
+    lb.commit().unwrap();
+
+    lb.get_file(&p("/docs/a.txt")).unwrap();
+    assert_eq!(lb.inspector().cache_stats().entries, 0);
+    assert_eq!(lb.inspector().cache_stats().used_bytes, 0);
+}
+
+#[test]
+fn bulk_import_flushes_file_pages_without_retaining_them_in_cache() {
+    let mut data = vec![0; 2 * 1024 * 1024];
+    fill_randomish(&mut data);
+    let mut lb = Lockbox::create_with_options(
+        KEY,
+        LockboxOptions {
+            cache_limit: CacheLimit::Bytes(128 * 1024 * 1024),
+            workload_profile: WorkloadProfile::BulkImport,
+            ..LockboxOptions::default()
+        },
+    );
+
+    add_file(&mut lb, &p("/bulk/data.zip"), &data, false).unwrap();
+
+    assert_eq!(lb.inspector().cache_stats().entries, 0);
+    assert_eq!(lb.inspector().cache_stats().used_bytes, 0);
+    assert!(lb.inspector().storage_len().unwrap() > HEADER_LEN as u64);
+    assert_eq!(lb.get_file(&p("/bulk/data.zip")).unwrap(), data);
+    assert!(lb.inspector().cache_stats().entries > 0);
+
+    lb.commit().unwrap();
+    let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), KEY).unwrap();
+    assert_eq!(reopened.get_file(&p("/bulk/data.zip")).unwrap(), data);
+}
+
+#[test]
+fn bulk_import_drains_small_file_staging_before_commit() {
+    let data = vec![0xabu8; 25 * 1024];
+    let mut lb = Lockbox::create_with_options(
+        KEY,
+        LockboxOptions {
+            cache_limit: CacheLimit::Bytes(128 * 1024 * 1024),
+            workload_profile: WorkloadProfile::BulkImport,
+            ..LockboxOptions::default()
+        },
+    );
+
+    for index in 0..400 {
+        add_file(
+            &mut lb,
+            &p(format!("/bulk/small-{index:04}.zip")),
+            &data,
+            false,
+        )
+        .unwrap();
+    }
+
+    assert!(lb.inspector().storage_len().unwrap() > HEADER_LEN as u64);
+    assert_eq!(lb.inspector().cache_stats().entries, 0);
+    assert_eq!(lb.get_file(&p("/bulk/small-0000.zip")).unwrap(), data);
+    assert_eq!(lb.get_file(&p("/bulk/small-0399.zip")).unwrap(), data);
+
+    lb.commit().unwrap();
+    let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), KEY).unwrap();
+    assert_eq!(reopened.get_file(&p("/bulk/small-0000.zip")).unwrap(), data);
+    assert_eq!(reopened.get_file(&p("/bulk/small-0399.zip")).unwrap(), data);
+}
+
+#[test]
+fn bulk_small_file_frames_keep_non_tail_pages_dense() {
+    let data = vec![0xabu8; 25 * 1024];
+    let mut lb = Lockbox::create_with_options(
+        KEY,
+        LockboxOptions {
+            cache_limit: CacheLimit::Bytes(128 * 1024 * 1024),
+            workload_profile: WorkloadProfile::BulkImport,
+            ..LockboxOptions::default()
+        },
+    );
+
+    for index in 0..700 {
+        add_file(
+            &mut lb,
+            &p(format!("/bulk/dense-{index:04}.zip")),
+            &data,
+            false,
+        )
+        .unwrap();
+    }
+    lb.commit().unwrap();
+
+    let file_pages = lb
+        .inspector()
+        .inspect_pages()
+        .unwrap()
+        .into_iter()
+        .filter(|page| page.objects.iter().any(|object| object.kind == "file-data"))
+        .collect::<Vec<_>>();
+    assert!(!file_pages.is_empty());
+    assert!(
+        file_pages.len() <= 3,
+        "bulk small-file frames spilled into too many file pages: {}",
+        file_pages.len()
+    );
+    for page in file_pages.iter().take(file_pages.len() - 1) {
+        assert!(
+            page.object_count >= 2,
+            "non-tail file page at offset {} only has {} frame objects",
+            page.offset,
+            page.object_count
+        );
+    }
+}
+
+#[test]
+fn threaded_large_file_import_round_trips_multiframe_data() {
+    let mut data = vec![0; 5 * 1024 * 1024 + 12345];
+    fill_randomish(&mut data);
+    let mut lb = Lockbox::create_with_options(
+        KEY,
+        LockboxOptions {
+            cache_limit: CacheLimit::Bytes(128 * 1024 * 1024),
+            worker_policy: WorkerPolicy::Threads(4),
+            ..LockboxOptions::default()
+        },
+    );
+
+    add_file(&mut lb, &p("/threaded/large.bin"), &data, false).unwrap();
+    lb.commit().unwrap();
+    let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), KEY).unwrap();
+
+    assert_eq!(reopened.get_file(&p("/threaded/large.bin")).unwrap(), data);
+    assert_eq!(
+        reopened
+            .read_file_range(&p("/threaded/large.bin"), 2 * 1024 * 1024 - 17, 96)
+            .unwrap(),
+        data[2 * 1024 * 1024 - 17..2 * 1024 * 1024 + 79].to_vec()
+    );
+    assert_eq!(
+        reopened
+            .list(ListOptions::new(&p("/threaded")))
+            .unwrap()
+            .collect::<Result<Vec<_>>>()
+            .unwrap()
+            .len(),
+        1
+    );
+}
+
+#[test]
+fn threaded_bulk_small_file_batches_round_trip_after_reopen() {
+    let mut lb = Lockbox::create_with_options(
+        KEY,
+        LockboxOptions {
+            cache_limit: CacheLimit::Bytes(128 * 1024 * 1024),
+            workload_profile: WorkloadProfile::BulkImport,
+            worker_policy: WorkerPolicy::Threads(4),
+        },
+    );
+
+    for index in 0..384 {
+        let mut data = vec![0; 24 * 1024 + index % 97];
+        fill_randomish(&mut data);
+        add_file(
+            &mut lb,
+            &p(format!("/threaded-small/file-{index:04}.bin")),
+            &data,
+            false,
+        )
+        .unwrap();
+    }
+    lb.commit().unwrap();
+    let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), KEY).unwrap();
+
+    for index in [0, 1, 127, 255, 383] {
+        let mut expected = vec![0; 24 * 1024 + index % 97];
+        fill_randomish(&mut expected);
+        assert_eq!(
+            reopened
+                .get_file(&p(format!("/threaded-small/file-{index:04}.bin")))
+                .unwrap(),
+            expected
+        );
+    }
+    assert_eq!(
+        reopened
+            .list(ListOptions {
+                recursive: true,
+                ..ListOptions::new(&p("/threaded-small"))
+            })
+            .unwrap()
+            .collect::<Result<Vec<_>>>()
+            .unwrap()
+            .len(),
+        384
+    );
+}
+
+#[test]
+fn worker_policy_single_and_threads_have_same_logical_results() {
+    fn build(policy: WorkerPolicy) -> Lockbox {
+        let mut lb = Lockbox::create_with_options(
+            KEY,
+            LockboxOptions {
+                cache_limit: CacheLimit::Bytes(128 * 1024 * 1024),
+                workload_profile: WorkloadProfile::BulkImport,
+                worker_policy: policy,
+            },
+        );
+        let mut large = vec![0; 3 * 1024 * 1024 + 77];
+        fill_randomish(&mut large);
+        add_file(&mut lb, &p("/compare/large.bin"), &large, false).unwrap();
+        for index in 0..64 {
+            let mut data = vec![0; 32 * 1024 + index];
+            fill_randomish(&mut data);
+            add_file(
+                &mut lb,
+                &p(format!("/compare/small-{index:03}.bin")),
+                &data,
+                false,
+            )
+            .unwrap();
+        }
+        lb.commit().unwrap();
+        Lockbox::open_bytes_with_key(lb.to_bytes(), KEY).unwrap()
+    }
+
+    let single = build(WorkerPolicy::Single);
+    let threaded = build(WorkerPolicy::Threads(3));
+    let single_entries = single
+        .list(ListOptions {
+            recursive: true,
+            ..ListOptions::new(&p("/compare"))
+        })
+        .unwrap()
+        .collect::<Result<Vec<_>>>()
+        .unwrap();
+    let threaded_entries = threaded
+        .list(ListOptions {
+            recursive: true,
+            ..ListOptions::new(&p("/compare"))
+        })
+        .unwrap()
+        .collect::<Result<Vec<_>>>()
+        .unwrap();
+
+    assert_eq!(single_entries, threaded_entries);
+    for entry in single_entries {
+        assert_eq!(
+            single.get_file(&entry.path).unwrap(),
+            threaded.get_file(&entry.path).unwrap()
+        );
+    }
+}
+
+#[test]
+fn worker_policy_auto_uses_conservative_native_cap() {
+    let auto_jobs = WorkerPolicy::Auto.effective_jobs();
+    assert!(auto_jobs >= 1);
+    if !cfg!(target_arch = "wasm32") {
+        assert!(auto_jobs <= 6);
+    }
+    assert_eq!(WorkerPolicy::Single.effective_jobs(), 1);
+    assert_eq!(WorkerPolicy::Threads(0).effective_jobs(), 1);
+    assert_eq!(WorkerPolicy::Threads(16).effective_jobs(), 16);
+}
+
+#[test]
+fn import_stats_record_threaded_import_stages_and_can_be_reset() {
+    let mut data = vec![0; 3 * 1024 * 1024 + 17];
+    fill_randomish(&mut data);
+    let mut lb = Lockbox::create_with_options(
+        KEY,
+        LockboxOptions {
+            cache_limit: CacheLimit::Bytes(128 * 1024 * 1024),
+            worker_policy: WorkerPolicy::Threads(2),
+            ..LockboxOptions::default()
+        },
+    );
+
+    lb.reset_import_stats();
+    add_file_from_reader(&mut lb, &p("/stats/large.bin"), Cursor::new(data), false).unwrap();
+    let stats = lb.import_stats();
+
+    assert!(stats.host_read_nanos > 0);
+    assert!(stats.frame_prepare_nanos > 0);
+    assert!(stats.page_write_nanos > 0);
+    assert_eq!(stats.host_stat_nanos, 0);
+
+    lb.reset_import_stats();
+    assert_eq!(lb.import_stats(), Default::default());
+}
+
+#[test]
+fn extract_many_caches_decoded_compression_frames() {
+    let mut lb = Lockbox::create_with_options(
+        KEY,
+        LockboxOptions {
+            cache_limit: CacheLimit::Bytes(128 * 1024 * 1024),
+            workload_profile: WorkloadProfile::BulkImport,
+            ..LockboxOptions::default()
+        },
+    );
+    add_file(&mut lb, &p("/cache/a.txt"), b"alpha", false).unwrap();
+    add_file(&mut lb, &p("/cache/b.txt"), b"bravo", false).unwrap();
+    lb.commit().unwrap();
+
+    let reopened = Lockbox::open_bytes_with_key_options(
+        lb.to_bytes(),
+        KEY,
+        LockboxOptions {
+            cache_limit: CacheLimit::Bytes(128 * 1024 * 1024),
+            workload_profile: WorkloadProfile::ExtractMany,
+            ..LockboxOptions::default()
+        },
+    )
+    .unwrap();
+
+    assert_eq!(
+        reopened.decoded_compression_frame_cache_entries_for_tests(),
+        0
+    );
+    assert_eq!(reopened.get_file(&p("/cache/a.txt")).unwrap(), b"alpha");
+    assert_eq!(
+        reopened.decoded_compression_frame_cache_entries_for_tests(),
+        1
+    );
+    assert_eq!(reopened.get_file(&p("/cache/b.txt")).unwrap(), b"bravo");
+    assert_eq!(
+        reopened.decoded_compression_frame_cache_entries_for_tests(),
+        1
+    );
+}
+
+#[test]
+fn range_reads_are_clamped_to_file_bounds() {
+    let mut lb = Lockbox::create(KEY);
+    add_file(&mut lb, &p("/docs/a.txt"), b"alpha", false).unwrap();
+
+    assert_eq!(
+        lb.read_file_range(&p("/docs/a.txt"), 0, 99).unwrap(),
+        b"alpha"
+    );
+    assert_eq!(
+        lb.read_file_range(&p("/docs/a.txt"), 2, 99).unwrap(),
+        b"pha"
+    );
+    assert_eq!(lb.read_file_range(&p("/docs/a.txt"), 99, 10).unwrap(), b"");
+}
+
+#[test]
+fn range_reads_only_return_requested_large_file_slice() {
+    let mut lb = Lockbox::create(KEY);
+    let content = vec![7u8; 8 * 1024 * 1024 + 512];
+    add_file(&mut lb, &p("/large.bin"), &content, false).unwrap();
+
+    assert_eq!(
+        lb.read_file_range(&p("/large.bin"), 8 * 1024 * 1024 - 4, 16)
+            .unwrap(),
+        content[8 * 1024 * 1024 - 4..8 * 1024 * 1024 + 12]
+    );
+}
+
+#[test]
+fn extract_to_directory_enforces_file_count_limit() {
+    let mut lb = Lockbox::create(KEY);
+    add_file(&mut lb, &p("/docs/a.txt"), b"alpha", false).unwrap();
+    add_file(&mut lb, &p("/docs/b.txt"), b"bravo", false).unwrap();
+    let dir = std::env::temp_dir().join(format!("lockbox-extract-count-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+
+    let policy = ExtractPolicy {
+        max_files: 1,
+        ..ExtractPolicy::default()
+    };
+    assert!(matches!(
+        lb.extract_to_directory(&dir, &policy),
+        Err(Error::SecurityLimitExceeded(_))
+    ));
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn extract_to_directory_enforces_single_file_size_limit() {
+    let mut lb = Lockbox::create(KEY);
+    add_file(&mut lb, &p("/docs/a.txt"), b"alpha", false).unwrap();
+    let dir =
+        std::env::temp_dir().join(format!("lockbox-extract-file-size-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+
+    let policy = ExtractPolicy {
+        max_file_bytes: 4,
+        ..ExtractPolicy::default()
+    };
+    assert!(matches!(
+        lb.extract_to_directory(&dir, &policy),
+        Err(Error::SecurityLimitExceeded(_))
+    ));
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn extract_to_directory_enforces_total_size_limit() {
+    let mut lb = Lockbox::create(KEY);
+    add_file(&mut lb, &p("/docs/a.txt"), b"alpha", false).unwrap();
+    add_file(&mut lb, &p("/docs/b.txt"), b"bravo", false).unwrap();
+    let dir =
+        std::env::temp_dir().join(format!("lockbox-extract-total-size-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+
+    let policy = ExtractPolicy {
+        max_total_bytes: 9,
+        ..ExtractPolicy::default()
+    };
+    assert!(matches!(
+        lb.extract_to_directory(&dir, &policy),
+        Err(Error::SecurityLimitExceeded(_))
+    ));
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn list_iter_and_streaming_extract_return_regular_files_when_within_limits() {
+    let mut lb = Lockbox::create(KEY);
+    add_file(&mut lb, &p("/docs/a.txt"), b"alpha", false).unwrap();
+    add_file(&mut lb, &p("/docs/b.txt"), b"bravo", false).unwrap();
+
+    let entries = lb
+        .list(ListOptions {
+            recursive: true,
+            ..ListOptions::new(&p("/docs"))
+        })
+        .unwrap()
+        .collect::<Result<Vec<_>>>()
+        .unwrap();
+    assert_eq!(entries.len(), 2);
+    assert!(entries
+        .iter()
+        .any(|entry| entry.path == "/docs/a.txt" && entry.len == 5));
+
+    let mut bytes = Vec::new();
+    lb.extract_file_to_writer(&p("/docs/a.txt"), &mut bytes)
+        .unwrap();
+    assert_eq!(bytes, b"alpha");
+}
+
+#[test]
+fn extract_to_directory_refuses_overwrite_by_default() {
+    let dir = std::env::temp_dir().join(format!("lockbox-extract-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("docs")).unwrap();
+    std::fs::write(dir.join("docs/a.txt"), "existing").unwrap();
+
+    let mut lb = Lockbox::create(KEY);
+    add_file(&mut lb, &p("/docs/a.txt"), b"alpha", false).unwrap();
+
+    assert!(matches!(
+        lb.extract_to_directory(&dir, &ExtractPolicy::default()),
+        Err(Error::SecurityLimitExceeded(_))
+    ));
+
+    let policy = ExtractPolicy {
+        overwrite: true,
+        ..ExtractPolicy::default()
+    };
+    lb.extract_to_directory(&dir, &policy).unwrap();
+    assert_eq!(std::fs::read(dir.join("docs/a.txt")).unwrap(), b"alpha");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn extract_to_directory_preflights_limits_before_writing_files() {
+    let dir =
+        std::env::temp_dir().join(format!("lockbox-extract-preflight-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+
+    let mut lb = Lockbox::create(KEY);
+    add_file(&mut lb, &p("/docs/a.txt"), b"alpha", false).unwrap();
+    add_file(&mut lb, &p("/docs/b.txt"), b"bravo", false).unwrap();
+
+    let policy = ExtractPolicy {
+        max_total_bytes: 9,
+        ..ExtractPolicy::default()
+    };
+    assert!(matches!(
+        lb.extract_to_directory(&dir, &policy),
+        Err(Error::SecurityLimitExceeded(_))
+    ));
+    assert!(!dir.join("docs/a.txt").exists());
+    assert!(!dir.join("docs/b.txt").exists());
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn list_is_non_recursive() {
+    let mut lb = Lockbox::create(KEY);
+    add_file(&mut lb, &p("/docs/a.txt"), b"alpha", false).unwrap();
+    add_file(&mut lb, &p("/docs/nested/b.txt"), b"bravo", false).unwrap();
+    add_file(&mut lb, &p("/other/c.txt"), b"charlie", false).unwrap();
+
+    let docs = lb
+        .list(ListOptions::new(&p("/docs")))
+        .unwrap()
+        .collect::<Result<Vec<_>>>()
+        .unwrap();
+    assert_eq!(docs.len(), 2);
+    assert!(docs.iter().any(|entry| entry.path == "/docs/a.txt"));
+    assert!(docs
+        .iter()
+        .any(|entry| entry.path == "/docs/nested" && entry.kind == LockboxEntryKind::Directory));
+}
+
+#[test]
+fn list_iter_streams_entries_and_supports_rust_side_filtering() {
+    let mut lb = Lockbox::create(KEY);
+    add_file(&mut lb, &p("/docs/a.txt"), b"alpha", false).unwrap();
+    add_file(&mut lb, &p("/docs/b.pdf"), b"bravo", false).unwrap();
+    add_file(&mut lb, &p("/docs/c.pdf"), b"charlie", false).unwrap();
+
+    let pdfs: Vec<_> = lb
+        .list(ListOptions::new(&p("/docs")))
+        .unwrap()
+        .filter_map(Result::ok)
+        .filter(|entry| entry.path.ends_with(".pdf"))
+        .collect();
+
+    assert_eq!(pdfs.len(), 2);
+    assert!(pdfs
+        .iter()
+        .all(|entry| entry.kind == LockboxEntryKind::File));
+}
+
+#[test]
+fn list_glob_filters_without_callback_bindings() {
+    let mut lb = Lockbox::create(KEY);
+    add_file(&mut lb, &p("/docs/a.txt"), b"alpha", false).unwrap();
+    add_file(&mut lb, &p("/docs/b.pdf"), b"bravo", false).unwrap();
+    add_file(&mut lb, &p("/docs/nested/c.pdf"), b"charlie", false).unwrap();
+
+    let mut options = ListOptions::new(&p("/docs"));
+    options.set_glob("*.pdf");
+    let direct = lb
+        .list(options)
+        .unwrap()
+        .collect::<Result<Vec<_>>>()
+        .unwrap();
+    assert_eq!(direct.len(), 1);
+    assert_eq!(direct[0].path, "/docs/b.pdf");
+
+    let mut options = ListOptions::new(&p("/docs"));
+    options.set_glob("**/*.pdf");
+    options.recursive = true;
+    let recursive = lb
+        .list(options)
+        .unwrap()
+        .collect::<Result<Vec<_>>>()
+        .unwrap();
+    assert_eq!(recursive.len(), 2);
+}
+
+#[test]
+fn list_options_can_limit_and_filter_node_types() {
+    let mut lb = Lockbox::create(KEY);
+    add_file(&mut lb, &p("/docs/a.txt"), b"alpha", false).unwrap();
+    add_symlink(&mut lb, &p("/docs/current"), &p("/docs/a.txt"), false).unwrap();
+
+    let mut options = ListOptions::new(&p("/docs"));
+    options.include_files = false;
+    let links: Vec<_> = lb.list(options).unwrap().collect::<Result<_>>().unwrap();
+    assert_eq!(links.len(), 1);
+    assert_eq!(links[0].kind, LockboxEntryKind::Symlink);
+    assert_eq!(
+        lb.get_symlink_target(&links[0].path).unwrap(),
+        "/docs/a.txt"
+    );
+
+    let mut options = ListOptions::new(&p("/docs"));
+    options.limit = Some(1);
+    assert_eq!(lb.list(options).unwrap().count(), 1);
+}
+
+#[test]
+fn symlink_support_round_trips_and_safe_extraction_skips_by_default() {
+    let mut lb = Lockbox::create(KEY);
+    add_file_with_permissions(&mut lb, &p("/docs/a.txt"), b"alpha", 0o640, false).unwrap();
+    add_symlink(&mut lb, &p("/docs/current"), &p("/docs/a.txt"), false).unwrap();
+    lb.commit().unwrap();
+
+    let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), KEY).unwrap();
+    assert!(reopened.is_symlink(&p("/docs/current")));
+    assert_eq!(
+        reopened.get_symlink_target(&p("/docs/current")).unwrap(),
+        "/docs/a.txt"
+    );
+    assert_eq!(reopened.permissions(&p("/docs/a.txt")), Some(0o640));
+
+    let files = reopened
+        .list(ListOptions {
+            recursive: true,
+            include_symlinks: false,
+            ..ListOptions::new(&p("/docs"))
+        })
+        .unwrap()
+        .collect::<Result<Vec<_>>>()
+        .unwrap();
+    assert_eq!(files.len(), 1);
+    assert_eq!(files[0].permissions, 0o640);
+
+    let policy = ExtractPolicy {
+        restore_symlinks: true,
+        ..ExtractPolicy::default()
+    };
+    let dir = std::env::temp_dir().join(format!("lockbox-symlink-extract-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    reopened.extract_to_directory(&dir, &policy).unwrap();
+    assert_eq!(std::fs::read(dir.join("docs/a.txt")).unwrap(), b"alpha");
+    assert!(std::fs::symlink_metadata(dir.join("docs/current"))
+        .unwrap()
+        .file_type()
+        .is_symlink());
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn symlink_recovery_records_are_packed_into_metadata_pages() {
+    let mut lb = Lockbox::create(KEY);
+    for index in 0..50 {
+        add_symlink(
+            &mut lb,
+            &p(format!("/links/link-{index:02}")),
+            &p(format!("/targets/target-{index:02}")),
+            false,
+        )
+        .unwrap();
+    }
+    lb.commit().unwrap();
+
+    let symlink_pages = lb
+        .inspector()
+        .inspect_pages()
+        .unwrap()
+        .into_iter()
+        .filter(|page| page.objects.iter().any(|object| object.kind == "symlink"))
+        .count();
+    assert_eq!(symlink_pages, 1);
+
+    let mut damaged = lb.to_bytes();
+    damaged[0] ^= 0xff;
+    let report = RecoveryScanner::scan_bytes(damaged, KEY);
+    assert!(report.intact_files.iter().any(|entry| {
+        entry.path == "/links/link-07" && entry.kind == LockboxEntryKind::Symlink
+    }));
+}
+
+#[test]
+fn symlink_recovery_records_spill_across_metadata_pages() {
+    let mut lb = Lockbox::create(KEY);
+    for index in 0..1400 {
+        add_symlink(
+            &mut lb,
+            &p(format!("/links/{index:04}/{}", "l".repeat(40))),
+            &p(format!("/targets/{index:04}/{}", "t".repeat(40))),
+            false,
+        )
+        .unwrap();
+    }
+    lb.commit().unwrap();
+
+    let symlink_pages = lb
+        .inspector()
+        .inspect_pages()
+        .unwrap()
+        .into_iter()
+        .filter(|page| page.objects.iter().any(|object| object.kind == "symlink"))
+        .count();
+    assert!(symlink_pages > 1, "expected spillover, got {symlink_pages}");
+
+    let mut damaged = lb.to_bytes();
+    damaged[0] ^= 0xff;
+    let report = RecoveryScanner::scan_bytes(damaged, KEY);
+    let recovered = report
+        .intact_files
+        .iter()
+        .filter(|entry| entry.kind == LockboxEntryKind::Symlink)
+        .map(|entry| entry.path.as_str())
+        .collect::<std::collections::BTreeSet<_>>();
+    assert_eq!(recovered.len(), 1400);
+    for index in 0..1400 {
+        let path = format!("/links/{index:04}/{}", "l".repeat(40));
+        assert!(recovered.contains(path.as_str()));
+    }
+}
+
+#[test]
+fn invalid_permissions_are_rejected() {
+    let mut lb = Lockbox::create(KEY);
+    assert!(matches!(
+        add_file_with_permissions(&mut lb, &p("/docs/a.txt"), b"alpha", 0o1000, false),
+        Err(Error::InvalidInput(_))
+    ));
+}
+
+#[test]
+fn variables_round_trip_and_are_returned_as_a_map() {
+    let mut lb = Lockbox::create(KEY);
+    lb.set_variable(&variable("DATABASE_URL"), "postgres://localhost/app")
+        .unwrap();
+    lb.set_variable(&variable("FEATURE_FLAG"), "enabled")
+        .unwrap();
+    lb.set_variable(&variable("/production/API_KEY"), "production-key")
+        .unwrap();
+    lb.set_variable(&variable("/staging/API_KEY"), "staging-key")
+        .unwrap();
+    lb.commit().unwrap();
+
+    let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), KEY).unwrap();
+    assert_eq!(
+        reopened
+            .get_variable(&variable("DATABASE_URL"))
+            .unwrap()
+            .as_deref(),
+        Some("postgres://localhost/app")
+    );
+    assert_eq!(
+        reopened.list_variables().unwrap(),
+        vec![
+            (variable("DATABASE_URL"), VariableSensitivity::Normal),
+            (variable("FEATURE_FLAG"), VariableSensitivity::Normal),
+            (variable("/production/API_KEY"), VariableSensitivity::Normal),
+            (variable("/staging/API_KEY"), VariableSensitivity::Normal)
+        ]
+    );
+    let mut variable_values = std::collections::BTreeMap::new();
+    reopened
+        .visit_variables(|name, value| {
+            let VariableValueRef::Normal(value) = value else {
+                panic!("FEATURE_FLAG fixture only stores normal variable values");
+            };
+            variable_values.insert(
+                name.to_string(),
+                (value.to_string(), VariableSensitivity::Normal),
+            );
+            Ok(())
+        })
+        .unwrap();
+    assert_eq!(
+        variable_values
+            .get("/FEATURE_FLAG")
+            .map(|(value, sensitivity)| (value.as_str(), *sensitivity)),
+        Some(("enabled", VariableSensitivity::Normal))
+    );
+    let production = VariableNamePattern::new("/production").unwrap();
+    let root_feature = VariableNamePattern::new("FEATURE_FLAG").unwrap();
+    let api_keys = VariableNamePattern::new("**/API_KEY").unwrap();
+    assert!(variable("/production/API_KEY").matches_pattern(&production));
+    assert!(!variable("/staging/API_KEY").matches_pattern(&production));
+    assert!(variable("FEATURE_FLAG").matches_pattern(&root_feature));
+    assert!(!variable("/production/FEATURE_FLAG").matches_pattern(&root_feature));
+    assert!(variable("/production/API_KEY").matches_pattern(&api_keys));
+    assert!(variable("/staging/API_KEY").matches_pattern(&api_keys));
+    assert!(!variable("FEATURE_FLAG").matches_pattern(&api_keys));
+}
+
+#[test]
+fn variable_names_and_patterns_are_case_sensitive() {
+    let mut lb = Lockbox::create(KEY);
+    lb.set_variable(&variable("/production/API_KEY"), "upper")
+        .unwrap();
+    lb.set_variable(&variable("/production/api_key"), "lower")
+        .unwrap();
+
+    assert_eq!(
+        lb.get_variable(&variable("/production/API_KEY"))
+            .unwrap()
+            .as_deref(),
+        Some("upper")
+    );
+    assert_eq!(
+        lb.get_variable(&variable("/production/api_key"))
+            .unwrap()
+            .as_deref(),
+        Some("lower")
+    );
+    assert_eq!(
+        lb.list_variables()
+            .unwrap()
+            .into_iter()
+            .filter(|(name, _)| {
+                name.matches_pattern(&VariableNamePattern::new("**/API_KEY").unwrap())
+            })
+            .map(|(name, _)| name)
+            .collect::<Vec<_>>(),
+        vec![variable("/production/API_KEY")]
+    );
+}
+
+#[test]
+fn dot_prefixed_variable_components_round_trip_as_hidden_metadata() {
+    let mut lb = Lockbox::create(KEY);
+    let hidden = variable("/.revault/internal/Profile_1");
+    lb.set_variable(&hidden, r#"{"source":"/work/project"}"#)
+        .unwrap();
+    lb.commit().unwrap();
+
+    let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), KEY).unwrap();
+    assert_eq!(
+        reopened.get_variable(&hidden).unwrap().as_deref(),
+        Some(r#"{"source":"/work/project"}"#)
+    );
+    assert!(VariableName::new(".").is_err());
+    assert!(VariableName::new("..").is_err());
+    assert!(VariableName::new("/.revault/../profile").is_err());
+    assert!(VariableName::new("/.revault/bad.name").is_err());
+}
+
+#[test]
+fn encrypted_lockbox_description_round_trips_and_clears() {
+    let mut lockbox = Lockbox::create(KEY);
+    assert_eq!(lockbox.description().unwrap(), None);
+
+    lockbox
+        .set_description("Deployment credentials for Project Atlas")
+        .unwrap();
+    lockbox.commit().unwrap();
+    let signing_key = lockbox
+        .require_owner_signing_key()
+        .unwrap()
+        .try_clone()
+        .unwrap();
+
+    let mut reopened = Lockbox::open_bytes_with_key(lockbox.to_bytes(), KEY).unwrap();
+    assert_eq!(
+        reopened.description().unwrap().as_deref(),
+        Some("Deployment credentials for Project Atlas")
+    );
+
+    reopened.set_owner_signing_key(signing_key);
+    reopened.clear_description().unwrap();
+    reopened.commit().unwrap();
+    assert_eq!(reopened.description().unwrap(), None);
+
+    let maximum = "x".repeat(crate::constants::MAX_VARIABLE_VALUE_BYTES);
+    reopened.set_description(&maximum).unwrap();
+    let oversized = "x".repeat(crate::constants::MAX_VARIABLE_VALUE_BYTES + 1);
+    assert!(matches!(
+        reopened.set_description(&oversized),
+        Err(Error::SecurityLimitExceeded(_))
+    ));
+}
+
+#[test]
+fn variables_can_be_removed_and_replaced() {
+    let mut lb = Lockbox::create(KEY);
+    lb.set_variable(&variable("TOKEN"), "one").unwrap();
+    lb.set_variable(&variable("TOKEN"), "two").unwrap();
+    lb.set_variable(&variable("REMOVE_ME"), "gone").unwrap();
+    lb.delete_variable(&variable("REMOVE_ME")).unwrap();
+    lb.commit().unwrap();
+
+    let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), KEY).unwrap();
+    assert_eq!(
+        reopened
+            .get_variable(&variable("TOKEN"))
+            .unwrap()
+            .as_deref(),
+        Some("two")
+    );
+    assert_eq!(reopened.get_variable(&variable("REMOVE_ME")).unwrap(), None);
+}
+
+#[test]
+fn variable_names_cannot_also_be_variable_directories() {
+    let mut lb = Lockbox::create(KEY);
+    lb.set_variable(&variable("/b/A"), "nested").unwrap();
+
+    assert!(matches!(
+        lb.set_variable(&variable("/b"), "parent"),
+        Err(Error::AlreadyExists(message))
+            if message.contains("/b") && message.contains("/b/A")
+    ));
+    assert!(matches!(
+        lb.set_secret_variable(&variable("/b"), &password("secret-parent")),
+        Err(Error::AlreadyExists(message))
+            if message.contains("/b") && message.contains("/b/A")
+    ));
+
+    lb.set_variable(&variable("/x"), "parent").unwrap();
+    assert!(matches!(
+        lb.set_variable(&variable("/x/A"), "nested"),
+        Err(Error::AlreadyExists(message))
+            if message.contains("/x") && message.contains("/x/A")
+    ));
+    assert_eq!(
+        lb.list_variables().unwrap(),
+        vec![
+            (variable("/b/A"), VariableSensitivity::Normal),
+            (variable("/x"), VariableSensitivity::Normal),
+        ]
+    );
+}
+
+#[test]
+fn moving_variables_cannot_create_variable_directory_collisions() {
+    let mut lb = Lockbox::create(KEY);
+    lb.set_variable(&variable("/source"), "value").unwrap();
+    lb.set_variable(&variable("/target/child"), "nested")
+        .unwrap();
+
+    assert!(matches!(
+        lb.move_variables(&[(variable("/source"), variable("/target"))]),
+        Err(Error::AlreadyExists(message))
+            if message.contains("/target") && message.contains("/target/child")
+    ));
+    assert_eq!(
+        lb.get_variable(&variable("/source")).unwrap().as_deref(),
+        Some("value")
+    );
+    assert_eq!(
+        lb.get_variable(&variable("/target/child"))
+            .unwrap()
+            .as_deref(),
+        Some("nested")
+    );
+}
+
+#[test]
+fn variables_can_be_moved_atomically_without_exposing_secrets() {
+    let mut lb = Lockbox::create(KEY);
+    lb.set_variable(&variable("TMP"), "tmp-value").unwrap();
+    lb.set_secret_variable(&variable("MODE"), &password("dev"))
+        .unwrap();
+    lb.set_variable(&variable("/dev/TMP"), "occupied").unwrap();
+    assert!(matches!(
+        lb.move_variables(&[(variable("TMP"), variable("/dev/TMP"))]),
+        Err(Error::AlreadyExists(_))
+    ));
+    assert_eq!(
+        lb.get_variable(&variable("TMP")).unwrap().as_deref(),
+        Some("tmp-value")
+    );
+    lb.delete_variable(&variable("/dev/TMP")).unwrap();
+    lb.move_variables(&[
+        (variable("TMP"), variable("/dev/TMP")),
+        (variable("MODE"), variable("/dev/MODE")),
+    ])
+    .unwrap();
+    lb.commit().unwrap();
+
+    let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), KEY).unwrap();
+    assert_eq!(reopened.get_variable(&variable("TMP")).unwrap(), None);
+    assert_eq!(
+        reopened
+            .get_variable(&variable("/dev/TMP"))
+            .unwrap()
+            .as_deref(),
+        Some("tmp-value")
+    );
+    assert_eq!(
+        reopened
+            .with_secret_variable(&variable("/dev/MODE"), |value| {
+                value.with_str(str::to_string)
+            })
+            .unwrap()
+            .transpose()
+            .unwrap()
+            .as_deref(),
+        Some("dev")
+    );
+}
+
+#[test]
+fn normal_variables_upgrade_to_secret_but_do_not_downgrade_in_place() {
+    let mut lb = Lockbox::create(KEY);
+    let first = password("first-secret");
+    let second = password("second-secret");
+
+    lb.set_secret_variable(&variable("API_TOKEN"), &first)
+        .unwrap();
+    lb.commit().unwrap();
+    let signing_key = lb.require_owner_signing_key().unwrap().try_clone().unwrap();
+
+    let mut reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), KEY).unwrap();
+    reopened.set_owner_signing_key(signing_key);
+    assert_eq!(
+        reopened
+            .variable_sensitivity(&variable("API_TOKEN"))
+            .unwrap(),
+        Some(VariableSensitivity::Secret)
+    );
+    assert!(matches!(
+        reopened.get_variable(&variable("API_TOKEN")),
+        Err(Error::InvalidOperation(_))
+    ));
+    assert_eq!(
+        reopened
+            .with_secret_variable(&variable("API_TOKEN"), |value| value
+                .with_str(str::to_string))
+            .unwrap()
+            .transpose()
+            .unwrap()
+            .as_deref(),
+        Some("first-secret")
+    );
+    let mut visited = Vec::new();
+    reopened
+        .visit_variables(|name, value| {
+            let VariableValueRef::Secret(value) = value else {
+                panic!("API_TOKEN fixture stores a secret variable value");
+            };
+            value.with_str(|value| {
+                visited.push((
+                    name.to_string(),
+                    value.to_string(),
+                    VariableSensitivity::Secret,
+                ));
+            })?;
+            Ok(())
+        })
+        .unwrap();
+    assert_eq!(
+        visited,
+        vec![(
+            "/API_TOKEN".to_string(),
+            "first-secret".to_string(),
+            VariableSensitivity::Secret
+        )]
+    );
+    assert!(matches!(
+        reopened.set_variable(&variable("API_TOKEN"), "normal"),
+        Err(Error::InvalidOperation(_))
+    ));
+
+    reopened
+        .set_secret_variable(&variable("API_TOKEN"), &second)
+        .unwrap();
+    reopened.commit().unwrap();
+    let mut reopened = Lockbox::open_bytes_with_key(reopened.to_bytes(), KEY).unwrap();
+    assert_eq!(
+        reopened
+            .with_secret_variable(&variable("API_TOKEN"), |value| value
+                .with_str(str::to_string))
+            .unwrap()
+            .transpose()
+            .unwrap()
+            .as_deref(),
+        Some("second-secret")
+    );
+
+    reopened.delete_variable(&variable("API_TOKEN")).unwrap();
+    reopened
+        .set_variable(&variable("API_TOKEN"), "normal")
+        .unwrap();
+    assert_eq!(
+        reopened
+            .variable_sensitivity(&variable("API_TOKEN"))
+            .unwrap(),
+        Some(VariableSensitivity::Normal)
+    );
+    reopened
+        .set_secret_variable(&variable("API_TOKEN"), &first)
+        .unwrap();
+    assert_eq!(
+        reopened
+            .variable_sensitivity(&variable("API_TOKEN"))
+            .unwrap(),
+        Some(VariableSensitivity::Secret)
+    );
+    assert!(matches!(
+        reopened.set_variable(&variable("API_TOKEN"), "normal"),
+        Err(Error::InvalidOperation(_))
+    ));
+}
+
+#[test]
+fn secret_variable_access_caches_secure_decoded_page() {
+    let mut lb = Lockbox::create_with_options(
+        KEY,
+        LockboxOptions {
+            cache_limit: CacheLimit::Bytes(128 * 1024 * 1024),
+            ..LockboxOptions::default()
+        },
+    );
+    let secret = password("cache-secret");
+    lb.set_secret_variable(&variable("API_TOKEN"), &secret)
+        .unwrap();
+    lb.commit().unwrap();
+
+    let reopened = Lockbox::open_bytes_with_key_options(
+        lb.to_bytes(),
+        KEY,
+        LockboxOptions {
+            cache_limit: CacheLimit::Bytes(128 * 1024 * 1024),
+            ..LockboxOptions::default()
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        reopened
+            .with_secret_variable(&variable("API_TOKEN"), |value| value
+                .with_str(str::to_string))
+            .unwrap()
+            .transpose()
+            .unwrap()
+            .as_deref(),
+        Some("cache-secret")
+    );
+    let stats_after_secret_read = reopened.inspector().cache_stats();
+
+    assert_eq!(
+        reopened
+            .variable_sensitivity(&variable("API_TOKEN"))
+            .unwrap(),
+        Some(VariableSensitivity::Secret)
+    );
+    let stats_after_sensitivity_read = reopened.inspector().cache_stats();
+    assert_eq!(
+        stats_after_sensitivity_read.misses,
+        stats_after_secret_read.misses
+    );
+}
+
+#[test]
+fn many_variables_are_packed_into_leaf_pages() {
+    let mut lb = Lockbox::create(KEY);
+    for index in 0..200 {
+        lb.set_variable(&variable(format!("VAR_{index:03}")), "value")
+            .unwrap();
+    }
+    lb.commit().unwrap();
+
+    let variable_leaf_pages = lb
+        .inspector()
+        .inspect_pages()
+        .unwrap()
+        .into_iter()
+        .filter(|page| {
+            page.objects
+                .iter()
+                .any(|object| object.kind == "variable-leaf")
+        })
+        .count();
+    assert_eq!(variable_leaf_pages, 1);
+
+    let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), KEY).unwrap();
+    assert_eq!(reopened.list_variables().unwrap().len(), 200);
+}
+
+#[test]
+fn removing_variable_sanitizes_original_variable_page() {
+    let mut lb = Lockbox::create(KEY);
+    lb.set_variable(&variable("KEEP_ME"), "still-here").unwrap();
+    lb.set_variable(&variable("REMOVE_ME"), "gone").unwrap();
+    lb.commit().unwrap();
+    let original_variable_offset = lb
+        .inspector()
+        .inspect_pages()
+        .unwrap()
+        .into_iter()
+        .find(|page| {
+            page.objects
+                .iter()
+                .any(|object| object.kind == "variable-leaf")
+        })
+        .unwrap()
+        .offset;
+
+    lb.delete_variable(&variable("REMOVE_ME")).unwrap();
+    lb.commit().unwrap();
+
+    let after = lb.to_bytes();
+    let reopened = Lockbox::open_bytes_with_key(after.clone(), KEY).unwrap();
+    assert_eq!(
+        reopened
+            .get_variable(&variable("KEEP_ME"))
+            .unwrap()
+            .as_deref(),
+        Some("still-here")
+    );
+    assert_eq!(reopened.get_variable(&variable("REMOVE_ME")).unwrap(), None);
+    assert!(after[original_variable_offset as usize
+        ..original_variable_offset as usize + PAGE_QUANTUM_BYTES]
+        .iter()
+        .all(|byte| *byte == 0));
+}
+
+#[test]
+fn variable_names_and_values_are_validated() {
+    assert_eq!(VariableName::new("API_KEY").unwrap().as_str(), "/API_KEY");
+    assert_eq!(
+        VariableName::new("/production/API_KEY").unwrap().as_str(),
+        "/production/API_KEY"
+    );
+    for name in [
+        "",
+        "/",
+        "1BAD",
+        "/production/1BAD",
+        "/production/",
+        "/production//API_KEY",
+        "/production/../API_KEY",
+        "BAD-NAME",
+        "BAD.NAME",
+        "BAD NAME",
+    ] {
+        assert!(
+            matches!(VariableName::new(name), Err(Error::InvalidPath(_))),
+            "variable name should be rejected: {name:?}"
+        );
+    }
+
+    let mut lb = Lockbox::create(KEY);
+    assert!(matches!(
+        lb.set_variable(&variable("BAD_VALUE"), "has\0nul"),
+        Err(Error::InvalidInput(_))
+    ));
+}
+
+#[test]
+fn variables_are_private_and_do_not_appear_in_listings() {
+    let mut lb = Lockbox::create(KEY);
+    lb.set_variable(&variable("SECRET_TOKEN"), "super-secret")
+        .unwrap();
+    add_file(&mut lb, &p("/docs/a.txt"), b"alpha", false).unwrap();
+    lb.commit().unwrap();
+
+    let bytes = lb.to_bytes();
+    let text = String::from_utf8_lossy(&bytes);
+    assert!(!text.contains("SECRET_TOKEN"));
+    assert!(!text.contains("super-secret"));
+
+    let reopened = Lockbox::open_bytes_with_key(bytes, KEY).unwrap();
+    assert_eq!(
+        reopened
+            .list(ListOptions::new(&p("/docs")))
+            .unwrap()
+            .count(),
+        1
+    );
+}
+
+#[test]
+fn delete_and_rename_update_the_toc() {
+    let mut lb = Lockbox::create(KEY);
+    add_file(&mut lb, &p("/docs/a.txt"), b"alpha", false).unwrap();
+    add_file(&mut lb, &p("/docs/b.txt"), b"bravo", false).unwrap();
+    lb.rename(&p("/docs/b.txt"), &p("/docs/c.txt")).unwrap();
+    lb.delete(&p("/docs/a.txt")).unwrap();
+    lb.commit().unwrap();
+
+    let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), KEY).unwrap();
+    assert!(matches!(
+        reopened.get_file(&p("/docs/a.txt")),
+        Err(Error::NotFound(_))
+    ));
+    assert!(matches!(
+        reopened.get_file(&p("/docs/b.txt")),
+        Err(Error::NotFound(_))
+    ));
+    assert_eq!(reopened.get_file(&p("/docs/c.txt")).unwrap(), b"bravo");
+}
+
+#[test]
+fn rename_moves_directory_prefixes() {
+    let mut lb = Lockbox::create(KEY);
+    add_file(&mut lb, &p("/docs/a.txt"), b"alpha", false).unwrap();
+    add_file(&mut lb, &p("/docs/sub/b.txt"), b"bravo", false).unwrap();
+    add_file(&mut lb, &p("/other/keep.txt"), b"keep", false).unwrap();
+    lb.create_dir(&p("/archive"), false).unwrap();
+
+    lb.rename(&p("/docs"), &p("/archive/docs")).unwrap();
+    lb.commit().unwrap();
+
+    let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), KEY).unwrap();
+    assert!(matches!(
+        reopened.get_file(&p("/docs/a.txt")),
+        Err(Error::NotFound(_))
+    ));
+    assert_eq!(
+        reopened.get_file(&p("/archive/docs/a.txt")).unwrap(),
+        b"alpha"
+    );
+    assert_eq!(
+        reopened.get_file(&p("/archive/docs/sub/b.txt")).unwrap(),
+        b"bravo"
+    );
+    assert_eq!(reopened.get_file(&p("/other/keep.txt")).unwrap(), b"keep");
+}
+
+#[test]
+fn rename_moves_symlinks_inside_directory_prefixes() {
+    let mut lb = Lockbox::create(KEY);
+    add_file(&mut lb, &p("/docs/current.txt"), b"current", false).unwrap();
+    add_symlink(
+        &mut lb,
+        &p("/docs/link.txt"),
+        &p("/docs/current.txt"),
+        false,
+    )
+    .unwrap();
+
+    lb.rename(&p("/docs"), &p("/archive")).unwrap();
+
+    assert_eq!(lb.get_file(&p("/archive/current.txt")).unwrap(), b"current");
+    assert_eq!(
+        lb.get_symlink_target(&p("/archive/link.txt")).unwrap(),
+        "/docs/current.txt"
+    );
+    assert!(!lb.is_symlink(&p("/docs/link.txt")));
+    assert!(lb.is_symlink(&p("/archive/link.txt")));
+}
+
+#[test]
+fn rename_rejects_missing_directory_prefix_and_self_nested_moves() {
+    let mut lb = Lockbox::create(KEY);
+    add_file(&mut lb, &p("/docs/a.txt"), b"alpha", false).unwrap();
+
+    assert!(matches!(
+        lb.rename(&p("/missing"), &p("/archive")),
+        Err(Error::NotFound(_))
+    ));
+    assert!(matches!(
+        lb.rename(&p("/docs"), &p("/docs/archive")),
+        Err(Error::InvalidPath(_))
+    ));
+}
+
+#[test]
+fn replacing_a_file_updates_content_and_keeps_old_version_out_of_toc() {
+    let mut lb = Lockbox::create(KEY);
+    add_file(&mut lb, &p("/docs/a.txt"), b"version one", false).unwrap();
+    lb.commit().unwrap();
+
+    add_file(&mut lb, &p("/docs/a.txt"), b"version two", true).unwrap();
+    lb.commit().unwrap();
+
+    let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), KEY).unwrap();
+    assert_eq!(
+        reopened.get_file(&p("/docs/a.txt")).unwrap(),
+        b"version two"
+    );
+    assert_eq!(
+        reopened
+            .list(ListOptions::new(&p("/docs")))
+            .unwrap()
+            .count(),
+        1
+    );
+}
+
+#[test]
+fn reuses_deleted_record_space_when_possible() {
+    let mut lb = Lockbox::create(KEY);
+    add_file(&mut lb, &p("/docs/large.txt"), &[7; 2 * 1024 * 1024], false).unwrap();
+    lb.commit().unwrap();
+    let after_large = lb.to_bytes().len();
+
+    lb.delete(&p("/docs/large.txt")).unwrap();
+    add_file(&mut lb, &p("/docs/small.txt"), b"small", false).unwrap();
+    lb.commit().unwrap();
+    let after_reuse = lb.to_bytes().len();
+
+    assert!(after_reuse <= after_large + 5 * PAGE_BYTES);
+    assert_eq!(lb.get_file(&p("/docs/small.txt")).unwrap(), b"small");
+}
+
+#[test]
+fn reused_space_does_not_leak_old_file_path_or_content() {
+    let mut lb = Lockbox::create(KEY);
+    add_file(&mut lb, &p("/secret/old-name.txt"), &[b'x'; 2048], false).unwrap();
+    lb.commit().unwrap();
+
+    lb.delete(&p("/secret/old-name.txt")).unwrap();
+    add_file(&mut lb, &p("/public/new-name.txt"), b"new", false).unwrap();
+    lb.commit().unwrap();
+
+    let bytes = lb.to_bytes();
+    let text = String::from_utf8_lossy(&bytes);
+    assert!(!text.contains("/secret/old-name.txt"));
+    assert!(!text.contains("/public/new-name.txt"));
+}
+
+#[test]
+fn recovery_survives_corrupt_header() {
+    let bytes = sample_lockbox();
+    let mut damaged = bytes.clone();
+    damaged[0] ^= 0xff;
+    damaged[crate::file_format::header_v2::SLOT_LEN] ^= 0xff;
+
+    assert!(Lockbox::open_bytes_with_key(damaged.clone(), KEY).is_err());
+
+    let report = RecoveryScanner::scan_bytes(damaged, KEY);
+    assert_eq!(report.intact_file_count, 3);
+    assert_eq!(report.partial_files, 0);
+    assert!(!report.toc_recovered);
+    assert!(report.intact_files.iter().any(|e| e.path == "/docs/a.txt"));
+}
+
+#[test]
+fn open_rejects_a_rechecksummed_header_with_an_invalid_metadata_auth_tag() {
+    let mut damaged = sample_lockbox();
+    let header = crate::file_format::read_header(&damaged).unwrap();
+    let start = header.slot_index * crate::file_format::header_v2::SLOT_LEN;
+    damaged[start + 104] ^= 0x80;
+    update_test_header_checksum(&mut damaged);
+
+    assert!(matches!(
+        Lockbox::open_bytes_with_key(damaged, KEY),
+        Err(Error::CorruptHeader)
+    ));
+}
+
+#[test]
+fn recovery_survives_header_toc_pointer_zeroed() {
+    let mut damaged = sample_lockbox();
+    let header = crate::file_format::read_header(&damaged).unwrap();
+    let start = header.slot_index * crate::file_format::header_v2::SLOT_LEN;
+    damaged[start + 24..start + 32].fill(0);
+    update_test_header_checksum(&mut damaged);
+
+    assert!(Lockbox::open_bytes_with_key(damaged.clone(), KEY).is_err());
+
+    let report = RecoveryScanner::scan_bytes(damaged, KEY);
+    assert_eq!(report.intact_file_count, 5);
+    assert!(!report.toc_recovered);
+}
+
+#[test]
+fn open_uses_previous_commit_when_latest_commit_root_is_corrupt() {
+    let mut lb = Lockbox::create(KEY);
+    add_file(&mut lb, &p("/docs/old.txt"), b"old", false).unwrap();
+    lb.commit().unwrap();
+    let previous = lb.to_bytes();
+
+    add_file(&mut lb, &p("/docs/new.txt"), b"new", false).unwrap();
+    lb.commit().unwrap();
+    let mut damaged = lb.to_bytes();
+    let latest_root = header_commit_root_offset(&damaged);
+    damaged[latest_root + 55] ^= 0xaa;
+
+    assert!(Lockbox::open_bytes_with_key(damaged, KEY).is_err());
+    assert_eq!(
+        Lockbox::open_bytes_with_key(previous, KEY)
+            .unwrap()
+            .get_file(&p("/docs/old.txt"))
+            .unwrap(),
+        b"old"
+    );
+}
+
+#[test]
+fn stale_header_after_interrupted_commit_opens_last_published_state() {
+    let mut lb = Lockbox::create(KEY);
+    add_file(&mut lb, &p("/docs/old.txt"), b"old", false).unwrap();
+    lb.commit().unwrap();
+    let previous = lb.to_bytes();
+
+    add_file(&mut lb, &p("/docs/new.txt"), b"new", false).unwrap();
+    lb.commit().unwrap();
+    let mut interrupted = lb.to_bytes();
+    interrupted[0..HEADER_LEN].copy_from_slice(&previous[0..HEADER_LEN]);
+
+    let opened = Lockbox::open_bytes_with_key(interrupted, KEY).unwrap();
+    assert_eq!(opened.get_file(&p("/docs/old.txt")).unwrap(), b"old");
+    assert!(matches!(
+        opened.get_file(&p("/docs/new.txt")),
+        Err(Error::NotFound(_))
+    ));
+}
+
+#[test]
+fn recovery_survives_corrupt_toc_record() {
+    let bytes = sample_lockbox();
+    let lb = Lockbox::open_bytes_with_key(bytes.clone(), KEY).unwrap();
+    let mut damaged = bytes;
+
+    let header_toc_root_offset = header_commit_root_offset(&damaged);
+    damaged[header_toc_root_offset + 55] ^= 0x55;
+
+    assert!(Lockbox::open_bytes_with_key(damaged.clone(), KEY).is_err());
+
+    let report = RecoveryScanner::scan_bytes(damaged, KEY);
+    assert_eq!(report.intact_file_count, 3);
+    assert_eq!(report.partial_files, 0);
+    assert!(!report.toc_recovered);
+    assert_eq!(lb.get_file(&p("/docs/a.txt")).unwrap(), b"alpha");
+}
+
+#[test]
+fn recovery_ignores_deleted_files_when_rebuilding_without_toc() {
+    let mut lb = Lockbox::create(KEY);
+    add_file(&mut lb, &p("/docs/a.txt"), b"alpha", false).unwrap();
+    add_file(&mut lb, &p("/docs/delete-me.txt"), b"delete", false).unwrap();
+    lb.delete(&p("/docs/delete-me.txt")).unwrap();
+    lb.commit().unwrap();
+
+    let mut damaged = lb.to_bytes();
+    let header_toc_root_offset = header_commit_root_offset(&damaged);
+    damaged[header_toc_root_offset + 55] ^= 0x55;
+
+    let report = RecoveryScanner::scan_bytes(damaged, KEY);
+    assert_eq!(report.intact_file_count, 1);
+    assert!(report
+        .intact_files
+        .iter()
+        .all(|entry| entry.path != "/docs/delete-me.txt"));
+}
+
+#[test]
+fn recovery_reports_partial_when_file_record_is_corrupt_but_toc_survives() {
+    let bytes = sample_lockbox();
+    let lb = Lockbox::open_bytes_with_key(bytes.clone(), KEY).unwrap();
+    let mut damaged = bytes;
+
+    let entry = lb.stat(&p("/docs/a.txt")).unwrap();
+    assert_eq!(entry.len, 5);
+    let first_page_offset = page_offsets(&damaged).into_iter().next().unwrap();
+    damaged[first_page_offset + 23] ^= 0xaa;
+
+    let report = RecoveryScanner::scan_bytes(damaged, KEY);
+    assert!(report.toc_recovered);
+    assert_eq!(report.intact_file_count, 4);
+    assert_eq!(report.partial_files, 1);
+    assert!(report.intact_files.iter().any(|e| e.path == "/docs/a.txt"));
+}
+
+#[test]
+fn recovery_reports_corrupt_records_for_damaged_frame_header() {
+    let mut damaged = sample_lockbox();
+    let first_page_offset = page_offsets(&damaged).into_iter().next().unwrap();
+    damaged[first_page_offset + 12] ^= 0x11;
+
+    let report = RecoveryScanner::scan_bytes(damaged, KEY);
+    assert!(report.corrupt_records > 0);
+    assert_eq!(report.partial_files, 1);
+}
+
+#[test]
+fn recovery_skips_truncated_tail_and_keeps_prior_intact_files() {
+    let mut damaged = sample_lockbox();
+    let last_page = page_offsets(&damaged).into_iter().last().unwrap();
+    let header_len =
+        u32::from_le_bytes(damaged[last_page + 12..last_page + 16].try_into().unwrap()) as usize;
+    let encrypted_len =
+        u32::from_le_bytes(damaged[last_page + 44..last_page + 48].try_into().unwrap()) as usize;
+    damaged.truncate(last_page + header_len + encrypted_len - 1);
+
+    let report = RecoveryScanner::scan_bytes(damaged, KEY);
+    assert_eq!(report.intact_file_count, 3);
+    assert!(!report.toc_recovered);
+}
+
+#[test]
+fn salvage_writes_intact_files_to_a_clean_lockbox() {
+    let bytes = sample_lockbox();
+    let mut damaged = bytes;
+    damaged[0] ^= 0xff;
+
+    let salvaged = RecoveryScanner::salvage_bytes(damaged, KEY, &signing_key()).unwrap();
+    assert_eq!(salvaged.get_file(&p("/docs/a.txt")).unwrap(), b"alpha");
+    assert_eq!(salvaged.get_file(&p("/docs/b.txt")).unwrap(), b"bravo");
+    assert_eq!(salvaged.get_file(&p("/photos/c.jpg")).unwrap(), b"image");
+}
+
+#[test]
+fn salvage_omits_corrupt_file_records() {
+    let mut damaged = sample_lockbox();
+    let first_page_offset = page_offsets(&damaged).into_iter().next().unwrap();
+    damaged[first_page_offset + 23] ^= 0xaa;
+
+    let salvaged = RecoveryScanner::salvage_bytes(damaged, KEY, &signing_key()).unwrap();
+    assert!(matches!(
+        salvaged.get_file(&p("/docs/a.txt")),
+        Err(Error::NotFound(_))
+    ));
+    assert_eq!(salvaged.get_file(&p("/docs/b.txt")).unwrap(), b"bravo");
+    assert_eq!(salvaged.get_file(&p("/photos/c.jpg")).unwrap(), b"image");
+}
+
+#[test]
+fn wrong_key_cannot_open_or_recover_private_metadata() {
+    let bytes = sample_lockbox();
+    assert!(Lockbox::open_bytes_with_key(bytes.clone(), b"wrong key").is_err());
+
+    let report = RecoveryScanner::scan_bytes(bytes, b"wrong key");
+    assert_eq!(report.intact_file_count, 0);
+    assert_eq!(report.intact_files.len(), 0);
+}
+
+#[test]
+fn committed_file_names_and_content_are_not_visible_in_cleartext() {
+    let bytes = sample_lockbox();
+    let text = String::from_utf8_lossy(&bytes);
+
+    for needle in [
+        "/docs/a.txt",
+        "/docs/b.txt",
+        "/photos/c.jpg",
+        "alpha",
+        "bravo",
+        "image",
+    ] {
+        assert!(!text.contains(needle), "cleartext leak: {needle}");
+    }
+}
+
+#[test]
+fn many_files_round_trip_and_recover_after_toc_loss() {
+    let mut lb = Lockbox::create(KEY);
+    for i in 0..100 {
+        let path = format!("/many/file-{i:03}.txt");
+        let content = format!("content-{i:03}");
+        add_file(&mut lb, &p(&path), content.as_bytes(), false).unwrap();
+    }
+    lb.commit().unwrap();
+
+    let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), KEY).unwrap();
+    assert_eq!(
+        reopened
+            .list(ListOptions::new(&p("/many")))
+            .unwrap()
+            .count(),
+        100
+    );
+    assert_eq!(
+        reopened.get_file(&p("/many/file-042.txt")).unwrap(),
+        b"content-042"
+    );
+
+    let mut damaged = reopened.to_bytes();
+    let header_toc_root_offset = header_commit_root_offset(&damaged);
+    damaged[header_toc_root_offset + 55] ^= 0x55;
+    let report = RecoveryScanner::scan_bytes(damaged, KEY);
+    assert_eq!(report.intact_file_count, 100);
+}
+
+#[test]
+fn large_file_recovery_reassembles_segments_after_toc_loss() {
+    let mut payload = vec![0u8; 9 * 1024 * 1024];
+    fill_randomish(&mut payload);
+    let mut lb = Lockbox::create(KEY);
+    add_file_from_reader(
+        &mut lb,
+        &p("/large/recover.bin"),
+        Cursor::new(&payload),
+        false,
+    )
+    .unwrap();
+    lb.commit().unwrap();
+
+    let mut damaged = lb.to_bytes();
+    let header_toc_root_offset = header_commit_root_offset(&damaged);
+    damaged[header_toc_root_offset + 55] ^= 0x55;
+
+    let report = RecoveryScanner::scan_bytes(damaged.clone(), KEY);
+    assert_eq!(report.intact_file_count, 1);
+    assert_eq!(report.partial_files, 0);
+
+    let salvaged = RecoveryScanner::salvage_bytes(damaged, KEY, &signing_key()).unwrap();
+    assert_eq!(
+        salvaged.get_file(&p("/large/recover.bin")).unwrap(),
+        payload
+    );
+}
+
+#[test]
+fn recovery_report_default_summarizes_intact_files_without_listing_them() {
+    let report = RecoveryScanner::scan_bytes(sample_lockbox(), KEY);
+    let rendered = report.render(&RecoveryReportOptions::default());
+
+    assert!(rendered.contains("Intact files: 5"));
+    assert!(!rendered.contains("/docs/a.txt"));
+    assert!(!rendered.contains("Intact:\n  /docs/a.txt"));
+}
+
+#[test]
+fn recovery_report_verbose_lists_intact_files_with_optional_limit() {
+    let report = RecoveryScanner::scan_bytes(sample_lockbox(), KEY);
+    let rendered = report.render(&RecoveryReportOptions {
+        verbose: true,
+        max_intact_entries: Some(2),
+    });
+
+    assert!(rendered.contains("Intact:\n"));
+    assert!(rendered.contains("/docs/a.txt"));
+    assert!(rendered.contains("3 more intact files omitted"));
+}
+
+#[test]
+fn large_file_rename_is_metadata_only_and_survives_reopen() {
+    let mut lb = Lockbox::create(KEY);
+    let payload = vec![0x5au8; 12 * 1024 * 1024];
+    add_file_from_reader(
+        &mut lb,
+        &p("/large/source.bin"),
+        Cursor::new(&payload),
+        false,
+    )
+    .unwrap();
+    lb.commit().unwrap();
+    let before = lb.to_bytes().len();
+
+    lb.create_dir(&p("/archive"), false).unwrap();
+    lb.rename(&p("/large/source.bin"), &p("/archive/renamed.bin"))
+        .unwrap();
+    lb.commit().unwrap();
+    let after = lb.to_bytes().len();
+
+    assert!(
+        after <= before + 4 * PAGE_BYTES,
+        "rename rewrote too much data: before={before}, after={after}"
+    );
+    let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), KEY).unwrap();
+    assert!(matches!(
+        reopened.get_file(&p("/large/source.bin")),
+        Err(Error::NotFound(_))
+    ));
+    assert_eq!(
+        reopened.get_file(&p("/archive/renamed.bin")).unwrap(),
+        payload
+    );
+
+    let report = RecoveryScanner::scan_bytes(lb.to_bytes(), KEY);
+    assert_eq!(report.intact_file_count, 3);
+    assert!(report
+        .intact_files
+        .iter()
+        .any(|file| file.path == "/archive/renamed.bin"));
+}
+
+#[test]
+fn compact_preserves_large_file_after_streaming_rewrite() {
+    let mut lb = Lockbox::create(KEY);
+    let payload = vec![0x7bu8; 10 * 1024 * 1024];
+    add_file_from_reader(&mut lb, &p("/large/blob.bin"), Cursor::new(&payload), false).unwrap();
+    add_file(&mut lb, &p("/small.txt"), b"small", false).unwrap();
+    lb.commit().unwrap();
+
+    lb.delete(&p("/small.txt")).unwrap();
+    lb.compact().unwrap();
+    lb.commit().unwrap();
+
+    let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), KEY).unwrap();
+    assert_eq!(reopened.get_file(&p("/large/blob.bin")).unwrap(), payload);
+    assert!(matches!(
+        reopened.get_file(&p("/small.txt")),
+        Err(Error::NotFound(_))
+    ));
+}
+
+#[test]
+fn path_backed_compact_logically_rewrites_live_state() {
+    let path = temp_path("path-backed-logical-compact");
+    let payload = vec![0x51u8; PAGE_BYTES + 123];
+    let _ = std::fs::remove_file(&path);
+
+    let mut lb = Lockbox::create_path(&path, KEY).unwrap();
+    add_file_from_reader(&mut lb, &p("/large/blob.bin"), Cursor::new(&payload), false).unwrap();
+    add_file(&mut lb, &p("/empty.bin"), b"", false).unwrap();
+    add_file(&mut lb, &p("/stale.txt"), b"remove me", false).unwrap();
+    add_symlink(&mut lb, &p("/links/current"), &p("/large/blob.bin"), false).unwrap();
+    lb.set_variable(&variable("TOKEN"), "old").unwrap();
+    lb.commit().unwrap();
+
+    lb.delete(&p("/stale.txt")).unwrap();
+    lb.set_variable(&variable("TOKEN"), "new").unwrap();
+    lb.compact().unwrap();
+    drop(lb);
+
+    let reopened = Lockbox::open_path(&path, KEY).unwrap();
+    assert_eq!(reopened.get_file(&p("/large/blob.bin")).unwrap(), payload);
+    assert_eq!(reopened.get_file(&p("/empty.bin")).unwrap(), b"");
+    assert_eq!(
+        reopened.get_symlink_target(&p("/links/current")).unwrap(),
+        "/large/blob.bin"
+    );
+    assert_eq!(
+        reopened
+            .get_variable(&variable("TOKEN"))
+            .unwrap()
+            .as_deref(),
+        Some("new")
+    );
+    assert!(matches!(
+        reopened.get_file(&p("/stale.txt")),
+        Err(Error::NotFound(_))
+    ));
+
+    let _ = std::fs::remove_file(path);
+}
+
+#[test]
+fn forms_persist_revisions_and_secret_values() {
+    let mut lb = Lockbox::create(KEY);
+    let definition = lb
+        .define_form_with_description(
+            "login",
+            "Login",
+            "Website sign-in credentials",
+            vec![
+                form_field("username", "Username", FormFieldKind::Text, true),
+                form_field("password", "Password", FormFieldKind::Secret, true),
+            ],
+        )
+        .unwrap();
+    create_form_record(&mut lb, &p("/work/github"), "login", "GitHub").unwrap();
+    lb.set_form_field_normal(&p("/work/github"), "username", "bsutton")
+        .unwrap();
+    lb.set_form_field_secret(&p("/work/github"), "password", &password("secret-password"))
+        .unwrap();
+    lb.commit().unwrap();
+
+    let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), KEY).unwrap();
+    let reopened_definition = reopened.resolve_form_definition("login").unwrap();
+    assert_eq!(
+        reopened_definition.description,
+        "Website sign-in credentials"
+    );
+    let record = reopened
+        .get_form_record(&p("/work/github"))
+        .unwrap()
+        .unwrap();
+    assert_eq!(record.name, "GitHub");
+    assert_eq!(record.type_id, definition.type_id);
+    assert!(matches!(
+        reopened
+            .get_form_field(&p("/work/github"), "username")
+            .unwrap()
+            .unwrap()
+            .value,
+        FormValue::Normal(value) if value == "bsutton"
+    ));
+    let secret = reopened
+        .get_form_field(&p("/work/github"), "password")
+        .unwrap()
+        .unwrap();
+    match secret.value {
+        FormValue::Secret(value) => {
+            value
+                .with_str(|value| assert_eq!(value, "secret-password"))
+                .unwrap();
+        }
+        FormValue::Normal(_) => panic!("password field was not secret"),
+    }
+}
+
+#[test]
+fn form_aliases_and_field_ids_are_case_sensitive() {
+    let mut lb = Lockbox::create(KEY);
+    lb.define_form(
+        "Account",
+        "Upper account",
+        vec![
+            form_field("User", "Upper user", FormFieldKind::Text, true),
+            form_field("user", "Lower user", FormFieldKind::Text, true),
+        ],
+    )
+    .unwrap();
+    lb.define_form(
+        "account",
+        "Lower account",
+        vec![form_field("user", "User", FormFieldKind::Text, true)],
+    )
+    .unwrap();
+    create_form_record(&mut lb, &p("/upper"), "Account", "Upper").unwrap();
+    lb.set_form_field_normal(&p("/upper"), "User", "UPPER")
+        .unwrap();
+    lb.set_form_field_normal(&p("/upper"), "user", "lower")
+        .unwrap();
+
+    assert_eq!(
+        lb.resolve_form_definition("Account").unwrap().name,
+        "Upper account"
+    );
+    assert_eq!(
+        lb.resolve_form_definition("account").unwrap().name,
+        "Lower account"
+    );
+    assert!(matches!(
+        lb.get_form_field(&p("/upper"), "User").unwrap().unwrap().value,
+        FormValue::Normal(value) if value == "UPPER"
+    ));
+    assert!(matches!(
+        lb.get_form_field(&p("/upper"), "user").unwrap().unwrap().value,
+        FormValue::Normal(value) if value == "lower"
+    ));
+}
+
+#[test]
+fn normal_form_fields_upgrade_to_secret_across_the_form_type() {
+    let mut lb = Lockbox::create(KEY);
+    let definition = lb
+        .define_form(
+            "account",
+            "Account",
+            vec![form_field("token", "Token", FormFieldKind::Text, true)],
+        )
+        .unwrap();
+    create_form_record(&mut lb, &p("/first"), "account", "First").unwrap();
+    create_form_record(&mut lb, &p("/second"), "account", "Second").unwrap();
+    lb.set_form_field_normal(&p("/first"), "token", "first-normal")
+        .unwrap();
+    lb.set_form_field_normal(&p("/second"), "token", "second-normal")
+        .unwrap();
+
+    lb.set_form_field_secret(&p("/first"), "token", &password("first-secret"))
+        .unwrap();
+
+    let upgraded = lb.resolve_form_definition("account").unwrap();
+    assert_eq!(upgraded.type_id, definition.type_id);
+    assert_eq!(upgraded.revision, definition.revision + 1);
+    assert_eq!(upgraded.fields[0].kind, FormFieldKind::Secret);
+    for (path, expected) in [
+        (p("/first"), "first-secret"),
+        (p("/second"), "second-normal"),
+    ] {
+        let value = lb.get_form_field(&path, "token").unwrap().unwrap();
+        assert_eq!(value.kind, FormFieldKind::Secret);
+        let FormValue::Secret(value) = value.value else {
+            panic!("upgraded form value must use secure memory");
+        };
+        value.with_str(|value| assert_eq!(value, expected)).unwrap();
+    }
+    assert!(matches!(
+        lb.set_form_field_normal(&p("/second"), "token", "downgrade"),
+        Err(Error::InvalidOperation(_))
+    ));
+    assert!(matches!(
+        lb.revise_form_definition(
+            &definition.type_id,
+            "Account",
+            "",
+            vec![form_field("token", "Token", FormFieldKind::Text, true)],
+        ),
+        Err(Error::InvalidOperation(_))
+    ));
+
+    lb.commit().unwrap();
+    let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), KEY).unwrap();
+    assert_eq!(
+        reopened.resolve_form_definition("account").unwrap().fields[0].kind,
+        FormFieldKind::Secret
+    );
+    assert!(matches!(
+        reopened
+            .get_form_field(&p("/second"), "token")
+            .unwrap()
+            .unwrap()
+            .value,
+        FormValue::Secret(_)
+    ));
+}
+
+#[test]
+fn form_records_can_be_moved_with_their_secret_values() {
+    let mut lb = Lockbox::create(KEY);
+    lb.define_form(
+        "login",
+        "Login",
+        vec![form_field(
+            "password",
+            "Password",
+            FormFieldKind::Secret,
+            true,
+        )],
+    )
+    .unwrap();
+    create_form_record(&mut lb, &p("/MODE"), "login", "Mode").unwrap();
+    lb.set_form_field_secret(&p("/MODE"), "password", &password("secret-value"))
+        .unwrap();
+    lb.move_form_records(&[(p("/MODE"), p("/dev/MODE"))])
+        .unwrap();
+    lb.commit().unwrap();
+
+    let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), KEY).unwrap();
+    assert!(reopened.get_form_record(&p("/MODE")).unwrap().is_none());
+    assert!(reopened.get_form_record(&p("/dev/MODE")).unwrap().is_some());
+    assert!(matches!(
+        reopened
+            .get_form_field(&p("/dev/MODE"), "password")
+            .unwrap()
+            .unwrap()
+            .value,
+        FormValue::Secret(_)
+    ));
+}
+
+#[test]
+fn form_alias_conflicts_require_type_ids() {
+    let mut lb = Lockbox::create(KEY);
+    let first = lb
+        .define_form(
+            "login",
+            "Login",
+            vec![form_field(
+                "username",
+                "Username",
+                FormFieldKind::Text,
+                true,
+            )],
+        )
+        .unwrap();
+    let second_type = crate::FormTypeId::new_random().unwrap();
+    let second = lb
+        .define_form_with_type_id(
+            second_type,
+            "login",
+            "Other Login",
+            vec![form_field("email", "Email", FormFieldKind::Email, true)],
+        )
+        .unwrap();
+
+    assert!(matches!(
+        lb.resolve_form_definition("login"),
+        Err(Error::InvalidOperation(_))
+    ));
+    assert_eq!(
+        lb.resolve_form_definition(first.type_id.as_str())
+            .unwrap()
+            .fields[0]
+            .id,
+        "username"
+    );
+    assert_eq!(
+        lb.resolve_form_definition(second.type_id.as_str())
+            .unwrap()
+            .fields[0]
+            .id,
+        "email"
+    );
+}
+
+#[test]
+fn compact_preserves_form_state() {
+    let mut lb = Lockbox::create(KEY);
+    add_file(&mut lb, &p("/payload.txt"), b"payload", false).unwrap();
+    lb.define_form(
+        "login",
+        "Login",
+        vec![form_field(
+            "username",
+            "Username",
+            FormFieldKind::Text,
+            true,
+        )],
+    )
+    .unwrap();
+    create_form_record(&mut lb, &p("/github"), "login", "GitHub").unwrap();
+    lb.set_form_field_normal(&p("/github"), "username", "bsutton")
+        .unwrap();
+    lb.commit().unwrap();
+
+    lb.compact().unwrap();
+    let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), KEY).unwrap();
+    assert_eq!(reopened.get_file(&p("/payload.txt")).unwrap(), b"payload");
+    assert_eq!(
+        reopened
+            .get_form_field(&p("/github"), "username")
+            .unwrap()
+            .unwrap()
+            .field_id,
+        "username"
+    );
+}
+
+#[test]
+fn recovery_preserves_variable_paths_and_forms_from_commit_root() {
+    let mut lb = Lockbox::create(KEY);
+    add_file(&mut lb, &p("/payload.txt"), b"payload", false).unwrap();
+    lb.set_variable(&variable("/prod/API_KEY"), "normal-key")
+        .unwrap();
+    lb.set_secret_variable(&variable("/prod/TOKEN"), &password("secret-token"))
+        .unwrap();
+    lb.define_form(
+        "login",
+        "Login",
+        vec![
+            form_field("username", "Username", FormFieldKind::Text, true),
+            form_field("password", "Password", FormFieldKind::Secret, true),
+        ],
+    )
+    .unwrap();
+    create_form_record(&mut lb, &p("/forms/github"), "login", "GitHub").unwrap();
+    lb.set_form_field_normal(&p("/forms/github"), "username", "bsutton")
+        .unwrap();
+    lb.set_form_field_secret(&p("/forms/github"), "password", &password("form-secret"))
+        .unwrap();
+    lb.commit().unwrap();
+    let bytes = lb.to_bytes();
+
+    let report = RecoveryScanner::scan_bytes(bytes.clone(), KEY);
+    assert!(report.toc_recovered);
+    assert!(report.variables_recovered);
+    assert_eq!(report.variable_count, 2);
+    assert!(report.forms_recovered);
+    assert_eq!(report.form_definition_count, 1);
+    assert_eq!(report.form_record_count, 1);
+
+    let recovered = RecoveryScanner::salvage_bytes(bytes, KEY, &signing_key()).unwrap();
+    assert_eq!(recovered.get_file(&p("/payload.txt")).unwrap(), b"payload");
+    assert_eq!(
+        recovered
+            .get_variable(&variable("/prod/API_KEY"))
+            .unwrap()
+            .as_deref(),
+        Some("normal-key")
+    );
+    recovered
+        .with_secret_variable(&variable("/prod/TOKEN"), |secret| {
+            secret
+                .with_str(|value| assert_eq!(value, "secret-token"))
+                .unwrap();
+        })
+        .unwrap()
+        .unwrap();
+    let username = recovered
+        .get_form_field(&p("/forms/github"), "username")
+        .unwrap()
+        .unwrap();
+    assert!(matches!(
+        username.value,
+        FormValue::Normal(value) if value == "bsutton"
+    ));
+    let password = recovered
+        .get_form_field(&p("/forms/github"), "password")
+        .unwrap()
+        .unwrap();
+    match password.value {
+        FormValue::Secret(secret) => {
+            secret
+                .with_str(|value| assert_eq!(value, "form-secret"))
+                .unwrap();
+        }
+        FormValue::Normal(_) => panic!("recovered form password was not secret"),
+    }
+}
+
+#[test]
+fn path_backed_recovery_preserves_variable_paths_and_forms_from_commit_root() {
+    let path = temp_path("recovery-variables-forms");
+    let key = b"test-key";
+    let mut lb = Lockbox::create_path(&path, key).unwrap();
+    lb.set_variable(&variable("/prod/API_KEY"), "normal-key")
+        .unwrap();
+    lb.define_form(
+        "login",
+        "Login",
+        vec![form_field(
+            "username",
+            "Username",
+            FormFieldKind::Text,
+            true,
+        )],
+    )
+    .unwrap();
+    create_form_record(&mut lb, &p("/forms/github"), "login", "GitHub").unwrap();
+    lb.set_form_field_normal(&p("/forms/github"), "username", "bsutton")
+        .unwrap();
+    lb.commit().unwrap();
+    drop(lb);
+
+    let bytes = std::fs::read(&path).unwrap();
+    let report = RecoveryScanner::scan_bytes(bytes.clone(), key);
+    assert!(report.variables_recovered);
+    assert_eq!(report.variable_count, 1);
+    assert!(report.forms_recovered);
+    assert_eq!(report.form_definition_count, 1);
+    assert_eq!(report.form_record_count, 1);
+
+    let reopened = Lockbox::open(
+        &path,
+        LockboxOpen::ContentKey(SecretVec::try_from_slice(key).unwrap()),
+    )
+    .unwrap();
+    let reopened_bytes = reopened.bytes().unwrap();
+    assert_eq!(bytes, reopened_bytes);
+    let reopened_bytes_report = RecoveryScanner::scan_bytes(reopened_bytes, key);
+    assert!(reopened_bytes_report.variables_recovered);
+    let inspector_report = reopened.inspector().recovery_report();
+    assert!(inspector_report.variables_recovered);
+    assert_eq!(inspector_report.variable_count, 1);
+    assert!(inspector_report.forms_recovered);
+    assert_eq!(inspector_report.form_definition_count, 1);
+    assert_eq!(inspector_report.form_record_count, 1);
+
+    let recovered = RecoveryScanner::salvage_bytes(bytes, key, &signing_key()).unwrap();
+    assert_eq!(
+        recovered
+            .get_variable(&variable("/prod/API_KEY"))
+            .unwrap()
+            .as_deref(),
+        Some("normal-key")
+    );
+    assert!(recovered
+        .get_form_field(&p("/forms/github"), "username")
+        .unwrap()
+        .is_some());
+
+    let _ = std::fs::remove_file(path);
+}
+
+#[test]
+fn path_backed_recovery_report_counts_variables_after_multiple_commits() {
+    let path = temp_path("recovery-variable-count-multiple-commits");
+    let key = b"test-key";
+    let signing_key = signing_key();
+    let mut lb = Lockbox::create_file(
+        &path,
+        LockboxProtection::ContentKey(SecretVec::try_from_slice(key).unwrap()),
+        &signing_key,
+    )
+    .unwrap();
+    lb.set_variable(&variable("/APIO_KEY"), "normal-key")
+        .unwrap();
+    lb.commit().unwrap();
+    drop(lb);
+
+    let mut lb = Lockbox::open_for_write(
+        &path,
+        LockboxOpen::ContentKey(SecretVec::try_from_slice(key).unwrap()),
+        &signing_key,
+    )
+    .unwrap();
+    lb.set_secret_variable(&variable("/product/API_KEY"), &password("secret-key"))
+        .unwrap();
+    lb.commit().unwrap();
+    drop(lb);
+
+    let mut lb = Lockbox::open_for_write(
+        &path,
+        LockboxOpen::ContentKey(SecretVec::try_from_slice(key).unwrap()),
+        &signing_key,
+    )
+    .unwrap();
+    lb.set_variable(&variable("/product/API_KEY1"), "normal-key-1")
+        .unwrap();
+    lb.commit().unwrap();
+    drop(lb);
+
+    let report = RecoveryScanner::scan_bytes(std::fs::read(&path).unwrap(), key);
+    assert!(report.variables_recovered);
+    assert_eq!(report.variable_count, 3);
+
+    let _ = std::fs::remove_file(path);
+}
+
+fn sample_lockbox() -> Vec<u8> {
+    let mut lb = Lockbox::create(KEY);
+    add_file_from_reader(&mut lb, &p("/docs/a.txt"), Cursor::new(b"alpha"), false).unwrap();
+    add_file_from_reader(&mut lb, &p("/docs/b.txt"), Cursor::new(b"bravo"), false).unwrap();
+    add_file_from_reader(&mut lb, &p("/photos/c.jpg"), Cursor::new(b"image"), false).unwrap();
+    lb.commit().unwrap();
+    lb.to_bytes()
+}
+
+fn header_commit_root_offset(bytes: &[u8]) -> usize {
+    usize::try_from(
+        crate::file_format::read_header(bytes)
+            .unwrap()
+            .commit_root_offset,
+    )
+    .unwrap()
+}
+
+fn update_test_header_checksum(bytes: &mut [u8]) {
+    const CHECKSUM_START: usize = 128;
+    for slot in 0..crate::file_format::header_v2::SLOT_COUNT {
+        let start = slot * crate::file_format::header_v2::SLOT_LEN;
+        if bytes.get(start..start + 8) != Some(b"LBX2HDR\0".as_slice()) {
+            continue;
+        }
+        let checksum = crate::crypto::strong_checksum(&bytes[start..start + CHECKSUM_START]);
+        bytes[start + CHECKSUM_START..start + crate::file_format::header_v2::SLOT_LEN]
+            .copy_from_slice(&checksum);
+    }
+}
+
+fn temp_path(label: &str) -> std::path::PathBuf {
+    std::env::temp_dir().join(format!(
+        "lockbox-core-{label}-{}-{}.lbox",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ))
+}
+
+fn password(value: &str) -> SecretString {
+    SecretString::try_from_bytes(value.as_bytes().to_vec()).unwrap()
+}
+
+fn form_field(id: &str, label: &str, kind: FormFieldKind, required: bool) -> FormFieldDefinition {
+    FormFieldDefinition {
+        id: id.to_string(),
+        label: label.to_string(),
+        kind,
+        required,
+    }
+}

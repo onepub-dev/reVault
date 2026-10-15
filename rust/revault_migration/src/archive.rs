@@ -38,22 +38,23 @@ pub fn export_archive<State, P: MigrationPassphrase + ?Sized>(
     )?;
     let (content_key, key_directory) = lockbox
         .export_migration_key_material()
-        .map_err(source_core_error)?;
+        .map_err(core_error)?;
     writer.write_json(&MigrationRecord::Archive(ArchiveRecord::Start {
         archive_id: *lockbox.lockbox_id().as_bytes(),
         format_version: u32::from(lockbox.format_version()),
         format_mode: Some(lockbox.export_migration_format_mode()),
+        owner_fingerprint: lockbox.owner_inspection().map_err(core_error)?.fingerprint,
         content_key: SecretBytes::new(secret_bytes(&content_key)?),
         key_directory: SecretBytes::new(key_directory),
-        description: lockbox.description().map_err(source_core_error)?,
+        description: lockbox.description().map_err(core_error)?,
     }))?;
 
     let root = LockboxPath::new("/").map_err(core_error)?;
     let mut options = ListOptions::new(&root);
     options.recursive = true;
     let mut file_id = 0u64;
-    for entry in lockbox.list(options).map_err(source_core_error)? {
-        let entry = entry.map_err(source_core_error)?;
+    for entry in lockbox.list(options).map_err(core_error)? {
+        let entry = entry.map_err(core_error)?;
         match entry.kind {
             LockboxEntryKind::Directory => {
                 writer.write_json(&MigrationRecord::Archive(ArchiveRecord::Directory {
@@ -64,7 +65,7 @@ pub fn export_archive<State, P: MigrationPassphrase + ?Sized>(
             LockboxEntryKind::Symlink => {
                 let target = lockbox
                     .get_symlink_target(&entry.path)
-                    .map_err(source_core_error)?;
+                    .map_err(core_error)?;
                 writer.write_json(&MigrationRecord::Archive(ArchiveRecord::Symlink {
                     path: entry.path.to_string(),
                     target: target.to_string(),
@@ -79,12 +80,12 @@ pub fn export_archive<State, P: MigrationPassphrase + ?Sized>(
                     size: entry.len,
                     permissions: Some(entry.permissions),
                 }))?;
-                let mut reader = lockbox.open_file(&entry.path).map_err(source_core_error)?;
+                let mut reader = lockbox.open_file(&entry.path).map_err(core_error)?;
                 let mut offset = 0u64;
                 let mut digest = Sha256::new();
                 let mut chunk = vec![0u8; FILE_CHUNK_BYTES];
                 loop {
-                    let read = reader.read(&mut chunk).map_err(source_read_error)?;
+                    let read = reader.read(&mut chunk).map_err(io_error)?;
                     if read == 0 {
                         break;
                     }
@@ -105,16 +106,16 @@ pub fn export_archive<State, P: MigrationPassphrase + ?Sized>(
         }
     }
 
-    for (name, sensitivity) in lockbox.list_variables().map_err(source_core_error)? {
+    for (name, sensitivity) in lockbox.list_variables().map_err(core_error)? {
         let value = match sensitivity {
             VariableSensitivity::Normal => lockbox
                 .get_variable(&name)
-                .map_err(source_core_error)?
+                .map_err(core_error)?
                 .unwrap_or_default()
                 .into_bytes(),
             VariableSensitivity::Secret => lockbox
                 .with_secret_variable(&name, |value| value.with_bytes(|bytes| bytes.to_vec()))
-                .map_err(source_core_error)?
+                .map_err(core_error)?
                 .ok_or_else(|| MigrationError::CorruptFrame("missing secret variable".into()))?
                 .map_err(core_error)?,
         };
@@ -129,17 +130,17 @@ pub fn export_archive<State, P: MigrationPassphrase + ?Sized>(
         }))?;
     }
 
-    for latest in lockbox.list_form_definitions().map_err(source_core_error)? {
+    for latest in lockbox.list_form_definitions().map_err(core_error)? {
         for definition in lockbox
             .list_form_definition_revisions(&latest.type_id)
-            .map_err(source_core_error)?
+            .map_err(core_error)?
         {
             writer.write_json(&MigrationRecord::Archive(ArchiveRecord::FormDefinition(
                 form_to_record(definition),
             )))?;
         }
     }
-    for record in lockbox.list_form_records().map_err(source_core_error)? {
+    for record in lockbox.list_form_records().map_err(core_error)? {
         let mut values = Vec::with_capacity(record.values.len());
         for value in record.values {
             let (secret, bytes) = match value.value {
@@ -230,6 +231,7 @@ pub fn import_archive<P: MigrationPassphrase + ?Sized>(
                 description,
                 format_mode,
                 format_version,
+                owner_fingerprint,
                 ..
             } => {
                 if lockbox.is_some() || count != 0 {
@@ -248,6 +250,13 @@ pub fn import_archive<P: MigrationPassphrase + ?Sized>(
                     ));
                 }
                 created.set_owner_signing_key(signing_key.try_clone().map_err(core_error)?);
+                if owner_fingerprint.as_deref().is_some_and(|expected| {
+                    signing_key.fingerprint().ok().as_deref() != Some(expected)
+                }) {
+                    return Err(MigrationError::InvalidHeader(
+                        "the established owner's signing key is required".into(),
+                    ));
+                }
                 created
                     .import_migration_key_directory(key_directory.as_slice())
                     .map_err(core_error)?;
@@ -762,100 +771,115 @@ fn core_error(err: impl std::fmt::Display) -> MigrationError {
     MigrationError::Serialization(err.to_string())
 }
 
-fn is_source_corruption(err: &revault_lockbox_api::Error) -> bool {
-    // These mappings are used only while exporting an already opened archive.
-    // Authentication failures here concern stored payloads, not login material.
-    matches!(
-        err,
-        revault_lockbox_api::Error::CorruptHeader
-            | revault_lockbox_api::Error::CorruptRecord
-            | revault_lockbox_api::Error::Truncated
-            | revault_lockbox_api::Error::InvalidKey
-    )
-}
-
-fn source_core_error(err: revault_lockbox_api::Error) -> MigrationError {
-    if is_source_corruption(&err) {
-        MigrationError::SourceCorrupt(err.to_string())
-    } else if let revault_lockbox_api::Error::Io(message) = err {
-        MigrationError::Io(message)
-    } else {
-        core_error(err)
-    }
-}
-
-fn source_read_error(err: std::io::Error) -> MigrationError {
-    // Native file streams preserve their typed core errors inside io::Error.
-    // Only inspect source reads: output failures must never suggest recovery.
-    if let Some(source) = err
-        .get_ref()
-        .and_then(|source| source.downcast_ref::<revault_lockbox_api::Error>())
-        .filter(|source| is_source_corruption(source))
-    {
-        return MigrationError::SourceCorrupt(source.to_string());
-    }
-    io_error(err)
-}
-
 fn io_error(err: std::io::Error) -> MigrationError {
     MigrationError::Io(err.to_string())
 }
 
-#[cfg(test)]
-mod source_error_tests {
-    use super::*;
-    use revault_lockbox_api::Error;
-    use std::io::{Error as IoError, ErrorKind};
-
-    #[test]
-    fn export_preserves_native_source_corruption() {
-        for error in [
-            Error::CorruptHeader,
-            Error::CorruptRecord,
-            Error::Truncated,
-            Error::InvalidKey,
-        ] {
-            assert!(matches!(
-                source_core_error(error),
-                MigrationError::SourceCorrupt(_)
-            ));
-        }
-        for error in [
-            Error::CorruptHeader,
-            Error::CorruptRecord,
-            Error::Truncated,
-            Error::InvalidKey,
-        ] {
-            assert!(matches!(
-                source_read_error(IoError::other(error)),
-                MigrationError::SourceCorrupt(_)
-            ));
-        }
+/// Read the verified source owner recorded in an encrypted migration artifact.
+pub fn archive_owner_fingerprint<P: MigrationPassphrase + ?Sized>(
+    artifact: &Path,
+    passphrase: &P,
+) -> Result<Option<String>> {
+    let mut reader = ArtifactReader::new_with_passphrase(
+        BufReader::new(File::open(artifact).map_err(io_error)?),
+        passphrase,
+    )?;
+    match reader.next_json::<MigrationRecord>()? {
+        Some(MigrationRecord::Archive(ArchiveRecord::Start {
+            owner_fingerprint, ..
+        })) => Ok(owner_fingerprint),
+        _ => Err(MigrationError::CorruptFrame(
+            "missing archive identity".into(),
+        )),
     }
+}
 
-    #[test]
-    fn ordinary_read_and_output_failures_are_not_source_corruption() {
-        for kind in [
-            ErrorKind::PermissionDenied,
-            ErrorKind::StorageFull,
-            ErrorKind::UnexpectedEof,
-        ] {
-            assert!(matches!(
-                source_read_error(IoError::from(kind)),
-                MigrationError::Io(_)
-            ));
-            assert!(matches!(
-                io_error(IoError::from(kind)),
-                MigrationError::Io(_)
-            ));
+/// Stream-verify every exported logical record and byte against a migration output.
+/// The temporary comparison artifact is encrypted and removed on success or error.
+pub fn verify_imported_archive<P: MigrationPassphrase + ?Sized>(
+    artifact: &Path,
+    passphrase: &P,
+    output: &Path,
+) -> Result<()> {
+    verify_archive_artifact(artifact, passphrase)?;
+    let mut source = ArtifactReader::new_with_passphrase(
+        BufReader::new(File::open(artifact).map_err(io_error)?),
+        passphrase,
+    )?;
+    let Some(MigrationRecord::Archive(ArchiveRecord::Start { content_key, .. })) =
+        source.next_json::<MigrationRecord>()?
+    else {
+        return Err(MigrationError::CorruptFrame(
+            "missing archive identity".into(),
+        ));
+    };
+    let opened = Lockbox::open(output, revault_lockbox_api::LockboxOpen::Unencrypted)
+        .or_else(|_| {
+            Lockbox::open(
+                output,
+                revault_lockbox_api::LockboxOpen::ContentKey(SecretVec::try_from_slice(
+                    content_key.as_slice(),
+                )?),
+            )
+        })
+        .map_err(core_error)?;
+    opened.inspector().verify_storage().map_err(core_error)?;
+    let mut id = [0u8; 16];
+    getrandom::fill(&mut id).map_err(|err| MigrationError::Io(err.to_string()))?;
+    let temporary = output.with_file_name(format!(
+        ".migration-verify-{:032x}",
+        u128::from_le_bytes(id)
+    ));
+    let result = (|| {
+        export_archive(&opened, &temporary, passphrase, id)?;
+        let mut expected = ArtifactReader::new_with_passphrase(
+            BufReader::new(File::open(artifact).map_err(io_error)?),
+            passphrase,
+        )?;
+        let mut actual = ArtifactReader::new_with_passphrase(
+            BufReader::new(File::open(&temporary).map_err(io_error)?),
+            passphrase,
+        )?;
+        loop {
+            match (expected.next_frame()?, actual.next_frame()?) {
+                (None, None) => return Ok(()),
+                (Some((a_type, a)), Some((b_type, b))) if a_type == b_type => {
+                    let a = Zeroizing::new(a);
+                    let b = Zeroizing::new(b);
+                    let matches = if a_type == RAW_FRAME_TYPE {
+                        *a == *b
+                    } else {
+                        let a_record: MigrationRecord = serde_json::from_slice(&a)
+                            .map_err(|err| MigrationError::Serialization(err.to_string()))?;
+                        let b_record: MigrationRecord = serde_json::from_slice(&b)
+                            .map_err(|err| MigrationError::Serialization(err.to_string()))?;
+                        match (&a_record, &b_record) {
+                            (MigrationRecord::Archive(ArchiveRecord::Start { archive_id:a_id, content_key:a_key, key_directory:a_dir, description:a_desc, format_mode:a_mode, owner_fingerprint:a_owner, .. }),
+                             MigrationRecord::Archive(ArchiveRecord::Start { archive_id:b_id, content_key:b_key, key_directory:b_dir, description:b_desc, format_mode:b_mode, owner_fingerprint:b_owner, .. })) => {
+                                a_id == b_id && a_key.as_slice() == b_key.as_slice() && a_desc == b_desc
+                                && (a_mode.unwrap_or(0) == 0 || a_mode == b_mode)
+                                && (a_owner.is_none() || a_owner == b_owner)
+                                && Lockbox::<revault_lockbox_api::ReadOnly>::migration_access_identity(a_dir.as_slice()).map_err(core_error)? == Lockbox::<revault_lockbox_api::ReadOnly>::migration_access_identity(b_dir.as_slice()).map_err(core_error)?
+                            },
+                            _ => Zeroizing::new(serde_json::to_vec(&a_record).map_err(|err| MigrationError::Serialization(err.to_string()))?) == Zeroizing::new(serde_json::to_vec(&b_record).map_err(|err| MigrationError::Serialization(err.to_string()))?),
+                        }
+                    };
+                    if !matches {
+                        return Err(MigrationError::CorruptFrame(
+                            "migration output differs from the authoritative source".into(),
+                        ));
+                    }
+                }
+                _ => {
+                    return Err(MigrationError::CorruptFrame(
+                        "migration output record count differs from source".into(),
+                    ))
+                }
+            }
         }
-        assert!(matches!(
-            source_core_error(Error::Io("permission denied".into())),
-            MigrationError::Io(_)
-        ));
-        assert!(matches!(
-            io_error(IoError::other(Error::CorruptRecord)),
-            MigrationError::Io(_)
-        ));
+    })();
+    if temporary.exists() {
+        std::fs::remove_file(&temporary).map_err(io_error)?;
     }
+    result
 }

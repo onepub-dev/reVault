@@ -134,28 +134,6 @@ pub(crate) fn variable_entries_from_map(
     entries
 }
 
-pub(crate) fn encode_variable_leaf(entries: &[VariableEntry]) -> Result<Vec<u8>> {
-    let mut out = Vec::new();
-    out.push(VARIABLE_NODE_VERSION);
-    out.push(VARIABLE_LEAF);
-    out.extend_from_slice(&(entries.len() as u32).to_le_bytes());
-    for entry in entries {
-        out.extend_from_slice(&(entry.name.len() as u16).to_le_bytes());
-        out.extend_from_slice(entry.name.as_bytes());
-        out.push(sensitivity_tag(entry.value.sensitivity()));
-        entry.value.with_plaintext(|value| {
-            out.extend_from_slice(&(value.len() as u32).to_le_bytes());
-            out.extend_from_slice(value.as_bytes());
-        })?;
-    }
-    if out.len() > DEFAULT_METADATA_MAX_PAGE_BODY_BYTES {
-        return Err(Error::SecurityLimitExceeded(
-            "variable leaf exceeds maximum page size".to_string(),
-        ));
-    }
-    Ok(out)
-}
-
 pub(crate) fn encode_variable_leaf_secure(entries: &[VariableEntry]) -> Result<SecureVec> {
     let mut out = SecureVec::new();
     out.try_extend_from_slice(&[VARIABLE_NODE_VERSION, VARIABLE_LEAF])?;

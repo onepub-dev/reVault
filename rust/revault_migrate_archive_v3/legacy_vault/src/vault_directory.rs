@@ -1,0 +1,2443 @@
+use revault_lockbox_api::{
+    ArtifactKind, ContactKeyPair, ContactPublicKey, Error, FileLockScope, FormDefinition,
+    FormFieldDefinition, FormFieldKind, FormTypeId, ListOptions, Lockbox, LockboxEntryKind,
+    LockboxId, LockboxOpen, LockboxPath, LockboxProtection, OwnerSigningKeyPair,
+    OwnerSigningPublicKey, ReadOnly, Result, ScopedFileLock, SecretString, SecretVec, VariableName,
+};
+use sha2::{Digest, Sha256};
+use std::cell::RefCell;
+use std::env;
+use std::fs::{self, File, OpenOptions};
+use std::io::{Read, Write};
+use std::path::{Path, PathBuf};
+use std::time::{SystemTime, UNIX_EPOCH};
+
+use crate::key_format::{export_private_key, import_private_key, KeyFormat};
+
+const VAULT_FILE_NAME: &str = "local-vault.lbox";
+const VAULT_BACKUP_MAGIC: &[u8; 8] = b"LBVBK001";
+const VAULT_STRUCTURE_VERSION_PATH: &str = "/vault/structure-version";
+const KNOWN_LOCKBOX_MAGIC: &[u8; 4] = b"LBKL";
+const KNOWN_LOCKBOX_VERSION: u16 = 1;
+const PROFILE_HISTORY_MAGIC: &[u8; 4] = b"LBPH";
+const PROFILE_HISTORY_VERSION: u16 = 1;
+const PROFILE_EMAIL_MAGIC: &[u8; 4] = b"LBPE";
+const PROFILE_EMAIL_VERSION: u16 = 1;
+const VAULT_CONTAINER_SIGNING_KEY_VARIABLE: &str = "LOCKBOX_VAULT_CONTAINER_SIGNING_KEY";
+const GENERATION_ACTIVE: u16 = 1;
+const GENERATION_RETIRED: u16 = 2;
+const GENERATION_COMPROMISED: u16 = 3;
+
+/// Current on-disk structure version for records stored inside the local vault.
+pub const CURRENT_VAULT_STRUCTURE_VERSION: u32 = 3;
+
+mod password_profiles;
+
+/// Validates a profile or contact name used by the native vault.
+///
+/// # Errors
+///
+/// Returns [`Error::InvalidInput`] when `name` is empty, too long, contains
+/// unsupported characters, or is not in its normalized form.
+pub fn validate_vault_record_name(name: &str) -> Result<()> {
+    validate_record_name(name).map(|_| ())
+}
+
+/// Contact entry stored in a `VaultDirectory`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StoredContact {
+    /// User-assigned contact name.
+    pub name: String,
+
+    /// Contact public key associated with `name`.
+    pub key: ContactPublicKey,
+}
+
+/// Lockbox path remembered by the local vault for diagnostics and bulk access
+/// refresh operations.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct KnownLockbox {
+    /// Stable id embedded in the lockbox.
+    pub lockbox_id: LockboxId,
+
+    /// Path used when this lockbox was last seen.
+    pub path: String,
+
+    /// Last time this record was updated.
+    pub last_seen_unix_ms: u64,
+}
+
+/// Local-only label for one access slot in a remembered lockbox.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AccessSlotLabel {
+    /// Lockbox containing the labelled access slot.
+    pub lockbox_id: LockboxId,
+    /// Stable identifier of the access slot within the lockbox.
+    pub slot_id: u64,
+    /// User-assigned, local-only label.
+    pub name: String,
+    /// Time at which the label was last changed, in Unix milliseconds.
+    pub updated_at_unix_ms: u64,
+}
+
+/// One generation of a vault profile.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProfileGeneration {
+    /// Monotonically increasing generation number within the profile.
+    pub index: u16,
+    /// Current lifecycle state of this generation.
+    pub status: ProfileGenerationStatus,
+    /// Fingerprint of the contact key belonging to this generation.
+    pub contact_fingerprint: Vec<u8>,
+    /// Creation time in Unix milliseconds.
+    pub created_at_unix_ms: u64,
+    /// Retirement time in Unix milliseconds, when the generation was retired.
+    pub retired_at_unix_ms: Option<u64>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Lifecycle state of one Profile key generation.
+pub enum ProfileGenerationStatus {
+    /// The generation currently used for new operations.
+    Active,
+    /// The generation was replaced normally and remains part of history.
+    Retired,
+    /// The generation must no longer be trusted because its key was exposed.
+    Compromised,
+}
+
+/// Versioned profile history for one vault profile.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProfileHistory {
+    /// User-assigned profile name.
+    pub name: String,
+    /// Index of the generation currently used by the profile.
+    pub active_generation: u16,
+    /// All known generations, including retired or compromised entries.
+    pub generations: Vec<ProfileGeneration>,
+}
+
+/// Metadata stored in an encrypted vault backup archive.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct VaultBackupManifest {
+    /// Backup archive format version.
+    pub format_version: u16,
+
+    /// Backup creation time.
+    pub created_at_unix_ms: u64,
+
+    /// Name of the encrypted vault file contained in the archive.
+    pub vault_file_name: String,
+
+    /// Number of bytes in the encrypted vault file.
+    pub vault_size: u64,
+
+    /// SHA-256 checksum of the encrypted vault file, encoded as lowercase hex.
+    pub vault_sha256: String,
+}
+
+/// Password-protected vault file for native reVault metadata.
+///
+/// The default layout stores `local-vault.lbox` under a private directory;
+/// explicitly created vaults may use any file path. A vault can hold profile
+/// private keys, contact public keys, and key-directory recovery records.
+#[derive(Debug)]
+pub struct VaultDirectory {
+    root: PathBuf,
+    path: PathBuf,
+    lockbox: RefCell<Lockbox>,
+    // Keep vault coordination ahead of the archive lock for its whole lifetime.
+    // Mutations reuse this guard; reacquiring would depend on the caller staying
+    // on the opening thread, which foreign runtimes such as Go do not guarantee.
+    _guard: VaultFileLock,
+}
+
+/// Read-only view of encrypted vault metadata.
+///
+/// This type deliberately opens the vault with [`Lockbox::open`] and never
+/// attaches or loads an owner-signing key. It is intended for completion,
+/// diagnostics, and other metadata-only consumers.
+#[derive(Debug)]
+pub struct ReadOnlyVaultDirectory {
+    lockbox: RefCell<Lockbox<ReadOnly>>,
+}
+
+impl ReadOnlyVaultDirectory {
+    /// Opens the default vault without loading owner-signing material.
+    pub fn open_default(password: &SecretString) -> Result<Self> {
+        Self::open(default_vault_dir()?, password)
+    }
+
+    /// Opens a vault at `root` without loading owner-signing material.
+    pub fn open(root: impl AsRef<Path>, password: &SecretString) -> Result<Self> {
+        let path = root.as_ref().join(VAULT_FILE_NAME);
+        if !path.exists() {
+            return Err(Error::VaultUnavailable(
+                "local vault is not initialized; run `lockbox vault init` first".to_string(),
+            ));
+        }
+        Self::open_file(path, password)
+    }
+
+    /// Opens a vault file without loading owner-signing material.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the file does not exist, cannot be read, is not a
+    /// supported vault, or cannot be decrypted with `password`.
+    pub fn open_file(path: impl AsRef<Path>, password: &SecretString) -> Result<Self> {
+        let path = path.as_ref();
+        if !path.exists() {
+            return Err(Error::VaultUnavailable(format!(
+                "vault file does not exist: {}",
+                path.display()
+            )));
+        }
+        Ok(Self {
+            lockbox: RefCell::new(Lockbox::open(path, LockboxOpen::Password(password))?),
+        })
+    }
+
+    /// Lists profile names without reading their private key records.
+    pub fn list_private_key_names(&self) -> Result<Vec<String>> {
+        let mut names = Vec::new();
+        for (variable_name, _) in self.lockbox.borrow().list_variables()? {
+            let Some(name) = private_key_name_from_variable(&variable_name) else {
+                continue;
+            };
+            names.push(name?);
+        }
+        names.sort();
+        names.dedup();
+        Ok(names)
+    }
+
+    /// Lists key-pair and password profile names for read-only discovery.
+    pub fn list_profile_names(&self) -> Result<Vec<String>> {
+        let mut names = self.list_private_key_names()?;
+        for (name, _) in self.lockbox.borrow().list_variables()? {
+            if let Some(encoded) = name
+                .as_str()
+                .strip_prefix("/LOCKBOX_VAULT_PASSWORD_PROFILE_")
+            {
+                let bytes = crate::decode_hex(encoded)
+                    .map_err(|err| Error::CorruptVaultRecord(err.to_string()))?;
+                let name = String::from_utf8(bytes)
+                    .map_err(|err| Error::CorruptVaultRecord(err.to_string()))?;
+                validate_vault_record_name(&name)?;
+                names.push(name);
+            }
+        }
+        names.sort();
+        names.dedup();
+        Ok(names)
+    }
+
+    /// Lists saved contact names without loading contact key material.
+    pub fn list_contact_names(&self) -> Result<Vec<String>> {
+        list_read_only_record_names(&self.lockbox, "/contacts", ".pub")
+    }
+
+    /// Lists reusable form aliases. Form definitions contain no private key
+    /// material and are read directly from the encrypted metadata view.
+    pub fn list_form_aliases(&self) -> Result<Vec<String>> {
+        let mut aliases = self
+            .lockbox
+            .borrow()
+            .list_form_definitions()?
+            .into_iter()
+            .map(|definition| definition.alias)
+            .collect::<Vec<_>>();
+        aliases.sort();
+        aliases.dedup();
+        Ok(aliases)
+    }
+
+    /// Lists remembered lockbox paths without opening any lockbox or key.
+    pub fn list_known_lockboxes(&self) -> Result<Vec<KnownLockbox>> {
+        let mut out = Vec::new();
+        for name in list_read_only_record_names(&self.lockbox, "/known_lockboxes", ".lkl")? {
+            let path = LockboxPath::new(format!("/known_lockboxes/{name}.lkl"))?;
+            out.push(decode_known_lockbox(
+                &self.lockbox.borrow().get_file(&path)?,
+            )?);
+        }
+        out.sort_by(|left, right| left.path.cmp(&right.path));
+        Ok(out)
+    }
+}
+
+impl VaultDirectory {
+    /// Default name used for the primary local contact key.
+    pub const DEFAULT_KEY_NAME: &'static str = "default";
+
+    /// Reads the stable vault structure discriminator without interpreting
+    /// version-specific records. Migration orchestration uses this to choose a
+    /// historical exporter before opening the source through `VaultDirectory`.
+    pub fn probe_structure_version(root: impl AsRef<Path>, password: &SecretString) -> Result<u32> {
+        let path = root.as_ref().join(VAULT_FILE_NAME);
+        // Independent path probes participate in the archive locking protocol.
+        let lockbox = Lockbox::open(&path, LockboxOpen::Password(password))?;
+        let record = lockbox.get_file(&vault_structure_version_record_path()?)?;
+        decode_structure_version(&record)
+    }
+
+    /// Opens or creates the default vault directory using `password`.
+    ///
+    /// The directory is chosen by `default_vault_dir`.
+    pub fn open_or_create_default(password: &SecretString) -> Result<Self> {
+        Self::open_or_create(default_vault_dir()?, password)
+    }
+
+    /// Creates a new vault at an explicit file path.
+    ///
+    /// Unlike [`Self::open_or_create`], this never opens an existing vault and
+    /// does not require the conventional `local-vault.lbox` filename.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when `path` already exists, its parent cannot be
+    /// created, the vault cannot be locked or written, or key generation fails.
+    pub fn create_file(path: impl AsRef<Path>, password: &SecretString) -> Result<Self> {
+        let path = path.as_ref().to_path_buf();
+        if path.exists() {
+            return Err(Error::AlreadyExists(path.display().to_string()));
+        }
+        let root = path
+            .parent()
+            .filter(|parent| !parent.as_os_str().is_empty())
+            .unwrap_or_else(|| Path::new("."))
+            .to_path_buf();
+        fs::create_dir_all(&root).map_err(|err| Error::Io(err.to_string()))?;
+        let _guard = VaultFileLock::acquire(&path)?;
+        if path.exists() {
+            return Err(Error::AlreadyExists(path.display().to_string()));
+        }
+        let signing_key = OwnerSigningKeyPair::generate()?;
+        let lockbox =
+            Lockbox::create_file(&path, LockboxProtection::Password(password), &signing_key)?;
+        set_private_file_permissions(&path)?;
+        let vault = Self {
+            root,
+            path,
+            lockbox: RefCell::new(lockbox),
+            _guard,
+        };
+        vault.store_vault_container_signing_key(&signing_key)?;
+        vault.store_owner_signing_key_current_only(Self::DEFAULT_KEY_NAME, &signing_key)?;
+        vault.ensure_structure_version(true)?;
+        Ok(vault)
+    }
+
+    /// Opens an existing vault at an explicit file path.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the file does not exist, cannot be locked or
+    /// opened, is not a supported vault, or cannot be decrypted with `password`.
+    pub fn open_file(path: impl AsRef<Path>, password: &SecretString) -> Result<Self> {
+        let path = path.as_ref().to_path_buf();
+        if !path.exists() {
+            return Err(Error::VaultUnavailable(format!(
+                "vault file does not exist: {}",
+                path.display()
+            )));
+        }
+        let root = path
+            .parent()
+            .filter(|parent| !parent.as_os_str().is_empty())
+            .unwrap_or_else(|| Path::new("."))
+            .to_path_buf();
+        let _guard = VaultFileLock::acquire(&path)?;
+        let lockbox = open_vault_lockbox_for_write(&path, password)?;
+        let vault = Self {
+            root,
+            path,
+            lockbox: RefCell::new(lockbox),
+            _guard,
+        };
+        vault.ensure_structure_version(false)?;
+        vault.ensure_vault_container_signing_key()?;
+        Ok(vault)
+    }
+
+    /// Replaces the default vault directory using `password`.
+    ///
+    /// The replacement is coordinated with the same interprocess lock used for
+    /// vault backups and record writes.
+    pub fn replace_default(password: &SecretString) -> Result<Self> {
+        Self::replace(default_vault_dir()?, password)
+    }
+
+    /// Changes the pass phrase for the default vault directory.
+    pub fn change_default_password(
+        old_password: &SecretString,
+        new_password: &SecretString,
+    ) -> Result<()> {
+        Self::change_password(default_vault_dir()?, old_password, new_password)
+    }
+
+    /// Changes the pass phrase for a vault directory.
+    pub fn change_password(
+        root: impl AsRef<Path>,
+        old_password: &SecretString,
+        new_password: &SecretString,
+    ) -> Result<()> {
+        let root = root.as_ref().to_path_buf();
+        let path = root.join(VAULT_FILE_NAME);
+        if !path.exists() {
+            return Err(Error::VaultUnavailable(
+                "local vault is not initialized; run `lockbox vault init` first".to_string(),
+            ));
+        }
+        let _guard = VaultFileLock::acquire(&path)?;
+        let lockbox = open_vault_lockbox_for_write(&path, old_password)?;
+        let vault = Self {
+            root,
+            path,
+            lockbox: RefCell::new(lockbox),
+            _guard,
+        };
+        vault.ensure_structure_version(false)?;
+        vault.ensure_vault_container_signing_key()?;
+        vault
+            .lockbox
+            .borrow_mut()
+            .replace_password(old_password, new_password)?;
+        set_private_file_permissions(&vault.path)?;
+        let vault_id = vault.path.to_string_lossy().into_owned();
+        let _ = crate::forget_vault_unlock_key(&vault_id);
+        let _ = crate::forget_owner_signing_key(&vault_id, Self::DEFAULT_KEY_NAME);
+        Ok(())
+    }
+
+    /// Replaces the vault directory at `root` using `password`.
+    pub fn replace(root: impl AsRef<Path>, password: &SecretString) -> Result<Self> {
+        let root = root.as_ref().to_path_buf();
+        create_private_dir(&root)?;
+        let path = root.join(VAULT_FILE_NAME);
+        let _guard = VaultFileLock::acquire(&path)?;
+        let vault_id = path.to_string_lossy().into_owned();
+        let _ = crate::forget_vault_unlock_key(&vault_id);
+        let _ = crate::forget_owner_signing_key(&vault_id, Self::DEFAULT_KEY_NAME);
+        let _archive_guard = if path.exists() {
+            Some(ScopedFileLock::acquire(&path, FileLockScope::Recovery)?)
+        } else {
+            None
+        };
+        if path.exists() {
+            fs::remove_file(&path).map_err(|err| Error::Io(err.to_string()))?;
+        }
+        let signing_key = OwnerSigningKeyPair::generate()?;
+        let lockbox =
+            Lockbox::create_file(&path, LockboxProtection::Password(password), &signing_key)?;
+        set_private_file_permissions(&path)?;
+        let vault = Self {
+            root,
+            path,
+            lockbox: RefCell::new(lockbox),
+            _guard,
+        };
+        vault.store_vault_container_signing_key(&signing_key)?;
+        vault.store_owner_signing_key_current_only(Self::DEFAULT_KEY_NAME, &signing_key)?;
+        vault.ensure_structure_version(true)?;
+        Ok(vault)
+    }
+
+    /// Creates an empty current-format vault for migration import using the
+    /// restored owner signer that will be stored for the default profile.
+    #[doc(hidden)]
+    pub fn replace_for_migration(
+        root: impl AsRef<Path>,
+        password: &SecretString,
+        signing_key: &OwnerSigningKeyPair,
+    ) -> Result<Self> {
+        let root = root.as_ref().to_path_buf();
+        create_private_dir(&root)?;
+        let path = root.join(VAULT_FILE_NAME);
+        let _guard = VaultFileLock::acquire(&path)?;
+        if path.exists() {
+            return Err(Error::AlreadyExists(path.display().to_string()));
+        }
+        let lockbox =
+            Lockbox::create_file(&path, LockboxProtection::Password(password), signing_key)?;
+        set_private_file_permissions(&path)?;
+        let vault = Self {
+            root,
+            path,
+            lockbox: RefCell::new(lockbox),
+            _guard,
+        };
+        vault.store_vault_container_signing_key(signing_key)?;
+        vault.store_owner_signing_key_current_only(Self::DEFAULT_KEY_NAME, signing_key)?;
+        vault.ensure_structure_version(true)?;
+        Ok(vault)
+    }
+
+    /// Opens or creates a vault directory at `root`.
+    ///
+    /// The vault file is protected with `password`. When a new vault file is
+    /// created, private file permissions are applied on supported platforms.
+    pub fn open_or_create(root: impl AsRef<Path>, password: &SecretString) -> Result<Self> {
+        let root = root.as_ref().to_path_buf();
+        create_private_dir(&root)?;
+        let path = root.join(VAULT_FILE_NAME);
+        let _guard = VaultFileLock::acquire(&path)?;
+        let existed = path.exists();
+        let lockbox = if existed {
+            open_vault_lockbox_for_write(&path, password)?
+        } else {
+            let signing_key = OwnerSigningKeyPair::generate()?;
+            let lockbox =
+                Lockbox::create_file(&path, LockboxProtection::Password(password), &signing_key)?;
+            set_private_file_permissions(&path)?;
+            let vault = Self {
+                root,
+                path,
+                lockbox: RefCell::new(lockbox),
+                _guard,
+            };
+            vault.store_vault_container_signing_key(&signing_key)?;
+            vault.store_owner_signing_key_current_only(Self::DEFAULT_KEY_NAME, &signing_key)?;
+            vault.ensure_structure_version(true)?;
+            return Ok(vault);
+        };
+        let vault = Self {
+            root,
+            path,
+            lockbox: RefCell::new(lockbox),
+            _guard,
+        };
+        vault.ensure_structure_version(!existed)?;
+        vault.ensure_vault_container_signing_key()?;
+        Ok(vault)
+    }
+
+    /// Writes an encrypted backup while retaining this vault's exclusive lock.
+    pub fn backup(&self, output: impl AsRef<Path>, overwrite: bool) -> Result<VaultBackupManifest> {
+        let bytes = self.lockbox.borrow().try_to_bytes()?;
+        backup_vault_bytes(output.as_ref(), overwrite, &bytes)
+    }
+
+    /// Returns the directory containing this vault file.
+    pub fn root(&self) -> &Path {
+        &self.root
+    }
+
+    /// Returns the vault file path.
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
+    fn ensure_vault_container_signing_key(&self) -> Result<()> {
+        let existing = {
+            let lockbox = self.lockbox.borrow();
+            load_vault_container_signing_key_from_lockbox(&lockbox)
+        };
+        let signing_key = match existing {
+            Ok(signing_key) => signing_key,
+            Err(Error::NotFound(_)) => {
+                let signing_key = {
+                    let lockbox = self.lockbox.borrow();
+                    find_established_default_profile_signing_key(&lockbox)?
+                };
+                self.store_vault_container_signing_key(&signing_key)?;
+                signing_key
+            }
+            Err(err) => return Err(err),
+        };
+        if !self
+            .lockbox
+            .borrow()
+            .owner_signing_key_matches(&signing_key)?
+        {
+            return Err(Error::InvalidKeyMaterial(
+                "vault container signing key does not match the established owner".to_string(),
+            ));
+        }
+        self.lockbox.borrow_mut().set_owner_signing_key(signing_key);
+        Ok(())
+    }
+
+    /// Returns the structure version recorded inside this vault.
+    pub fn structure_version(&self) -> Result<u32> {
+        self.read_structure_version()?.ok_or_else(|| {
+            Error::CorruptVaultRecord("vault structure version record is missing".to_string())
+        })
+    }
+
+    /// Stores a contact private key under `name`.
+    ///
+    /// Names must contain only ASCII letters, digits, `-`, or `_`.
+    pub fn store_private_key(&self, name: &str, keypair: &ContactKeyPair) -> Result<()> {
+        if self.password_profile_exists(name)? {
+            return Err(Error::AlreadyExists(format!("password profile {name}")));
+        }
+        let variable_name = private_key_variable_name(name)?;
+        let private_record = export_private_key(keypair, KeyFormat::RawHex)?;
+        let value = SecretString::from_secure_vec(private_record);
+        self.put_secret_variable_record(&variable_name, &value)?;
+        if !self.owner_signing_key_exists(name)? {
+            self.store_owner_signing_key_current_only(name, &OwnerSigningKeyPair::generate()?)?;
+        }
+        if self.read_profile_history(name)?.is_none() {
+            self.store_private_key_generation(name, 1, keypair)?;
+            let signing_key = self.load_owner_signing_key(name)?;
+            self.store_owner_signing_key_generation(name, 1, &signing_key)?;
+            let now = unix_ms(SystemTime::now());
+            self.write_profile_history(&ProfileHistory {
+                name: name.to_string(),
+                active_generation: 1,
+                generations: vec![ProfileGeneration {
+                    index: 1,
+                    status: ProfileGenerationStatus::Active,
+                    contact_fingerprint: contact_fingerprint(&keypair.public_key()),
+                    created_at_unix_ms: now,
+                    retired_at_unix_ms: None,
+                }],
+            })?;
+        }
+        Ok(())
+    }
+
+    /// Restores a profile private key and optional owner signing key.
+    ///
+    /// When `overwrite` is true, any existing profile with the same name is
+    /// removed first so current keys, signing keys, and generation history stay
+    /// consistent with the restored material.
+    pub fn restore_private_key(
+        &self,
+        name: &str,
+        keypair: &ContactKeyPair,
+        signing_key: Option<&OwnerSigningKeyPair>,
+        overwrite: bool,
+    ) -> Result<()> {
+        if self.password_profile_exists(name)? {
+            return Err(Error::AlreadyExists(format!(
+                "password profile {name}; remove it explicitly before changing profile type"
+            )));
+        }
+        if self.private_key_exists(name)? {
+            if !overwrite {
+                return Err(Error::AlreadyExists(format!("vault profile {name}")));
+            }
+            self.delete_private_key(name)?;
+        }
+        if let Some(signing_key) = signing_key {
+            self.store_owner_signing_key_current_only(name, signing_key)?;
+        }
+        self.store_private_key(name, keypair)
+    }
+
+    /// Restores an exact profile generation history during a format migration.
+    ///
+    /// This is intentionally a logical import operation: native vault pages
+    /// and record offsets are never copied from the source vault.
+    #[doc(hidden)]
+    pub fn restore_profile_generations(
+        &self,
+        history: ProfileHistory,
+        generations: Vec<(u16, ContactKeyPair, OwnerSigningKeyPair)>,
+        email: Option<&str>,
+        overwrite: bool,
+    ) -> Result<()> {
+        if self.password_profile_exists(&history.name)? {
+            return Err(Error::AlreadyExists(format!(
+                "password profile {}",
+                history.name
+            )));
+        }
+        if generations.is_empty() {
+            return Err(Error::InvalidInput(
+                "a migrated profile must contain at least one generation".to_string(),
+            ));
+        }
+        if history.generations.len() != generations.len()
+            || !history
+                .generations
+                .iter()
+                .all(|item| generations.iter().any(|(index, _, _)| *index == item.index))
+        {
+            return Err(Error::InvalidInput(
+                "migrated profile generation keys do not match its history".to_string(),
+            ));
+        }
+        let Some((_, active_key, active_signing)) = generations
+            .iter()
+            .find(|(index, _, _)| *index == history.active_generation)
+        else {
+            return Err(Error::InvalidInput(
+                "migrated profile active generation is missing".to_string(),
+            ));
+        };
+        if self.private_key_exists(&history.name)? {
+            if !overwrite {
+                return Err(Error::AlreadyExists(format!(
+                    "vault profile {}",
+                    history.name
+                )));
+            }
+            self.delete_private_key(&history.name)?;
+        }
+        self.store_private_key_current_only(&history.name, active_key)?;
+        self.store_owner_signing_key_current_only(&history.name, active_signing)?;
+        for (index, key, signing) in generations {
+            self.store_private_key_generation(&history.name, index, &key)?;
+            self.store_owner_signing_key_generation(&history.name, index, &signing)?;
+        }
+        self.write_profile_history(&history)?;
+        if let Some(email) = email {
+            self.store_profile_email(&history.name, email)?;
+        }
+        Ok(())
+    }
+
+    /// Loads a contact private key previously stored under `name`.
+    pub fn load_private_key(&self, name: &str) -> Result<ContactKeyPair> {
+        if self.password_profile_exists(name)? {
+            return Err(Error::InvalidOperation(format!(
+                "profile {name} uses a password; this operation requires a key-pair profile"
+            )));
+        }
+        let variable_name = private_key_variable_name(name)?;
+        let secret = self
+            .lockbox
+            .borrow()
+            .with_secret_variable(&variable_name, SecretString::try_clone)?
+            .transpose()?
+            .ok_or_else(|| Error::NotFound(format!("vault private key {name}")))?;
+        let mut bytes = SecretVec::new();
+        secret.append_to_secure_vec(&mut bytes)?;
+        import_private_key(bytes)
+    }
+
+    /// Loads the owner signing key associated with a vault profile.
+    ///
+    /// Older vault profiles did not have a separate signing key. The first
+    /// load lazily creates one so future lockbox commits can be signed without
+    /// deriving signing material from the lockbox content key.
+    pub fn load_owner_signing_key(&self, name: &str) -> Result<OwnerSigningKeyPair> {
+        let vault_id = self.path.to_string_lossy().into_owned();
+        if let Ok(Some(key)) = crate::get_owner_signing_key(&vault_id, name) {
+            return Ok(key);
+        }
+        if !self.owner_signing_key_exists(name)? {
+            self.store_owner_signing_key_current_only(name, &OwnerSigningKeyPair::generate()?)?;
+        }
+        let key = self.load_owner_signing_key_existing(name)?;
+        let _ = crate::put_owner_signing_key(&vault_id, name, key.try_clone()?, None);
+        Ok(key)
+    }
+
+    /// Loads one owner-signing key using the enabled Session Agent cache when
+    /// available, then refreshes that cache after the normal vault load.
+    pub fn load_owner_signing_key_cached(&self, name: &str) -> Result<OwnerSigningKeyPair> {
+        self.load_owner_signing_key(name)
+    }
+
+    /// Returns whether a private key exists under `name`.
+    pub fn private_key_exists(&self, name: &str) -> Result<bool> {
+        let lockbox = self.lockbox.borrow();
+        Ok(lockbox
+            .variable_sensitivity(&private_key_variable_name(name)?)?
+            .is_some())
+    }
+
+    /// Lists private-key names stored in this vault.
+    pub fn list_private_keys(&self) -> Result<Vec<String>> {
+        let mut names = Vec::new();
+        let lockbox = self.lockbox.borrow();
+        for (variable_name, _) in lockbox.list_variables()? {
+            let Some(name) = private_key_name_from_variable(&variable_name) else {
+                continue;
+            };
+            names.push(name?);
+        }
+        names.sort();
+        names.dedup();
+        Ok(names)
+    }
+
+    /// Deletes the private key stored under `name`, if present.
+    pub fn delete_private_key(&self, name: &str) -> Result<()> {
+        if let Some(history) = self.read_profile_history(name)? {
+            for generation in history.generations {
+                self.delete_secret_variable_record_if_exists(
+                    &private_key_generation_variable_name(name, generation.index)?,
+                )?;
+                self.delete_secret_variable_record_if_exists(
+                    &owner_signing_key_generation_variable_name(name, generation.index)?,
+                )?;
+            }
+            self.delete_record_if_exists(&profile_history_record_path(name)?)?;
+        }
+        self.delete_record_if_exists(&profile_email_record_path(name)?)?;
+        self.delete_secret_variable_record_if_exists(&owner_signing_key_variable_name(name)?)?;
+        self.delete_secret_variable_record_if_exists(&private_key_variable_name(name)?)?;
+        let vault_id = self.path.to_string_lossy().into_owned();
+        let _ = crate::forget_owner_signing_key(&vault_id, name);
+        Ok(())
+    }
+
+    /// Stores the public email address associated with a vault profile.
+    pub fn store_profile_email(&self, name: &str, email: &str) -> Result<()> {
+        if !self.private_key_exists(name)? {
+            return Err(Error::NotFound(format!("vault private key {name}")));
+        }
+        self.put_record_replace(
+            &profile_email_record_path(name)?,
+            &encode_profile_email(email),
+        )
+    }
+
+    /// Loads the public email address associated with a vault profile.
+    pub fn profile_email(&self, name: &str) -> Result<Option<String>> {
+        let path = profile_email_record_path(name)?;
+        {
+            let lockbox = self.lockbox.borrow();
+            if lockbox.stat(&path).is_none() {
+                return Ok(None);
+            }
+        }
+        decode_profile_email(&self.get_record(&path)?).map(Some)
+    }
+
+    /// Lists profile generations for a private key, creating generation one
+    /// for existing pre-history profiles.
+    pub fn list_profile_generations(&self, name: &str) -> Result<ProfileHistory> {
+        self.ensure_profile_history(name)
+    }
+
+    /// Rotates a vault profile to a new active key generation.
+    pub fn rotate_private_key(&self, name: &str) -> Result<ProfileHistory> {
+        let mut history = self.ensure_profile_history(name)?;
+        let now = unix_ms(SystemTime::now());
+        for generation in &mut history.generations {
+            if generation.status == ProfileGenerationStatus::Active {
+                generation.status = ProfileGenerationStatus::Retired;
+                generation.retired_at_unix_ms = Some(now);
+            }
+        }
+        let new_index = history
+            .generations
+            .iter()
+            .map(|generation| generation.index)
+            .max()
+            .unwrap_or(0)
+            .saturating_add(1);
+        let keypair = ContactKeyPair::generate()?;
+        let signing_key = OwnerSigningKeyPair::generate()?;
+        self.store_private_key_current_only(name, &keypair)?;
+        self.store_owner_signing_key_current_only(name, &signing_key)?;
+        self.store_private_key_generation(name, new_index, &keypair)?;
+        self.store_owner_signing_key_generation(name, new_index, &signing_key)?;
+        history.active_generation = new_index;
+        history.generations.push(ProfileGeneration {
+            index: new_index,
+            status: ProfileGenerationStatus::Active,
+            contact_fingerprint: contact_fingerprint(&keypair.public_key()),
+            created_at_unix_ms: now,
+            retired_at_unix_ms: None,
+        });
+        self.write_profile_history(&history)?;
+        let vault_id = self.path.to_string_lossy().into_owned();
+        let _ = crate::forget_owner_signing_key(&vault_id, name);
+        Ok(history)
+    }
+
+    /// Loads one profile generation by index.
+    pub fn load_private_key_generation(&self, name: &str, index: u16) -> Result<ContactKeyPair> {
+        let variable_name = private_key_generation_variable_name(name, index)?;
+        let secret = self
+            .lockbox
+            .borrow()
+            .with_secret_variable(&variable_name, SecretString::try_clone)?
+            .transpose()?
+            .ok_or_else(|| {
+                Error::NotFound(format!("vault private key {name} generation {index}"))
+            })?;
+        let mut bytes = SecretVec::new();
+        secret.append_to_secure_vec(&mut bytes)?;
+        import_private_key(bytes)
+    }
+
+    /// Loads one owner signing-key generation by index.
+    pub fn load_owner_signing_key_generation(
+        &self,
+        name: &str,
+        index: u16,
+    ) -> Result<OwnerSigningKeyPair> {
+        let variable_name = owner_signing_key_generation_variable_name(name, index)?;
+        let secret = self
+            .lockbox
+            .borrow()
+            .with_secret_variable(&variable_name, SecretString::try_clone)?
+            .transpose()?
+            .ok_or_else(|| {
+                Error::NotFound(format!("vault owner signing key {name} generation {index}"))
+            })?;
+        let mut bytes = SecretVec::new();
+        secret.append_to_secure_vec(&mut bytes)?;
+        decode_hex_secret_in_place(&mut bytes)?;
+        OwnerSigningKeyPair::from_private_key_record(bytes)
+    }
+
+    /// Stores a contact public key under `name`.
+    ///
+    /// Names must contain only ASCII letters, digits, `-`, or `_`.
+    pub fn store_contact(&self, name: &str, key: &ContactPublicKey) -> Result<()> {
+        self.put_record(&contact_record_path(name)?, &key.to_bytes())
+    }
+
+    /// Replaces a contact public key stored under `name`.
+    ///
+    /// Any signing key associated with the old contact is removed so it cannot
+    /// be mistaken for the signing key belonging to the replacement key.
+    pub fn replace_contact(&self, name: &str, key: &ContactPublicKey) -> Result<()> {
+        self.delete_record_if_exists(&contact_signing_record_path(name)?)?;
+        self.put_record_replace(&contact_record_path(name)?, &key.to_bytes())
+    }
+
+    /// Stores the contact signing public key associated with a contact.
+    pub fn store_contact_signing_key(&self, name: &str, key: &OwnerSigningPublicKey) -> Result<()> {
+        self.put_record_replace(&contact_signing_record_path(name)?, &key.to_bytes())
+    }
+
+    /// Loads a contact public key by name.
+    pub fn load_contact(&self, name: &str) -> Result<ContactPublicKey> {
+        ContactPublicKey::from_bytes(&self.get_record(&contact_record_path(name)?)?)
+    }
+
+    /// Loads the contact signing public key associated with a contact.
+    pub fn load_contact_signing_key(&self, name: &str) -> Result<OwnerSigningPublicKey> {
+        OwnerSigningPublicKey::from_bytes(&self.get_record(&contact_signing_record_path(name)?)?)
+    }
+
+    /// Returns whether a contact exists under `name`.
+    pub fn contact_exists(&self, name: &str) -> Result<bool> {
+        Ok(self
+            .lockbox
+            .borrow()
+            .stat(&contact_record_path(name)?)
+            .is_some())
+    }
+
+    /// Deletes the contact stored under `name`, if present.
+    pub fn delete_contact(&self, name: &str) -> Result<()> {
+        self.delete_record_if_exists(&contact_signing_record_path(name)?)?;
+        self.delete_record_if_exists(&contact_record_path(name)?)
+    }
+
+    /// Lists contacts stored in this vault.
+    pub fn list_contacts(&self) -> Result<Vec<StoredContact>> {
+        let mut out = Vec::new();
+        for name in self.list_record_names("/contacts", ".pub")? {
+            if name.ends_with(".signing") {
+                continue;
+            }
+            out.push(StoredContact {
+                key: self.load_contact(&name)?,
+                name,
+            });
+        }
+        Ok(out)
+    }
+
+    /// Stores an exported key-directory backup for `lockbox_id`.
+    ///
+    /// Backups can be used by `Vault` to recover openability when the
+    /// embedded key directory in a lockbox file is damaged.
+    pub fn store_key_directory_backup(
+        &self,
+        lockbox_id: LockboxId,
+        key_directory: &[u8],
+    ) -> Result<()> {
+        self.put_record_replace(
+            &key_directory_backup_record_path(lockbox_id)?,
+            key_directory,
+        )
+    }
+
+    /// Loads the key-directory backup for `lockbox_id`.
+    pub fn load_key_directory_backup(&self, lockbox_id: LockboxId) -> Result<Vec<u8>> {
+        self.get_record(&key_directory_backup_record_path(lockbox_id)?)
+    }
+
+    /// Counts key-directory backups stored in this vault.
+    pub fn key_directory_backup_count(&self) -> Result<usize> {
+        Ok(self
+            .lockbox
+            .borrow()
+            .list(recursive_list("/key_directories")?)?
+            .filter_map(Result::ok)
+            .filter(|entry| entry.kind == LockboxEntryKind::File)
+            .count())
+    }
+
+    /// Remembers a lockbox path for diagnostics and future bulk access refresh.
+    pub fn remember_known_lockbox(
+        &self,
+        lockbox_id: LockboxId,
+        path: impl AsRef<Path>,
+    ) -> Result<()> {
+        let path = path.as_ref();
+        let path = fs::canonicalize(path).unwrap_or_else(|_| {
+            if path.is_absolute() {
+                path.to_path_buf()
+            } else {
+                std::env::current_dir()
+                    .map(|directory| directory.join(path))
+                    .unwrap_or_else(|_| path.to_path_buf())
+            }
+        });
+        let path = path.to_string_lossy().to_string();
+        let stale_paths = self
+            .list_known_lockboxes()?
+            .into_iter()
+            .filter(|known| known.lockbox_id == lockbox_id && known.path != path)
+            .map(|known| known.path)
+            .collect::<Vec<_>>();
+        let record = KnownLockbox {
+            lockbox_id,
+            path,
+            last_seen_unix_ms: unix_ms(SystemTime::now()),
+        };
+        self.put_record_replace(
+            &known_lockbox_record_path(record.path.as_str())?,
+            &encode_known_lockbox(&record),
+        )?;
+        for stale_path in stale_paths {
+            self.forget_known_lockbox(stale_path)?;
+        }
+        Ok(())
+    }
+
+    /// Restores a known-lockbox record without replacing its source timestamp.
+    #[doc(hidden)]
+    pub fn restore_known_lockbox(&self, record: KnownLockbox) -> Result<()> {
+        self.put_record_replace(
+            &known_lockbox_record_path(record.path.as_str())?,
+            &encode_known_lockbox(&record),
+        )
+    }
+
+    /// Lists lockboxes remembered by the local vault.
+    pub fn list_known_lockboxes(&self) -> Result<Vec<KnownLockbox>> {
+        let mut out = Vec::new();
+        for name in self.list_record_names("/known_lockboxes", ".lkl")? {
+            let path = LockboxPath::new(format!("/known_lockboxes/{name}.lkl"))?;
+            out.push(decode_known_lockbox(&self.get_record(&path)?)?);
+        }
+        out.sort_by(|left, right| left.path.cmp(&right.path));
+        Ok(out)
+    }
+
+    /// Removes one remembered lockbox path. The lockbox file itself is not
+    /// deleted or modified.
+    pub fn forget_known_lockbox(&self, path: impl AsRef<Path>) -> Result<()> {
+        let path = path.as_ref();
+        if let Ok(canonical) = fs::canonicalize(path) {
+            if canonical != path {
+                self.delete_record_if_exists(&known_lockbox_record_path(canonical)?)?;
+            }
+        }
+        self.delete_record_if_exists(&known_lockbox_record_path(path)?)
+    }
+
+    /// Remember a local name for one lockbox access slot.
+    ///
+    /// This mapping is stored only inside the encrypted local vault. It is not
+    /// written to the shared lockbox, so it does not disclose contacts to
+    /// third parties who inspect the lockbox file.
+    pub fn remember_access_slot_label(
+        &self,
+        lockbox_id: LockboxId,
+        slot_id: u64,
+        name: impl Into<String>,
+    ) -> Result<()> {
+        let label = AccessSlotLabel {
+            lockbox_id,
+            slot_id,
+            name: name.into(),
+            updated_at_unix_ms: unix_ms(SystemTime::now()),
+        };
+        self.put_record_replace(
+            &access_slot_label_record_path(lockbox_id, slot_id)?,
+            &encode_access_slot_label(&label),
+        )
+    }
+
+    /// Restores an access-slot label without replacing its source timestamp.
+    #[doc(hidden)]
+    pub fn restore_access_slot_label(&self, label: AccessSlotLabel) -> Result<()> {
+        self.put_record_replace(
+            &access_slot_label_record_path(label.lockbox_id, label.slot_id)?,
+            &encode_access_slot_label(&label),
+        )
+    }
+
+    /// Lists local access-slot labels remembered for one lockbox.
+    pub fn list_access_slot_labels(&self, lockbox_id: LockboxId) -> Result<Vec<AccessSlotLabel>> {
+        let root = access_slot_label_root(lockbox_id);
+        let mut out = Vec::new();
+        for slot_id in self.list_record_names(&root, ".lbas")? {
+            let slot_id = slot_id.parse::<u64>().map_err(|_| {
+                Error::CorruptVaultRecord(format!("access slot label id {slot_id} is not numeric"))
+            })?;
+            out.push(decode_access_slot_label(&self.get_record(
+                &access_slot_label_record_path(lockbox_id, slot_id)?,
+            )?)?);
+        }
+        out.sort_by(|left, right| {
+            left.name
+                .cmp(&right.name)
+                .then_with(|| left.slot_id.cmp(&right.slot_id))
+        });
+        Ok(out)
+    }
+
+    /// Finds local slot labels for `name` in one lockbox.
+    pub fn find_access_slot_labels(
+        &self,
+        lockbox_id: LockboxId,
+        name: &str,
+    ) -> Result<Vec<AccessSlotLabel>> {
+        Ok(self
+            .list_access_slot_labels(lockbox_id)?
+            .into_iter()
+            .filter(|label| label.name == name)
+            .collect())
+    }
+
+    /// Forget one local access-slot label.
+    pub fn forget_access_slot_label(&self, lockbox_id: LockboxId, slot_id: u64) -> Result<()> {
+        self.delete_record_if_exists(&access_slot_label_record_path(lockbox_id, slot_id)?)
+    }
+
+    /// Creates or revises a reusable form definition stored in the vault.
+    pub fn define_form(
+        &self,
+        alias: &str,
+        name: &str,
+        fields: Vec<FormFieldDefinition>,
+    ) -> Result<FormDefinition> {
+        let mut lockbox = self.lockbox.borrow_mut();
+        let definition = lockbox.define_form(alias, name, fields)?;
+        lockbox.commit()?;
+        set_private_file_permissions(&self.path)?;
+        Ok(definition)
+    }
+
+    /// Creates or revises a reusable form definition stored in the vault.
+    pub fn define_form_with_description(
+        &self,
+        alias: &str,
+        name: &str,
+        description: &str,
+        fields: Vec<FormFieldDefinition>,
+    ) -> Result<FormDefinition> {
+        let mut lockbox = self.lockbox.borrow_mut();
+        let definition = lockbox.define_form_with_description(alias, name, description, fields)?;
+        lockbox.commit()?;
+        set_private_file_permissions(&self.path)?;
+        Ok(definition)
+    }
+
+    /// Creates or revises a reusable form definition with a stable definition id.
+    pub fn define_form_with_type_id(
+        &self,
+        type_id: FormTypeId,
+        alias: &str,
+        name: &str,
+        fields: Vec<FormFieldDefinition>,
+    ) -> Result<FormDefinition> {
+        let mut lockbox = self.lockbox.borrow_mut();
+        let definition = lockbox.define_form_with_type_id(type_id, alias, name, fields)?;
+        lockbox.commit()?;
+        set_private_file_permissions(&self.path)?;
+        Ok(definition)
+    }
+
+    /// Creates or revises a reusable form definition with a stable definition id.
+    pub fn define_form_with_type_id_and_description(
+        &self,
+        type_id: FormTypeId,
+        alias: &str,
+        name: &str,
+        description: &str,
+        fields: Vec<FormFieldDefinition>,
+    ) -> Result<FormDefinition> {
+        let mut lockbox = self.lockbox.borrow_mut();
+        let definition = lockbox.define_form_with_type_id_and_description(
+            type_id,
+            alias,
+            name,
+            description,
+            fields,
+        )?;
+        lockbox.commit()?;
+        set_private_file_permissions(&self.path)?;
+        Ok(definition)
+    }
+
+    /// Imports an exact reusable form definition into the vault.
+    pub fn import_form_definition(&self, definition: FormDefinition) -> Result<FormDefinition> {
+        let mut lockbox = self.lockbox.borrow_mut();
+        let definition = lockbox.import_form_definition(definition)?;
+        lockbox.commit()?;
+        set_private_file_permissions(&self.path)?;
+        Ok(definition)
+    }
+
+    /// Resolves a reusable vault form definition by alias or definition id.
+    pub fn resolve_form_definition(&self, reference: &str) -> Result<FormDefinition> {
+        self.lockbox.borrow().resolve_form_definition(reference)
+    }
+
+    /// Lists reusable form definitions stored in the vault.
+    pub fn list_form_definitions(&self) -> Result<Vec<FormDefinition>> {
+        self.lockbox.borrow().list_form_definitions()
+    }
+
+    /// Lists every stored revision of one reusable form definition.
+    pub fn list_form_definition_revisions(
+        &self,
+        type_id: &FormTypeId,
+    ) -> Result<Vec<FormDefinition>> {
+        self.lockbox
+            .borrow()
+            .list_form_definition_revisions(type_id)
+    }
+
+    /// Adds built-in form definitions that are not already present.
+    pub fn seed_default_form_definitions(&self) -> Result<usize> {
+        let existing = self
+            .list_form_definitions()?
+            .into_iter()
+            .map(|definition| definition.alias)
+            .collect::<Vec<_>>();
+        let mut seeded = 0usize;
+        for template in default_form_templates() {
+            if existing.iter().any(|alias| alias == template.alias) {
+                continue;
+            }
+            self.define_form_with_type_id(
+                FormTypeId::new(template.type_id)?,
+                template.alias,
+                template.name,
+                template.fields,
+            )?;
+            seeded += 1;
+        }
+        Ok(seeded)
+    }
+
+    /// Stores a lockbox pass phrase in the vault, keyed by lockbox id.
+    pub fn remember_lockbox_password(
+        &self,
+        lockbox_id: LockboxId,
+        password: &SecretString,
+    ) -> Result<()> {
+        self.put_secret_variable_record(&lockbox_password_variable_name(lockbox_id)?, password)
+    }
+
+    /// Loads a remembered lockbox pass phrase, if one exists for this lockbox id.
+    pub fn remembered_lockbox_password(
+        &self,
+        lockbox_id: LockboxId,
+    ) -> Result<Option<SecretString>> {
+        Ok(self
+            .lockbox
+            .borrow()
+            .with_secret_variable(
+                &lockbox_password_variable_name(lockbox_id)?,
+                SecretString::try_clone,
+            )?
+            .transpose()?)
+    }
+
+    fn put_record(&self, path: &LockboxPath, bytes: &[u8]) -> Result<()> {
+        self.put_record_with_replace(path, bytes, false)
+    }
+
+    fn put_record_replace(&self, path: &LockboxPath, bytes: &[u8]) -> Result<()> {
+        self.put_record_with_replace(path, bytes, true)
+    }
+
+    fn put_record_with_replace(
+        &self,
+        path: &LockboxPath,
+        bytes: &[u8],
+        replace: bool,
+    ) -> Result<()> {
+        let mut lockbox = self.lockbox.borrow_mut();
+        let replace = replace && lockbox.stat(path).is_some();
+        lockbox.create_parent_dirs_for(path)?;
+        lockbox.add_file(path, bytes, replace)?;
+        lockbox.commit()?;
+        set_private_file_permissions(&self.path)?;
+        Ok(())
+    }
+
+    fn put_secret_variable_record(&self, name: &VariableName, value: &SecretString) -> Result<()> {
+        let mut lockbox = self.lockbox.borrow_mut();
+        lockbox.set_secret_variable(name, value)?;
+        lockbox.commit()?;
+        set_private_file_permissions(&self.path)?;
+        Ok(())
+    }
+
+    fn get_record(&self, path: &LockboxPath) -> Result<Vec<u8>> {
+        self.lockbox.borrow().get_file(path)
+    }
+
+    fn delete_record_if_exists(&self, path: &LockboxPath) -> Result<()> {
+        let mut lockbox = self.lockbox.borrow_mut();
+        if lockbox.stat(path).is_some() {
+            lockbox.delete(path)?;
+            lockbox.commit()?;
+            set_private_file_permissions(&self.path)?;
+        }
+        Ok(())
+    }
+
+    fn delete_secret_variable_record_if_exists(&self, name: &VariableName) -> Result<()> {
+        let mut lockbox = self.lockbox.borrow_mut();
+        if lockbox.variable_sensitivity(name)?.is_some() {
+            lockbox.delete_variable(name)?;
+            lockbox.commit()?;
+            set_private_file_permissions(&self.path)?;
+        }
+        Ok(())
+    }
+
+    fn list_record_names(&self, root: &str, extension: &str) -> Result<Vec<String>> {
+        let mut out = Vec::new();
+        for entry in self.lockbox.borrow().list(recursive_list(root)?)? {
+            let entry = entry?;
+            if entry.kind != LockboxEntryKind::File || !entry.path.ends_with(extension) {
+                continue;
+            }
+            let name = entry
+                .path
+                .rsplit('/')
+                .next()
+                .and_then(|file| file.strip_suffix(extension))
+                .ok_or_else(|| {
+                    Error::CorruptVaultRecord(format!(
+                        "record path {} does not end with expected extension {extension}",
+                        entry.path
+                    ))
+                })?;
+            out.push(name.to_string());
+        }
+        out.sort();
+        Ok(out)
+    }
+
+    fn ensure_structure_version(&self, initialize_missing: bool) -> Result<()> {
+        match self.read_structure_version()? {
+            Some(CURRENT_VAULT_STRUCTURE_VERSION) => Ok(()),
+            Some(version) => Err(Error::UnsupportedFormatVersion {
+                artifact: ArtifactKind::Vault,
+                found: version,
+                supported: CURRENT_VAULT_STRUCTURE_VERSION,
+            }),
+            None if initialize_missing => self.write_structure_version(CURRENT_VAULT_STRUCTURE_VERSION),
+            None => Err(Error::Configuration(
+                "local vault structure version is missing; recreate the vault with this reVault build"
+                    .to_string(),
+            )),
+        }
+    }
+
+    fn read_structure_version(&self) -> Result<Option<u32>> {
+        let path = vault_structure_version_record_path()?;
+        {
+            let lockbox = self.lockbox.borrow();
+            if lockbox.stat(&path).is_none() {
+                return Ok(None);
+            }
+        }
+        decode_structure_version(&self.get_record(&path)?).map(Some)
+    }
+
+    fn write_structure_version(&self, version: u32) -> Result<()> {
+        let bytes = format!("{version}\n");
+        self.put_record_replace(&vault_structure_version_record_path()?, bytes.as_bytes())
+    }
+
+    fn store_private_key_current_only(&self, name: &str, keypair: &ContactKeyPair) -> Result<()> {
+        let private_record = export_private_key(keypair, KeyFormat::RawHex)?;
+        let value = SecretString::from_secure_vec(private_record);
+        self.put_secret_variable_record(&private_key_variable_name(name)?, &value)
+    }
+
+    fn owner_signing_key_exists(&self, name: &str) -> Result<bool> {
+        let lockbox = self.lockbox.borrow();
+        Ok(lockbox
+            .variable_sensitivity(&owner_signing_key_variable_name(name)?)?
+            .is_some())
+    }
+
+    fn load_owner_signing_key_existing(&self, name: &str) -> Result<OwnerSigningKeyPair> {
+        load_owner_signing_key_existing_from_lockbox(&self.lockbox.borrow(), name)
+    }
+
+    fn store_owner_signing_key_current_only(
+        &self,
+        name: &str,
+        keypair: &OwnerSigningKeyPair,
+    ) -> Result<()> {
+        let value =
+            SecretString::from_secure_vec(hex_encode_secret(keypair.private_key_record()?)?);
+        self.put_secret_variable_record(&owner_signing_key_variable_name(name)?, &value)
+    }
+
+    fn store_vault_container_signing_key(&self, keypair: &OwnerSigningKeyPair) -> Result<()> {
+        let value =
+            SecretString::from_secure_vec(hex_encode_secret(keypair.private_key_record()?)?);
+        self.put_secret_variable_record(&vault_container_signing_key_variable_name()?, &value)
+    }
+
+    fn store_private_key_generation(
+        &self,
+        name: &str,
+        index: u16,
+        keypair: &ContactKeyPair,
+    ) -> Result<()> {
+        let private_record = export_private_key(keypair, KeyFormat::RawHex)?;
+        let value = SecretString::from_secure_vec(private_record);
+        self.put_secret_variable_record(&private_key_generation_variable_name(name, index)?, &value)
+    }
+
+    fn store_owner_signing_key_generation(
+        &self,
+        name: &str,
+        index: u16,
+        keypair: &OwnerSigningKeyPair,
+    ) -> Result<()> {
+        let value =
+            SecretString::from_secure_vec(hex_encode_secret(keypair.private_key_record()?)?);
+        self.put_secret_variable_record(
+            &owner_signing_key_generation_variable_name(name, index)?,
+            &value,
+        )
+    }
+
+    fn ensure_profile_history(&self, name: &str) -> Result<ProfileHistory> {
+        if let Some(history) = self.read_profile_history(name)? {
+            return Ok(history);
+        }
+        let keypair = self.load_private_key(name)?;
+        self.store_private_key_generation(name, 1, &keypair)?;
+        let signing_key = self.load_owner_signing_key(name)?;
+        self.store_owner_signing_key_generation(name, 1, &signing_key)?;
+        let history = ProfileHistory {
+            name: name.to_string(),
+            active_generation: 1,
+            generations: vec![ProfileGeneration {
+                index: 1,
+                status: ProfileGenerationStatus::Active,
+                contact_fingerprint: contact_fingerprint(&keypair.public_key()),
+                created_at_unix_ms: unix_ms(SystemTime::now()),
+                retired_at_unix_ms: None,
+            }],
+        };
+        self.write_profile_history(&history)?;
+        Ok(history)
+    }
+
+    fn read_profile_history(&self, name: &str) -> Result<Option<ProfileHistory>> {
+        let path = profile_history_record_path(name)?;
+        {
+            let lockbox = self.lockbox.borrow();
+            if lockbox.stat(&path).is_none() {
+                return Ok(None);
+            }
+        }
+        decode_profile_history(name, &self.get_record(&path)?).map(Some)
+    }
+
+    fn write_profile_history(&self, history: &ProfileHistory) -> Result<()> {
+        self.put_record_replace(
+            &profile_history_record_path(&history.name)?,
+            &encode_profile_history(history),
+        )
+    }
+}
+
+/// Writes a consistent encrypted backup archive for the default local vault.
+///
+/// The archive contains the raw encrypted `local-vault.lbox` bytes plus a JSON
+/// manifest and checksum. It does not decrypt or export vault records.
+pub fn backup_default_vault(
+    output: impl AsRef<Path>,
+    overwrite: bool,
+) -> Result<VaultBackupManifest> {
+    let root = default_vault_dir()?;
+    let path = root.join(VAULT_FILE_NAME);
+    if !path.exists() {
+        return Err(Error::VaultUnavailable(
+            "local vault is not initialized; run `lockbox vault init` first".to_string(),
+        ));
+    }
+    let _guard = VaultFileLock::acquire(&path)?;
+    let vault_bytes = ScopedFileLock::read_archive(&path)?.read_archive_bytes()?;
+    backup_vault_bytes(output.as_ref(), overwrite, &vault_bytes)
+}
+
+fn backup_vault_bytes(
+    output: &Path,
+    overwrite: bool,
+    vault_bytes: &[u8],
+) -> Result<VaultBackupManifest> {
+    let digest: [u8; 32] = Sha256::digest(vault_bytes).into();
+    let manifest = VaultBackupManifest {
+        format_version: 1,
+        created_at_unix_ms: unix_ms(SystemTime::now()),
+        vault_file_name: VAULT_FILE_NAME.to_string(),
+        vault_size: vault_bytes.len() as u64,
+        vault_sha256: crate::encode_hex(&digest),
+    };
+    write_vault_backup_archive(output, overwrite, &manifest, vault_bytes)?;
+    Ok(manifest)
+}
+
+/// Restores the default local vault from an encrypted backup archive.
+///
+/// The archive checksum is verified before the existing vault file is replaced.
+pub fn restore_default_vault(
+    input: impl AsRef<Path>,
+    overwrite: bool,
+) -> Result<VaultBackupManifest> {
+    let (manifest, vault_bytes) = read_vault_backup_archive(input.as_ref())?;
+    let root = default_vault_dir()?;
+    create_private_dir(&root)?;
+    let path = root.join(VAULT_FILE_NAME);
+    let _guard = VaultFileLock::acquire(&path)?;
+    if path.exists() && !overwrite {
+        return Err(Error::AlreadyExists(format!(
+            "{}; pass --overwrite to replace it",
+            path.display()
+        )));
+    }
+    let _archive_guard = if path.exists() {
+        Some(ScopedFileLock::acquire(&path, FileLockScope::Recovery)?)
+    } else {
+        None
+    };
+    let tmp = root.join(format!(".vault-restore-{}.tmp", LockboxId::new_random()?));
+    let result: Result<()> = (|| {
+        use std::io::Write;
+        let mut file = fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create_new(true)
+            .open(&tmp)
+            .map_err(|err| Error::Io(err.to_string()))?;
+        file.write_all(&vault_bytes)
+            .map_err(|err| Error::Io(err.to_string()))?;
+        set_private_file_permissions(&tmp)?;
+        file.sync_all().map_err(|err| Error::Io(err.to_string()))?;
+        let _replacement_guard = ScopedFileLock::lock_archive(file)?;
+        if overwrite {
+            fs::rename(&tmp, &path).map_err(|err| Error::Io(err.to_string()))?;
+        } else {
+            fs::hard_link(&tmp, &path).map_err(|err| Error::Io(err.to_string()))?;
+        }
+        #[cfg(unix)]
+        fs::File::open(&root)
+            .and_then(|dir| dir.sync_all())
+            .map_err(|err| Error::Io(err.to_string()))?;
+        Ok(())
+    })();
+    let _ = fs::remove_file(&tmp);
+    result?;
+    Ok(manifest)
+}
+
+fn write_vault_backup_archive(
+    output: &Path,
+    overwrite: bool,
+    manifest: &VaultBackupManifest,
+    vault_bytes: &[u8],
+) -> Result<()> {
+    if output.exists() && !overwrite {
+        return Err(Error::AlreadyExists(format!(
+            "{}; pass --overwrite to replace it",
+            output.display()
+        )));
+    }
+    let manifest_bytes = serde_json::to_vec(manifest).map_err(|err| Error::Io(err.to_string()))?;
+    let mut options = OpenOptions::new();
+    options.write(true).create(true).truncate(true);
+    if !overwrite {
+        options.create_new(true);
+    }
+    let mut file = options
+        .open(output)
+        .map_err(|err| Error::Io(err.to_string()))?;
+    file.write_all(VAULT_BACKUP_MAGIC)
+        .map_err(|err| Error::Io(err.to_string()))?;
+    file.write_all(&(manifest_bytes.len() as u64).to_be_bytes())
+        .map_err(|err| Error::Io(err.to_string()))?;
+    file.write_all(&manifest_bytes)
+        .map_err(|err| Error::Io(err.to_string()))?;
+    file.write_all(vault_bytes)
+        .map_err(|err| Error::Io(err.to_string()))?;
+    file.sync_all().map_err(|err| Error::Io(err.to_string()))
+}
+
+fn read_vault_backup_archive(input: &Path) -> Result<(VaultBackupManifest, Vec<u8>)> {
+    let mut file = File::open(input).map_err(|err| Error::Io(err.to_string()))?;
+    let mut magic = [0u8; 8];
+    file.read_exact(&mut magic)
+        .map_err(|err| Error::Io(err.to_string()))?;
+    if &magic != VAULT_BACKUP_MAGIC {
+        return Err(Error::InvalidInput(
+            "backup file is not a reVault vault backup archive".to_string(),
+        ));
+    }
+    let mut len = [0u8; 8];
+    file.read_exact(&mut len)
+        .map_err(|err| Error::Io(err.to_string()))?;
+    let manifest_len = u64::from_be_bytes(len);
+    if manifest_len > 1024 * 1024 {
+        return Err(Error::SecurityLimitExceeded(
+            "vault backup manifest is too large".to_string(),
+        ));
+    }
+    let mut manifest_bytes = vec![0u8; manifest_len as usize];
+    file.read_exact(&mut manifest_bytes)
+        .map_err(|err| Error::Io(err.to_string()))?;
+    let manifest: VaultBackupManifest = serde_json::from_slice(&manifest_bytes)
+        .map_err(|err| Error::InvalidInput(err.to_string()))?;
+    if manifest.format_version != 1 {
+        return Err(Error::InvalidInput(format!(
+            "vault backup format version {} is not supported",
+            manifest.format_version
+        )));
+    }
+    if manifest.vault_file_name != VAULT_FILE_NAME {
+        return Err(Error::InvalidInput(format!(
+            "vault backup contains unexpected file {}",
+            manifest.vault_file_name
+        )));
+    }
+    let mut vault_bytes = Vec::new();
+    file.read_to_end(&mut vault_bytes)
+        .map_err(|err| Error::Io(err.to_string()))?;
+    if vault_bytes.len() as u64 != manifest.vault_size {
+        return Err(Error::InvalidInput(
+            "vault backup size does not match manifest".to_string(),
+        ));
+    }
+    let digest: [u8; 32] = Sha256::digest(&vault_bytes).into();
+    if crate::encode_hex(&digest) != manifest.vault_sha256 {
+        return Err(Error::InvalidInput(
+            "vault backup checksum does not match manifest".to_string(),
+        ));
+    }
+    Ok((manifest, vault_bytes))
+}
+
+#[derive(Debug)]
+struct VaultFileLock {
+    _lock: ScopedFileLock,
+}
+
+impl VaultFileLock {
+    fn acquire(path: &Path) -> Result<Self> {
+        Ok(Self {
+            _lock: ScopedFileLock::acquire(path, FileLockScope::Vault)?,
+        })
+    }
+}
+
+fn recursive_list(path: &str) -> Result<ListOptions> {
+    let path = LockboxPath::new(path)?;
+    let mut options = ListOptions::new(&path);
+    options.recursive = true;
+    Ok(options)
+}
+
+fn list_read_only_record_names(
+    lockbox: &RefCell<Lockbox<ReadOnly>>,
+    root: &str,
+    extension: &str,
+) -> Result<Vec<String>> {
+    let mut out = Vec::new();
+    for entry in lockbox.borrow().list(recursive_list(root)?)? {
+        let entry = entry?;
+        if entry.kind != LockboxEntryKind::File || !entry.path.ends_with(extension) {
+            continue;
+        }
+        let name = entry
+            .path
+            .rsplit('/')
+            .next()
+            .and_then(|file| file.strip_suffix(extension))
+            .ok_or_else(|| {
+                Error::CorruptVaultRecord(format!(
+                    "record path {} does not end with expected extension {extension}",
+                    entry.path
+                ))
+            })?;
+        out.push(name.to_string());
+    }
+    out.sort();
+    Ok(out)
+}
+
+fn private_key_variable_name(name: &str) -> Result<VariableName> {
+    let name = validate_record_name(name)?;
+    VariableName::new(format!(
+        "LOCKBOX_VAULT_PRIVATE_KEY_{}",
+        encode_name_hex(name)
+    ))
+}
+
+fn private_key_generation_variable_name(name: &str, index: u16) -> Result<VariableName> {
+    let name = validate_record_name(name)?;
+    VariableName::new(format!(
+        "LOCKBOX_VAULT_PRIVATE_KEY_{}_GEN_{index:04}",
+        encode_name_hex(name)
+    ))
+}
+
+fn open_vault_lockbox_for_write(path: &Path, password: &SecretString) -> Result<Lockbox> {
+    Lockbox::open_with_signer(path, LockboxOpen::Password(password), |lockbox| {
+        if lockbox
+            .stat(&vault_structure_version_record_path()?)
+            .is_none()
+        {
+            return Err(Error::Configuration(
+                    "local vault structure version is missing; recreate the vault with this reVault build"
+                        .to_string(),
+                ));
+        }
+        match load_vault_container_signing_key_from_lockbox(lockbox) {
+            Ok(signing_key) => Ok(signing_key),
+            Err(Error::NotFound(_)) => find_established_default_profile_signing_key(lockbox),
+            Err(err) => Err(err),
+        }
+    })
+}
+
+fn find_established_default_profile_signing_key<State>(
+    lockbox: &Lockbox<State>,
+) -> Result<OwnerSigningKeyPair> {
+    let current = owner_signing_key_variable_name(VaultDirectory::DEFAULT_KEY_NAME)?;
+    let generation_prefix = format!("{}_GEN_", current.as_str());
+    for (name, _) in lockbox.list_variables()? {
+        if name != current && !name.as_str().starts_with(&generation_prefix) {
+            continue;
+        }
+        let signing_key = load_owner_signing_key_from_variable(lockbox, &name)?;
+        if lockbox.owner_signing_key_matches(&signing_key)? {
+            return Ok(signing_key);
+        }
+    }
+    Err(Error::InvalidKeyMaterial(
+        "vault does not contain its established owner signing key".to_string(),
+    ))
+}
+
+fn load_vault_container_signing_key_from_lockbox<State>(
+    lockbox: &Lockbox<State>,
+) -> Result<OwnerSigningKeyPair> {
+    load_owner_signing_key_from_variable(lockbox, &vault_container_signing_key_variable_name()?)
+}
+
+fn load_owner_signing_key_existing_from_lockbox<State>(
+    lockbox: &Lockbox<State>,
+    name: &str,
+) -> Result<OwnerSigningKeyPair> {
+    load_owner_signing_key_from_variable(lockbox, &owner_signing_key_variable_name(name)?)
+}
+
+fn load_owner_signing_key_from_variable<State>(
+    lockbox: &Lockbox<State>,
+    variable_name: &VariableName,
+) -> Result<OwnerSigningKeyPair> {
+    let secret = lockbox
+        .with_secret_variable(variable_name, SecretString::try_clone)?
+        .transpose()?
+        .ok_or_else(|| Error::NotFound(format!("vault signing key {variable_name}")))?;
+    let mut bytes = SecretVec::new();
+    secret.append_to_secure_vec(&mut bytes)?;
+    decode_hex_secret_in_place(&mut bytes)?;
+    OwnerSigningKeyPair::from_private_key_record(bytes)
+}
+
+fn vault_container_signing_key_variable_name() -> Result<VariableName> {
+    VariableName::new(VAULT_CONTAINER_SIGNING_KEY_VARIABLE)
+}
+
+fn owner_signing_key_variable_name(name: &str) -> Result<VariableName> {
+    let name = validate_record_name(name)?;
+    VariableName::new(format!(
+        "LOCKBOX_VAULT_SIGNING_KEY_{}",
+        encode_name_hex(name)
+    ))
+}
+
+fn owner_signing_key_generation_variable_name(name: &str, index: u16) -> Result<VariableName> {
+    let name = validate_record_name(name)?;
+    VariableName::new(format!(
+        "LOCKBOX_VAULT_SIGNING_KEY_{}_GEN_{index:04}",
+        encode_name_hex(name)
+    ))
+}
+
+fn private_key_name_from_variable(name: &str) -> Option<Result<String>> {
+    let name = name.strip_prefix('/').unwrap_or(name);
+    let hex = name.strip_prefix("LOCKBOX_VAULT_PRIVATE_KEY_")?;
+    if hex.contains("_GEN_") {
+        return None;
+    }
+    Some(decode_name_hex(hex).ok_or_else(|| {
+        Error::CorruptVaultRecord(format!("private key record name is not valid hex: {name}"))
+    }))
+}
+
+struct DefaultFormTemplate {
+    type_id: &'static str,
+    alias: &'static str,
+    name: &'static str,
+    fields: Vec<FormFieldDefinition>,
+}
+
+fn default_form_templates() -> Vec<DefaultFormTemplate> {
+    vec![
+        DefaultFormTemplate {
+            type_id: "00000000-0000-4000-8000-000000000001",
+            alias: "login",
+            name: "Login",
+            fields: vec![
+                form_field("username", "Username", FormFieldKind::Text, false),
+                form_field("password", "Password", FormFieldKind::Secret, true),
+                form_field("url", "Website", FormFieldKind::Url, false),
+                form_field("notes", "Notes", FormFieldKind::Notes, false),
+            ],
+        },
+        DefaultFormTemplate {
+            type_id: "00000000-0000-4000-8000-000000000002",
+            alias: "payment-card",
+            name: "Payment Card",
+            fields: vec![
+                form_field("cardholder", "Cardholder", FormFieldKind::Text, true),
+                form_field("number", "Card number", FormFieldKind::Secret, true),
+                form_field("expiry", "Expiry", FormFieldKind::Month, false),
+                form_field("cvv", "CVV", FormFieldKind::Secret, false),
+                form_field("pin", "PIN", FormFieldKind::Secret, false),
+                form_field("notes", "Notes", FormFieldKind::Notes, false),
+            ],
+        },
+        DefaultFormTemplate {
+            type_id: "00000000-0000-4000-8000-000000000003",
+            alias: "bank-account",
+            name: "Bank Account",
+            fields: vec![
+                form_field("bank", "Bank", FormFieldKind::Text, false),
+                form_field("account_name", "Account name", FormFieldKind::Text, false),
+                form_field("bsb", "BSB / routing", FormFieldKind::Text, false),
+                form_field(
+                    "account_number",
+                    "Account number",
+                    FormFieldKind::Secret,
+                    true,
+                ),
+                form_field("iban", "IBAN", FormFieldKind::Secret, false),
+                form_field("swift", "SWIFT / BIC", FormFieldKind::Text, false),
+                form_field("notes", "Notes", FormFieldKind::Notes, false),
+            ],
+        },
+        DefaultFormTemplate {
+            type_id: "00000000-0000-4000-8000-000000000004",
+            alias: "profile",
+            name: "Profile Document",
+            fields: vec![
+                form_field("full_name", "Full name", FormFieldKind::Text, true),
+                form_field("date_of_birth", "Date of birth", FormFieldKind::Date, false),
+                form_field("email", "Email", FormFieldKind::Email, false),
+                form_field("phone", "Phone", FormFieldKind::Text, false),
+                form_field(
+                    "document_number",
+                    "Document number",
+                    FormFieldKind::Secret,
+                    false,
+                ),
+                form_field("expiry", "Expiry", FormFieldKind::Date, false),
+                form_field("address", "Address", FormFieldKind::Notes, false),
+                form_field("notes", "Notes", FormFieldKind::Notes, false),
+            ],
+        },
+        DefaultFormTemplate {
+            type_id: "00000000-0000-4000-8000-000000000005",
+            alias: "server",
+            name: "Server",
+            fields: vec![
+                form_field("host", "Host", FormFieldKind::Text, true),
+                form_field("port", "Port", FormFieldKind::Number, false),
+                form_field("username", "Username", FormFieldKind::Text, false),
+                form_field("password", "Password", FormFieldKind::Secret, false),
+                form_field("url", "URL", FormFieldKind::Url, false),
+                form_field("ssh_key", "SSH key", FormFieldKind::Secret, false),
+                form_field("notes", "Notes", FormFieldKind::Notes, false),
+            ],
+        },
+        DefaultFormTemplate {
+            type_id: "00000000-0000-4000-8000-000000000006",
+            alias: "wifi",
+            name: "Wi-Fi Network",
+            fields: vec![
+                form_field("ssid", "SSID", FormFieldKind::Text, true),
+                form_field("password", "Password", FormFieldKind::Secret, false),
+                form_field("security", "Security", FormFieldKind::Text, false),
+                form_field("notes", "Notes", FormFieldKind::Notes, false),
+            ],
+        },
+        DefaultFormTemplate {
+            type_id: "00000000-0000-4000-8000-000000000007",
+            alias: "secure-note",
+            name: "Secure Note",
+            fields: vec![
+                form_field("title", "Title", FormFieldKind::Text, true),
+                form_field("note", "Note", FormFieldKind::Notes, true),
+            ],
+        },
+    ]
+}
+
+fn form_field(
+    id: &'static str,
+    label: &'static str,
+    kind: FormFieldKind,
+    required: bool,
+) -> FormFieldDefinition {
+    FormFieldDefinition {
+        id: id.to_string(),
+        label: label.to_string(),
+        kind,
+        required,
+    }
+}
+
+fn contact_record_path(name: &str) -> Result<LockboxPath> {
+    LockboxPath::new(format!("/contacts/{}.pub", validate_record_name(name)?))
+}
+
+fn contact_signing_record_path(name: &str) -> Result<LockboxPath> {
+    LockboxPath::new(format!(
+        "/contacts/{}.signing.pub",
+        validate_record_name(name)?
+    ))
+}
+
+fn profile_history_record_path(name: &str) -> Result<LockboxPath> {
+    LockboxPath::new(format!(
+        "/profile_histories/{}.lbih",
+        validate_record_name(name)?
+    ))
+}
+
+fn profile_email_record_path(name: &str) -> Result<LockboxPath> {
+    LockboxPath::new(format!(
+        "/profile_emails/{}.lbie",
+        validate_record_name(name)?
+    ))
+}
+
+fn key_directory_backup_record_path(lockbox_id: LockboxId) -> Result<LockboxPath> {
+    LockboxPath::new(format!("/key_directories/{lockbox_id}.keydir"))
+}
+
+fn lockbox_password_variable_name(lockbox_id: LockboxId) -> Result<VariableName> {
+    VariableName::new(format!(
+        "LOCKBOX_VAULT_LOCKBOX_PASSWORD_{}",
+        crate::encode_hex(lockbox_id.as_bytes())
+    ))
+}
+
+fn known_lockbox_record_path(path: impl AsRef<Path>) -> Result<LockboxPath> {
+    let mut hasher = Sha256::new();
+    hasher.update(path.as_ref().to_string_lossy().as_bytes());
+    let digest: [u8; 32] = hasher.finalize().into();
+    let encoded = crate::encode_hex(&digest);
+    LockboxPath::new(format!("/known_lockboxes/{encoded}.lkl"))
+}
+
+fn access_slot_label_root(lockbox_id: LockboxId) -> String {
+    format!("/access_slots/{}", crate::encode_hex(lockbox_id.as_bytes()))
+}
+
+fn access_slot_label_record_path(lockbox_id: LockboxId, slot_id: u64) -> Result<LockboxPath> {
+    LockboxPath::new(format!(
+        "{}/{slot_id}.lbas",
+        access_slot_label_root(lockbox_id)
+    ))
+}
+
+fn vault_structure_version_record_path() -> Result<LockboxPath> {
+    LockboxPath::new(VAULT_STRUCTURE_VERSION_PATH)
+}
+
+fn decode_structure_version(bytes: &[u8]) -> Result<u32> {
+    let text = std::str::from_utf8(bytes).map_err(|_| {
+        Error::CorruptVaultRecord("vault structure version is not valid UTF-8".to_string())
+    })?;
+    let text = text.strip_suffix('\n').unwrap_or(text);
+    if text.is_empty() || !text.bytes().all(|byte| byte.is_ascii_digit()) {
+        return Err(Error::CorruptVaultRecord(
+            "vault structure version is not a decimal integer".to_string(),
+        ));
+    }
+    text.parse::<u32>()
+        .map_err(|_| Error::CorruptVaultRecord("vault structure version is too large".to_string()))
+}
+
+fn hex_encode_secret(mut bytes: SecretVec) -> Result<SecretVec> {
+    let original_len = bytes.len();
+    bytes.resize_zeroed(original_len * 2)?;
+    bytes.with_mut_bytes(|bytes| {
+        for index in (0..original_len).rev() {
+            let byte = bytes[index];
+            bytes[index * 2] = secret_hex_char(byte >> 4);
+            bytes[index * 2 + 1] = secret_hex_char(byte & 0x0f);
+        }
+    })?;
+    Ok(bytes)
+}
+
+fn decode_hex_secret_in_place(bytes: &mut SecretVec) -> Result<()> {
+    bytes.with_mut_bytes(|bytes| {
+        let len = bytes.len();
+        if len % 2 != 0 {
+            return Err(Error::InvalidKeyMaterial(
+                "owner signing key hex has odd length".to_string(),
+            ));
+        }
+        let mut write = 0usize;
+        let mut read = 0usize;
+        while read < len {
+            let high = secret_hex_digit(bytes[read])?;
+            let low = secret_hex_digit(bytes[read + 1])?;
+            bytes[write] = (high << 4) | low;
+            write += 1;
+            read += 2;
+        }
+        for byte in &mut bytes[write..] {
+            *byte = 0;
+        }
+        Ok::<_, Error>(write)
+    })??;
+    bytes.truncate(bytes.len() / 2)?;
+    Ok(())
+}
+
+fn secret_hex_digit(byte: u8) -> Result<u8> {
+    match byte {
+        b'0'..=b'9' => Ok(byte - b'0'),
+        b'a'..=b'f' => Ok(byte - b'a' + 10),
+        b'A'..=b'F' => Ok(byte - b'A' + 10),
+        _ => Err(Error::InvalidKeyMaterial(
+            "owner signing key hex contains non-hex digits".to_string(),
+        )),
+    }
+}
+
+fn secret_hex_char(value: u8) -> u8 {
+    b"0123456789abcdef"[value as usize]
+}
+
+fn encode_known_lockbox(record: &KnownLockbox) -> Vec<u8> {
+    let mut out = Vec::new();
+    out.extend_from_slice(KNOWN_LOCKBOX_MAGIC);
+    put_u16(&mut out, KNOWN_LOCKBOX_VERSION);
+    out.extend_from_slice(record.lockbox_id.as_bytes());
+    put_string(&mut out, &record.path);
+    put_u64(&mut out, record.last_seen_unix_ms);
+    out
+}
+
+fn decode_known_lockbox(bytes: &[u8]) -> Result<KnownLockbox> {
+    let mut reader = BinaryReader::new(bytes);
+    if reader.bytes(4)? != KNOWN_LOCKBOX_MAGIC {
+        return Err(Error::CorruptVaultRecord(
+            "known lockbox record has invalid magic".to_string(),
+        ));
+    }
+    let version = reader.u16()?;
+    if version != KNOWN_LOCKBOX_VERSION {
+        return Err(Error::CorruptVaultRecord(format!(
+            "known lockbox record version {version} is not supported"
+        )));
+    }
+    let id = reader.bytes(16)?;
+    let lockbox_id = LockboxId::from_bytes(id.try_into().map_err(|_| {
+        Error::CorruptVaultRecord("known lockbox id has invalid length".to_string())
+    })?);
+    let path = reader.string()?;
+    let last_seen_unix_ms = reader.u64()?;
+    reader.finish()?;
+    Ok(KnownLockbox {
+        lockbox_id,
+        path,
+        last_seen_unix_ms,
+    })
+}
+
+fn encode_access_slot_label(label: &AccessSlotLabel) -> Vec<u8> {
+    let mut out = Vec::new();
+    out.extend_from_slice(b"LBAS");
+    put_u16(&mut out, 1);
+    out.extend_from_slice(label.lockbox_id.as_bytes());
+    put_u64(&mut out, label.slot_id);
+    put_string(&mut out, &label.name);
+    put_u64(&mut out, label.updated_at_unix_ms);
+    out
+}
+
+fn decode_access_slot_label(bytes: &[u8]) -> Result<AccessSlotLabel> {
+    let mut reader = BinaryReader::new(bytes);
+    if reader.bytes(4)? != b"LBAS" {
+        return Err(Error::CorruptVaultRecord(
+            "access slot label record has invalid magic".to_string(),
+        ));
+    }
+    let version = reader.u16()?;
+    if version != 1 {
+        return Err(Error::CorruptVaultRecord(format!(
+            "access slot label version {version} is not supported"
+        )));
+    }
+    let id = reader.bytes(16)?;
+    let lockbox_id = LockboxId::from_bytes(id.try_into().map_err(|_| {
+        Error::CorruptVaultRecord("access slot label lockbox id has invalid length".to_string())
+    })?);
+    let slot_id = reader.u64()?;
+    let name = reader.string()?;
+    let updated_at_unix_ms = reader.u64()?;
+    reader.finish()?;
+    Ok(AccessSlotLabel {
+        lockbox_id,
+        slot_id,
+        name,
+        updated_at_unix_ms,
+    })
+}
+
+fn encode_profile_email(email: &str) -> Vec<u8> {
+    let mut out = Vec::new();
+    out.extend_from_slice(PROFILE_EMAIL_MAGIC);
+    put_u16(&mut out, PROFILE_EMAIL_VERSION);
+    put_string(&mut out, email);
+    out
+}
+
+fn decode_profile_email(bytes: &[u8]) -> Result<String> {
+    let mut reader = BinaryReader::new(bytes);
+    if reader.bytes(4)? != PROFILE_EMAIL_MAGIC {
+        return Err(Error::CorruptVaultRecord(
+            "profile email record has invalid magic".to_string(),
+        ));
+    }
+    let version = reader.u16()?;
+    if version != PROFILE_EMAIL_VERSION {
+        return Err(Error::CorruptVaultRecord(format!(
+            "profile email record version {version} is not supported"
+        )));
+    }
+    let email = reader.string()?;
+    reader.finish()?;
+    Ok(email)
+}
+
+fn encode_profile_history(history: &ProfileHistory) -> Vec<u8> {
+    let mut out = Vec::new();
+    out.extend_from_slice(PROFILE_HISTORY_MAGIC);
+    put_u16(&mut out, PROFILE_HISTORY_VERSION);
+    put_u16(&mut out, history.active_generation);
+    put_u16(&mut out, history.generations.len() as u16);
+    for generation in &history.generations {
+        put_u16(&mut out, generation.index);
+        put_u16(&mut out, generation_status_to_u16(generation.status));
+        put_u64(&mut out, generation.created_at_unix_ms);
+        match generation.retired_at_unix_ms {
+            Some(retired_at) => {
+                out.push(1);
+                put_u64(&mut out, retired_at);
+            }
+            None => {
+                out.push(0);
+                put_u64(&mut out, 0);
+            }
+        }
+        put_bytes(&mut out, &generation.contact_fingerprint);
+    }
+    out
+}
+
+fn decode_profile_history(name: &str, bytes: &[u8]) -> Result<ProfileHistory> {
+    let mut reader = BinaryReader::new(bytes);
+    if reader.bytes(4)? != PROFILE_HISTORY_MAGIC {
+        return Err(Error::CorruptVaultRecord(
+            "profile history record has invalid magic".to_string(),
+        ));
+    }
+    let version = reader.u16()?;
+    if version != PROFILE_HISTORY_VERSION {
+        return Err(Error::CorruptVaultRecord(format!(
+            "profile history version {version} is not supported"
+        )));
+    }
+    let active_generation = reader.u16()?;
+    let count = reader.u16()? as usize;
+    let mut generations = Vec::with_capacity(count);
+    for _ in 0..count {
+        let index = reader.u16()?;
+        let status = generation_status_from_u16(reader.u16()?)?;
+        let created_at_unix_ms = reader.u64()?;
+        let retired_present = reader.u8()? != 0;
+        let retired_at = reader.u64()?;
+        let contact_fingerprint = reader.length_prefixed_bytes()?.to_vec();
+        generations.push(ProfileGeneration {
+            index,
+            status,
+            contact_fingerprint,
+            created_at_unix_ms,
+            retired_at_unix_ms: retired_present.then_some(retired_at),
+        });
+    }
+    reader.finish()?;
+    Ok(ProfileHistory {
+        name: name.to_string(),
+        active_generation,
+        generations,
+    })
+}
+
+struct BinaryReader<'a> {
+    bytes: &'a [u8],
+    offset: usize,
+}
+
+impl<'a> BinaryReader<'a> {
+    fn new(bytes: &'a [u8]) -> Self {
+        Self { bytes, offset: 0 }
+    }
+
+    fn bytes(&mut self, len: usize) -> Result<&'a [u8]> {
+        if self.offset + len > self.bytes.len() {
+            return Err(Error::CorruptVaultRecord(
+                "binary vault record is truncated".to_string(),
+            ));
+        }
+        let out = &self.bytes[self.offset..self.offset + len];
+        self.offset += len;
+        Ok(out)
+    }
+
+    fn u16(&mut self) -> Result<u16> {
+        let bytes = self.bytes(2)?;
+        Ok(u16::from_be_bytes([bytes[0], bytes[1]]))
+    }
+
+    fn u8(&mut self) -> Result<u8> {
+        Ok(self.bytes(1)?[0])
+    }
+
+    fn u32(&mut self) -> Result<u32> {
+        let bytes = self.bytes(4)?;
+        Ok(u32::from_be_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]))
+    }
+
+    fn u64(&mut self) -> Result<u64> {
+        let bytes = self.bytes(8)?;
+        Ok(u64::from_be_bytes([
+            bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
+        ]))
+    }
+
+    fn string(&mut self) -> Result<String> {
+        let len = self.u32()? as usize;
+        let bytes = self.bytes(len)?;
+        String::from_utf8(bytes.to_vec()).map_err(|_| {
+            Error::CorruptVaultRecord("binary vault string is not valid UTF-8".to_string())
+        })
+    }
+
+    fn length_prefixed_bytes(&mut self) -> Result<&'a [u8]> {
+        let len = self.u32()? as usize;
+        self.bytes(len)
+    }
+
+    fn finish(&self) -> Result<()> {
+        if self.offset != self.bytes.len() {
+            return Err(Error::CorruptVaultRecord(
+                "binary vault record has trailing bytes".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+fn put_u16(out: &mut Vec<u8>, value: u16) {
+    out.extend_from_slice(&value.to_be_bytes());
+}
+
+fn put_u32(out: &mut Vec<u8>, value: u32) {
+    out.extend_from_slice(&value.to_be_bytes());
+}
+
+fn put_u64(out: &mut Vec<u8>, value: u64) {
+    out.extend_from_slice(&value.to_be_bytes());
+}
+
+fn put_string(out: &mut Vec<u8>, value: &str) {
+    put_u32(out, value.len() as u32);
+    out.extend_from_slice(value.as_bytes());
+}
+
+fn put_bytes(out: &mut Vec<u8>, value: &[u8]) {
+    put_u32(out, value.len() as u32);
+    out.extend_from_slice(value);
+}
+
+fn generation_status_to_u16(status: ProfileGenerationStatus) -> u16 {
+    match status {
+        ProfileGenerationStatus::Active => GENERATION_ACTIVE,
+        ProfileGenerationStatus::Retired => GENERATION_RETIRED,
+        ProfileGenerationStatus::Compromised => GENERATION_COMPROMISED,
+    }
+}
+
+fn generation_status_from_u16(value: u16) -> Result<ProfileGenerationStatus> {
+    match value {
+        GENERATION_ACTIVE => Ok(ProfileGenerationStatus::Active),
+        GENERATION_RETIRED => Ok(ProfileGenerationStatus::Retired),
+        GENERATION_COMPROMISED => Ok(ProfileGenerationStatus::Compromised),
+        _ => Err(Error::CorruptVaultRecord(format!(
+            "unknown profile generation status {value}"
+        ))),
+    }
+}
+
+fn contact_fingerprint(public_key: &ContactPublicKey) -> Vec<u8> {
+    let mut hasher = Sha256::new();
+    hasher.update(public_key.to_bytes());
+    hasher.finalize()[..16].to_vec()
+}
+
+fn unix_ms(time: SystemTime) -> u64 {
+    time.duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_millis() as u64)
+        .unwrap_or(0)
+}
+
+/// Returns the default directory for the local vault.
+///
+/// `LOCKBOX_VAULT_DIR` overrides the platform default. Without an override,
+/// the path follows the operating system's application-data conventions.
+pub fn default_vault_dir() -> Result<PathBuf> {
+    if let Ok(path) = env::var("LOCKBOX_VAULT_DIR") {
+        return Ok(PathBuf::from(path));
+    }
+    default_vault_dir_for_os()
+}
+
+/// Returns the default path to the local vault file.
+pub fn default_vault_path() -> Result<PathBuf> {
+    Ok(default_vault_dir()?.join(VAULT_FILE_NAME))
+}
+
+#[cfg(target_os = "windows")]
+fn default_vault_dir_for_os() -> Result<PathBuf> {
+    let base = env::var_os("LOCALAPPDATA")
+        .map(PathBuf::from)
+        .ok_or_else(|| Error::Configuration("LOCALAPPDATA is not set".to_string()))?;
+    Ok(base.join("reVault").join("vault"))
+}
+
+#[cfg(target_os = "macos")]
+fn default_vault_dir_for_os() -> Result<PathBuf> {
+    let home = home_dir()?;
+    Ok(home
+        .join("Library")
+        .join("Application Support")
+        .join("reVault")
+        .join("vault"))
+}
+
+#[cfg(all(not(target_os = "windows"), not(target_os = "macos")))]
+fn default_vault_dir_for_os() -> Result<PathBuf> {
+    if let Ok(path) = env::var("XDG_DATA_HOME") {
+        return Ok(PathBuf::from(path).join("lockbox").join("vault"));
+    }
+    Ok(home_dir()?
+        .join(".local")
+        .join("share")
+        .join("lockbox")
+        .join("vault"))
+}
+
+#[cfg(not(target_os = "windows"))]
+fn home_dir() -> Result<PathBuf> {
+    env::var_os("HOME")
+        .map(PathBuf::from)
+        .ok_or_else(|| Error::Configuration("HOME is not set".to_string()))
+}
+
+fn validate_record_name(name: &str) -> Result<&str> {
+    let valid = !name.is_empty()
+        && name
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'));
+    if valid {
+        Ok(name)
+    } else {
+        Err(Error::InvalidInput(format!(
+            "vault record name must contain only ASCII letters, digits, '-' or '_': {name}"
+        )))
+    }
+}
+
+fn encode_name_hex(name: &str) -> String {
+    crate::encode_hex(name.as_bytes()).to_ascii_uppercase()
+}
+
+fn decode_name_hex(hex: &str) -> Option<String> {
+    let bytes = crate::decode_hex(hex).ok()?;
+    String::from_utf8(bytes).ok()
+}
+
+fn create_private_dir(path: &Path) -> Result<()> {
+    fs::create_dir_all(path).map_err(|err| Error::Io(err.to_string()))?;
+    set_private_dir_permissions(path)
+}
+
+#[cfg(unix)]
+fn set_private_dir_permissions(path: &Path) -> Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+    fs::set_permissions(path, fs::Permissions::from_mode(0o700))
+        .map_err(|err| Error::Io(err.to_string()))
+}
+
+#[cfg(not(unix))]
+fn set_private_dir_permissions(_path: &Path) -> Result<()> {
+    Ok(())
+}
+
+#[cfg(unix)]
+fn set_private_file_permissions(path: &Path) -> Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+    fs::set_permissions(path, fs::Permissions::from_mode(0o600))
+        .map_err(|err| Error::Io(err.to_string()))
+}
+
+#[cfg(not(unix))]
+fn set_private_file_permissions(_path: &Path) -> Result<()> {
+    Ok(())
+}

@@ -9,7 +9,8 @@ mod journal;
 mod vault;
 
 pub use archive::{
-    export_archive, import_archive, upgrade_archive_artifact, verify_archive_artifact,
+    archive_owner_fingerprint, export_archive, import_archive, upgrade_archive_artifact,
+    verify_archive_artifact, verify_imported_archive,
 };
 pub use journal::{MigrationJournal, MigrationStage};
 pub use revault_migration_format::{

@@ -1,4 +1,4 @@
-pub(crate) const HEADER_LEN: usize = 320;
+pub(crate) const HEADER_LEN: usize = crate::file_format::header_v2::REGION_LEN;
 pub(crate) const MAX_PATH_BYTES: usize = 4096;
 pub(crate) const MAX_COMPONENT_BYTES: usize = 255;
 pub(crate) const MAX_PATH_DEPTH: usize = 64;

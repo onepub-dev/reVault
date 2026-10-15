@@ -581,7 +581,7 @@ impl Lockbox {
         Self::open_locked_storage_mode(StorageBackend::file(path)?, open, false)
     }
 
-    fn open_file_opened_for_write(path: &Path, open: LockboxOpen<'_>) -> Result<Self> {
+    pub(super) fn open_file_opened_for_write(path: &Path, open: LockboxOpen<'_>) -> Result<Self> {
         let storage = StorageBackend::file_for_write(path)?;
         let mut lockbox = Self::open_locked_storage_mode(storage, open, true)?;
         lockbox.complete_pending_transaction_cleanup()?;
@@ -1072,6 +1072,14 @@ impl<State> Lockbox<State> {
                 0,
             )?,
         ))
+    }
+
+    /// Canonical access-slot representation for source-to-destination verification.
+    #[cfg(feature = "migration")]
+    #[doc(hidden)]
+    pub fn migration_access_identity(bytes: &[u8]) -> Result<Vec<u8>> {
+        let directory = crate::key_directory::read_key_directory_backup(bytes)?;
+        encode_key_directory(&directory.slots, directory.lockbox_id, 0, 0)
     }
 
     pub(crate) fn mark_key_directory_dirty(&mut self) {

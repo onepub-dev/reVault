@@ -48,16 +48,18 @@ impl AtomicFileReplacement {
         )))
     }
 
-    pub(crate) fn for_compaction(destination: &Path) -> Self {
+    pub(crate) fn for_compaction(destination: &Path) -> Result<Self> {
+        let mut nonce = [0u8; 16];
+        getrandom::fill(&mut nonce).map_err(|err| Error::Io(err.to_string()))?;
+        let nonce = u128::from_le_bytes(nonce);
         let file_name = destination
             .file_name()
             .and_then(|name| name.to_str())
             .unwrap_or("lockbox");
-        Self {
-            temp_path: destination
-                .with_file_name(format!(".{file_name}.compact-{}", std::process::id())),
+        Ok(Self {
+            temp_path: destination.with_file_name(format!(".{file_name}.compact-{nonce:032x}")),
             destination: destination.to_path_buf(),
-        }
+        })
     }
 
     pub(crate) fn temp_path(&self) -> &Path {
@@ -69,6 +71,11 @@ impl AtomicFileReplacement {
     }
 
     pub(crate) fn install(&self) -> Result<()> {
+        self.publish()?;
+        self.sync_parent()
+    }
+
+    pub(crate) fn publish(&self) -> Result<()> {
         match fs::rename(&self.temp_path, &self.destination) {
             Ok(()) => {}
             Err(err) => {
@@ -78,7 +85,7 @@ impl AtomicFileReplacement {
                 )));
             }
         }
-        self.sync_parent()
+        Ok(())
     }
 
     pub(crate) fn sync_parent(&self) -> Result<()> {

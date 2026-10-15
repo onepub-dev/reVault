@@ -4,11 +4,11 @@ use crate::{Error, Result};
 
 const FREE_INDEX_VERSION: u8 = 1;
 #[cfg(not(test))]
-pub(crate) const FREE_INDEX_LEAF_SLOT_CAPACITY: usize = 500_000;
+pub(crate) const FREE_INDEX_LEAF_SLOT_CAPACITY: usize = 4096;
 #[cfg(test)]
 pub(crate) const FREE_INDEX_LEAF_SLOT_CAPACITY: usize = 8;
 #[cfg(not(test))]
-pub(crate) const FREE_INDEX_INTERNAL_CHILD_CAPACITY: usize = 500_000;
+pub(crate) const FREE_INDEX_INTERNAL_CHILD_CAPACITY: usize = 4096;
 #[cfg(test)]
 pub(crate) const FREE_INDEX_INTERNAL_CHILD_CAPACITY: usize = 8;
 

@@ -1433,6 +1433,9 @@ pub(crate) const CLI_PUBLISH_PACKAGES: &[&str] = &[
     "revault_migrate_vault_v2",
     "revault_vault_api",
     "revault_migrate_archive_v1",
+    "revault_archive_v3_reader",
+    "revault_vault_v3_reader",
+    "revault_migrate_archive_v3",
     "revault_migration",
     "revault_publish_protocol",
     "revault_key_server",
@@ -1505,6 +1508,12 @@ fn crate_is_published(rust: &Path, release: &str) -> Result<bool> {
 }
 
 fn find_package_manifest(rust: &Path, package: &str) -> Result<PathBuf> {
+    if package == "revault_vault_v3_reader" {
+        return Ok(rust.join("revault_migrate_archive_v3/legacy_vault/Cargo.toml"));
+    }
+    if package == "revault_archive_v3_reader" {
+        return Ok(rust.join("revault_migrate_archive_v3/legacy/Cargo.toml"));
+    }
     let direct = rust.join(package).join("Cargo.toml");
     if direct.is_file() {
         Ok(direct)
