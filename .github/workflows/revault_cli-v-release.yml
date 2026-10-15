@@ -14,7 +14,7 @@
 # title/body based on your changelogs.
 
 name: Release
-run-name: ${{ inputs.promotion_run_id != '' && format('promote candidate {0}', inputs.promotion_run_id) || github.ref_name }}
+run-name: ${{ inputs.support_mode != '' && format('{0} support crates {1}', inputs.support_mode, inputs.source_sha) || inputs.promotion_run_id != '' && format('promote candidate {0}', inputs.promotion_run_id) || github.ref_name }}
 permissions:
   "contents": "write"
 
@@ -53,6 +53,19 @@ on:
         default: ''
   workflow_dispatch:
     inputs:
+      support_mode:
+        description: Explicit support package publication; empty retains normal CLI release behavior
+        type: choice
+        options: ['', bootstrap, retirement]
+        default: ''
+      source_sha:
+        description: Exact reviewed main commit required for support publication
+        type: string
+        default: ''
+      publish:
+        description: Publish support packages; false validates without publishing
+        type: boolean
+        default: false
       candidate:
         type: boolean
         default: false
@@ -68,10 +81,46 @@ on:
       - 'revault_cli-v**[0-9]+.[0-9]+.[0-9]+*'
 
 jobs:
+  support-crates:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && (inputs.support_mode == 'bootstrap' || inputs.support_mode == 'retirement')
+    name: ${{ inputs.support_mode }} support crates
+    runs-on: ubuntu-24.04
+    environment: release
+    concurrency:
+      group: revault-support-crate-publication
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@1.88.0
+      - uses: dart-lang/setup-dart@v1
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+      - name: Install support publication dependencies
+        run: |
+          sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config
+          dart pub global activate dcli_sdk 10.3.0 --overwrite
+          dart pub get --enforce-lockfile --directory .github/scripts
+      - id: crates
+        if: inputs.publish
+        uses: rust-lang/crates-io-auth-action@v1
+      - name: Publish only the explicitly selected support package allowlist
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CARGO_REGISTRY_TOKEN: ${{ steps.crates.outputs.token }}
+          EXPECTED_SOURCE_SHA: ${{ inputs.source_sha }}
+        run: ./.github/scripts/publish_support_crates.dart ${{ inputs.support_mode }} ${{ inputs.publish && '--publish' || '' }}
+
   # Retry trusted crates.io publication without rebuilding release artifacts.
   # crates.io authorizes this caller workflow filename in its OIDC policy.
   retry-publish-crates:
-    if: github.event_name == 'workflow_dispatch' && !inputs.candidate
+    if: inputs.support_mode == '' && github.event_name == 'workflow_dispatch' && !inputs.candidate
     uses: ./.github/workflows/revault-cli-crates.yml
     with:
       plan: '{}'
@@ -83,7 +132,7 @@ jobs:
 
   # Run 'dist plan' (or host) to determine what tasks we need to do
   plan:
-    if: github.event_name != 'workflow_dispatch' || (inputs.candidate && inputs.promotion_run_id == '')
+    if: inputs.support_mode == '' && (github.event_name != 'workflow_dispatch' || (inputs.candidate && inputs.promotion_run_id == ''))
     runs-on: "ubuntu-24.04"
     outputs:
       val: ${{ steps.plan.outputs.manifest }}
@@ -140,7 +189,7 @@ jobs:
     # Let the initial task tell us to not run (currently very blunt)
     needs:
       - plan
-    if: ${{ fromJson(needs.plan.outputs.val).ci.github.artifacts_matrix.include != null && (inputs.candidate || needs.plan.outputs.publishing == 'true' || fromJson(needs.plan.outputs.val).ci.github.pr_run_mode == 'upload') }}
+    if: ${{ inputs.support_mode == '' && needs.plan.result == 'success' && fromJson(needs.plan.outputs.val).ci.github.artifacts_matrix.include != null && (inputs.candidate || needs.plan.outputs.publishing == 'true' || fromJson(needs.plan.outputs.val).ci.github.pr_run_mode == 'upload') }}
     strategy:
       fail-fast: true
       # Target platforms/runners are computed by dist in create-release.
@@ -225,6 +274,7 @@ jobs:
 
   # Build and package all the platform-agnostic(ish) things
   build-global-artifacts:
+    if: inputs.support_mode == ''
     needs:
       - plan
       - build-local-artifacts
@@ -277,7 +327,7 @@ jobs:
       - build-global-artifacts
       - custom-revault-cli-crates
     # Only run if we're "publishing", and only if plan, local and global didn't fail (skipped is fine)
-    if: ${{ always() && needs.plan.result == 'success' && needs.plan.outputs.publishing == 'true' && needs.custom-revault-cli-crates.result == 'success' && (needs.build-global-artifacts.result == 'skipped' || needs.build-global-artifacts.result == 'success') && (needs.build-local-artifacts.result == 'skipped' || needs.build-local-artifacts.result == 'success') }}
+    if: ${{ inputs.support_mode == '' && always() && needs.plan.result == 'success' && needs.plan.outputs.publishing == 'true' && needs.custom-revault-cli-crates.result == 'success' && (needs.build-global-artifacts.result == 'skipped' || needs.build-global-artifacts.result == 'success') && (needs.build-local-artifacts.result == 'skipped' || needs.build-local-artifacts.result == 'success') }}
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     runs-on: "ubuntu-24.04"
@@ -342,7 +392,7 @@ jobs:
       - plan
       - build-local-artifacts
       - build-global-artifacts
-    if: ${{ always() && needs.plan.result == 'success' && needs.plan.outputs.publishing == 'true' && (needs.build-global-artifacts.result == 'skipped' || needs.build-global-artifacts.result == 'success') && (needs.build-local-artifacts.result == 'skipped' || needs.build-local-artifacts.result == 'success') }}
+    if: ${{ inputs.support_mode == '' && always() && needs.plan.result == 'success' && needs.plan.outputs.publishing == 'true' && (needs.build-global-artifacts.result == 'skipped' || needs.build-global-artifacts.result == 'success') && (needs.build-local-artifacts.result == 'skipped' || needs.build-local-artifacts.result == 'success') }}
     uses: ./.github/workflows/revault-cli-crates.yml
     with:
       plan: ${{ needs.plan.outputs.val }}
@@ -362,7 +412,7 @@ jobs:
     # use "always() && ..." to allow us to wait for all publish jobs while
     # still allowing individual publish jobs to skip themselves (for prereleases).
     # "host" however must run to completion, no skipping allowed!
-    if: ${{ always() && needs.host.result == 'success' && (needs.custom-revault-cli-crates.result == 'skipped' || needs.custom-revault-cli-crates.result == 'success') }}
+    if: ${{ inputs.support_mode == '' && always() && needs.host.result == 'success' && (needs.custom-revault-cli-crates.result == 'skipped' || needs.custom-revault-cli-crates.result == 'success') }}
     runs-on: "ubuntu-24.04"
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -373,7 +423,7 @@ jobs:
           submodules: recursive
 
   promote-candidate:
-    if: inputs.candidate && inputs.promotion_run_id != ''
+    if: inputs.support_mode == '' && inputs.candidate && inputs.promotion_run_id != ''
     runs-on: ubuntu-24.04
     environment: release
     permissions:

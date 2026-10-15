@@ -375,7 +375,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          dart pub global activate dcli
+          dart pub global activate dcli_sdk 10.3.0 --overwrite
+          dart pub get --enforce-lockfile --directory ../.github/scripts
           ../.github/scripts/compatibility_baseline.dart
       - name: Check bidirectional compatibility with the published CLI
         if: runner.os == 'Linux'

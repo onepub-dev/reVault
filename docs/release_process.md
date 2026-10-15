@@ -83,8 +83,8 @@ For dependency-only publication, dispatch the existing crates.io Trusted
 Publishing workflow at the exact reviewed commit on `main`:
 
 ```bash
-gh workflow run revault-cli-crates.yml --ref main \
-  -f mode=bootstrap -f source_sha=<full-main-commit-sha> -f publish=true
+gh workflow run revault_cli-v-release.yml --ref main \
+  -f support_mode=bootstrap -f source_sha=<full-main-commit-sha> -f publish=true
 ```
 
 This mode publishes only `revault_secure_memory`, `revault_migration_format`,
@@ -126,8 +126,8 @@ After the new stable CLI release and all replacements are publicly available,
 publish the allowlisted terminal versions through the same trusted workflow:
 
 ```bash
-gh workflow run revault-cli-crates.yml --ref main \
-  -f mode=retirement -f source_sha=<full-main-commit-sha> -f publish=true
+gh workflow run revault_cli-v-release.yml --ref main \
+  -f support_mode=retirement -f source_sha=<full-main-commit-sha> -f publish=true
 ```
 
 The retirement mode checks replacement availability, stages committed source

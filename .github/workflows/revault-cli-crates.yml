@@ -1,21 +1,6 @@
 name: Publish reVault Rust crates
 
 on:
-  workflow_dispatch:
-    inputs:
-      mode:
-        description: Explicit support publication only; never publishes the current CLI
-        type: choice
-        options: [bootstrap, retirement]
-        required: true
-      source_sha:
-        description: Exact reviewed commit already on main
-        type: string
-        required: true
-      publish:
-        description: Publish the selected support packages; false performs dry runs
-        type: boolean
-        default: false
   workflow_call:
     inputs:
       plan:
@@ -32,7 +17,6 @@ permissions:
 
 jobs:
   publish-crates:
-    if: inputs.mode == ''
     name: Publish Rust crates to crates.io
     runs-on: ubuntu-24.04
     environment: release
@@ -59,38 +43,3 @@ jobs:
         run: >-
           cargo run --locked --manifest-path rust/Cargo.toml
           -p revault_tooling -- internal verify-migration-exporters
-
-  support-crates:
-    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && (inputs.mode == 'bootstrap' || inputs.mode == 'retirement')
-    name: ${{ inputs.mode }} support crates
-    runs-on: ubuntu-24.04
-    environment: release
-    concurrency:
-      group: revault-support-crate-publication
-      cancel-in-progress: false
-    permissions:
-      contents: read
-      id-token: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: main
-          fetch-depth: 0
-      - uses: dtolnay/rust-toolchain@1.88.0
-      - uses: dart-lang/setup-dart@v1
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: rust
-      - name: Install support publication dependencies
-        run: |
-          sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config
-          dart pub global activate dcli
-      - id: crates
-        if: inputs.publish
-        uses: rust-lang/crates-io-auth-action@v1
-      - name: Publish only the explicitly selected support package allowlist
-        env:
-          GH_TOKEN: ${{ github.token }}
-          CARGO_REGISTRY_TOKEN: ${{ steps.crates.outputs.token }}
-          EXPECTED_SOURCE_SHA: ${{ inputs.source_sha }}
-        run: ./.github/scripts/publish_support_crates.dart ${{ inputs.mode }} ${{ inputs.publish && '--publish' || '' }}

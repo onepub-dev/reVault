@@ -4,7 +4,13 @@ import 'dart:io';
 import 'package:dcli/dcli.dart';
 
 // Run from rust/. Metadata and the public compatibility line share one authority.
-void main() {
+void main(List<String> args) {
+  if (args.length == 1 && args.single == '--help') {
+    print('compatibility_baseline.dart\n'
+        'Run from rust/ in CI to verify and select the published CLI baseline.');
+    return;
+  }
+  if (args.isNotEmpty) throw ArgumentError('Unexpected arguments');
   final policy = jsonDecode(File('release-compatibility.json').readAsStringSync())
       as Map<String, dynamic>;
   String value(String key) => policy[key] as String;

@@ -39,5 +39,6 @@ package-conformance-*/
 **/*.lbx
 **/*.lbox
 **/*.lock
+!/.github/scripts/pubspec.lock
 .worktrees/
 .agents/
