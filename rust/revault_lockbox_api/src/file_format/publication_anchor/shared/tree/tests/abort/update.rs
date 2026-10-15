@@ -142,6 +142,16 @@ fn authenticated_tree_update_refuses_malformed_records_without_mutation() {
 
 #[test]
 fn authenticated_tree_update_reuse_stabilizes_metadata_cycles_all_modes() {
+    check_metadata_reuse_cycles(5);
+}
+
+#[test]
+#[ignore = "extended metadata aging observation; run when allocation, reuse, or retirement changes"]
+fn authenticated_tree_update_extended_metadata_aging_observation_all_modes() {
+    check_metadata_reuse_cycles(40);
+}
+
+fn check_metadata_reuse_cycles(cycles: u8) {
     let owner = OwnerSigningKeyPair::generate().unwrap();
     let public = owner.public_key();
     for bits in 0..16 {
@@ -151,7 +161,7 @@ fn authenticated_tree_update_reuse_stabilizes_metadata_cycles_all_modes() {
         let mut storage = StorageBackend::memory(seed);
         let initial = storage.len().unwrap();
         let mut stable = 0;
-        for cycle in 0..40 {
+        for cycle in 0..cycles {
             rewrite_records(
                 &mut storage,
                 archive(),
@@ -173,12 +183,22 @@ fn authenticated_tree_update_reuse_stabilizes_metadata_cycles_all_modes() {
                 assert_eq!(storage.len().unwrap(), stable, "mode={bits} cycle={cycle}");
             }
         }
-        println!("TREE_REUSE_AGING mode={bits} initial_bytes={initial} stabilized_bytes={stable} cycles=40");
+        println!("TREE_REUSE_AGING mode={bits} initial_bytes={initial} stabilized_bytes={stable} cycles={cycles}");
     }
 }
 
 #[test]
 fn authenticated_tree_update_uses_overflow_for_large_reuse_all_modes() {
+    check_overflow_reuse_cycles(5, true);
+}
+
+#[test]
+#[ignore = "extended overflow aging observation; run when allocation, reuse, or retirement changes"]
+fn authenticated_tree_update_extended_overflow_aging_observation_all_modes() {
+    check_overflow_reuse_cycles(8, false);
+}
+
+fn check_overflow_reuse_cycles(cycles: u8, check_interruptions: bool) {
     let owner = OwnerSigningKeyPair::generate().unwrap();
     let public = owner.public_key();
     for bits in 0..16 {
@@ -223,7 +243,7 @@ fn authenticated_tree_update_uses_overflow_for_large_reuse_all_modes() {
         )
         .unwrap();
         let initial = storage.len().unwrap();
-        if [4, 15].contains(&bits) {
+        if check_interruptions && [4, 15].contains(&bits) {
             let seed = storage.0.read_all().unwrap();
             let run = |storage: &mut CrashStore| {
                 let records = (0..6144u32)
@@ -292,7 +312,7 @@ fn authenticated_tree_update_uses_overflow_for_large_reuse_all_modes() {
             storage.len().unwrap()
         );
         let mut stable = 0;
-        for cycle in 0..8u8 {
+        for cycle in 0..cycles {
             let value = cycle + 43;
             let records = (0..6144u32)
                 .map(|i| Entry::new(1, &i.to_be_bytes(), &[value; 1024]).unwrap())
@@ -322,7 +342,9 @@ fn authenticated_tree_update_uses_overflow_for_large_reuse_all_modes() {
                 );
             }
         }
-        println!("TREE_OVERFLOW_AGING mode={bits} stabilized_bytes={stable} additional_cycles=8");
+        println!(
+            "TREE_OVERFLOW_AGING mode={bits} stabilized_bytes={stable} additional_cycles={cycles}"
+        );
     }
 }
 

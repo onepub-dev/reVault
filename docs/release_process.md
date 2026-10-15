@@ -63,6 +63,26 @@ revision, workload, and limitations stated. Preserve failed and incomplete
 results. Skipping an unnecessary repeat is not a claim that a performance goal
 has passed.
 
+Routine authenticated-tree reuse tests exercise all 16 modes with five cycles,
+including a post-stabilization size assertion. The overflow regression retains
+its full interruption matrix, content checks, and retired-arena zeroing checks.
+Longer metadata and overflow aging runs are separate ignored observations. Run
+them when allocation, reuse, retirement, or related storage behavior changes,
+or when explicitly qualifying longer aging behavior:
+
+```bash
+cargo test --locked --manifest-path rust/Cargo.toml -p revault_lockbox_api --lib \
+  authenticated_tree_update_extended_metadata_aging_observation_all_modes -- --ignored --nocapture
+cargo test --locked --manifest-path rust/Cargo.toml -p revault_lockbox_api --lib \
+  authenticated_tree_update_extended_overflow_aging_observation_all_modes -- --ignored --nocapture
+```
+
+The extended runs retain 40 metadata cycles and eight additional overflow
+cycles in all modes. The overflow observation reuses content and zeroing
+assertions but does not repeat the interruption matrix owned by the routine
+regression. These checks establish their asserted aging behavior, not throughput
+or RSS results.
+
 ## Preparation and publication order
 
 1. Merge and review the intended changes on `main`. Preserve unrelated local

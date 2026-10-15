@@ -59,9 +59,11 @@ impl RecoveryScanner {
 
     /// Salvage a damaged lockbox from storage bytes into a new opened lockbox.
     ///
-    /// Returns `Error::InvalidKey` if the supplied key cannot authenticate any
-    /// recoverable records, or `Error::CorruptRecord`/storage errors if the
-    /// recovered content cannot be written into the new lockbox.
+    /// Returns `Error::CorruptRecord` if the selected publication cannot be
+    /// authenticated, including when the supplied key is wrong. Authentication
+    /// cannot distinguish an incorrect key from damaged encrypted metadata.
+    /// Invalid selected metadata and storage/write failures are also returned;
+    /// unauthenticated historical records never establish current membership.
     pub fn salvage_bytes(
         bytes: Vec<u8>,
         key: impl AsRef<[u8]>,
