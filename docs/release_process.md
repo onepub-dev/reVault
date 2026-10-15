@@ -79,6 +79,28 @@ has passed.
 One release operator owns publication and monitoring. Wait on one blocking CI
 watcher rather than repeatedly polling or starting competing publication runs.
 
+For dependency-only publication, dispatch the existing crates.io Trusted
+Publishing workflow at the exact reviewed commit on `main`:
+
+```bash
+gh workflow run revault-cli-crates.yml --ref main \
+  -f mode=bootstrap -f source_sha=<full-main-commit-sha> -f publish=true
+```
+
+This mode publishes only `revault_secure_memory`, `revault_migration_format`,
+and the three historical exporter packages, in dependency order. It does not
+publish the CLI or current API libraries. Omit `publish=true` for package dry
+runs. Existing non-yanked versions are skipped, so a retry resumes after a
+partial failure. The selected SHA must match the workflow's checked-out main
+revision; a moved branch requires selecting the new reviewed revision.
+
+Existing packages use their configured crates.io Trusted Publishing identity.
+A new crate's first publication may require configured owner credentials before
+Trusted Publishing can be registered for this workflow. If that first upload
+is rejected, publish only the missing new package through the authorized owner
+credential path, configure its trusted publisher, and retry the dependency
+workflow. Keep existing packages' Trusted Publishing configuration intact.
+
 ## Retiring public crates
 
 Publish and verify replacement packages first. Then publish an intentional final
@@ -99,6 +121,19 @@ reviewed retirement recipe and notices. It stages committed sources under
 `/tmp` and writes provenance; it does not publish. Verify replacement registry
 availability and each staged package before intentionally publishing the
 allowlisted terminal versions.
+
+After the new stable CLI release and all replacements are publicly available,
+publish the allowlisted terminal versions through the same trusted workflow:
+
+```bash
+gh workflow run revault-cli-crates.yml --ref main \
+  -f mode=retirement -f source_sha=<full-main-commit-sha> -f publish=true
+```
+
+The retirement mode checks replacement availability, stages committed source
+with the helper above, and publishes only the terminal versions in the allowlist.
+It requires the current stable CLI version in both GitHub Releases and crates.io.
+Omit `publish=true` for dry runs; retrying skips terminal versions already public.
 
 Crates.io does not display Cargo's maintenance-status badge; use the README and
 description for the visible notice. See the
