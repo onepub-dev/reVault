@@ -633,7 +633,7 @@ dependencies = [
  "libc",
  "ml-dsa",
  "ml-kem",
- "revault_page_api",
+ "revault_secure_memory",
  "serde_json",
  "sha2",
  "unicode-normalization",
@@ -644,8 +644,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "revault_page_api"
-version = "0.0.41"
+name = "revault_secure_memory"
+version = "0.1.0"
 dependencies = [
  "getrandom",
  "libc",

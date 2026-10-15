@@ -2,14 +2,6 @@ use super::context::{cli_error, default_vault, CliMessage, CliResult};
 use super::error_output::ExitCode;
 use revault_lockbox_api::{Lockbox, LockboxId};
 
-pub(crate) fn validate_name(name: &str) -> CliResult<()> {
-    revault_vault_api::validate_vault_record_name(name)?;
-    if name.len() > 128 {
-        return Err(cli_error("lockbox alias exceeds 128 bytes"));
-    }
-    Ok(())
-}
-
 /// Selection and existence are separate: creation and stale-record maintenance
 /// must be able to name an archive whose file is no longer present.
 #[derive(Clone, Copy, PartialEq, Eq)]
