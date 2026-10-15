@@ -115,6 +115,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           CARGO_REGISTRY_TOKEN: ${{ steps.crates.outputs.token }}
           EXPECTED_SOURCE_SHA: ${{ inputs.source_sha }}
+          # Terminal packages resolve outside the workspace lockfile. Prefer
+          # dependencies compatible with their declared MSRV during verification.
+          CARGO_RESOLVER_INCOMPATIBLE_RUST_VERSIONS: ${{ inputs.support_mode == 'retirement' && 'fallback' || 'allow' }}
         run: ./.github/scripts/publish_support_crates.dart ${{ inputs.support_mode }} ${{ inputs.publish && '--publish' || '' }}
 
   # Retry trusted crates.io publication without rebuilding release artifacts.
