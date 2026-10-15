@@ -2373,8 +2373,8 @@ fn doctor_lockbox_reports_closed_metadata_and_open_guidance() {
     let doctor = String::from_utf8_lossy(&doctor.stdout);
     assert!(doctor.contains("Lockbox"));
     assert!(doctor.contains(lockbox.to_str().unwrap()));
-    assert!(doctor.starts_with("Lockbox\n  format version: 3\n"));
-    assert!(doctor.contains("Local vault\n  container format version: 3\n"));
+    assert!(doctor.starts_with("Lockbox\n  format version: 4\n"));
+    assert!(doctor.contains("Local vault\n  container format version: 4\n"));
     assert!(doctor.contains("structure version: 3"));
     assert!(doctor.contains(vault_root.join("local-vault.lbox").to_str().unwrap()));
     assert!(doctor.contains("Configured access\n"));
@@ -2890,7 +2890,10 @@ fn doctor_recover_detects_and_completes_interrupted_cleanup() {
     let diagnosis = run_output(bin, &[lockbox.to_str().unwrap(), "doctor"]);
     assert_success(&diagnosis);
     let diagnosis_stdout = String::from_utf8_lossy(&diagnosis.stdout);
-    assert!(diagnosis_stdout.contains("state: transaction recovery required"));
+    assert!(
+        diagnosis_stdout.contains("state: cleanup required"),
+        "{diagnosis_stdout}"
+    );
     assert!(diagnosis_stdout.contains(&format!(
         "preview: lbx {} doctor recover --dry-run",
         lockbox.display()
@@ -2920,8 +2923,7 @@ fn doctor_recover_detects_and_completes_interrupted_cleanup() {
 
     let still_pending = run_output(bin, &[lockbox.to_str().unwrap(), "doctor"]);
     assert_success(&still_pending);
-    assert!(String::from_utf8_lossy(&still_pending.stdout)
-        .contains("state: transaction recovery required"));
+    assert!(String::from_utf8_lossy(&still_pending.stdout).contains("state: cleanup required"));
 
     let recovered = run_output(bin, &[lockbox.to_str().unwrap(), "doctor", "recover"]);
     assert_success(&recovered);
@@ -2935,6 +2937,10 @@ fn doctor_recover_detects_and_completes_interrupted_cleanup() {
     let listing = String::from_utf8_lossy(&listing.stdout);
     assert!(listing.contains("/docs/keep.txt"));
     assert!(!listing.contains("/docs/remove.txt"));
+
+    let kept = run_output(bin, &[lockbox.to_str().unwrap(), "cat", "/docs/keep.txt"]);
+    assert_success(&kept);
+    assert_eq!(kept.stdout, b"keep");
 }
 
 #[test]
@@ -5680,11 +5686,11 @@ fn session_default_sets_default_lockbox_for_commands() {
     assert_success(&doctor);
     let doctor = String::from_utf8_lossy(&doctor.stdout);
     assert!(
-        doctor.starts_with("Lockbox\n  format version: 3\n"),
+        doctor.starts_with("Lockbox\n  format version: 4\n"),
         "{doctor}"
     );
     assert!(
-        doctor.contains("Local vault\n  container format version: 3\n"),
+        doctor.contains("Local vault\n  container format version: 4\n"),
         "{doctor}"
     );
     assert!(doctor.contains("structure version: 3"), "{doctor}");

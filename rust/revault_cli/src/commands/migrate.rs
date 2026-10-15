@@ -1639,6 +1639,11 @@ mod tests {
     #[test]
     fn newer_format_replacement_is_refused_without_modifying_files() {
         for kind in [ArtifactKind::Archive, ArtifactKind::Vault] {
+            let current_target = match kind {
+                ArtifactKind::Archive => u32::from(LOCKBOX_FORMAT_VERSION),
+                ArtifactKind::Vault => CURRENT_VAULT_STRUCTURE_VERSION,
+                ArtifactKind::Journal => unreachable!("fixture covers only archives and Vaults"),
+            };
             for target in [3, 4] {
                 for slot_offset in [0, 192] {
                     let temp = tempfile::tempdir().unwrap();
@@ -1650,12 +1655,21 @@ mod tests {
                     } else {
                         output.clone()
                     };
-                    // No format-3 CLI can create a future header or damage its
+                    // No current CLI can create a future header or damage its
                     // first slot. Keep opaque synthetic bytes for this refusal
                     // fixture, including a valid marker only in slot two.
                     let mut future = vec![0_u8; 384];
                     future[slot_offset..slot_offset + 8].copy_from_slice(b"LBX4HDR\0");
                     future[slot_offset + 8..slot_offset + 10].copy_from_slice(&5_u16.to_le_bytes());
+                    // The discriminator accepts only checksum-valid future
+                    // headers; random corruption must not imply a new format.
+                    let mut checksum = Sha256::new();
+                    checksum.update(b"lockbox-v1-public-checksum/sha256");
+                    checksum.update(160_u64.to_le_bytes());
+                    checksum.update(&future[slot_offset..slot_offset + 160]);
+                    future[slot_offset + 160..slot_offset + 192]
+                        .copy_from_slice(&checksum.finalize());
+                    assert_eq!(probe_lockbox_format_version(&future).unwrap(), 5);
                     fs::write(&container, &future).unwrap();
                     let backup = versioned_backup_path(&source, 1, target);
                     fs::write(&backup, b"original backup").unwrap();
@@ -1681,10 +1695,15 @@ mod tests {
                     let journal_bytes = fs::read(&journal_path).unwrap();
                     let error = recover_interrupted_replacement(&source, kind, b"resume password")
                         .unwrap_err();
-                    assert!(error.to_string().contains("downgrade"), "{error}");
+                    let expected = if target == current_target {
+                        "downgrade"
+                    } else {
+                        "saved migration targets format"
+                    };
+                    assert!(error.to_string().contains(expected), "{error}");
                     let error =
                         validate_resume(&journal, kind, &source, 1, [7; 32], &output).unwrap_err();
-                    assert!(error.to_string().contains("downgrade"), "{error}");
+                    assert!(error.to_string().contains(expected), "{error}");
                     // The same resume guard is called before Import can discard
                     // an incomplete output. Assert that stage separately too.
                     journal.current_stage = MigrationStage::Import;
@@ -1711,6 +1730,11 @@ mod tests {
         let bytes = archive.try_to_bytes().unwrap();
         assert_eq!(probe_lockbox_format_version(&bytes).unwrap(), 2);
         for kind in [ArtifactKind::Archive, ArtifactKind::Vault] {
+            let target = match kind {
+                ArtifactKind::Archive => u32::from(LOCKBOX_FORMAT_VERSION),
+                ArtifactKind::Vault => CURRENT_VAULT_STRUCTURE_VERSION,
+                ArtifactKind::Journal => unreachable!("fixture covers only archives and Vaults"),
+            };
             let temp = tempfile::tempdir().unwrap();
             let source = temp.path().join("source");
             let output = temp.path().join("output");
@@ -1721,7 +1745,7 @@ mod tests {
                 output.clone()
             };
             fs::write(&container, &bytes).unwrap();
-            let backup = versioned_backup_path(&source, 1, 3);
+            let backup = versioned_backup_path(&source, 1, target);
             fs::write(&backup, b"original backup").unwrap();
             let work = temp.path().join(".revault-migration-old-output");
             fs::create_dir(&work).unwrap();
@@ -1730,7 +1754,7 @@ mod tests {
                 kind,
                 source.clone(),
                 1,
-                3,
+                target,
                 [9; 32],
                 vec![output.clone()],
             )
@@ -1745,12 +1769,22 @@ mod tests {
             let journal_bytes = fs::read(&journal_path).unwrap();
             let error =
                 recover_interrupted_replacement(&source, kind, b"resume password").unwrap_err();
-            assert!(error.to_string().contains("migrate"), "{error}");
+            assert!(
+                error
+                    .to_string()
+                    .contains("saved migration output uses older format 2"),
+                "{error}"
+            );
             for stage in [MigrationStage::Import, MigrationStage::Replace] {
                 journal.current_stage = stage;
                 let error =
                     validate_resume(&journal, kind, &source, 1, [9; 32], &output).unwrap_err();
-                assert!(error.to_string().contains("migration"), "{error}");
+                assert!(
+                    error
+                        .to_string()
+                        .contains("saved migration output uses unsupported format 2"),
+                    "{error}"
+                );
             }
             assert!(!source.exists());
             assert_eq!(fs::read(&container).unwrap(), bytes);

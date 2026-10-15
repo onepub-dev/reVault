@@ -1433,6 +1433,7 @@ fn unicode_alias_lifecycle_normalizes_and_preserves_persisted_values() {
         f.run(VALUE, &[&format!("a@{decomposed}"), "TOKEN"]).stdout,
         b"synthetic-token"
     );
+    f.ok(&["other.lbox", "create"]);
     f.ok(&["other.lbox", "variable", "set", "TOKEN", "replacement"]);
     f.ok(&["vault", "lockbox", "alias", "set", decomposed, "other.lbox"]);
     assert_eq!(
