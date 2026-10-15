@@ -365,6 +365,17 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config
 
+      # Migration fixtures build the isolated exporters offline. Their frozen
+      # dependencies are not all in the CLI graph, so prepare these binaries
+      # with network access before tests even when the Cargo cache is empty.
+      - name: Prepare historical migration exporters
+        if: runner.os == 'Linux' || matrix.cache == 'windows-x86_64-mirror-migration'
+        run: >-
+          cargo build --locked --bins
+          -p revault_migrate_v1
+          -p revault_migrate_v2
+          -p revault_migrate_v3
+
       - name: Run realistic CLI E2E contract
         run: ${{ matrix.command }}
 
