@@ -1,0 +1,170 @@
+[package]
+name = "revault_migrate_v1"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.88"
+license-file = "LICENSE"
+description = "Isolated migration exporter for reVault archive/container format 1"
+repository = "https://github.com/onepub-dev/reVault"
+readme = "README.md"
+
+[lib]
+test = false
+doctest = false
+
+[features]
+default = ["migration", "vault-integration", "issue303-protocol"]
+migration = []
+vault-integration = []
+issue303-protocol = []
+bindings = []
+test-support = []
+native-zstd-encoder = ["dep:zstd"]
+
+[dependencies.argon2]
+version = "^0.5"
+
+[dependencies.chacha20poly1305]
+version = "^0.11"
+
+[dependencies.ed25519_dalek_v2]
+package = "ed25519-dalek"
+version = "^2"
+
+[dependencies.getrandom]
+version = "^0.4"
+
+[dependencies.hkdf]
+version = "^0.13"
+
+[dependencies.ml_dsa]
+package = "ml-dsa"
+version = "^0.1"
+features = ["getrandom"]
+
+[dependencies.ml_kem]
+package = "ml-kem"
+version = "^0.3.2"
+features = ["getrandom"]
+
+[dependencies.revault_page_api_v0_0_2]
+package = "revault_page_api"
+version = "^0.0.2"
+
+[dependencies.ruzstd]
+version = "^0.9.1"
+
+[dependencies.sha2]
+version = "^0.11"
+
+[dependencies.sysinfo]
+version = "^0.38.4"
+features = ["system"]
+default-features = false
+
+[dependencies.unicode_normalization]
+package = "unicode-normalization"
+version = "^0.1"
+
+[dependencies.x25519_dalek_v2]
+package = "x25519-dalek"
+version = "^2"
+features = ["static_secrets"]
+
+[dependencies.zeroize]
+version = "^1.9"
+
+[dependencies.zstd]
+version = "^0.13.3"
+optional = true
+default-features = false
+
+[target."cfg(all(target_arch = \"wasm32\", target_os = \"unknown\"))".dependencies.getrandom]
+version = "^0.4"
+features = ["wasm_js"]
+
+[target."cfg(unix)".dependencies.libc]
+version = "^0.2"
+
+[dependencies.ed25519_dalek_v3]
+package = "ed25519-dalek"
+version = "^3"
+
+[dependencies.revault_page_api_v0_0_4]
+package = "revault_page_api"
+version = "^0.0.4"
+
+[dependencies.serde_json]
+version = "^1"
+
+[dependencies.x25519_dalek_v3]
+package = "x25519-dalek"
+version = "^3"
+features = ["static_secrets"]
+
+[target."cfg(windows)".dependencies.windows_sys_v0_61]
+package = "windows-sys"
+version = "^0.61"
+features = ["Win32_Foundation","Win32_System_Threading","Win32_Security","Win32_Security_Authorization","Win32_Storage_FileSystem","Win32_System_EventLog","Win32_System_IO","Win32_System_Memory","Win32_System_Power","Win32_System_Pipes","Win32_UI_WindowsAndMessaging"]
+
+[dependencies.base64ct]
+version = "^1"
+features = ["alloc"]
+
+[dependencies.serde]
+version = "^1"
+features = ["derive"]
+
+[target."cfg(target_os = \"linux\")".dependencies.dbus]
+version = "^0.9.11"
+
+[target."cfg(target_os = \"linux\")".dependencies.keyring]
+version = "^4.1.4"
+features = ["v1"]
+default-features = false
+
+[target."cfg(target_os = \"macos\")".dependencies.keyring]
+version = "^4.1.4"
+features = ["v1"]
+default-features = false
+
+[target."cfg(target_os = \"macos\")".dependencies.objc2_core_foundation]
+package = "objc2-core-foundation"
+version = "^0.3.2"
+features = ["CFRunLoop"]
+
+[target."cfg(target_os = \"macos\")".dependencies.objc2_io_kit]
+package = "objc2-io-kit"
+version = "^0.3.2"
+features = ["libc","pwr_mgt"]
+default-features = false
+
+[target."cfg(windows)".dependencies.keyring]
+version = "^4.1.4"
+features = ["v1"]
+default-features = false
+
+[target."cfg(windows)".dependencies.windows_sys_v0_59]
+package = "windows-sys"
+version = "^0.59"
+features = ["Win32_Foundation","Win32_Security","Win32_Security_Authorization","Win32_Storage_FileSystem","Win32_System_EventLog","Win32_System_IO","Win32_System_Memory","Win32_System_Power","Win32_System_Pipes","Win32_System_Threading","Win32_UI_WindowsAndMessaging"]
+
+[target."cfg(target_os = \"linux\")".dependencies.secret_service]
+package = "secret-service"
+version = "^5.1.0"
+features = ["rt-async-io-crypto-rust"]
+
+[target."cfg(target_os = \"linux\")".dependencies.zbus]
+version = "^5"
+features = ["async-io","blocking-api"]
+default-features = false
+
+[dependencies.revault_migration_format]
+version = "=0.0.4"
+[dev-dependencies]
+tempfile = "3"
+serde_json = "1"
+archive_fixture = { package = "revault_archive_v1_reader", path = "../revault_archive_v1_reader" }
+vault_fixture = { package = "revault_vault_v2_container_v1_reader", path = "../revault_vault_v2_container_v1_reader" }
+initial_fixture = { package = "revault_archive_v1_initial_reader", path = "../revault_archive_v1_initial_reader" }
+initial_vault_fixture = { package = "revault_vault_v1_reader", path = "../revault_vault_v1_reader" }

@@ -10,6 +10,7 @@ mod help;
 mod helpers;
 mod keys;
 mod migrate;
+mod migration_exporters;
 mod mirror;
 mod mirror_index;
 mod output;

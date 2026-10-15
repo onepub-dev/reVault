@@ -201,7 +201,7 @@ fn source_tree(dir: &Path, repo: &Path) -> TaskResult {
         "rust/revault_lockbox_api/src",
         "rust/revault_lockbox_api/tests",
         "rust/revault_lockbox_api/examples",
-        "rust/revault_page_api/src",
+        "rust/revault_secure_memory/src",
         "rust/revault_vault_api/src",
         "rust/revault_vault_api/tests",
         "rust/tools",

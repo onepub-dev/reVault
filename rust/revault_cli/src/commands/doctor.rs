@@ -15,6 +15,18 @@ use std::path::Path;
 pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()> {
     if let Some((command, command_matches)) = matches.subcommand() {
         match command {
+            "compact" => {
+                let path = super::default_lockbox_for_command()?;
+                let mut opened = super::context::open_existing(&path, access)?;
+                let before = std::fs::metadata(&path)?.len();
+                opened.compact()?;
+                let after = std::fs::metadata(&path)?.len();
+                println!(
+                    "Compacted and verified: {before} -> {after} bytes ({} bytes reclaimed).",
+                    before.saturating_sub(after)
+                );
+                return Ok(());
+            }
             "recover" => {
                 super::default_lockbox_for_command()?;
                 return super::recovery::run_matches(command_matches, access);
@@ -35,7 +47,16 @@ pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()
         None => None,
     };
     match selected {
-        Some(lockbox) => run_lockbox(&lockbox, access, matches.get_flag("verbose")),
+        Some(lockbox) => {
+            if matches.get_flag("deep") {
+                let opened = open_existing_read_only(&lockbox, access)?;
+                opened.inspector().verify_storage()?;
+                println!(
+                    "Deep storage check: all allocations accounted for; reusable space is zero."
+                );
+            }
+            run_lockbox(&lockbox, access, matches.get_flag("verbose"))
+        }
         None => run_global(),
     }
 }

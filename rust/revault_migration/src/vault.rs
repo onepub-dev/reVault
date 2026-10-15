@@ -15,6 +15,70 @@ use std::fs::{File, OpenOptions};
 use std::io::{BufReader, BufWriter};
 use std::path::Path;
 
+/// Recovers the established Vault container signer from a fully authenticated
+/// raw-container migration artifact, without opening the historical archive.
+///
+/// The selected key must match the owner fingerprint recorded by the frozen
+/// reader. This preserves the container owner even after profile rotation.
+pub fn vault_container_signing_key_from_artifact<P: MigrationPassphrase + ?Sized>(
+    artifact: &Path,
+    passphrase: &P,
+) -> Result<OwnerSigningKeyPair> {
+    crate::verify_archive_artifact(artifact, passphrase)?;
+    let expected = crate::archive_owner_fingerprint(artifact, passphrase)?.ok_or_else(|| {
+        MigrationError::CorruptFrame("Vault container artifact has no established owner".into())
+    })?;
+    let mut reader = ArtifactReader::new_with_passphrase(
+        BufReader::new(File::open(artifact).map_err(io_error)?),
+        passphrase,
+    )?;
+    let default = format!(
+        "LOCKBOX_VAULT_SIGNING_KEY_{}",
+        revault_vault_api::encode_hex(b"default").to_ascii_uppercase()
+    );
+    let generation = format!("{default}_GEN_");
+    let mut owner = None;
+    while let Some((kind, bytes)) = reader.next_frame()? {
+        let bytes = zeroize::Zeroizing::new(bytes);
+        if kind != crate::JSON_FRAME_TYPE {
+            continue;
+        }
+        let record: MigrationRecord = serde_json::from_slice(&bytes)
+            .map_err(|error| MigrationError::Serialization(error.to_string()))?;
+        let MigrationRecord::Archive(crate::ArchiveRecord::Variable { name, value, .. }) = record
+        else {
+            continue;
+        };
+        let name = name.strip_prefix('/').unwrap_or(&name);
+        let dedicated = name == "LOCKBOX_VAULT_CONTAINER_SIGNING_KEY";
+        if !dedicated && name != default && !name.starts_with(&generation) {
+            continue;
+        }
+        let encoded = std::str::from_utf8(value.as_slice())
+            .map_err(|error| MigrationError::Serialization(error.to_string()))?;
+        let key = OwnerSigningKeyPair::from_private_key_record(
+            SecretVec::try_from_vec(revault_vault_api::decode_hex(encoded).map_err(io_error)?)
+                .map_err(core_error)?,
+        )
+        .map_err(core_error)?;
+        if key.fingerprint().map_err(core_error)? == expected {
+            owner = Some(key);
+        } else if dedicated {
+            return Err(MigrationError::CorruptFrame(
+                "Vault container signer does not match its established owner".into(),
+            ));
+        }
+    }
+    if !reader.is_complete() {
+        return Err(MigrationError::Incomplete);
+    }
+    owner.ok_or_else(|| {
+        MigrationError::CorruptFrame(
+            "Vault artifact lacks its established container signing key".into(),
+        )
+    })
+}
+
 /// Exports the current vault structure, including password profiles.
 pub fn export_vault<P: MigrationPassphrase + ?Sized>(
     vault: &VaultDirectory,

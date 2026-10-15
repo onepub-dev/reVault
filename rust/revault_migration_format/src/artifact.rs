@@ -2,7 +2,7 @@ use crate::{ArtifactKind, MigrationHeader};
 use argon2::{Algorithm, Argon2, Params, Version};
 use chacha20poly1305::aead::{Aead, KeyInit, Payload};
 use chacha20poly1305::{ChaCha20Poly1305, Key, Nonce};
-use revault_page_api::{SecureString, SecureVec};
+use revault_secure_memory::{SecureString, SecureVec};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use sha2::{Digest, Sha256};

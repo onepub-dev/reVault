@@ -26,6 +26,17 @@ const VAULT_PASSWORD: &str = "migration vault password";
 const LOCKBOX_PASSWORD: &str = "migration lockbox password";
 const ARTIFACT_PASSWORD: &str = "migration artifact password";
 
+// No public writer emits future formats. Keep synthetic refusal fixtures
+// checksummed so a damaged current header cannot masquerade as a future one.
+fn checksum_future_header(slot: &mut [u8]) {
+    use sha2::{Digest, Sha256};
+    let mut checksum = Sha256::new();
+    checksum.update(b"lockbox-v1-public-checksum/sha256");
+    checksum.update(160_u64.to_le_bytes());
+    checksum.update(&slot[..160]);
+    slot[160..192].copy_from_slice(&checksum.finalize());
+}
+
 #[test]
 fn migrated_mirror_preserves_configuration_and_update_lifecycle() {
     let fixture = Fixture::new("migration-mirror-lifecycle");
@@ -421,9 +432,12 @@ fn vault_v2_replace_preserves_profile_keys_and_supports_password_profiles() {
     assert_success(&doctor);
     let report = String::from_utf8_lossy(&doctor.stdout);
     assert!(report.contains("container format version: 2"), "{report}");
-    assert!(report.contains("structure version: 2"), "{report}");
     assert!(
-        report.contains("status: upgrade required; run: lbx doctor migrate vault --replace"),
+        report.contains("structure version: not read (unsupported container)"),
+        "{report}"
+    );
+    assert!(
+        report.contains("status: local vault upgrade required; migrate the Vault and all known Lockboxes: lbx doctor migrate all --replace"),
         "{report}"
     );
     assert!(
@@ -432,7 +446,7 @@ fn vault_v2_replace_preserves_profile_keys_and_supports_password_profiles() {
     );
     assert!(!report.contains("migrate lockbox"), "{report}");
     assert_eq!(std::fs::read(&container).unwrap(), before_bytes);
-    let exporter = build_selected_exporter("revault_migrate_vault_v2", "revault-migrate-vault-v2");
+    let exporter = build_selected_exporter("revault_migrate_v2", "revault-migrate-vault-v2");
     fixture.success(&[
         "doctor",
         "migrate",
@@ -670,6 +684,56 @@ fn archive_v1_contact_only_migration_uses_keys_from_the_current_vault() {
         .unwrap();
     assert_success(&content);
     assert_eq!(content.stdout, b"opened by a migrated profile key");
+    // Migration selects this Vault's default signer, so its rightful owner
+    // may still write after opening through a different contact profile.
+    let owner_write = fixture
+        .command(&[path(&source), "variable", "set", "OWNER_WRITE", "allowed"])
+        .env_remove("LOCKBOX_KEY")
+        .test_output()
+        .unwrap();
+    assert_success(&owner_write);
+    let backup = fixture.root.join("recipient-profile.backup");
+    fixture.success(&[
+        "vault",
+        "profile",
+        "backup",
+        path(&backup),
+        "--name",
+        "legacy",
+    ]);
+    fixture.success(&["session", "stop"]);
+    // A separate Vault receives only the contact profile, not the migration
+    // owner's default signing key. Public backup/restore models a recipient.
+    let recipient = Fixture::new("migration-contact-recipient");
+    recipient.init_current_vault();
+    recipient.success(&["vault", "profile", "restore", path(&backup)]);
+    let opened = recipient
+        .command(&[path(&source), "open"])
+        .env_remove("LOCKBOX_KEY")
+        .test_output()
+        .unwrap();
+    assert_success(&opened);
+    let read = recipient
+        .command(&[path(&source), "cat", "/contact.txt"])
+        .env_remove("LOCKBOX_KEY")
+        .test_output()
+        .unwrap();
+    assert_success(&read);
+    assert_eq!(read.stdout, b"opened by a migrated profile key");
+    let before_write = std::fs::read(&source).unwrap();
+    let denied = recipient
+        .command(&[
+            path(&source),
+            "variable",
+            "set",
+            "RECIPIENT_WRITE",
+            "denied",
+        ])
+        .env_remove("LOCKBOX_KEY")
+        .test_output()
+        .unwrap();
+    assert_failure_contains(&denied, "owner");
+    assert_eq!(std::fs::read(&source).unwrap(), before_write);
 }
 
 #[test]
@@ -678,7 +742,7 @@ fn automatic_historical_exporter_install_hides_cargo_output() {
     fixture.init_v1_vault();
     let exporter = build_historical_vault_exporter();
     let fake_cargo = build_fake_cargo(&fixture.root);
-    let home = fixture.root.join("home");
+    let home = fixture.root.join("installer-home");
 
     let output = fixture
         .command(&["doctor", "migrate", "vault", "--replace"])
@@ -715,6 +779,7 @@ impl Fixture {
     fn new(prefix: &str) -> Self {
         let temp = TestTempDir::new(prefix);
         let root = temp.path().canonicalize().unwrap();
+        prepare_exporter_cache(&root);
         let vault = root.join("vault");
         let agent = common::agent_socket_dir(&root.join("agent"));
         let agent_guard = common::TestAgentGuard::new(&agent, Some(&vault));
@@ -759,6 +824,29 @@ impl Fixture {
         archive
     }
 
+    fn historical_v2_signer(&self) -> revault_lockbox_api_structure_v2::OwnerSigningKeyPair {
+        // Export through the public CLI, then use the frozen writer only to
+        // create an old-format fixture owned by this same Vault profile.
+        let backup = self.root.join("historical-owner-backup.txt");
+        self.success(&["vault", "profile", "backup", path(&backup), "--overwrite"]);
+        let text = zeroize::Zeroizing::new(std::fs::read_to_string(backup).unwrap());
+        let encoded = zeroize::Zeroizing::new(
+            text.split_once("Owner signing private key record (hex):")
+                .unwrap()
+                .1
+                .split_whitespace()
+                .collect::<String>(),
+        );
+        revault_lockbox_api_structure_v2::OwnerSigningKeyPair::from_private_key_record(
+            revault_lockbox_api_structure_v2::SecretVec::try_from_vec(
+                revault_vault_api::decode_hex(&encoded).unwrap(),
+            )
+            .unwrap(),
+        )
+        .unwrap()
+    }
+
+    #[track_caller]
     fn success(&self, args: &[&str]) -> Output {
         let output = self.run(args);
         assert_success(&output);
@@ -787,6 +875,8 @@ impl Fixture {
         let mut command = Command::new(env!("CARGO_BIN_EXE_lockbox"));
         command
             .args(args)
+            .env("HOME", self.root.join("home"))
+            .env("LOCKBOX_TEST_IGNORE_INSTALLED_EXPORTER", "1")
             .env("LOCKBOX_VAULT_DIR", &self.vault)
             .env("LOCKBOX_VAULT_PASSWORD", VAULT_PASSWORD)
             .env("LOCKBOX_PASSWORD", LOCKBOX_PASSWORD)
@@ -799,97 +889,95 @@ impl Fixture {
     }
 }
 
-fn build_selected_exporter(package: &str, binary: &str) -> PathBuf {
-    // Release verification can run this same persisted-content lifecycle with
-    // binaries installed from crates.io, without substituting workspace builds.
-    if let Some(root) = std::env::var_os("REVAULT_TEST_INSTALLED_EXPORTERS") {
-        let path = PathBuf::from(root).join(format!("{binary}{}", std::env::consts::EXE_SUFFIX));
+fn exporter_binaries() -> &'static std::collections::BTreeMap<String, PathBuf> {
+    static BINARIES: std::sync::OnceLock<std::collections::BTreeMap<String, PathBuf>> =
+        std::sync::OnceLock::new();
+    BINARIES.get_or_init(|| {
+        if let Some(root) = std::env::var_os("REVAULT_TEST_INSTALLED_EXPORTERS") {
+            return (1..=3)
+                .flat_map(|v| {
+                    ["archive", "vault"].map(move |kind| format!("revault-migrate-{kind}-v{v}"))
+                })
+                .map(|name| {
+                    let path = PathBuf::from(&root)
+                        .join(format!("{name}{}", std::env::consts::EXE_SUFFIX));
+                    assert!(
+                        path.is_file(),
+                        "installed exporter missing: {}",
+                        path.display()
+                    );
+                    (name, path)
+                })
+                .collect();
+        }
+        let output = Command::new(env!("CARGO"))
+            .current_dir(Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap())
+            .args([
+                "build",
+                "--locked",
+                "--offline",
+                "--bins",
+                "-p",
+                "revault_migrate_v1",
+                "-p",
+                "revault_migrate_v2",
+                "-p",
+                "revault_migrate_v3",
+                "--message-format=json",
+            ])
+            .output()
+            .unwrap();
         assert!(
-            path.is_file(),
-            "installed exporter missing: {}",
-            path.display()
+            output.status.success(),
+            "exporter build failed: {}",
+            String::from_utf8_lossy(&output.stderr)
         );
-        return path;
-    }
-    // Cargo's actual artifact path is authoritative for debug/release and
-    // CARGO_TARGET_DIR; the test executable's sibling directory is not.
-    let output = Command::new(env!("CARGO"))
-        .current_dir(Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap())
-        .args([
-            "build",
-            "--locked",
-            "--offline",
-            "-p",
-            package,
-            "--bin",
-            binary,
-            "--message-format=json",
-        ])
-        .output()
-        .unwrap();
-    assert!(
-        output.status.success(),
-        "exporter build failed: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let artifacts: Vec<PathBuf> = String::from_utf8(output.stdout)
-        .unwrap()
-        .lines()
-        .filter_map(|line| serde_json::from_str::<serde_json::Value>(line).ok())
-        .filter(|value| value["reason"] == "compiler-artifact" && value["target"]["name"] == binary)
-        .filter_map(|value| value["executable"].as_str().map(PathBuf::from))
-        .collect();
-    assert_eq!(
-        artifacts.len(),
-        1,
-        "expected one selected exporter executable"
-    );
-    assert!(artifacts[0].is_file());
-    artifacts.into_iter().next().unwrap()
+        let binaries: std::collections::BTreeMap<String, PathBuf> =
+            String::from_utf8(output.stdout)
+                .unwrap()
+                .lines()
+                .filter_map(|line| serde_json::from_str::<serde_json::Value>(line).ok())
+                .filter(|value| value["reason"] == "compiler-artifact")
+                .filter_map(|value| {
+                    Some((
+                        value["target"]["name"].as_str()?.to_owned(),
+                        PathBuf::from(value["executable"].as_str()?),
+                    ))
+                })
+                .filter(|(name, _)| name.starts_with("revault-migrate-"))
+                .collect();
+        assert_eq!(binaries.len(), 6);
+        binaries
+    })
+}
+
+fn build_selected_exporter(_package: &str, binary: &str) -> PathBuf {
+    exporter_binaries()[binary].clone()
 }
 
 fn build_historical_vault_exporter() -> PathBuf {
-    let status = Command::new(env!("CARGO"))
-        .current_dir(Path::new(env!("CARGO_MANIFEST_DIR")).join(".."))
-        .args([
-            "build",
-            "--quiet",
-            "-p",
-            "revault_migrate_vault_v1",
-            "--bin",
-            "revault-migrate-vault-v1",
-        ])
-        .status()
-        .unwrap();
-    assert!(status.success());
-    let extension = if cfg!(windows) { ".exe" } else { "" };
-    std::env::var_os("CARGO_TARGET_DIR")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| Path::new(env!("CARGO_MANIFEST_DIR")).join("../target"))
-        .join("debug")
-        .join(format!("revault-migrate-vault-v1{extension}"))
+    build_selected_exporter("revault_migrate_v1", "revault-migrate-vault-v1")
 }
 
 fn build_historical_archive_exporter() -> PathBuf {
-    let status = Command::new(env!("CARGO"))
-        .current_dir(Path::new(env!("CARGO_MANIFEST_DIR")).join(".."))
-        .args([
-            "build",
-            "--quiet",
-            "-p",
-            "revault_migrate_archive_v1",
-            "--bin",
-            "revault-migrate-archive-v1",
-        ])
-        .status()
-        .unwrap();
-    assert!(status.success());
-    let extension = if cfg!(windows) { ".exe" } else { "" };
-    std::env::var_os("CARGO_TARGET_DIR")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| Path::new(env!("CARGO_MANIFEST_DIR")).join("../target"))
-        .join("debug")
-        .join(format!("revault-migrate-archive-v1{extension}"))
+    build_selected_exporter("revault_migrate_v1", "revault-migrate-archive-v1")
+}
+
+fn prepare_exporter_cache(root: &Path) {
+    // Isolate installation state from the developer's home and registry. This
+    // is executable setup, not archive/Vault test-state manipulation. Tests
+    // still use the CLI's normal validated-cache lookup for automatic selection.
+    for (name, source) in exporter_binaries() {
+        let version = name.rsplit('v').next().unwrap();
+        let bin = root
+            .join("home/.cache/revault/exporters")
+            .join(format!("revault_migrate_v{version}-0.1.0/bin"));
+        std::fs::create_dir_all(&bin).unwrap();
+        let destination = bin.join(format!("{name}{}", std::env::consts::EXE_SUFFIX));
+        std::fs::hard_link(source, &destination)
+            .or_else(|_| std::fs::copy(source, &destination).map(|_| ()))
+            .unwrap();
+    }
 }
 
 fn build_fake_cargo(output_dir: &Path) -> PathBuf {
@@ -925,7 +1013,8 @@ fn assert_current_vault(root: &Path) {
     let before = std::fs::read(root.join("local-vault.lbox")).unwrap();
     let current = run(&["doctor", "migrate", "vault", "--replace"]);
     assert!(String::from_utf8_lossy(&current.stdout).contains(&format!(
-        "Vault already uses format version {}. No migration needed.",
+        "Vault already uses container format {} and structure version {}. No migration needed.",
+        revault_lockbox_api::LOCKBOX_FORMAT_VERSION,
         revault_vault_api::CURRENT_VAULT_STRUCTURE_VERSION
     )));
     assert_eq!(
@@ -961,13 +1050,14 @@ fn assert_current_vault(root: &Path) {
     assert_eq!(std::fs::read(second).unwrap(), public);
 }
 
+#[track_caller]
 fn assert_success(output: &Output) {
     assert!(
         output.status.success(),
-        "command failed: status={}, stdout_bytes={}, stderr_bytes={}",
+        "command failed: status={}, stdout_bytes={}, stderr={}",
         output.status,
         output.stdout.len(),
-        output.stderr.len()
+        String::from_utf8_lossy(&output.stderr)
     );
 }
 
@@ -980,9 +1070,9 @@ fn assert_failure_contains(output: &Output, expected: &str) {
     );
     assert!(
         rendered.contains(expected),
-        "expected diagnostic absent; status={}, output_bytes={}",
+        "expected diagnostic {expected:?} absent; status={}, stderr={}",
         output.status,
-        rendered.len()
+        String::from_utf8_lossy(&output.stderr)
     );
 }
 
@@ -1019,11 +1109,8 @@ fn damaged_format_two_recovers_with_current_cli_and_original_credentials() {
         } else {
             old::LockboxProtection::Password(&password)
         };
-        let mut archive = old::Lockbox::create_in_memory(
-            protection,
-            &old::OwnerSigningKeyPair::generate().unwrap(),
-        )
-        .unwrap();
+        let mut archive =
+            old::Lockbox::create_in_memory(protection, &fixture.historical_v2_signer()).unwrap();
         archive
             .add_file(
                 &old::LockboxPath::new("/damaged.bin").unwrap(),
@@ -1093,6 +1180,34 @@ fn damaged_format_two_recovers_with_current_cli_and_original_credentials() {
             "separate output",
         );
         if !contact_only {
+            // A password recipient has opening credentials but none of the
+            // source owner's keys. Scanning must work without signing authority;
+            // publishing a recovered copy must still preserve the owner.
+            let recipient = Fixture::new("historical-recovery-recipient");
+            recipient.init_current_vault();
+            let scan = recipient
+                .command(&[path(&source), "doctor", "recover", "--dry-run"])
+                .env_remove("LOCKBOX_KEY")
+                .test_output()
+                .unwrap();
+            assert_success(&scan);
+            let unauthorized = recipient
+                .command(&[
+                    path(&source),
+                    "doctor",
+                    "recover",
+                    "--output",
+                    path(&recovered),
+                ])
+                .env_remove("LOCKBOX_KEY")
+                .test_output()
+                .unwrap();
+            assert_failure_contains(
+                &unauthorized,
+                "established archive owner's signing key is unavailable",
+            );
+            assert!(!recovered.exists());
+            assert_eq!(std::fs::read(&source).unwrap(), damaged);
             let wrong = fixture
                 .command(&[
                     path(&source),
@@ -1152,7 +1267,8 @@ fn recovery_refuses_future_formats_without_writing_output() {
     // No current CLI writer can produce a future-format header.
     let mut bytes = vec![0; 384];
     bytes[..8].copy_from_slice(b"LBX4HDR\0");
-    bytes[8..10].copy_from_slice(&4_u16.to_le_bytes());
+    bytes[8..10].copy_from_slice(&5_u16.to_le_bytes());
+    checksum_future_header(&mut bytes[..192]);
     std::fs::write(&source, &bytes).unwrap();
     let result = fixture.run(&[
         path(&source),
@@ -1180,12 +1296,12 @@ fn all_migration_reports_partial_failures_and_can_be_repeated() {
     // known-path record; host removal models an unavailable remembered file.
     std::fs::remove_file(&missing).unwrap();
     use revault_lockbox_api_structure_v2 as old;
-    // Only fixture creation needs the historical API: current CLI writes v3.
+    // Only fixture creation needs the historical API: current CLI writes v4.
     let mut archive = old::Lockbox::create_in_memory(
         old::LockboxProtection::ContentKey(
             old::SecretVec::try_from_slice(b"migration-test-content-key").unwrap(),
         ),
-        &old::OwnerSigningKeyPair::generate().unwrap(),
+        &fixture.historical_v2_signer(),
     )
     .unwrap();
     archive
@@ -1199,7 +1315,17 @@ fn all_migration_reports_partial_failures_and_can_be_repeated() {
     let original = archive.try_to_bytes().unwrap();
     let source = fixture.root.join("historical.lbox");
     std::fs::write(&source, &original).unwrap();
-    fixture.success(&["vault", "lockboxes", "remember", path(&source)]);
+    // Current CLI cannot inspect an old-format header to remember its identity.
+    // Seed the record that a migrated historical Vault would already contain.
+    let password = SecretString::try_from_slice(VAULT_PASSWORD.as_bytes()).unwrap();
+    let vault = VaultDirectory::open_or_create(&fixture.vault, &password).unwrap();
+    vault
+        .remember_known_lockbox(
+            revault_lockbox_api::LockboxId::from_bytes(*archive.lockbox_id().as_bytes()),
+            &source,
+        )
+        .unwrap();
+    drop(vault);
     let current_bytes = std::fs::read(&current).unwrap();
     assert_failure_contains(&fixture.run(&["doctor", "migrate", "all"]), "--replace");
     let result = fixture.run(&["doctor", "migrate", "all", "--replace"]);
@@ -1357,11 +1483,8 @@ fn closed_format_two_archive_migrates_without_normal_open_or_auto_open() {
         } else {
             old::LockboxProtection::Password(&password)
         };
-        let mut archive = old::Lockbox::create_in_memory(
-            protection,
-            &old::OwnerSigningKeyPair::generate().unwrap(),
-        )
-        .unwrap();
+        let mut archive =
+            old::Lockbox::create_in_memory(protection, &fixture.historical_v2_signer()).unwrap();
         let payload = b"closed historical payload\0\xff";
         archive
             .add_file(&old::LockboxPath::new("/payload").unwrap(), payload, false)
@@ -1421,7 +1544,7 @@ fn older_archive_is_refused_normally_then_explicitly_migrated() {
     // setup uses the pinned released API; all operations and content assertions
     // after setup use separate public CLI invocations.
     use revault_lockbox_api_structure_v2 as old;
-    let signer = old::OwnerSigningKeyPair::generate().unwrap();
+    let signer = fixture.historical_v2_signer();
     let mut archive = old::Lockbox::create_in_memory(
         old::LockboxProtection::ContentKey(
             old::SecretVec::try_from_slice(b"migration-test-content-key").unwrap(),
@@ -1514,7 +1637,7 @@ fn doctor_reports_vault_versions_and_future_vault_errors_identify_the_path() {
     assert_success(&doctor);
     let report = String::from_utf8_lossy(&doctor.stdout);
     assert!(
-        report.contains("Local vault\n  container format version: 3\n"),
+        report.contains("Local vault\n  container format version: 4\n"),
         "{report}"
     );
     assert!(report.contains("structure version: 3"), "{report}");
@@ -1528,11 +1651,11 @@ fn doctor_reports_vault_versions_and_future_vault_errors_identify_the_path() {
     assert_success(&closed);
     let report = String::from_utf8_lossy(&closed.stdout);
     assert!(
-        report.starts_with("Lockbox\n  format version: 3\n"),
+        report.starts_with("Lockbox\n  format version: 4\n"),
         "{report}"
     );
     assert!(
-        report.contains("Local vault\n  container format version: 3\n"),
+        report.contains("Local vault\n  container format version: 4\n"),
         "{report}"
     );
     assert!(
@@ -1545,11 +1668,12 @@ fn doctor_reports_vault_versions_and_future_vault_errors_identify_the_path() {
 
     // The current CLI cannot create a future container. Change only opaque
     // test header bytes to exercise refusal, then verify them unchanged.
-    for (version, slot) in [(4_u16, 0_usize), (5, 192)] {
+    for (version, slot) in [(5_u16, 0_usize), (6, 192)] {
         let mut future = original.clone();
         future[..384].fill(0);
         future[slot..slot + 8].copy_from_slice(b"LBX4HDR\0");
         future[slot + 8..slot + 10].copy_from_slice(&version.to_le_bytes());
+        checksum_future_header(&mut future[slot..slot + 192]);
         std::fs::write(&container, &future).unwrap();
         let aliases = fixture.run(&["vault", "lockbox", "alias", "list"]);
         assert_failure_contains(&aliases, path(&container));
@@ -1582,7 +1706,7 @@ fn doctor_reports_vault_versions_and_future_vault_errors_identify_the_path() {
         let selected = fixture.success(&[path(&archive), "doctor"]);
         let selected = String::from_utf8_lossy(&selected.stdout);
         assert!(
-            selected.starts_with("Lockbox\n  format version: 3\n"),
+            selected.starts_with("Lockbox\n  format version: 4\n"),
             "{selected}"
         );
         assert!(
@@ -1644,12 +1768,43 @@ fn vault_v3_container_upgrade_preserves_profiles_and_enables_compaction() {
         )
         .unwrap();
     legacy.commit().unwrap();
+    let archive_id = legacy.lockbox_id();
+    vault.remember_known_lockbox(archive_id, &archive).unwrap();
     drop(legacy);
     let original_archive = std::fs::read(&archive).unwrap();
+    let container_signer = vault.load_owner_signing_key("default").unwrap();
     drop(vault);
+    // No current CLI can add records to a historical Vault. Seed the exact
+    // released alias record plus an unknown binary record through its frozen
+    // API; verify both through separate CLI reads after migration.
+    let mut old_container = archive_v3::Lockbox::open_with_signer(
+        &fixture.vault.join("local-vault.lbox"),
+        archive_v3::LockboxOpen::Password(&password),
+        |_| Ok(container_signer),
+    )
+    .unwrap();
+    let mut alias = b"LBLA".to_vec();
+    alias.extend_from_slice(&1_u16.to_be_bytes());
+    alias.extend_from_slice(archive_id.as_bytes());
+    old_container
+        .add_file(
+            &archive_v3::LockboxPath::new("/lockbox_aliases/retained.lbla").unwrap(),
+            &alias,
+            false,
+        )
+        .unwrap();
+    let opaque = b"opaque Vault extension\0\xff".repeat(8193);
+    old_container
+        .add_file(
+            &archive_v3::LockboxPath::new("/future-extension/payload").unwrap(),
+            &opaque,
+            false,
+        )
+        .unwrap();
+    old_container.commit().unwrap();
+    drop(old_container);
     let original = std::fs::read(fixture.vault.join("local-vault.lbox")).unwrap();
-    let exporter =
-        build_selected_exporter("revault_migrate_archive_v3", "revault-migrate-vault-v3");
+    let exporter = build_selected_exporter("revault_migrate_v3", "revault-migrate-vault-v3");
     fixture.success(&[
         "doctor",
         "migrate",
@@ -1663,6 +1818,38 @@ fn vault_v3_container_upgrade_preserves_profiles_and_enables_compaction() {
         std::fs::read(backup.join("local-vault.lbox")).unwrap(),
         original
     );
+    let aliases = fixture.success(&["vault", "lockbox", "alias", "list"]);
+    assert!(String::from_utf8_lossy(&aliases.stdout).contains("retained"));
+    // Use a separate credential Vault/session so the target container is not
+    // also held open as this command's own credential store.
+    let verification = Fixture::new("raw-vault-public-verification");
+    verification.init_current_vault();
+    let opaque_open = verification
+        .command(&[path(&fixture.vault.join("local-vault.lbox")), "open"])
+        .env_remove("LOCKBOX_KEY")
+        .env("LOCKBOX_PASSWORD", VAULT_PASSWORD)
+        .test_output()
+        .unwrap();
+    assert_success(&opaque_open);
+    let opaque_read = verification
+        .command(&[
+            path(&fixture.vault.join("local-vault.lbox")),
+            "cat",
+            "/future-extension/payload",
+        ])
+        .env_remove("LOCKBOX_KEY")
+        .env("LOCKBOX_PASSWORD", VAULT_PASSWORD)
+        .test_output()
+        .unwrap();
+    assert_success(&opaque_read);
+    assert_eq!(opaque_read.stdout, opaque);
+    let opaque_close = verification
+        .command(&[path(&fixture.vault.join("local-vault.lbox")), "close"])
+        .env_remove("LOCKBOX_KEY")
+        .test_output()
+        .unwrap();
+    assert_success(&opaque_close);
+    drop(verification);
     fixture.success(&[
         "vault",
         "profile",
@@ -1695,7 +1882,7 @@ fn vault_v3_container_upgrade_preserves_profiles_and_enables_compaction() {
         b"retained profile password"
     );
     let archive_exporter =
-        build_selected_exporter("revault_migrate_archive_v3", "revault-migrate-archive-v3");
+        build_selected_exporter("revault_migrate_v3", "revault-migrate-archive-v3");
     fixture.success(&[
         "doctor",
         "migrate",
@@ -1712,6 +1899,81 @@ fn vault_v3_container_upgrade_preserves_profiles_and_enables_compaction() {
     fixture.success(&[path(&archive), "doctor", "compact"]);
     let content = fixture.success(&[path(&archive), "cat", "/notes.txt"]);
     assert_eq!(content.stdout, b"migration content");
-    fixture.success(&[path(&archive), "doctor", "--deep"]);
+    assert_eq!(
+        fixture.success(&["a@retained", "cat", "/notes.txt"]).stdout,
+        b"migration content"
+    );
+    let deep = fixture.success(&[path(&archive), "doctor", "--deep"]);
+    assert!(String::from_utf8_lossy(&deep.stdout)
+        .contains("Deep storage check: all allocations accounted for"));
     fixture.success(&["doctor", "migrate", "vault", "--replace"]);
+}
+
+#[test]
+fn automatic_exporter_discovery_skips_obsolete_protocol_but_explicit_selection_refuses_it() {
+    let fixture = Fixture::new("obsolete-exporter-discovery");
+    // Historical setup requires the frozen writer; replacement and persisted
+    // profile verification below use separate public CLI invocations.
+    let password = vault_v3::SecretString::try_from_slice(VAULT_PASSWORD.as_bytes()).unwrap();
+    let vault = vault_v3::VaultDirectory::replace(&fixture.vault, &password).unwrap();
+    vault
+        .store_private_key("default", &archive_v3::ContactKeyPair::generate().unwrap())
+        .unwrap();
+    drop(vault);
+    let container = fixture.vault.join("local-vault.lbox");
+    let original = std::fs::read(&container).unwrap();
+    let bin = fixture.root.join("older-install");
+    std::fs::create_dir(&bin).unwrap();
+    let lockbox = bin.join(format!("lockbox{}", std::env::consts::EXE_SUFFIX));
+    std::fs::hard_link(env!("CARGO_BIN_EXE_lockbox"), &lockbox)
+        .or_else(|_| std::fs::copy(env!("CARGO_BIN_EXE_lockbox"), &lockbox).map(|_| ()))
+        .unwrap();
+    let obsolete = bin.join(format!(
+        "revault-migrate-vault-v3{}",
+        std::env::consts::EXE_SUFFIX
+    ));
+    assert!(Command::new("rustc")
+        .args(["--edition=2021"])
+        .arg(Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/support/legacy_vault_exporter.rs"))
+        .arg("-o")
+        .arg(&obsolete)
+        .status()
+        .unwrap()
+        .success());
+    let selected = fixture.run(&[
+        "doctor",
+        "migrate",
+        "vault",
+        "--replace",
+        "--exporter",
+        path(&obsolete),
+    ]);
+    assert_failure_contains(&selected, "capabilities do not match");
+    assert_eq!(std::fs::read(&container).unwrap(), original);
+    let template = fixture.command(&[]);
+    let mut command = Command::new(&lockbox);
+    for (name, value) in template.get_envs() {
+        if let Some(value) = value {
+            command.env(name, value);
+        }
+    }
+    let migrated = command
+        .args(["doctor", "migrate", "vault", "--replace"])
+        .env_remove("LOCKBOX_TEST_IGNORE_INSTALLED_EXPORTER")
+        .test_output()
+        .unwrap();
+    assert_success(&migrated);
+    assert_eq!(
+        std::fs::read(
+            fixture
+                .vault
+                .with_file_name("vault.v3-v3.pre-migration")
+                .join("local-vault.lbox")
+        )
+        .unwrap(),
+        original
+    );
+    let profiles = fixture.success(&["vault", "profile", "list"]);
+    assert!(String::from_utf8_lossy(&profiles.stdout).contains("default"));
+    assert_current_vault(&fixture.vault);
 }

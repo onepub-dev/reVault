@@ -776,7 +776,7 @@ fn luarocks_arch(target: &str) -> Result<&'static str> {
 
 fn rust_foundation(packages: &Path, publish: bool) -> Result {
     for name in [
-        "revault_page_api",
+        "revault_secure_memory",
         "revault_lockbox_api",
         "revault_vault_api",
     ] {

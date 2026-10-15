@@ -37,7 +37,7 @@ impl Scope {
 }
 #[derive(Args)]
 #[command(
-    long_about = "Prepare a release candidate without publishing. Requires a clean checkout, Git, Cargo and an authenticated GitHub CLI. Updates versions, dependencies and release notes, commits the release, pushes an isolated candidate ref, and waits for CI. Prints and remembers the candidate ID. Use release publish to promote it. See rust/revault_tooling/RELEASE.txt."
+    long_about = "Prepare a release candidate without publishing packages. Requires a clean main checkout, Git, Cargo and an authenticated GitHub CLI. Updates versions and release notes, commits and pushes main, creates an immutable candidate ref at that same commit, and waits for CI. Prints and remembers the candidate ID. Use release publish to promote it. See rust/revault_tooling/RELEASE.txt."
 )]
 pub struct Prepare {
     #[arg(value_enum, default_value = "all")]
@@ -237,7 +237,20 @@ impl GitHub {
             &string(&run, "head_sha")?,
             &self.artifacts(id)?,
         )?;
+        self.require_main_source(&candidate.source_sha)?;
         Ok(candidate)
+    }
+    fn require_main_source(&self, sha: &str) -> Result<()> {
+        if !valid_sha(sha) {
+            return Err("Invalid candidate source commit".into());
+        }
+        // Main may advance after preparation, but the immutable candidate must
+        // remain in its history. A development-branch-only commit is refused.
+        let comparison = self.api(&format!("compare/{sha}...main"))?;
+        if !main_contains_candidate(&comparison, sha) {
+            return Err("Release source must be a commit merged into remote main".into());
+        }
+        Ok(())
     }
     fn dispatch(&self, source_ref: &str, inputs: Value, title: &str) -> Result<u64> {
         // A unique immutable branch plus mode-specific run title disambiguates concurrent dispatches.
@@ -779,10 +792,137 @@ fn validate(c: &Candidate, repo: &str, id: u64, sha: &str, artifacts: &[Artifact
     if c.scope != Scope::Cli {
         version(&c.bindings_version)?;
     }
+    require_declared_release_line(&c.cli_version, &c.bindings_version)?;
     Ok(())
 }
 fn valid_sha(s: &str) -> bool {
     s.len() == 40 && s.bytes().all(|c| c.is_ascii_hexdigit())
+}
+
+fn main_contains_candidate(comparison: &Value, sha: &str) -> bool {
+    matches!(comparison["status"].as_str(), Some("identical" | "ahead"))
+        && comparison["merge_base_commit"]["sha"] == sha
+}
+
+fn frozen_migration_package(name: &str) -> bool {
+    name == "revault_migration_format"
+        || name.starts_with("revault_migrate_")
+        || name.starts_with("revault_archive_v")
+        || name.starts_with("revault_vault_v")
+}
+
+fn require_matching_compatibility_lines(cli: &str, bindings: &str) -> Result<()> {
+    let line = |value: &str| -> Result<(u64, u64)> {
+        let version = semver::Version::parse(value)?;
+        Ok((
+            version.major,
+            if version.major == 0 { version.minor } else { 0 },
+        ))
+    };
+    if line(cli)? != line(bindings)? {
+        return Err(format!("CLI {cli} and bindings {bindings} must use the same compatibility line (0.minor before 1.0, major thereafter); prepare both components together for a new line").into());
+    }
+    Ok(())
+}
+
+fn require_declared_release_line(cli: &str, bindings: &str) -> Result<()> {
+    let declaration: Value =
+        serde_json::from_str(include_str!("../../release-compatibility.json"))?;
+    let line = declaration["public_line"]
+        .as_str()
+        .ok_or("Missing public compatibility line")?;
+    let baseline = declaration["baseline_cli_version"]
+        .as_str()
+        .ok_or("Missing published compatibility baseline")?;
+    require_matching_compatibility_lines(baseline, line)?;
+    let constant = |source: &str, name: &str| -> Result<u64> {
+        let declaration = source
+            .lines()
+            .find(|line| line.starts_with(&format!("pub const {name}:")))
+            .ok_or_else(|| format!("Missing format constant {name}"))?;
+        Ok(declaration
+            .split_once('=')
+            .ok_or("Invalid format constant")?
+            .1
+            .trim()
+            .trim_end_matches(';')
+            .parse()?)
+    };
+    let archive = constant(
+        include_str!("../../revault_lockbox_api/src/file_format/current_header.rs"),
+        "LOCKBOX_FORMAT_VERSION",
+    )?;
+    let vault = constant(
+        include_str!("../../revault_vault_api/src/vault_directory.rs"),
+        "CURRENT_VAULT_STRUCTURE_VERSION",
+    )?;
+    if declaration["lockbox_format"].as_u64() != Some(archive)
+        || declaration["vault_structure"].as_u64() != Some(vault)
+    {
+        return Err("Runtime formats differ from release-compatibility.json; explicitly declare and validate the new compatibility line before release".into());
+    }
+    for selected in [cli, bindings]
+        .into_iter()
+        .filter(|version| !version.is_empty())
+    {
+        require_matching_compatibility_lines(selected, line)?;
+    }
+    Ok(())
+}
+
+/// Only sealed, successful candidate evidence from a source on main is reusable.
+pub(crate) fn verified_exporter_report(repository: &Path, id: u64) -> Result<Vec<u8>> {
+    let gh = GitHub::new(repository)?;
+    let candidate = gh.load(id)?;
+    if candidate.scope == Scope::Bindings
+        || candidate.source_sha != output(&gh.root, "git", &["rev-parse", "HEAD"])?
+    {
+        return Err("Exporter evidence must belong to this exact CLI candidate source".into());
+    }
+    let name = "migration-exporter-verification";
+    if candidate
+        .artifacts
+        .iter()
+        .filter(|artifact| artifact.name == name)
+        .count()
+        != 1
+    {
+        return Err("Candidate has no unique sealed migration exporter verification report".into());
+    }
+    let temporary = tempfile::tempdir()?;
+    run_command(
+        &gh.root,
+        "gh",
+        &[
+            "run",
+            "download",
+            &id.to_string(),
+            "--repo",
+            &gh.repo,
+            "--name",
+            name,
+            "--dir",
+            &temporary.path().to_string_lossy(),
+        ],
+    )?;
+    // Artifact IDs and digests must still match the sealed manifest after fetch.
+    validate(
+        &candidate,
+        &gh.repo,
+        id,
+        &candidate.source_sha,
+        &gh.artifacts(id)?,
+    )?;
+    Ok(fs::read(temporary.path().join("migration-exporters.json"))?)
+}
+
+pub(crate) fn require_main_release_source(repository: &Path) -> Result<()> {
+    let gh = GitHub::new(repository)?;
+    if !output(&gh.root, "git", &["diff", "HEAD", "--name-only"])?.is_empty() {
+        return Err("Commit tracked source changes to main before publishing packages".into());
+    }
+    let sha = output(&gh.root, "git", &["rev-parse", "HEAD"])?;
+    gh.require_main_source(&sha)
 }
 fn version(s: &str) -> Result<()> {
     if s.split('.').count() != 3
@@ -827,6 +967,9 @@ pub fn prepare(mut args: Prepare) -> Result<()> {
     }
 
     let gh = GitHub::new(&args.repository)?;
+    if output(&gh.root, "git", &["branch", "--show-current"])? != "main" {
+        return Err("Release preparation must run from main; merge development work first".into());
+    }
     let workflow = gh.api(&format!("actions/workflows/{WORKFLOW}"))?;
     if workflow["state"] != "active" {
         return Err(
@@ -855,6 +998,9 @@ pub fn prepare(mut args: Prepare) -> Result<()> {
         args.bindings_version,
     )?;
     let sha = output(&gh.root, "git", &["rev-parse", "HEAD"])?;
+    // A normal fast-forward push refuses concurrent remote-main changes.
+    run_command(&gh.root, "git", &["push", "origin", "HEAD:refs/heads/main"])?;
+    gh.require_main_source(&sha)?;
     let nonce = SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos();
     let source_ref = format!("release-candidates/{}-{nonce}", &sha[..12]);
     // Deliberately not a release tag: prepare never triggers publication.
@@ -1339,6 +1485,7 @@ pub fn ci(args: Ci) -> Result<()> {
             artifacts: gh.artifacts(id)?,
         };
         validate(&c, &gh.repo, id, &source_sha, &c.artifacts)?;
+        gh.require_main_source(&source_sha)?;
         fs::write(args.output, serde_json::to_vec_pretty(&c)?)?;
     } else {
         let c = gh.load(args.candidate.ok_or("--candidate is required")?)?;
@@ -1500,12 +1647,27 @@ fn prepare_versions(
     if !bindings.is_empty() {
         version(&bindings)?;
     }
+    let selected_cli = if cli.is_empty() {
+        string(cli_package, "version")?
+    } else {
+        cli.clone()
+    };
+    let selected_bindings = if bindings.is_empty() {
+        current.to_owned()
+    } else {
+        bindings.clone()
+    };
+    require_matching_compatibility_lines(&selected_cli, &selected_bindings)?;
+    require_declared_release_line(&selected_cli, &selected_bindings)?;
     let mut versions = BTreeMap::new();
     for p in packages {
         if p["publish"].as_array().is_some_and(|v| v.is_empty()) {
             continue;
         }
         let name = string(p, "name")?;
+        if frozen_migration_package(&name) || name == "revault_secure_memory" {
+            continue;
+        }
         if !crate::release::CLI_PUBLISH_PACKAGES.contains(&name.as_str())
             && !["revault_bindings", "revault_wasm_bindings"].contains(&name.as_str())
         {
@@ -1517,7 +1679,7 @@ fn prepare_versions(
         // CLI publishes its complete dependency chain; bindings publish their API dependencies.
         if scope == Scope::Bindings
             && ![
-                "revault_page_api",
+                "revault_secure_memory",
                 "revault_lockbox_api",
                 "revault_vault_api",
                 "revault_bindings",
@@ -1545,6 +1707,11 @@ fn prepare_versions(
             .and_then(|p| p.get("name"))
             .and_then(|n| n.as_str())
         {
+            // Historical code and its dependency requirements are frozen too;
+            // changing them requires an explicit exporter release and new pin.
+            if frozen_migration_package(name) {
+                continue;
+            }
             if let Some(v) = versions.get(name) {
                 doc["package"]["version"] = toml_edit::value(v);
             }
@@ -1648,7 +1815,9 @@ fn prepare_versions(
             "commit",
             "-m",
             &format!(
-                "Prepare {} release: CLI {cli}, bindings {bindings}",
+                // Only push/PR checks honor this marker. The explicit candidate
+                // dispatch owns required checks for this generated revision.
+                "Prepare {} release: CLI {cli}, bindings {bindings} [skip ci]",
                 scope.name()
             ),
         ],
@@ -1867,6 +2036,66 @@ fn update_dependencies(table: &mut toml_edit::Table, versions: &BTreeMap<String,
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn public_versions_share_the_declared_compatibility_line() {
+        for (cli, bindings) in [
+            ("0.5.1", "0.5.0"),
+            ("0.5.0-dev.1", "0.5.2"),
+            ("1.2.0", "1.9.3"),
+        ] {
+            assert!(require_matching_compatibility_lines(cli, bindings).is_ok());
+        }
+        for (cli, bindings) in [("0.4.1", "0.5.0"), ("1.2.0", "2.0.0")] {
+            assert!(require_matching_compatibility_lines(cli, bindings).is_err());
+        }
+        assert!(require_declared_release_line("0.5.1", "0.5.0").is_ok());
+        assert!(require_declared_release_line("0.4.1", "0.4.2").is_err());
+        assert!(require_declared_release_line("0.6.0", "0.6.0").is_err());
+    }
+
+    #[test]
+    fn frozen_exporters_are_not_bumped_with_cli_releases() {
+        for name in [
+            "revault_migrate_v1",
+            "revault_migrate_v2",
+            "revault_migrate_v3",
+            "revault_migration_format",
+            "revault_archive_v3_reader",
+            "revault_vault_v1_reader",
+        ] {
+            assert!(frozen_migration_package(name));
+        }
+        for name in [
+            "revault_cli",
+            "revault_vault_api",
+            "revault_migration",
+            "revault_secure_memory",
+        ] {
+            assert!(!frozen_migration_package(name));
+        }
+    }
+
+    #[test]
+    fn release_source_must_remain_in_remote_main_history() {
+        let sha = "a".repeat(40);
+        for status in ["identical", "ahead"] {
+            assert!(main_contains_candidate(
+                &json!({"status":status,"merge_base_commit":{"sha":sha}}),
+                &sha
+            ));
+        }
+        for status in ["behind", "diverged"] {
+            assert!(!main_contains_candidate(
+                &json!({"status":status,"merge_base_commit":{"sha":sha}}),
+                &sha
+            ));
+        }
+        assert!(!main_contains_candidate(
+            &json!({"status":"ahead","merge_base_commit":{"sha":"other"}}),
+            &sha
+        ));
+    }
     #[test]
     fn publication_excerpt_keeps_gradle_and_pub_rejections() {
         let gradle = "FAILURE: Build failed with an exception.\n\n* What went wrong:\nFailed to stop service 'maven-central-build-service'.\n> Deployment validation timed out after 900s. Last known state: PUBLISHING";
@@ -1922,8 +2151,8 @@ mod tests {
             source_sha: "a".repeat(40),
             source_ref: "release-candidates/a-1".into(),
             scope: Scope::All,
-            cli_version: "1.2.3".into(),
-            bindings_version: "2.3.4".into(),
+            cli_version: "0.5.1".into(),
+            bindings_version: "0.5.2".into(),
             artifacts: vec![Artifact {
                 id: 1,
                 name: "native-linux".into(),
@@ -2103,7 +2332,7 @@ version = "1.0.0"
         let root = dir.path();
         for path in [
             "rust/revault_cli/src",
-            "rust/revault_page_api/src",
+            "rust/revault_lockbox_api/src",
             "bindings/rust/src",
             "bindings/e2e/rust/src",
             "bindings/dart",
@@ -2113,19 +2342,19 @@ version = "1.0.0"
         }
         fs::write(
             root.join("rust/Cargo.toml"),
-            "[workspace]\nmembers = [\"revault_cli\",\"revault_page_api\"]\nresolver = \"2\"\n",
+            "[workspace]\nmembers = [\"revault_cli\",\"revault_lockbox_api\"]\nresolver = \"2\"\n",
         )
         .unwrap();
-        fs::write(root.join("rust/revault_cli/Cargo.toml"),"[package]\nname = \"revault_cli\"\nversion = \"1.0.0\"\nedition = \"2021\"\n[dependencies]\nrevault_page_api = { path = \"../revault_page_api\", version = \"1.0.0\" }\n").unwrap();
+        fs::write(root.join("rust/revault_cli/Cargo.toml"),"[package]\nname = \"revault_cli\"\nversion = \"0.5.0\"\nedition = \"2021\"\n[dependencies]\nrevault_lockbox_api = { path = \"../revault_lockbox_api\", version = \"1.0.0\" }\n").unwrap();
         fs::write(
-            root.join("rust/revault_page_api/Cargo.toml"),
-            "[package]\nname = \"revault_page_api\"\nversion = \"1.0.0\"\nedition = \"2021\"\n",
+            root.join("rust/revault_lockbox_api/Cargo.toml"),
+            "[package]\nname = \"revault_lockbox_api\"\nversion = \"1.0.0\"\nedition = \"2021\"\n",
         )
         .unwrap();
-        fs::write(root.join("bindings/rust/Cargo.toml"),"[package]\nname = \"revault-api\"\nversion = \"1.0.0\"\nedition = \"2021\"\n[dependencies]\nrevault_page_api = { path = \"../../rust/revault_page_api\", version = \"1.0.0\" }\n").unwrap();
+        fs::write(root.join("bindings/rust/Cargo.toml"),"[package]\nname = \"revault-api\"\nversion = \"1.0.0\"\nedition = \"2021\"\n[dependencies]\nrevault_lockbox_api = { path = \"../../rust/revault_lockbox_api\", version = \"1.0.0\" }\n").unwrap();
         fs::write(root.join("bindings/e2e/rust/Cargo.toml"), "[package]\nname = \"conformance\"\nversion = \"0.0.0\"\nedition = \"2021\"\n[dependencies]\nrevault-api = { path = \"../../rust\" }\n").unwrap();
         for p in [
-            "rust/revault_page_api/src/lib.rs",
+            "rust/revault_lockbox_api/src/lib.rs",
             "bindings/rust/src/lib.rs",
             "bindings/e2e/rust/src/lib.rs",
         ] {
@@ -2134,7 +2363,7 @@ version = "1.0.0"
         fs::write(root.join("rust/revault_cli/src/main.rs"), "fn main() {}\n").unwrap();
         fs::write(
             root.join("bindings/dart/pubspec.yaml"),
-            "name: revault_api\nversion: 2.0.0\n",
+            "name: revault_api\nversion: 0.5.0\n",
         )
         .unwrap();
         for args in [
@@ -2143,11 +2372,11 @@ version = "1.0.0"
             vec!["config", "user.name", "Release Test"],
             vec!["add", "."],
             vec!["commit", "-m", "Implement feature"],
-            vec!["tag", "revault-api-v2.0.5"],
+            vec!["tag", "revault-api-v0.5.5"],
         ] {
             output(root, "git", &args).unwrap();
         }
-        fs::write(root.join("rust/fuzz/Cargo.toml"), "[workspace]\n[package]\nname = \"fuzz-fixture\"\nversion = \"0.0.0\"\nedition = \"2021\"\n[dependencies]\nrevault_page_api = { path = \"../revault_page_api\", version = \"1.0.0\" }\n").unwrap();
+        fs::write(root.join("rust/fuzz/Cargo.toml"), "[workspace]\n[package]\nname = \"fuzz-fixture\"\nversion = \"0.0.0\"\nedition = \"2021\"\n[dependencies]\nrevault_lockbox_api = { path = \"../revault_lockbox_api\", version = \"1.0.0\" }\n").unwrap();
         fs::write(root.join("rust/fuzz/src/lib.rs"), "").unwrap();
         output(
             root,
@@ -2169,6 +2398,12 @@ version = "1.0.0"
         )
         .unwrap();
         let (cli, bindings) = prepare_versions(root, Scope::All, None, None).unwrap();
+        let message = output(root, "git", &["log", "-1", "--format=%B"]).unwrap();
+        assert!(message.contains("[skip ci]"));
+        let workflow = include_str!("../../../.github/workflows/release-candidate.yml");
+        assert!(workflow.contains("workflow_dispatch:"));
+        assert!(workflow.contains("needs.source-checks.result == 'success'"));
+        assert!(workflow.contains("needs.rust-checks.result == 'success'"));
         output(
             root,
             "cargo",
@@ -2184,16 +2419,16 @@ version = "1.0.0"
         )
         .unwrap();
 
-        assert_eq!((cli.as_str(), bindings.as_str()), ("1.0.1", "2.0.6"));
+        assert_eq!((cli.as_str(), bindings.as_str()), ("0.5.1", "0.5.6"));
         assert!(fs::read_to_string(root.join("bindings/dart/CHANGELOG.md"))
             .unwrap()
-            .starts_with("## 2.0.6\n"));
+            .starts_with("## 0.5.6\n"));
         let manifest = fs::read_to_string(root.join("rust/revault_cli/Cargo.toml"))
             .unwrap()
             .parse::<toml_edit::DocumentMut>()
             .unwrap();
         assert_eq!(
-            manifest["dependencies"]["revault_page_api"]["version"].as_str(),
+            manifest["dependencies"]["revault_lockbox_api"]["version"].as_str(),
             Some("1.0.1")
         );
         assert!(fs::read_to_string(root.join("release-notes/candidate.txt"))
@@ -2202,21 +2437,21 @@ version = "1.0.0"
         assert!(output(root, "git", &["status", "--porcelain"])
             .unwrap()
             .is_empty());
-        assert!(next_version(root, "revault-api-v", "2.0.0", Some("2.0.4".into())).is_err());
+        assert!(next_version(root, "revault-api-v", "0.5.0", Some("0.5.4".into())).is_err());
         assert_eq!(
-            next_version(root, "revault-api-v", "2.0.0", Some("minor".into())).unwrap(),
-            "2.1.0"
+            next_version(root, "revault-api-v", "0.5.0", Some("minor".into())).unwrap(),
+            "0.6.0"
         );
         assert_eq!(
-            next_version(root, "revault-api-v", "2.0.6", Some("patch".into())).unwrap(),
-            "2.0.6"
+            next_version(root, "revault-api-v", "0.5.6", Some("patch".into())).unwrap(),
+            "0.5.6"
         );
         assert_eq!(
-            next_version(root, "revault-api-v", "2.0.0", Some("major".into())).unwrap(),
-            "3.0.0"
+            next_version(root, "revault-api-v", "0.5.0", Some("major".into())).unwrap(),
+            "1.0.0"
         );
         assert_eq!(
-            next_version(root, "revault-api-v", "2.0.0", Some("4.5.6".into())).unwrap(),
+            next_version(root, "revault-api-v", "0.5.0", Some("4.5.6".into())).unwrap(),
             "4.5.6"
         );
     }

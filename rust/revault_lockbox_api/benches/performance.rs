@@ -6,7 +6,7 @@ use revault_lockbox_api::{
     ListOptions, Lockbox, LockboxPath, LockboxProtection, OpenFileOptions, OwnerSigningKeyPair,
     SecretString, SecretVec, VariableName,
 };
-use revault_page_api::read_access as secure_read_access;
+use revault_secure_memory::read_access as secure_read_access;
 use std::fs;
 use std::io::{copy, sink, Read, Result as IoResult, Seek, SeekFrom, Write};
 use std::ops::{Deref, DerefMut};

@@ -24,13 +24,13 @@ use wasm_bindgen::prelude::*;
 /// keys or lockboxes.
 #[wasm_bindgen]
 pub fn set_weakened_allocation_allowed(allowed: bool) {
-    revault_page_api::set_weakened_allocation_allowed(allowed);
+    revault_secure_memory::set_weakened_allocation_allowed(allowed);
 }
 
 /// Returns whether the caller has explicitly enabled weakened secure memory.
 #[wasm_bindgen]
 pub fn weakened_allocation_allowed() -> bool {
-    revault_page_api::weakened_allocation_allowed()
+    revault_secure_memory::weakened_allocation_allowed()
 }
 
 /// WebAssembly-side dispatcher used by the full hosted API. Browser-only

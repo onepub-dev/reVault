@@ -125,6 +125,9 @@ enum InternalCommand {
         target: release_candidate::Scope,
         #[arg(long)]
         publish: bool,
+        /// Reuse migration verification only from this validated, sealed candidate.
+        #[arg(long)]
+        candidate: Option<u64>,
         #[arg(long, default_value = ".")]
         repository: PathBuf,
     },
@@ -175,9 +178,12 @@ fn run() -> Result {
             InternalCommand::PublishCrates {
                 target,
                 publish,
+                candidate,
                 repository,
             } => match target {
-                release_candidate::Scope::Cli => release::publish_cli(&repository, publish),
+                release_candidate::Scope::Cli => {
+                    release::publish_cli(&repository, publish, candidate)
+                }
                 release_candidate::Scope::Bindings => {
                     release::publish_bindings(&repository, publish)
                 }

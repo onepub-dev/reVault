@@ -1,0 +1,90 @@
+{
+  "schema": 1,
+  "publication_policy": "Only stage from committed main after replacements are published and verified. Copy source; set terminal_version; remove publish=false; normalize dependencies to original exact registry versions and remove local paths. Preserve source bodies. Never yank historical versions.",
+  "packages": [
+    {
+      "package": "revault_page_api",
+      "source": "rust/revault_page_api",
+      "source_version": "0.0.41",
+      "terminal_version": "0.0.42",
+      "replacement": "revault_secure_memory"
+    },
+    {
+      "package": "revault_archive_v1_initial_reader",
+      "source": "rust/revault_archive_v1_initial_reader",
+      "source_version": "0.0.4",
+      "terminal_version": "0.0.5",
+      "replacement": "revault_migrate_v1"
+    },
+    {
+      "package": "revault_archive_v1_legacy_reader",
+      "source": "rust/revault_archive_v1_legacy_reader",
+      "source_version": "0.0.4",
+      "terminal_version": "0.0.5",
+      "replacement": "revault_migrate_v1"
+    },
+    {
+      "package": "revault_archive_v1_reader",
+      "source": "rust/revault_archive_v1_reader",
+      "source_version": "0.0.4",
+      "terminal_version": "0.0.5",
+      "replacement": "revault_migrate_v1"
+    },
+    {
+      "package": "revault_vault_v1_reader",
+      "source": "rust/revault_vault_v1_reader",
+      "source_version": "0.0.4",
+      "terminal_version": "0.0.5",
+      "replacement": "revault_migrate_v1"
+    },
+    {
+      "package": "revault_vault_v2_container_v1_reader",
+      "source": "rust/revault_vault_v2_container_v1_reader",
+      "source_version": "0.0.4",
+      "terminal_version": "0.0.5",
+      "replacement": "revault_migrate_v1"
+    },
+    {
+      "package": "revault_migrate_archive_v1",
+      "source": "rust/revault_migrate_archive_v1",
+      "source_version": "0.0.42",
+      "terminal_version": "0.0.43",
+      "replacement": "revault_migrate_v1"
+    },
+    {
+      "package": "revault_migrate_vault_v1",
+      "source": "rust/revault_migrate_vault_v1",
+      "source_version": "0.0.41",
+      "terminal_version": "0.0.42",
+      "replacement": "revault_migrate_v1"
+    },
+    {
+      "package": "revault_migrate_vault_v2",
+      "source": "rust/revault_migrate_vault_v2",
+      "source_version": "0.0.38",
+      "terminal_version": "0.0.39",
+      "replacement": "revault_migrate_v2"
+    },
+    {
+      "package": "revault_migrate_archive_v3",
+      "source": "rust/revault_migrate_archive_v3",
+      "source_version": "0.0.8",
+      "terminal_version": "0.0.9",
+      "replacement": "revault_migrate_v3"
+    },
+    {
+      "package": "revault_archive_v3_reader",
+      "source": "rust/revault_migrate_archive_v3/legacy",
+      "source_version": "0.0.8",
+      "terminal_version": "0.0.9",
+      "replacement": "revault_migrate_v3"
+    },
+    {
+      "package": "revault_vault_v3_reader",
+      "source": "rust/revault_migrate_archive_v3/legacy_vault",
+      "source_version": "0.0.8",
+      "terminal_version": "0.0.9",
+      "replacement": "revault_migrate_v3"
+    }
+  ]
+}

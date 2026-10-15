@@ -130,6 +130,13 @@ pub(crate) fn read_header_for_scan(bytes: &[u8]) -> Result<LockboxHeader> {
 }
 
 pub(crate) fn read_header(bytes: &[u8]) -> Result<LockboxHeader> {
+    if let Some(found) = future_format_version(bytes) {
+        return Err(Error::UnsupportedFormatVersion {
+            artifact: ArtifactKind::Lockbox,
+            found: u32::from(found),
+            supported: u32::from(LOCKBOX_FORMAT_VERSION),
+        });
+    }
     if bytes
         .get(..8)
         .is_some_and(|magic| magic == b"LBX2HDR\0" || magic == b"LBX3HDR\0")
@@ -182,8 +189,27 @@ pub(crate) fn publish_header(
     Ok(next_slot)
 }
 
-/// Read an authenticated v1 or v2 native format discriminator.
+// Inspect only the checksummed discriminator, never future payload fields.
+// Refuse a future slot even if the other slot remains readable by this build.
+fn future_format_version(bytes: &[u8]) -> Option<u16> {
+    bytes
+        .chunks_exact(192)
+        .take(2)
+        .filter_map(|slot| {
+            let version = u16::from_le_bytes([slot[8], slot[9]]);
+            (slot[..8] == *b"LBX4HDR\0"
+                && version > LOCKBOX_FORMAT_VERSION
+                && slot[160..192] == strong_checksum(&slot[..160]))
+            .then_some(version)
+        })
+        .max()
+}
+
+/// Read a checksummed native format discriminator without opening its contents.
 pub fn probe_lockbox_format_version(bytes: &[u8]) -> Result<u16> {
+    if let Some(version) = future_format_version(bytes) {
+        return Ok(version);
+    }
     if bytes.get(..8) == Some(V1_MAGIC.as_slice()) {
         return probe_v1(bytes);
     }
@@ -227,6 +253,25 @@ pub fn read_lockbox_id(bytes: &[u8]) -> Result<LockboxId> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn future_discriminator_requires_checksum_and_refuses_either_slot() {
+        for slot in [0, 192] {
+            let mut bytes = vec![0; 384];
+            bytes[slot..slot + 8].copy_from_slice(b"LBX4HDR\0");
+            bytes[slot + 8..slot + 10].copy_from_slice(&5_u16.to_le_bytes());
+            assert!(probe_lockbox_format_version(&bytes).is_err());
+            let checksum = strong_checksum(&bytes[slot..slot + 160]);
+            bytes[slot + 160..slot + 192].copy_from_slice(&checksum);
+            assert_eq!(probe_lockbox_format_version(&bytes).unwrap(), 5);
+            assert!(matches!(
+                read_header(&bytes),
+                Err(Error::UnsupportedFormatVersion { found: 5, .. })
+            ));
+            bytes[slot + 32] ^= 1;
+            assert!(matches!(read_header(&bytes), Err(Error::CorruptHeader)));
+        }
+    }
 
     #[test]
     fn initialized_header_round_trips() {

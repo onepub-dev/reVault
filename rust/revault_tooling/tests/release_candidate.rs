@@ -51,7 +51,7 @@ impl Fixture {
         write(
             root,
             "candidate.json",
-            json!({"schema":1,"repository":"org/repo","run_id":42,"source_sha":sha,"source_ref":"release-candidates/test","scope":"all","cli_version":"1.2.3","bindings_version":"2.3.4","artifacts":artifacts}),
+            json!({"schema":1,"repository":"org/repo","run_id":42,"source_sha":sha,"source_ref":"release-candidates/test","scope":"all","cli_version":"0.5.1","bindings_version":"0.5.2","artifacts":artifacts}),
         );
         write(
             root,
@@ -65,6 +65,11 @@ impl Fixture {
         );
         write(root, "runs.json", json!({"workflow_runs":[]}));
         write(root, "ref.json", json!({"object":{"sha":sha}}));
+        write(
+            root,
+            "main-comparison.json",
+            json!({"status":"identical","merge_base_commit":{"sha":sha}}),
+        );
         // Fixture transport state is deliberately outside Git's tracked source state.
         fs::write(root.join(".git/info/exclude"), "*\n").unwrap();
         write(
@@ -193,6 +198,20 @@ fn changed_artifact_or_branch_refuses_publication() {
         assert!(!f.calls().contains("POST"));
     }
 }
+
+#[test]
+fn development_branch_only_candidate_cannot_be_published() {
+    let f = Fixture::new();
+    write(
+        f.dir.path(),
+        "main-comparison.json",
+        json!({"status":"diverged","merge_base_commit":{"sha":"b".repeat(40)}}),
+    );
+    let result = f.run(&["publish"]);
+    assert!(!result.status.success());
+    assert!(String::from_utf8_lossy(&result.stderr).contains("merged into remote main"));
+    assert!(!f.calls().contains("POST"));
+}
 #[test]
 fn status_prints_recoverable_candidate_and_publish_command() {
     let f = Fixture::new();
@@ -241,9 +260,9 @@ fn coordinator_preserves_trusted_publication_workflow_entry_points() {
             "--scope",
             "all",
             "--cli-version",
-            "1.2.3",
+            "0.5.1",
             "--bindings-version",
-            "2.3.4",
+            "0.5.2",
         ]));
         assert!(f
             .calls()

@@ -499,27 +499,14 @@ fn open_options(options: OpenOptions) -> CliResult<()> {
         }
     }
     let password = options.read_password()?;
-    let signing_key = vault.load_owner_signing_key(VaultDirectory::DEFAULT_KEY_NAME)?;
-    let lb = if let Some(ttl_seconds) = options.ttl_seconds {
-        local_vault().open_lockbox_with_for_duration_and_signing_key(
-            &options.lockbox_path,
-            LockboxOpen::PasswordWithBudget {
-                password: &password,
-                max_derivations: options.password_slot_budget,
-            },
-            ttl_seconds,
-            &signing_key,
-        )?
-    } else {
-        local_vault().open_lockbox_with_signing_key(
-            &options.lockbox_path,
-            LockboxOpen::PasswordWithBudget {
-                password: &password,
-                max_derivations: options.password_slot_budget,
-            },
-            &signing_key,
-        )?
-    };
+    let lb = local_vault().open_lockbox_with_read_only(
+        &options.lockbox_path,
+        LockboxOpen::PasswordWithBudget {
+            password: &password,
+            max_derivations: options.password_slot_budget,
+        },
+        options.ttl_seconds,
+    )?;
     mirror_key_directory_with_vault(&lb, &options.lockbox_path, &vault)?;
     remember_lockbox_password_if_enabled_with_vault(&lb, &password, &vault)?;
     // The duration-aware open above already cached this authenticated key
@@ -531,7 +518,7 @@ fn open_options(options: OpenOptions) -> CliResult<()> {
 fn open_with_vault_profile(
     options: &OpenOptions,
     vault: &VaultDirectory,
-) -> CliResult<Option<Lockbox>> {
+) -> CliResult<Option<Lockbox<revault_lockbox_api::ReadOnly>>> {
     let mut profiles = vault.list_private_keys()?;
     if let Some(index) = profiles
         .iter()
@@ -542,21 +529,11 @@ fn open_with_vault_profile(
     }
     for profile in profiles {
         let keypair = vault.load_private_key(&profile)?;
-        let signing_key = vault.load_owner_signing_key(&profile)?;
-        let opened = if let Some(ttl_seconds) = options.ttl_seconds {
-            local_vault().open_lockbox_with_for_duration_and_signing_key(
-                &options.lockbox_path,
-                LockboxOpen::ContactKeyPair(keypair),
-                ttl_seconds,
-                &signing_key,
-            )
-        } else {
-            local_vault().open_lockbox_with_signing_key(
-                &options.lockbox_path,
-                LockboxOpen::ContactKeyPair(keypair),
-                &signing_key,
-            )
-        };
+        let opened = local_vault().open_lockbox_with_read_only(
+            &options.lockbox_path,
+            LockboxOpen::ContactKeyPair(keypair),
+            options.ttl_seconds,
+        );
         match opened {
             Ok(lockbox) => return Ok(Some(lockbox)),
             Err(Error::InvalidKey) => {}
@@ -565,26 +542,14 @@ fn open_with_vault_profile(
     }
     for name in vault.list_password_profiles()? {
         let password = vault.load_profile_password(&name)?;
-        let signing_key = vault.load_owner_signing_key(VaultDirectory::DEFAULT_KEY_NAME)?;
-        let opened = match options.ttl_seconds {
-            Some(ttl) => local_vault().open_lockbox_with_for_duration_and_signing_key(
-                &options.lockbox_path,
-                LockboxOpen::PasswordWithBudget {
-                    password: &password,
-                    max_derivations: options.password_slot_budget,
-                },
-                ttl,
-                &signing_key,
-            ),
-            None => local_vault().open_lockbox_with_signing_key(
-                &options.lockbox_path,
-                LockboxOpen::PasswordWithBudget {
-                    password: &password,
-                    max_derivations: options.password_slot_budget,
-                },
-                &signing_key,
-            ),
-        };
+        let opened = local_vault().open_lockbox_with_read_only(
+            &options.lockbox_path,
+            LockboxOpen::PasswordWithBudget {
+                password: &password,
+                max_derivations: options.password_slot_budget,
+            },
+            options.ttl_seconds,
+        );
         match opened {
             Ok(lockbox) => return Ok(Some(lockbox)),
             Err(Error::InvalidKey) => {}
@@ -594,8 +559,8 @@ fn open_with_vault_profile(
     Ok(None)
 }
 
-fn remember_lockbox_password_if_enabled_with_vault(
-    lockbox: &Lockbox,
+fn remember_lockbox_password_if_enabled_with_vault<State>(
+    lockbox: &Lockbox<State>,
     password: &revault_vault_api::SecretString,
     vault: &VaultDirectory,
 ) -> CliResult<()> {

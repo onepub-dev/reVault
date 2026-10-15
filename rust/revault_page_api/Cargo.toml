@@ -4,10 +4,13 @@ version = "0.0.41"
 edition = "2021"
 rust-version = "1.88"
 license-file = "../../LICENSE"
-description = "Page-pooled secure byte and string storage for reVault"
+description = "Deprecated: use revault_secure_memory for page-pooled secure byte and string storage"
 repository = "https://github.com/onepub-dev/reVault"
 documentation = "https://docs.rs/revault_page_api"
 readme = "README.md"
+
+[badges]
+maintenance = { status = "deprecated" }
 
 [lib]
 name = "revault_page_api"

@@ -171,8 +171,8 @@ impl Error {
 
 impl std::error::Error for Error {}
 
-impl From<revault_page_api::Error> for Error {
-    fn from(err: revault_page_api::Error) -> Self {
+impl From<revault_secure_memory::Error> for Error {
+    fn from(err: revault_secure_memory::Error) -> Self {
         Error::SecurityLimitExceeded(err.to_string())
     }
 }

@@ -2,6 +2,7 @@ use super::context::{
     cli_error, default_vault, open_default_vault_with_password, open_existing_read_only,
     remember_default_vault_password_with_warning, vault_password_without_open, Access, CliResult,
 };
+use super::migration_exporters::{capabilities_match, ExporterRelease};
 use crate::secret_prompt::prompt_secret;
 use clap::ArgMatches;
 use revault_lockbox_api::{
@@ -71,10 +72,10 @@ fn migrate_all(access: &Access) -> CliResult<()> {
                 }
             }
             let version = probe_archive_path(Path::new(&lockbox.path))?;
-            if version >= 2 {
+            if version == u32::from(LOCKBOX_FORMAT_VERSION) {
                 super::aliases::check_identity(&lockbox.path, lockbox.lockbox_id)?;
             }
-            // Format 1 needs its historical exporter. The imported output's
+            // Historical formats need their frozen exporters. The imported output's
             // preserved identity is checked before replacing the source below.
             migrate_archive(PathBuf::from(&lockbox.path), true, None, None, access)
         })();
@@ -307,11 +308,8 @@ fn migrate_vault(
     // A current structure needs only a container rewrite. Preserve every raw
     // record through the archive workflow, including aliases and credentials
     // that are not represented by historical Vault migration schemas.
-    // Historical containers must use isolated readers. The consolidated
-    // exporters will preserve their opaque records without opening them here.
-    let preserve_records = !experimental_export
-        && source_version == CURRENT_VAULT_STRUCTURE_VERSION
-        && source_container_version == u32::from(LOCKBOX_FORMAT_VERSION);
+    let preserve_records =
+        !experimental_export && source_version == CURRENT_VAULT_STRUCTURE_VERSION;
     let fingerprint = fingerprint_path(&source.join("local-vault.lbox"))?;
     let operation_id = deterministic_operation_id(
         ArtifactKind::Vault,
@@ -357,7 +355,7 @@ fn migrate_vault(
             };
         if !complete {
             remove_partial(&artifact)?;
-            if preserve_records {
+            if preserve_records && source_container_version == u32::from(LOCKBOX_FORMAT_VERSION) {
                 let lockbox = Lockbox::open(
                     &source.join("local-vault.lbox"),
                     LockboxOpen::Password(&source_password),
@@ -380,6 +378,7 @@ fn migrate_vault(
                     &artifact,
                     &source_password,
                     &artifact_password,
+                    preserve_records,
                 )?;
                 journal.exporter_version = Some(exporter.display().to_string());
             }
@@ -415,11 +414,10 @@ fn migrate_vault(
         if !complete {
             remove_partial(&output)?;
             if preserve_records {
-                let lockbox = Lockbox::open(
-                    &source.join("local-vault.lbox"),
-                    LockboxOpen::Password(&source_password),
+                let signer = revault_migration::vault_container_signing_key_from_artifact(
+                    &upgraded,
+                    &migration_key,
                 )?;
-                let signer = VaultDirectory::migration_container_signing_key(&lockbox)?;
                 fs::create_dir_all(&output)?;
                 fs::set_permissions(&output, fs::metadata(&source)?.permissions())?;
                 import_archive(
@@ -444,6 +442,13 @@ fn migrate_vault(
             != u32::from(LOCKBOX_FORMAT_VERSION)
         {
             return Err(cli_error("migrated vault container validation failed"));
+        }
+        if preserve_records {
+            revault_migration::verify_imported_archive(
+                &upgraded,
+                &migration_key,
+                &output.join("local-vault.lbox"),
+            )?;
         }
         let imported = VaultDirectory::open_or_create(&output, &source_password)?;
         if imported.structure_version()? != CURRENT_VAULT_STRUCTURE_VERSION {
@@ -617,18 +622,28 @@ fn migrate_archive(
         save_journal(&mut journal, &journal_path, &vault_password)?;
     }
     if journal.current_stage == MigrationStage::Import {
-        let complete = output.exists() && Lockbox::inspect_file(&output).is_ok();
+        let complete = output.exists()
+            && revault_migration::verify_imported_archive(&upgraded, &migration_key, &output)
+                .is_ok();
         if !complete {
             remove_partial(&output)?;
-            let signing = open_default_vault_with_password(&vault_password)?
-                .load_owner_signing_key(VaultDirectory::DEFAULT_KEY_NAME)?;
+            let vault = open_default_vault_with_password(&vault_password)?;
+            let signing =
+                match revault_migration::archive_owner_fingerprint(&upgraded, &migration_key)? {
+                    Some(fingerprint) => {
+                        vault.find_owner_signing_key(&fingerprint)?.ok_or_else(|| {
+                            cli_error("the established archive owner's signing key is unavailable")
+                        })?
+                    }
+                    None => vault.load_owner_signing_key(VaultDirectory::DEFAULT_KEY_NAME)?,
+                };
             import_archive(&upgraded, &migration_key, &output, &signing)?;
         }
         journal.current_stage = MigrationStage::Validate;
         save_journal(&mut journal, &journal_path, &vault_password)?;
     }
     if journal.current_stage == MigrationStage::Validate {
-        Lockbox::inspect_file(&output)?;
+        revault_migration::verify_imported_archive(&upgraded, &migration_key, &output)?;
         journal.current_stage = if replace {
             MigrationStage::Replace
         } else {
@@ -694,8 +709,12 @@ fn resolve_exporter(
     };
     if env::var_os("LOCKBOX_TEST_IGNORE_INSTALLED_EXPORTER").is_none() {
         if let Some(binary) = installed_exporter(&binary_name) {
-            validate_exporter_capabilities(&binary, release)?;
-            return Ok(binary);
+            // A previous release may have installed a same-named executable
+            // with an older protocol. Only an explicit --exporter is binding;
+            // automatic discovery must fall through to the registered package.
+            if validate_exporter_capabilities(&binary, release).is_ok() {
+                return Ok(binary);
+            }
         }
     }
     let root = exporter_cache_root()?.join(format!("{}-{}", release.package, release.version));
@@ -791,17 +810,6 @@ fn installed_exporter(binary_name: &str) -> Option<PathBuf> {
     binary.is_file().then_some(binary)
 }
 
-#[derive(Clone, Copy)]
-struct ExporterRelease {
-    package: &'static str,
-    version: &'static str,
-    binary: &'static str,
-    protocol: u64,
-    artifact: &'static str,
-    native_version: u32,
-    migration_schema: u32,
-}
-
 fn experimental_v4_exporter(kind: ArtifactKind) -> CliResult<ExporterRelease> {
     Ok(ExporterRelease {
         package: "revault_experimental_v4_exporter",
@@ -825,54 +833,15 @@ fn experimental_v4_exporter(kind: ArtifactKind) -> CliResult<ExporterRelease> {
 }
 
 fn exporter_release(kind: ArtifactKind, source_version: u32) -> Option<ExporterRelease> {
-    match (kind, source_version) {
-        (ArtifactKind::Vault, 3) => Some(ExporterRelease {
-            package: "revault_migrate_archive_v3",
-            version: "0.0.8",
-            binary: "revault-migrate-vault-v3",
-            protocol: 3,
-            artifact: "vault",
-            native_version: 3,
-            migration_schema: 3,
-        }),
-        (ArtifactKind::Archive, 2 | 3) => Some(ExporterRelease {
-            package: "revault_migrate_archive_v3",
-            version: "0.0.8",
-            binary: "revault-migrate-archive-v3",
-            protocol: 3,
-            artifact: "archive",
-            native_version: 3,
-            migration_schema: 3,
-        }),
-        (ArtifactKind::Vault, 2) => Some(ExporterRelease {
-            package: "revault_migrate_vault_v2",
-            version: "0.0.1",
-            binary: "revault-migrate-vault-v2",
-            protocol: 2,
-            artifact: "vault",
-            native_version: 2,
-            migration_schema: 2,
-        }),
-        (ArtifactKind::Vault, 1) => Some(ExporterRelease {
-            package: "revault_migrate_vault_v1",
-            version: "0.0.4",
-            binary: "revault-migrate-vault-v1",
-            protocol: 2,
-            artifact: "vault",
-            native_version: 1,
-            migration_schema: 2,
-        }),
-        (ArtifactKind::Archive, 1) => Some(ExporterRelease {
-            package: "revault_migrate_archive_v1",
-            version: "0.0.5",
-            binary: "revault-migrate-archive-v1",
-            protocol: 3,
-            artifact: "archive",
-            native_version: 1,
-            migration_schema: 2,
-        }),
-        _ => None,
-    }
+    let artifact = match kind {
+        ArtifactKind::Archive => "archive",
+        ArtifactKind::Vault => "vault",
+        ArtifactKind::Journal => return None,
+    };
+    super::migration_exporters::EXPORTERS
+        .iter()
+        .copied()
+        .find(|release| release.artifact == artifact && release.native_version == source_version)
 }
 
 fn validate_exporter_capabilities(path: &Path, release: ExporterRelease) -> CliResult<()> {
@@ -888,80 +857,25 @@ fn validate_exporter_capabilities(path: &Path, release: ExporterRelease) -> CliR
     Ok(())
 }
 
-fn capabilities_match(bytes: &[u8], release: ExporterRelease) -> bool {
-    let Ok(value) = serde_json::from_slice::<serde_json::Value>(bytes) else {
-        return false;
-    };
-    let valid = value.get("protocol").and_then(|value| value.as_u64()) == Some(release.protocol)
-        && value.get("artifact").and_then(|value| value.as_str()) == Some(release.artifact)
-        && value.get("native_version").and_then(|value| value.as_u64())
-            == Some(u64::from(release.native_version))
-        && value
-            .get("migration_schema")
-            .and_then(|value| value.as_u64())
-            == Some(u64::from(release.migration_schema));
-    if !valid || release.artifact != "vault" || release.protocol < 2 {
-        return valid;
-    }
-    if release.native_version == 4 {
-        return value
-            .get("container_version")
-            .and_then(|value| value.as_u64())
-            == Some(4)
-            && json_u64_array(&value, "structure_versions") == [3]
-            && json_u64_array(&value, "migration_schemas") == [3];
-    }
-    if release.native_version == 3 {
-        return value
-            .get("container_version")
-            .and_then(|value| value.as_u64())
-            == Some(3)
-            && json_u64_array(&value, "structure_versions") == [3]
-            && json_u64_array(&value, "migration_schemas") == [3];
-    }
-    if release.native_version == 2 {
-        return value
-            .get("container_version")
-            .and_then(|value| value.as_u64())
-            == Some(2)
-            && json_u64_array(&value, "structure_versions") == [2]
-            && json_u64_array(&value, "migration_schemas") == [2];
-    }
-    value
-        .get("container_version")
-        .and_then(|value| value.as_u64())
-        == Some(1)
-        && json_u64_array(&value, "structure_versions") == [1, 2]
-        && json_u64_array(&value, "migration_schemas") == [1, 2]
-}
-
-fn json_u64_array(value: &serde_json::Value, field: &str) -> Vec<u64> {
-    value
-        .get(field)
-        .and_then(|value| value.as_array())
-        .map(|values| {
-            values
-                .iter()
-                .filter_map(serde_json::Value::as_u64)
-                .collect()
-        })
-        .unwrap_or_default()
-}
-
 fn run_historical_vault_exporter(
     exporter: &Path,
     source: &Path,
     output: &Path,
     vault_password: &SecretString,
     artifact_password: &SecretString,
+    preserve_records: bool,
 ) -> CliResult<()> {
-    let mut child = Command::new(exporter)
+    let mut command = Command::new(exporter);
+    command
         .args(["migrate", "vault", "export", "--output"])
         .arg(output)
         .arg("--source")
         .arg(source)
-        .stdin(Stdio::piped())
-        .spawn()?;
+        .stdin(Stdio::piped());
+    if preserve_records {
+        command.arg("--preserve-records");
+    }
+    let mut child = command.spawn()?;
     write_subprocess_secrets(&mut child, &[vault_password, artifact_password], &[])?;
     let status = child.wait()?;
     if !status.success() {
@@ -995,6 +909,9 @@ fn run_historical_archive_exporter(
     )?;
     let status = child.wait()?;
     if !status.success() {
+        if status.code() == Some(42) {
+            return Err(archive_source_error(source, Box::new(revault_migration::MigrationError::SourceCorrupt("historical exporter could unlock the archive but could not authenticate its reachable contents".into()))));
+        }
         return Err(cli_error(format!(
             "historical lockbox exporter exited with {status}"
         )));
@@ -1061,6 +978,119 @@ fn migration_contact_keys(vault: &VaultDirectory) -> CliResult<Vec<SecretVec>> {
         }
     }
     Ok(records)
+}
+
+pub(crate) fn recover_historical_archive(
+    source: &Path,
+    output: Option<&Path>,
+    overwrite: bool,
+    dry_run: bool,
+    format: &str,
+    quiet: bool,
+    access: &Access,
+) -> CliResult<()> {
+    let exporter = resolve_exporter(ArtifactKind::Archive, 2, None)?;
+    let password = vault_password_without_open()?;
+    let vault = open_default_vault_with_password(&password)?;
+    let artifact_key = SecretString::from_secure_vec(generated_migration_key()?);
+    let mut keys = match access {
+        Access::ContentKey(key) => vec![key.try_clone()?],
+        Access::CacheOnly => Vec::new(),
+        Access::PromptPassword => {
+            return Err(cli_error(
+                "historical recovery requires an opening credential",
+            ))
+        }
+    };
+    let has_raw_key = !keys.is_empty();
+    let mut signing_count = 0;
+    if !dry_run {
+        for profile in vault.list_private_keys()? {
+            for generation in vault.list_profile_generations(&profile)?.generations {
+                if let Ok(key) = vault.load_owner_signing_key_generation(&profile, generation.index)
+                {
+                    keys.push(key.private_key_record()?);
+                    signing_count += 1;
+                }
+            }
+        }
+    }
+    keys.extend(migration_contact_keys(&vault)?);
+    let temporary = tempfile::tempdir()?;
+    let artifact = temporary.path().join("recovery.migration");
+    let mut command = Command::new(exporter);
+    command
+        .args(["migrate", "archive", "recover"])
+        .arg(source)
+        .arg("--output")
+        .arg(&artifact)
+        .arg("--signing-key-count")
+        .arg(signing_count.to_string())
+        .arg("--raw-key")
+        .arg(if has_raw_key { "true" } else { "false" })
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped());
+    if dry_run {
+        command.arg("--dry-run");
+    }
+    let mut child = command.spawn()?;
+    write_subprocess_secrets(&mut child, &[&password, &artifact_key], &keys)?;
+    let result = child.wait_with_output()?;
+    if !result.status.success() {
+        return Err(cli_error(format!(
+            "historical recovery exporter exited with {}; the source was not changed",
+            result.status
+        )));
+    }
+    let report: serde_json::Value = serde_json::from_slice(&result.stdout)?;
+    if !dry_run {
+        verify_archive_artifact(&artifact, &artifact_key)?;
+        let fingerprint = revault_migration::archive_owner_fingerprint(&artifact, &artifact_key)?
+            .ok_or_else(|| {
+            cli_error("historical recovery artifact has no established owner")
+        })?;
+        let signer = vault.find_owner_signing_key(&fingerprint)?.ok_or_else(|| {
+            cli_error("the established archive owner's signing key is unavailable")
+        })?;
+        let destination =
+            output.ok_or_else(|| cli_error("historical recovery requires a separate --output"))?;
+        let parent = destination
+            .parent()
+            .filter(|path| !path.as_os_str().is_empty())
+            .unwrap_or_else(|| Path::new("."));
+        let staged = tempfile::tempdir_in(parent)?;
+        let staged_path = staged.path().join("recovered.lbox");
+        import_archive(&artifact, &artifact_key, &staged_path, &signer)?;
+        revault_migration::verify_imported_archive(&artifact, &artifact_key, &staged_path)?;
+        if let Some(expected) = super::COMMAND_LOCKBOX_ID.with(|id| *id.borrow()) {
+            if Lockbox::inspect_file(&staged_path)?.lockbox_id != expected {
+                return Err(cli_error(
+                    "historical recovery source identity changed; output was not published",
+                ));
+            }
+        }
+        fs::File::open(&staged_path)?.sync_all()?;
+        if overwrite {
+            fs::rename(&staged_path, destination)?;
+        } else {
+            fs::hard_link(&staged_path, destination)?;
+        }
+        #[cfg(unix)]
+        fs::File::open(parent)?.sync_all()?;
+    }
+    let output_format = match format {
+        "json" => super::output::OutputFormat::Json,
+        "tsv" => super::output::OutputFormat::Tsv,
+        _ => super::output::OutputFormat::Table,
+    };
+    if !quiet || dry_run {
+        let rows = ["intact_files", "partial_files", "corrupt_records"]
+            .into_iter()
+            .map(|name| vec![name.to_owned(), report[name].to_string()])
+            .collect();
+        super::output::print_records(&["field", "value"], rows, output_format)?;
+    }
+    Ok(())
 }
 
 fn migration_password() -> CliResult<SecretString> {
@@ -1625,7 +1655,7 @@ mod tests {
                     // fixture, including a valid marker only in slot two.
                     let mut future = vec![0_u8; 384];
                     future[slot_offset..slot_offset + 8].copy_from_slice(b"LBX4HDR\0");
-                    future[slot_offset + 8..slot_offset + 10].copy_from_slice(&4_u16.to_le_bytes());
+                    future[slot_offset + 8..slot_offset + 10].copy_from_slice(&5_u16.to_le_bytes());
                     fs::write(&container, &future).unwrap();
                     let backup = versioned_backup_path(&source, 1, target);
                     fs::write(&backup, b"original backup").unwrap();
@@ -1731,19 +1761,32 @@ mod tests {
 
     #[test]
     fn exporter_registry_and_capability_contract_are_exact() {
-        // The first public v3 exporter release is 0.0.8; 0.0.1 was never
-        // published. Vault and archive migration must use that same release.
-        for (kind, version) in [
-            (ArtifactKind::Vault, 3),
-            (ArtifactKind::Archive, 2),
-            (ArtifactKind::Archive, 3),
-        ] {
-            let release = exporter_release(kind, version).unwrap();
-            assert_eq!(release.package, "revault_migrate_archive_v3");
-            assert_eq!(release.version, "0.0.8");
+        for version in 1..=3 {
+            for kind in [ArtifactKind::Vault, ArtifactKind::Archive] {
+                let release = exporter_release(kind, version).unwrap();
+                assert_eq!(release.package, format!("revault_migrate_v{version}"));
+                assert_eq!(release.version, "0.1.0");
+            }
         }
+        let raw = exporter_release(ArtifactKind::Vault, 3).unwrap();
+        let recovery = exporter_release(ArtifactKind::Archive, 2).unwrap();
+        assert!(!capabilities_match(
+            br#"{"protocol":3,"artifact":"archive","native_version":2,"migration_schema":3}"#,
+            recovery
+        ));
+        assert!(capabilities_match(br#"{"protocol":3,"artifact":"archive","native_version":2,"migration_schema":3,"recovery":true}"#, recovery));
+        let mut capability = serde_json::json!({"protocol":4,"artifact":"vault","native_version":3,"migration_schema":3,"container_version":3,"structure_versions":[3],"migration_schemas":[3],"raw_container_export":true});
+        assert!(capabilities_match(
+            &serde_json::to_vec(&capability).unwrap(),
+            raw
+        ));
+        capability["raw_container_export"] = false.into();
+        assert!(!capabilities_match(
+            &serde_json::to_vec(&capability).unwrap(),
+            raw
+        ));
         let vault_v2 = exporter_release(ArtifactKind::Vault, 2).unwrap();
-        assert_eq!(vault_v2.package, "revault_migrate_vault_v2");
+        assert_eq!(vault_v2.package, "revault_migrate_v2");
         assert!(capabilities_match(
             br#"{"protocol":2,"artifact":"vault","native_version":2,"migration_schema":2,"container_version":2,"structure_versions":[2],"migration_schemas":[2]}"#,
             vault_v2
@@ -1753,9 +1796,9 @@ mod tests {
             vault_v2
         ));
         let vault = exporter_release(ArtifactKind::Vault, 1).unwrap();
-        assert_eq!(vault.package, "revault_migrate_vault_v1");
+        assert_eq!(vault.package, "revault_migrate_v1");
         assert_eq!(vault.binary, "revault-migrate-vault-v1");
-        assert_eq!(vault.version, "0.0.4");
+
         assert!(capabilities_match(
             br#"{"protocol":2,"artifact":"vault","native_version":1,"migration_schema":2,"container_version":1,"structure_versions":[1,2],"migration_schemas":[1,2]}"#,
             vault
@@ -1766,9 +1809,9 @@ mod tests {
         ));
 
         let archive = exporter_release(ArtifactKind::Archive, 1).unwrap();
-        assert_eq!(archive.package, "revault_migrate_archive_v1");
+        assert_eq!(archive.package, "revault_migrate_v1");
         assert_eq!(archive.binary, "revault-migrate-archive-v1");
-        assert_eq!(archive.version, "0.0.5");
+
         assert!(capabilities_match(
             br#"{"protocol":3,"artifact":"archive","native_version":1,"migration_schema":2}"#,
             archive

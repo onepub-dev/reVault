@@ -15,13 +15,19 @@ Prepare (the dry run):
 
 Scopes are cli, bindings and all. Optional --cli-version and --bindings-version
 select explicit stable versions. Defaults increment the highest source/tag
-version by one patch. The publishable Rust dependency chain receives patch
-increments and local path requirements are updated; historical registry-only
-migration dependencies retain their pinned versions.
+version by one patch. Current Rust implementation packages receive patch
+increments and local path requirements are updated. Frozen migration packages,
+their dependencies, and registry exporter pins require explicit releases when
+their implementation changes; routine CLI releases do not bump them. CLI and
+bindings must remain on the same public compatibility line.
+The independently versioned secure-memory utility also advances only when it
+changes. rust/release-compatibility.json declares the permitted public line and
+its archive/Vault formats; release tooling verifies it against runtime constants.
 
-Preparation requires a clean checkout. It updates release metadata and lockfiles,
+Preparation requires a clean main checkout. It updates release metadata and lockfiles,
 creates release-notes/candidate.txt from commits since the last release tag,
-commits these reviewable changes, and pushes a uniquely named candidate branch.
+commits these reviewable changes, pushes main, and creates a uniquely named
+immutable candidate branch at that same main commit.
 It does not create release tags or publish packages. CI runs the full Rust suite,
 binding lint, applicable platform builds/tests and installed binding checks.
 Preparation waits for CI and prints the candidate run ID, source commit,
@@ -37,7 +43,8 @@ Or select the exact candidate explicitly, including from another machine:
     revault-tool release publish --candidate 12345678
 
 Publication verifies the successful prepare run, commit, versions and every
-retained artifact ID/SHA-256 digest. A changed checkout requires preparing again
+retained artifact ID/SHA-256 digest. The source commit must remain in remote
+main's history. A changed checkout requires preparing again
 or explicitly selecting the old candidate. Expired/deleted/changed artifacts
 require preparing again. A moved candidate branch is refused. No source tests
 or platform build matrix run during promotion. Registry-specific packaging and
@@ -91,6 +98,14 @@ These commands reattach to an existing run or read its failed logs; they do not
 prepare or publish another release. Prepare and publish watch automatically.
 CI packaging and upload building blocks live under `internal`, hidden from
 normal help. Old top-level publish commands have been removed.
+
+Generated version-preparation commits carry [skip ci] to avoid repeating the
+candidate's source checks on the main push. GitHub applies that marker only to
+push/pull_request workflows; the explicit candidate workflow_dispatch still runs
+all required checks. Ordinary main commits retain their normal CI. If dispatch
+fails, the revision is not qualified: retry the explicit candidate dispatch and
+obtain a successful sealed candidate before publication. Never treat skipped
+push checks as release approval.
 
 Version selection:
 

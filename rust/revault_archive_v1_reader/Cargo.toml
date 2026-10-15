@@ -1,4 +1,5 @@
 [package]
+publish = false
 edition = "2021"
 rust-version = "1.88"
 name = "revault_archive_v1_reader"
@@ -9,7 +10,7 @@ autobins = false
 autoexamples = false
 autotests = false
 autobenches = false
-description = "Frozen historical reVault compatibility reader for isolated migration"
+description = "Deprecated: use revault_migrate_v1 for isolated historical migration"
 documentation = "https://docs.rs/revault_archive_v1_reader"
 readme = "README.md"
 license-file = "LICENSE"

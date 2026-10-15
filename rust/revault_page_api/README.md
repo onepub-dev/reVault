@@ -1,5 +1,9 @@
 # revault_page_api
 
+**Deprecated:** use [`revault_secure_memory`](https://crates.io/crates/revault_secure_memory)
+for new development. Historical releases remain available for existing pinned
+migration dependencies. This package is no longer part of routine releases.
+
 Secure, page-pooled byte and string storage primitives for reVault APIs.
 
 The crate provides zeroizing secure buffers, guarded access, page allocation,

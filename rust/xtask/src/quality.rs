@@ -4,14 +4,14 @@ use std::fs;
 use std::process::Command;
 
 const REQUIRED_PACKAGE_NAMES: &[&str] = &[
-    "revault_page_api",
+    "revault_secure_memory",
     "revault_lockbox_api",
     "revault_cli",
     "revault_vault_api",
     "revault_migration_format",
-    "revault_migrate_vault_v1",
-    "revault_migrate_vault_v2",
-    "revault_migrate_archive_v1",
+    "revault_migrate_v1",
+    "revault_migrate_v2",
+    "revault_migrate_v3",
     "revault_migration",
     "revault_publish_protocol",
     "revault_key_server",
@@ -42,7 +42,7 @@ pub fn check_required() -> TaskResult {
     }
     command::run(clippy.arg("--all-targets").args(["--", "-D", "warnings"]))?;
 
-    test_package("revault_page_api")?;
+    test_package("revault_secure_memory")?;
     test_package("revault_lockbox_api")?;
     if env::var("RUNNER_OS").as_deref() == Ok("Windows") {
         command::run(command::command("cargo").args([
@@ -69,7 +69,7 @@ pub fn clippy_advisory() -> TaskResult {
     let mut clippy = command::command("cargo");
     clippy.args(["clippy", "--workspace"]);
     for package in [
-        "revault_page_api",
+        "revault_secure_memory",
         "revault_publish_protocol",
         "revault_key_server",
         "xtask",

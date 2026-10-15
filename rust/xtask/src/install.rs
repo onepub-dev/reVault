@@ -21,9 +21,9 @@ pub fn dev_tools(args: &[String]) -> TaskResult {
 
 pub fn cli() -> TaskResult {
     install_path("revault_cli")?;
-    install_path("revault_migrate_vault_v1")?;
-    install_path("revault_migrate_vault_v2")?;
-    install_path("revault_migrate_archive_v1")?;
+    install_path("revault_migrate_v1")?;
+    install_path("revault_migrate_v2")?;
+    install_path("revault_migrate_v3")?;
     println!(
         "Installed local `lockbox`, `lbx`, `lbxv`, `lbxx`, and Vault/Lockbox migration exporters."
     );

@@ -39,7 +39,13 @@ pub enum ReleaseCommand {
 #[derive(Subcommand)]
 pub enum InternalCommand {
     /// Install exact historical exporter dependencies from crates.io and verify their protocols.
-    VerifyMigrationExporters,
+    VerifyMigrationExporters {
+        #[arg(long)]
+        report: Option<PathBuf>,
+        /// Retain the verified binaries under this new directory for CLI lifecycle tests.
+        #[arg(long)]
+        install_root: Option<PathBuf>,
+    },
     /// Internal CI candidate sealing and verification.
     #[command(hide = true)]
     Candidate(crate::release_candidate::Ci),
@@ -201,7 +207,16 @@ pub fn run(command: ReleaseCommand) -> Result {
 
 pub fn run_internal(command: InternalCommand) -> Result {
     match command {
-        InternalCommand::VerifyMigrationExporters => verify_migration_exporters(),
+        InternalCommand::VerifyMigrationExporters {
+            report,
+            install_root,
+        } => {
+            let verification = verify_migration_exporters(Path::new("."), install_root.as_deref())?;
+            if let Some(path) = report {
+                fs::write(path, serde_json::to_vec_pretty(&verification)?)?;
+            }
+            Ok(())
+        }
         InternalCommand::PackageNative(args) => package_native(args),
         InternalCommand::StageEcosystems(args) => stage_ecosystems(args),
         InternalCommand::AssemblePackages(args) => assemble_packages(args),
@@ -799,7 +814,7 @@ fn assemble_packages(args: AssemblePackages) -> Result {
     )?;
     for dependency in [
         "revault_lockbox_api",
-        "revault_page_api",
+        "revault_secure_memory",
         "revault_vault_api",
     ] {
         copy_tree(
@@ -1433,20 +1448,13 @@ fn go_platform(target: &str) -> Result<(&'static str, &'static str, &'static str
 }
 
 pub(crate) const CLI_PUBLISH_PACKAGES: &[&str] = &[
-    "revault_page_api",
+    "revault_secure_memory",
     "revault_lockbox_api",
     "revault_migration_format",
-    "revault_archive_v1_initial_reader",
-    "revault_archive_v1_reader",
-    "revault_vault_v1_reader",
-    "revault_vault_v2_container_v1_reader",
-    "revault_migrate_vault_v1",
-    "revault_migrate_vault_v2",
     "revault_vault_api",
-    "revault_migrate_archive_v1",
-    "revault_archive_v3_reader",
-    "revault_vault_v3_reader",
-    "revault_migrate_archive_v3",
+    "revault_migrate_v1",
+    "revault_migrate_v2",
+    "revault_migrate_v3",
     "revault_migration",
     "revault_publish_protocol",
     "revault_key_server",
@@ -1455,21 +1463,42 @@ pub(crate) const CLI_PUBLISH_PACKAGES: &[&str] = &[
 
 const BINDING_IMPLEMENTATION_PACKAGES: &[&str] = &["revault_bindings", "revault_wasm_bindings"];
 
-pub fn publish_cli(repository: &Path, publish: bool) -> Result {
-    publish_workspace_packages(repository, publish, CLI_PUBLISH_PACKAGES)
+pub fn publish_cli(repository: &Path, publish: bool, candidate: Option<u64>) -> Result {
+    let verified = if publish {
+        candidate
+            .map(|id| crate::release_candidate::verified_exporter_report(repository, id))
+            .transpose()?
+            .map(|bytes| serde_json::from_slice::<ExporterVerification>(&bytes))
+            .transpose()?
+    } else {
+        None
+    };
+    publish_workspace_packages(repository, publish, CLI_PUBLISH_PACKAGES, verified.as_ref())
 }
 
 pub fn publish_bindings(repository: &Path, publish: bool) -> Result {
-    publish_workspace_packages(repository, publish, BINDING_IMPLEMENTATION_PACKAGES)
+    publish_workspace_packages(repository, publish, BINDING_IMPLEMENTATION_PACKAGES, None)
 }
 
-fn publish_workspace_packages(repository: &Path, publish: bool, packages: &[&str]) -> Result {
+fn publish_workspace_packages(
+    repository: &Path,
+    publish: bool,
+    packages: &[&str],
+    verified: Option<&ExporterVerification>,
+) -> Result {
+    if publish {
+        crate::release_candidate::require_main_release_source(repository)?;
+    }
     let rust = repository.canonicalize()?.join("rust");
     for package in packages {
         // Run even when the CLI version is already published: retries must not
         // promote downloadable installers with unavailable runtime dependencies.
         if publish && *package == "revault_cli" {
-            verify_migration_exporters()?;
+            if let Some(report) = verified {
+                recheck_migration_exporters(repository, report)?;
+            } else {
+                verify_migration_exporters(repository, None)?;
+            }
         }
         let manifest = find_package_manifest(&rust, package)?;
         let version = manifest_value(&manifest, "version")?;
@@ -1525,21 +1554,39 @@ fn crate_is_published(rust: &Path, release: &str) -> Result<bool> {
 
 fn exporter_install_command(root: &Path, release: migration_exporters::ExporterRelease) -> Command {
     let mut command = Command::new("cargo");
+    // A fresh Cargo home alone does not override registry/source environment
+    // configuration inherited from a developer or CI runner. Preserve network
+    // proxy configuration, but never allow an alternate registry for this gate.
+    for (name, _) in std::env::vars_os() {
+        let key = name.to_string_lossy();
+        if key.starts_with("CARGO_REGISTRIES_") || key.starts_with("CARGO_SOURCE_") {
+            command.env_remove(name);
+        }
+    }
     command
         .current_dir(root)
         .env("CARGO_HOME", root.join("cargo-home"))
+        .env("CARGO_TARGET_DIR", root.join("build"))
         .env_remove("CARGO_NET_OFFLINE")
         .env_remove("RUSTFLAGS")
         .env_remove("CARGO_ENCODED_RUSTFLAGS")
+        .env_remove("CARGO_REGISTRY_INDEX")
+        .env_remove("CARGO_REGISTRIES_CRATES_IO_INDEX")
+        .env_remove("CARGO_REGISTRIES_CRATES_IO_PROTOCOL")
         .args([
+            "--config",
+            "source.crates-io.registry=\"sparse+https://index.crates.io/\"",
+            "--config",
+            "registries.crates-io.index=\"sparse+https://index.crates.io/\"",
+            "--config",
+            "registries.crates-io.protocol=\"sparse\"",
             "install",
             "--registry",
             "crates-io",
             release.package,
             "--version",
             &format!("={}", release.version),
-            "--bin",
-            release.binary,
+            "--bins",
             "--locked",
             "--root",
         ])
@@ -1547,30 +1594,166 @@ fn exporter_install_command(root: &Path, release: migration_exporters::ExporterR
     command
 }
 
-fn verify_migration_exporters() -> Result {
+#[derive(Debug, Serialize, Deserialize)]
+struct ExporterVerification {
+    schema: u32,
+    source_sha: String,
+    exporters: Vec<VerifiedExporter>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct VerifiedExporter {
+    package: String,
+    version: String,
+    binary: String,
+    checksum: String,
+    capabilities: serde_json::Value,
+}
+
+fn source_sha(repository: &Path) -> Result<String> {
+    let output = Command::new("git")
+        .current_dir(repository)
+        .args(["rev-parse", "HEAD"])
+        .output()?;
+    if !output.status.success() {
+        return Err("Cannot identify migration verification source".into());
+    }
+    Ok(String::from_utf8(output.stdout)?.trim().to_string())
+}
+
+fn registry_checksum(release: migration_exporters::ExporterRelease) -> Result<String> {
+    let package = release.package;
+    // All exporter names have at least four characters, as required by this index path.
+    let url = format!(
+        "https://index.crates.io/{}/{}/{package}",
+        &package[..2],
+        &package[2..4]
+    );
+    let body = ureq::get(&url).call()?.body_mut().read_to_string()?;
+    for line in body.lines() {
+        let value: serde_json::Value = serde_json::from_str(line)?;
+        if value["vers"] != release.version {
+            continue;
+        }
+        if value["name"] != package || value["yanked"] != false {
+            return Err(format!(
+                "Migration dependency {package}@{} is unavailable or yanked",
+                release.version
+            )
+            .into());
+        }
+        let checksum = value["cksum"].as_str().ok_or("Missing registry checksum")?;
+        if checksum.len() != 64 || !checksum.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+            return Err("Invalid registry checksum".into());
+        }
+        return Ok(checksum.to_string());
+    }
+    Err(format!(
+        "Migration dependency {package}@{} is absent from crates.io",
+        release.version
+    )
+    .into())
+}
+
+fn validate_exporter_report(report: &ExporterVerification, sha: &str) -> Result {
+    if report.schema != 1
+        || report.source_sha != sha
+        || report.exporters.len() != migration_exporters::EXPORTERS.len()
+    {
+        return Err(
+            "Migration verification source, schema or exporter set differs from candidate".into(),
+        );
+    }
+    for (entry, release) in report.exporters.iter().zip(migration_exporters::EXPORTERS) {
+        if entry.package != release.package
+            || entry.version != release.version
+            || entry.binary != release.binary
+            || !migration_exporters::capabilities_match(
+                &serde_json::to_vec(&entry.capabilities)?,
+                *release,
+            )
+        {
+            return Err("Migration verification does not match the exact exporter contract".into());
+        }
+    }
+    Ok(())
+}
+
+fn recheck_migration_exporters(repository: &Path, report: &ExporterVerification) -> Result {
+    validate_exporter_report(report, &source_sha(repository)?)?;
+    let mut checksums = BTreeMap::new();
+    for (entry, release) in report.exporters.iter().zip(migration_exporters::EXPORTERS) {
+        let key = (release.package, release.version);
+        if let std::collections::btree_map::Entry::Vacant(entry) = checksums.entry(key) {
+            entry.insert(registry_checksum(*release)?);
+        }
+        if checksums[&key] != entry.checksum {
+            return Err(
+                "Migration dependency registry checksum differs from verified candidate".into(),
+            );
+        }
+    }
+    println!("Reused sealed candidate migration verification; public registry identities remain available and unchanged");
+    Ok(())
+}
+
+fn verify_migration_exporters(
+    repository: &Path,
+    install_root: Option<&Path>,
+) -> Result<ExporterVerification> {
     // No workspace patches, developer Cargo configuration, installed exporter,
     // or cached package can substitute for the public registry dependency.
     let temporary = TempDir::new()?;
+    if let Some(root) = install_root {
+        // Refuse reuse so no pre-existing executable can stand in for a registry install.
+        fs::create_dir(root)?;
+        fs::create_dir(root.join("bin"))?;
+    }
+    let mut report = ExporterVerification {
+        schema: 1,
+        source_sha: source_sha(repository)?,
+        exporters: Vec::new(),
+    };
+    let mut installed = BTreeMap::new();
     for release in migration_exporters::EXPORTERS {
         println!(
             "Verifying migration dependency {}@{} ({}) from crates.io",
             release.package, release.version, release.binary
         );
-        run_process(&mut exporter_install_command(temporary.path(), *release))
+        let key = (release.package, release.version);
+        if let std::collections::btree_map::Entry::Vacant(entry) = installed.entry(key) {
+            let checksum = registry_checksum(*release)?;
+            run_process(&mut exporter_install_command(temporary.path(), *release))
             .map_err(|error| format!("CLI release blocked: historical exporter {}@{} could not be installed from crates.io: {error}", release.package, release.version))?;
+            entry.insert(checksum);
+        }
         let binary = temporary.path().join("installed/bin").join(format!(
             "{}{}",
             release.binary,
             std::env::consts::EXE_SUFFIX
         ));
-        let output = Command::new(binary).arg("capabilities").output()?;
+        let output = Command::new(&binary).arg("capabilities").output()?;
         if !output.status.success()
             || !migration_exporters::capabilities_match(&output.stdout, *release)
         {
             return Err(format!("CLI release blocked: historical exporter {}@{} ({}) failed its capability contract", release.package, release.version, release.binary).into());
         }
+        report.exporters.push(VerifiedExporter {
+            package: release.package.into(),
+            version: release.version.into(),
+            binary: release.binary.into(),
+            checksum: installed[&key].clone(),
+            capabilities: serde_json::from_slice(&output.stdout)?,
+        });
+        if let Some(root) = install_root {
+            fs::copy(
+                &binary,
+                root.join("bin")
+                    .join(binary.file_name().ok_or("Missing exporter binary name")?),
+            )?;
+        }
     }
-    Ok(())
+    Ok(report)
 }
 
 fn find_package_manifest(rust: &Path, package: &str) -> Result<PathBuf> {
@@ -1636,15 +1819,77 @@ mod tests {
             assert!(args
                 .windows(2)
                 .any(|args| args[0] == "--version" && args[1] == format!("={}", release.version)));
-            assert!(args
-                .windows(2)
-                .any(|args| args == ["--bin", release.binary]));
+            assert!(args.iter().any(|arg| arg == "--bins"));
+            assert!(args.windows(2).any(|args| args
+                == [
+                    "--config",
+                    "source.crates-io.registry=\"sparse+https://index.crates.io/\""
+                ]));
+            assert!(args.windows(2).any(|args| args
+                == [
+                    "--config",
+                    "registries.crates-io.index=\"sparse+https://index.crates.io/\""
+                ]));
+            for name in [
+                "CARGO_REGISTRY_INDEX",
+                "CARGO_REGISTRIES_CRATES_IO_INDEX",
+                "CARGO_REGISTRIES_CRATES_IO_PROTOCOL",
+            ] {
+                assert!(command
+                    .get_envs()
+                    .any(|(key, value)| key == name && value.is_none()));
+            }
             assert!(!args.iter().any(|arg| arg == "--path"));
             assert_eq!(command.get_current_dir(), Some(root));
             assert!(command.get_envs().any(|(key, value)| key == "CARGO_HOME"
                 && value == Some(root.join("cargo-home").as_os_str())));
+            assert!(command
+                .get_envs()
+                .any(|(key, value)| key == "CARGO_TARGET_DIR"
+                    && value == Some(root.join("build").as_os_str())));
             assert!(!migration_exporters::capabilities_match(b"{}", *release));
         }
+    }
+
+    #[test]
+    fn migration_report_rejects_wrong_source_schema_and_exporter_identity() {
+        let entries = migration_exporters::EXPORTERS.iter().map(|release| VerifiedExporter {
+            package: release.package.into(), version: release.version.into(), binary: release.binary.into(),
+            checksum: "a".repeat(64), capabilities: serde_json::json!({
+                "protocol": release.protocol, "artifact": release.artifact,
+                "native_version": release.native_version, "migration_schema": release.migration_schema,
+                "container_version": release.native_version,
+                "raw_container_export": true,
+                "recovery": true,
+                "structure_versions": if release.native_version == 1 { vec![1, 2] } else { vec![release.native_version] },
+                "migration_schemas": if release.native_version == 1 { vec![1, 2] } else { vec![release.migration_schema] },
+            }),
+        }).collect();
+        let mut report = ExporterVerification {
+            schema: 1,
+            source_sha: "a".repeat(40),
+            exporters: entries,
+        };
+        assert!(validate_exporter_report(&report, &report.source_sha).is_ok());
+        let archive_v2 = migration_exporters::EXPORTERS
+            .iter()
+            .position(|release| release.artifact == "archive" && release.native_version == 2)
+            .unwrap();
+        report.exporters[archive_v2].capabilities["recovery"] = serde_json::json!(false);
+        assert!(validate_exporter_report(&report, &report.source_sha).is_err());
+        report.exporters[archive_v2]
+            .capabilities
+            .as_object_mut()
+            .unwrap()
+            .remove("recovery");
+        assert!(validate_exporter_report(&report, &report.source_sha).is_err());
+        report.exporters[archive_v2].capabilities["recovery"] = serde_json::json!(true);
+        assert!(validate_exporter_report(&report, &"b".repeat(40)).is_err());
+        report.schema = 2;
+        assert!(validate_exporter_report(&report, &report.source_sha).is_err());
+        report.schema = 1;
+        report.exporters[0].version = "999.0.0".into();
+        assert!(validate_exporter_report(&report, &report.source_sha).is_err());
     }
 
     #[test]
@@ -1681,8 +1926,26 @@ mod tests {
         assert!(!dependencies.contains("      - host\n"));
         assert!(dependencies.contains("      - build-local-artifacts\n"));
         let prepare = include_str!("../../../.github/workflows/release-candidate.yml");
-        assert!(prepare
-            .contains("run: rust/target/release/revault-tool internal verify-migration-exporters"));
+        let install = prepare
+            .find("rust/target/release/revault-tool internal verify-migration-exporters")
+            .unwrap();
+        let lifecycle = prepare
+            .find("name: Verify public CLI migrations with the exact installed registry exporters")
+            .unwrap();
+        let evidence = prepare
+            .find("name: migration-exporter-verification")
+            .unwrap();
+        assert!(install < lifecycle && lifecycle < evidence);
+        assert!(prepare[install..lifecycle]
+            .contains("--install-root \"${{ runner.temp }}/migration-exporters\""));
+        assert!(prepare[lifecycle..evidence].contains(
+            "REVAULT_TEST_INSTALLED_EXPORTERS: ${{ runner.temp }}/migration-exporters/bin"
+        ));
+        assert!(prepare[lifecycle..evidence]
+            .contains("cargo test --locked -p revault_cli --test migration_cli -- --exact"));
+        // Evidence must not upload after a failed lifecycle step.
+        assert!(!prepare[lifecycle..evidence].contains("always()"));
+        assert!(!prepare[lifecycle..evidence].contains("continue-on-error"));
     }
 
     #[test]

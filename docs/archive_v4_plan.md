@@ -1,7 +1,7 @@
 # Archive v4 design and delivery plan
 
 Created: 2026-09-26. Current status: format 4 was released in CLI and bindings
-0.5.0. Development is being integrated into `main`; subsequent releases use
+0.5.0. The development branch was integrated into `main` at `2e6e86e8`; subsequent releases use
 the [release process](release_process.md).
 This plan implements the [project goals](../manual/project-goals.md).
 The [documentation map](documentation_map.md) assigns authority and cleanup work.

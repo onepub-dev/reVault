@@ -989,7 +989,7 @@ impl Lockbox {
         self.require_clean_access_widening()?;
         let id = next_key_slot_id(&self.key_slots);
         let salt = random_salt()?;
-        let slot = revault_page_api::read_access(|access| {
+        let slot = revault_secure_memory::read_access(|access| {
             access.with_bytes(&self.key, |content_key| {
                 password.with_bytes_in(access, |password| {
                     KeySlot::password_bytes(id, password, salt, content_key)
@@ -1109,19 +1109,6 @@ impl Lockbox {
         result
     }
 
-    /// Export a backup copy of the key directory.
-    ///
-    /// Returns storage/encoding errors if the key directory cannot be encoded.
-    #[cfg(feature = "vault-integration")]
-    pub(crate) fn export_key_directory_backup(&self) -> Result<Vec<u8>> {
-        encode_key_directory(
-            &self.key_slots,
-            self.lockbox_id,
-            self.key_directory.generation,
-            0,
-        )
-    }
-
     /// Restores access slots exported with the same content key while creating
     /// a new native archive representation.
     #[cfg(feature = "migration")]
@@ -1163,11 +1150,6 @@ impl Lockbox {
         Ok(())
     }
 
-    /// List the keys that can open this lockbox.
-    pub fn list_key_slots(&self) -> Vec<LockboxKeySlot> {
-        self.key_slots.iter().map(KeySlot::info).collect()
-    }
-
     /// Replace one existing password with a new password and return the new key id.
     ///
     /// The old password is used only to find a matching embedded password entry.
@@ -1204,6 +1186,22 @@ impl Lockbox {
 }
 
 impl<State> Lockbox<State> {
+    /// List the keys that can open this lockbox.
+    pub fn list_key_slots(&self) -> Vec<LockboxKeySlot> {
+        self.key_slots.iter().map(KeySlot::info).collect()
+    }
+
+    /// Export a backup copy of the key directory without changing the archive.
+    #[cfg(feature = "vault-integration")]
+    pub(crate) fn export_key_directory_backup(&self) -> Result<Vec<u8>> {
+        encode_key_directory(
+            &self.key_slots,
+            self.lockbox_id,
+            self.key_directory.generation,
+            0,
+        )
+    }
+
     /// Exports the content key and encoded access directory for a migration
     /// artifact. Both values must remain inside zeroizing/encrypted migration
     /// handling and must never be displayed.

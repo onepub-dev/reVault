@@ -12,6 +12,7 @@ use revault_lockbox_api::{
 };
 use revault_vault_api::{get as get_cached_content_key, VaultDirectory};
 use std::fs;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 
 pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()> {
@@ -20,6 +21,41 @@ pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()
 }
 
 fn run_options(options: RecoverOptions, access: &Access) -> CliResult<()> {
+    let mut header = Vec::new();
+    fs::File::open(&options.lockbox_path)?
+        .take(384)
+        .read_to_end(&mut header)?;
+    match revault_lockbox_api::probe_lockbox_format_version(&header) {
+        Ok(2) => {
+            let output = options.output.as_deref().map(Path::new);
+            if !options.dry_run {
+                let output = output.ok_or_else(|| cli_error(
+                    "historical recovery requires a separate --output <recovered.lbox>; the original is retained",
+                ))?;
+                if same_existing_path(Path::new(&options.lockbox_path), output) {
+                    return Err(cli_error("historical recovery requires a separate output; the original must be retained"));
+                }
+                if output.exists() && !options.overwrite {
+                    return Err(Error::AlreadyExists(output.display().to_string()).into());
+                }
+            }
+            return super::migrate::recover_historical_archive(
+                Path::new(&options.lockbox_path), output, options.overwrite,
+                options.dry_run, match options.format {
+                    OutputFormat::Table => "table",
+                    OutputFormat::Tsv => "tsv",
+                    OutputFormat::Json => "json",
+                }, options.quiet, access,
+            );
+        }
+        Ok(1) => return Err(cli_error("format-1 recovery is not supported by this build's recovery scanner; retain the original and restore a known-good backup. Migration can read intact format-1 archives, but cannot repair damaged ones")),
+        Ok(found) if found != revault_lockbox_api::LOCKBOX_FORMAT_VERSION => return Err(lockbox_open_error(&options.lockbox_path, Error::UnsupportedFormatVersion {
+            artifact: revault_lockbox_api::ArtifactKind::Lockbox,
+            found: u32::from(found), supported: u32::from(revault_lockbox_api::LOCKBOX_FORMAT_VERSION),
+        })),
+        Ok(_) | Err(Error::CorruptHeader | Error::CorruptRecord | Error::Truncated) => {}
+        Err(error) => return Err(error.into()),
+    }
     match inspect_pending_cleanup(&options.lockbox_path, access) {
         Ok(Some(status)) => {
             if options.dry_run {

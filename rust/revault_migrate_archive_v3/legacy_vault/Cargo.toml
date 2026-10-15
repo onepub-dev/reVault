@@ -1,10 +1,12 @@
 [package]
+readme = "README.md"
+publish = false
 name = "revault_vault_v3_reader"
 version = "0.0.8"
 edition = "2021"
 rust-version = "1.88"
 license-file = "LICENSE"
-description = "Frozen vault v3 reader for isolated migration to current reVault containers"
+description = "Deprecated: use revault_migrate_v3 for isolated historical migration"
 repository = "https://github.com/onepub-dev/reVault"
 documentation = "https://docs.rs/revault_vault_api"
 exclude = ["AGENT_SLEEP_VM_TESTING.md"]

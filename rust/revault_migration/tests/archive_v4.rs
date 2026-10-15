@@ -20,9 +20,15 @@ fn migration_removes_abandoned_imports_preserves_owner_and_verifies_resumed_outp
     let temp = tempfile::tempdir().unwrap();
     let password = old::SecretString::try_from_slice(b"synthetic migration password").unwrap();
     let owner = old::OwnerSigningKeyPair::generate().unwrap();
-    let owner_current =
-        current::OwnerSigningKeyPair::from_private_key_record(owner.private_key_record().unwrap())
-            .unwrap();
+    let owner_current = current::OwnerSigningKeyPair::from_private_key_record(
+        owner
+            .private_key_record()
+            .unwrap()
+            .with_bytes(current::SecretVec::try_from_slice)
+            .unwrap()
+            .unwrap(),
+    )
+    .unwrap();
     let mut source =
         old::Lockbox::create_in_memory(old::LockboxProtection::Password(&password), &owner)
             .unwrap();
@@ -119,8 +125,12 @@ fn migration_removes_abandoned_imports_preserves_owner_and_verifies_resumed_outp
     verify_imported_archive(&artifact, b"artifact password", &output).unwrap();
     assert!(std::fs::metadata(&output).unwrap().len() < original.len() as u64 / 4);
     assert!(std::fs::read(&original_path).unwrap() == original);
+    let current_password = password
+        .with_bytes(current::SecretString::try_from_slice)
+        .unwrap()
+        .unwrap();
     let opened =
-        current::Lockbox::open(&output, current::LockboxOpen::Password(&password)).unwrap();
+        current::Lockbox::open(&output, current::LockboxOpen::Password(&current_password)).unwrap();
     assert_eq!(opened.format_version(), 4);
     assert!(opened.owner_signing_key_matches(&owner_current).unwrap());
     assert_eq!(
@@ -143,7 +153,7 @@ fn migration_removes_abandoned_imports_preserves_owner_and_verifies_resumed_outp
     // be rejected by the same complete verification used before installation.
     let mut changed = current::Lockbox::open_for_write(
         &output,
-        current::LockboxOpen::Password(&password),
+        current::LockboxOpen::Password(&current_password),
         &owner_current,
     )
     .unwrap();

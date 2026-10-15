@@ -239,7 +239,7 @@ workflow file `bindings-native-release.yml`, and environment `release`:
 | NuGet | Trusted publishing policy for `Revault.Api`; set `NUGET_USER` to the nuget.org profile name |
 | pub.dev | Automated publishing for `revault_api` after its required first manual release |
 | RubyGems | Trusted publisher for `revault_api` (new gems are supported) |
-| crates.io | Trusted publishers for the existing `revault_page_api`, `revault_lockbox_api`, and `revault_vault_api` crates, plus `revault-api` after its required first manual release |
+| crates.io | Trusted publishers for `revault_secure_memory`, `revault_lockbox_api`, `revault_vault_api`, and `revault-api`, after any new package's required first publication |
 
 Maven Central currently requires a verified `dev.onepub` namespace, a Central
 Portal user token, and an in-memory OpenPGP signing key. Store these `release`

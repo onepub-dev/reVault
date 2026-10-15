@@ -1,16 +1,18 @@
 [package]
+readme = "README.md"
+publish = false
 name = "revault_migrate_archive_v3"
 version = "0.0.8"
 edition = "2021"
 rust-version = "1.88"
 license-file = "LICENSE"
-description = "Isolated authoritative-state exporter for lockbox formats v2 and v3"
+description = "Deprecated: use revault_migrate_v3 for isolated historical migration"
 repository = "https://github.com/onepub-dev/reVault"
 
 [dependencies]
 revault_vault_api = { package = "revault_vault_v3_reader", version = "0.0.8", path = "legacy_vault" }
 revault_lockbox_api = { package = "revault_archive_v3_reader", version = "0.0.8", path = "legacy", features = ["migration", "vault-integration"] }
-revault_migration_format = { version = "0.0.42", path = "../revault_migration_format" }
+revault_migration_format = "=0.0.42"
 getrandom = "0.4"
 sha2 = "0.11"
 zeroize = "1.9"

@@ -256,6 +256,45 @@ impl<S: ContentKeyStore> Vault<S> {
     }
 
     /// Opens a lockbox with explicit open material and caches its content key.
+    /// Read access does not require the archive owner's signing authority.
+    pub fn open_lockbox_with_read_only(
+        &self,
+        path: impl AsRef<Path>,
+        open: LockboxOpen<'_>,
+        ttl_seconds: Option<u64>,
+    ) -> Result<Lockbox<ReadOnly>> {
+        let path = path.as_ref();
+        let password_limit = password_work_limit(&open);
+        let (key, lockbox) = match open {
+            LockboxOpen::Unencrypted => return Lockbox::open(path, LockboxOpen::Unencrypted),
+            LockboxOpen::ContentKey(key) => {
+                let lockbox = Lockbox::open(path, LockboxOpen::ContentKey(key.try_clone()?))?;
+                (key, lockbox)
+            }
+            LockboxOpen::Password(password) | LockboxOpen::PasswordWithBudget { password, .. } => {
+                let opened = open_path_or_backup_with_password(path, password, password_limit)?;
+                (opened.try_clone_key()?, opened.open_path(path)?)
+            }
+            LockboxOpen::ContactKeyPair(contact) => {
+                let opened = open_path_or_backup_with_contact(path, &contact)?;
+                (opened.try_clone_key()?, opened.open_path(path)?)
+            }
+        };
+        match ttl_seconds {
+            Some(ttl) => self.store.put_content_key_for_path_with_ttl(
+                lockbox.lockbox_id(),
+                key,
+                path,
+                ttl,
+            )?,
+            None => self
+                .store
+                .put_content_key_for_path(lockbox.lockbox_id(), key, path)?,
+        }
+        Ok(lockbox)
+    }
+
+    /// Opens a writable lockbox with explicit material and caches its content key.
     ///
     /// Password and contact-key-pair opens may fall back to a key-directory
     /// backup stored in the default `VaultDirectory` when the embedded key

@@ -1,0 +1,30 @@
+[package]
+name = "revault_secure_memory"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.88"
+license-file = "../../LICENSE"
+description = "Page-pooled secure byte and string storage for reVault"
+repository = "https://github.com/onepub-dev/reVault"
+documentation = "https://docs.rs/revault_secure_memory"
+readme = "README.md"
+
+[lib]
+name = "revault_secure_memory"
+path = "src/lib.rs"
+
+[dependencies]
+getrandom = "0.4"
+zeroize = "1.9"
+
+[target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
+getrandom = { version = "0.4", features = ["wasm_js"] }
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = [
+    "Win32_System_Memory",
+    "Win32_System_SystemInformation",
+] }

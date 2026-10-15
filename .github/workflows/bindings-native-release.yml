@@ -138,6 +138,13 @@ jobs:
           set -euo pipefail
           expected_version="${EXPECTED_VERSION#revault-*-v}"
           expected_sha="$EXPECTED_SHA"
+          comparison=$(gh api "repos/$GITHUB_REPOSITORY/compare/$expected_sha...main")
+          jq -e --arg sha "$expected_sha" \
+            '(.status == "identical" or .status == "ahead") and .merge_base_commit.sha == $sha' \
+            <<< "$comparison" >/dev/null || {
+              echo "Release source must be a committed revision of main" >&2
+              exit 1
+            }
           if [[ -n "$REQUESTED_RUN_ID" ]]; then
             test "$GITHUB_SHA" = "$expected_sha" || {
               echo "Publication source differs from the validated candidate" >&2

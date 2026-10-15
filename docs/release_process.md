@@ -5,6 +5,11 @@ The CLI and public language bindings are released from validated commits on
 Publishing requires explicit authorization. Never replace an already-public
 version, tag, or artifact with different code.
 
+An immutable candidate reference may retain an exact commit already pushed to
+`main`. It must not contain separate, unmerged release changes. Before tagging
+or promoting, verify that the recorded candidate commit belongs to remote
+`main`; the branch may have advanced since the candidate was prepared.
+
 ## Versions and packages
 
 The public compatibility line is `0.minor` before 1.0 and the major version from
@@ -35,7 +40,7 @@ unless their code or packaging actually changes.
 | Core and CLI correctness | Required for each candidate. Installed-package jobs may own a suite when they execute the same tests against the actual distributed implementation. |
 | Native and language package installation | Required for affected distributed packages and platforms. Validates packaging, loading, ABI, and executable conformance beyond source compilation. |
 | Cross-language and within-line compatibility | Validate persisted archive/Vault interoperability, including older readers consuming newer output. |
-| Historical migrations | Run each supported source path with packaged exporters. Reopen migrated artifacts through public commands and verify contents, credentials, metadata, and backups. |
+| Historical migrations and recovery | Run each supported source path with packaged exporters. Reopen migrated or recovered artifacts through public commands and verify contents, credentials, metadata, backups, and source preservation. |
 | Exact public exporter dependencies | Install the exact CLI-selected package versions from crates.io in an isolated environment and verify their capability contracts. Local builds and mocked installers are insufficient. |
 | Focused benchmark/resource checks | Run when relevant storage, allocation, compression, concurrency, dependencies, or platform behavior changes. Verify output correctness outside timed measurements. |
 | Full performance observation campaigns | Explicit qualification or performance work. Repeated ZIP/PGP sampling, bootstrap analyses, profiling and broad RSS campaigns are not routine requirements for every release. |
@@ -82,6 +87,18 @@ deprecation notice in its description and README, the replacement package name,
 and instructions for users. Keep these retirement publications separate from
 the normal package list so test fixtures and retired crates cannot resume
 routine publication.
+
+The explicit retirement allowlist is `rust/retired-packages.json`. Keep the
+fixture source manifests at their frozen versions with publication disabled.
+Stage terminal releases separately from committed source, applying only the
+reviewed terminal version and registry dependency normalization. Never change
+the fixture dependency graph merely to publish a deprecation notice.
+
+Run `.github/scripts/stage_retired_crates.dart` from `main` after committing the
+reviewed retirement recipe and notices. It stages committed sources under
+`/tmp` and writes provenance; it does not publish. Verify replacement registry
+availability and each staged package before intentionally publishing the
+allowlisted terminal versions.
 
 Crates.io does not display Cargo's maintenance-status badge; use the README and
 description for the visible notice. See the

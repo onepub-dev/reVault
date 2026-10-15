@@ -8,7 +8,7 @@ on:
       - 'bindings/**'
       - 'rust/revault_bindings/**'
       - 'rust/revault_lockbox_api/**'
-      - 'rust/revault_page_api/**'
+      - 'rust/revault_secure_memory/**'
       - 'rust/revault_tooling/**'
       - 'rust/revault_vault_api/**'
       - 'rust/revault_wasm_bindings/**'
@@ -19,7 +19,7 @@ on:
       - 'bindings/**'
       - 'rust/revault_bindings/**'
       - 'rust/revault_lockbox_api/**'
-      - 'rust/revault_page_api/**'
+      - 'rust/revault_secure_memory/**'
       - 'rust/revault_tooling/**'
       - 'rust/revault_vault_api/**'
       - 'rust/revault_wasm_bindings/**'
@@ -94,30 +94,8 @@ jobs:
           cargo doc --locked --no-deps --all-features --workspace \
             --exclude revault_cli \
             --exclude revault_tooling \
-            --exclude xtask \
-            --exclude revault_archive_v1_initial_reader \
-            --exclude revault_archive_v1_legacy_reader \
-            --exclude revault_archive_v1_reader \
-            --exclude revault_vault_v1_reader \
-            --exclude revault_vault_v2_container_v1_reader \
-            --exclude revault_archive_v3_reader \
-            --exclude revault_vault_v3_reader
-          # Historical readers intentionally retain the current libraries' names.
-          # Document them separately to prevent Cargo's output filename collisions.
-          cargo doc --locked --no-deps --all-features -p revault_archive_v1_initial_reader \
-            --target-dir target/docs-revault_archive_v1_initial_reader
-          cargo doc --locked --no-deps --all-features -p revault_archive_v1_legacy_reader \
-            --target-dir target/docs-revault_archive_v1_legacy_reader
-          cargo doc --locked --no-deps --all-features -p revault_archive_v1_reader \
-            --target-dir target/docs-revault_archive_v1_reader
-          cargo doc --locked --no-deps --all-features -p revault_vault_v1_reader \
-            --target-dir target/docs-revault_vault_v1_reader
-          cargo doc --locked --no-deps --all-features -p revault_vault_v2_container_v1_reader \
-            --target-dir target/docs-revault_vault_v2_container_v1_reader
-          cargo doc --locked --no-deps --all-features -p revault_archive_v3_reader \
-            --target-dir target/docs-archive-v3-reader
-          cargo doc --locked --no-deps --all-features -p revault_vault_v3_reader \
-            --target-dir target/docs-vault-v3-reader
+            --exclude xtask
+          # Retired readers are excluded test fixtures, not separately documented APIs.
           cargo doc --locked --no-deps --manifest-path ../bindings/rust/Cargo.toml
       - name: Build native library for compiled facades
         working-directory: rust
@@ -233,7 +211,7 @@ jobs:
           luarocks lint bindings/lua/revault_api-0.2.0-1.rockspec
           cargo package --locked --manifest-path bindings/rust/Cargo.toml \
             --config 'patch.crates-io.revault_lockbox_api.path="rust/revault_lockbox_api"' \
-            --config 'patch.crates-io.revault_page_api.path="rust/revault_page_api"' \
+            --config 'patch.crates-io.revault_secure_memory.path="rust/revault_secure_memory"' \
             --config 'patch.crates-io.revault_vault_api.path="rust/revault_vault_api"'
       - name: Upload registry validation reports
         if: always()

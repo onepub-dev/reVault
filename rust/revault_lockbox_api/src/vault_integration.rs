@@ -36,7 +36,7 @@ impl VaultOpen {
     }
 
     /// Export key-directory backup bytes for vault-managed recovery.
-    pub fn export_key_directory_backup(lockbox: &Lockbox) -> Result<Vec<u8>> {
+    pub fn export_key_directory_backup<State>(lockbox: &Lockbox<State>) -> Result<Vec<u8>> {
         lockbox.export_key_directory_backup()
     }
 

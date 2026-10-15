@@ -1,10 +1,11 @@
 [package]
+publish = false
 name = "revault_migrate_vault_v2"
 version = "0.0.38"
 edition = "2021"
 rust-version = "1.88"
 license-file = "LICENSE"
-description = "Historical vault-structure-v2 exporter for reVault migrations"
+description = "Deprecated: use revault_migrate_v2 for isolated historical migration"
 repository = "https://github.com/onepub-dev/reVault"
 readme = "README.md"
 

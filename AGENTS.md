@@ -116,6 +116,9 @@ Version declarations alone do not establish release readiness.
   description and README that identifies the replacement. Make replacements
   available first. Preserve already-published releases needed by historical
   dependency graphs; do not yank them merely to clean up the crate list.
+  Use the explicit `rust/retired-packages.json` allowlist for separate terminal
+  metadata releases. Keep frozen test fixtures unpublished and at their source
+  versions; do not add retired packages back to routine publication lists.
 - Give each required release check one owner. Reuse verified artifacts and
   results from the exact candidate revision rather than rebuilding or
   rerunning the same tests during promotion. Preserve distinct platform,

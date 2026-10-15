@@ -97,15 +97,15 @@ windows-sys = { version = "0.61", features = [
 ] }
 
 [dev-dependencies]
-archive_v3 = { package = "revault_archive_v3_reader", path = "../revault_migrate_archive_v3/legacy", version = "0.0.8" }
-vault_v3 = { package = "revault_vault_v3_reader", path = "../revault_migrate_archive_v3/legacy_vault", version = "0.0.8" }
+archive_v3 = { package = "revault_archive_v3_reader", path = "../revault_migrate_archive_v3/legacy" }
+vault_v3 = { package = "revault_vault_v3_reader", path = "../revault_migrate_archive_v3/legacy_vault" }
 revault_vault_api_structure_v2 = { package = "revault_vault_api", version = "=0.0.10" }
 revault_lockbox_api_structure_v2 = { package = "revault_lockbox_api", version = "=0.0.9" }
 revault_lockbox_api = { path = "../revault_lockbox_api", features = ["test-support"] , version = "0.0.48" }
 revault_key_server = { path = "../revault_key_server" , version = "0.0.44" }
-revault_vault_api_v1 = { package = "revault_vault_v1_reader", version = "0.0.4", path = "../revault_vault_v1_reader" }
+revault_vault_api_v1 = { package = "revault_vault_v1_reader", path = "../revault_vault_v1_reader" }
 # Path-only test support is omitted from the published package dependencies.
 revault_lockbox_api_v1 = { package = "revault_archive_v1_legacy_reader", path = "../revault_archive_v1_legacy_reader" }
-revault_lockbox_api_vault_v1 = { package = "revault_archive_v1_initial_reader", version = "0.0.4", path = "../revault_archive_v1_initial_reader" }
-revault_vault_api_container_v1 = { package = "revault_vault_v2_container_v1_reader", version = "0.0.4", path = "../revault_vault_v2_container_v1_reader" }
-revault_lockbox_api_container_v1 = { package = "revault_archive_v1_reader", version = "0.0.4", path = "../revault_archive_v1_reader" }
+revault_lockbox_api_vault_v1 = { package = "revault_archive_v1_initial_reader", path = "../revault_archive_v1_initial_reader" }
+revault_vault_api_container_v1 = { package = "revault_vault_v2_container_v1_reader", path = "../revault_vault_v2_container_v1_reader" }
+revault_lockbox_api_container_v1 = { package = "revault_archive_v1_reader", path = "../revault_archive_v1_reader" }

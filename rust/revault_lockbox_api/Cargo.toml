@@ -36,7 +36,7 @@ ed25519-dalek = "3"
 getrandom = "0.4"
 hkdf = "0.13"
 hmac = { version = "0.13", features = ["zeroize"] }
-revault_page_api = { version = "0.0.41", path = "../revault_page_api" }
+revault_secure_memory = { version = "0.1.0", path = "../revault_secure_memory" }
 ml-dsa = { version = "0.1", features = ["getrandom", "zeroize"] }
 ml-kem = { version = "0.3.2", features = ["getrandom", "zeroize"] }
 sha2 = { version = "0.11", features = ["zeroize"] }

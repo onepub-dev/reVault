@@ -58,7 +58,31 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config
       - name: Verify exact published migration dependencies
         if: inputs.mode == 'prepare' && inputs.scope != 'bindings'
-        run: rust/target/release/revault-tool internal verify-migration-exporters
+        run: >-
+          rust/target/release/revault-tool internal verify-migration-exporters
+          --report migration-exporters.json
+          --install-root "${{ runner.temp }}/migration-exporters"
+      - name: Verify public CLI migrations with the exact installed registry exporters
+        if: inputs.mode == 'prepare' && inputs.scope != 'bindings'
+        working-directory: rust
+        env:
+          REVAULT_TEST_INSTALLED_EXPORTERS: ${{ runner.temp }}/migration-exporters/bin
+        run: >-
+          cargo test --locked -p revault_cli --test migration_cli -- --exact
+          vault_v1_replace_uses_the_explicit_historical_exporter
+          vault_v2_replace_preserves_profile_keys_and_supports_password_profiles
+          vault_structure_v2_in_container_v1_migrates_end_to_end
+          archive_v1_migrates_end_to_end_with_the_historical_exporter
+          closed_format_two_archive_migrates_without_normal_open_or_auto_open
+          older_archive_is_refused_normally_then_explicitly_migrated
+          vault_v3_container_upgrade_preserves_profiles_and_enables_compaction
+          damaged_format_two_recovers_with_current_cli_and_original_credentials
+      - uses: actions/upload-artifact@v7
+        if: inputs.mode == 'prepare' && inputs.scope != 'bindings'
+        with:
+          name: migration-exporter-verification
+          path: migration-exporters.json
+          if-no-files-found: error
       - uses: actions/upload-artifact@v7
         if: inputs.mode == 'prepare'
         with:

@@ -1,0 +1,10 @@
+{
+  "public_line": "0.5.0",
+  "lockbox_format": 4,
+  "vault_structure": 3,
+  "baseline_cli_version": "0.5.0",
+  "baseline_tag": "revault_cli-v0.5.0",
+  "baseline_source_sha": "b086e6ad19938fa337e4e9956b3ad9b06771cc6d",
+  "baseline_linux_asset": "revault_cli-x86_64-unknown-linux-gnu.tar.gz",
+  "baseline_linux_sha256": "f6d53b25d3883aa3529810d08fd188bcd9043731f597f30462fa8e28b6a65997"
+}

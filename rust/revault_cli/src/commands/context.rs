@@ -886,8 +886,8 @@ pub(crate) fn mirror_key_directory(lockbox: &Lockbox, path: impl AsRef<Path>) ->
     mirror_key_directory_with_vault(lockbox, path, &vault)
 }
 
-pub(crate) fn mirror_key_directory_with_vault(
-    lockbox: &Lockbox,
+pub(crate) fn mirror_key_directory_with_vault<State>(
+    lockbox: &Lockbox<State>,
     path: impl AsRef<Path>,
     vault: &VaultDirectory,
 ) -> CliResult<()> {
